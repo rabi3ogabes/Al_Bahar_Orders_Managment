@@ -61,8 +61,7 @@ abstract class TokenStore {
 /// Platform secure storage (Keychain / EncryptedSharedPreferences-backed
 /// Keystore). On web it falls back to the plugin's WebCrypto storage.
 class SecureTokenStore implements TokenStore {
-  SecureTokenStore([FlutterSecureStorage? storage])
-    : _storage = storage ?? const FlutterSecureStorage();
+  SecureTokenStore([FlutterSecureStorage? storage]) : _storage = storage ?? const FlutterSecureStorage();
 
   static const _key = 'albahar.auth.tokens.v1';
   final FlutterSecureStorage _storage;

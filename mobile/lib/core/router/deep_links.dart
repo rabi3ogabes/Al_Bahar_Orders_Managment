@@ -44,8 +44,7 @@ abstract final class DeepLinks {
     if (uri.scheme == scheme) {
       // albahar://products/123 → host "products", path "/123"
       path = '/${uri.host}${uri.path}';
-    } else if ((uri.scheme == 'https' || uri.scheme == 'http') &&
-        (uri.host == webHost || uri.host == 'www.$webHost')) {
+    } else if ((uri.scheme == 'https' || uri.scheme == 'http') && (uri.host == webHost || uri.host == 'www.$webHost')) {
       if (!uri.path.startsWith(webPrefix)) return null;
       path = uri.path.substring(webPrefix.length);
     } else if (uri.scheme.isEmpty) {

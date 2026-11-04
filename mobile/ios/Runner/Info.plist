@@ -4,10 +4,48 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>ar</string>
+		<string>en</string>
+	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>qa.albahar.customer</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>albahar</string>
+			</array>
+		</dict>
+	</array>
+	<key>FlutterDeepLinkingEnabled</key>
+	<true/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>https</string>
+		<string>tel</string>
+		<string>comgooglemaps</string>
+	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Al Bahar uses your location to find showrooms near you and to pin your delivery address. / يستخدم تطبيق البحر موقعك لإيجاد أقرب صالات العرض وتحديد عنوان التوصيل.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Take photos to include in your product review. / التقاط صور لإرفاقها بتقييمك للمنتج.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Choose photos to include in your product review. / اختيار صور لإرفاقها بتقييمك للمنتج.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Albahar Customer</string>
+	<string>Al Bahar</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +53,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>albahar_customer</string>
+	<string>Al Bahar</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

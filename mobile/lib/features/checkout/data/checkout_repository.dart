@@ -32,8 +32,7 @@ class CheckoutRepository {
     return PlacedOrder.fromJson(asMap(data));
   }
 
-  Future<PaymentStatus> payment(String paymentId) =>
-      _api.getObject('/payments/$paymentId', PaymentStatus.fromJson);
+  Future<PaymentStatus> payment(String paymentId) => _api.getObject('/payments/$paymentId', PaymentStatus.fromJson);
 
   Future<PaymentAction> retryPayment(String orderId, {required String idempotencyKey, String? method}) async {
     final data = await _api.post(

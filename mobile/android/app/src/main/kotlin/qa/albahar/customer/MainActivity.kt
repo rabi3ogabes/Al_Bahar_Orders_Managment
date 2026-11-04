@@ -1,4 +1,4 @@
-package qa.albahar.albahar_customer
+package qa.albahar.customer
 
 import io.flutter.embedding.android.FlutterActivity
 

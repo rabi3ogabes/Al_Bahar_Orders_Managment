@@ -45,70 +45,93 @@ class ProductCardView extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: AppRadius.cardAll,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AspectRatio(
-                aspectRatio: 4 / 5,
-                child: Stack(
-                  fit: StackFit.expand,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final image = _image(context, badge);
+              final details = <Widget>[
+                const Gap(AppSpace.sm),
+                if (product.brand != null)
+                  Text(
+                    product.brand!.name.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.text.labelSmall?.copyWith(color: palette.brass),
+                  ),
+                const Gap(2),
+                Text(
+                  product.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.text.bodyMedium?.copyWith(fontWeight: FontWeight.w500, height: 1.3),
+                ),
+                const Gap(AppSpace.xxs),
+                if (product.price != null)
+                  PriceTag(price: product.price!, size: PriceTagSize.small, showBadge: false)
+                else
+                  Text(l10n.productUnavailable, style: context.text.bodySmall),
+                if (product.rating.count > 0) ...[
+                  const Gap(2),
+                  RatingStars(average: product.rating.average, count: product.rating.count, size: 12),
+                ],
+              ];
+              // In grids/carousels the height is bounded: let the image flex so
+              // long names or large text never overflow. Otherwise keep 4:5.
+              if (constraints.hasBoundedHeight) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Hero(
-                      tag: product.heroTag(heroScope),
-                      child: AppNetworkImage(
-                        url: product.image?.listUrl,
-                        semanticLabel: product.image?.alt,
-                        borderRadius: AppRadius.cardAll,
+                    Flexible(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxHeight: constraints.maxWidth * 5 / 4),
+                        child: SizedBox(width: double.infinity, child: image),
                       ),
                     ),
-                    if (!product.inStock)
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          borderRadius: AppRadius.cardAll,
-                          color: context.colors.surface.withValues(alpha: 0.45),
-                        ),
-                      ),
-                    if (badge != null)
-                      PositionedDirectional(
-                        top: AppSpace.sm,
-                        start: AppSpace.sm,
-                        child: _Badge(label: badge.$1, color: badge.$2),
-                      ),
-                    if (topAction != null) PositionedDirectional(top: 0, end: 0, child: topAction!),
+                    ...details,
                   ],
-                ),
-              ),
-              const Gap(AppSpace.sm),
-              if (product.brand != null)
-                Text(
-                  product.brand!.name.toUpperCase(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.text.labelSmall?.copyWith(color: palette.brass),
-                ),
-              const Gap(2),
-              Text(
-                product.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: context.text.bodyMedium?.copyWith(fontWeight: FontWeight.w500, height: 1.3),
-              ),
-              const Gap(AppSpace.xxs),
-              if (product.price != null)
-                PriceTag(price: product.price!, size: PriceTagSize.small, showBadge: false)
-              else
-                Text(l10n.productUnavailable, style: context.text.bodySmall),
-              if (product.rating.count > 0) ...[
-                const Gap(2),
-                RatingStars(average: product.rating.average, count: product.rating.count, size: 12),
-              ],
-            ],
+                );
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AspectRatio(aspectRatio: 4 / 5, child: image),
+                  ...details,
+                ],
+              );
+            },
           ),
         ),
       ),
     );
   }
+
+  Widget _image(BuildContext context, (String, Color)? badge) => Stack(
+    fit: StackFit.expand,
+    children: [
+      Hero(
+        tag: product.heroTag(heroScope),
+        child: AppNetworkImage(
+          url: product.image?.listUrl,
+          semanticLabel: product.image?.alt,
+          borderRadius: AppRadius.cardAll,
+        ),
+      ),
+      if (!product.inStock)
+        DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.cardAll,
+            color: context.colors.surface.withValues(alpha: 0.45),
+          ),
+        ),
+      if (badge != null)
+        PositionedDirectional(
+          top: AppSpace.sm,
+          start: AppSpace.sm,
+          child: _Badge(label: badge.$1, color: badge.$2),
+        ),
+      if (topAction != null) PositionedDirectional(top: 0, end: 0, child: topAction!),
+    ],
+  );
 
   (String, Color)? _primaryBadge(AppLocalizations l10n) {
     if (!product.inStock) return (l10n.outOfStock, AppPalette.inkSoft);
@@ -133,6 +156,7 @@ class _Badge extends StatelessWidget {
     decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(6)),
     child: Text(
       label,
+      textDirection: label.startsWith('-') ? TextDirection.ltr : null,
       style: context.text.labelSmall?.copyWith(color: Colors.white, letterSpacing: 0.4),
     ),
   );

@@ -1,0 +1,10 @@
+{
+  "FLAVOR": "prod",
+  "API_BASE_URL": "https://api.albahar.qa/api/v1",
+  "REVERB_APP_KEY": "albahar",
+  "REVERB_HOST": "ws.albahar.qa",
+  "REVERB_PORT": "443",
+  "REVERB_SCHEME": "wss",
+  "PUSH_ENABLED": "true",
+  "MAP_TILE_URL": "https://tiles.example-provider.com/{z}/{x}/{y}.png?key=REPLACE_ME"
+}

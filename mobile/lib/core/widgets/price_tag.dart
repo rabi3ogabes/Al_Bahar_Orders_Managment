@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' show NumberFormat;
 
 import '../l10n/l10n.dart';
 import '../models/money.dart';
@@ -26,9 +26,7 @@ class PriceTag extends StatelessWidget {
       PriceTagSize.large => text.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
     };
     final onSale = price.isOnSale;
-    final semantic = onSale
-        ? '${price.finalPrice.formatted}, ${price.regular.formatted}'
-        : price.finalPrice.formatted;
+    final semantic = onSale ? '${price.finalPrice.formatted}, ${price.regular.formatted}' : price.finalPrice.formatted;
 
     return Semantics(
       label: semantic,
@@ -38,10 +36,7 @@ class PriceTag extends StatelessWidget {
         spacing: AppSpace.xs,
         runSpacing: 2,
         children: [
-          Text(
-            price.finalPrice.formatted,
-            style: main?.copyWith(color: onSale ? palette.danger : null),
-          ),
+          Text(price.finalPrice.formatted, style: main?.copyWith(color: onSale ? palette.danger : null)),
           if (onSale)
             Text(
               price.regular.formatted,
@@ -50,8 +45,7 @@ class PriceTag extends StatelessWidget {
                 color: palette.muted,
               ),
             ),
-          if (onSale && showBadge && (price.discountPercent ?? 0) > 0)
-            DiscountBadge(percent: price.discountPercent!),
+          if (onSale && showBadge && (price.discountPercent ?? 0) > 0) DiscountBadge(percent: price.discountPercent!),
         ],
       ),
     );
@@ -71,6 +65,8 @@ class DiscountBadge extends StatelessWidget {
     ),
     child: Text(
       context.l10n.discountOff(percent),
+      // Keep "-10%" as a single LTR run inside Arabic text.
+      textDirection: TextDirection.ltr,
       style: context.text.labelSmall?.copyWith(color: context.palette.danger, letterSpacing: 0),
     ),
   );
@@ -141,12 +137,7 @@ class _AnimatedMoneyState extends State<AnimatedMoney> with SingleTickerProvider
         return AnimatedDefaultTextStyle(
           duration: AppDurations.medium,
           style: style!.copyWith(color: _flash ? context.palette.success : style.color),
-          child: Semantics(
-            liveRegion: true,
-            label: widget.money.formatted,
-            excludeSemantics: true,
-            child: Text(text),
-          ),
+          child: Semantics(liveRegion: true, label: widget.money.formatted, excludeSemantics: true, child: Text(text)),
         );
       },
     );

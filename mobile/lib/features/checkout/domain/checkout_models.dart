@@ -83,10 +83,7 @@ class CheckoutOptions {
     'fulfillment_type': fulfillmentType.api,
     if (fulfillmentType == FulfillmentType.delivery) 'address_id': ?addressId,
     'branch_id': ?branchId,
-    if (fulfillmentType == FulfillmentType.pickup) ...{
-      'pickup_slot_id': ?pickupSlotId,
-      'pickup_date': ?pickupDate,
-    },
+    if (fulfillmentType == FulfillmentType.pickup) ...{'pickup_slot_id': ?pickupSlotId, 'pickup_date': ?pickupDate},
     if (fulfillmentType == FulfillmentType.delivery) ...{
       'delivery_slot_id': ?deliverySlotId,
       'delivery_date': ?deliveryDate,
@@ -349,7 +346,15 @@ class PaymentAction {
 /// `GET /payments/{id}`.
 @immutable
 class PaymentStatus {
-  const PaymentStatus({required this.id, required this.status, this.method, this.amount, this.paidAt, this.failureReason, this.orderId});
+  const PaymentStatus({
+    required this.id,
+    required this.status,
+    this.method,
+    this.amount,
+    this.paidAt,
+    this.failureReason,
+    this.orderId,
+  });
 
   factory PaymentStatus.fromJson(JsonMap json) => PaymentStatus(
     id: asString(json['id']),

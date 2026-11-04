@@ -78,11 +78,7 @@ class RatingInput extends StatelessWidget {
                 child: AnimatedScale(
                   scale: value >= i ? 1.08 : 1,
                   duration: AppDurations.fast,
-                  child: Icon(
-                    value >= i ? Icons.star_rounded : Icons.star_outline_rounded,
-                    size: size,
-                    color: color,
-                  ),
+                  child: Icon(value >= i ? Icons.star_rounded : Icons.star_outline_rounded, size: size, color: color),
                 ),
               ),
             ),

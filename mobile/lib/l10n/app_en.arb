@@ -996,6 +996,8 @@
   "@downloadInvoice": {},
   "pickupPass": "Pickup pass",
   "@pickupPass": {},
+  "pickupPassTitle": "Your pickup pass",
+  "@pickupPassTitle": {},
   "pickupPassInstructions": "Show this code at the showroom counter to collect your order.",
   "@pickupPassInstructions": {},
   "passExpires": "Valid until {time}",

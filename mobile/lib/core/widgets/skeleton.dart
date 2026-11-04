@@ -79,7 +79,10 @@ class ProductCardSkeleton extends StatelessWidget {
   Widget build(BuildContext context) => const Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      AspectRatio(aspectRatio: 4 / 5, child: Skeleton(radius: AppRadius.card)),
+      AspectRatio(
+        aspectRatio: 4 / 5,
+        child: Skeleton(radius: AppRadius.card),
+      ),
       Gap(AppSpace.sm),
       Skeleton(width: 70, height: 10),
       Gap(AppSpace.xs),
@@ -149,7 +152,11 @@ int productGridColumns(double width) {
   return 2;
 }
 
-SliverGridDelegate productGridDelegate(double width, {double textScale = 1, double horizontalPadding = AppSpace.gutter * 2}) {
+SliverGridDelegate productGridDelegate(
+  double width, {
+  double textScale = 1,
+  double horizontalPadding = AppSpace.gutter * 2,
+}) {
   final cols = productGridColumns(width);
   const spacing = AppSpace.md;
   final tile = (width - horizontalPadding - spacing * (cols - 1)) / cols;

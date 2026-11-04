@@ -49,7 +49,9 @@ class ApiException implements Exception {
       case DioExceptionType.unknown:
         final response = e.response;
         if (response == null) {
-          if (inner != null && inner.runtimeType.toString().contains('SocketException')) return const ApiException(kind: ApiErrorKind.offline);
+          if (inner != null && inner.runtimeType.toString().contains('SocketException')) {
+            return const ApiException(kind: ApiErrorKind.offline);
+          }
           return ApiException(kind: ApiErrorKind.unknown, message: e.message);
         }
         return ApiException.fromResponse(response);

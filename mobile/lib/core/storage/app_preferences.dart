@@ -36,9 +36,8 @@ class AppPreferences {
     }
   }
 
-  Future<void> setPreferredBranch(JsonMap? branch) => branch == null
-      ? _prefs.remove(_kBranch)
-      : _prefs.setString(_kBranch, jsonEncode(branch));
+  Future<void> setPreferredBranch(JsonMap? branch) =>
+      branch == null ? _prefs.remove(_kBranch) : _prefs.setString(_kBranch, jsonEncode(branch));
 
   List<String> get recentSearches => _prefs.getStringList(_kRecentSearches) ?? const [];
   Future<void> setRecentSearches(List<String> values) => _prefs.setStringList(_kRecentSearches, values);
@@ -62,8 +61,7 @@ class AppPreferences {
     }
   }
 
-  Future<void> setPushCategoryPrefs(Map<String, bool> prefs) =>
-      _prefs.setString(_kPushPrefs, jsonEncode(prefs));
+  Future<void> setPushCategoryPrefs(Map<String, bool> prefs) => _prefs.setString(_kPushPrefs, jsonEncode(prefs));
 
   String? get installId => _prefs.getString(_kInstallId);
   Future<void> setInstallId(String id) => _prefs.setString(_kInstallId, id);

@@ -112,8 +112,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get signInRequiredTitle => 'سجّل دخولك للمتابعة';
 
   @override
-  String get signInRequiredMessage =>
-      'تُحفظ سلّتك وطلباتك وقائمة أمنياتك في حسابك.';
+  String get signInRequiredMessage => 'تُحفظ سلّتك وطلباتك وقائمة أمنياتك في حسابك.';
 
   @override
   String get back => 'رجوع';
@@ -128,16 +127,13 @@ class AppLocalizationsAr extends AppLocalizations {
   String get errorGeneric => 'تعذّر إتمام العملية. يُرجى المحاولة مرة أخرى.';
 
   @override
-  String get errorOffline =>
-      'يبدو أنك غير متصل بالإنترنت. تحقّق من الاتصال وحاول مجددًا.';
+  String get errorOffline => 'يبدو أنك غير متصل بالإنترنت. تحقّق من الاتصال وحاول مجددًا.';
 
   @override
-  String get errorTimeout =>
-      'استغرق الاتصال وقتًا أطول من المعتاد. حاول مجددًا.';
+  String get errorTimeout => 'استغرق الاتصال وقتًا أطول من المعتاد. حاول مجددًا.';
 
   @override
-  String get errorServer =>
-      'نواجه عطلًا مؤقتًا في الخدمة. يُرجى المحاولة بعد قليل.';
+  String get errorServer => 'نواجه عطلًا مؤقتًا في الخدمة. يُرجى المحاولة بعد قليل.';
 
   @override
   String get errorNotFound => 'لم نعثر على ما تبحث عنه.';
@@ -189,15 +185,13 @@ class AppLocalizationsAr extends AppLocalizations {
   String get onboardingTitle2 => 'فرعك المفضّل وأسعاره';
 
   @override
-  String get onboardingBody2 =>
-      'اطّلع على المخزون والأسعار في أقرب صالة عرض إليك، ثم اختر التوصيل أو الاستلام.';
+  String get onboardingBody2 => 'اطّلع على المخزون والأسعار في أقرب صالة عرض إليك، ثم اختر التوصيل أو الاستلام.';
 
   @override
   String get onboardingTitle3 => 'زايِد على قطعٍ استثنائية';
 
   @override
-  String get onboardingBody3 =>
-      'شارك في المزادات المباشرة واقتنِ قطعًا فريدة بمزايدة لحظية.';
+  String get onboardingBody3 => 'شارك في المزادات المباشرة واقتنِ قطعًا فريدة بمزايدة لحظية.';
 
   @override
   String get getStarted => 'ابدأ الآن';
@@ -218,8 +212,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get loginTitle => 'أهلًا بك';
 
   @override
-  String get loginSubtitle =>
-      'أدخل رقم جوالك القطري وسنرسل إليك رمز التحقق برسالة نصية.';
+  String get loginSubtitle => 'أدخل رقم جوالك القطري وسنرسل إليك رمز التحقق برسالة نصية.';
 
   @override
   String get phoneLabel => 'رقم الجوال';
@@ -286,8 +279,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get referralCodeLabel => 'رمز الإحالة';
 
   @override
-  String get marketingConsent =>
-      'أرسلوا لي العروض والتشكيلات الجديدة ودعوات المزادات';
+  String get marketingConsent => 'أرسلوا لي العروض والتشكيلات الجديدة ودعوات المزادات';
 
   @override
   String get createAccount => 'إنشاء الحساب';
@@ -317,8 +309,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get resetPassword => 'تعيين كلمة المرور';
 
   @override
-  String get passwordResetSuccess =>
-      'تم تحديث كلمة المرور. يُرجى تسجيل الدخول.';
+  String get passwordResetSuccess => 'تم تحديث كلمة المرور. يُرجى تسجيل الدخول.';
 
   @override
   String get passwordsDoNotMatch => 'كلمتا المرور غير متطابقتين.';
@@ -457,8 +448,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get noProducts => 'لا توجد منتجات بعد';
 
   @override
-  String get noProductsMessage =>
-      'جرّب تعديل خيارات التصفية أو استكشاف فئة أخرى.';
+  String get noProductsMessage => 'جرّب تعديل خيارات التصفية أو استكشاف فئة أخرى.';
 
   @override
   String resultsCount(int count) {
@@ -485,8 +475,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get clearRecent => 'مسح';
 
   @override
-  String get searchPrompt =>
-      'ابحث بالعربية أو الإنجليزية، بالاسم أو رمز المنتج أو الباركود.';
+  String get searchPrompt => 'ابحث بالعربية أو الإنجليزية، بالاسم أو رمز المنتج أو الباركود.';
 
   @override
   String searchNoResults(String query) {
@@ -746,8 +735,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get locationDenied => 'خدمة الموقع غير مفعّلة';
 
   @override
-  String get locationDeniedMessage =>
-      'اسمح بالوصول إلى موقعك لإيجاد أقرب صالات العرض، أو اختر من القائمة.';
+  String get locationDeniedMessage => 'اسمح بالوصول إلى موقعك لإيجاد أقرب صالات العرض، أو اختر من القائمة.';
 
   @override
   String get openSettings => 'فتح الإعدادات';
@@ -820,8 +808,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get noBranches => 'لا توجد صالات عرض مطابقة.';
 
   @override
-  String get branchChangeNote =>
-      'ستتحدّث الأسعار والمخزون وفق هذا الفرع، دون أن تتأثر الطلبات الحالية.';
+  String get branchChangeNote => 'ستتحدّث الأسعار والمخزون وفق هذا الفرع، دون أن تتأثر الطلبات الحالية.';
 
   @override
   String get mapAttribution => '© مساهمو OpenStreetMap';
@@ -896,8 +883,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get cartHasIssues => 'بعض القطع تحتاج إلى مراجعتك قبل إتمام الطلب.';
 
   @override
-  String get totalsCalculatedAtCheckout =>
-      'تُحتسب رسوم التوصيل والإجمالي النهائي عند إتمام الطلب.';
+  String get totalsCalculatedAtCheckout => 'تُحتسب رسوم التوصيل والإجمالي النهائي عند إتمام الطلب.';
 
   @override
   String get checkoutTitle => 'إتمام الطلب';
@@ -1003,8 +989,7 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get splitFulfillmentMessage =>
-      'تُجهَّز القطع في أكثر من صالة عرض لتصلك بشكل أسرع.';
+  String get splitFulfillmentMessage => 'تُجهَّز القطع في أكثر من صالة عرض لتصلك بشكل أسرع.';
 
   @override
   String fulfilledFrom(String branch) {
@@ -1095,8 +1080,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get paymentPending => 'بانتظار تأكيد الدفع…';
 
   @override
-  String get paymentPendingHint =>
-      'قد يستغرق ذلك لحظات. يُرجى عدم إغلاق التطبيق.';
+  String get paymentPendingHint => 'قد يستغرق ذلك لحظات. يُرجى عدم إغلاق التطبيق.';
 
   @override
   String get paymentPaid => 'تم استلام الدفعة';
@@ -1111,8 +1095,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get paymentCancelled => 'تم إلغاء الدفع';
 
   @override
-  String get paymentStillPending =>
-      'لم يصلنا التأكيد بعد. يمكنك التحقق مجددًا أو عرض طلبك.';
+  String get paymentStillPending => 'لم يصلنا التأكيد بعد. يمكنك التحقق مجددًا أو عرض طلبك.';
 
   @override
   String get checkAgain => 'تحقّق مجددًا';
@@ -1214,8 +1197,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get pickupPass => 'تصريح الاستلام';
 
   @override
-  String get pickupPassInstructions =>
-      'أظهر هذا الرمز لدى موظف الصالة لاستلام طلبك.';
+  String get pickupPassTitle => 'تصريح الاستلام الخاص بك';
+
+  @override
+  String get pickupPassInstructions => 'أظهر هذا الرمز لدى موظف الصالة لاستلام طلبك.';
 
   @override
   String passExpires(String time) {
@@ -1293,8 +1278,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get wishlistEmpty => 'لا توجد عناصر محفوظة';
 
   @override
-  String get wishlistEmptyMessage =>
-      'اضغط على رمز القلب في أي قطعة لحفظها هنا.';
+  String get wishlistEmptyMessage => 'اضغط على رمز القلب في أي قطعة لحفظها هنا.';
 
   @override
   String get addedToWishlist => 'تم الحفظ في المفضلة';
@@ -1318,8 +1302,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get noAuctions => 'لا توجد مزادات حاليًا';
 
   @override
-  String get noAuctionsMessage =>
-      'فعّل إشعارات المزادات ليصلك موعد المزاد القادم.';
+  String get noAuctionsMessage => 'فعّل إشعارات المزادات ليصلك موعد المزاد القادم.';
 
   @override
   String lotsCount(int count) {
@@ -1406,8 +1389,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get autoBid => 'المزايدة التلقائية';
 
   @override
-  String get autoBidHint =>
-      'سنزايد نيابةً عنك بزيادة واحدة في كل مرة حتى الحد الأقصى الذي تحدده.';
+  String get autoBidHint => 'سنزايد نيابةً عنك بزيادة واحدة في كل مرة حتى الحد الأقصى الذي تحدده.';
 
   @override
   String get autoBidMax => 'الحد الأقصى (ر.ق)';
@@ -1559,8 +1541,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get noNotifications => 'لا جديد حاليًا';
 
   @override
-  String get noNotificationsMessage =>
-      'ستظهر هنا تحديثات الطلبات وتنبيهات المزادات.';
+  String get noNotificationsMessage => 'ستظهر هنا تحديثات الطلبات وتنبيهات المزادات.';
 
   @override
   String get markAllRead => 'تحديد الكل كمقروء';
@@ -1572,8 +1553,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get guestAccountTitle => 'اجعلها تجربتك الخاصة';
 
   @override
-  String get guestAccountMessage =>
-      'سجّل دخولك لتتابع طلباتك وتحفظ مفضّلاتك وتشارك في المزادات.';
+  String get guestAccountMessage => 'سجّل دخولك لتتابع طلباتك وتحفظ مفضّلاتك وتشارك في المزادات.';
 
   @override
   String get myOrders => 'الطلبات';
@@ -1713,8 +1693,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get addressSaved => 'تم حفظ العنوان';
 
   @override
-  String get addressRequirement =>
-      'أدخل أرقام المنطقة والشارع والمبنى، أو حدّد موقعك على الخريطة.';
+  String get addressRequirement => 'أدخل أرقام المنطقة والشارع والمبنى، أو حدّد موقعك على الخريطة.';
 
   @override
   String get useCurrentLocation => 'استخدام موقعي الحالي';
@@ -1723,8 +1702,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get saveAddress => 'حفظ العنوان';
 
   @override
-  String get qatarAddressHint =>
-      'تجد هذه الأرقام على اللوحة الزرقاء بجوار مدخلك.';
+  String get qatarAddressHint => 'تجد هذه الأرقام على اللوحة الزرقاء بجوار مدخلك.';
 
   @override
   String get channelPush => 'إشعارات التطبيق';
@@ -1742,8 +1720,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get categoryTransactional => 'الطلبات والحساب';
 
   @override
-  String get categoryTransactionalDesc =>
-      'تحديثات الطلبات والدفع والتوصيل والأمان';
+  String get categoryTransactionalDesc => 'تحديثات الطلبات والدفع والتوصيل والأمان';
 
   @override
   String get categoryMarketing => 'العروض والإلهام';
@@ -1755,8 +1732,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get categoryAuction => 'المزادات';
 
   @override
-  String get categoryAuctionDesc =>
-      'تنبيهات تجاوز المزايدة والفوز والمزادات القادمة';
+  String get categoryAuctionDesc => 'تنبيهات تجاوز المزايدة والفوز والمزادات القادمة';
 
   @override
   String get prefsSaved => 'تم حفظ التفضيلات';
@@ -1802,8 +1778,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get referralTitle => 'ادعُ أصدقاءك';
 
   @override
-  String get referralBody =>
-      'شارك رمزك، وعندما يتسوّق أصدقاؤك تكسبون المكافآت معًا.';
+  String get referralBody => 'شارك رمزك، وعندما يتسوّق أصدقاؤك تكسبون المكافآت معًا.';
 
   @override
   String get yourCode => 'رمزك';
@@ -1875,8 +1850,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get noTickets => 'لا توجد طلبات دعم';
 
   @override
-  String get noTicketsMessage =>
-      'تحتاج مساعدة؟ يردّ فريقنا بالعربية والإنجليزية.';
+  String get noTicketsMessage => 'تحتاج مساعدة؟ يردّ فريقنا بالعربية والإنجليزية.';
 
   @override
   String get ticketCategory => 'الموضوع';

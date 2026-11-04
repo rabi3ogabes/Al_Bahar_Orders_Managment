@@ -26,3 +26,6 @@ linter:
     - sort_child_properties_last
     - unawaited_futures
     - use_super_parameters
+
+formatter:
+  page_width: 120

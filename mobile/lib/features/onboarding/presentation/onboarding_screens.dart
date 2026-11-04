@@ -94,7 +94,12 @@ class LanguageScreen extends ConsumerWidget {
       Haptics.tap();
       await ref.read(localeControllerProvider.notifier).setLocale(Locale(code));
       if (ref.read(isAuthenticatedProvider)) {
-        unawaited(ref.read(sessionControllerProvider.notifier).updateProfile({'locale': code}).then((_) {}, onError: (Object _) {}));
+        unawaited(
+          ref
+              .read(sessionControllerProvider.notifier)
+              .updateProfile({'locale': code})
+              .then((_) {}, onError: (Object _) {}),
+        );
       }
       if (!context.mounted) return;
       final done = ref.read(onboardingDoneProvider);
@@ -116,7 +121,12 @@ class LanguageScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(label, style: context.text.headlineSmall?.copyWith(fontFamily: code == 'ar' ? 'IBMPlexSansArabic' : 'PlayfairDisplay')),
+                    Text(
+                      label,
+                      style: context.text.headlineSmall?.copyWith(
+                        fontFamily: code == 'ar' ? 'IBMPlexSansArabic' : 'PlayfairDisplay',
+                      ),
+                    ),
                     const Gap(AppSpace.xxs),
                     Text(sample, style: context.text.bodySmall),
                   ],
@@ -148,7 +158,11 @@ class LanguageScreen extends ConsumerWidget {
                 const Gap(AppSpace.xxl),
                 Text(l10n.chooseLanguageTitle, textAlign: TextAlign.center, style: context.text.headlineMedium),
                 const Gap(AppSpace.xs),
-                Text(l10n.chooseLanguageSubtitle, textAlign: TextAlign.center, style: context.text.bodyMedium?.copyWith(color: context.palette.muted)),
+                Text(
+                  l10n.chooseLanguageSubtitle,
+                  textAlign: TextAlign.center,
+                  style: context.text.bodyMedium?.copyWith(color: context.palette.muted),
+                ),
                 const Gap(AppSpace.xl),
                 option('ar', 'العربية', 'مرحبًا بك في البحر'),
                 const Gap(AppSpace.md),
@@ -232,14 +246,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                             height: 220,
                             decoration: BoxDecoration(
                               color: context.palette.brassTint,
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(90), bottom: Radius.circular(AppRadius.lg)),
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(90),
+                                bottom: Radius.circular(AppRadius.lg),
+                              ),
                             ),
                             child: Icon(icon, size: 72, color: context.palette.brass),
                           ),
                           const Gap(AppSpace.xxl),
                           Text(title, textAlign: TextAlign.center, style: context.text.displaySmall),
                           const Gap(AppSpace.md),
-                          Text(body, textAlign: TextAlign.center, style: context.text.bodyLarge?.copyWith(color: context.palette.muted)),
+                          Text(
+                            body,
+                            textAlign: TextAlign.center,
+                            style: context.text.bodyLarge?.copyWith(color: context.palette.muted),
+                          ),
                         ],
                       ),
                     ),

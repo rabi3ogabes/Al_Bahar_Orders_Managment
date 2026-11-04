@@ -24,10 +24,7 @@ Future<void> bootstrap(Flavor? flavor) async {
   final prefs = await SharedPreferences.getInstance();
 
   final container = ProviderContainer(
-    overrides: [
-      appConfigProvider.overrideWithValue(config),
-      sharedPreferencesProvider.overrideWithValue(prefs),
-    ],
+    overrides: [appConfigProvider.overrideWithValue(config), sharedPreferencesProvider.overrideWithValue(prefs)],
     // Repositories surface errors to the UI; no silent automatic retries.
     retry: (retryCount, error) => null,
   );
@@ -37,9 +34,11 @@ Future<void> bootstrap(Flavor? flavor) async {
   await container.read(tokenStoreProvider).read();
 
   // Push is optional: without Firebase config files the app runs normally.
-  unawaited(container.read(pushServiceProvider).start().catchError((Object e) {
-    if (kDebugMode) debugPrint('Push start failed: $e');
-  }));
+  unawaited(
+    container.read(pushServiceProvider).start().catchError((Object e) {
+      if (kDebugMode) debugPrint('Push start failed: $e');
+    }),
+  );
 
   runApp(UncontrolledProviderScope(container: container, child: const AlBaharApp()));
 }

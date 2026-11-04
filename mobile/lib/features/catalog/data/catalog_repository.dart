@@ -21,7 +21,11 @@ class CatalogRepository {
     return _api.getPage(
       hasQ ? '/products/search' : '/products',
       ProductSummary.fromJson,
-      query: {...query.toQuery(branchId: branchId), 'page': page, 'per_page': perPage},
+      query: {
+        ...query.toQuery(branchId: branchId),
+        'page': page,
+        'per_page': perPage,
+      },
     );
   }
 
@@ -79,6 +83,4 @@ class CatalogRepository {
   }
 }
 
-final catalogRepositoryProvider = Provider<CatalogRepository>(
-  (ref) => CatalogRepository(ref.watch(apiClientProvider)),
-);
+final catalogRepositoryProvider = Provider<CatalogRepository>((ref) => CatalogRepository(ref.watch(apiClientProvider)));

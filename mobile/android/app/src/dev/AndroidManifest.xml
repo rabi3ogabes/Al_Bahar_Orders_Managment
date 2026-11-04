@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- Dev talks to a local backend over http (10.0.2.2 / LAN). Staging & prod are HTTPS-only. -->
+    <application android:usesCleartextTraffic="true" tools:replace="android:usesCleartextTraffic" />
+</manifest>

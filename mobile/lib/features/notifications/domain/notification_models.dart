@@ -36,6 +36,13 @@ class AppNotification {
   /// Payload passed to the notification router (adds `event`).
   JsonMap get routingPayload => {...data, 'event': event, 'notification_id': id};
 
-  AppNotification markedRead() =>
-      AppNotification(id: id, event: event, title: title, body: body, data: data, readAt: DateTime.now(), createdAt: createdAt);
+  AppNotification markedRead() => AppNotification(
+    id: id,
+    event: event,
+    title: title,
+    body: body,
+    data: data,
+    readAt: DateTime.now(),
+    createdAt: createdAt,
+  );
 }

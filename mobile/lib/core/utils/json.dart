@@ -10,11 +10,9 @@ JsonMap asMap(Object? value) {
   return <String, dynamic>{};
 }
 
-JsonMap? asMapOrNull(Object? value) =>
-    value is Map ? asMap(value) : null;
+JsonMap? asMapOrNull(Object? value) => value is Map ? asMap(value) : null;
 
-List<Object?> asList(Object? value) =>
-    value is List ? value.cast<Object?>() : const <Object?>[];
+List<Object?> asList(Object? value) => value is List ? value.cast<Object?>() : const <Object?>[];
 
 List<T> mapList<T>(Object? value, T Function(JsonMap json) fromJson) =>
     asList(value).whereType<Map<dynamic, dynamic>>().map((e) => fromJson(asMap(e))).toList();
@@ -67,5 +65,4 @@ DateTime? asDate(Object? value) {
   return null;
 }
 
-List<String> asStringList(Object? value) =>
-    asList(value).where((e) => e != null).map((e) => e.toString()).toList();
+List<String> asStringList(Object? value) => asList(value).where((e) => e != null).map((e) => e.toString()).toList();

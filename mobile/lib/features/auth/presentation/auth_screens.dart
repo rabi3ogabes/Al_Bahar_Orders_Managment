@@ -113,7 +113,12 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
     try {
       final result = await ref.read(authRepositoryProvider).requestOtp(e164);
       if (!mounted) return;
-      unawaited(context.push('/login/otp${_q(widget.from)}', extra: OtpArgs(phone: e164, result: result, from: widget.from)));
+      unawaited(
+        context.push(
+          '/login/otp${_q(widget.from)}',
+          extra: OtpArgs(phone: e164, result: result, from: widget.from),
+        ),
+      );
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _error = e.fieldError('phone') ?? describeError(l10n, e));
@@ -139,7 +144,10 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
           keyboardType: TextInputType.phone,
           textInputAction: TextInputAction.done,
           autofillHints: const [AutofillHints.telephoneNumberNational],
-          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9٠-٩۰-۹+ ]')), LengthLimitingTextInputFormatter(16)],
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9٠-٩۰-۹+ ]')),
+            LengthLimitingTextInputFormatter(16),
+          ],
           errorText: _error,
           onSubmitted: (_) => _submit(),
           autofocus: true,
@@ -153,10 +161,7 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
         ),
         const Gap(AppSpace.lg),
         Center(
-          child: TextButton(
-            onPressed: () => context.go(widget.from ?? '/home'),
-            child: Text(l10n.continueAsGuest),
-          ),
+          child: TextButton(onPressed: () => context.go(widget.from ?? '/home'), child: Text(l10n.continueAsGuest)),
         ),
         const Gap(AppSpace.md),
         const _TermsNote(),
@@ -250,7 +255,11 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
           unawaited(
             context.push(
               '/login/register${_q(widget.args.from)}',
-              extra: RegisterArgs(phone: widget.args.phone, registrationToken: registrationToken, from: widget.args.from),
+              extra: RegisterArgs(
+                phone: widget.args.phone,
+                registrationToken: registrationToken,
+                from: widget.args.from,
+              ),
             ),
           );
       }
@@ -294,7 +303,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     final showDebug = debug != null && kDebugMode && !ref.watch(appConfigProvider).isProd;
     return _AuthScaffold(
       title: l10n.otpTitle,
-      subtitle: l10n.otpSubtitle('⁦${QatarPhone.display(widget.args.phone)}⁩'),
+      subtitle: l10n.otpSubtitle('\u2066${QatarPhone.display(widget.args.phone)}\u2069'),
       children: [
         AppTextField(
           controller: _code,
@@ -302,7 +311,10 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
           forceLtr: true,
           keyboardType: TextInputType.number,
           autofillHints: const [AutofillHints.oneTimeCode],
-          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9٠-٩]')), LengthLimitingTextInputFormatter(6)],
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9٠-٩]')),
+            LengthLimitingTextInputFormatter(6),
+          ],
           errorText: _error,
           autofocus: true,
           onChanged: (v) {
@@ -366,17 +378,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       _error = null;
     });
     try {
-      final result = await ref.read(authRepositoryProvider).register(
-        RegistrationRequest(
-          registrationToken: widget.args.registrationToken,
-          name: _name.text.trim(),
-          email: _email.text.trim(),
-          password: _password.text,
-          locale: ref.read(localeCodeProvider),
-          referralCode: _referral.text.trim(),
-          marketingConsent: _marketing,
-        ),
-      );
+      final result = await ref
+          .read(authRepositoryProvider)
+          .register(
+            RegistrationRequest(
+              registrationToken: widget.args.registrationToken,
+              name: _name.text.trim(),
+              email: _email.text.trim(),
+              password: _password.text,
+              locale: ref.read(localeCodeProvider),
+              referralCode: _referral.text.trim(),
+              marketingConsent: _marketing,
+            ),
+          );
       Haptics.success();
       await ref.read(sessionControllerProvider.notifier).signIn(result);
     } on ApiException catch (e) {
@@ -419,7 +433,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 autofillHints: const [AutofillHints.email],
                 textInputAction: TextInputAction.next,
                 errorText: _error?.fieldError('email'),
-                validator: (v) => (v != null && v.isNotEmpty && !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v.trim()))
+                validator: (v) =>
+                    (v != null && v.isNotEmpty && !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v.trim()))
                     ? l10n.emailInvalid
                     : null,
               ),
@@ -618,11 +633,9 @@ class _PasswordResetScreenState extends ConsumerState<PasswordResetScreen> {
       _localError = null;
     });
     try {
-      await ref.read(authRepositoryProvider).resetPassword(
-        phone: _e164!,
-        code: QatarPhone.normalizeDigits(_code.text),
-        password: _password.text,
-      );
+      await ref
+          .read(authRepositoryProvider)
+          .resetPassword(phone: _e164!, code: QatarPhone.normalizeDigits(_code.text), password: _password.text);
       if (!mounted) return;
       Haptics.success();
       showInfoSnack(context, l10n.passwordResetSuccess);

@@ -101,6 +101,7 @@ class LotController extends AsyncNotifier<LotViewState> {
   StreamSubscription<PusherEvent>? _eventsSub;
   StreamSubscription<RealtimeState>? _stateSub;
   bool _resyncing = false;
+  bool _replayAgain = false;
   Timer? _myStatusRefresh;
   final Map<String, String> _bidKeys = {};
 
@@ -121,13 +122,15 @@ class LotController extends AsyncNotifier<LotViewState> {
     final initial = await _load();
 
     _eventsSub = client.channel('auction-lot.$lotId').listen(_onEvent);
-    var wasConnected = client.state == RealtimeState.connected;
+    var connectedBefore = client.state == RealtimeState.connected;
     _stateSub = client.states.listen((s) {
       final current = state.value;
       if (current != null) state = AsyncData(current.copyWith(realtime: s));
       if (s == RealtimeState.connected) {
-        if (wasConnected || current != null) unawaited(resync());
-        wasConnected = true;
+        // First connect: replay anything published between the REST load and
+        // the subscription. Reconnect: full authoritative resync + replay.
+        unawaited(connectedBefore ? resync() : replayMissed());
+        connectedBefore = true;
       }
     });
 
@@ -135,7 +138,8 @@ class LotController extends AsyncNotifier<LotViewState> {
     ref.listen(userAuctionEventsProvider, (_, next) {
       final e = next.value;
       if (e == null) return;
-      final id = e.data['lot_id']?.toString() ?? (e.data['lot'] is Map ? (e.data['lot'] as Map)['id']?.toString() : null);
+      final id =
+          e.data['lot_id']?.toString() ?? (e.data['lot'] is Map ? (e.data['lot'] as Map)['id']?.toString() : null);
       if (id == lotId) unawaited(refreshLot());
     });
 
@@ -165,7 +169,11 @@ class LotController extends AsyncNotifier<LotViewState> {
     final last = current.lot.lastSequence;
     if (event.sequence <= last) return; // duplicate / already applied
     if (event.sequence > last + 1) {
-      unawaited(replayMissed());
+      if (_resyncing) {
+        _replayAgain = true;
+      } else {
+        unawaited(replayMissed());
+      }
       return;
     }
     _apply(current, event);
@@ -198,36 +206,62 @@ class LotController extends AsyncNotifier<LotViewState> {
     final current = state.value;
     if (current == null || _resyncing) return;
     _resyncing = true;
+    var needsResync = false;
     try {
       final events = await _repo.events(lotId, afterSequence: current.lot.lastSequence);
+      var missingSnapshot = false;
       for (final e in events) {
         final s = state.value!;
-        if (e.sequence == s.lot.lastSequence + 1) {
-          _apply(s, e);
-        } else if (e.sequence > s.lot.lastSequence + 1) {
-          _resyncing = false;
-          await resync();
-          return;
+        if (e.sequence <= s.lot.lastSequence) continue;
+        if (e.sequence != s.lot.lastSequence + 1) {
+          needsResync = true;
+          break;
         }
+        _apply(s, e);
+        missingSnapshot = missingSnapshot || e.lot == null;
       }
+      // Replayed events carry no lot snapshot: fetch the authoritative public state once.
+      if (missingSnapshot && !needsResync) unawaited(refreshLot());
     } catch (_) {
+      needsResync = true;
+    } finally {
       _resyncing = false;
-      await resync();
-      return;
     }
-    _resyncing = false;
+    if (!ref.mounted) return;
+    if (needsResync) {
+      await resync();
+    } else if (_replayAgain) {
+      _replayAgain = false;
+      await replayMissed();
+    }
   }
 
-  /// Full authoritative reload followed by event replay.
+  /// Full authoritative reload followed by event replay. Never moves the
+  /// public lot state backwards if newer events arrived meanwhile.
   Future<void> resync() async {
     if (_resyncing) return;
     _resyncing = true;
     try {
       final fresh = await _load();
       if (!ref.mounted) return;
-      final realtime = state.value?.realtime ?? RealtimeState.idle;
-      state = AsyncData(fresh.copyWith(realtime: realtime));
-      final events = await _repo.events(lotId, afterSequence: fresh.lot.lastSequence);
+      final current = state.value;
+      if (current != null && current.lot.lastSequence > fresh.lot.lastSequence) {
+        final ids = {for (final b in current.bids) b.bidNumber};
+        state = AsyncData(
+          current.copyWith(
+            lot: current.lot.copyWith(
+              myStatus: fresh.lot.myStatus,
+              myMaxAutoBid: () => fresh.lot.myMaxAutoBid,
+              isWatching: fresh.lot.isWatching,
+            ),
+            bids: [...current.bids, ...fresh.bids.where((b) => !ids.contains(b.bidNumber))],
+          ),
+        );
+      } else {
+        state = AsyncData(fresh.copyWith(realtime: current?.realtime ?? RealtimeState.idle));
+      }
+      final after = state.value!.lot.lastSequence;
+      final events = await _repo.events(lotId, afterSequence: after);
       for (final e in events) {
         final s = state.value!;
         if (e.sequence == s.lot.lastSequence + 1) _apply(s, e);
@@ -237,6 +271,10 @@ class LotController extends AsyncNotifier<LotViewState> {
     } finally {
       _resyncing = false;
     }
+    if (_replayAgain && ref.mounted) {
+      _replayAgain = false;
+      await replayMissed();
+    }
   }
 
   Future<void> refreshLot() async {
@@ -245,7 +283,9 @@ class LotController extends AsyncNotifier<LotViewState> {
       final current = state.value;
       if (!ref.mounted || current == null) return;
       // Never go backwards: keep the newer public state if events raced ahead.
-      final merged = lot.lastSequence >= current.lot.lastSequence ? lot : current.lot.copyWith(myStatus: lot.myStatus, isWatching: lot.isWatching);
+      final merged = lot.lastSequence >= current.lot.lastSequence
+          ? lot
+          : current.lot.copyWith(myStatus: lot.myStatus, isWatching: lot.isWatching);
       state = AsyncData(current.copyWith(lot: merged, serverOffset: offsetFromServerTime(lot.serverTime)));
     } catch (_) {}
   }
@@ -263,7 +303,9 @@ class LotController extends AsyncNotifier<LotViewState> {
       var bids = current.bids;
       final bid = result.bid;
       if (bid != null && !bids.any((b) => b.bidNumber == bid.bidNumber && b.bidNumber != 0)) bids = [bid, ...bids];
-      state = AsyncData(current.copyWith(lot: lot, bids: bids, serverOffset: offsetFromServerTime(result.lot.serverTime)));
+      state = AsyncData(
+        current.copyWith(lot: lot, bids: bids, serverOffset: offsetFromServerTime(result.lot.serverTime)),
+      );
     } on ApiException catch (e) {
       // Definitive rejections free the key; network errors keep it for retry.
       if (!e.isNetwork) _bidKeys.remove(amount);
@@ -328,5 +370,7 @@ class WinsController extends PagedNotifier<AuctionWin> {
 }
 
 final myBidsProvider = AsyncNotifierProvider.autoDispose<MyBidsController, PagedState<MyBid>>(MyBidsController.new);
-final myWatchlistProvider = AsyncNotifierProvider.autoDispose<WatchlistController, PagedState<Lot>>(WatchlistController.new);
+final myWatchlistProvider = AsyncNotifierProvider.autoDispose<WatchlistController, PagedState<Lot>>(
+  WatchlistController.new,
+);
 final myWinsProvider = AsyncNotifierProvider.autoDispose<WinsController, PagedState<AuctionWin>>(WinsController.new);

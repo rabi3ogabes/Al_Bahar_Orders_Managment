@@ -3,13 +3,21 @@ import 'package:flutter/foundation.dart';
 
 @immutable
 class TicketMessage {
-  const TicketMessage({required this.id, required this.body, required this.fromCustomer, this.authorName, this.createdAt});
+  const TicketMessage({
+    required this.id,
+    required this.body,
+    required this.fromCustomer,
+    this.authorName,
+    this.createdAt,
+  });
   factory TicketMessage.fromJson(JsonMap json) {
     final authorType = asStringOrNull(json['author_type'] ?? json['sender_type']);
     return TicketMessage(
       id: asString(json['id']),
       body: asString(json['body']),
-      fromCustomer: authorType == null ? asBool(json['is_customer'] ?? json['is_mine'], true) : authorType == 'customer',
+      fromCustomer: authorType == null
+          ? asBool(json['is_customer'] ?? json['is_mine'], true)
+          : authorType == 'customer',
       authorName: asStringOrNull(json['author_name'] ?? asMapOrNull(json['author'])?['name']),
       createdAt: asDate(json['created_at']),
     );

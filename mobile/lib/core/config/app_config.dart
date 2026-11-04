@@ -37,8 +37,7 @@ class AppConfig {
   });
 
   factory AppConfig.fromEnvironment({Flavor? flavor}) {
-    final resolved =
-        flavor ?? Flavor.parse(const String.fromEnvironment('FLAVOR'));
+    final resolved = flavor ?? Flavor.parse(const String.fromEnvironment('FLAVOR'));
     const apiOverride = String.fromEnvironment('API_BASE_URL');
     const reverbKey = String.fromEnvironment('REVERB_APP_KEY');
     const reverbHost = String.fromEnvironment('REVERB_HOST');
@@ -48,13 +47,7 @@ class AppConfig {
     const tiles = String.fromEnvironment('MAP_TILE_URL');
 
     final defaults = switch (resolved) {
-      Flavor.dev => (
-        api: 'http://10.0.2.2:8000/api/v1',
-        host: '10.0.2.2',
-        port: 8080,
-        tls: false,
-        key: 'albahar-dev',
-      ),
+      Flavor.dev => (api: 'http://10.0.2.2:8000/api/v1', host: '10.0.2.2', port: 8080, tls: false, key: 'albahar-dev'),
       Flavor.staging => (
         api: 'https://staging-api.albahar.qa/api/v1',
         host: 'staging-ws.albahar.qa',
@@ -77,15 +70,11 @@ class AppConfig {
       reverbAppKey: reverbKey.isNotEmpty ? reverbKey : defaults.key,
       reverbHost: reverbHost.isNotEmpty ? reverbHost : defaults.host,
       reverbPort: reverbPort != 0 ? reverbPort : defaults.port,
-      reverbUseTls: reverbScheme.isNotEmpty
-          ? reverbScheme == 'wss' || reverbScheme == 'https'
-          : defaults.tls,
+      reverbUseTls: reverbScheme.isNotEmpty ? reverbScheme == 'wss' || reverbScheme == 'https' : defaults.tls,
       // Push is opt-out: it is attempted unless PUSH_ENABLED=false. Firebase
       // initialisation itself is defensive (no config files => disabled).
       pushEnabled: push.isEmpty ? true : push == 'true' || push == '1',
-      mapTileUrlTemplate: tiles.isNotEmpty
-          ? tiles
-          : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      mapTileUrlTemplate: tiles.isNotEmpty ? tiles : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     );
   }
 
@@ -118,12 +107,7 @@ class AppConfig {
     host: reverbHost,
     port: reverbPort,
     path: '/app/$reverbAppKey',
-    queryParameters: const {
-      'protocol': '7',
-      'client': 'albahar-flutter',
-      'version': '1.0.0',
-      'flash': 'false',
-    },
+    queryParameters: const {'protocol': '7', 'client': 'albahar-flutter', 'version': '1.0.0', 'flash': 'false'},
   );
 
   String get displayName => switch (flavor) {

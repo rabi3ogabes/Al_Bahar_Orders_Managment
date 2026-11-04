@@ -33,4 +33,6 @@ class WishlistRepository {
   Future<void> remove(String productId) async => _api.delete('/me/wishlist/$productId');
 }
 
-final wishlistRepositoryProvider = Provider<WishlistRepository>((ref) => WishlistRepository(ref.watch(apiClientProvider)));
+final wishlistRepositoryProvider = Provider<WishlistRepository>(
+  (ref) => WishlistRepository(ref.watch(apiClientProvider)),
+);

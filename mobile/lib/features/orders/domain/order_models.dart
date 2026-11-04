@@ -114,7 +114,15 @@ class FulfillmentBranch {
 
 @immutable
 class DeliveryInfo {
-  const DeliveryInfo({this.trackingNumber, this.status, this.provider, this.driverName, this.driverPhone, this.eta, this.trackingUrl});
+  const DeliveryInfo({
+    this.trackingNumber,
+    this.status,
+    this.provider,
+    this.driverName,
+    this.driverPhone,
+    this.eta,
+    this.trackingUrl,
+  });
   static DeliveryInfo? maybe(Object? json) {
     final m = asMapOrNull(json);
     if (m == null) return null;

@@ -342,6 +342,7 @@
   "reorderSkipped": "{count, plural, =1{قطعة واحدة لم تعد متاحة.} =2{قطعتان لم تعودا متاحتين.} few{{count} قطع لم تعد متاحة.} many{{count} قطعة لم تعد متاحة.} other{{count} قطعة لم تعد متاحة.}}",
   "downloadInvoice": "الفاتورة (PDF)",
   "pickupPass": "تصريح الاستلام",
+  "pickupPassTitle": "تصريح الاستلام الخاص بك",
   "pickupPassInstructions": "أظهر هذا الرمز لدى موظف الصالة لاستلام طلبك.",
   "passExpires": "صالح حتى {time}",
   "trackDelivery": "تتبّع التوصيل",

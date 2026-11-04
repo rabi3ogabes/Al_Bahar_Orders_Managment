@@ -28,7 +28,8 @@ class OrderRepository {
     return asString(asMap(data)['status'], 'requested');
   }
 
-  Future<ReorderResult> reorder(String id) async => ReorderResult.fromJson(asMap(await _api.post('/orders/$id/reorder')));
+  Future<ReorderResult> reorder(String id) async =>
+      ReorderResult.fromJson(asMap(await _api.post('/orders/$id/reorder')));
 
   Future<Uint8List> invoice(String id) => _api.getBytes('/orders/$id/invoice');
 
@@ -44,7 +45,9 @@ class OrderRepository {
     await _api.post(
       '/orders/$orderId/returns',
       data: {
-        'items': [for (final i in items) {'order_item_id': i.orderItemId, 'quantity': i.quantity}],
+        'items': [
+          for (final i in items) {'order_item_id': i.orderItemId, 'quantity': i.quantity},
+        ],
         'reason_code': reasonCode,
         if (reason != null && reason.isNotEmpty) 'reason': reason,
       },

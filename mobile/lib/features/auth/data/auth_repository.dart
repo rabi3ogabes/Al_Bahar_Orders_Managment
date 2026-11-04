@@ -19,11 +19,7 @@ class AuthRepository {
   Map<String, String> get _device => {'device_name': deviceName(), 'platform': platformCode()};
 
   Future<OtpRequestResult> requestOtp(String phone, {String purpose = 'login'}) async {
-    final data = await _api.post(
-      '/auth/otp/request',
-      data: {'phone': phone, 'purpose': purpose},
-      options: _public,
-    );
+    final data = await _api.post('/auth/otp/request', data: {'phone': phone, 'purpose': purpose}, options: _public);
     return OtpRequestResult.fromJson(asMap(data));
   }
 

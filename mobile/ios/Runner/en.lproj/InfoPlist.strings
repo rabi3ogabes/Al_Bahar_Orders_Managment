@@ -1,0 +1,4 @@
+"CFBundleDisplayName" = "Al Bahar";
+"NSLocationWhenInUseUsageDescription" = "Al Bahar uses your location to find showrooms near you and to pin your delivery address.";
+"NSCameraUsageDescription" = "Take photos to include in your product review.";
+"NSPhotoLibraryUsageDescription" = "Choose photos to include in your product review.";

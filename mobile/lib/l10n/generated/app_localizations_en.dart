@@ -112,8 +112,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get signInRequiredTitle => 'Sign in to continue';
 
   @override
-  String get signInRequiredMessage =>
-      'Your cart, orders and wishlist are saved to your account.';
+  String get signInRequiredMessage => 'Your cart, orders and wishlist are saved to your account.';
 
   @override
   String get back => 'Back';
@@ -128,16 +127,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errorGeneric => 'We couldn’t complete that. Please try again.';
 
   @override
-  String get errorOffline =>
-      'You appear to be offline. Check your connection and try again.';
+  String get errorOffline => 'You appear to be offline. Check your connection and try again.';
 
   @override
-  String get errorTimeout =>
-      'The connection is taking too long. Please try again.';
+  String get errorTimeout => 'The connection is taking too long. Please try again.';
 
   @override
-  String get errorServer =>
-      'Our service is having a moment. Please try again shortly.';
+  String get errorServer => 'Our service is having a moment. Please try again shortly.';
 
   @override
   String get errorNotFound => 'We couldn’t find what you were looking for.';
@@ -151,8 +147,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get errorSessionExpired =>
-      'Your session has ended. Please sign in again.';
+  String get errorSessionExpired => 'Your session has ended. Please sign in again.';
 
   @override
   String get offlineBanner => 'Offline — showing what we can';
@@ -184,22 +179,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingTitle1 => 'Living, beautifully considered';
 
   @override
-  String get onboardingBody1 =>
-      'Furniture, décor and essentials curated for homes across Qatar.';
+  String get onboardingBody1 => 'Furniture, décor and essentials curated for homes across Qatar.';
 
   @override
   String get onboardingTitle2 => 'Your branch, your price';
 
   @override
-  String get onboardingBody2 =>
-      'See live stock and prices at the showroom nearest you, then deliver or pick up.';
+  String get onboardingBody2 => 'See live stock and prices at the showroom nearest you, then deliver or pick up.';
 
   @override
   String get onboardingTitle3 => 'Bid on exceptional pieces';
 
   @override
-  String get onboardingBody3 =>
-      'Join live auctions for one-of-a-kind finds, with real-time bidding.';
+  String get onboardingBody3 => 'Join live auctions for one-of-a-kind finds, with real-time bidding.';
 
   @override
   String get getStarted => 'Get started';
@@ -208,8 +200,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chooseLanguageTitle => 'Choose your language';
 
   @override
-  String get chooseLanguageSubtitle =>
-      'You can change this any time in Settings.';
+  String get chooseLanguageSubtitle => 'You can change this any time in Settings.';
 
   @override
   String get languageArabic => 'العربية';
@@ -221,8 +212,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loginTitle => 'Welcome';
 
   @override
-  String get loginSubtitle =>
-      'Enter your Qatar mobile number and we’ll text you a verification code.';
+  String get loginSubtitle => 'Enter your Qatar mobile number and we’ll text you a verification code.';
 
   @override
   String get phoneLabel => 'Mobile number';
@@ -268,8 +258,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get registerTitle => 'Create your account';
 
   @override
-  String get registerSubtitle =>
-      'Just a few details to personalise your experience.';
+  String get registerSubtitle => 'Just a few details to personalise your experience.';
 
   @override
   String get nameLabel => 'Full name';
@@ -284,15 +273,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get passwordConfirmLabel => 'Confirm password';
 
   @override
-  String get passwordOptionalHint =>
-      'Optional — lets you sign in without a code';
+  String get passwordOptionalHint => 'Optional — lets you sign in without a code';
 
   @override
   String get referralCodeLabel => 'Referral code';
 
   @override
-  String get marketingConsent =>
-      'Send me offers, new collections and auction invitations';
+  String get marketingConsent => 'Send me offers, new collections and auction invitations';
 
   @override
   String get createAccount => 'Create account';
@@ -313,8 +300,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get resetPasswordTitle => 'Reset password';
 
   @override
-  String get resetPasswordSubtitle =>
-      'We’ll text a code to your mobile number to confirm it’s you.';
+  String get resetPasswordSubtitle => 'We’ll text a code to your mobile number to confirm it’s you.';
 
   @override
   String get newPasswordLabel => 'New password';
@@ -323,8 +309,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get resetPassword => 'Reset password';
 
   @override
-  String get passwordResetSuccess =>
-      'Your password has been updated. Please sign in.';
+  String get passwordResetSuccess => 'Your password has been updated. Please sign in.';
 
   @override
   String get passwordsDoNotMatch => 'Passwords do not match.';
@@ -369,8 +354,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchHint => 'Search sofas, lighting, rugs…';
 
   @override
-  String get homeEmpty =>
-      'Our new collection is being arranged. Check back soon.';
+  String get homeEmpty => 'Our new collection is being arranged. Check back soon.';
 
   @override
   String endsIn(String time) {
@@ -464,8 +448,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noProducts => 'Nothing here yet';
 
   @override
-  String get noProductsMessage =>
-      'Try adjusting your filters or exploring another category.';
+  String get noProductsMessage => 'Try adjusting your filters or exploring another category.';
 
   @override
   String resultsCount(int count) {
@@ -489,8 +472,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get clearRecent => 'Clear';
 
   @override
-  String get searchPrompt =>
-      'Search in Arabic or English, by name, SKU or barcode.';
+  String get searchPrompt => 'Search in Arabic or English, by name, SKU or barcode.';
 
   @override
   String searchNoResults(String query) {
@@ -562,12 +544,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String warrantyMonths(int months) {
-    String _temp0 = intl.Intl.pluralLogic(
-      months,
-      locale: localeName,
-      other: '$months months',
-      one: '1 month',
-    );
+    String _temp0 = intl.Intl.pluralLogic(months, locale: localeName, other: '$months months', one: '1 month');
     return '$_temp0';
   }
 
@@ -741,8 +718,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get locationDenied => 'Location is off';
 
   @override
-  String get locationDeniedMessage =>
-      'Allow location access to find showrooms near you, or choose one from the list.';
+  String get locationDeniedMessage => 'Allow location access to find showrooms near you, or choose one from the list.';
 
   @override
   String get openSettings => 'Open settings';
@@ -815,8 +791,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noBranches => 'No showrooms match your search.';
 
   @override
-  String get branchChangeNote =>
-      'Prices and stock will update for this branch. Existing orders are not affected.';
+  String get branchChangeNote => 'Prices and stock will update for this branch. Existing orders are not affected.';
 
   @override
   String get mapAttribution => '© OpenStreetMap contributors';
@@ -828,8 +803,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cartEmpty => 'Your cart is empty';
 
   @override
-  String get cartEmptyMessage =>
-      'Pieces you add will be kept here, ready when you are.';
+  String get cartEmptyMessage => 'Pieces you add will be kept here, ready when you are.';
 
   @override
   String get startShopping => 'Start shopping';
@@ -889,8 +863,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cartHasIssues => 'Some items need your attention before checkout.';
 
   @override
-  String get totalsCalculatedAtCheckout =>
-      'Delivery and final totals are confirmed at checkout.';
+  String get totalsCalculatedAtCheckout => 'Delivery and final totals are confirmed at checkout.';
 
   @override
   String get checkoutTitle => 'Checkout';
@@ -943,8 +916,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get paymentUnavailable => 'Not available for this order';
 
   @override
-  String get paymentReasonCodLimit =>
-      'Order exceeds the cash-on-delivery limit';
+  String get paymentReasonCodLimit => 'Order exceeds the cash-on-delivery limit';
 
   @override
   String get loyaltyPoints => 'Loyalty points';
@@ -997,8 +969,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get splitFulfillmentMessage =>
-      'Items are prepared at different showrooms to get everything to you sooner.';
+  String get splitFulfillmentMessage => 'Items are prepared at different showrooms to get everything to you sooner.';
 
   @override
   String fulfilledFrom(String branch) {
@@ -1089,8 +1060,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get paymentPending => 'Waiting for payment confirmation…';
 
   @override
-  String get paymentPendingHint =>
-      'This can take a moment. Please don’t close the app.';
+  String get paymentPendingHint => 'This can take a moment. Please don’t close the app.';
 
   @override
   String get paymentPaid => 'Payment received';
@@ -1105,8 +1075,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get paymentCancelled => 'Payment cancelled';
 
   @override
-  String get paymentStillPending =>
-      'We haven’t received confirmation yet. You can check again or view your order.';
+  String get paymentStillPending => 'We haven’t received confirmation yet. You can check again or view your order.';
 
   @override
   String get checkAgain => 'Check again';
@@ -1127,8 +1096,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noOrders => 'No orders yet';
 
   @override
-  String get noOrdersMessage =>
-      'When you place an order, you can follow it here.';
+  String get noOrdersMessage => 'When you place an order, you can follow it here.';
 
   @override
   String orderNumber(String number) {
@@ -1174,8 +1142,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cancelDetails => 'Tell us more (optional)';
 
   @override
-  String get cancelRequested =>
-      'Cancellation requested — we’ll confirm shortly.';
+  String get cancelRequested => 'Cancellation requested — we’ll confirm shortly.';
 
   @override
   String get cancelApproved => 'Your order has been cancelled.';
@@ -1207,8 +1174,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pickupPass => 'Pickup pass';
 
   @override
-  String get pickupPassInstructions =>
-      'Show this code at the showroom counter to collect your order.';
+  String get pickupPassTitle => 'Your pickup pass';
+
+  @override
+  String get pickupPassInstructions => 'Show this code at the showroom counter to collect your order.';
 
   @override
   String passExpires(String time) {
@@ -1286,8 +1255,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wishlistEmpty => 'Nothing saved yet';
 
   @override
-  String get wishlistEmptyMessage =>
-      'Tap the heart on any piece to keep it here.';
+  String get wishlistEmptyMessage => 'Tap the heart on any piece to keep it here.';
 
   @override
   String get addedToWishlist => 'Saved to your wishlist';
@@ -1311,17 +1279,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noAuctions => 'No auctions here right now';
 
   @override
-  String get noAuctionsMessage =>
-      'Turn on auction notifications to hear about the next one.';
+  String get noAuctionsMessage => 'Turn on auction notifications to hear about the next one.';
 
   @override
   String lotsCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count lots',
-      one: '1 lot',
-    );
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count lots', one: '1 lot');
     return '$_temp0';
   }
 
@@ -1393,8 +1355,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get autoBid => 'Auto-bid';
 
   @override
-  String get autoBidHint =>
-      'We’ll bid for you, one increment at a time, up to your maximum.';
+  String get autoBidHint => 'We’ll bid for you, one increment at a time, up to your maximum.';
 
   @override
   String get autoBidMax => 'Maximum amount (QAR)';
@@ -1546,8 +1507,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noNotifications => 'You’re all caught up';
 
   @override
-  String get noNotificationsMessage =>
-      'Order updates and auction alerts will appear here.';
+  String get noNotificationsMessage => 'Order updates and auction alerts will appear here.';
 
   @override
   String get markAllRead => 'Mark all read';
@@ -1559,8 +1519,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get guestAccountTitle => 'Make it yours';
 
   @override
-  String get guestAccountMessage =>
-      'Sign in to track orders, save favourites and join auctions.';
+  String get guestAccountMessage => 'Sign in to track orders, save favourites and join auctions.';
 
   @override
   String get myOrders => 'Orders';
@@ -1700,8 +1659,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addressSaved => 'Address saved';
 
   @override
-  String get addressRequirement =>
-      'Enter zone, street and building numbers — or pin your location on the map.';
+  String get addressRequirement => 'Enter zone, street and building numbers — or pin your location on the map.';
 
   @override
   String get useCurrentLocation => 'Use current location';
@@ -1710,8 +1668,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get saveAddress => 'Save address';
 
   @override
-  String get qatarAddressHint =>
-      'Find these numbers on the blue plate by your door.';
+  String get qatarAddressHint => 'Find these numbers on the blue plate by your door.';
 
   @override
   String get channelPush => 'Push';
@@ -1729,8 +1686,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get categoryTransactional => 'Orders & account';
 
   @override
-  String get categoryTransactionalDesc =>
-      'Order, payment, delivery and security updates';
+  String get categoryTransactionalDesc => 'Order, payment, delivery and security updates';
 
   @override
   String get categoryMarketing => 'Offers & inspiration';
@@ -1748,8 +1704,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get prefsSaved => 'Preferences saved';
 
   @override
-  String get transactionalNote =>
-      'Some essential order messages are always sent.';
+  String get transactionalNote => 'Some essential order messages are always sent.';
 
   @override
   String get loyaltyTitle => 'Rewards';
@@ -1789,8 +1744,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get referralTitle => 'Invite friends';
 
   @override
-  String get referralBody =>
-      'Share your code. When friends shop, you both earn rewards.';
+  String get referralBody => 'Share your code. When friends shop, you both earn rewards.';
 
   @override
   String get yourCode => 'Your code';
@@ -1833,8 +1787,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get submitReview => 'Submit review';
 
   @override
-  String get reviewSubmitted =>
-      'Thank you! Your review will appear once approved.';
+  String get reviewSubmitted => 'Thank you! Your review will appear once approved.';
 
   @override
   String get ratingRequired => 'Please choose a rating.';
@@ -1863,8 +1816,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noTickets => 'No support requests';
 
   @override
-  String get noTicketsMessage =>
-      'Need a hand? Our team replies in Arabic and English.';
+  String get noTicketsMessage => 'Need a hand? Our team replies in Arabic and English.';
 
   @override
   String get ticketCategory => 'Topic';

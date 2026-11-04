@@ -17,9 +17,7 @@ final sharedPreferencesProvider = Provider<SharedPreferences>(
   (ref) => throw UnimplementedError('sharedPreferencesProvider must be overridden'),
 );
 
-final appPreferencesProvider = Provider<AppPreferences>(
-  (ref) => AppPreferences(ref.watch(sharedPreferencesProvider)),
-);
+final appPreferencesProvider = Provider<AppPreferences>((ref) => AppPreferences(ref.watch(sharedPreferencesProvider)));
 
 final tokenStoreProvider = Provider<TokenStore>((ref) => SecureTokenStore());
 

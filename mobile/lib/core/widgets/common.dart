@@ -86,10 +86,7 @@ class SectionHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Semantics(header: true, child: Text(title, style: context.text.headlineSmall)),
-                if (subtitle != null) ...[
-                  const Gap(2),
-                  Text(subtitle!, style: context.text.bodySmall),
-                ],
+                if (subtitle != null) ...[const Gap(2), Text(subtitle!, style: context.text.bodySmall)],
               ],
             ),
           ),
@@ -163,12 +160,36 @@ class StatusChip extends StatelessWidget {
 
 /// Maps API order / fulfilment / payment status codes to tones.
 StatusTone toneForStatus(String? status) => switch (status) {
-  'completed' || 'delivered' || 'picked_up' || 'paid' || 'won' || 'leading' || 'sold' || 'resolved' => StatusTone.success,
+  'completed' ||
+  'delivered' ||
+  'picked_up' ||
+  'paid' ||
+  'won' ||
+  'leading' ||
+  'sold' ||
+  'resolved' => StatusTone.success,
   'ready_for_pickup' || 'pickup_ready' || 'out_for_delivery' || 'dispatched' || 'open' || 'live' => StatusTone.accent,
-  'pending_payment' || 'cancellation_requested' || 'pending' || 'processing' || 'outbid' || 'closing' || 'awaiting_customer' =>
-    StatusTone.warning,
-  'cancelled' || 'failed' || 'expired' || 'returned' || 'lost' || 'unsold' || 'partially_cancelled' => StatusTone.danger,
-  'confirmed' || 'accepted' || 'preparing' || 'ready' || 'partially_fulfilled' || 'upcoming' || 'scheduled' => StatusTone.info,
+  'pending_payment' ||
+  'cancellation_requested' ||
+  'pending' ||
+  'processing' ||
+  'outbid' ||
+  'closing' ||
+  'awaiting_customer' => StatusTone.warning,
+  'cancelled' ||
+  'failed' ||
+  'expired' ||
+  'returned' ||
+  'lost' ||
+  'unsold' ||
+  'partially_cancelled' => StatusTone.danger,
+  'confirmed' ||
+  'accepted' ||
+  'preparing' ||
+  'ready' ||
+  'partially_fulfilled' ||
+  'upcoming' ||
+  'scheduled' => StatusTone.info,
   _ => StatusTone.neutral,
 };
 
@@ -230,6 +251,7 @@ class QuantityStepper extends StatelessWidget {
           SizedBox(
             width: compact ? 28 : 36,
             child: Center(
+              heightFactor: 1,
               child: busy
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                   : AnimatedSwitcher(
@@ -326,13 +348,24 @@ class ContentWidth extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Align(
     alignment: AlignmentDirectional.topCenter,
-    child: ConstrainedBox(constraints: BoxConstraints(maxWidth: maxWidth), child: child),
+    // Size to the child vertically (safe inside bottom bars / sheets).
+    heightFactor: 1,
+    child: ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: child,
+    ),
   );
 }
 
 /// Titled surface card used for grouped content.
 class SurfaceCard extends StatelessWidget {
-  const SurfaceCard({super.key, required this.child, this.padding = const EdgeInsets.all(AppSpace.md), this.onTap, this.color});
+  const SurfaceCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(AppSpace.md),
+    this.onTap,
+    this.color,
+  });
 
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -343,7 +376,10 @@ class SurfaceCard extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     color: color,
     clipBehavior: Clip.antiAlias,
-    child: InkWell(onTap: onTap, child: Padding(padding: padding, child: child)),
+    child: InkWell(
+      onTap: onTap,
+      child: Padding(padding: padding, child: child),
+    ),
   );
 }
 
@@ -364,9 +400,14 @@ class SummaryRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: Text(label, style: style?.copyWith(color: emphasize ? null : context.palette.muted))),
+          Expanded(
+            child: Text(label, style: style?.copyWith(color: emphasize ? null : context.palette.muted)),
+          ),
           const Gap(AppSpace.sm),
-          Text(value, style: style?.copyWith(color: valueColor, fontWeight: emphasize ? FontWeight.w700 : FontWeight.w500)),
+          Text(
+            value,
+            style: style?.copyWith(color: valueColor, fontWeight: emphasize ? FontWeight.w700 : FontWeight.w500),
+          ),
         ],
       ),
     );
@@ -399,7 +440,11 @@ class BrandMark extends StatelessWidget {
             alignment: Alignment.center,
             child: Text(
               isAr ? 'ب' : 'B',
-              style: context.text.headlineMedium?.copyWith(color: context.palette.brass, fontSize: 26 * size, height: 1),
+              style: context.text.headlineMedium?.copyWith(
+                color: context.palette.brass,
+                fontSize: 26 * size,
+                height: 1,
+              ),
             ),
           ),
           SizedBox(height: 14 * size),

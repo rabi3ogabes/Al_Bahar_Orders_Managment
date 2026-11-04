@@ -24,7 +24,10 @@ class WishlistController extends AsyncNotifier<List<WishlistEntry>> {
     state = AsyncData(
       saved
           ? previous.where((e) => e.product.id != product.id).toList()
-          : [WishlistEntry(id: 'local-${product.id}', product: product, variantId: variantId, addedAt: DateTime.now()), ...previous],
+          : [
+              WishlistEntry(id: 'local-${product.id}', product: product, variantId: variantId, addedAt: DateTime.now()),
+              ...previous,
+            ],
     );
     try {
       if (saved) {
@@ -40,7 +43,9 @@ class WishlistController extends AsyncNotifier<List<WishlistEntry>> {
   }
 }
 
-final wishlistControllerProvider = AsyncNotifierProvider<WishlistController, List<WishlistEntry>>(WishlistController.new);
+final wishlistControllerProvider = AsyncNotifierProvider<WishlistController, List<WishlistEntry>>(
+  WishlistController.new,
+);
 
 final wishlistIdsProvider = Provider<Set<String>>(
   (ref) => {for (final e in ref.watch(wishlistControllerProvider).value ?? const <WishlistEntry>[]) e.product.id},

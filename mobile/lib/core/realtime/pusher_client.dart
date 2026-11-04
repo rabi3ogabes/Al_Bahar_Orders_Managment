@@ -78,7 +78,12 @@ class PusherClient {
       },
       onCancel: () {
         _channels.remove(channelName);
-        if (_subscribed.remove(channelName)) _send({'event': 'pusher:unsubscribe', 'data': {'channel': channelName}});
+        if (_subscribed.remove(channelName)) {
+          _send({
+            'event': 'pusher:unsubscribe',
+            'data': {'channel': channelName},
+          });
+        }
         unawaited(controller.close());
         if (_channels.isEmpty) {
           _idleTimer?.cancel();

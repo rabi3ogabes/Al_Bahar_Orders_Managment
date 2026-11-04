@@ -45,9 +45,8 @@ class ProductListController extends PagedNotifier<ProductSummary> {
   }
 
   @override
-  Future<Paginated<ProductSummary>> fetchPage(int page) => ref
-      .read(catalogRepositoryProvider)
-      .products(query, branchId: ref.read(preferredBranchIdProvider), page: page);
+  Future<Paginated<ProductSummary>> fetchPage(int page) =>
+      ref.read(catalogRepositoryProvider).products(query, branchId: ref.read(preferredBranchIdProvider), page: page);
 }
 
 final productListProvider = AsyncNotifierProvider.autoDispose
@@ -73,8 +72,7 @@ class ReviewsController extends PagedNotifier<Review> {
   void watchDependencies() => ref.watch(localeCodeProvider);
 
   @override
-  Future<Paginated<Review>> fetchPage(int page) =>
-      ref.read(catalogRepositoryProvider).reviews(productId, page: page);
+  Future<Paginated<Review>> fetchPage(int page) => ref.read(catalogRepositoryProvider).reviews(productId, page: page);
 }
 
 final reviewsProvider = AsyncNotifierProvider.autoDispose.family<ReviewsController, PagedState<Review>, String>(

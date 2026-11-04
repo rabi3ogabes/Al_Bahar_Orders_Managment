@@ -135,6 +135,8 @@ abstract final class AppTheme {
           textStyle: text.labelLarge,
           backgroundColor: scheme.primary,
           foregroundColor: scheme.onPrimary,
+          disabledBackgroundColor: ink.withValues(alpha: 0.10),
+          disabledForegroundColor: ink.withValues(alpha: 0.40),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -164,11 +166,26 @@ abstract final class AppTheme {
         labelStyle: text.bodyMedium?.copyWith(color: ext.muted),
         floatingLabelStyle: text.bodyMedium?.copyWith(color: ext.brass),
         hintStyle: text.bodyMedium?.copyWith(color: ext.muted.withValues(alpha: 0.8)),
-        border: OutlineInputBorder(borderRadius: inputRadius, borderSide: BorderSide(color: ext.line)),
-        enabledBorder: OutlineInputBorder(borderRadius: inputRadius, borderSide: BorderSide(color: ext.line)),
-        focusedBorder: OutlineInputBorder(borderRadius: inputRadius, borderSide: BorderSide(color: ext.brass, width: 1.4)),
-        errorBorder: OutlineInputBorder(borderRadius: inputRadius, borderSide: BorderSide(color: ext.danger)),
-        focusedErrorBorder: OutlineInputBorder(borderRadius: inputRadius, borderSide: BorderSide(color: ext.danger, width: 1.4)),
+        border: OutlineInputBorder(
+          borderRadius: inputRadius,
+          borderSide: BorderSide(color: ext.line),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: inputRadius,
+          borderSide: BorderSide(color: ext.line),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: inputRadius,
+          borderSide: BorderSide(color: ext.brass, width: 1.4),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: inputRadius,
+          borderSide: BorderSide(color: ext.danger),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: inputRadius,
+          borderSide: BorderSide(color: ext.danger, width: 1.4),
+        ),
       ),
       chipTheme: ChipThemeData(
         backgroundColor: surface,
@@ -237,7 +254,9 @@ abstract final class AppTheme {
         thumbColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? Colors.white : null),
         trackColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? ext.brass : null),
       ),
-      radioTheme: RadioThemeData(fillColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? ext.brass : ext.muted)),
+      radioTheme: RadioThemeData(
+        fillColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? ext.brass : ext.muted),
+      ),
       checkboxTheme: CheckboxThemeData(
         fillColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? ext.brass : null),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),

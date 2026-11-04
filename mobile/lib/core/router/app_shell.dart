@@ -28,10 +28,18 @@ class AppShell extends ConsumerWidget {
 
     final destinations = <({Widget icon, Widget selected, String label})>[
       (icon: const Icon(Icons.home_outlined), selected: const Icon(Icons.home_rounded), label: l10n.navHome),
-      (icon: const Icon(Icons.grid_view_outlined), selected: const Icon(Icons.grid_view_rounded), label: l10n.navCategories),
+      (
+        icon: const Icon(Icons.grid_view_outlined),
+        selected: const Icon(Icons.grid_view_rounded),
+        label: l10n.navCategories,
+      ),
       (icon: const Icon(Icons.gavel_outlined), selected: const Icon(Icons.gavel_rounded), label: l10n.navAuctions),
       (icon: cartIcon(false), selected: cartIcon(true), label: l10n.navCart),
-      (icon: const Icon(Icons.person_outline_rounded), selected: const Icon(Icons.person_rounded), label: l10n.navAccount),
+      (
+        icon: const Icon(Icons.person_outline_rounded),
+        selected: const Icon(Icons.person_rounded),
+        label: l10n.navAccount,
+      ),
     ];
 
     void onSelect(int index) {
@@ -75,7 +83,9 @@ class AppShell extends ConsumerWidget {
     return Scaffold(
       body: body,
       bottomNavigationBar: DecoratedBox(
-        decoration: BoxDecoration(border: Border(top: BorderSide(color: context.palette.line))),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: context.palette.line)),
+        ),
         child: NavigationBar(
           selectedIndex: shell.currentIndex,
           onDestinationSelected: onSelect,

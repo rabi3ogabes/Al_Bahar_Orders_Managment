@@ -41,7 +41,7 @@ class _AlBaharAppState extends ConsumerState<AlBaharApp> with WidgetsBindingObse
           final wasOffline = !ref.read(onlineProvider);
           ref.read(onlineProvider.notifier).set(online);
           if (online && wasOffline) ref.read(pusherClientProvider).reconnectNow();
-        });
+        }, onError: (Object _) {});
       } catch (_) {}
     }
   }

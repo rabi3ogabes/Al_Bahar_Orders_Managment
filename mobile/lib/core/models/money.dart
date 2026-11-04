@@ -117,11 +117,8 @@ class ImageRef {
 class NamedRef {
   const NamedRef({required this.id, required this.name, this.slug});
 
-  factory NamedRef.fromJson(JsonMap json) => NamedRef(
-    id: asString(json['id']),
-    name: asString(json['name']),
-    slug: asStringOrNull(json['slug']),
-  );
+  factory NamedRef.fromJson(JsonMap json) =>
+      NamedRef(id: asString(json['id']), name: asString(json['name']), slug: asStringOrNull(json['slug']));
 
   static NamedRef? maybe(Object? json) => json is Map ? NamedRef.fromJson(asMap(json)) : null;
 

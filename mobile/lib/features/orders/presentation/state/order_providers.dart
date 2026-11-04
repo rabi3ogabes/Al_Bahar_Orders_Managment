@@ -10,7 +10,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// comma-separated list — assumption, see API_ASSUMPTIONS.md).
 enum OrderFilter {
   all(null),
-  active('pending_payment,confirmed,processing,partially_fulfilled,ready_for_pickup,out_for_delivery,cancellation_requested'),
+  active(
+    'pending_payment,confirmed,processing,partially_fulfilled,ready_for_pickup,out_for_delivery,cancellation_requested',
+  ),
   completed('completed'),
   cancelled('cancelled,partially_cancelled,returned');
 
@@ -33,9 +35,8 @@ class OrdersController extends PagedNotifier<OrderSummary> {
       ref.read(orderRepositoryProvider).list(status: filter.status, page: page);
 }
 
-final ordersProvider = AsyncNotifierProvider.autoDispose.family<OrdersController, PagedState<OrderSummary>, OrderFilter>(
-  OrdersController.new,
-);
+final ordersProvider = AsyncNotifierProvider.autoDispose
+    .family<OrdersController, PagedState<OrderSummary>, OrderFilter>(OrdersController.new);
 
 final orderDetailProvider = FutureProvider.autoDispose.family<Order, String>((ref, id) {
   ref.watch(localeCodeProvider);

@@ -154,10 +154,7 @@ class RegistrationRequest {
     'registration_token': registrationToken,
     'name': name,
     if (email != null && email!.isNotEmpty) 'email': email,
-    if (password != null && password!.isNotEmpty) ...{
-      'password': password,
-      'password_confirmation': password,
-    },
+    if (password != null && password!.isNotEmpty) ...{'password': password, 'password_confirmation': password},
     'locale': ?locale,
     if (referralCode != null && referralCode!.isNotEmpty) 'referral_code': referralCode,
     'marketing_consent': marketingConsent,

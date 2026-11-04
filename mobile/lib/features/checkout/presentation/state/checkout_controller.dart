@@ -46,8 +46,7 @@ class CheckoutState {
     return null;
   }
 
-  bool get canPlace =>
-      quote != null && quote!.canPlaceOrder && !quoting && !placing && missingRequirement == null;
+  bool get canPlace => quote != null && quote!.canPlaceOrder && !quoting && !placing && missingRequirement == null;
 
   CheckoutState copyWith({
     CheckoutOptions? options,

@@ -136,8 +136,14 @@ final routerProvider = Provider<GoRouter>((ref) {
     errorBuilder: (context, state) => const NotFoundScreen(),
     routes: [
       GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
-      GoRoute(path: '/language', builder: (_, s) => LanguageScreen(from: s.uri.queryParameters['from'])),
-      GoRoute(path: '/onboarding', builder: (_, s) => OnboardingScreen(from: s.uri.queryParameters['from'])),
+      GoRoute(
+        path: '/language',
+        builder: (_, s) => LanguageScreen(from: s.uri.queryParameters['from']),
+      ),
+      GoRoute(
+        path: '/onboarding',
+        builder: (_, s) => OnboardingScreen(from: s.uri.queryParameters['from']),
+      ),
       GoRoute(
         path: '/login',
         builder: (_, s) => PhoneLoginScreen(from: s.uri.queryParameters['from']),
@@ -158,7 +164,10 @@ final routerProvider = Provider<GoRouter>((ref) {
               return RegisterScreen(args: args);
             },
           ),
-          GoRoute(path: 'password', builder: (_, s) => PasswordLoginScreen(from: s.uri.queryParameters['from'])),
+          GoRoute(
+            path: 'password',
+            builder: (_, s) => PasswordLoginScreen(from: s.uri.queryParameters['from']),
+          ),
           GoRoute(path: 'reset', builder: (_, _) => const PasswordResetScreen()),
         ],
       ),
@@ -233,20 +242,26 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: 'reviews/new',
-                builder: (_, s) => WriteReviewScreen(
-                  productId: s.pathParameters['id']!,
-                  productName: s.uri.queryParameters['name'],
-                ),
+                builder: (_, s) =>
+                    WriteReviewScreen(productId: s.pathParameters['id']!, productName: s.uri.queryParameters['name']),
               ),
             ],
           ),
         ],
       ),
-      GoRoute(path: '/search', builder: (_, s) => SearchScreen(initialQuery: s.uri.queryParameters['q'])),
+      GoRoute(
+        path: '/search',
+        builder: (_, s) => SearchScreen(initialQuery: s.uri.queryParameters['q']),
+      ),
       GoRoute(
         path: '/branches',
         builder: (_, s) => BranchesScreen(pickMode: s.uri.queryParameters['pick'] == '1'),
-        routes: [GoRoute(path: ':id', builder: (_, s) => BranchDetailScreen(branchId: s.pathParameters['id']!))],
+        routes: [
+          GoRoute(
+            path: ':id',
+            builder: (_, s) => BranchDetailScreen(branchId: s.pathParameters['id']!),
+          ),
+        ],
       ),
       GoRoute(path: '/checkout', builder: (_, _) => const CheckoutScreen()),
       GoRoute(
@@ -263,18 +278,23 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: ':id',
-            builder: (_, s) => OrderDetailScreen(orderId: s.pathParameters['id']!),
+            builder: (_, s) =>
+                OrderDetailScreen(orderId: s.pathParameters['id']!, justPlaced: s.uri.queryParameters['placed'] == '1'),
             routes: [
               GoRoute(
                 path: 'pickup/:fid',
-                builder: (_, s) => PickupPassScreen(orderId: s.pathParameters['id']!, fulfillmentId: s.pathParameters['fid']!),
+                builder: (_, s) =>
+                    PickupPassScreen(orderId: s.pathParameters['id']!, fulfillmentId: s.pathParameters['fid']!),
               ),
             ],
           ),
         ],
       ),
       GoRoute(path: '/wishlist', builder: (_, _) => const WishlistScreen()),
-      GoRoute(path: '/my-auctions', builder: (_, s) => MyAuctionsScreen(initialTab: s.uri.queryParameters['tab'])),
+      GoRoute(
+        path: '/my-auctions',
+        builder: (_, s) => MyAuctionsScreen(initialTab: s.uri.queryParameters['tab']),
+      ),
       GoRoute(path: '/notifications', builder: (_, _) => const NotificationsScreen()),
       GoRoute(path: '/profile/edit', builder: (_, _) => const EditProfileScreen()),
       GoRoute(
@@ -282,7 +302,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, s) => AddressesScreen(pickMode: s.uri.queryParameters['pick'] == '1'),
         routes: [
           GoRoute(path: 'new', builder: (_, _) => const AddressFormScreen()),
-          GoRoute(path: ':id/edit', builder: (_, s) => AddressFormScreen(addressId: s.pathParameters['id'])),
+          GoRoute(
+            path: ':id/edit',
+            builder: (_, s) => AddressFormScreen(addressId: s.pathParameters['id']),
+          ),
         ],
       ),
       GoRoute(path: '/preferences/notifications', builder: (_, _) => const NotificationPrefsScreen()),
@@ -291,11 +314,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/support',
         builder: (_, _) => const SupportScreen(),
         routes: [
-          GoRoute(path: 'new', builder: (_, s) => NewTicketScreen(orderId: s.uri.queryParameters['order_id'])),
-          GoRoute(path: ':id', builder: (_, s) => TicketScreen(ticketId: s.pathParameters['id']!)),
+          GoRoute(
+            path: 'new',
+            builder: (_, s) => NewTicketScreen(orderId: s.uri.queryParameters['order_id']),
+          ),
+          GoRoute(
+            path: ':id',
+            builder: (_, s) => TicketScreen(ticketId: s.pathParameters['id']!),
+          ),
         ],
       ),
-      GoRoute(path: '/pages/:slug', builder: (_, s) => CmsPageScreen(slug: s.pathParameters['slug']!)),
+      GoRoute(
+        path: '/pages/:slug',
+        builder: (_, s) => CmsPageScreen(slug: s.pathParameters['slug']!),
+      ),
       GoRoute(
         path: '/settings',
         builder: (_, _) => const SettingsScreen(),

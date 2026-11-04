@@ -62,15 +62,21 @@ class Address {
   bool get hasPin => latitude != null && longitude != null;
 
   /// Qatar-style one-liner: "Zone 66, Street 850, Building 12, Unit 4 · West Bay".
-  String summary({String zone = 'Zone', String street = 'Street', String building = 'Building', String unit = 'Unit'}) {
+  String summary({
+    String zone = 'Zone',
+    String street = 'Street',
+    String building = 'Building',
+    String unit = 'Unit',
+    String separator = ', ',
+  }) {
     final parts = <String>[
       if (zoneNumber != null) '$zone $zoneNumber',
       if (streetNumber != null) '$street $streetNumber',
       if (buildingNumber != null) '$building $buildingNumber',
       if (unitNumber != null) '$unit $unitNumber',
     ];
-    final place = [area, city].whereType<String>().where((s) => s.isNotEmpty).join(', ');
-    return [parts.join(', '), place].where((s) => s.isNotEmpty).join(' · ');
+    final place = [area, city].whereType<String>().where((s) => s.isNotEmpty).join(separator);
+    return [parts.join(separator), place].where((s) => s.isNotEmpty).join(' · ');
   }
 }
 
@@ -151,14 +157,22 @@ class NotificationPreference {
   final String category;
   final bool isEnabled;
 
-  NotificationPreference withEnabled(bool v) => NotificationPreference(channel: channel, category: category, isEnabled: v);
+  NotificationPreference withEnabled(bool v) =>
+      NotificationPreference(channel: channel, category: category, isEnabled: v);
 
   JsonMap toJson() => {'channel': channel, 'category': category, 'is_enabled': isEnabled};
 }
 
 @immutable
 class LoyaltyTransaction {
-  const LoyaltyTransaction({required this.type, required this.points, this.balanceAfter, this.reason, this.createdAt, this.expiresAt});
+  const LoyaltyTransaction({
+    required this.type,
+    required this.points,
+    this.balanceAfter,
+    this.reason,
+    this.createdAt,
+    this.expiresAt,
+  });
   factory LoyaltyTransaction.fromJson(JsonMap json) => LoyaltyTransaction(
     type: asString(json['type']),
     points: asInt(json['points']),
@@ -177,7 +191,13 @@ class LoyaltyTransaction {
 
 @immutable
 class LoyaltySummary {
-  const LoyaltySummary({required this.balance, this.tier, this.value, this.lifetimeEarned = 0, this.transactions = const []});
+  const LoyaltySummary({
+    required this.balance,
+    this.tier,
+    this.value,
+    this.lifetimeEarned = 0,
+    this.transactions = const [],
+  });
   factory LoyaltySummary.fromJson(JsonMap json) => LoyaltySummary(
     balance: asInt(json['balance']),
     tier: asStringOrNull(json['tier'] is Map ? asMap(json['tier'])['name'] : json['tier']),

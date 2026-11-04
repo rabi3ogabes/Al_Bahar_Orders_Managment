@@ -9,12 +9,11 @@ class BranchRepository {
   BranchRepository(this._api);
   final ApiClient _api;
 
-  Future<Paginated<Branch>> list({String? search, bool? pickup, bool? delivery, int page = 1}) =>
-      _api.getPage(
-        '/branches',
-        Branch.fromJson,
-        query: {'search': search, 'pickup': pickup, 'delivery': delivery, 'page': page, 'per_page': 50},
-      );
+  Future<Paginated<Branch>> list({String? search, bool? pickup, bool? delivery, int page = 1}) => _api.getPage(
+    '/branches',
+    Branch.fromJson,
+    query: {'search': search, 'pickup': pickup, 'delivery': delivery, 'page': page, 'per_page': 50},
+  );
 
   Future<List<Branch>> nearby({required double lat, required double lng, double radiusKm = 30}) async {
     final page = await _api.getPage(

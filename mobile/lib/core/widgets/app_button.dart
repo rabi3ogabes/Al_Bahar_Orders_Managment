@@ -100,12 +100,22 @@ class AppButton extends StatelessWidget {
       AppButtonVariant.primary => FilledButton(onPressed: enabled ? handle : null, child: child),
       AppButtonVariant.accent => FilledButton(
         onPressed: enabled ? handle : null,
-        style: FilledButton.styleFrom(backgroundColor: palette.brass, foregroundColor: Colors.white),
+        style: FilledButton.styleFrom(
+          backgroundColor: palette.brass,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: palette.ink.withValues(alpha: 0.10),
+          disabledForegroundColor: palette.ink.withValues(alpha: 0.40),
+        ),
         child: child,
       ),
       AppButtonVariant.destructive => FilledButton(
         onPressed: enabled ? handle : null,
-        style: FilledButton.styleFrom(backgroundColor: palette.danger, foregroundColor: Colors.white),
+        style: FilledButton.styleFrom(
+          backgroundColor: palette.danger,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: palette.ink.withValues(alpha: 0.10),
+          disabledForegroundColor: palette.ink.withValues(alpha: 0.40),
+        ),
         child: child,
       ),
       AppButtonVariant.secondary => OutlinedButton(onPressed: enabled ? handle : null, child: child),

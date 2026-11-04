@@ -7,8 +7,7 @@ import 'package:flutter/foundation.dart';
 @immutable
 class HomeLink {
   const HomeLink({required this.type, required this.value});
-  factory HomeLink.fromJson(JsonMap json) =>
-      HomeLink(type: asString(json['type']), value: asString(json['value']));
+  factory HomeLink.fromJson(JsonMap json) => HomeLink(type: asString(json['type']), value: asString(json['value']));
   final String type;
   final String value;
 
@@ -73,7 +72,13 @@ sealed class HomeSection {
   final String? title;
   final String? layout;
 
-  static const productTypes = {'featured_products', 'new_arrivals', 'best_sellers', 'recommended', 'product_collection'};
+  static const productTypes = {
+    'featured_products',
+    'new_arrivals',
+    'best_sellers',
+    'recommended',
+    'product_collection',
+  };
 
   static HomeSection? fromJson(JsonMap json) {
     final type = asString(json['type']);
@@ -175,7 +180,11 @@ class AuctionsSection extends HomeSection {
 class HomeFeed {
   const HomeFeed(this.sections);
   factory HomeFeed.fromJson(JsonMap json) => HomeFeed(
-    asList(json['sections']).whereType<Map<dynamic, dynamic>>().map((e) => HomeSection.fromJson(asMap(e))).whereType<HomeSection>().toList(),
+    asList(json['sections'])
+        .whereType<Map<dynamic, dynamic>>()
+        .map((e) => HomeSection.fromJson(asMap(e)))
+        .whereType<HomeSection>()
+        .toList(),
   );
   final List<HomeSection> sections;
 }

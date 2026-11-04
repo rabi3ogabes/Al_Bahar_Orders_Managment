@@ -43,12 +43,7 @@ class ApiClient {
       d.interceptors.addAll([LocaleInterceptor(localeCode), RequestIdInterceptor()]);
     }
     dio.interceptors.add(
-      AuthInterceptor(
-        tokenStore: tokenStore,
-        dio: dio,
-        refreshDio: refreshDio,
-        onSessionExpired: onSessionExpired,
-      ),
+      AuthInterceptor(tokenStore: tokenStore, dio: dio, refreshDio: refreshDio, onSessionExpired: onSessionExpired),
     );
     if (config.httpLoggingEnabled) {
       dio.interceptors.add(RedactingLogInterceptor());
@@ -76,11 +71,7 @@ class ApiClient {
   }
 
   /// GET a paginated collection. Also tolerates plain arrays.
-  Future<Paginated<T>> getPage<T>(
-    String path,
-    T Function(JsonMap) fromJson, {
-    Map<String, dynamic>? query,
-  }) async {
+  Future<Paginated<T>> getPage<T>(String path, T Function(JsonMap) fromJson, {Map<String, dynamic>? query}) async {
     final body = await _guardRaw(() => dio.get<dynamic>(path, queryParameters: _clean(query)));
     if (body is Map && body['data'] is List) {
       return Paginated.fromJson(asMap(body), fromJson);

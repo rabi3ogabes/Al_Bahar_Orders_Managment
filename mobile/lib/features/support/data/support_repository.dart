@@ -18,15 +18,19 @@ class SupportRepository {
 
   Future<SupportTicket> ticket(String id) => _api.getObject('/me/support/tickets/$id', SupportTicket.fromJson);
 
-  Future<SupportTicket> create({required String category, required String subject, required String message, String? orderId}) async =>
-      SupportTicket.fromJson(
-        asMap(
-          await _api.post(
-            '/me/support/tickets',
-            data: {'category': category, 'subject': subject, 'message': message, 'order_id': ?orderId},
-          ),
-        ),
-      );
+  Future<SupportTicket> create({
+    required String category,
+    required String subject,
+    required String message,
+    String? orderId,
+  }) async => SupportTicket.fromJson(
+    asMap(
+      await _api.post(
+        '/me/support/tickets',
+        data: {'category': category, 'subject': subject, 'message': message, 'order_id': ?orderId},
+      ),
+    ),
+  );
 
   Future<TicketMessage?> reply(String ticketId, String body) async {
     final data = await _api.post('/me/support/tickets/$ticketId/messages', data: {'body': body});
@@ -35,9 +39,8 @@ class SupportRepository {
   }
 
   /// CMS pages are public.
-  Future<CmsPage> page(String slug) async => CmsPage.fromJson(
-    asMap(await _api.get('/pages/$slug', options: Options(extra: {RequestFlags.skipAuth: true}))),
-  );
+  Future<CmsPage> page(String slug) async =>
+      CmsPage.fromJson(asMap(await _api.get('/pages/$slug', options: Options(extra: {RequestFlags.skipAuth: true}))));
 }
 
 final supportRepositoryProvider = Provider<SupportRepository>((ref) => SupportRepository(ref.watch(apiClientProvider)));
@@ -53,7 +56,9 @@ class TicketsController extends PagedNotifier<SupportTicket> {
   Future<Paginated<SupportTicket>> fetchPage(int page) => ref.read(supportRepositoryProvider).tickets(page: page);
 }
 
-final ticketsProvider = AsyncNotifierProvider.autoDispose<TicketsController, PagedState<SupportTicket>>(TicketsController.new);
+final ticketsProvider = AsyncNotifierProvider.autoDispose<TicketsController, PagedState<SupportTicket>>(
+  TicketsController.new,
+);
 
 final ticketProvider = FutureProvider.autoDispose.family<SupportTicket, String>(
   (ref, id) => ref.watch(supportRepositoryProvider).ticket(id),

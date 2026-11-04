@@ -86,7 +86,9 @@ class Auction {
       summary: AuctionSummary.fromJson(json),
       lots: mapList(json['lots'], Lot.fromJson),
       termsHtml: termsRaw is Map ? asStringOrNull(termsRaw['body']) : asStringOrNull(termsRaw),
-      registration: json['my_registration'] is Map ? AuctionRegistration.fromJson(asMap(json['my_registration'])) : null,
+      registration: json['my_registration'] is Map
+          ? AuctionRegistration.fromJson(asMap(json['my_registration']))
+          : null,
       requiresRegistration: asBool(json['requires_registration'], true),
       depositRequired: Money.maybe(json['deposit_required']),
     );
@@ -247,7 +249,13 @@ class Lot {
 
 @immutable
 class BidEntry {
-  const BidEntry({required this.bidNumber, required this.amount, required this.bidder, this.placedAt, this.isMine = false});
+  const BidEntry({
+    required this.bidNumber,
+    required this.amount,
+    required this.bidder,
+    this.placedAt,
+    this.isMine = false,
+  });
 
   factory BidEntry.fromJson(JsonMap json) {
     final bidder = asString(json['bidder'], '');
@@ -276,10 +284,21 @@ class LotEvent {
 
   factory LotEvent.fromJson(JsonMap json, {String? type}) => LotEvent(
     sequence: asInt(json['sequence']),
-    type: type ?? asString(json['type'] ?? json['event'], 'bid.accepted'),
+    type: normalizeType(type ?? asString(json['type'] ?? json['event'], 'bid.accepted')),
     lot: json['lot'] is Map ? Lot.fromJson(asMap(json['lot'])) : null,
     bid: json['bid'] is Map ? BidEntry.fromJson(asMap(json['bid'])) : null,
   );
+
+  /// Replayed events (`GET /events`) carry the stored type (`bid_accepted`, `extended`, `opened`…);
+  /// realtime events carry the broadcast name. Both map to the same three client types.
+  static String normalizeType(String raw) {
+    if (raw.contains('.')) return raw;
+    return switch (raw) {
+      'bid_accepted' => 'bid.accepted',
+      'extended' => 'lot.extended',
+      _ => 'lot.status',
+    };
+  }
 
   final int sequence;
 

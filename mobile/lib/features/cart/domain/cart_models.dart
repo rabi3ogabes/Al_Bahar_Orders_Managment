@@ -98,7 +98,10 @@ class Cart {
       items: items,
       itemsCount: asInt(json['items_count'], items.fold<int>(0, (s, i) => s + i.quantity)),
       subtotal: Money.maybe(json['subtotal']) ?? Money.zero,
-      warnings: asList(json['warnings']).map((w) => w is Map ? asString(w['message']) : asString(w)).where((w) => w.isNotEmpty).toList(),
+      warnings: asList(json['warnings'])
+          .map((w) => w is Map ? asString(w['message']) : asString(w))
+          .where((w) => w.isNotEmpty)
+          .toList(),
     );
   }
 

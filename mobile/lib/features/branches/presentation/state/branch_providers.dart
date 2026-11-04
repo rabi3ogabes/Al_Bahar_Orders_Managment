@@ -28,9 +28,7 @@ class PreferredBranchController extends Notifier<BranchRef?> {
   }
 }
 
-final preferredBranchProvider = NotifierProvider<PreferredBranchController, BranchRef?>(
-  PreferredBranchController.new,
-);
+final preferredBranchProvider = NotifierProvider<PreferredBranchController, BranchRef?>(PreferredBranchController.new);
 
 final preferredBranchIdProvider = Provider<String?>((ref) => ref.watch(preferredBranchProvider)?.id);
 

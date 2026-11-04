@@ -32,8 +32,7 @@ class CartController extends AsyncNotifier<Cart> {
     return cart;
   }
 
-  Future<Cart> addItem(String variantId, {int quantity = 1}) async =>
-      _apply(await _repo.addItem(variantId, quantity));
+  Future<Cart> addItem(String variantId, {int quantity = 1}) async => _apply(await _repo.addItem(variantId, quantity));
 
   Future<void> updateQuantity(String itemId, int quantity) async {
     if (quantity <= 0) return removeItem(itemId);

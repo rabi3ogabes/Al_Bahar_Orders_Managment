@@ -7,8 +7,7 @@ import '../../../core/utils/json.dart';
 class Rating {
   const Rating({required this.average, required this.count});
 
-  factory Rating.fromJson(JsonMap json) =>
-      Rating(average: asDouble(json['average']), count: asInt(json['count']));
+  factory Rating.fromJson(JsonMap json) => Rating(average: asDouble(json['average']), count: asInt(json['count']));
 
   static const empty = Rating(average: 0, count: 0);
 
@@ -317,9 +316,7 @@ class ProductDetail {
   }
 
   ProductVariant? get defaultVariant =>
-      variantById(defaultVariantId) ??
-      variants.where((v) => v.purchasable).firstOrNull ??
-      variants.firstOrNull;
+      variantById(defaultVariantId) ?? variants.where((v) => v.purchasable).firstOrNull ?? variants.firstOrNull;
 
   /// Finds the variant whose attribute values match [selection]
   /// (attribute code → value id). Returns null if no exact match.
