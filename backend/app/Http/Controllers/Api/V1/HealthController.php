@@ -18,9 +18,10 @@ class HealthController extends Controller
         $checks = [
             'database' => $this->check(fn () => DB::select('select 1')),
             'cache' => $this->check(function () {
-                Cache::put('health:ping', 1, 5);
+                $token = bin2hex(random_bytes(4));
+                Cache::put('health:ping', $token, 5);
 
-                return Cache::get('health:ping') === 1 ?: throw new \RuntimeException;
+                return Cache::get('health:ping') === $token ?: throw new \RuntimeException;
             }),
             'redis' => config('database.redis.default.host') ? $this->check(fn () => Redis::connection()->ping()) : 'skipped',
         ];
