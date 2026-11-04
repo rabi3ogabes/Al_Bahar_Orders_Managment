@@ -58,3 +58,24 @@ Route::middleware(['auth:sanctum', 'customer'])->group(function () {
         Route::get('payments/{id}', 'payment')->name('payments.show');
     });
 });
+
+// ── Auctions ──────────────────────────────────────────────────────────────────
+Route::controller(V1\Auctions\AuctionController::class)->group(function () {
+    Route::get('auctions', 'index')->name('auctions.index');
+    Route::get('auctions/{id}', 'show')->whereUuid('id')->name('auctions.show');
+    Route::get('auctions/lots/{lotId}', 'lot')->name('auctions.lots.show');
+    Route::get('auctions/lots/{lotId}/bids', 'bids')->name('auctions.lots.bids');
+    Route::get('auctions/lots/{lotId}/events', 'events')->name('auctions.lots.events');
+    Route::middleware(['auth:sanctum', 'customer'])->group(function () {
+        Route::post('auctions/{id}/register', 'register')->name('auctions.register');
+        Route::post('auctions/lots/{lotId}/bids', 'bid')->middleware('throttle:bids')->name('auctions.lots.bid');
+        Route::post('auctions/lots/{lotId}/auto-bid', 'autoBid')->middleware('throttle:bids')->name('auctions.lots.auto-bid');
+        Route::delete('auctions/lots/{lotId}/auto-bid', 'cancelAutoBid')->name('auctions.lots.auto-bid.cancel');
+        Route::post('auctions/lots/{lotId}/watch', 'watch')->name('auctions.lots.watch');
+        Route::delete('auctions/lots/{lotId}/watch', 'unwatch')->name('auctions.lots.unwatch');
+        Route::get('me/auctions/bids', 'myBids')->name('me.auctions.bids');
+        Route::get('me/auctions/watchlist', 'watchlist')->name('me.auctions.watchlist');
+        Route::get('me/auctions/wins', 'wins')->name('me.auctions.wins');
+        Route::post('me/auctions/wins/{winnerId}/checkout', 'checkoutWin')->name('me.auctions.wins.checkout');
+    });
+});

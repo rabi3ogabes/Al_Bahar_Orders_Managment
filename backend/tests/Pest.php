@@ -90,3 +90,26 @@ function quoteAndPlace(array $options, ?string $key = null): \Illuminate\Testing
 
     return test()->postJson('/api/v1/checkout/orders', $options + ['quote_hash' => $quote['quote_hash']], ['Idempotency-Key' => $key ?? (string) \Illuminate\Support\Str::uuid()]);
 }
+
+/** An open scheduled auction lot (start 100, increment 10, reserve 300, ends in 10 min) with two registered bidders. */
+function auctionWorld(array $lot = [], array $auction = []): object
+{
+    $admin = staffWithRole('auction_manager');
+    $svc = app(\App\Domain\Auctions\Services\AuctionService::class);
+    $a = $svc->save($admin, array_merge(['type' => 'scheduled', 'requires_registration' => true, 'translations' => ['en' => ['title' => 'Heritage Majlis'], 'ar' => ['title' => 'مجلس تراثي']]], $auction));
+    $l = $svc->addLot($admin, $a, array_merge(['title_en' => 'Carved Cedar Chest', 'title_ar' => 'صندوق أرز منحوت', 'starting_price' => '100.00', 'min_increment' => '10.00',
+        'reserve_price' => '300.00', 'starts_at' => now()->subMinute(), 'ends_at' => now()->addMinutes(10)], $lot));
+    $svc->publish($admin, $a);
+    app(\App\Domain\Auctions\Services\LotService::class)->open($l);
+    $u1 = \App\Domain\Identity\Models\User::factory()->create();
+    $u2 = \App\Domain\Identity\Models\User::factory()->create();
+    $svc->register($u1, $a->fresh());
+    $svc->register($u2, $a->fresh());
+
+    return (object) ['auction' => $a->fresh(), 'lot' => $l->fresh(), 'u1' => $u1, 'u2' => $u2, 'admin' => $admin];
+}
+
+function bid(object $w, \App\Domain\Identity\Models\User $u, string $amount, ?string $key = null): array
+{
+    return app(\App\Domain\Auctions\Services\BidEngine::class)->placeBid($u, $w->lot->id, \App\Support\Money::of($amount), $key ?? (string) \Illuminate\Support\Str::uuid());
+}

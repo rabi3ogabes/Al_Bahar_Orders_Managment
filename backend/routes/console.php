@@ -24,3 +24,7 @@ Schedule::command('orders:expire-unpaid')->everyMinute()->withoutOverlapping()->
 Schedule::command('inventory:expire-reservations')->everyMinute()->withoutOverlapping()->onOneServer();
 Schedule::command('payments:reconcile-pending')->everyFiveMinutes()->withoutOverlapping()->onOneServer();
 Schedule::command('loyalty:expire-points')->dailyAt('02:15')->timezone('Asia/Qatar')->onOneServer();
+
+Artisan::command('auctions:tick', fn (\App\Domain\Auctions\Services\LotService $l) => $this->info(json_encode($l->tick())))
+    ->purpose('Open due lots, close ended lots (server time) and apply unpaid-winner policy');
+Schedule::command('auctions:tick')->everyFiveSeconds()->withoutOverlapping(1)->onOneServer();

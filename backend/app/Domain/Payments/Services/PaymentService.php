@@ -206,6 +206,9 @@ class PaymentService
         $p->forceFill(['provider_reference' => $providerReference ?? $p->provider_reference, 'captured_amount' => $amount->toDecimal(), 'paid_at' => now()]);
         $this->setStatus($p, PS::Paid);
 
+        if ($p->payable_type === 'auction_deposit') {
+            app(\App\Domain\Auctions\Services\AuctionService::class)->depositPaid($p);
+        }
         if ($p->order_id) {
             $order = Order::whereKey($p->order_id)->lockForUpdate()->firstOrFail();
             $order->forceFill(['payment_status' => PS::Paid, 'paid_total' => Money::of($order->paid_total)->plus($amount)->toDecimal()])->save();
@@ -214,6 +217,9 @@ class PaymentService
             StockReservation::where('reference_type', 'order_item')->whereIn('reference_id', $order->items()->pluck('id'))
                 ->where('status', 'active')->update(['expires_at' => null]);
             app(OrderService::class)->refreshOrderStatus($order, null, 'payment_received');
+            if ($order->auction_winner_id) {
+                \App\Domain\Auctions\Models\AuctionWinner::whereKey($order->auction_winner_id)->update(['status' => 'paid', 'paid_at' => now()]);
+            }
         }
     }
 

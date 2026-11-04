@@ -30,11 +30,14 @@ class ReservationService
         return DB::transaction(function () use ($lines, $expiresAt, $actorId) {
             $rows = $this->ledger->lockMany(array_map(fn ($l) => [$l['branch_id'], $l['variant_id']], $lines));
 
-            $existing = StockReservation::where(function ($q) use ($lines) {
+            $all = StockReservation::where(function ($q) use ($lines) {
                 foreach ($lines as $l) {
                     $q->orWhere(fn ($w) => $w->where('reference_type', $l['reference_type'])->where('reference_id', $l['reference_id']));
                 }
-            })->get()->keyBy(fn ($r) => $r->reference_type.'|'.$r->reference_id);
+            })->lockForUpdate()->get()->keyBy(fn ($r) => $r->reference_type.'|'.$r->reference_id);
+            // Active/consumed reservations are idempotent replays; released/expired ones may be re-activated (e.g. relisted lot).
+            $existing = $all->filter(fn ($r) => in_array($r->status, ['active', 'consumed'], true));
+            $revivable = $all->reject(fn ($r) => in_array($r->status, ['active', 'consumed'], true));
 
             // Validate everything first (aggregate quantities for the same branch/variant).
             $needed = [];
@@ -63,11 +66,11 @@ class ReservationService
 
                     continue;
                 }
-                $reservation = StockReservation::create([
-                    'branch_id' => $l['branch_id'], 'product_variant_id' => $l['variant_id'], 'quantity' => $l['quantity'],
-                    'status' => 'active', 'reference_type' => $l['reference_type'], 'reference_id' => $l['reference_id'],
-                    'expires_at' => $expiresAt, 'created_by' => $actorId,
-                ]);
+                $attrs = ['branch_id' => $l['branch_id'], 'product_variant_id' => $l['variant_id'], 'quantity' => $l['quantity'], 'status' => 'active',
+                    'expires_at' => $expiresAt, 'created_by' => $actorId, 'released_at' => null, 'release_reason' => null, 'consumed_at' => null];
+                $reservation = isset($revivable[$key])
+                    ? tap($revivable[$key])->update($attrs)
+                    : StockReservation::create($attrs + ['reference_type' => $l['reference_type'], 'reference_id' => $l['reference_id']]);
                 $this->ledger->apply($l['branch_id'], $l['variant_id'], MovementType::Reservation, 0, $l['quantity'],
                     'stock_reservation', $reservation->id, null, $actorId);
                 $out[] = $reservation;
