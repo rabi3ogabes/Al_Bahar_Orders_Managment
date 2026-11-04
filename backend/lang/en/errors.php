@@ -102,4 +102,5 @@ return [
     'auction_win_not_payable' => 'This win can no longer be paid.',
     'auction_not_publishable' => 'Add a title, at least one lot and complete dates before publishing.',
     'delivery_unavailable_area' => 'We don\'t deliver to this address yet.',
+    'review_exists' => 'You\'ve already reviewed this product.',
 ];

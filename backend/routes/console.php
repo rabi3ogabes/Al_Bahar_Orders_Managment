@@ -28,3 +28,11 @@ Schedule::command('loyalty:expire-points')->dailyAt('02:15')->timezone('Asia/Qat
 Artisan::command('auctions:tick', fn (\App\Domain\Auctions\Services\LotService $l) => $this->info(json_encode($l->tick())))
     ->purpose('Open due lots, close ended lots (server time) and apply unpaid-winner policy');
 Schedule::command('auctions:tick')->everyFiveSeconds()->withoutOverlapping(1)->onOneServer();
+
+Artisan::command('marketing:abandoned-carts', fn (\App\Domain\Marketing\Services\CampaignService $c) => $this->info('Reminded: '.$c->remindAbandonedCarts()))
+    ->purpose('Send consent-aware abandoned cart reminders within frequency limits');
+Artisan::command('marketing:send-scheduled', function (\App\Domain\Marketing\Services\CampaignService $c) {
+    \App\Domain\Notifications\Models\MarketingCampaign::where('status', 'scheduled')->where('scheduled_at', '<=', now())->get()->each(fn ($m) => $c->send($m));
+})->purpose('Send campaigns whose scheduled time has arrived');
+Schedule::command('marketing:abandoned-carts')->everyFifteenMinutes()->onOneServer();
+Schedule::command('marketing:send-scheduled')->everyMinute()->withoutOverlapping()->onOneServer();

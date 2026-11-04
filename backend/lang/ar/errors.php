@@ -102,4 +102,5 @@ return [
     'auction_win_not_payable' => 'لم يعد بالإمكان دفع قيمة هذا الفوز.',
     'auction_not_publishable' => 'أضف عنواناً وقطعة واحدة على الأقل وأكمل التواريخ قبل النشر.',
     'delivery_unavailable_area' => 'لا نوصل إلى هذا العنوان بعد.',
+    'review_exists' => 'لقد قيّمت هذا المنتج بالفعل.',
 ];

@@ -17,6 +17,6 @@ class DomainServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        //
+        \Illuminate\Support\Facades\Event::subscribe(\App\Domain\Notifications\Listeners\DomainEventSubscriber::class);
     }
 }

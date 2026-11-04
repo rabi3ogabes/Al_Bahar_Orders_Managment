@@ -79,3 +79,32 @@ Route::controller(V1\Auctions\AuctionController::class)->group(function () {
         Route::post('me/auctions/wins/{winnerId}/checkout', 'checkoutWin')->name('me.auctions.wins.checkout');
     });
 });
+
+// ── Engagement: home, CMS, notifications, loyalty, wishlist, reviews, support ──
+Route::controller(V1\Engagement\EngagementController::class)->group(function () {
+    Route::get('home', 'home')->name('home');
+    Route::get('pages/{slug}', 'page')->name('pages.show');
+    Route::get('products/{productId}/reviews', 'reviews')->whereUuid('productId')->name('products.reviews');
+    Route::get('products/{productId}/questions', 'questions')->whereUuid('productId')->name('products.questions');
+    Route::middleware(['auth:sanctum', 'customer'])->group(function () {
+        Route::get('me/notifications', 'notifications')->name('me.notifications');
+        Route::post('me/notifications/read-all', 'readAll')->name('me.notifications.read-all');
+        Route::post('me/notifications/{id}/read', 'readNotification')->name('me.notifications.read');
+        Route::get('me/notification-preferences', 'preferences')->name('me.preferences');
+        Route::put('me/notification-preferences', 'updatePreferences')->name('me.preferences.update');
+        Route::get('me/loyalty', 'loyalty')->name('me.loyalty');
+        Route::get('me/referral', 'referral')->name('me.referral');
+        Route::get('me/wishlist', 'wishlist')->name('me.wishlist');
+        Route::post('me/wishlist', 'addWishlist')->name('me.wishlist.add');
+        Route::delete('me/wishlist/{productId}', 'removeWishlist')->name('me.wishlist.remove');
+        Route::post('products/{productId}/reviews', 'submitReview')->whereUuid('productId')->name('products.reviews.store');
+        Route::post('reviews/{id}/report', 'reportReview')->name('reviews.report');
+        Route::post('products/{productId}/questions', 'ask')->whereUuid('productId')->name('products.questions.store');
+        Route::post('me/stock-alerts', 'addAlert')->name('me.alerts.store');
+        Route::delete('me/stock-alerts', 'removeAlert')->name('me.alerts.destroy');
+        Route::get('me/support/tickets', 'tickets')->name('me.tickets');
+        Route::post('me/support/tickets', 'openTicket')->name('me.tickets.store');
+        Route::get('me/support/tickets/{id}', 'ticket')->name('me.tickets.show');
+        Route::post('me/support/tickets/{id}/messages', 'replyTicket')->name('me.tickets.reply');
+    });
+});

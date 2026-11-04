@@ -158,6 +158,10 @@ class BidEngine
         $lot->forceFill(['current_price' => $amount->toDecimal(), 'current_bid_id' => $bid->id, 'current_leader_id' => $userId,
             'bid_count' => $lot->bid_count + 1, 'last_bid_number' => $number])->save();
         $events[] = $this->event($lot, 'bid_accepted', ['bid_number' => $number, 'amount' => $amount->toDecimal(), 'type' => $type, 'previous_leader' => $previousLeader !== $userId ? $previousLeader : null]);
+        if ($previousLeader && $previousLeader !== $userId) {
+            $title = $lot->title_en;
+            DB::afterCommit(fn () => event(new \App\Domain\Auctions\Events\AuctionOutbid($previousLeader, $lot->id, $title, $amount->format())));
+        }
         $this->maybeExtend($lot, $bid, $now, $events);
 
         return $bid;
