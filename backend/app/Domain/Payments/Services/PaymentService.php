@@ -154,6 +154,36 @@ class PaymentService
         return $n;
     }
 
+    /** Staff-triggered status check for one online payment (same path as the scheduled reconciliation). */
+    public function recheck(Payment $payment, User $staff): string
+    {
+        if (! $this->access->allowsGlobally($staff, 'payments.edit') && ! collect($payment->order?->branchIds() ?? [])->contains(fn ($b) => $this->access->allows($staff, 'payments.edit', $b))) {
+            throw DomainException::make('branch_forbidden', 403);
+        }
+        if ($payment->provider !== 'sadad' || ! in_array($payment->status, [PS::Pending, PS::Processing], true)) {
+            throw DomainException::make('invalid_state_transition', 409, ['from' => __('status.'.$payment->status->value)]);
+        }
+        $result = $this->gateway('sadad')->fetchStatus($payment);
+        $outcome = $result ? $this->apply($payment, $result, 'status_check') : 'unavailable';
+        $this->audit->log('payment.rechecked', $payment, [], ['outcome' => $outcome], actor: $staff);
+
+        return $outcome;
+    }
+
+    /** Record finance's resolution of a flagged payment (late capture / amount mismatch). Never changes money state. */
+    public function resolveReview(Payment $payment, User $staff, string $note): Payment
+    {
+        if (! $this->access->allows($staff, 'payments.override')) {
+            throw DomainException::make('branch_forbidden', 403);
+        }
+        $payment->forceFill(['metadata' => array_merge($payment->metadata ?? [], ['review_resolution' => [
+            'note' => $note, 'by' => $staff->id, 'by_name' => $staff->name, 'at' => now()->toIso8601String(),
+        ]])])->save();
+        $this->audit->log('payment.review_resolved', $payment, [], ['note' => $note], actor: $staff);
+
+        return $payment;
+    }
+
     /** Apply a verified provider result to a payment under lock, respecting the state machine. */
     public function apply(Payment $payment, GatewayResult $r, string $type, array $raw = []): string
     {

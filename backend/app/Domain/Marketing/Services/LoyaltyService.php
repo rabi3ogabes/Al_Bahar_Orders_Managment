@@ -2,6 +2,7 @@
 
 namespace App\Domain\Marketing\Services;
 
+use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Identity\Models\User;
 use App\Domain\Marketing\Models\LoyaltyAccount;
 use App\Domain\Marketing\Models\LoyaltyTransaction;
@@ -104,6 +105,35 @@ class LoyaltyService
             $account = LoyaltyAccount::whereKey($this->account($user)->id)->lockForUpdate()->first();
             $account->lifetime_earned += max(0, $points);
             $this->write($account, $type, $points, null, $reason, now()->addDays((int) $this->settings->get('loyalty.points_expiry_days', 365)), $points, $referenceType, $referenceId);
+        });
+    }
+
+    /**
+     * Manual staff adjustment with a mandatory reason. Credits expire like earned points; debits consume the
+     * oldest points first and can never take the balance below zero.
+     */
+    public function adjust(User $customer, int $points, string $reason, User $staff): LoyaltyTransaction
+    {
+        if ($points === 0 || trim($reason) === '') {
+            throw DomainException::make('quantity_invalid');
+        }
+
+        return DB::transaction(function () use ($customer, $points, $reason, $staff) {
+            $account = LoyaltyAccount::whereKey($this->account($customer)->id)->lockForUpdate()->first();
+            $before = $account->balance;
+            if ($points < 0) {
+                if ($account->balance < -$points) {
+                    throw DomainException::make('loyalty_insufficient');
+                }
+                $this->consumeFifo($account, -$points);
+                $this->write($account, 'adjust', $points, null, $reason, refType: 'staff', refId: $staff->id);
+            } else {
+                $account->lifetime_earned += $points;
+                $this->write($account, 'adjust', $points, null, $reason, now()->addDays((int) $this->settings->get('loyalty.points_expiry_days', 365)), $points, 'staff', $staff->id);
+            }
+            app(AuditLogger::class)->log('loyalty.adjusted', $account, ['balance' => $before], ['balance' => $account->balance], ['points' => $points, 'reason' => $reason, 'customer' => $customer->id], actor: $staff);
+
+            return LoyaltyTransaction::where('loyalty_account_id', $account->id)->latest('id')->first();
         });
     }
 

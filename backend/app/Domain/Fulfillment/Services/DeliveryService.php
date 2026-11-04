@@ -105,6 +105,19 @@ class DeliveryService
         return $delivery->fresh();
     }
 
+    /** The assigned driver (or a dispatcher) accepts the job before collecting it from the branch. */
+    public function accept(Delivery $delivery, User $actor): Delivery
+    {
+        $this->authorizeDriverOrStaff($delivery, $actor);
+        if ($delivery->status !== DS::Assigned) {
+            throw DomainException::make('invalid_state_transition', 409, ['from' => __('status.'.$delivery->status->value)]);
+        }
+        $this->transition($delivery, DS::Accepted, $actor, $this->source($actor), 'accepted by '.$actor->name);
+        $this->audit->log('delivery.accepted', $delivery, ['status' => DS::Assigned->value], ['status' => DS::Accepted->value], branchId: $delivery->branch_id, actor: $actor);
+
+        return $delivery->fresh();
+    }
+
     /** Driver picked the goods up from the branch → fulfillment dispatched (stock deducted). */
     public function pickUp(Delivery $delivery, User $actor): Delivery
     {

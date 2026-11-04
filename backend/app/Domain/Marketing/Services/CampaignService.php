@@ -4,7 +4,10 @@ namespace App\Domain\Marketing\Services;
 
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Identity\Models\User;
+use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Notifications\Models\MarketingCampaign;
+use App\Domain\Notifications\Models\Notification;
+use App\Domain\Notifications\Services\TemplateRenderer;
 use App\Domain\Notifications\Services\NotificationService;
 use App\Domain\Orders\Models\Cart;
 use App\Domain\Settings\Services\Settings;
@@ -46,6 +49,22 @@ class CampaignService
             }
         });
         $campaign->update(['status' => 'sent', 'sent_at' => now(), 'recipients_count' => $n]);
+
+        return $n;
+    }
+
+    /**
+     * Send a campaign preview to one staff member as an in-app notification. Bypasses the audience and consent
+     * rules (internal recipient) and never changes the campaign's status.
+     */
+    public function sendTest(MarketingCampaign $campaign, User $recipient, string $locale = 'en'): Notification
+    {
+        $ar = $locale === 'ar';
+        $msg = app(TemplateRenderer::class)->render('campaign', 'in_app', $locale, ['title' => $ar ? $campaign->title_ar : $campaign->title_en,
+            'body' => $ar ? $campaign->body_ar : $campaign->body_en, 'deep_link' => $campaign->deep_link]);
+        $n = Notification::create(['user_id' => $recipient->id, 'event' => 'campaign', 'category' => 'marketing', 'title' => '[TEST] '.$msg['subject'],
+            'body' => $msg['body'], 'data' => array_filter(['deep_link' => $campaign->deep_link, 'campaign_test' => $campaign->id])]);
+        app(AuditLogger::class)->log('marketing.campaign_test_sent', $campaign, [], ['recipient' => $recipient->id, 'locale' => $locale]);
 
         return $n;
     }

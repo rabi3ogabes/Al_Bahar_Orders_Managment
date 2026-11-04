@@ -5,6 +5,7 @@ namespace App\Domain\Marketing\Services;
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Identity\Models\User;
+use App\Domain\Marketing\Models\ProductQuestion;
 use App\Domain\Marketing\Models\Review;
 use App\Domain\Orders\Models\OrderItem;
 use App\Support\DomainException;
@@ -45,6 +46,20 @@ class ReviewService
         app(AuditLogger::class)->log('review.moderated', $review, [], ['status' => $status, 'note' => $note], actor: $staff);
 
         return $review;
+    }
+
+    /** Answer and/or publish/reject a product question (Q&A). Answers are plain text. */
+    public function answerQuestion(ProductQuestion $question, User $staff, ?string $answer, string $status): ProductQuestion
+    {
+        if (! in_array($status, ['pending', 'published', 'rejected'], true) || ($status === 'published' && trim((string) ($answer ?? $question->answer)) === '')) {
+            throw DomainException::make('validation_failed', 422);
+        }
+        $before = $question->only(['status', 'answer']);
+        $answer = $answer !== null ? trim(strip_tags($answer)) : $question->answer;
+        $question->update(['answer' => $answer ?: null, 'status' => $status] + ($answer && $answer !== $before['answer'] ? ['answered_by' => $staff->id, 'answered_at' => now()] : []));
+        app(AuditLogger::class)->log('review.question_answered', $question, $before, $question->only(['status', 'answer']), actor: $staff);
+
+        return $question;
     }
 
     public function report(Review $review, User $user, string $reason): void
