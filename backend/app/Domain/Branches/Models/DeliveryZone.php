@@ -1,0 +1,51 @@
+<?php
+
+namespace App\Domain\Branches\Models;
+
+use App\Domain\Shared\HasTranslations;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class DeliveryZone extends Model
+{
+    use HasFactory, HasTranslations, HasUuids;
+
+    protected $guarded = ['id'];
+
+    protected $casts = ['polygon' => 'array', 'is_active' => 'boolean', 'is_remote' => 'boolean'];
+
+    public function branchConfigs(): HasMany
+    {
+        return $this->hasMany(BranchDeliveryZone::class);
+    }
+
+    /** Point-in-polygon (ray casting) for optional GeoJSON-style [[lng,lat],...] rings. */
+    public function contains(float $lat, float $lng): bool
+    {
+        $ring = $this->polygon ?? [];
+        if (count($ring) < 3) {
+            return false;
+        }
+        $inside = false;
+        for ($i = 0, $j = count($ring) - 1; $i < count($ring); $j = $i++) {
+            [$xi, $yi] = $ring[$i];
+            [$xj, $yj] = $ring[$j];
+            if ((($yi > $lat) !== ($yj > $lat)) && ($lng < ($xj - $xi) * ($lat - $yi) / (($yj - $yi) ?: 1e-12) + $xi)) {
+                $inside = ! $inside;
+            }
+        }
+
+        return $inside;
+    }
+
+    public function coversZoneNumber(?string $zoneNumber): bool
+    {
+        if (! $zoneNumber || ! $this->zone_numbers) {
+            return false;
+        }
+
+        return in_array(trim($zoneNumber), array_map('trim', explode(',', $this->zone_numbers)), true);
+    }
+}
