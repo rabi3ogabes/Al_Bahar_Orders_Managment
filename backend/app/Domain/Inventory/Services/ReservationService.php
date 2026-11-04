@@ -121,6 +121,26 @@ class ReservationService
         });
     }
 
+    /**
+     * Consume part of an active reservation and KEEP the remainder reserved (partial pickup/handover).
+     * The reservation is marked consumed once nothing remains. Returns false if not active or qty invalid.
+     */
+    public function consumePart(StockReservation|string $reservation, int $quantity, ?string $actorId = null, ?string $referenceType = null, ?string $referenceId = null): bool
+    {
+        return DB::transaction(function () use ($reservation, $quantity, $actorId, $referenceType, $referenceId) {
+            $r = StockReservation::whereKey(is_string($reservation) ? $reservation : $reservation->id)->lockForUpdate()->first();
+            if (! $r || $r->status !== 'active' || $quantity <= 0 || $quantity > $r->quantity) {
+                return false;
+            }
+            $this->ledger->apply($r->branch_id, $r->product_variant_id, MovementType::SaleDeduction, -$quantity, -$quantity,
+                $referenceType ?? $r->reference_type, $referenceId ?? $r->reference_id, 'partial_handover', $actorId);
+            $left = $r->quantity - $quantity;
+            $r->update($left === 0 ? ['quantity' => $r->quantity, 'status' => 'consumed', 'consumed_at' => now()] : ['quantity' => $left]);
+
+            return true;
+        });
+    }
+
     /** Release all reservations past their expiry. Safe to run concurrently (row locks + status check). */
     public function expireDue(int $limit = 500): int
     {

@@ -22,7 +22,7 @@ return new class extends Migration
             $table->foreignUuid('branch_id')->constrained()->restrictOnDelete();
             $table->foreignUuid('delivery_slot_id')->nullable()->constrained()->nullOnDelete();
             $table->date('slot_date')->nullable();
-            $table->string('status', 16)->default('pending'); // pending | ready | partially_collected | collected | expired | cancelled
+            $table->string('status', 24)->default('pending'); // pending | ready | partially_collected | collected | expired | cancelled
             $table->string('token_hash', 64)->nullable()->unique(); // sha256 of opaque QR token
             $table->timestampTz('token_expires_at')->nullable();
             $table->timestampTz('token_used_at')->nullable();

@@ -58,3 +58,21 @@ Route::controller(V1\Admin\InventoryAdminController::class)->prefix('inventory')
     Route::post('purchase-orders', 'storePurchaseOrder')->middleware('permission:purchasing.create')->name('purchase-orders.store');
     Route::post('purchase-orders/{po}/{action}', 'purchaseOrderAction')->middleware('permission:purchasing.view')->whereIn('action', ['submit', 'approve', 'reject', 'receive', 'close', 'cancel'])->name('purchase-orders.action');
 });
+
+Route::controller(V1\Admin\OrderOpsController::class)->group(function () {
+    Route::get('orders', 'index')->middleware('permission:orders.view')->name('orders.index');
+    Route::get('orders/{order}', 'show')->middleware('permission:orders.view')->name('orders.show');
+    Route::post('orders/{order}/cancel', 'cancel')->middleware('permission:orders.approve')->name('orders.cancel');
+    Route::post('orders/{order}/notes', 'note')->middleware('permission:orders.view')->name('orders.notes');
+    Route::post('fulfillments/{fulfillment}/transition', 'transition')->middleware('permission:orders.edit')->name('fulfillments.transition');
+    Route::post('cancellations/{cancellation}/decide', 'decideCancellation')->middleware('permission:orders.approve')->name('cancellations.decide');
+    Route::post('fulfillments/{fulfillment}/pickup-ready', 'pickupReady')->middleware('permission:pickup.edit')->name('pickup.ready');
+    Route::post('pickup/verify', 'pickupVerify')->middleware('permission:pickup.view')->name('pickup.verify');
+    Route::post('pickup/{reservation}/handover', 'pickupHandover')->middleware('permission:pickup.approve')->name('pickup.handover');
+    Route::post('fulfillments/{fulfillment}/deliveries', 'createDelivery')->middleware('permission:deliveries.create')->name('deliveries.store');
+    Route::post('deliveries/{delivery}/{action}', 'deliveryAction')->middleware('permission:deliveries.edit')->whereIn('action', ['assign', 'pickup', 'out-for-delivery', 'deliver', 'fail', 'reschedule', 'return', 'cancel', 'retry-booking'])->name('deliveries.action');
+    Route::get('me/deliveries', 'myDeliveries')->middleware('permission:deliveries.view')->name('deliveries.mine');
+    Route::post('payments/{payment}/collections', 'collect')->middleware('permission:payments.create')->name('payments.collect');
+    Route::post('payments/{payment}/refunds', 'requestRefund')->middleware('permission:refunds.create')->name('refunds.store');
+    Route::post('refunds/{refund}/{action}', 'refundAction')->middleware('permission:refunds.view')->whereIn('action', ['approve', 'reject', 'processed'])->name('refunds.action');
+});
