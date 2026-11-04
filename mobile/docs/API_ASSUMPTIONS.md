@@ -151,6 +151,16 @@ All are overridable with `--dart-define` (see README). Hostnames are placeholder
 
 Each gap gives what the app would use if the backend added it. The app works without it today.
 
+> **Update — resolved in the backend** (covered by `backend/tests/Feature/Contract/MobileContractTest.php`):
+> 1. `GET /orders?status=a,b` (or `status[]=`) now filters by several statuses.
+> 2. `PUT /cart {coupon_code}` validates the code: `422 {code: validation_failed, errors: {coupon_code: [message]}}`.
+> 3. `GET /me/auctions/bids` rows include `my_highest_bid` (Money) and `my_last_bid_at`.
+> 4. Bid rows (`GET …/bids` and the `POST …/bids` echo) include `is_mine`; the public `bid.accepted` broadcast carries an anonymised `bid`.
+> 5. FCM data `notification_id` is now the in-app `notifications.id` (the log id moved to `log_id`).
+>
+> The app's client-side fallbacks for these remain correct; they can be simplified in a later release.
+> Still open (optional): `ProductDetail.fulfillment`, `delivery.tracking_url`, home `see_all`, promotion `link`.
+
 1. **`GET /orders?status=`**: accept several statuses, as `status=a,b` or `status[]=a&status[]=b`, so the app can stop filtering on the device.
 2. **`PUT /cart {coupon_code}`**: validate the code and reply `422 {code: coupon_*, errors: {coupon_code: [message]}}`. Alternatively, the cart response could include `coupon_error: {code, message}`.
 3. **`GET /me/auctions/bids`**: add the user's own highest bid per lot, e.g. `my_highest_bid: Money` (and optionally `my_last_bid_at`) on each lot row.

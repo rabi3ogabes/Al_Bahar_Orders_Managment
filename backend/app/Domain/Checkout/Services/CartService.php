@@ -6,6 +6,7 @@ use App\Domain\Branches\Models\Branch;
 use App\Domain\Catalog\Models\ProductVariant;
 use App\Domain\Catalog\Services\CatalogPresenter;
 use App\Domain\Identity\Models\User;
+use App\Domain\Marketing\Services\PromotionEngine;
 use App\Domain\Orders\Models\Cart;
 use App\Domain\Orders\Models\CartItem;
 use App\Domain\Pricing\Services\PriceResolver;
@@ -13,6 +14,7 @@ use App\Support\DomainException;
 use App\Support\Money;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Persistent server-side cart. Prices shown here are recalculated on every read for the preferred branch;
@@ -99,6 +101,9 @@ class CartService
         }
         if (array_key_exists('coupon_code', $o)) {
             $data['coupon_code'] = $o['coupon_code'] ? strtoupper(trim($o['coupon_code'])) : null;
+            if ($data['coupon_code'] && ($error = app(PromotionEngine::class)->couponError($data['coupon_code'], $user))) {
+                throw ValidationException::withMessages(['coupon_code' => [__('checkout.'.$error)]]);
+            }
         }
         if (array_key_exists('loyalty_points', $o)) {
             $data['loyalty_points_to_redeem'] = max(0, (int) $o['loyalty_points']);

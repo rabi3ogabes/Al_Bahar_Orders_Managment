@@ -23,7 +23,7 @@ class SendNotificationJob implements ShouldQueue
 
     public int $tries = 5;
 
-    public function __construct(public readonly string $logId, public readonly string $subject, public readonly string $body, public readonly ?string $deepLink = null)
+    public function __construct(public readonly string $logId, public readonly string $subject, public readonly string $body, public readonly ?string $deepLink = null, public readonly ?string $notificationId = null)
     {
         $this->onQueue('notifications');
     }
@@ -95,7 +95,7 @@ class SendNotificationJob implements ShouldQueue
         }
         $ok = 0;
         foreach ($devices as $device) {
-            $res = $fcm->send($device->push_token, $this->subject, $this->body, ['event' => $log->event, 'deep_link' => (string) $this->deepLink, 'notification_id' => $log->id]);
+            $res = $fcm->send($device->push_token, $this->subject, $this->body, ['event' => $log->event, 'deep_link' => (string) $this->deepLink, 'notification_id' => (string) $this->notificationId, 'log_id' => $log->id]);
             if ($res['unregistered'] ?? false) {
                 $device->update(['disabled_at' => now()]); // stale token
             }

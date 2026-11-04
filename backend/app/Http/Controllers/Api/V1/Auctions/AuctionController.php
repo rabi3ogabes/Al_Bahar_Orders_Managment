@@ -84,7 +84,7 @@ class AuctionController extends ApiController
         $res = $engine->placeBid($this->user(), $lotId, Money::of((string) $data['amount']), $key, 'manual', $request->ip());
 
         return response()->json(['data' => [
-            'bid' => ['bid_number' => $res['bid']->bid_number, 'amount' => Money::of($res['bid']->amount)->jsonSerialize(), 'status' => $res['bid']->status, 'placed_at' => BusinessTime::iso($res['bid']->placed_at)],
+            'bid' => $this->presenter->bid($res['bid'], $this->user()),
             'lot' => $this->presenter->lot($res['lot'], $this->user()),
             'replayed' => $res['replayed'],
         ]], $res['replayed'] ? 200 : 201);
@@ -121,9 +121,13 @@ class AuctionController extends ApiController
 
     public function myBids(): JsonResponse
     {
-        $lotIds = AuctionBid::where('user_id', $this->user()->id)->where('status', 'accepted')->distinct()->pluck('auction_lot_id');
+        $mine = AuctionBid::where('user_id', $this->user()->id)->where('status', 'accepted')->groupBy('auction_lot_id')
+            ->selectRaw('auction_lot_id, max(amount) as my_highest, max(placed_at) as my_last')->get()->keyBy('auction_lot_id');
 
-        return response()->json(['data' => AuctionLot::whereIn('id', $lotIds)->orderByDesc('updated_at')->get()->map(fn ($l) => $this->presenter->lot($l, $this->user()))]);
+        return response()->json(['data' => AuctionLot::whereIn('id', $mine->keys())->orderByDesc('updated_at')->get()->map(fn ($l) => $this->presenter->lot($l, $this->user()) + [
+            'my_highest_bid' => Money::of((string) $mine[$l->id]->my_highest)->jsonSerialize(),
+            'my_last_bid_at' => BusinessTime::iso($mine[$l->id]->my_last),
+        ])]);
     }
 
     public function watchlist(): JsonResponse

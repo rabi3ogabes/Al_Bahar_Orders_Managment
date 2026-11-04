@@ -42,6 +42,9 @@ class LotUpdated implements ShouldBroadcast, ShouldDispatchAfterCommit
             'sequence' => $this->sequence,
             'type' => $this->type,
             'lot' => $lot ? app(AuctionPresenter::class)->lot($lot, null) : null,
+            // The newest accepted bid, anonymised (clients tell their own bids apart via REST is_mine).
+            'bid' => $this->type === 'bid_accepted' && $lot && ($b = $lot->bids()->where('status', 'accepted')->orderByDesc('bid_number')->first())
+                ? app(AuctionPresenter::class)->bid($b) : null,
             'events' => array_map(fn ($e) => ['sequence' => $e->sequence, 'type' => $e->type, 'payload' => app(AuctionPresenter::class)->publicPayload($e->payload)], $this->events),
         ];
     }

@@ -162,6 +162,12 @@ class PromotionEngine
     }
 
     /** @return array{0: ?Coupon, 1: ?string} */
+    /** Validate a code on entry (cart) so the customer sees the reason immediately; basket eligibility is checked at quote time. */
+    public function couponError(string $code, ?User $user): ?string
+    {
+        return $this->findCoupon($code, $user)[1];
+    }
+
     private function findCoupon(string $code, ?User $user): array
     {
         $coupon = Coupon::with('promotion')->where('code', strtoupper(trim($code)))->first();

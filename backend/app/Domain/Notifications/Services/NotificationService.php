@@ -28,25 +28,30 @@ class NotificationService
         $channels ??= NotificationCatalog::defaultChannels($event);
         $locale = $user->preferredLocale();
         $sent = [];
+        $inAppId = null;
+        // In-app first, so push payloads can reference the in-app notification (tap → mark read).
+        $channels = array_values(array_unique($channels));
+        $ordered = $channels;
+        usort($ordered, fn ($a, $b) => ($b === 'in_app') <=> ($a === 'in_app'));
 
-        foreach (array_unique($channels) as $channel) {
+        foreach ($ordered as $channel) {
             if (! $this->allowed($user, $channel, $category)) {
                 continue;
             }
             $msg = $this->templates->render($event, $channel, $locale, $data);
             if ($channel === 'in_app') {
-                Notification::create(['user_id' => $user->id, 'event' => $event, 'category' => $category, 'title' => $msg['subject'],
-                    'body' => $msg['body'], 'data' => array_filter(['deep_link' => $data['deep_link'] ?? null, 'reference' => $data['reference'] ?? null])]);
+                $inAppId = Notification::create(['user_id' => $user->id, 'event' => $event, 'category' => $category, 'title' => $msg['subject'],
+                    'body' => $msg['body'], 'data' => array_filter(['deep_link' => $data['deep_link'] ?? null, 'reference' => $data['reference'] ?? null])])->id;
                 $sent[] = 'in_app';
 
                 continue;
             }
             $log = NotificationLog::create(['user_id' => $user->id, 'event' => $event, 'channel' => $channel, 'status' => 'queued', 'campaign_id' => $campaignId]);
-            DB::afterCommit(fn () => SendNotificationJob::dispatch($log->id, $msg['subject'], $msg['body'], $data['deep_link'] ?? null));
+            DB::afterCommit(fn () => SendNotificationJob::dispatch($log->id, $msg['subject'], $msg['body'], $data['deep_link'] ?? null, $inAppId));
             $sent[] = $channel;
         }
 
-        return $sent;
+        return array_values(array_intersect($channels, $sent)); // report in the caller's channel order
     }
 
     /** Consent rules: marketing needs marketing consent + opt-in; every category honours explicit opt-outs. OTP is never blocked. */

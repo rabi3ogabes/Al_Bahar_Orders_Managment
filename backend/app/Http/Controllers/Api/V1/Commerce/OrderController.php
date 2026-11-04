@@ -27,7 +27,8 @@ class OrderController extends ApiController
     public function index(Request $request): JsonResponse
     {
         $page = Order::where('user_id', $this->user()->id)->with('items')
-            ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
+            // ?status=a,b (or status[]=a&status[]=b) filters by any of the given statuses.
+            ->when($request->query('status'), fn ($q, $s) => $q->whereIn('status', array_values(array_filter(array_map('trim', is_array($s) ? $s : explode(',', (string) $s))))))
             ->orderByDesc('placed_at')->paginate($this->perPage($request));
 
         return response()->json(['data' => $page->getCollection()->map(fn ($o) => $this->presenter->summary($o)),

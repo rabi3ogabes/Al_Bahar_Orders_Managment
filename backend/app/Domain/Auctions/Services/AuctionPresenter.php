@@ -4,6 +4,7 @@ namespace App\Domain\Auctions\Services;
 
 use App\Domain\Auctions\Models\Auction;
 use App\Domain\Auctions\Models\AuctionAutoBid;
+use App\Domain\Auctions\Models\AuctionBid;
 use App\Domain\Auctions\Models\AuctionBidder;
 use App\Domain\Auctions\Models\AuctionLot;
 use App\Domain\Identity\Models\User;
@@ -80,8 +81,22 @@ class AuctionPresenter
         return $l->bids()->where('status', 'accepted')->orderByDesc('bid_number')->limit(100)->get()->map(fn ($b) => [
             'bid_number' => $b->bid_number, 'amount' => Money::of($b->amount)->jsonSerialize(), 'type' => $b->type === 'auto' ? 'auto' : 'manual',
             'bidder' => $viewer && $b->user_id === $viewer->id ? __('auctions.you') : __('auctions.bidder', ['n' => $paddles[$b->user_id] ?? '—']),
+            'is_mine' => $viewer !== null && $b->user_id === $viewer->id,
             'placed_at' => BusinessTime::iso($b->placed_at),
         ])->all();
+    }
+
+    /** One bid row as seen by $viewer (null = public broadcast, always anonymised). */
+    public function bid(AuctionBid $b, ?User $viewer = null): array
+    {
+        $mine = $viewer !== null && $b->user_id === $viewer->id;
+        $paddle = $mine ? null : AuctionBidder::where('auction_id', $b->relationLoaded('lot') ? $b->lot->auction_id : AuctionLot::whereKey($b->auction_lot_id)->value('auction_id'))->where('user_id', $b->user_id)->value('paddle_number');
+
+        return [
+            'bid_number' => $b->bid_number, 'amount' => Money::of($b->amount)->jsonSerialize(), 'type' => $b->type === 'auto' ? 'auto' : 'manual',
+            'bidder' => $mine ? __('auctions.you') : __('auctions.bidder', ['n' => $paddle ?? '—']),
+            'is_mine' => $mine, 'status' => $b->status, 'placed_at' => BusinessTime::iso($b->placed_at),
+        ];
     }
 
     /** Strip identifiers from event payloads before they leave the server. */
