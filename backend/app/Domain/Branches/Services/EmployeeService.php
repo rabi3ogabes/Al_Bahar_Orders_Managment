@@ -127,9 +127,20 @@ class EmployeeService
     public function setStatus(User $actor, User $employee, string $status): void
     {
         $this->assertNotSelf($actor, $employee);
-        $this->assertCan($actor, 'employees.edit', null);
         if ($employee->isSuperAdmin() && ! $actor->isSuperAdmin()) {
             throw DomainException::make('cannot_grant_beyond_authority', 403);
+        }
+        // Company-wide authority may change anyone; branch authority only covers staff who work exclusively
+        // in branches the actor manages and hold no company-wide role.
+        if (! $this->access->allowsGlobally($actor, 'employees.edit')) {
+            $hasGlobalRole = UserRole::where('user_id', $employee->id)->whereNull('branch_id')->exists();
+            $branchIds = $employee->branchAssignments()->pluck('branch_id');
+            if ($hasGlobalRole || $branchIds->isEmpty()) {
+                throw DomainException::make('branch_forbidden', 403);
+            }
+            foreach ($branchIds as $branchId) {
+                $this->assertCan($actor, 'employees.edit', $branchId);
+            }
         }
         $old = $employee->status->value;
         $employee->update(['status' => $status]);

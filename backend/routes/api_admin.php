@@ -88,3 +88,10 @@ Route::controller(V1\Admin\AuctionAdminController::class)->prefix('auctions')->n
     Route::post('bids/{bid}/retract', 'retractBid')->middleware('permission:auctions.override')->name('bids.retract');
     Route::post('bidders/{bidder}/block', 'blockBidder')->middleware('permission:auctions.override')->name('bidders.block');
 });
+
+Route::controller(V1\Admin\ReportAdminController::class)->group(function () {
+    Route::get('reports/{report}', 'run')->middleware('permission:reports.view')->name('reports.run');
+    Route::post('exports', 'export')->middleware(['permission:reports.export', 'throttle:exports'])->name('exports.store');
+    Route::get('exports', 'exports')->middleware('permission:reports.export')->name('exports.index');
+    Route::get('exports/{export}/download', 'download')->middleware('permission:reports.export')->name('exports.download');
+});

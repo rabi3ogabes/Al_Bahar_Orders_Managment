@@ -2,8 +2,10 @@
 
 namespace App\Domain\Auctions\Models;
 
+use App\Domain\Identity\Models\User;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AuctionDeposit extends Model
 {
@@ -15,13 +17,13 @@ class AuctionDeposit extends Model
 
     protected $casts = ['paid_at' => 'immutable_datetime', 'resolved_at' => 'immutable_datetime'];
 
-    public function auction(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function auction(): BelongsTo
     {
         return $this->belongsTo(Auction::class);
     }
 
-    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Identity\Models\User::class);
+        return $this->belongsTo(User::class);
     }
 }

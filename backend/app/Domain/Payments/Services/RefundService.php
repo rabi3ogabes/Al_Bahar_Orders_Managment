@@ -5,6 +5,7 @@ namespace App\Domain\Payments\Services;
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
+use App\Domain\Marketing\Services\LoyaltyService;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Payments\Enums\PaymentStatus as PS;
 use App\Domain\Payments\Models\Payment;
@@ -149,7 +150,7 @@ class RefundService
             $order->forceFill(['refunded_total' => Money::of($order->refunded_total)->plus(Money::of($r->amount))->toDecimal(),
                 'payment_status' => $full ? PS::Refunded : PS::PartiallyRefunded])->save();
             if ($full && $order->user) {
-                app(\App\Domain\Marketing\Services\LoyaltyService::class)->reverseForOrder($order->user, $order->id, 'Order refunded');
+                app(LoyaltyService::class)->reverseForOrder($order->user, $order->id, 'Order refunded');
             }
         }
         $this->audit->log('refund.processed', $r, [], ['amount' => $r->amount, 'reference' => $reference], actor: $actor);

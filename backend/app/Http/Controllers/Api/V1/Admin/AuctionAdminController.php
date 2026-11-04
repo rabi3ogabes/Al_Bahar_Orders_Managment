@@ -8,6 +8,7 @@ use App\Domain\Auctions\Models\AuctionBidder;
 use App\Domain\Auctions\Models\AuctionLot;
 use App\Domain\Auctions\Services\AuctionService;
 use App\Domain\Auctions\Services\LotService;
+use App\Domain\Audit\Services\AuditLogger;
 use App\Http\Controllers\Api\V1\ApiController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -71,7 +72,7 @@ class AuctionAdminController extends ApiController
     {
         $reason = $request->validate(['reason' => 'required|string|max:500'])['reason'];
         $bidder->update(['status' => 'blocked', 'blocked_reason' => $reason, 'blocked_by' => $this->user()->id]);
-        app(\App\Domain\Audit\Services\AuditLogger::class)->log('auction.bidder_blocked', $bidder, [], ['reason' => $reason]);
+        app(AuditLogger::class)->log('auction.bidder_blocked', $bidder, [], ['reason' => $reason]);
 
         return response()->json(['data' => $bidder]);
     }

@@ -8,6 +8,7 @@ use App\Domain\Orders\Models\OrderFulfillment;
 use App\Support\BusinessTime;
 use App\Support\Money;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /** Customer-facing order representation (never exposes internal notes, reservation or staff data). */
 class OrderPresenter
@@ -74,7 +75,7 @@ class OrderPresenter
             'subtotal' => Money::of($f->subtotal)->jsonSerialize(), 'delivery_fee' => Money::of($f->delivery_fee)->jsonSerialize(),
             'slot' => $f->slot ? ['date' => $f->slot_date?->toDateString(), 'starts_at' => substr($f->slot->starts_at, 0, 5), 'ends_at' => substr($f->slot->ends_at, 0, 5)] : null,
             'delivery' => $d ? ['tracking_number' => $d->tracking_number, 'status' => $d->status->value, 'status_label' => __('status.'.$d->status->value),
-                'provider' => $d->mode, 'driver_name' => $d->driver ? \Illuminate\Support\Str::before($d->driver->name, ' ') : null,
+                'provider' => $d->mode, 'driver_name' => $d->driver ? Str::before($d->driver->name, ' ') : null,
                 'eta' => BusinessTime::iso($d->scheduled_for)] : null,
             'pickup' => $f->pickup ? ['status' => $f->pickup->status, 'token_expires_at' => BusinessTime::iso($f->pickup->token_expires_at)] : null,
             'timestamps' => ['ready_at' => BusinessTime::iso($f->ready_at), 'dispatched_at' => BusinessTime::iso($f->dispatched_at),

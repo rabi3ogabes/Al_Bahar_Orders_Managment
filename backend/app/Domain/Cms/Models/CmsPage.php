@@ -4,6 +4,7 @@ namespace App\Domain\Cms\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CmsPage extends Model
 {
@@ -15,7 +16,7 @@ class CmsPage extends Model
 
     protected $casts = ['published_at' => 'immutable_datetime'];
 
-    public function translations(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function translations(): HasMany
     {
         return $this->hasMany(CmsPageTranslation::class);
     }

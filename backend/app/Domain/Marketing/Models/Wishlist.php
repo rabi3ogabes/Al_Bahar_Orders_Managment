@@ -4,6 +4,7 @@ namespace App\Domain\Marketing\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Wishlist extends Model
 {
@@ -13,7 +14,7 @@ class Wishlist extends Model
 
     protected $guarded = ['id'];
 
-    public function items(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function items(): HasMany
     {
         return $this->hasMany(WishlistItem::class);
     }

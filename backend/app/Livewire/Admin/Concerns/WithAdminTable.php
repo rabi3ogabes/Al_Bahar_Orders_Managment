@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin\Concerns;
 
+use App\Domain\Branches\Models\Branch;
 use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Identity\Support\BranchScope;
 use Livewire\Attributes\Url;
@@ -43,6 +44,6 @@ trait WithAdminTable
     {
         $scope = app(AccessControl::class)->scope(auth()->user(), $permission);
 
-        return \App\Domain\Branches\Models\Branch::query()->when(! $scope->all, fn ($q) => $q->whereIn('id', $scope->branchIds))->orderBy('sort_order')->get(['id', 'code', 'name_en', 'name_ar']);
+        return Branch::query()->when(! $scope->all, fn ($q) => $q->whereIn('id', $scope->branchIds))->orderBy('sort_order')->get(['id', 'code', 'name_en', 'name_ar']);
     }
 }

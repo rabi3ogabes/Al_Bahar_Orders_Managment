@@ -60,6 +60,8 @@ return [
     'confirm_disable_2fa' => 'هل تريد تعطيل المصادقة الثنائية لحسابك؟',
     'two_factor_enabled' => 'تم تفعيل المصادقة الثنائية.',
     'two_factor_disabled' => 'تم تعطيل المصادقة الثنائية.',
+    'two_factor_enrolment_required' => 'المصادقة الثنائية إلزامية لحسابات الموظفين. يرجى تفعيلها للمتابعة.',
+    'two_factor_mandatory' => 'المصادقة الثنائية إلزامية لحسابات الموظفين ولا يمكن تعطيلها.',
     'good_morning' => 'صباح الخير',
     'good_afternoon' => 'طاب يومك',
     'good_evening' => 'مساء الخير',

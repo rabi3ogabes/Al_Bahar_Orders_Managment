@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
+use App\Domain\Audit\Services\AuditLogger;
+use App\Domain\Branches\Models\Branch;
+use App\Domain\Catalog\Contracts\ProductSearch;
 use App\Domain\Catalog\Models\Brand;
 use App\Domain\Catalog\Models\CatalogImport;
 use App\Domain\Catalog\Models\Category;
@@ -36,7 +39,7 @@ class CatalogAdminController extends ApiController
             ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
             ->when($request->query('category_id'), fn ($q, $c) => $q->where('category_id', $c))
             ->when($request->query('brand_id'), fn ($q, $b) => $q->where('brand_id', $b))
-            ->when($request->query('search'), fn ($q, $s) => app(\App\Domain\Catalog\Contracts\ProductSearch::class)->apply($q, $s, false))
+            ->when($request->query('search'), fn ($q, $s) => app(ProductSearch::class)->apply($q, $s, false))
             ->orderBy($request->query('sort') === 'sku' ? 'sku' : 'updated_at', $request->query('sort') === 'sku' ? 'asc' : 'desc');
         $page = $q->paginate($this->perPage($request));
 
@@ -147,7 +150,7 @@ class CatalogAdminController extends ApiController
         $variants = $product->variants()->get()->each(fn ($v) => $v->setRelation('product', $product));
         $scope = $this->scope('pricing.view');
 
-        return \App\Domain\Branches\Models\Branch::query()->when(! $scope->all, fn ($q) => $q->whereIn('id', $scope->branchIds))->orderBy('sort_order')->get()
+        return Branch::query()->when(! $scope->all, fn ($q) => $q->whereIn('id', $scope->branchIds))->orderBy('sort_order')->get()
             ->map(function ($b) use ($resolver, $variants) {
                 $resolver->prime($variants, $b->id);
 
@@ -225,7 +228,7 @@ class CatalogAdminController extends ApiController
         $data = $request->validate(['slug' => 'required|alpha_dash|max:160|unique:brands,slug', 'name_en' => 'required|string|max:120',
             'name_ar' => 'required|string|max:120', 'status' => 'sometimes|in:active,inactive', 'logo_path' => 'nullable|string']);
         $brand = Brand::create($data);
-        app(\App\Domain\Audit\Services\AuditLogger::class)->log('catalog.brand_created', $brand);
+        app(AuditLogger::class)->log('catalog.brand_created', $brand);
 
         return response()->json(['data' => $brand], 201);
     }

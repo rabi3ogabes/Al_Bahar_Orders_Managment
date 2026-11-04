@@ -2,8 +2,16 @@
 
 namespace App\Domain\Orders\Models;
 
+use App\Domain\Branches\Models\Branch;
+use App\Domain\Branches\Models\DeliverySlot;
+use App\Domain\Branches\Models\DeliveryZone;
+use App\Domain\Fulfillment\Models\Delivery;
+use App\Domain\Fulfillment\Models\PickupReservation;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class OrderFulfillment extends Model
 {
@@ -13,43 +21,42 @@ class OrderFulfillment extends Model
 
     protected $casts = ['status' => 'App\Domain\Orders\Enums\FulfillmentStatus', 'slot_date' => 'date', 'is_express' => 'boolean', 'accepted_at' => 'immutable_datetime', 'ready_at' => 'immutable_datetime', 'dispatched_at' => 'immutable_datetime', 'delivered_at' => 'immutable_datetime', 'picked_up_at' => 'immutable_datetime', 'cancelled_at' => 'immutable_datetime'];
 
-
-    public function order(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
     }
 
-    public function branch(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function branch(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Branches\Models\Branch::class);
+        return $this->belongsTo(Branch::class);
     }
 
-    public function items(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class, 'order_fulfillment_id');
     }
 
-    public function zone(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function zone(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Branches\Models\DeliveryZone::class, 'delivery_zone_id');
+        return $this->belongsTo(DeliveryZone::class, 'delivery_zone_id');
     }
 
-    public function slot(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function slot(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Branches\Models\DeliverySlot::class, 'delivery_slot_id');
+        return $this->belongsTo(DeliverySlot::class, 'delivery_slot_id');
     }
 
-    public function pickup(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function pickup(): HasOne
     {
-        return $this->hasOne(\App\Domain\Fulfillment\Models\PickupReservation::class, 'order_fulfillment_id');
+        return $this->hasOne(PickupReservation::class, 'order_fulfillment_id');
     }
 
-    public function deliveries(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function deliveries(): HasMany
     {
-        return $this->hasMany(\App\Domain\Fulfillment\Models\Delivery::class, 'order_fulfillment_id');
+        return $this->hasMany(Delivery::class, 'order_fulfillment_id');
     }
 
-    public function activeDelivery(): ?\App\Domain\Fulfillment\Models\Delivery
+    public function activeDelivery(): ?Delivery
     {
         $deliveries = $this->relationLoaded('deliveries') ? $this->deliveries : $this->deliveries()->get();
 

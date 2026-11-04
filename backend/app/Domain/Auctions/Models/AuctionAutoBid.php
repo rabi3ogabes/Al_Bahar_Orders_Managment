@@ -2,8 +2,10 @@
 
 namespace App\Domain\Auctions\Models;
 
+use App\Domain\Identity\Models\User;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AuctionAutoBid extends Model
 {
@@ -13,8 +15,8 @@ class AuctionAutoBid extends Model
 
     protected $casts = ['set_at' => 'immutable_datetime'];
 
-    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Identity\Models\User::class);
+        return $this->belongsTo(User::class);
     }
 }

@@ -2,8 +2,15 @@
 
 namespace App\Domain\Orders\Models;
 
+use App\Domain\Identity\Models\User;
+use App\Domain\Marketing\Models\OrderCoupon;
+use App\Domain\Payments\Models\Payment;
+use App\Support\Money;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Order extends Model
 {
@@ -13,55 +20,54 @@ class Order extends Model
 
     protected $casts = ['address_snapshot' => 'array', 'fee_breakdown' => 'array', 'tax_snapshot' => 'array', 'placed_at' => 'immutable_datetime', 'confirmed_at' => 'immutable_datetime', 'completed_at' => 'immutable_datetime', 'cancelled_at' => 'immutable_datetime', 'payment_due_at' => 'immutable_datetime', 'status' => 'App\Domain\Orders\Enums\OrderStatus', 'payment_status' => 'App\Domain\Payments\Enums\PaymentStatus', 'loyalty_points_redeemed' => 'integer'];
 
-
-    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Identity\Models\User::class);
+        return $this->belongsTo(User::class);
     }
 
-    public function items(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class);
     }
 
-    public function fulfillments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function fulfillments(): HasMany
     {
         return $this->hasMany(OrderFulfillment::class);
     }
 
-    public function history(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function history(): HasMany
     {
         return $this->hasMany(OrderStatusHistory::class)->orderBy('id');
     }
 
-    public function notes(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function notes(): HasMany
     {
         return $this->hasMany(OrderNote::class);
     }
 
-    public function cancellations(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function cancellations(): HasMany
     {
         return $this->hasMany(OrderCancellation::class);
     }
 
-    public function invoice(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function invoice(): HasOne
     {
         return $this->hasOne(OrderInvoice::class);
     }
 
-    public function payments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function payments(): HasMany
     {
-        return $this->hasMany(\App\Domain\Payments\Models\Payment::class);
+        return $this->hasMany(Payment::class);
     }
 
-    public function coupons(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function coupons(): HasMany
     {
-        return $this->hasMany(\App\Domain\Marketing\Models\OrderCoupon::class);
+        return $this->hasMany(OrderCoupon::class);
     }
 
-    public function money(string $field): \App\Support\Money
+    public function money(string $field): Money
     {
-        return \App\Support\Money::of($this->getAttribute($field) ?? '0', $this->currency ?? 'QAR');
+        return Money::of($this->getAttribute($field) ?? '0', $this->currency ?? 'QAR');
     }
 
     /** Branches involved in this order (via fulfillments) — used for branch-scoped authorization. */

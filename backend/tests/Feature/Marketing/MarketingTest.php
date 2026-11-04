@@ -1,13 +1,17 @@
 <?php
 
+use App\Domain\Catalog\Models\Category;
 use App\Domain\Cms\Models\Banner;
 use App\Domain\Cms\Models\HomepageSection;
+use App\Domain\Identity\Models\User;
 use App\Domain\Marketing\Models\Coupon;
 use App\Domain\Marketing\Models\CouponUsage;
 use App\Domain\Marketing\Models\LoyaltyTransaction;
 use App\Domain\Marketing\Models\Promotion;
-use App\Domain\Marketing\Models\Referral;
+use App\Domain\Marketing\Models\Review;
 use App\Domain\Marketing\Services\LoyaltyService;
+use App\Domain\Marketing\Services\ReferralService;
+use App\Domain\Marketing\Services\ReviewService;
 use App\Domain\Notifications\Jobs\SendNotificationJob;
 use App\Domain\Notifications\Models\Notification;
 use App\Domain\Notifications\Models\NotificationLog;
@@ -15,6 +19,9 @@ use App\Domain\Notifications\Services\NotificationService;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Support\Models\SupportTicket;
 use App\Domain\Support\Services\SupportService;
+use App\Support\DomainException;
+use App\Support\Money;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 
 function promo(array $a = []): Promotion
@@ -38,7 +45,7 @@ it('applies a percentage coupon with a maximum discount, allocated across lines'
 });
 
 it('scopes promotions to categories and branches, and enforces minimum basket', function () {
-    $cat = \App\Domain\Catalog\Models\Category::factory()->create();
+    $cat = Category::factory()->create();
     $this->w->p2->update(['category_id' => $cat->id]);
     $p = promo(['scope' => 'categories', 'requires_coupon' => false, 'value' => '50']);
     $p->categories()->attach($cat->id);
@@ -93,14 +100,14 @@ it('redeems loyalty points within the cap, earns on completion and reverses on c
     // Completion earns once.
     $this->postJson('/api/v1/cart/items', ['variant_id' => $this->w->v2->id, 'quantity' => 1]);
     $order = Order::find(quoteAndPlace($this->opts)->json('data.order.id'));
-    $loyalty->earnForOrder($this->w->customer, \App\Support\Money::of('1500.00'), $order->id);
-    $loyalty->earnForOrder($this->w->customer, \App\Support\Money::of('1500.00'), $order->id);
+    $loyalty->earnForOrder($this->w->customer, Money::of('1500.00'), $order->id);
+    $loyalty->earnForOrder($this->w->customer, Money::of('1500.00'), $order->id);
     expect(LoyaltyTransaction::where('order_id', $order->id)->where('type', 'earn')->count())->toBe(1);
 });
 
 it('rewards referrals only after the referee completes a first order, and blocks self/shared-device referrals', function () {
-    $referrer = \App\Domain\Identity\Models\User::factory()->create(['referral_code' => 'ABREFER1']);
-    $svc = app(\App\Domain\Marketing\Services\ReferralService::class);
+    $referrer = User::factory()->create(['referral_code' => 'ABREFER1']);
+    $svc = app(ReferralService::class);
     expect($svc->attach($referrer, 'ABREFER1'))->toBeNull(); // self
     $ref = $svc->attach($this->w->customer, 'abrefer1');
     expect($ref->status)->toBe('pending');
@@ -158,7 +165,7 @@ it('serves the admin-managed homepage with scheduled banners only within their w
     $home = $this->getJson('/api/v1/home?branch_id='.$this->w->a->id, ['Accept-Language' => 'ar'])->assertOk()->json('data.sections');
     expect(collect($home)->pluck('type')->all())->toBe(['featured_products'])->and($home[0]['title'])->toBe('مختارات');
 
-    \Illuminate\Support\Facades\Cache::flush();
+    Cache::flush();
     $this->travel(2)->days();
     expect(collect($this->getJson('/api/v1/home')->json('data.sections'))->pluck('type')->all())->toBe(['banners', 'featured_products']);
 });
@@ -173,15 +180,15 @@ it('keeps internal support notes private and limits support actions to authorize
     $svc->staffReply($ticket, $agent, 'Your delivery is scheduled for tomorrow.');
     $messages = $this->getJson("/api/v1/me/support/tickets/{$t['id']}")->json('data.messages');
     expect(collect($messages)->pluck('body')->all())->not->toContain('Customer called twice')->and($ticket->fresh()->first_response_at)->not->toBeNull();
-    expect(fn () => $svc->staffReply($ticket, staffWithRole('pickup_employee', $this->w->a), 'hi'))->toThrow(\App\Support\DomainException::class);
+    expect(fn () => $svc->staffReply($ticket, staffWithRole('pickup_employee', $this->w->a), 'hi'))->toThrow(DomainException::class);
 });
 
 it('accepts verified-purchase reviews into moderation and updates ratings when approved', function () {
     $this->postJson("/api/v1/products/{$this->w->p1->id}/reviews", ['rating' => 5, 'title' => 'Beautiful <b>sofa</b>'])->assertCreated()->assertJsonPath('data.verified_purchase', false);
     $this->postJson("/api/v1/products/{$this->w->p1->id}/reviews", ['rating' => 4])->assertStatus(409);
-    $review = \App\Domain\Marketing\Models\Review::first();
+    $review = Review::first();
     expect($review->title)->toBe('Beautiful sofa');
     $this->getJson("/api/v1/products/{$this->w->p1->id}/reviews")->assertJsonCount(0, 'data');
-    app(\App\Domain\Marketing\Services\ReviewService::class)->moderate($review, staffWithRole('marketing_manager'), 'approved');
+    app(ReviewService::class)->moderate($review, staffWithRole('marketing_manager'), 'approved');
     expect($this->w->p1->fresh()->rating_count)->toBe(1)->and((float) $this->w->p1->fresh()->rating_average)->toBe(5.0);
 });

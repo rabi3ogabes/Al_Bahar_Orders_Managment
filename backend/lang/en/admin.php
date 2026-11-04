@@ -60,6 +60,8 @@ return [
     'confirm_disable_2fa' => 'Disable two-factor authentication for your account?',
     'two_factor_enabled' => 'Two-factor authentication is now active.',
     'two_factor_disabled' => 'Two-factor authentication has been disabled.',
+    'two_factor_enrolment_required' => 'Two-factor authentication is required for staff accounts. Enable it to continue.',
+    'two_factor_mandatory' => 'Two-factor authentication is mandatory for staff accounts and cannot be disabled.',
     'good_morning' => 'Good morning',
     'good_afternoon' => 'Good afternoon',
     'good_evening' => 'Good evening',

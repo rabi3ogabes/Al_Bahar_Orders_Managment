@@ -88,6 +88,11 @@ class Profile extends Component
 
     public function disableTwoFactor(AuditLogger $audit): void
     {
+        if (config('platform.auth.staff_two_factor_required')) {
+            $this->dispatch('toast', type: 'error', message: __('admin.two_factor_mandatory'));
+
+            return;
+        }
         $this->validate(['current_password' => 'required|string']);
         $user = auth()->user();
         if (! Hash::check($this->current_password, $user->password)) {

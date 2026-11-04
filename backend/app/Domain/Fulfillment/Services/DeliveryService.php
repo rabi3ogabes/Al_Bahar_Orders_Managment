@@ -16,15 +16,17 @@ use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Orders\Enums\FulfillmentStatus as FS;
 use App\Domain\Orders\Models\OrderFulfillment;
 use App\Domain\Orders\Services\OrderService;
+use App\Domain\Payments\Models\CashCollection;
 use App\Domain\Payments\Models\Payment;
 use App\Domain\Payments\Services\PaymentService;
 use App\Support\DomainException;
+use App\Support\Money;
 use App\Support\Redactor;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -82,7 +84,7 @@ class DeliveryService
                 'booking_response' => Redactor::redact($res['raw'] ?? []), 'last_error' => null]);
             $this->transition($delivery, DS::Accepted, null, 'provider', 'booking_confirmed', system: true);
         } catch (\Throwable $e) {
-            $delivery->update(['last_error' => Str::limit($e instanceof \Illuminate\Http\Client\ConnectionException ? 'Provider timeout — retry booking' : $e->getMessage(), 490)]);
+            $delivery->update(['last_error' => Str::limit($e instanceof ConnectionException ? 'Provider timeout — retry booking' : $e->getMessage(), 490)]);
             report($e);
         }
 
@@ -153,7 +155,7 @@ class DeliveryService
             }
             if ($f->order->payment_method === 'cod' && ! $f->order->payment_status->isSettled()) {
                 if (! $cod) {
-                    throw DomainException::make('cod_collection_required', 422, ['amount' => \App\Support\Money::of($d->cod_amount)->format()]);
+                    throw DomainException::make('cod_collection_required', 422, ['amount' => Money::of($d->cod_amount)->format()]);
                 }
                 $payment = Payment::where('order_id', $f->order_id)->latest('attempt')->firstOrFail();
                 app(PaymentService::class)->recordCollection($payment, $f, $actor, $cod['tender'], $cod['amount'], $cod['receipt_reference'] ?? null);
@@ -186,7 +188,7 @@ class DeliveryService
             }
             $payment = Payment::where('order_id', $f->order_id)->where('method', 'cod')->latest('attempt')->first();
             if ($payment && ! $payment->status->isSettled()) {
-                \App\Domain\Payments\Models\CashCollection::create(['payment_id' => $payment->id, 'order_fulfillment_id' => $f->id, 'branch_id' => $f->branch_id,
+                CashCollection::create(['payment_id' => $payment->id, 'order_fulfillment_id' => $f->id, 'branch_id' => $f->branch_id,
                     'collected_by' => $actor->id, 'context' => 'cod', 'tender' => 'cash', 'amount_due' => $payment->amount, 'amount_collected' => '0.00',
                     'status' => 'failed', 'failure_reason' => $reasonCode, 'collected_at' => now()]);
             }

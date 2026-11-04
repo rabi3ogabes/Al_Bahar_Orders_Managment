@@ -4,6 +4,7 @@ namespace App\Domain\Catalog\Services;
 
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Catalog\Models\Product;
+use App\Domain\Catalog\Models\ProductTranslation;
 use App\Domain\Catalog\Models\ProductVariant;
 use App\Domain\Pricing\Services\PricingService;
 use App\Support\DomainException;
@@ -23,7 +24,7 @@ class ProductService
     public function __construct(private readonly AuditLogger $audit, private readonly PricingService $pricing) {}
 
     /**
-     * @param array{sku: string, price: string, sale_price?: ?string, translations: array<string, array>, variants?: list<array>, warranty?: ?array} $data
+     * @param  array{sku: string, price: string, sale_price?: ?string, translations: array<string, array>, variants?: list<array>, warranty?: ?array}  $data
      */
     public function create(array $data): Product
     {
@@ -240,7 +241,7 @@ class ProductService
         }
         $slug = $base;
         $i = 2;
-        while (\App\Domain\Catalog\Models\ProductTranslation::where('locale', $locale)->where('slug', $slug)->exists()) {
+        while (ProductTranslation::where('locale', $locale)->where('slug', $slug)->exists()) {
             $slug = $base.'-'.$i++;
         }
 

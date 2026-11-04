@@ -1,17 +1,20 @@
 <?php
 
 use App\Domain\Auctions\Models\AuctionBid;
+use App\Domain\Auctions\Services\AuctionService;
 use App\Domain\Auctions\Services\BidEngine;
+use App\Domain\Identity\Models\User;
 use App\Support\Money;
 use Illuminate\Foundation\Testing\DatabaseTruncation;
+use Tests\TestCase;
 
-uses(Tests\TestCase::class, DatabaseTruncation::class);
+uses(TestCase::class, DatabaseTruncation::class);
 
 it('accepts exactly one of many simultaneous identical bids and keeps bid numbers gap-free', function () {
     $w = auctionWorld();
     $users = collect(range(1, 8))->map(function () use ($w) {
-        $u = \App\Domain\Identity\Models\User::factory()->create();
-        app(\App\Domain\Auctions\Services\AuctionService::class)->register($u, $w->auction);
+        $u = User::factory()->create();
+        app(AuctionService::class)->register($u, $w->auction);
 
         return $u;
     });

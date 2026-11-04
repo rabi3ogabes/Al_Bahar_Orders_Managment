@@ -2,6 +2,7 @@
 
 namespace App\Domain\Auctions\Services;
 
+use App\Domain\Auctions\Events\AuctionOutbid;
 use App\Domain\Auctions\Events\LotUpdated;
 use App\Domain\Auctions\Models\Auction;
 use App\Domain\Auctions\Models\AuctionAutoBid;
@@ -160,7 +161,7 @@ class BidEngine
         $events[] = $this->event($lot, 'bid_accepted', ['bid_number' => $number, 'amount' => $amount->toDecimal(), 'type' => $type, 'previous_leader' => $previousLeader !== $userId ? $previousLeader : null]);
         if ($previousLeader && $previousLeader !== $userId) {
             $title = $lot->title_en;
-            DB::afterCommit(fn () => event(new \App\Domain\Auctions\Events\AuctionOutbid($previousLeader, $lot->id, $title, $amount->format())));
+            DB::afterCommit(fn () => event(new AuctionOutbid($previousLeader, $lot->id, $title, $amount->format())));
         }
         $this->maybeExtend($lot, $bid, $now, $events);
 

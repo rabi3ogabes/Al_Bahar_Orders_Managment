@@ -2,10 +2,11 @@
 
 namespace App\Http\Resources\V1\Admin;
 
+use App\Domain\Branches\Models\Branch;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-/** @mixin \App\Domain\Branches\Models\Branch */
+/** @mixin Branch */
 class BranchAdminResource extends JsonResource
 {
     public function toArray(Request $request): array

@@ -1,8 +1,10 @@
 <?php
 
 use App\Domain\Inventory\Models\StockMovement;
+use App\Domain\Inventory\Services\ReservationService;
 use App\Domain\Orders\Enums\FulfillmentStatus as FS;
 use App\Domain\Orders\Models\Order;
+use App\Domain\Orders\Models\OrderInvoice;
 use App\Domain\Orders\Services\OrderService;
 
 beforeEach(function () {
@@ -19,7 +21,7 @@ it('auto-approves early customer cancellation and releases stock exactly once', 
 
     // A second cancellation attempt and the expiry job do not release again.
     $this->postJson("/api/v1/orders/{$this->orderId}/cancel", ['reason_code' => 'changed_mind'])->assertStatus(409);
-    app(\App\Domain\Inventory\Services\ReservationService::class)->expireDue();
+    app(ReservationService::class)->expireDue();
     expect(StockMovement::where('type', 'reservation_release')->count())->toBe(1);
 });
 
@@ -69,5 +71,5 @@ it('reorders available items into the cart and serves a PDF invoice', function (
     $res = $this->get("/api/v1/orders/{$this->orderId}/invoice");
     $res->assertOk();
     expect($res->headers->get('content-type'))->toContain('pdf');
-    expect(\App\Domain\Orders\Models\OrderInvoice::where('order_id', $this->orderId)->exists())->toBeTrue();
+    expect(OrderInvoice::where('order_id', $this->orderId)->exists())->toBeTrue();
 });

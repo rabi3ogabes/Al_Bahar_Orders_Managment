@@ -34,9 +34,9 @@ class PostgresProductSearch implements ProductSearch
 
         if ($orderByRelevance) {
             $query->orderByRaw(
-                "(CASE WHEN upper(products.sku) = ? OR products.barcode = ? THEN 3 ELSE 0 END)
+                '(CASE WHEN upper(products.sku) = ? OR products.barcode = ? THEN 3 ELSE 0 END)
                  + COALESCE((SELECT max(CASE WHEN pt.search_text LIKE ? THEN 1.5 ELSE 0 END + word_similarity(?, pt.search_text))
-                             FROM product_translations pt WHERE pt.product_id = products.id), 0) DESC",
+                             FROM product_translations pt WHERE pt.product_id = products.id), 0) DESC',
                 [$code, $code, addcslashes($norm, '%_\\').'%', $norm]
             );
         }

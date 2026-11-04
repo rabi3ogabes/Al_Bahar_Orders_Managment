@@ -1,7 +1,7 @@
 <?php
 
-use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Audit\Services\AuditLogger;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 it('reports health of its dependencies', function () {
@@ -32,6 +32,6 @@ it('redacts secrets in audit logs and keeps audit logs immutable', function () {
         ->and($log->new_values['name'])->toBe('ok')
         ->and($log->new_values['phone'])->not->toBe('+97455123456');
 
-    expect(fn () => DB::table('audit_logs')->where('id', $log->id)->update(['action' => 'tampered']))->toThrow(\Illuminate\Database\QueryException::class);
+    expect(fn () => DB::table('audit_logs')->where('id', $log->id)->update(['action' => 'tampered']))->toThrow(QueryException::class);
     expect(fn () => $log->delete())->toThrow(LogicException::class);
 });

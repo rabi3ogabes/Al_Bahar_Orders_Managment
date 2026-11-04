@@ -5,6 +5,7 @@ namespace App\Domain\Fulfillment\Providers;
 use App\Domain\Fulfillment\Contracts\DeliveryProviderAdapter;
 use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Fulfillment\Models\DeliveryProvider;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -37,7 +38,7 @@ class MockDeliveryProvider implements DeliveryProviderAdapter
     {
         $settings = $this->provider->settings ?? [];
         if (! empty($settings['timeout'])) {
-            throw new \Illuminate\Http\Client\ConnectionException('Provider timed out');
+            throw new ConnectionException('Provider timed out');
         }
         if (! empty($settings['fail_create'])) {
             throw new RuntimeException('Provider rejected the booking');

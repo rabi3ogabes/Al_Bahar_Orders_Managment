@@ -2,8 +2,12 @@
 
 namespace App\Domain\Orders\Models;
 
+use App\Domain\Branches\Models\Branch;
+use App\Domain\Identity\Models\User;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Cart extends Model
 {
@@ -15,23 +19,22 @@ class Cart extends Model
 
     protected $casts = ['last_activity_at' => 'immutable_datetime', 'abandoned_notified_at' => 'immutable_datetime', 'expires_at' => 'immutable_datetime', 'loyalty_points_to_redeem' => 'integer'];
 
-
-    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Identity\Models\User::class);
+        return $this->belongsTo(User::class);
     }
 
-    public function items(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function items(): HasMany
     {
         return $this->hasMany(CartItem::class);
     }
 
-    public function branch(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function branch(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Branches\Models\Branch::class);
+        return $this->belongsTo(Branch::class);
     }
 
-    public function address(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function address(): BelongsTo
     {
         return $this->belongsTo(UserAddress::class, 'address_id');
     }

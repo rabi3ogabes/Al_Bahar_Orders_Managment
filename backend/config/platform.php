@@ -34,6 +34,8 @@ return [
         'refresh_token_ttl_days' => (int) env('AUTH_REFRESH_TOKEN_TTL_DAYS', 60),
         'password_login_enabled' => true,
         'max_sessions_per_user' => 10,
+        // Admin web sessions: staff without TOTP enrolled are sent to their profile to enrol before anything else.
+        'staff_two_factor_required' => (bool) env('STAFF_2FA_REQUIRED', true),
     ],
 
     'otp' => [

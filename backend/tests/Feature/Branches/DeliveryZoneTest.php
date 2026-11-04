@@ -2,8 +2,8 @@
 
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Branches\Models\BranchDeliveryZone;
-use App\Domain\Branches\Models\DeliveryZone;
 use App\Domain\Branches\Models\DeliverySlot;
+use App\Domain\Branches\Models\DeliveryZone;
 use App\Domain\Branches\Services\BranchService;
 use App\Domain\Branches\Services\DeliveryZoneResolver;
 use App\Domain\Branches\Services\SlotService;

@@ -37,12 +37,18 @@
         </div>
     </div>
     <nav class="flex-1 space-y-6 overflow-y-auto px-4 pb-6 [scrollbar-width:thin]">
+        @php
+            // Active item: exact route, or a child route (e.g. admin.orders.show) of an ".index" item when no nav item matches exactly.
+            $navRoutes = collect($nav)->flatMap(fn ($g) => array_column($g['items'], 'route'));
+            $current = request()->route()?->getName();
+            $exactInNav = $navRoutes->contains($current);
+        @endphp
         @foreach ($nav as $group)
             <div>
                 <div class="mb-2 px-3 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-ink-500">{{ __($group['label']) }}</div>
                 <ul class="space-y-0.5">
                     @foreach ($group['items'] as $item)
-                        @php $active = request()->routeIs(\Illuminate\Support\Str::beforeLast($item['route'], '.').'*'); @endphp
+                        @php $active = $current === $item['route'] || (! $exactInNav && str_ends_with($item['route'], '.index') && request()->routeIs(\Illuminate\Support\Str::beforeLast($item['route'], '.').'.*')); @endphp
                         <li>
                             <a href="{{ route($item['route']) }}" wire:navigate class="nav-link {{ $active ? 'nav-link-active' : '' }}" @if($active) aria-current="page" @endif>
                                 <x-icon :name="$item['icon']" class="size-[1.15rem] shrink-0 {{ $active ? 'text-brass-300' : '' }}" />

@@ -7,6 +7,7 @@ use App\Domain\Fulfillment\Models\PickupReservation;
 use App\Domain\Fulfillment\Services\DeliveryService;
 use App\Domain\Fulfillment\Services\PickupService;
 use App\Domain\Identity\Models\User;
+use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Orders\Enums\FulfillmentStatus;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderCancellation;
@@ -195,7 +196,7 @@ class OrderOpsController extends ApiController
 
     private function assertCanSee(Order $order): void
     {
-        $ok = collect($order->branchIds())->contains(fn ($b) => app(\App\Domain\Identity\Services\AccessControl::class)->allows($this->user(), 'orders.view', $b));
+        $ok = collect($order->branchIds())->contains(fn ($b) => app(AccessControl::class)->allows($this->user(), 'orders.view', $b));
         abort_unless($ok, 403);
     }
 }

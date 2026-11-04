@@ -9,6 +9,7 @@ use App\Support\BusinessTime;
 use App\Support\DomainException;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /** Pickup/delivery slot availability and capacity-safe booking (row lock on the per-date counter). */
 class SlotService
@@ -55,7 +56,7 @@ class SlotService
             throw DomainException::make('slot_unavailable');
         }
         DB::table('delivery_slot_bookings')->insertOrIgnore([
-            'id' => (string) \Illuminate\Support\Str::uuid(), 'delivery_slot_id' => $slot->id, 'slot_date' => $day->toDateString(),
+            'id' => (string) Str::uuid(), 'delivery_slot_id' => $slot->id, 'slot_date' => $day->toDateString(),
             'booked' => 0, 'created_at' => now(), 'updated_at' => now(),
         ]);
         $booking = DeliverySlotBooking::where('delivery_slot_id', $slot->id)->whereDate('slot_date', $day->toDateString())->lockForUpdate()->first();

@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Branches\Services\EmployeeService;
 use App\Domain\Identity\Models\User;
@@ -58,12 +59,25 @@ it('revokes sessions and permissions when an employee is deactivated', function 
         ->and(app(AccessControl::class)->allows($emp->refresh(), 'orders.view', $this->a->id))->toBeFalse();
 });
 
+it('limits branch managers to suspending staff of their own branches only', function () {
+    $mgr = staffWithRole('branch_manager', $this->a);
+    $own = staffWithRole('sales_employee', $this->a);
+    $otherBranch = staffWithRole('sales_employee', $this->b);
+    $companyWide = staffWithRole('accountant');
+
+    $this->svc->setStatus($mgr, $own, 'suspended');
+    expect($own->refresh()->status->value)->toBe('suspended');
+    expect(fn () => $this->svc->setStatus($mgr, $otherBranch, 'suspended'))->toThrow(DomainException::class);
+    expect(fn () => $this->svc->setStatus($mgr, $companyWide, 'suspended'))->toThrow(DomainException::class);
+    expect($otherBranch->refresh()->status->value)->toBe('active');
+});
+
 it('records who changed assignments', function () {
     $admin = staffWithRole('admin');
     $emp = User::factory()->staff()->create();
     $this->svc->assignToBranch($admin, $emp, $this->a, ['sales_employee']);
 
-    $log = \App\Domain\Audit\Models\AuditLog::where('action', 'employee.branch_assigned')->firstOrFail();
+    $log = AuditLog::where('action', 'employee.branch_assigned')->firstOrFail();
     expect($log->actor_id)->toBe($admin->id)->and($log->branch_id)->toBe($this->a->id)->and($log->new_values['roles'])->toBe(['sales_employee']);
 });
 

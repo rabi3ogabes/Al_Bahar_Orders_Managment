@@ -4,7 +4,6 @@ namespace App\Domain\Orders\Services;
 
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderInvoice;
-use App\Support\DocumentNumber;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
 

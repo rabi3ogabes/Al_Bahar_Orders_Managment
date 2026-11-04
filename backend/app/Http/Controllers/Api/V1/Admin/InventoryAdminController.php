@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
+use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Inventory\Models\BranchInventory;
 use App\Domain\Inventory\Models\InventoryAdjustment;
 use App\Domain\Inventory\Models\PurchaseOrder;
@@ -163,7 +164,7 @@ class InventoryAdminController extends ApiController
             'contact_name' => 'nullable|string|max:120', 'phone' => 'nullable|string|max:32', 'email' => 'nullable|email', 'address' => 'nullable|string|max:255',
             'country' => 'nullable|string|size:2', 'tax_number' => 'nullable|string|max:64', 'payment_terms' => 'nullable|string|max:120', 'notes' => 'nullable|string|max:2000']);
         $s = Supplier::create($data);
-        app(\App\Domain\Audit\Services\AuditLogger::class)->log('purchasing.supplier_created', $s);
+        app(AuditLogger::class)->log('purchasing.supplier_created', $s);
 
         return response()->json(['data' => $s], 201);
     }

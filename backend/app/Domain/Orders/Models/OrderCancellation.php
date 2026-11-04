@@ -2,8 +2,10 @@
 
 namespace App\Domain\Orders\Models;
 
+use App\Domain\Identity\Models\User;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class OrderCancellation extends Model
 {
@@ -13,14 +15,13 @@ class OrderCancellation extends Model
 
     protected $casts = ['decided_at' => 'immutable_datetime'];
 
-
-    public function order(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
     }
 
-    public function requester(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function requester(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Identity\Models\User::class, 'requested_by');
+        return $this->belongsTo(User::class, 'requested_by');
     }
 }

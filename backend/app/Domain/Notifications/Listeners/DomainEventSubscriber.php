@@ -19,8 +19,10 @@ use App\Domain\Orders\Models\Order;
 use App\Domain\Payments\Events\PaymentStatusChanged;
 use App\Domain\Payments\Models\Payment;
 use App\Domain\Pricing\Events\PriceChanged;
+use App\Support\BusinessTime;
 use App\Support\Money;
 use Illuminate\Events\Dispatcher;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -86,7 +88,9 @@ class DomainEventSubscriber
             if (! $p?->order?->user || $p->method !== 'sadad') {
                 return;
             }
-            $event = match ($e->to) { 'paid' => 'payment.succeeded', 'failed' => 'payment.failed', default => null };
+            $event = match ($e->to) {
+                'paid' => 'payment.succeeded', 'failed' => 'payment.failed', default => null
+            };
             if ($event) {
                 $this->notify->notify($p->order->user, $event, $this->orderData($p->order));
             }
@@ -104,7 +108,7 @@ class DomainEventSubscriber
                 return;
             }
             $data = ['lot' => $w->lot->localized('title', $w->user->preferredLocale()), 'amount' => Money::of($w->amount)->format($w->user->preferredLocale()),
-                'deadline' => \App\Support\BusinessTime::display($w->payment_due_at), 'deep_link' => 'albahar://auctions/lots/'.$w->auction_lot_id];
+                'deadline' => BusinessTime::display($w->payment_due_at), 'deep_link' => 'albahar://auctions/lots/'.$w->auction_lot_id];
             $this->notify->notify($w->user, 'auction.won', $data);
             if ($w->rank === 1) {
                 $losers = AuctionBid::where('auction_lot_id', $w->auction_lot_id)->where('status', 'accepted')->where('user_id', '!=', $w->user_id)->distinct()->pluck('user_id');
@@ -164,7 +168,7 @@ class DomainEventSubscriber
     {
         $locale = $o->locale ?: 'en';
 
-        return ['order_number' => $o->number, 'total' => Money::of($o->grand_total)->format($locale), 'name' => \Illuminate\Support\Str::before($o->customer_name, ' '),
+        return ['order_number' => $o->number, 'total' => Money::of($o->grand_total)->format($locale), 'name' => Str::before($o->customer_name, ' '),
             'deep_link' => 'albahar://orders/'.$o->id, 'reference' => $o->id];
     }
 

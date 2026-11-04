@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push: { branches: [main, "claude/**"] }
+  pull_request:
+
+concurrency: { group: "${{ github.workflow }}-${{ github.ref }}", cancel-in-progress: true }
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: backend } }
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_DB: albahar_test, POSTGRES_USER: albahar, POSTGRES_PASSWORD: albahar }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U albahar" --health-interval 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+    env:
+      DB_HOST: 127.0.0.1
+      DB_USERNAME: albahar
+      DB_PASSWORD: albahar
+      DB_DATABASE: albahar_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with: { php-version: "8.3", extensions: "pdo_pgsql, pgsql, redis, gd, intl, zip, pcntl", coverage: none }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: backend/package-lock.json }
+      - run: composer install --no-interaction --prefer-dist
+      - run: cp .env.example .env && php artisan key:generate
+      - name: Code style (Pint)
+        run: vendor/bin/pint --test
+      - name: Static analysis (PHPStan + Larastan)
+        run: |
+          composer require --dev larastan/larastan:^3.0 --no-interaction --no-progress -W
+          vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+      - name: Dependency audit
+        run: composer audit --no-dev
+      - name: Build admin assets
+        run: npm ci && npm run build && npm audit --omit=dev --audit-level=high
+      - name: Migrations on a clean database (up, down, up)
+        run: php artisan migrate --force && php artisan migrate:rollback --force && php artisan migrate --force --seed
+      - name: Tests (feature + unit)
+        run: php artisan migrate:fresh --force && vendor/bin/pest --testsuite=Unit,Feature
+      - name: Concurrency tests (multi-process, PostgreSQL row locks)
+        run: vendor/bin/pest --testsuite=Concurrency
+
+  mobile:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: mobile } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, cache: true }
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build web --release --dart-define=FLAVOR=staging
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [backend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with: { context: ., file: docker/php/Dockerfile, target: production, push: false, tags: "albahar/app:ci" }

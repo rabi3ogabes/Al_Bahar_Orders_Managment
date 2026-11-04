@@ -15,6 +15,7 @@ use App\Domain\Orders\Services\OrderService;
 use App\Domain\Payments\Models\Payment;
 use App\Domain\Payments\Services\PaymentService;
 use App\Support\DomainException;
+use App\Support\Money;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -134,7 +135,7 @@ class PickupService
 
             if ($order->payment_method === 'pay_at_pickup' && ! $order->payment_status->isSettled()) {
                 if (! $collection) {
-                    throw DomainException::make('pickup_payment_required', 409, ['amount' => \App\Support\Money::of($order->grand_total)->format()]);
+                    throw DomainException::make('pickup_payment_required', 409, ['amount' => Money::of($order->grand_total)->format()]);
                 }
                 $payment = Payment::where('order_id', $order->id)->latest('attempt')->firstOrFail();
                 app(PaymentService::class)->recordCollection($payment, $f, $staff, $collection['tender'], $collection['amount'], $collection['receipt_reference'] ?? null);

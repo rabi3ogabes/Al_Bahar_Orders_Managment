@@ -8,8 +8,10 @@ use App\Domain\Catalog\Models\ProductBranchSetting;
 use App\Domain\Catalog\Models\ProductPriceHistory;
 use App\Domain\Catalog\Models\ProductVariant;
 use App\Domain\Catalog\Models\ProductVariantBranchSetting;
+use App\Domain\Pricing\Events\PriceChanged;
 use App\Support\DomainException;
 use App\Support\Money;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -84,7 +86,7 @@ class PricingService
         if ($sale !== null && $price !== null && ! $allowAbove && Money::of($sale)->greaterThan(Money::of($price))) {
             throw DomainException::make('sale_above_price');
         }
-        if ($start && $end && \Carbon\Carbon::parse($end)->lessThanOrEqualTo(\Carbon\Carbon::parse($start))) {
+        if ($start && $end && Carbon::parse($end)->lessThanOrEqualTo(Carbon::parse($start))) {
             throw DomainException::make('sale_window_invalid');
         }
     }
@@ -116,7 +118,7 @@ class PricingService
                 'variant_id' => $variantId, 'level' => $branchId ? ($variantId ? 'variant_branch' : 'product_branch') : ($variantId ? 'variant' : 'product'),
                 'reason' => $reason,
             ], branchId: $branchId);
-            event(new \App\Domain\Pricing\Events\PriceChanged($product->id, $variantId, $branchId, $old['price'], $price, $old['sale_price'], $sale));
+            event(new PriceChanged($product->id, $variantId, $branchId, $old['price'], $price, $old['sale_price'], $sale));
         });
     }
 }

@@ -4,6 +4,7 @@ namespace App\Domain\Marketing\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class LoyaltyAccount extends Model
 {
@@ -13,8 +14,7 @@ class LoyaltyAccount extends Model
 
     protected $casts = ['balance' => 'integer', 'lifetime_earned' => 'integer'];
 
-
-    public function transactions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function transactions(): HasMany
     {
         return $this->hasMany(LoyaltyTransaction::class);
     }

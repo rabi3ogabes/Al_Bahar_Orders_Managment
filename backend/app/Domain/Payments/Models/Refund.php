@@ -2,8 +2,11 @@
 
 namespace App\Domain\Payments\Models;
 
+use App\Domain\Identity\Models\User;
+use App\Domain\Orders\Models\Order;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Refund extends Model
 {
@@ -15,19 +18,18 @@ class Refund extends Model
 
     protected $casts = ['approved_at' => 'immutable_datetime', 'processed_at' => 'immutable_datetime'];
 
-
-    public function payment(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function payment(): BelongsTo
     {
         return $this->belongsTo(Payment::class);
     }
 
-    public function order(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function order(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Orders\Models\Order::class);
+        return $this->belongsTo(Order::class);
     }
 
-    public function requester(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function requester(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Identity\Models\User::class, 'requested_by');
+        return $this->belongsTo(User::class, 'requested_by');
     }
 }

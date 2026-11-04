@@ -2,15 +2,16 @@
 
 namespace App\Domain\Auctions\Services;
 
-use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Auctions\Models\Auction;
 use App\Domain\Auctions\Models\AuctionBidder;
 use App\Domain\Auctions\Models\AuctionDeposit;
 use App\Domain\Auctions\Models\AuctionLot;
 use App\Domain\Auctions\Models\AuctionProduct;
 use App\Domain\Auctions\Models\AuctionWinner;
+use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Branches\Services\DeliveryZoneResolver;
+use App\Domain\Catalog\Models\ProductVariant;
 use App\Domain\Fulfillment\Models\PickupReservation;
 use App\Domain\Identity\Models\User;
 use App\Domain\Inventory\Services\ReservationService;
@@ -206,7 +207,7 @@ class AuctionService
                 'starts_at' => $l['starts_at'] ?? $auction->starts_at, 'ends_at' => $l['ends_at'] ?? $auction->ends_at, 'sort_order' => $l['sort_order'] ?? 0,
             ]);
             if (! empty($l['product_variant_id'])) {
-                $variant = \App\Domain\Catalog\Models\ProductVariant::findOrFail($l['product_variant_id']);
+                $variant = ProductVariant::findOrFail($l['product_variant_id']);
                 AuctionProduct::create(['auction_lot_id' => $lot->id, 'product_id' => $variant->product_id, 'product_variant_id' => $variant->id,
                     'branch_id' => $l['branch_id'], 'quantity' => $l['quantity'] ?? 1]);
             }

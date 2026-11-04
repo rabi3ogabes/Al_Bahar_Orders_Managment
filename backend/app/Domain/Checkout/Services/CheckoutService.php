@@ -25,7 +25,6 @@ use App\Domain\Payments\Models\Payment;
 use App\Domain\Payments\Services\PaymentService;
 use App\Support\DocumentNumber;
 use App\Support\DomainException;
-use App\Support\Money;
 use Illuminate\Support\Facades\DB;
 
 /**

@@ -56,7 +56,7 @@
                     </tbody>
                 </table>
             </div>
-            <div class="border-t border-sand-100 p-4 dark:border-ink-800">{{ $branches->links() }}</div>
+            <div class="border-t border-sand-100 p-4 dark:border-ink-800">{{ $branches->links('components.admin.pagination') }}</div>
         @endif
     </div>
 </div>

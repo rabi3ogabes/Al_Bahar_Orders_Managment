@@ -1,10 +1,15 @@
 <?php
 
+use App\Domain\Branches\Models\Branch;
 use App\Domain\Catalog\Models\Category;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Catalog\Models\ProductAttribute;
+use App\Domain\Catalog\Models\ProductBranchSetting;
+use App\Domain\Catalog\Models\ProductImage;
 use App\Domain\Catalog\Services\CategoryService;
+use App\Domain\Catalog\Services\ProductService;
 use App\Support\DomainException;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
@@ -52,7 +57,7 @@ it('manages variants with attributes and unique variant SKUs', function () {
 
 it('enforces one translation per locale', function () {
     $p = Product::factory()->create();
-    expect(fn () => $p->translations()->create(['locale' => 'en', 'name' => 'Dup', 'slug' => 'dup']))->toThrow(\Illuminate\Database\QueryException::class);
+    expect(fn () => $p->translations()->create(['locale' => 'en', 'name' => 'Dup', 'slug' => 'dup']))->toThrow(QueryException::class);
 });
 
 it('prevents circular category nesting and supports deep trees', function () {
@@ -93,11 +98,11 @@ it('searches Arabic and English names, partial words, SKU and barcode', function
 });
 
 it('hides draft products and products not visible in the branch', function () {
-    $branch = \App\Domain\Branches\Models\Branch::factory()->create();
+    $branch = Branch::factory()->create();
     $visible = Product::factory()->create();
     Product::factory()->draft()->create();
     $hidden = Product::factory()->create();
-    \App\Domain\Catalog\Models\ProductBranchSetting::create(['product_id' => $hidden->id, 'branch_id' => $branch->id, 'is_visible' => false]);
+    ProductBranchSetting::create(['product_id' => $hidden->id, 'branch_id' => $branch->id, 'is_visible' => false]);
 
     expect($this->getJson("/api/v1/products?branch_id={$branch->id}")->json('data.*.id'))->toBe([$visible->id]);
 });
@@ -124,8 +129,8 @@ it('imports products from CSV with a per-row error report', function () {
 });
 
 it('blocks catalog edits without permission and branch overrides outside the user branch', function () {
-    $a = \App\Domain\Branches\Models\Branch::factory()->create();
-    $b = \App\Domain\Branches\Models\Branch::factory()->create();
+    $a = Branch::factory()->create();
+    $b = Branch::factory()->create();
     $p = Product::factory()->create();
 
     actingAsStaff(staffWithRole('sales_employee', $a));
@@ -142,13 +147,13 @@ it('stores optimized images on object storage with reference-checked deletion', 
     actingAsStaff(staffWithRole('admin'));
     $p = Product::factory()->create();
     $res = $this->post("/api/v1/admin/catalog/products/{$p->id}/images", ['image' => UploadedFile::fake()->image('sofa.jpg', 1600, 1000)], ['Accept' => 'application/json'])->assertCreated();
-    $img = \App\Domain\Catalog\Models\ProductImage::find($res->json('data.id'));
+    $img = ProductImage::find($res->json('data.id'));
     Storage::disk('public')->assertExists($img->path);
     expect(array_map('intval', array_keys($img->variants)))->toBe([320, 640, 1280]);
 
     $this->post("/api/v1/admin/catalog/products/{$p->id}/images", ['image' => UploadedFile::fake()->create('evil.php', 10, 'application/x-php')], ['Accept' => 'application/json'])->assertStatus(422);
 
-    $copy = app(\App\Domain\Catalog\Services\ProductService::class)->duplicate($p);
+    $copy = app(ProductService::class)->duplicate($p);
     $this->deleteJson("/api/v1/admin/catalog/images/{$img->id}")->assertOk();
     Storage::disk('public')->assertExists($img->path); // still referenced by the duplicate
 });

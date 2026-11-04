@@ -1,7 +1,11 @@
 <?php
 
+use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Branches\Models\Branch;
+use App\Domain\Branches\Models\BranchEmployee;
 use App\Domain\Catalog\Models\Product;
+use App\Domain\Identity\Models\Role;
+use App\Domain\Identity\Models\UserRole;
 use App\Domain\Inventory\Enums\MovementType;
 use App\Domain\Inventory\Exceptions\InsufficientStock;
 use App\Domain\Inventory\Models\BranchInventory;
@@ -15,6 +19,7 @@ use App\Domain\Inventory\Services\ReservationService;
 use App\Domain\Inventory\Services\StocktakingService;
 use App\Domain\Inventory\Services\TransferService;
 use App\Support\DomainException;
+use Illuminate\Database\QueryException;
 
 beforeEach(function () {
     [$this->a, $this->b] = Branch::factory()->count(2)->create();
@@ -83,8 +88,8 @@ it('deducts on-hand and reserved together when a reservation is consumed', funct
 
 it('runs a transfer with partial dispatch, partial receipt and discrepancies', function () {
     $requester = staffWithRole('inventory_manager', $this->a);
-    \App\Domain\Branches\Models\BranchEmployee::create(['branch_id' => $this->b->id, 'user_id' => $requester->id, 'is_active' => true]);
-    \App\Domain\Identity\Models\UserRole::create(['user_id' => $requester->id, 'role_id' => \App\Domain\Identity\Models\Role::where('key', 'inventory_manager')->value('id'), 'branch_id' => $this->b->id]);
+    BranchEmployee::create(['branch_id' => $this->b->id, 'user_id' => $requester->id, 'is_active' => true]);
+    UserRole::create(['user_id' => $requester->id, 'role_id' => Role::where('key', 'inventory_manager')->value('id'), 'branch_id' => $this->b->id]);
     $approver = staffWithRole('branch_manager', $this->a);
     $svc = app(TransferService::class);
 
@@ -109,7 +114,7 @@ it('runs a transfer with partial dispatch, partial receipt and discrepancies', f
     expect(fn () => $svc->complete($approver->fresh(), $t))->toThrow(DomainException::class);
     $t = $svc->complete(staffWithRole('branch_manager', $this->b), $t);
     expect($t->status)->toBe('completed');
-    expect(\App\Domain\Audit\Models\AuditLog::where('action', 'transfer.discrepancy')->exists())->toBeTrue();
+    expect(AuditLog::where('action', 'transfer.discrepancy')->exists())->toBeTrue();
 });
 
 it('adds stock from partial goods receipts with weighted average cost', function () {
@@ -155,7 +160,7 @@ it('applies stocktake variances against the snapshot while preserving sales made
     expect(($this->stock)($this->a)->on_hand)->toBe(8) // 10 − 1 sold − 1 shrinkage
         ->and(StockMovement::where('type', 'stocktake_correction')->value('quantity'))->toBe(-1)
         ->and(($this->stock)($this->a)->last_counted_at)->not->toBeNull();
-    expect(fn () => $svc->start($mgr, $this->a->id) && $svc->start($mgr, $this->a->id))->toThrow(\Illuminate\Database\QueryException::class);
+    expect(fn () => $svc->start($mgr, $this->a->id) && $svc->start($mgr, $this->a->id))->toThrow(QueryException::class);
 });
 
 it('prevents Branch A staff from adjusting or reading Branch B inventory', function () {

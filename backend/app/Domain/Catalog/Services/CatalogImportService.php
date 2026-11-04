@@ -2,18 +2,20 @@
 
 namespace App\Domain\Catalog\Services;
 
+use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Catalog\Models\Brand;
 use App\Domain\Catalog\Models\CatalogImport;
 use App\Domain\Catalog\Models\Category;
 use App\Domain\Catalog\Models\Product;
 use App\Support\DomainException;
+use App\Support\Money;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use OpenSpout\Common\Entity\Row;
 use OpenSpout\Reader\CSV\Reader as CsvReader;
 use OpenSpout\Reader\XLSX\Reader as XlsxReader;
 use OpenSpout\Writer\XLSX\Writer as XlsxWriter;
-use OpenSpout\Common\Entity\Row;
 
 /**
  * Bulk product import/export (CSV or XLSX). Each row is validated and applied in its own savepoint so one bad
@@ -102,7 +104,7 @@ class CatalogImportService
 
         $import->update(['status' => $status, 'total_rows' => $total, 'created_rows' => $created, 'updated_rows' => $updated,
             'failed_rows' => $failed, 'errors' => array_slice($errors, 0, 1000), 'completed_at' => now()]);
-        app(\App\Domain\Audit\Services\AuditLogger::class)->log('catalog.import_processed', $import, [], ['created' => $created, 'updated' => $updated, 'failed' => $failed]);
+        app(AuditLogger::class)->log('catalog.import_processed', $import, [], ['created' => $created, 'updated' => $updated, 'failed' => $failed]);
 
         return $import;
     }
@@ -167,8 +169,8 @@ class CatalogImportService
         return [
             'sku' => $d['sku'],
             'barcode' => $d['barcode'] ?: null,
-            'price' => \App\Support\Money::of((string) $d['price'])->toDecimal(),
-            'sale_price' => $d['sale_price'] !== null && $d['sale_price'] !== '' ? \App\Support\Money::of((string) $d['sale_price'])->toDecimal() : null,
+            'price' => Money::of((string) $d['price'])->toDecimal(),
+            'sale_price' => $d['sale_price'] !== null && $d['sale_price'] !== '' ? Money::of((string) $d['sale_price'])->toDecimal() : null,
             'status' => $d['status'] ?: 'draft',
             'category_id' => $categories[$d['category_slug'] ?? ''] ?? null,
             'brand_id' => $brands[$d['brand_slug'] ?? ''] ?? null,

@@ -2,12 +2,14 @@
 
 namespace App\Livewire\Admin\Branches;
 
+use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Branches\Models\BranchDeliveryZone;
 use App\Domain\Branches\Models\BranchEmployee;
 use App\Domain\Branches\Models\BranchHoliday;
 use App\Domain\Branches\Models\DeliverySlot;
 use App\Domain\Branches\Models\DeliveryZone;
+use App\Domain\Branches\Services\BranchHoursService;
 use App\Domain\Branches\Services\BranchService;
 use App\Domain\Branches\Services\EmployeeService;
 use App\Domain\Identity\Models\Role;
@@ -16,6 +18,8 @@ use App\Domain\Identity\Services\AccessControl;
 use App\Http\Requests\Admin\BranchRequest;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use App\Support\BusinessTime;
+use Carbon\Carbon;
+use Carbon\CarbonImmutable;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
@@ -115,8 +119,8 @@ class BranchEditor extends Component
             'holiday.starts_at' => 'required|date', 'holiday.ends_at' => 'required|date|after:holiday.starts_at', 'holiday.reason' => 'nullable|string|max:500',
         ])['holiday'];
         // The form collects Qatar local date-times; persist as UTC.
-        $data['starts_at'] = \Carbon\CarbonImmutable::parse($data['starts_at'], BusinessTime::zone())->utc();
-        $data['ends_at'] = \Carbon\CarbonImmutable::parse($data['ends_at'], BusinessTime::zone())->utc();
+        $data['starts_at'] = CarbonImmutable::parse($data['starts_at'], BusinessTime::zone())->utc();
+        $data['ends_at'] = CarbonImmutable::parse($data['ends_at'], BusinessTime::zone())->utc();
         $svc->addHoliday($this->branch, $data);
         $this->reset('holiday');
         $this->toast(__('branches.holiday_added'));
@@ -140,7 +144,7 @@ class BranchEditor extends Component
         ])['zone'];
         $data = collect($data)->map(fn ($v) => $v === '' ? null : $v)->all();
         BranchDeliveryZone::updateOrCreate(['branch_id' => $this->branch->id, 'delivery_zone_id' => $data['delivery_zone_id']], $data + ['is_active' => true]);
-        app(\App\Domain\Audit\Services\AuditLogger::class)->log('branch.zone_configured', $this->branch, [], $data);
+        app(AuditLogger::class)->log('branch.zone_configured', $this->branch, [], $data);
         $this->reset('zone');
         $this->toast(__('admin.saved'));
     }
@@ -185,12 +189,12 @@ class BranchEditor extends Component
 
     public function render()
     {
-        $data = ['days' => collect(range(0, 6))->mapWithKeys(fn ($d) => [$d => \Carbon\Carbon::now()->startOfWeek(\Carbon\Carbon::SUNDAY)->addDays($d)->locale(app()->getLocale())->translatedFormat('l')])];
+        $data = ['days' => collect(range(0, 6))->mapWithKeys(fn ($d) => [$d => Carbon::now()->startOfWeek(Carbon::SUNDAY)->addDays($d)->locale(app()->getLocale())->translatedFormat('l')])];
         if ($this->branch) {
             $this->branch->load(['holidays' => fn ($q) => $q->where('ends_at', '>', now()->subDays(30)), 'zoneConfigs.zone', 'slots' => fn ($q) => $q->where('is_active', true)->orderBy('day_of_week')->orderBy('starts_at'),
                 'employeeAssignments.user.roleAssignments' => fn ($q) => $q->where('branch_id', $this->branch->id)->with('role')]);
             $data += [
-                'status' => app(\App\Domain\Branches\Services\BranchHoursService::class)->status($this->branch->load('hours')),
+                'status' => app(BranchHoursService::class)->status($this->branch->load('hours')),
                 'zones' => DeliveryZone::where('is_active', true)->orderBy('name_en')->get(),
                 'roles' => Role::where('scope', 'branch')->orderBy('name_en')->get(),
                 'staff' => User::where('type', 'staff')->where('status', 'active')->whereNotIn('id', $this->branch->employeeAssignments->pluck('user_id'))->orderBy('name')->limit(200)->get(['id', 'name', 'email']),

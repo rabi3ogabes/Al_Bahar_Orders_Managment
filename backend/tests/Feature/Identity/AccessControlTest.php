@@ -2,7 +2,9 @@
 
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Branches\Models\BranchEmployee;
+use App\Domain\Identity\Models\Role;
 use App\Domain\Identity\Models\User;
+use App\Domain\Identity\Models\UserRole;
 use App\Domain\Identity\Services\AccessControl;
 
 beforeEach(function () {
@@ -28,7 +30,7 @@ it('restricts a branch manager to their assigned branch', function () {
 
 it('supports staff assigned to multiple branches', function () {
     $mgr = staffWithRole('order_manager', $this->a);
-    \App\Domain\Identity\Models\UserRole::create(['user_id' => $mgr->id, 'role_id' => \App\Domain\Identity\Models\Role::where('key', 'order_manager')->value('id'), 'branch_id' => $this->b->id]);
+    UserRole::create(['user_id' => $mgr->id, 'role_id' => Role::where('key', 'order_manager')->value('id'), 'branch_id' => $this->b->id]);
     BranchEmployee::create(['branch_id' => $this->b->id, 'user_id' => $mgr->id, 'is_active' => true]);
 
     expect($this->acl->scope($mgr, 'orders.view')->branchIds)->toEqualCanonicalizing([$this->a->id, $this->b->id]);

@@ -45,7 +45,7 @@ return new class extends Migration
         });
         DB::statement("ALTER TABLE users ADD CONSTRAINT users_type_check CHECK (type IN ('customer','staff'))");
         DB::statement("ALTER TABLE users ADD CONSTRAINT users_status_check CHECK (status IN ('active','suspended','deactivated','deleted'))");
-        DB::statement("ALTER TABLE users ADD CONSTRAINT users_contact_check CHECK (phone IS NOT NULL OR email IS NOT NULL)");
+        DB::statement('ALTER TABLE users ADD CONSTRAINT users_contact_check CHECK (phone IS NOT NULL OR email IS NOT NULL)');
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
             $table->string('email')->primary();

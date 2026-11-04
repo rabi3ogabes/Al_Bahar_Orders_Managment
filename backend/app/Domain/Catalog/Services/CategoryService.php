@@ -5,6 +5,7 @@ namespace App\Domain\Catalog\Services;
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Catalog\Models\Category;
 use App\Support\DomainException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -91,7 +92,7 @@ class CategoryService
     }
 
     /** Full active tree for the storefront, one query. */
-    public function tree(bool $activeOnly = true): \Illuminate\Support\Collection
+    public function tree(bool $activeOnly = true): Collection
     {
         $all = Category::with('translations')->when($activeOnly, fn ($q) => $q->active())->orderBy('depth')->orderBy('sort_order')->orderBy('created_at')->get();
         $byParent = $all->groupBy(fn ($c) => $c->parent_id ?? 'root');

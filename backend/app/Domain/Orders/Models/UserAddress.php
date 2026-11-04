@@ -2,8 +2,11 @@
 
 namespace App\Domain\Orders\Models;
 
+use App\Domain\Branches\Models\DeliveryZone;
+use App\Domain\Identity\Models\User;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class UserAddress extends Model
@@ -14,15 +17,14 @@ class UserAddress extends Model
 
     protected $casts = ['is_default' => 'boolean', 'latitude' => 'float', 'longitude' => 'float'];
 
-
-    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Identity\Models\User::class);
+        return $this->belongsTo(User::class);
     }
 
-    public function zone(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function zone(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Branches\Models\DeliveryZone::class, 'delivery_zone_id');
+        return $this->belongsTo(DeliveryZone::class, 'delivery_zone_id');
     }
 
     /** Immutable snapshot stored on orders so later edits never change history. */
@@ -30,10 +32,10 @@ class UserAddress extends Model
     {
         return $this->only(['label', 'recipient_name', 'recipient_phone', 'zone_number', 'street_number', 'building_number', 'unit_number',
             'area', 'city', 'landmark', 'instructions', 'latitude', 'longitude']) + [
-            'delivery_zone_id' => $this->delivery_zone_id,
-            'delivery_zone' => $this->zone?->name_en,
-            'address_id' => $this->id,
-        ];
+                'delivery_zone_id' => $this->delivery_zone_id,
+                'delivery_zone' => $this->zone?->name_en,
+                'address_id' => $this->id,
+            ];
     }
 
     public function oneLine(): string

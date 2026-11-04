@@ -2,9 +2,12 @@
 
 namespace App\Domain\Inventory\Models;
 
+use App\Domain\Branches\Models\Branch;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class StockTransfer extends Model
 {
@@ -17,19 +20,19 @@ class StockTransfer extends Model
     protected $casts = ['submitted_at' => 'immutable_datetime', 'approved_at' => 'immutable_datetime', 'dispatched_at' => 'immutable_datetime',
         'received_at' => 'immutable_datetime', 'completed_at' => 'immutable_datetime', 'cancelled_at' => 'immutable_datetime'];
 
-    public function items(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function items(): HasMany
     {
         return $this->hasMany(StockTransferItem::class);
     }
 
-    public function source(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function source(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Branches\Models\Branch::class, 'source_branch_id');
+        return $this->belongsTo(Branch::class, 'source_branch_id');
     }
 
-    public function destination(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function destination(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Branches\Models\Branch::class, 'destination_branch_id');
+        return $this->belongsTo(Branch::class, 'destination_branch_id');
     }
 
     /** A transfer is visible to staff of either branch. */

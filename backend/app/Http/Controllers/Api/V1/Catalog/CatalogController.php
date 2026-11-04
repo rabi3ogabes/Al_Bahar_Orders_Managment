@@ -16,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /** @tags Catalog */
 class CatalogController extends ApiController
@@ -33,7 +34,7 @@ class CatalogController extends ApiController
     public function category(string $id): JsonResponse
     {
         $category = Category::active()->with(['translations', 'children' => fn ($q) => $q->active()->with('translations')])
-            ->where(fn ($q) => $q->whereKey(\Illuminate\Support\Str::isUuid($id) ? $id : null)->orWhere('slug', $id))->firstOrFail();
+            ->where(fn ($q) => $q->whereKey(Str::isUuid($id) ? $id : null)->orWhere('slug', $id))->firstOrFail();
         $filterIds = $category->filter_attribute_ids ?: ProductAttribute::where('is_filterable', true)->pluck('id')->all();
         $filters = ProductAttribute::whereIn('id', $filterIds)->with('values')->orderBy('sort_order')->get()
             ->map(fn ($a) => ['attribute' => ['code' => $a->code, 'name' => $a->localized('name'), 'type' => $a->type],
@@ -79,7 +80,7 @@ class CatalogController extends ApiController
     {
         $request->validate(['branch_id' => 'nullable|uuid']);
         $product = Product::active()
-            ->where(fn ($q) => $q->whereKey(\Illuminate\Support\Str::isUuid($idOrSlug) ? $idOrSlug : null)
+            ->where(fn ($q) => $q->whereKey(Str::isUuid($idOrSlug) ? $idOrSlug : null)
                 ->orWhereHas('translations', fn ($t) => $t->where('slug', $idOrSlug)))
             ->firstOrFail();
         $branch = $this->branch($request->input('branch_id'));

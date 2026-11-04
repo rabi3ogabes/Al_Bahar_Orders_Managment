@@ -29,7 +29,7 @@ class FulfillmentAllocator
      * @param  array<string, int>  $wanted  variantId → quantity
      * @param  Collection<int, Branch>  $candidates  eligible branches, already ordered by preference (zone priority)
      * @return array{allocations: array<string, array<string, int>>, shortages: array<string, int>, reason: string}
-     *         allocations: branchId → (variantId → qty)
+     *                                                                                                              allocations: branchId → (variantId → qty)
      */
     public function allocate(array $wanted, Collection $candidates, ?string $preferredBranchId, bool $allowSplit, ?float $lat = null, ?float $lng = null): array
     {

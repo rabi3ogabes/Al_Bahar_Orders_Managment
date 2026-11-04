@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Admin;
 
+use App\Domain\Branches\Models\Branch;
+use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Reports\Services\DashboardMetrics;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -14,8 +16,8 @@ class Dashboard extends Component
     public function render(DashboardMetrics $metrics)
     {
         $user = auth()->user();
-        $scope = app(\App\Domain\Identity\Services\AccessControl::class)->scope($user, 'orders.view');
-        $branches = \App\Domain\Branches\Models\Branch::query()->when(! $scope->all, fn ($q) => $q->whereIn('id', $scope->branchIds))->orderBy('sort_order')->get();
+        $scope = app(AccessControl::class)->scope($user, 'orders.view');
+        $branches = Branch::query()->when(! $scope->all, fn ($q) => $q->whereIn('id', $scope->branchIds))->orderBy('sort_order')->get();
 
         return view('livewire.admin.dashboard', [
             'm' => $metrics->for($user, $this->branchId),

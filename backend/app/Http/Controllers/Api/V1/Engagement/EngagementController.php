@@ -28,6 +28,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /** @tags Engagement */
 class EngagementController extends ApiController
@@ -139,7 +140,7 @@ class EngagementController extends ApiController
         $page = Review::where('product_id', $productId)->where('status', 'approved')->with(['user:id,name', 'media'])->latest()->paginate($this->perPage($request));
 
         return response()->json(['data' => $page->getCollection()->map(fn ($r) => ['id' => $r->id, 'rating' => $r->rating, 'title' => $r->title, 'body' => $r->body,
-            'author' => \Illuminate\Support\Str::before($r->user?->name ?? '', ' '), 'verified_purchase' => $r->is_verified_purchase, 'created_at' => BusinessTime::iso($r->created_at),
+            'author' => Str::before($r->user?->name ?? '', ' '), 'verified_purchase' => $r->is_verified_purchase, 'created_at' => BusinessTime::iso($r->created_at),
             'photos' => $r->media->map(fn ($m) => Storage::disk($m->disk)->url($m->path))]),
             'meta' => ['total' => $page->total(), 'current_page' => $page->currentPage(), 'last_page' => $page->lastPage()]]);
     }

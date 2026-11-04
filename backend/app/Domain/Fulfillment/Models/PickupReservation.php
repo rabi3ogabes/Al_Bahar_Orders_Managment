@@ -2,8 +2,11 @@
 
 namespace App\Domain\Fulfillment\Models;
 
+use App\Domain\Branches\Models\Branch;
+use App\Domain\Orders\Models\OrderFulfillment;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PickupReservation extends Model
 {
@@ -15,14 +18,13 @@ class PickupReservation extends Model
 
     protected $casts = ['slot_date' => 'date', 'token_expires_at' => 'immutable_datetime', 'token_used_at' => 'immutable_datetime', 'ready_at' => 'immutable_datetime', 'collected_at' => 'immutable_datetime'];
 
-
-    public function fulfillment(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function fulfillment(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Orders\Models\OrderFulfillment::class, 'order_fulfillment_id');
+        return $this->belongsTo(OrderFulfillment::class, 'order_fulfillment_id');
     }
 
-    public function branch(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function branch(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Branches\Models\Branch::class);
+        return $this->belongsTo(Branch::class);
     }
 }

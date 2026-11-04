@@ -2,8 +2,10 @@
 
 namespace App\Domain\Orders\Models;
 
+use App\Domain\Catalog\Models\ProductVariant;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class OrderItem extends Model
 {
@@ -13,20 +15,19 @@ class OrderItem extends Model
 
     protected $casts = ['variant_attributes' => 'array', 'quantity' => 'integer', 'quantity_cancelled' => 'integer', 'quantity_returned' => 'integer', 'quantity_handed_over' => 'integer'];
 
-
-    public function order(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
     }
 
-    public function fulfillment(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function fulfillment(): BelongsTo
     {
         return $this->belongsTo(OrderFulfillment::class, 'order_fulfillment_id');
     }
 
-    public function variant(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function variant(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Catalog\Models\ProductVariant::class, 'product_variant_id');
+        return $this->belongsTo(ProductVariant::class, 'product_variant_id');
     }
 
     public function activeQuantity(): int

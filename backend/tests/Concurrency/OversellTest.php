@@ -15,8 +15,9 @@ use App\Domain\Inventory\Services\InventoryLedger;
 use App\Domain\Inventory\Services\ReservationService;
 use Illuminate\Foundation\Testing\DatabaseTruncation;
 use Illuminate\Support\Facades\DB;
+use Tests\TestCase;
 
-uses(Tests\TestCase::class, DatabaseTruncation::class);
+uses(TestCase::class, DatabaseTruncation::class);
 
 /** Fork $n children running $work($i); returns their exit codes (0 = success). */
 function race(int $n, Closure $work): array

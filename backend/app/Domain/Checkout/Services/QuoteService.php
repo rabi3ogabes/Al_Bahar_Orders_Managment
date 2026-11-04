@@ -6,7 +6,6 @@ use App\Domain\Branches\Models\Branch;
 use App\Domain\Branches\Models\BranchDeliveryZone;
 use App\Domain\Branches\Services\DeliveryZoneResolver;
 use App\Domain\Branches\Services\SlotService;
-use App\Domain\Checkout\Data\AppliedDiscount;
 use App\Domain\Checkout\Data\FulfillmentPlan;
 use App\Domain\Checkout\Data\Quote;
 use App\Domain\Checkout\Data\QuoteLine;

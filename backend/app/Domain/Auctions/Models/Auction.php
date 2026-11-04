@@ -2,6 +2,7 @@
 
 namespace App\Domain\Auctions\Models;
 
+use App\Domain\Branches\Models\Branch;
 use App\Domain\Catalog\Models\Translatable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -40,7 +41,7 @@ class Auction extends Model
 
     public function branches(): BelongsToMany
     {
-        return $this->belongsToMany(\App\Domain\Branches\Models\Branch::class, 'auction_branches');
+        return $this->belongsToMany(Branch::class, 'auction_branches');
     }
 
     public function isLiveType(): bool

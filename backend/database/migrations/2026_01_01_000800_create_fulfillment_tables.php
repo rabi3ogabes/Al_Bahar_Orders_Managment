@@ -95,7 +95,7 @@ return new class extends Migration
             $table->index(['branch_id', 'status']);
         });
         DB::statement("CREATE UNIQUE INDEX deliveries_one_active_per_fulfillment ON deliveries (order_fulfillment_id) WHERE status NOT IN ('cancelled','failed','returned')");
-        DB::statement("CREATE UNIQUE INDEX deliveries_provider_reference_unique ON deliveries (delivery_provider_id, provider_reference) WHERE provider_reference IS NOT NULL");
+        DB::statement('CREATE UNIQUE INDEX deliveries_provider_reference_unique ON deliveries (delivery_provider_id, provider_reference) WHERE provider_reference IS NOT NULL');
         DB::statement("ALTER TABLE deliveries ADD CONSTRAINT deliveries_status_check CHECK (status IN ('pending','assigned','accepted','picked_up','out_for_delivery','delivered','failed','rescheduled','returning','returned','cancelled'))");
 
         Schema::create('delivery_status_history', function (Blueprint $table) {

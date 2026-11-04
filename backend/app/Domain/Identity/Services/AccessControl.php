@@ -4,6 +4,7 @@ namespace App\Domain\Identity\Services;
 
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Support\BranchScope;
+use App\Domain\Identity\Support\PermissionRegistry;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 
@@ -81,7 +82,7 @@ class AccessControl
     public function permissionKeys(User $user): array
     {
         if ($user->isSuperAdmin()) {
-            return \App\Domain\Identity\Support\PermissionRegistry::expand(['*']);
+            return PermissionRegistry::expand(['*']);
         }
 
         return array_keys($this->grantsFor($user));

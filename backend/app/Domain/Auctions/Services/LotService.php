@@ -2,7 +2,6 @@
 
 namespace App\Domain\Auctions\Services;
 
-use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Auctions\Events\AuctionWon;
 use App\Domain\Auctions\Models\Auction;
 use App\Domain\Auctions\Models\AuctionAutoBid;
@@ -11,9 +10,13 @@ use App\Domain\Auctions\Models\AuctionDeposit;
 use App\Domain\Auctions\Models\AuctionLot;
 use App\Domain\Auctions\Models\AuctionProduct;
 use App\Domain\Auctions\Models\AuctionWinner;
+use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Identity\Models\User;
+use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Inventory\Exceptions\InsufficientStock;
 use App\Domain\Inventory\Services\ReservationService;
+use App\Domain\Orders\Models\Order;
+use App\Domain\Orders\Services\OrderService;
 use App\Support\DomainException;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
@@ -102,7 +105,7 @@ class LotService
                 $winner = AuctionWinner::create(['auction_lot_id' => $lot->id, 'user_id' => $winningBid->user_id, 'auction_bid_id' => $winningBid->id,
                     'amount' => $winningBid->amount, 'rank' => 1, 'status' => 'pending_payment', 'payment_due_at' => now()->addHours($auction->winner_payment_hours)]);
                 AuctionAutoBid::where('auction_lot_id', $lot->id)->where('user_id', $winningBid->user_id)->update(['status' => 'won']);
-                DB::afterCommit(fn () => event(new AuctionWon($winner->id)));
+                DB::afterCommit(fn () => event(new AuctionWon($winner->id, $winner->user_id, $lot->id)));
             } else {
                 $this->releaseStock($lot);
             }
@@ -185,9 +188,9 @@ class LotService
                     $auction = Auction::find($lot->auction_id);
                     $w->update(['status' => 'defaulted', 'defaulted_at' => now()]);
                     if ($w->order_id) {
-                        $order = \App\Domain\Orders\Models\Order::find($w->order_id);
+                        $order = Order::find($w->order_id);
                         if ($order && ! $order->payment_status->isSettled()) {
-                            app(\App\Domain\Orders\Services\OrderService::class)->cancelOrder($order, null, 'auction_payment_deadline', null, system: true);
+                            app(OrderService::class)->cancelOrder($order, null, 'auction_payment_deadline', null, system: true);
                         }
                     }
                     // Deposit outcome follows published terms; flagged for finance/legal review rather than auto-forfeited.
@@ -232,7 +235,7 @@ class LotService
         }
         $winner = AuctionWinner::create(['auction_lot_id' => $lot->id, 'user_id' => $next->user_id, 'auction_bid_id' => $next->id, 'amount' => $next->amount,
             'rank' => $previous->rank + 1, 'status' => 'pending_payment', 'payment_due_at' => now()->addHours($auction->winner_payment_hours)]);
-        DB::afterCommit(fn () => event(new AuctionWon($winner->id)));
+        DB::afterCommit(fn () => event(new AuctionWon($winner->id, $winner->user_id, $lot->id)));
     }
 
     private function reserveStock(AuctionLot $lot): void
@@ -262,7 +265,7 @@ class LotService
 
     private function mutate(AuctionLot $lot, User $actor, string $eventType, callable $change, array $meta = []): AuctionLot
     {
-        if (! app(\App\Domain\Identity\Services\AccessControl::class)->allows($actor, $eventType === 'override' ? 'auctions.override' : 'auctions.edit')) {
+        if (! app(AccessControl::class)->allows($actor, $eventType === 'override' ? 'auctions.override' : 'auctions.edit')) {
             throw DomainException::make('branch_forbidden', 403);
         }
         $events = [];

@@ -11,6 +11,7 @@ use App\Domain\Orders\Models\CartItem;
 use App\Domain\Pricing\Services\PriceResolver;
 use App\Support\DomainException;
 use App\Support\Money;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -29,7 +30,7 @@ class CartService
         }
         try {
             return DB::transaction(fn () => Cart::create(['user_id' => $user->id, 'status' => 'active', 'last_activity_at' => now(), 'expires_at' => now()->addDays(config('platform.checkout.cart_ttl_days'))]));
-        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+        } catch (UniqueConstraintViolationException) {
             return Cart::where('user_id', $user->id)->where('status', 'active')->firstOrFail(); // concurrent first request
         }
     }

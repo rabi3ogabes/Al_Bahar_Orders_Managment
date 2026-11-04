@@ -2,8 +2,13 @@
 
 namespace App\Domain\Payments\Models;
 
+use App\Domain\Identity\Models\User;
+use App\Domain\Orders\Models\Order;
+use App\Support\Money;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Payment extends Model
 {
@@ -15,34 +20,33 @@ class Payment extends Model
 
     protected $casts = ['status' => 'App\Domain\Payments\Enums\PaymentStatus', 'metadata' => 'array', 'expires_at' => 'immutable_datetime', 'paid_at' => 'immutable_datetime', 'failed_at' => 'immutable_datetime'];
 
-
-    public function order(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function order(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Orders\Models\Order::class);
+        return $this->belongsTo(Order::class);
     }
 
-    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Identity\Models\User::class);
+        return $this->belongsTo(User::class);
     }
 
-    public function transactions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function transactions(): HasMany
     {
         return $this->hasMany(PaymentTransaction::class);
     }
 
-    public function refunds(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function refunds(): HasMany
     {
         return $this->hasMany(Refund::class);
     }
 
-    public function collections(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function collections(): HasMany
     {
         return $this->hasMany(CashCollection::class);
     }
 
-    public function refundable(): \App\Support\Money
+    public function refundable(): Money
     {
-        return \App\Support\Money::of($this->captured_amount)->minus(\App\Support\Money::of($this->refunded_amount));
+        return Money::of($this->captured_amount)->minus(Money::of($this->refunded_amount));
     }
 }

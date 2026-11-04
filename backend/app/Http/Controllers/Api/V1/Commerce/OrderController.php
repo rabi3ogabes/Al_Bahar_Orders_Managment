@@ -14,6 +14,7 @@ use App\Domain\Payments\Services\PaymentService;
 use App\Http\Controllers\Api\V1\ApiController;
 use App\Support\BusinessTime;
 use App\Support\DocumentNumber;
+use App\Support\DomainException;
 use App\Support\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -58,10 +59,10 @@ class OrderController extends ApiController
         foreach ($order->items as $item) {
             try {
                 if (! $item->variant) {
-                    throw new \App\Support\DomainException('item_unavailable_simple');
+                    throw new DomainException('item_unavailable_simple');
                 }
                 $carts->add($this->user(), $item->product_variant_id, $item->quantity);
-            } catch (\App\Support\DomainException) {
+            } catch (DomainException) {
                 $skipped[] = ['name' => $item->name(), 'sku' => $item->sku];
             }
         }

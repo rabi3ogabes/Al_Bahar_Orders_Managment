@@ -3,6 +3,7 @@
 namespace App\Domain\Inventory\Services;
 
 use App\Domain\Inventory\Enums\MovementType;
+use App\Domain\Inventory\Events\BackInStock;
 use App\Domain\Inventory\Models\BranchInventory;
 use App\Domain\Inventory\Models\StockMovement;
 use App\Support\DomainException;
@@ -81,7 +82,7 @@ class InventoryLedger
             ]);
 
             if ($oldAvailable <= 0 && $row->available() > 0) {
-                event(new \App\Domain\Inventory\Events\BackInStock($branchId, $variantId));
+                event(new BackInStock($branchId, $variantId));
             }
 
             return $movement;

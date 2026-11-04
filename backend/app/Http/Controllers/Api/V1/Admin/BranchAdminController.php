@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
+use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Branches\Models\BranchDeliveryZone;
 use App\Domain\Branches\Models\BranchEmployee;
@@ -9,10 +10,10 @@ use App\Domain\Branches\Models\BranchHoliday;
 use App\Domain\Branches\Services\BranchService;
 use App\Domain\Branches\Services\EmployeeService;
 use App\Domain\Identity\Models\User;
+use App\Domain\Identity\Services\AccessControl;
 use App\Http\Controllers\Api\V1\ApiController;
 use App\Http\Requests\Admin\BranchRequest;
 use App\Http\Resources\V1\Admin\BranchAdminResource;
-use App\Support\DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -35,7 +36,7 @@ class BranchAdminController extends ApiController
 
     public function store(BranchRequest $request): JsonResponse
     {
-        if (! app(\App\Domain\Identity\Services\AccessControl::class)->allowsGlobally($this->user(), 'branches.create')) {
+        if (! app(AccessControl::class)->allowsGlobally($this->user(), 'branches.create')) {
             abort(403);
         }
 
@@ -54,7 +55,7 @@ class BranchAdminController extends ApiController
         $this->authorizeBranch('branches.edit', $branch->id);
         $data = $request->validated();
         // Activation/deactivation and code changes are company-level decisions.
-        if ((isset($data['status']) || isset($data['code'])) && ! app(\App\Domain\Identity\Services\AccessControl::class)->allowsGlobally($this->user(), 'branches.edit')) {
+        if ((isset($data['status']) || isset($data['code'])) && ! app(AccessControl::class)->allowsGlobally($this->user(), 'branches.edit')) {
             abort(403);
         }
 
@@ -157,7 +158,7 @@ class BranchAdminController extends ApiController
             'priority' => 'nullable|integer|min:0', 'is_active' => 'boolean',
         ]);
         $row = BranchDeliveryZone::updateOrCreate(['branch_id' => $branch->id, 'delivery_zone_id' => $data['delivery_zone_id']], $data + ['oversized_surcharge' => 0]);
-        app(\App\Domain\Audit\Services\AuditLogger::class)->log('branch.zone_configured', $branch, [], $data);
+        app(AuditLogger::class)->log('branch.zone_configured', $branch, [], $data);
 
         return response()->json(['data' => $row], 201);
     }

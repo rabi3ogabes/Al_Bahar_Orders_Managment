@@ -2,9 +2,12 @@
 
 namespace App\Domain\Inventory\Models;
 
+use App\Domain\Branches\Models\Branch;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PurchaseOrder extends Model
 {
@@ -16,23 +19,23 @@ class PurchaseOrder extends Model
 
     protected $casts = ['expected_at' => 'date', 'submitted_at' => 'immutable_datetime', 'approved_at' => 'immutable_datetime', 'closed_at' => 'immutable_datetime'];
 
-    public function items(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function items(): HasMany
     {
         return $this->hasMany(PurchaseOrderItem::class);
     }
 
-    public function receipts(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function receipts(): HasMany
     {
         return $this->hasMany(GoodsReceipt::class);
     }
 
-    public function supplier(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function supplier(): BelongsTo
     {
         return $this->belongsTo(Supplier::class);
     }
 
-    public function branch(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function branch(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Branches\Models\Branch::class);
+        return $this->belongsTo(Branch::class);
     }
 }

@@ -18,6 +18,7 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Models\UserRole;
 use App\Domain\Inventory\Enums\MovementType;
 use App\Domain\Inventory\Services\InventoryLedger;
+use App\Support\Money;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -231,7 +232,6 @@ class DemoSeeder extends Seeder
     /** Demo cost price ≈ 55% of retail. */
     private static function cost(string $price): string
     {
-        return \App\Support\Money::of($price)->percent('55')->toDecimal();
+        return Money::of($price)->percent('55')->toDecimal();
     }
 }
-

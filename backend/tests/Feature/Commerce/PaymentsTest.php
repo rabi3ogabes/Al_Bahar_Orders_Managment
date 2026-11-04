@@ -1,6 +1,9 @@
 <?php
 
+use App\Domain\Inventory\Models\StockReservation;
+use App\Domain\Orders\Enums\FulfillmentStatus;
 use App\Domain\Orders\Models\Order;
+use App\Domain\Orders\Services\OrderService;
 use App\Domain\Payments\Gateways\SadadChecksum;
 use App\Domain\Payments\Models\Payment;
 use App\Domain\Payments\Models\PaymentWebhookEvent;
@@ -8,6 +11,7 @@ use App\Domain\Payments\Services\PaymentService;
 use App\Domain\Payments\Services\RefundService;
 use App\Support\DomainException;
 use App\Support\Money;
+use Illuminate\Testing\TestResponse;
 
 beforeEach(function () {
     config(['platform.payments.sadad' => array_merge(config('platform.payments.sadad'), [
@@ -21,7 +25,7 @@ beforeEach(function () {
     $this->payment = Payment::find($this->res->json('data.payment.payment_id'));
 });
 
-function sadadCallback(array $data): \Illuminate\Testing\TestResponse
+function sadadCallback(array $data): TestResponse
 {
     $key = urlencode('test-secret').'1234567';
     $data['checksumhash'] = SadadChecksum::generate(json_encode(['postData' => $data, 'secretKey' => urlencode('test-secret')]), $key);
@@ -47,7 +51,7 @@ it('keeps online orders pending and redirects through a signed page — the clie
 
     // Staff cannot move unpaid online orders forward either.
     $mgr = staffWithRole('order_manager', $this->w->a);
-    expect(fn () => app(\App\Domain\Orders\Services\OrderService::class)->transition($this->order->fulfillments()->first(), \App\Domain\Orders\Enums\FulfillmentStatus::Accepted, $mgr))
+    expect(fn () => app(OrderService::class)->transition($this->order->fulfillments()->first(), FulfillmentStatus::Accepted, $mgr))
         ->toThrow(DomainException::class);
 });
 
@@ -55,7 +59,7 @@ it('marks paid from a verified callback, confirms the order and keeps stock rese
     sadadCallback(['ORDERID' => $this->payment->id, 'RESPCODE' => '1', 'RESPMSG' => 'Txn Success', 'TXNAMOUNT' => $this->payment->amount, 'transaction_number' => 'SD100'])->assertOk();
     expect($this->payment->fresh()->status->value)->toBe('paid')->and($this->order->fresh()->status->value)->toBe('confirmed')
         ->and($this->order->fresh()->payment_status->value)->toBe('paid')
-        ->and(\App\Domain\Inventory\Models\StockReservation::where('status', 'active')->whereNotNull('expires_at')->count())->toBe(0);
+        ->and(StockReservation::where('status', 'active')->whereNotNull('expires_at')->count())->toBe(0);
 });
 
 it('ignores duplicate and out-of-order callbacks', function () {

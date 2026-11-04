@@ -2,8 +2,10 @@
 
 namespace App\Domain\Marketing\Models;
 
+use App\Domain\Catalog\Models\Product;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class WishlistItem extends Model
 {
@@ -13,8 +15,8 @@ class WishlistItem extends Model
 
     protected $guarded = ['id'];
 
-    public function product(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function product(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Catalog\Models\Product::class);
+        return $this->belongsTo(Product::class);
     }
 }

@@ -5,7 +5,6 @@ use App\Domain\Branches\Models\Branch;
 use App\Domain\Branches\Models\BranchHoliday;
 use App\Domain\Branches\Services\BranchHoursService;
 use App\Domain\Branches\Services\BranchService;
-use App\Domain\Identity\Models\User;
 use Carbon\CarbonImmutable;
 
 function branchPayload(array $over = []): array

@@ -2,6 +2,8 @@
 
 namespace App\Domain\Payments\Services;
 
+use App\Domain\Auctions\Models\AuctionWinner;
+use App\Domain\Auctions\Services\AuctionService;
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
@@ -20,6 +22,7 @@ use App\Domain\Payments\Models\CashCollection;
 use App\Domain\Payments\Models\Payment;
 use App\Domain\Payments\Models\PaymentTransaction;
 use App\Domain\Payments\Models\PaymentWebhookEvent;
+use App\Domain\Settings\Services\Settings;
 use App\Support\DomainException;
 use App\Support\Money;
 use App\Support\Redactor;
@@ -207,7 +210,7 @@ class PaymentService
         $this->setStatus($p, PS::Paid);
 
         if ($p->payable_type === 'auction_deposit') {
-            app(\App\Domain\Auctions\Services\AuctionService::class)->depositPaid($p);
+            app(AuctionService::class)->depositPaid($p);
         }
         if ($p->order_id) {
             $order = Order::whereKey($p->order_id)->lockForUpdate()->firstOrFail();
@@ -218,7 +221,7 @@ class PaymentService
                 ->where('status', 'active')->update(['expires_at' => null]);
             app(OrderService::class)->refreshOrderStatus($order, null, 'payment_received');
             if ($order->auction_winner_id) {
-                \App\Domain\Auctions\Models\AuctionWinner::whereKey($order->auction_winner_id)->update(['status' => 'paid', 'paid_at' => now()]);
+                AuctionWinner::whereKey($order->auction_winner_id)->update(['status' => 'paid', 'paid_at' => now()]);
             }
         }
     }
@@ -267,7 +270,7 @@ class PaymentService
             }
             $due = Money::of($p->amount)->minus(Money::of($p->captured_amount));
             $got = Money::of($amount);
-            $allowPartial = (bool) app(\App\Domain\Settings\Services\Settings::class)->get('payments.allow_partial_collection', false);
+            $allowPartial = (bool) app(Settings::class)->get('payments.allow_partial_collection', false);
             if ($status === 'collected' && $got->lessThan($due) && ! $allowPartial) {
                 throw DomainException::make('collection_amount_mismatch', 422, ['due' => $due->format()]);
             }

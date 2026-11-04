@@ -3,6 +3,8 @@
 namespace App\Livewire\Admin\Branches;
 
 use App\Domain\Branches\Models\Branch;
+use App\Domain\Branches\Services\BranchHoursService;
+use App\Domain\Identity\Services\AccessControl;
 use App\Livewire\Admin\Concerns\WithAdminTable;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -30,8 +32,8 @@ class BranchIndex extends Component
 
         return view('livewire.admin.branches.index', [
             'branches' => $q->paginate($this->perPage),
-            'canCreate' => app(\App\Domain\Identity\Services\AccessControl::class)->allowsGlobally(auth()->user(), 'branches.create'),
-            'hours' => app(\App\Domain\Branches\Services\BranchHoursService::class),
+            'canCreate' => app(AccessControl::class)->allowsGlobally(auth()->user(), 'branches.create'),
+            'hours' => app(BranchHoursService::class),
         ])->title(__('nav.branches'));
     }
 }

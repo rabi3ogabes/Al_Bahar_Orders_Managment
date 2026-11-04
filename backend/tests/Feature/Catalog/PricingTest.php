@@ -8,6 +8,7 @@ use App\Domain\Catalog\Models\ProductVariantBranchSetting;
 use App\Domain\Pricing\Services\PriceResolver;
 use App\Domain\Pricing\Services\PricingService;
 use App\Support\DomainException;
+use Illuminate\Database\QueryException;
 
 beforeEach(function () {
     $this->branch = Branch::factory()->create();
@@ -77,7 +78,7 @@ it('validates sale prices and records price history with the actor', function ()
     $h = ProductPriceHistory::firstOrFail();
     expect($h->branch_id)->toBe($this->branch->id)->and($h->new_price)->toBe('920.00')->and($h->changed_by)->toBe($admin->id)->and($h->reason)->toBe('Ramadan promo');
 
-    expect(fn () => $h->delete())->toThrow(\Illuminate\Database\QueryException::class); // append-only
+    expect(fn () => $h->delete())->toThrow(QueryException::class); // append-only
 });
 
 it('exposes branch-aware effective prices in the storefront API', function () {

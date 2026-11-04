@@ -2,6 +2,7 @@
 
 namespace App\Domain\Notifications\Services;
 
+use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Identity\Models\User;
 use App\Domain\Notifications\Jobs\SendNotificationJob;
 use App\Domain\Notifications\Models\Notification;
@@ -81,6 +82,6 @@ class NotificationService
         foreach ($prefs as $p) {
             NotificationPreference::updateOrCreate(['user_id' => $user->id, 'channel' => $p['channel'], 'category' => $p['category']], ['is_enabled' => (bool) $p['is_enabled']]);
         }
-        app(\App\Domain\Audit\Services\AuditLogger::class)->log('account.notification_preferences_updated', $user, [], ['preferences' => $prefs], actor: $user);
+        app(AuditLogger::class)->log('account.notification_preferences_updated', $user, [], ['preferences' => $prefs], actor: $user);
     }
 }

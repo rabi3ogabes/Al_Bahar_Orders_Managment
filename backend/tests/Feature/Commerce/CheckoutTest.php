@@ -1,7 +1,10 @@
 <?php
 
+use App\Domain\Branches\Models\BranchDeliveryZone;
 use App\Domain\Catalog\Models\ProductBranchSetting;
+use App\Domain\Identity\Models\User;
 use App\Domain\Inventory\Models\StockReservation;
+use App\Domain\Inventory\Services\ReservationService;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderItem;
 
@@ -77,7 +80,7 @@ it('rolls back everything when stock is depleted before checkout', function () {
     $opts = ['address_id' => $this->w->address->id, 'payment_method' => 'cod', 'allow_split' => false];
     $hash = $this->postJson('/api/v1/checkout/quote', $opts)->json('data.quote_hash');
     // Another shopper takes 3 units at branch A meanwhile.
-    app(\App\Domain\Inventory\Services\ReservationService::class)->reserve([['branch_id' => $this->w->a->id, 'variant_id' => $this->w->v1->id, 'quantity' => 3, 'reference_type' => 'order_item', 'reference_id' => 'other']]);
+    app(ReservationService::class)->reserve([['branch_id' => $this->w->a->id, 'variant_id' => $this->w->v1->id, 'quantity' => 3, 'reference_type' => 'order_item', 'reference_id' => 'other']]);
 
     // Branch B can still serve all 5 → quote changes (different branch) → 409, nothing persisted.
     $this->postJson('/api/v1/checkout/orders', $opts + ['quote_hash' => $hash], ['Idempotency-Key' => (string) Str::uuid()])->assertStatus(409);
@@ -135,13 +138,13 @@ it('enforces pickup branch, pay-at-pickup and payment method availability', func
 
 it('enforces zone minimum order amounts with a helpful shortfall', function () {
     $this->postJson('/api/v1/cart/items', ['variant_id' => $this->w->v2->id, 'quantity' => 1]);
-    \App\Domain\Branches\Models\BranchDeliveryZone::query()->update(['min_order_amount' => '300.00']);
+    BranchDeliveryZone::query()->update(['min_order_amount' => '300.00']);
     $q = $this->postJson('/api/v1/checkout/quote', ['address_id' => $this->w->address->id, 'payment_method' => 'cod'])->json('data');
     expect($q['errors'][0]['code'])->toBe('below_min_order')->and($q['errors'][0]['shortfall']['amount'])->toBe('50.00');
 });
 
 it('never exposes another customer\'s address or order', function () {
-    $other = \App\Domain\Identity\Models\User::factory()->create();
+    $other = User::factory()->create();
     $foreign = $other->addresses()->create(['recipient_name' => 'X', 'recipient_phone' => '+97455000000', 'zone_number' => '66', 'street_number' => '1', 'building_number' => '1']);
     $this->postJson('/api/v1/cart/items', ['variant_id' => $this->w->v1->id, 'quantity' => 1]);
     $q = $this->postJson('/api/v1/checkout/quote', ['address_id' => $foreign->id, 'payment_method' => 'cod'])->json('data');

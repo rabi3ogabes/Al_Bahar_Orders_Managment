@@ -1,13 +1,21 @@
 <?php
 
 use App\Domain\Auctions\Models\AuctionBid;
+use App\Domain\Auctions\Models\AuctionBidder;
 use App\Domain\Auctions\Models\AuctionExtension;
-use App\Domain\Auctions\Models\AuctionLot;
 use App\Domain\Auctions\Models\AuctionWinner;
+use App\Domain\Auctions\Services\AuctionService;
 use App\Domain\Auctions\Services\BidEngine;
 use App\Domain\Auctions\Services\LotService;
+use App\Domain\Audit\Models\AuditLog;
+use App\Domain\Branches\Models\Branch;
+use App\Domain\Identity\Models\User;
+use App\Domain\Orders\Models\Order;
+use App\Domain\Payments\Models\Payment;
+use App\Domain\Payments\Services\PaymentService;
 use App\Support\DomainException;
 use App\Support\Money;
+use Laravel\Sanctum\Sanctum;
 
 beforeEach(fn () => $this->w = auctionWorld());
 
@@ -32,9 +40,9 @@ it('rejects bids after close using server time, regardless of client countdown',
 });
 
 it('rejects unregistered and blocked bidders', function () {
-    $stranger = \App\Domain\Identity\Models\User::factory()->create();
+    $stranger = User::factory()->create();
     expect(fn () => bid($this->w, $stranger, '100.00'))->toThrow(fn (DomainException $e) => expect($e->errorCode)->toBe('bid_not_registered'));
-    \App\Domain\Auctions\Models\AuctionBidder::where('user_id', $this->w->u1->id)->update(['status' => 'blocked']);
+    AuctionBidder::where('user_id', $this->w->u1->id)->update(['status' => 'blocked']);
     expect(fn () => bid($this->w, $this->w->u1, '100.00'))->toThrow(fn (DomainException $e) => expect($e->errorCode)->toBe('bid_blocked'));
 });
 
@@ -55,8 +63,8 @@ it('resolves competing auto-bids at the lowest winning price without exceeding m
     expect((float) AuctionBid::where('user_id', $this->w->u1->id)->max('amount'))->toBeLessThanOrEqual(250.0); // never above u1's max
 
     // A manual bid below the leader's maximum is immediately outbid by the proxy.
-    $u3 = \App\Domain\Identity\Models\User::factory()->create();
-    app(\App\Domain\Auctions\Services\AuctionService::class)->register($u3, $this->w->auction);
+    $u3 = User::factory()->create();
+    app(AuctionService::class)->register($u3, $this->w->auction);
     bid($this->w, $u3, '300.00');
     expect($this->w->lot->fresh()->current_leader_id)->toBe($this->w->u2->id)->and($this->w->lot->fresh()->current_price)->toBe('310.00');
 });
@@ -123,16 +131,16 @@ it('lets the winner check out and marks the win paid on payment', function () {
     app(LotService::class)->tick();
     $winner = AuctionWinner::firstOrFail();
 
-    \Laravel\Sanctum\Sanctum::actingAs($auction->u1, ['customer']);
+    Sanctum::actingAs($auction->u1, ['customer']);
     $this->postJson("/api/v1/me/auctions/wins/{$winner->id}/checkout", ['fulfillment_type' => 'delivery', 'address_id' => $w->address->id, 'payment_method' => 'cod'])
         ->assertStatus(422)->assertJsonPath('code', 'payment_method_unavailable'); // auction COD disabled by default
     $res = $this->postJson("/api/v1/me/auctions/wins/{$winner->id}/checkout", ['fulfillment_type' => 'pickup', 'branch_id' => $w->a->id, 'payment_method' => 'pay_at_pickup'])->assertCreated();
     expect($res->json('data.order.totals.grand_total.amount'))->toBe('400.00')->and($winner->fresh()->order_id)->not->toBeNull();
 
-    $payment = \App\Domain\Payments\Models\Payment::where('order_id', $winner->fresh()->order_id)->first();
-    $order = \App\Domain\Orders\Models\Order::find($winner->fresh()->order_id);
+    $payment = Payment::where('order_id', $winner->fresh()->order_id)->first();
+    $order = Order::find($winner->fresh()->order_id);
     $pickupStaff = staffWithRole('pickup_employee', $w->a);
-    app(\App\Domain\Payments\Services\PaymentService::class)->recordCollection($payment, $order->fulfillments()->first(), $pickupStaff, 'cash', '400.00');
+    app(PaymentService::class)->recordCollection($payment, $order->fulfillments()->first(), $pickupStaff, 'cash', '400.00');
     expect($winner->fresh()->status)->toBe('paid');
 });
 
@@ -157,12 +165,12 @@ it('audits auctioneer pause/resume/cancel and freezes the clock while paused', f
     $lots->resume($this->w->lot->fresh(), $this->w->admin);
     bid($this->w, $this->w->u1, '100.00');
     $lots->cancel($this->w->lot->fresh(), $this->w->admin, 'Item withdrawn by consignor');
-    expect(\App\Domain\Audit\Models\AuditLog::where('action', 'like', 'auction.lot_%')->pluck('action')->all())->toContain('auction.lot_paused', 'auction.lot_resumed', 'auction.lot_cancelled');
-    expect(fn () => $lots->pause($this->w->lot->fresh(), staffWithRole('sales_employee', \App\Domain\Branches\Models\Branch::factory()->create()), 'x'))->toThrow(DomainException::class);
+    expect(AuditLog::where('action', 'like', 'auction.lot_%')->pluck('action')->all())->toContain('auction.lot_paused', 'auction.lot_resumed', 'auction.lot_cancelled');
+    expect(fn () => $lots->pause($this->w->lot->fresh(), staffWithRole('sales_employee', Branch::factory()->create()), 'x'))->toThrow(DomainException::class);
 });
 
 it('exposes bidding over the API with idempotency', function () {
-    \Laravel\Sanctum\Sanctum::actingAs($this->w->u1, ['customer']);
+    Sanctum::actingAs($this->w->u1, ['customer']);
     $this->postJson("/api/v1/auctions/lots/{$this->w->lot->id}/bids", ['amount' => '100'])->assertStatus(400);
     $this->postJson("/api/v1/auctions/lots/{$this->w->lot->id}/bids", ['amount' => '100'], ['Idempotency-Key' => 'api-bid-0000000001'])->assertCreated()->assertJsonPath('data.lot.my_status', 'leading');
     $this->postJson("/api/v1/auctions/lots/{$this->w->lot->id}/bids", ['amount' => '100'], ['Idempotency-Key' => 'api-bid-0000000001'])->assertOk()->assertJsonPath('data.replayed', true);

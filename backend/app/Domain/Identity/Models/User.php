@@ -6,7 +6,9 @@ use App\Domain\Branches\Models\Branch;
 use App\Domain\Branches\Models\BranchEmployee;
 use App\Domain\Identity\Enums\UserStatus;
 use App\Domain\Identity\Enums\UserType;
+use App\Domain\Marketing\Models\LoyaltyAccount;
 use App\Domain\Orders\Models\Order;
+use App\Domain\Orders\Models\UserAddress;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -108,7 +110,7 @@ class User extends Authenticatable
 
     public function addresses(): HasMany
     {
-        return $this->hasMany(\App\Domain\Orders\Models\UserAddress::class);
+        return $this->hasMany(UserAddress::class);
     }
 
     public function orders(): HasMany
@@ -118,7 +120,7 @@ class User extends Authenticatable
 
     public function loyaltyAccount(): HasOne
     {
-        return $this->hasOne(\App\Domain\Marketing\Models\LoyaltyAccount::class);
+        return $this->hasOne(LoyaltyAccount::class);
     }
 
     public function preferredLocale(): string

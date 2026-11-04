@@ -2,6 +2,7 @@
 
 use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Identity\Models\User;
+use App\Domain\Identity\Models\UserDevice;
 use App\Domain\Identity\Models\UserSession;
 
 it('logs in with password, records the login and returns rotating tokens', function () {
@@ -83,5 +84,5 @@ it('registers push devices and moves a token between accounts', function () {
     $b = actingAsCustomer();
     $this->postJson('/api/v1/me/devices', ['platform' => 'ios', 'push_token' => 'tok-1'])->assertCreated();
 
-    expect(\App\Domain\Identity\Models\UserDevice::where('push_token', 'tok-1')->value('user_id'))->toBe($b->id);
+    expect(UserDevice::where('push_token', 'tok-1')->value('user_id'))->toBe($b->id);
 });
