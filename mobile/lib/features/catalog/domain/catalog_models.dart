@@ -489,7 +489,11 @@ class Review {
     rating: asInt(json['rating']),
     title: asStringOrNull(json['title']),
     body: asStringOrNull(json['body']),
-    authorName: asStringOrNull(json['author_name']) ?? asStringOrNull(asMapOrNull(json['author'])?['name']),
+    // Backend sends `author` as the reviewer's first name (string); older
+    // shapes (`author_name`, `author: {name}`) are still accepted.
+    authorName:
+        asStringOrNull(json['author_name']) ??
+        (json['author'] is Map ? asStringOrNull(asMap(json['author'])['name']) : asStringOrNull(json['author'])),
     verifiedPurchase: asBool(json['is_verified_purchase'] ?? json['verified_purchase']),
     photos: asList(json['photos']).map(ImageRef.maybe).whereType<ImageRef>().toList(),
     createdAt: asDate(json['created_at']),
@@ -507,18 +511,24 @@ class Review {
 
 @immutable
 class ProductQuestion {
-  const ProductQuestion({required this.id, required this.question, this.answer, this.createdAt});
+  const ProductQuestion({required this.id, required this.question, this.answer, this.answeredAt, this.createdAt});
   factory ProductQuestion.fromJson(JsonMap json) => ProductQuestion(
     id: asString(json['id']),
     question: asString(json['question']),
     answer: asStringOrNull(json['answer']),
-    createdAt: asDate(json['created_at']),
+    answeredAt: asDate(json['answered_at']),
+    // The backend only exposes `answered_at` (no `created_at`).
+    createdAt: asDate(json['created_at']) ?? asDate(json['answered_at']),
   );
   final String id;
   final String question;
   final String? answer;
+  final DateTime? answeredAt;
   final DateTime? createdAt;
 }
+
+/// `POST /reviews/{id}/report` reasons accepted by the backend.
+const reviewReportReasons = ['spam', 'offensive', 'irrelevant', 'fake', 'other'];
 
 /// Sort options accepted by `/products`.
 enum ProductSort {

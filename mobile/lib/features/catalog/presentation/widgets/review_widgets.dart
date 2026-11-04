@@ -154,7 +154,7 @@ class ReviewTile extends ConsumerWidget {
                 onSelected: (_) async {
                   if (!requireAuth(context, ref)) return;
                   try {
-                    await ref.read(catalogRepositoryProvider).reportReview(review.id, 'inappropriate');
+                    await ref.read(catalogRepositoryProvider).reportReview(review.id, 'offensive');
                     if (context.mounted) showInfoSnack(context, l10n.reviewReported);
                   } catch (e) {
                     if (context.mounted) showErrorSnack(context, e);

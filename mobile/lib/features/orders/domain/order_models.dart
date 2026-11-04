@@ -3,7 +3,7 @@ import 'package:albahar_customer/core/utils/json.dart';
 import 'package:albahar_customer/features/checkout/domain/checkout_models.dart';
 import 'package:flutter/foundation.dart';
 
-/// Row in `GET /orders` (shape assumed: a subset of Order).
+/// Row in `GET /orders` (`OrderPresenter::summary`).
 @immutable
 class OrderSummary {
   const OrderSummary({
@@ -12,6 +12,7 @@ class OrderSummary {
     required this.status,
     this.statusLabel,
     this.paymentStatus,
+    this.paymentMethod,
     this.fulfillmentType,
     this.placedAt,
     this.grandTotal,
@@ -27,6 +28,7 @@ class OrderSummary {
       status: asString(json['status']),
       statusLabel: asStringOrNull(json['status_label']),
       paymentStatus: asStringOrNull(json['payment_status']),
+      paymentMethod: asStringOrNull(json['payment_method']),
       fulfillmentType: asStringOrNull(json['fulfillment_type']),
       placedAt: asDate(json['placed_at']),
       grandTotal: Money.maybe(json['grand_total']) ?? Money.maybe(asMapOrNull(json['totals'])?['grand_total']),
@@ -34,6 +36,7 @@ class OrderSummary {
       thumbnails: [
         ...asStringList(json['thumbnails']),
         ...items.map((i) => asStringOrNull(asMap(i)['image_url'])).whereType<String>(),
+        if (json['thumbnail_url'] != null) asString(json['thumbnail_url']),
         if (json['image_url'] != null) asString(json['image_url']),
       ].take(4).toList(),
     );
@@ -44,6 +47,7 @@ class OrderSummary {
   final String status;
   final String? statusLabel;
   final String? paymentStatus;
+  final String? paymentMethod;
   final String? fulfillmentType;
   final DateTime? placedAt;
   final Money? grandTotal;
@@ -287,6 +291,6 @@ class PickupPass {
   String toString() => 'PickupPass(status: $status)'; // never log the payload
 }
 
-/// Cancellation reason codes (assumed; server validates).
+/// Cancellation reason codes (subset of the backend's list, which also has `payment_issue`).
 const cancelReasonCodes = ['changed_mind', 'ordered_by_mistake', 'delivery_too_long', 'found_better_price', 'other'];
 const returnReasonCodes = ['damaged', 'wrong_item', 'not_as_described', 'changed_mind', 'other'];

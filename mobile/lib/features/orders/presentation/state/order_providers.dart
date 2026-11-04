@@ -6,18 +6,25 @@ import 'package:albahar_customer/features/orders/data/order_repository.dart';
 import 'package:albahar_customer/features/orders/domain/order_models.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Status filter groups for the orders list (`?status=` accepts a
-/// comma-separated list — assumption, see API_ASSUMPTIONS.md).
+/// Status filter groups for the orders list. The backend's `?status=` takes a
+/// single value, so multi-status groups are filtered client-side by
+/// [OrderRepository.list] (see API_ASSUMPTIONS.md §6).
 enum OrderFilter {
   all(null),
-  active(
-    'pending_payment,confirmed,processing,partially_fulfilled,ready_for_pickup,out_for_delivery,cancellation_requested',
-  ),
-  completed('completed'),
-  cancelled('cancelled,partially_cancelled,returned');
+  active({
+    'pending_payment',
+    'confirmed',
+    'processing',
+    'partially_fulfilled',
+    'ready_for_pickup',
+    'out_for_delivery',
+    'cancellation_requested',
+  }),
+  completed({'completed'}),
+  cancelled({'cancelled', 'partially_cancelled', 'returned'});
 
-  const OrderFilter(this.status);
-  final String? status;
+  const OrderFilter(this.statuses);
+  final Set<String>? statuses;
 }
 
 class OrdersController extends PagedNotifier<OrderSummary> {
@@ -32,7 +39,7 @@ class OrdersController extends PagedNotifier<OrderSummary> {
 
   @override
   Future<Paginated<OrderSummary>> fetchPage(int page) =>
-      ref.read(orderRepositoryProvider).list(status: filter.status, page: page);
+      ref.read(orderRepositoryProvider).list(statuses: filter.statuses, page: page);
 }
 
 final ordersProvider = AsyncNotifierProvider.autoDispose

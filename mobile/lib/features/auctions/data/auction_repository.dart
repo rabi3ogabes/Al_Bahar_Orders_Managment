@@ -20,8 +20,8 @@ class AuctionRepository {
 
   Future<Lot> lot(String lotId) => _api.getObject('/auctions/lots/$lotId', Lot.fromJson);
 
-  Future<List<BidEntry>> bids(String lotId) async =>
-      (await _api.getPage('/auctions/lots/$lotId/bids', BidEntry.fromJson, query: {'per_page': 50})).items;
+  /// Plain list (latest 100, newest first); not paginated.
+  Future<List<BidEntry>> bids(String lotId) => _api.getList('/auctions/lots/$lotId/bids', BidEntry.fromJson);
 
   /// Event replay after reconnect; sorted by sequence ascending.
   Future<List<LotEvent>> events(String lotId, {required int afterSequence}) async {
@@ -44,7 +44,8 @@ class AuctionRepository {
       ),
     );
     return (
-      bid: data['bid'] is Map ? BidEntry.fromJson(asMap(data['bid'])) : null,
+      // The bid echo has no `bidder`; it is always the caller's own bid.
+      bid: data['bid'] is Map ? BidEntry.fromJson(asMap(data['bid'])).asMine() : null,
       lot: Lot.fromJson(asMap(data['lot'])),
     );
   }
@@ -61,6 +62,7 @@ class AuctionRepository {
   Future<Paginated<MyBid>> myBids({int page = 1}) =>
       _api.getPage('/me/auctions/bids', MyBid.fromJson, query: {'page': page});
 
+  /// `GET /me/auctions/{bids,watchlist,wins}` are plain (unpaginated) lists.
   Future<Paginated<Lot>> watchlist({int page = 1}) => _api.getPage(
     '/me/auctions/watchlist',
     (j) => Lot.fromJson(j['lot'] is Map ? asMap(j['lot']) : j),

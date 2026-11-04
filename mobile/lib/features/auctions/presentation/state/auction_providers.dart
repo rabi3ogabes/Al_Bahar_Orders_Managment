@@ -103,6 +103,7 @@ class LotController extends AsyncNotifier<LotViewState> {
   bool _resyncing = false;
   bool _replayAgain = false;
   Timer? _myStatusRefresh;
+  Timer? _bidsRefresh;
   final Map<String, String> _bidKeys = {};
 
   AuctionRepository get _repo => ref.read(auctionRepositoryProvider);
@@ -117,6 +118,7 @@ class LotController extends AsyncNotifier<LotViewState> {
       unawaited(_eventsSub?.cancel());
       unawaited(_stateSub?.cancel());
       _myStatusRefresh?.cancel();
+      _bidsRefresh?.cancel();
     });
 
     final initial = await _load();
@@ -193,7 +195,28 @@ class LotController extends AsyncNotifier<LotViewState> {
     );
     // Someone else bid while we were leading: confirm our status via REST.
     if (bid != null && !bid.isMine && current.lot.myStatus == 'leading') _scheduleMyStatusRefresh();
+    // Backend `bid.accepted` broadcasts (and replays) carry no anonymised bid
+    // row: fetch the bid history, and re-check `my_status` if we take part.
+    if (bid == null && event.type == 'bid.accepted') {
+      _scheduleBidsRefresh();
+      if (current.lot.myStatus != null) _scheduleMyStatusRefresh();
+    }
     if (event.type == 'lot.status' && lot.isFinished) _scheduleMyStatusRefresh();
+  }
+
+  void _scheduleBidsRefresh() {
+    _bidsRefresh?.cancel();
+    _bidsRefresh = Timer(const Duration(milliseconds: 400), () => unawaited(refreshBids()));
+  }
+
+  /// Re-reads `GET /auctions/lots/{id}/bids` (newest first).
+  Future<void> refreshBids() async {
+    try {
+      final bids = await _repo.bids(lotId);
+      final current = state.value;
+      if (!ref.mounted || current == null) return;
+      state = AsyncData(current.copyWith(bids: bids));
+    } catch (_) {}
   }
 
   void _scheduleMyStatusRefresh() {

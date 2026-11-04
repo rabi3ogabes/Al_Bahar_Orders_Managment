@@ -175,7 +175,8 @@ StatusTone toneForStatus(String? status) => switch (status) {
   'processing' ||
   'outbid' ||
   'closing' ||
-  'awaiting_customer' => StatusTone.warning,
+  'awaiting_customer' ||
+  'pending_customer' => StatusTone.warning,
   'cancelled' ||
   'failed' ||
   'expired' ||

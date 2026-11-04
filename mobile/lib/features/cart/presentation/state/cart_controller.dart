@@ -1,8 +1,10 @@
+import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
 import 'package:albahar_customer/features/cart/data/cart_repository.dart';
 import 'package:albahar_customer/features/cart/domain/cart_models.dart';
+import 'package:albahar_customer/features/checkout/domain/checkout_models.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Server cart for the signed-in customer (empty for guests).
@@ -78,8 +80,33 @@ class CartController extends AsyncNotifier<Cart> {
     }
   }
 
-  /// Throws [ApiException] (422 `coupon_invalid`) for inline display.
-  Future<void> applyCoupon(String code) async => _apply(await _repo.update({'coupon_code': code.trim()}));
+  /// Throws [ApiException] (422, `errors.coupon_code`) for inline display.
+  ///
+  /// The backend accepts any code on `PUT /cart`, so the code is checked with
+  /// a quote right after; an invalid code is removed again and surfaced as a
+  /// validation error. If the check itself fails the code is kept and the
+  /// checkout quote will report it.
+  Future<void> applyCoupon(String code) async {
+    final trimmed = code.trim();
+    await _apply(await _repo.update({'coupon_code': trimmed}));
+    QuoteIssue? issue;
+    try {
+      issue = await _repo.couponIssue(trimmed);
+    } on ApiException {
+      return;
+    }
+    if (issue == null) return;
+    await _apply(await _repo.update({'coupon_code': null}));
+    throw ApiException(
+      kind: ApiErrorKind.validation,
+      statusCode: 422,
+      code: issue.code,
+      message: issue.message,
+      errors: {
+        'coupon_code': [issue.message],
+      },
+    );
+  }
 
   Future<void> removeCoupon() async => _apply(await _repo.update({'coupon_code': null}));
 

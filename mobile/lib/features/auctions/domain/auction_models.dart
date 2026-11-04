@@ -17,6 +17,8 @@ class AuctionSummary {
     this.lotsCount = 0,
     this.type,
     this.serverTime,
+    this.reference,
+    this.deposit,
   });
 
   factory AuctionSummary.fromJson(JsonMap json) => AuctionSummary(
@@ -24,12 +26,14 @@ class AuctionSummary {
     title: asString(json['title'] ?? json['name']),
     status: asString(json['status'], 'upcoming'),
     description: asStringOrNull(json['description']),
-    imageUrl: asStringOrNull(json['image_url'] ?? asMapOrNull(json['image'])?['url']),
+    imageUrl: asStringOrNull(json['cover_image_url'] ?? json['image_url'] ?? asMapOrNull(json['image'])?['url']),
     startsAt: asDate(json['starts_at']),
     endsAt: asDate(json['ends_at']),
     lotsCount: asInt(json['lots_count'] ?? asList(json['lots']).length),
     type: asStringOrNull(json['type']),
     serverTime: asDate(json['server_time']),
+    reference: asStringOrNull(json['reference']),
+    deposit: Money.maybe(json['deposit'] ?? json['deposit_required']),
   );
 
   final String id;
@@ -44,6 +48,10 @@ class AuctionSummary {
   final int lotsCount;
   final String? type;
   final DateTime? serverTime;
+  final String? reference;
+
+  /// Registration deposit (`null` when none is required).
+  final Money? deposit;
 
   bool get isLive => status == 'live' || status == 'open';
   bool get isUpcoming => status == 'upcoming' || status == 'scheduled';
@@ -60,7 +68,7 @@ class AuctionRegistration {
     depositPayment: json['deposit_payment'] is Map ? PaymentAction.fromJson(asMap(json['deposit_payment'])) : null,
   );
 
-  /// e.g. `registered`, `approved`, `pending`, `pending_deposit`, `rejected`.
+  /// Backend: `approved` | `pending_deposit` | `blocked` (older names still accepted).
   final String status;
   final String? paddleNumber;
   final Money? depositRequired;
@@ -90,7 +98,8 @@ class Auction {
           ? AuctionRegistration.fromJson(asMap(json['my_registration']))
           : null,
       requiresRegistration: asBool(json['requires_registration'], true),
-      depositRequired: Money.maybe(json['deposit_required']),
+      // Backend card field is `deposit` (Money|null).
+      depositRequired: Money.maybe(json['deposit'] ?? json['deposit_required']),
     );
   }
 
@@ -264,9 +273,15 @@ class BidEntry {
       amount: Money.maybe(json['amount']) ?? Money.zero,
       bidder: bidder,
       placedAt: asDate(json['placed_at'] ?? json['created_at']),
-      isMine: asBool(json['is_mine']) || bidder == 'You',
+      isMine: asBool(json['is_mine']) || youLabels.contains(bidder.trim()),
     );
   }
+
+  /// The backend has no `is_mine` flag: the viewer's own bids carry the
+  /// localised `auctions.you` string (`lang/{en,ar}/auctions.php`).
+  static const youLabels = {'You', 'أنت'};
+
+  BidEntry asMine() => BidEntry(bidNumber: bidNumber, amount: amount, bidder: bidder, placedAt: placedAt, isMine: true);
 
   final int bidNumber;
   final Money amount;
@@ -308,25 +323,38 @@ class LotEvent {
   final BidEntry? bid;
 }
 
-/// `GET /me/auctions/bids` row (shape assumed — see API_ASSUMPTIONS.md).
+/// `GET /me/auctions/bids` row. The backend returns one **Lot** per lot the
+/// customer has bid on (with `my_status`), not individual bids; the legacy
+/// `{id, amount, lot}` shape is still accepted.
 @immutable
 class MyBid {
-  const MyBid({required this.id, required this.amount, required this.lot, this.placedAt, this.isAuto = false});
-  factory MyBid.fromJson(JsonMap json) => MyBid(
-    id: asString(json['id']),
-    amount: Money.maybe(json['amount']) ?? Money.zero,
-    lot: Lot.fromJson(asMap(json['lot'])),
-    placedAt: asDate(json['placed_at'] ?? json['created_at']),
-    isAuto: asBool(json['is_auto']),
-  );
+  const MyBid({required this.id, required this.lot, this.amount, this.placedAt, this.isAuto = false});
+  factory MyBid.fromJson(JsonMap json) {
+    if (json['lot'] is! Map) {
+      final lot = Lot.fromJson(json);
+      return MyBid(id: lot.id, lot: lot);
+    }
+    return MyBid(
+      id: asString(json['id']),
+      amount: Money.maybe(json['amount']),
+      lot: Lot.fromJson(asMap(json['lot'])),
+      placedAt: asDate(json['placed_at'] ?? json['created_at']),
+      isAuto: asBool(json['is_auto']),
+    );
+  }
   final String id;
-  final Money amount;
+
+  /// The customer's own bid amount — not provided by the backend (null).
+  final Money? amount;
   final Lot lot;
   final DateTime? placedAt;
   final bool isAuto;
+
+  /// What to show next to the lot: own amount if known, else the lot price.
+  Money get displayAmount => amount ?? lot.displayPrice;
 }
 
-/// `GET /me/auctions/wins` row (shape assumed).
+/// `GET /me/auctions/wins` row: `{id, status, amount, payment_due_at, order_id, lot}`.
 @immutable
 class AuctionWin {
   const AuctionWin({required this.id, required this.lot, required this.amount, this.status, this.payBy, this.orderId});
@@ -335,17 +363,22 @@ class AuctionWin {
     lot: Lot.fromJson(asMap(json['lot'])),
     amount: Money.maybe(json['amount'] ?? json['winning_amount']) ?? Money.zero,
     status: asStringOrNull(json['status']),
-    payBy: asDate(json['checkout_deadline'] ?? json['pay_by']),
+    payBy: asDate(json['payment_due_at'] ?? json['checkout_deadline'] ?? json['pay_by']),
     orderId: asStringOrNull(json['order_id'] ?? asMapOrNull(json['order'])?['id']),
   );
   final String id;
   final Lot lot;
   final Money amount;
 
-  /// e.g. `pending_checkout`, `paid`, `forfeited`.
+  /// Backend: `pending_confirmation` | `pending_payment` | `paid` | `defaulted`
+  /// | `declined` | `cancelled` | `fulfilled`.
   final String? status;
   final DateTime? payBy;
   final String? orderId;
 
-  bool get needsCheckout => orderId == null && (status == null || status == 'pending_checkout' || status == 'pending');
+  /// Checkout is accepted only while `pending_payment` and before the deadline.
+  bool get needsCheckout =>
+      orderId == null &&
+      (status == null || status == 'pending_payment' || status == 'pending_checkout') &&
+      (payBy == null || payBy!.isAfter(DateTime.now()));
 }

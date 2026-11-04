@@ -46,7 +46,7 @@ class MyAuctionsScreen extends StatelessWidget {
                 lot: b.lot,
                 trailing: Padding(
                   padding: const EdgeInsetsDirectional.only(start: AppSpace.xs),
-                  child: Text(b.amount.formatted, style: context.text.titleSmall),
+                  child: Text(b.displayAmount.formatted, style: context.text.titleSmall),
                 ),
               ),
             ),

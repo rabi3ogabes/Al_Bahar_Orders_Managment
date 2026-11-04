@@ -305,6 +305,9 @@ class Quote {
   final DateTime? expiresAt;
 
   PaymentOption? option(PaymentMethod method) => paymentMethods.where((p) => p.code == method.api).firstOrNull;
+
+  /// Coupon problem reported by the quote (`coupon_invalid`, `coupon_expired`, …).
+  QuoteIssue? get couponIssue => [...errors, ...warnings].where((w) => w.code.startsWith('coupon_')).firstOrNull;
 }
 
 /// Returned with new orders and by `POST /orders/{id}/payments`.

@@ -324,7 +324,7 @@ void main() {
         }),
       );
       final repo = OrderRepository(_client(adapter));
-      final list = await repo.list(status: 'processing');
+      final list = await repo.list(statuses: {'processing'});
       expect(list.items.single.grandTotal!.formatted, 'QAR 50.00');
       expect(adapter.requests.first.query['status'], 'processing');
       final tl = await repo.timeline('o1');

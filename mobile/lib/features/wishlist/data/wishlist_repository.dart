@@ -24,8 +24,13 @@ class WishlistRepository {
   WishlistRepository(this._api);
   final ApiClient _api;
 
-  Future<List<WishlistEntry>> list() async =>
-      (await _api.getPage('/me/wishlist', WishlistEntry.fromJson, query: {'per_page': 100})).items;
+  /// `GET /me/wishlist` is a plain `{data: [...]}` list (not paginated). A row's
+  /// `product` is `null` when the product is no longer presentable; such rows
+  /// are skipped.
+  Future<List<WishlistEntry>> list({String? branchId}) async => mapList(
+    await _api.get('/me/wishlist', query: {'branch_id': branchId}),
+    (j) => j,
+  ).where((j) => j['product'] is Map).map(WishlistEntry.fromJson).toList();
 
   Future<void> add(String productId, {String? variantId}) async =>
       _api.post('/me/wishlist', data: {'product_id': productId, 'variant_id': ?variantId});

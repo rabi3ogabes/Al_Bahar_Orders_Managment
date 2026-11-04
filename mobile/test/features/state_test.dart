@@ -393,6 +393,91 @@ void main() {
       await events.close();
     });
 
+    test('backend broadcast (lot + events, no bid row) refreshes bid history', () async {
+      final events = StreamController<String>.broadcast();
+      var bidsCalls = 0;
+      final h = await TestHarness.create(
+        tokens: _signedIn,
+        handler: routes({
+          'GET /me': (_) => ok({'id': 'u1', 'name': 'Noor', 'phone': '+974'}),
+          'GET /auctions/lots/l1': (_) => ok(lot(5, '500.00', my: 'leading')),
+          'GET /auctions/lots/l1/bids': (_) {
+            bidsCalls++;
+            return ok([
+              if (bidsCalls > 1)
+                {
+                  'bid_number': 6,
+                  'amount': money('550.00'),
+                  'type': 'manual',
+                  'bidder': 'Bidder 12',
+                  'placed_at': '2026-11-04T19:10:00+03:00',
+                },
+              {
+                'bid_number': 5,
+                'amount': money('500.00'),
+                'type': 'manual',
+                'bidder': 'You',
+                'placed_at': '2026-11-04T19:09:00+03:00',
+              },
+            ]);
+          },
+          'GET /auctions/lots/l1/events': (_) => ok(<Object?>[]),
+        }),
+        overrides: [
+          pusherClientProvider.overrideWith((ref) {
+            final client = PusherClient(
+              uri: Uri.parse('wss://ws.test/app/key'),
+              connector: (_) => _FakeSocket(events.stream, (_) {}),
+            );
+            ref.onDispose(client.dispose);
+            return client;
+          }),
+        ],
+      );
+      final sub = h.container.listen(lotControllerProvider('l1'), (_, _) {});
+      addTearDown(sub.close);
+      await h.container.read(lotControllerProvider('l1').future);
+      events.add(
+        jsonEncode({
+          'event': 'pusher:connection_established',
+          'data': jsonEncode({'socket_id': '1.2', 'activity_timeout': 30}),
+        }),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(h.read(lotControllerProvider('l1')).value!.bids.single.isMine, isTrue);
+
+      // Exactly what LotUpdated::broadcastWith() sends.
+      events.add(
+        jsonEncode({
+          'event': 'bid.accepted',
+          'channel': 'auction-lot.l1',
+          'data': jsonEncode({
+            'sequence': 6,
+            'type': 'bid_accepted',
+            'lot': {...lot(6, '550.00'), 'my_status': null, 'my_max_auto_bid': null, 'is_watching': false},
+            'events': [
+              {
+                'sequence': 6,
+                'type': 'bid_accepted',
+                'payload': {'bid_number': 6, 'amount': '550.00', 'type': 'manual'},
+              },
+            ],
+          }),
+        }),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      final s = h.read(lotControllerProvider('l1')).value!;
+      expect(s.lot.lastSequence, 6);
+      expect(s.lot.currentPrice!.amount, '550.00');
+      expect(s.bids.map((b) => b.bidNumber), [6, 5]);
+      expect(
+        h.adapter.where('GET', '/auctions/lots/l1').length,
+        greaterThanOrEqualTo(2),
+        reason: 'my_status re-checked',
+      );
+      await events.close();
+    });
+
     test('countdown offset derives from server_time', () {
       final serverAhead = DateTime.now().add(const Duration(minutes: 2));
       final offset = offsetFromServerTime(serverAhead);

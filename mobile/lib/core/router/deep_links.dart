@@ -103,7 +103,16 @@ String notificationLocation(Map<String, dynamic> data) {
 /// Notification preference category for an event name.
 String notificationCategory(String? event) {
   final e = event ?? '';
-  if (e.startsWith('marketing.') || e.startsWith('promotion.') || e.startsWith('campaign.')) return 'marketing';
+  // Mirrors backend NotificationCatalog: `stock.*`, `cart.abandoned` and
+  // `campaign` are marketing; `auction.*` is auction; everything else transactional.
+  if (e == 'campaign' ||
+      e.startsWith('campaign.') ||
+      e.startsWith('stock.') ||
+      e.startsWith('cart.') ||
+      e.startsWith('marketing.') ||
+      e.startsWith('promotion.')) {
+    return 'marketing';
+  }
   if (e.startsWith('auction.') || e.startsWith('lot.')) return 'auction';
   return 'transactional';
 }

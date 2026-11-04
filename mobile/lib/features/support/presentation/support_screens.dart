@@ -20,7 +20,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 String ticketStatusLabel(AppLocalizations l10n, String status) => switch (status) {
-  'pending' || 'awaiting_customer' || 'awaiting_reply' => l10n.ticketStatusPending,
+  'pending_customer' || 'pending' || 'awaiting_customer' || 'awaiting_reply' => l10n.ticketStatusPending,
   'resolved' => l10n.ticketStatusResolved,
   'closed' => l10n.ticketStatusClosed,
   _ => l10n.ticketStatusOpen,

@@ -11,7 +11,8 @@ class TicketMessage {
     this.createdAt,
   });
   factory TicketMessage.fromJson(JsonMap json) {
-    final authorType = asStringOrNull(json['author_type'] ?? json['sender_type']);
+    // Backend: `from` = `customer` | `staff`.
+    final authorType = asStringOrNull(json['from'] ?? json['author_type'] ?? json['sender_type']);
     return TicketMessage(
       id: asString(json['id']),
       body: asString(json['body']),
@@ -36,6 +37,7 @@ class SupportTicket {
     required this.subject,
     required this.status,
     this.number,
+    this.statusLabel,
     this.category,
     this.orderId,
     this.createdAt,
@@ -47,6 +49,7 @@ class SupportTicket {
     number: asStringOrNull(json['number'] ?? json['reference']),
     subject: asString(json['subject']),
     status: asString(json['status'], 'open'),
+    statusLabel: asStringOrNull(json['status_label']),
     category: asStringOrNull(json['category']),
     orderId: asStringOrNull(json['order_id'] ?? asMapOrNull(json['order'])?['id']),
     createdAt: asDate(json['created_at']),
@@ -57,8 +60,11 @@ class SupportTicket {
   final String? number;
   final String subject;
 
-  /// `open` | `pending` | `awaiting_customer` | `resolved` | `closed`.
+  /// Backend: `open` | `pending_customer` | `pending_staff` | `resolved` | `closed`.
   final String status;
+
+  /// Server-localised label (list rows only).
+  final String? statusLabel;
   final String? category;
   final String? orderId;
   final DateTime? createdAt;
@@ -68,7 +74,8 @@ class SupportTicket {
   bool get isClosed => status == 'closed';
 }
 
-/// Ticket categories (assumed codes; server validates).
+/// Ticket categories (subset of the backend's
+/// `order, delivery, payment, product, auction, return, account, other`).
 const ticketCategories = ['order', 'payment', 'delivery', 'product', 'auction', 'account', 'other'];
 
 @immutable
