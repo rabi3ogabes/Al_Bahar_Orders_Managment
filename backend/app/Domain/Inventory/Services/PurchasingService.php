@@ -67,11 +67,11 @@ class PurchasingService
         return $this->transition($po, ['pending_approval'], 'approved', $actor, ['approved_by' => $actor->id, 'approved_at' => now()]);
     }
 
-    public function reject(User $actor, PurchaseOrder $po): PurchaseOrder
+    public function reject(User $actor, PurchaseOrder $po, ?string $reason = null): PurchaseOrder
     {
         $this->authorize($actor, 'purchasing.approve', $po->branch_id);
 
-        return $this->transition($po, ['pending_approval'], 'rejected', $actor);
+        return $this->transition($po, ['pending_approval'], 'rejected', $actor, reason: $reason);
     }
 
     /**
@@ -129,11 +129,11 @@ class PurchasingService
         return $this->transition($po, ['received', 'partially_received'], 'closed', $actor, ['closed_at' => now()]);
     }
 
-    public function cancel(User $actor, PurchaseOrder $po): PurchaseOrder
+    public function cancel(User $actor, PurchaseOrder $po, ?string $reason = null): PurchaseOrder
     {
         $this->authorize($actor, 'purchasing.approve', $po->branch_id);
 
-        return $this->transition($po, ['draft', 'pending_approval', 'approved'], 'cancelled', $actor);
+        return $this->transition($po, ['draft', 'pending_approval', 'approved'], 'cancelled', $actor, reason: $reason);
     }
 
     private function lineTotal(string $unitCost, int $qty): Money
@@ -146,14 +146,14 @@ class PurchasingService
         return Money::ofMinor(intdiv($totalMicro + 50, 100));
     }
 
-    private function transition(PurchaseOrder $po, array $from, string $to, User $actor, array $extra = []): PurchaseOrder
+    private function transition(PurchaseOrder $po, array $from, string $to, User $actor, array $extra = [], ?string $reason = null): PurchaseOrder
     {
         if (! in_array($po->status, $from, true)) {
             throw DomainException::make('invalid_state_transition', 409, ['from' => $po->status]);
         }
         $old = $po->status;
         $po->update(['status' => $to] + $extra);
-        $this->audit->log('purchasing.po_'.$to, $po, ['status' => $old], ['status' => $to], actor: $actor);
+        $this->audit->log('purchasing.po_'.$to, $po, ['status' => $old], array_filter(['status' => $to, 'reason' => $reason]), actor: $actor);
 
         return $po;
     }

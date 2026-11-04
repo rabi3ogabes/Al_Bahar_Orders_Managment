@@ -4,6 +4,7 @@ use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Branches\Models\BranchEmployee;
 use App\Domain\Catalog\Models\Product;
+use App\Domain\Catalog\Services\CategoryService;
 use App\Domain\Identity\Models\Role;
 use App\Domain\Identity\Models\UserRole;
 use App\Domain\Inventory\Enums\MovementType;
@@ -180,4 +181,21 @@ it('lists low-stock rows', function () {
     BranchInventory::where('branch_id', $this->a->id)->update(['minimum_stock' => 12]);
     actingAsStaff(staffWithRole('admin'));
     $this->getJson('/api/v1/admin/inventory/stock?filter=low')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.is_low', true);
+});
+
+it('includes sub-categories in a category stocktake and audits submit and cancel', function () {
+    $cats = app(CategoryService::class);
+    $root = $cats->create(['slug' => 'living', 'translations' => ['en' => ['name' => 'Living'], 'ar' => ['name' => 'المعيشة']]]);
+    $child = $cats->create(['slug' => 'sofas', 'parent_id' => $root->id, 'translations' => ['en' => ['name' => 'Sofas'], 'ar' => ['name' => 'كنب']]]);
+    $this->variant->product->update(['category_id' => $child->id]);
+    $other = Product::factory()->create()->variants()->first();
+    $this->ledger->apply($this->a->id, $other->id, MovementType::OpeningBalance, 4, reason: 'opening');
+
+    $mgr = staffWithRole('branch_manager', $this->a);
+    $svc = app(StocktakingService::class);
+    $session = $svc->start($mgr, $this->a->id, $root->id);
+    expect($session->items()->pluck('product_variant_id')->all())->toBe([$this->variant->id]);
+
+    $svc->cancel($mgr, $svc->submit($mgr, $session));
+    expect(AuditLog::whereIn('action', ['stocktaking.submitted', 'stocktaking.cancelled'])->count())->toBe(2);
 });

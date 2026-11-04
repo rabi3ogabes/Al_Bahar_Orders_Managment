@@ -30,7 +30,8 @@ class StocktakingService
             $session = StocktakingSession::create(['number' => DocumentNumber::make('STK'), 'branch_id' => $branchId, 'status' => 'counting',
                 'category_id' => $categoryId, 'notes' => $notes, 'started_by' => $actor->id]);
             $rows = BranchInventory::where('branch_id', $branchId)
-                ->when($categoryId, fn ($q) => $q->whereHas('variant.product', fn ($p) => $p->where('category_id', $categoryId)))
+                // A category count includes all of its sub-categories (materialised path "/root/child/").
+                ->when($categoryId, fn ($q) => $q->whereHas('variant.product.category', fn ($c) => $c->where(fn ($w) => $w->whereKey($categoryId)->orWhere('path', 'like', '%/'.$categoryId.'/%'))))
                 ->get(['product_variant_id', 'on_hand']);
             foreach ($rows as $row) {
                 $session->items()->create(['product_variant_id' => $row->product_variant_id, 'expected_quantity' => $row->on_hand]);
@@ -64,6 +65,7 @@ class StocktakingService
             throw DomainException::make('invalid_state_transition', 409, ['from' => $session->status]);
         }
         $session->update(['status' => 'submitted', 'submitted_at' => now()]);
+        $this->audit->log('stocktaking.submitted', $session, ['status' => 'counting'], ['status' => 'submitted'], actor: $actor);
 
         return $session;
     }
@@ -100,7 +102,9 @@ class StocktakingService
         if (! in_array($session->status, ['counting', 'submitted'], true)) {
             throw DomainException::make('invalid_state_transition', 409, ['from' => $session->status]);
         }
+        $old = $session->status;
         $session->update(['status' => 'cancelled']);
+        $this->audit->log('stocktaking.cancelled', $session, ['status' => $old], ['status' => 'cancelled'], actor: $actor);
 
         return $session;
     }
