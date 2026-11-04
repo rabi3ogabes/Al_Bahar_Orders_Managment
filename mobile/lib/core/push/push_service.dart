@@ -71,11 +71,23 @@ class FirebasePushMessaging implements PushMessaging {
         settings.authorizationStatus == AuthorizationStatus.provisional;
   }
 
+  /// firebase_messaging 17 registers the installation and reports the
+  /// direct-send identifier through `onRegistered` (replaces getToken()).
   @override
-  Future<String?> getToken() async => _fm?.getToken();
+  Future<String?> getToken() async {
+    final fm = _fm;
+    if (fm == null) return null;
+    final first = fm.onRegistered.first.timeout(const Duration(seconds: 20));
+    await fm.register();
+    try {
+      return await first;
+    } on TimeoutException {
+      return null;
+    }
+  }
 
   @override
-  Stream<String> get onTokenRefresh => _fm?.onTokenRefresh ?? const Stream.empty();
+  Stream<String> get onTokenRefresh => _fm?.onRegistered ?? const Stream.empty();
 
   @override
   Stream<PushMessage> get onForegroundMessage =>

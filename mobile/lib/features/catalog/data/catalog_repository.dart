@@ -10,7 +10,7 @@ class CatalogRepository {
   CatalogRepository(this._api);
   final ApiClient _api;
 
-  Future<List<Category>> categories() => _api.getList('/categories', Category.fromJson);
+  Future<List<CatalogCategory>> categories() => _api.getList('/categories', CatalogCategory.fromJson);
 
   Future<CategoryDetail> category(String id) => _api.getObject('/categories/$id', CategoryDetail.fromJson);
 

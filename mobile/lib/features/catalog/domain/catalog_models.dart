@@ -365,8 +365,8 @@ class ProductDetail {
 }
 
 @immutable
-class Category {
-  const Category({
+class CatalogCategory {
+  const CatalogCategory({
     required this.id,
     required this.slug,
     required this.name,
@@ -376,14 +376,14 @@ class Category {
     this.children = const [],
   });
 
-  factory Category.fromJson(JsonMap json) => Category(
+  factory CatalogCategory.fromJson(JsonMap json) => CatalogCategory(
     id: asString(json['id']),
     slug: asStringOrNull(json['slug']),
     name: asString(json['name']),
     imageUrl: asStringOrNull(json['image_url']),
     iconUrl: asStringOrNull(json['icon_url']),
     bannerUrl: asStringOrNull(json['banner_url']),
-    children: mapList(json['children'], Category.fromJson),
+    children: mapList(json['children'], CatalogCategory.fromJson),
   );
 
   final String id;
@@ -392,7 +392,7 @@ class Category {
   final String? imageUrl;
   final String? iconUrl;
   final String? bannerUrl;
-  final List<Category> children;
+  final List<CatalogCategory> children;
 
   bool get hasChildren => children.isNotEmpty;
 }
@@ -420,10 +420,10 @@ class AttributeFilter {
 class CategoryDetail {
   const CategoryDetail({required this.category, required this.filters});
   factory CategoryDetail.fromJson(JsonMap json) => CategoryDetail(
-    category: Category.fromJson(json),
+    category: CatalogCategory.fromJson(json),
     filters: mapList(json['filters'], AttributeFilter.fromJson),
   );
-  final Category category;
+  final CatalogCategory category;
   final List<AttributeFilter> filters;
 }
 

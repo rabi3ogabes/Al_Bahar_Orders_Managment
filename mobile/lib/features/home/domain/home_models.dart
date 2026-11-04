@@ -86,7 +86,7 @@ sealed class HomeSection {
         final banners = mapList(items, HomeBanner.fromJson);
         return banners.isEmpty ? null : BannersSection(id: id, title: title, layout: layout, banners: banners);
       case 'categories':
-        final cats = mapList(items, Category.fromJson);
+        final cats = mapList(items, CatalogCategory.fromJson);
         return cats.isEmpty ? null : CategoriesSection(id: id, title: title, layout: layout, categories: cats);
       case 'brands':
         final brands = mapList(items, Brand.fromJson);
@@ -127,7 +127,7 @@ class BannersSection extends HomeSection {
 class CategoriesSection extends HomeSection {
   const CategoriesSection({required super.id, super.title, super.layout, required this.categories})
     : super(type: 'categories');
-  final List<Category> categories;
+  final List<CatalogCategory> categories;
 }
 
 class ProductsSection extends HomeSection {

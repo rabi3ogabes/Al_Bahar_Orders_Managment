@@ -6,8 +6,8 @@ import 'package:albahar_customer/features/catalog/data/catalog_repository.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Category tree (cached for the session; refreshes on locale change).
-final categoriesProvider = FutureProvider<List<Category>>((ref) {
+/// CatalogCategory tree (cached for the session; refreshes on locale change).
+final categoriesProvider = FutureProvider<List<CatalogCategory>>((ref) {
   ref.watch(localeCodeProvider);
   return ref.watch(catalogRepositoryProvider).categories();
 });
@@ -23,7 +23,7 @@ final brandsProvider = FutureProvider<List<Brand>>((ref) {
 });
 
 /// Finds a category anywhere in the tree (for titles / children).
-Category? findCategory(List<Category> tree, String id) {
+CatalogCategory? findCategory(List<CatalogCategory> tree, String id) {
   for (final c in tree) {
     if (c.id == id || c.slug == id) return c;
     final inner = findCategory(c.children, id);
