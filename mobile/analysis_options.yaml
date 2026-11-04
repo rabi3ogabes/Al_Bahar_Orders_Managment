@@ -4,6 +4,9 @@ analyzer:
   exclude:
     - build/**
     - lib/l10n/generated/**
+    - android/**
+    - ios/**
+    - web/**
   language:
     strict-casts: false
     strict-raw-types: true
