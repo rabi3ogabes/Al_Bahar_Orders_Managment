@@ -184,6 +184,22 @@ class BranchSlot {
 typedef PickupSlot = BranchSlot;
 typedef DeliverySlot = BranchSlot;
 
+/// One date of a span query (`?from=&to=`): the day's slots and its total free places.
+@immutable
+class SlotDay {
+  const SlotDay({required this.date, required this.available, required this.slots});
+  factory SlotDay.fromJson(JsonMap json) => SlotDay(
+    date: asString(json['date']),
+    available: asInt(json['available']),
+    slots: mapList(json['slots'], BranchSlot.fromJson),
+  );
+  final String date;
+  final int available;
+  final List<BranchSlot> slots;
+
+  bool get hasSelectable => slots.any((s) => s.selectable);
+}
+
 @immutable
 class DeliveryZone {
   const DeliveryZone({required this.id, required this.name, this.zoneNumbers = const []});

@@ -66,19 +66,40 @@ class BranchController extends ApiController
 
     public function pickupSlots(Request $request, string $id, SlotService $slots): JsonResponse
     {
-        $request->validate(['date' => 'required|date_format:Y-m-d|after_or_equal:today|before:+30 days']);
         $branch = Branch::active()->where('pickup_enabled', true)->with(['hours', 'holidays'])->findOrFail($id);
 
-        return response()->json(['data' => $slots->available($branch, 'pickup', $request->input('date'))]);
+        return $this->slotsResponse($request, $branch, 'pickup', $slots);
     }
 
-    /** Delivery time slots of a branch for one date (same shape as pickup slots). */
+    /** Delivery time slots of a branch (same shape as pickup slots). */
     public function deliverySlots(Request $request, string $id, SlotService $slots): JsonResponse
     {
-        $request->validate(['date' => 'required|date_format:Y-m-d|after_or_equal:today|before:+30 days']);
         $branch = Branch::active()->where('delivery_enabled', true)->with(['hours', 'holidays'])->findOrFail($id);
 
-        return response()->json(['data' => $slots->available($branch, 'delivery', $request->input('date'))]);
+        return $this->slotsResponse($request, $branch, 'delivery', $slots);
+    }
+
+    /**
+     * One date  (?date=YYYY-MM-DD)           → data: [slot…]
+     * A span    (?from=…&to=…[&only_available=1]) → data: [{date, available, slots: [slot…]}…], one entry per date that has slots.
+     * Dates run from today to +29 days; a span covers at most 30 days.
+     */
+    private function slotsResponse(Request $request, Branch $branch, string $type, SlotService $slots): JsonResponse
+    {
+        $d = $request->validate([
+            'date' => 'nullable|date_format:Y-m-d|after_or_equal:today|before:+30 days|required_without_all:from,to|prohibits:from,to',
+            'from' => 'nullable|date_format:Y-m-d|after_or_equal:today|before:+30 days|required_with:to',
+            'to' => 'nullable|date_format:Y-m-d|after_or_equal:from|before:+30 days|required_with:from',
+            'only_available' => 'nullable|boolean',
+        ]);
+        if (isset($d['date'])) {
+            return response()->json(['data' => $slots->available($branch, $type, $d['date'])]);
+        }
+
+        return response()->json([
+            'data' => $slots->availableRange($branch, $type, $d['from'], $d['to'], (bool) ($d['only_available'] ?? false)),
+            'meta' => ['from' => $d['from'], 'to' => $d['to']],
+        ]);
     }
 
     public function zones(): JsonResponse

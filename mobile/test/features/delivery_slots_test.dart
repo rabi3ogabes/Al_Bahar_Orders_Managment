@@ -105,7 +105,21 @@ FakeHandler _backend({
       {'id': 'a1', 'recipient_name': 'Noor', 'recipient_phone': '+97455123456', 'is_default': true},
       {'id': 'a2', 'recipient_name': 'Noor', 'recipient_phone': '+97455123456'},
     ]),
-    'GET /branches/br1/delivery-slots': (r) => ok(_slotsFor('${r.query['date']}')),
+    'GET /branches/br1/delivery-slots': (r) {
+      final from = r.query['from'] as String?;
+      if (from == null) return ok(_slotsFor('${r.query['date']}'));
+      final to = r.query['to'] as String;
+      final onlyAvailable = r.query['only_available'] != null;
+      return ok([
+        for (var i = 0; i < 30; i++)
+          if (_day(i).compareTo(from) >= 0 && _day(i).compareTo(to) <= 0 && _slotsFor(_day(i)).isNotEmpty)
+            {
+              'date': _day(i),
+              'available': _slotsFor(_day(i)).fold<int>(0, (a, s) => a + (s['available'] as int)),
+              'slots': _slotsFor(_day(i)),
+            },
+      ].where((d) => !onlyAvailable || (d['available'] as int) > 0).toList());
+    },
     'GET /branches/br2/delivery-slots': (_) => error(404, 'not_found'),
     'POST /checkout/quote': (r) {
       final id = r.body['delivery_slot_id'] as String?;
@@ -174,6 +188,35 @@ void main() {
       expect(slots.first.selectable, isTrue);
       expect(slots.last.isFull, isTrue);
       expect(slots.last.selectable, isFalse);
+    });
+
+    test('a span of dates is one request and parses days with their slots', () async {
+      final adapter = FakeAdapter(
+        (_) => ok([
+          {
+            'date': '2026-11-08',
+            'available': 8,
+            'slots': [_slot('a', '2026-11-08', '16:00', '18:00', available: 2), _slot('b', '2026-11-08', '18:00', '20:00')],
+          },
+          {
+            'date': '2026-11-09',
+            'available': 0,
+            'slots': [_slot('c', '2026-11-09', '16:00', '18:00', available: 0)],
+          },
+        ]),
+      );
+      final days = await BranchRepository(_client(adapter)).deliverySlotDays('br1', from: '2026-11-08', to: '2026-11-14', onlyAvailable: true);
+      final req = adapter.requests.single;
+      expect(req.path, '/branches/br1/delivery-slots');
+      expect(req.query['from'], '2026-11-08');
+      expect(req.query['to'], '2026-11-14');
+      expect('${req.query['only_available']}', '1');
+      expect(req.query.containsKey('date'), isFalse);
+      expect(days.map((d) => d.date), ['2026-11-08', '2026-11-09']);
+      expect(days.first.available, 8);
+      expect(days.first.slots.map((s) => s.startsAt), ['16:00', '18:00']);
+      expect(days.first.hasSelectable, isTrue);
+      expect(days.last.hasSelectable, isFalse);
     });
 
     test('404 (branch does not deliver) and 422 (bad date) surface as ApiException', () async {
@@ -263,6 +306,17 @@ void main() {
   });
 
   group('Checkout controller', () {
+    test('the date strip needs one request for the whole week, not one per day', () async {
+      final (h, _) = await _controller(_backend());
+      final dates = await h.read(deliveryDatesProvider('br1').future);
+      expect(dates, [_day(1)]); // only tomorrow has slots in the fake backend
+      final calls = h.adapter.where('GET', '/branches/br1/delivery-slots');
+      expect(calls, hasLength(1));
+      expect(calls.single.query['from'], _day(0));
+      expect(calls.single.query['to'], _day(6));
+      expect(calls.single.query.containsKey('date'), isFalse);
+    });
+
     test('a required slot blocks placing until the customer picks one (no auto-select)', () async {
       final (h, c) = await _controller(_backend());
       await c.update((o) => o.copyWith(addressId: () => 'a1'));

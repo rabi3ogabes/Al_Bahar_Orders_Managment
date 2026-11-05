@@ -2,11 +2,13 @@
 
 use App\Domain\Branches\Models\DeliverySlot;
 use App\Domain\Branches\Models\DeliverySlotBooking;
+use App\Domain\Branches\Services\SlotService;
 use App\Domain\Fulfillment\Services\DeliveryService;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Services\OrderService;
 use App\Support\BusinessTime;
 use App\Support\DomainException;
+use Illuminate\Support\Facades\DB;
 
 /** A delivery slot at the given branch, tomorrow's weekday, 16:00–18:00 (inside default opening hours on every day). */
 function deliverySlot(object $w, int $capacity = 2, string $branch = 'a', string $from = '16:00', string $to = '18:00'): array
@@ -136,4 +138,94 @@ it('reschedules a failed delivery onto another slot, moving the booking atomical
 
     // Only staff with assign rights on the delivery's branch may reschedule.
     expect(fn () => $svc->rescheduleToSlot($d, staffWithRole('order_manager', $w->b), $free->id, $date))->toThrow(DomainException::class);
+});
+
+it('lists slots for a span of dates in one call, identical to asking day by day', function () {
+    $w = commerceWorld();
+    [$slot, $date] = deliverySlot($w, 2);                                   // tomorrow's weekday, 16:00–18:00
+    deliverySlot($w, 5, 'a', '19:00', '21:00');                              // same weekday, second window
+    $other = BusinessTime::now()->addDays(3);
+    $slot2 = DeliverySlot::create(['branch_id' => $w->a->id, 'fulfillment_type' => 'delivery', 'day_of_week' => $other->dayOfWeek,
+        'starts_at' => '15:00', 'ends_at' => '17:00', 'capacity' => 4, 'cutoff_minutes' => 60]);
+    $from = BusinessTime::now()->addDay()->toDateString();
+    $to = BusinessTime::now()->addDays(14)->toDateString();
+
+    $res = $this->getJson("/api/v1/branches/{$w->a->id}/delivery-slots?from={$from}&to={$to}")->assertOk()->assertJsonPath('meta.from', $from)->assertJsonPath('meta.to', $to);
+    $days = collect($res->json('data'));
+
+    // Only dates with slots appear: tomorrow's weekday twice (days 1 and 8) plus the other weekday's dates; none outside the span.
+    expect($days->pluck('date')->every(fn ($d) => $d >= $from && $d <= $to))->toBeTrue()
+        ->and($days->pluck('date')->unique()->count())->toBe($days->count())
+        ->and($days->firstWhere('date', $date)['slots'])->toHaveCount(2)
+        ->and($days->firstWhere('date', $date)['available'])->toBe(7)        // 2 + 5
+        ->and($days->firstWhere('date', $other->toDateString())['slots'][0]['id'])->toBe($slot2->id);
+
+    // Each day equals the single-date answer.
+    foreach ($days as $day) {
+        expect($this->getJson("/api/v1/branches/{$w->a->id}/delivery-slots?date={$day['date']}")->json('data'))->toBe($day['slots']);
+    }
+});
+
+it('can hide dates that are fully booked', function () {
+    $w = commerceWorld();
+    [$slot, $date] = deliverySlot($w, 1);
+    $from = $date;
+    $to = BusinessTime::now()->addDays(10)->toDateString();
+    addToCart($w);
+    quoteAndPlace(deliveryOptions($w, ['delivery_slot_id' => $slot->id, 'delivery_date' => $date]))->assertCreated();
+
+    $all = collect($this->getJson("/api/v1/branches/{$w->a->id}/delivery-slots?from={$from}&to={$to}")->json('data'));
+    $free = collect($this->getJson("/api/v1/branches/{$w->a->id}/delivery-slots?from={$from}&to={$to}&only_available=1")->json('data'));
+
+    expect($all->firstWhere('date', $date)['available'])->toBe(0)->and($all->firstWhere('date', $date)['slots'][0]['is_full'])->toBeTrue()
+        ->and($free->pluck('date')->contains($date))->toBeFalse()
+        ->and($free->count())->toBe($all->count() - 1)   // the same weekday a week later is still free
+        ->and($free->every(fn ($d) => $d['available'] > 0))->toBeTrue();
+});
+
+it('answers a span with a fixed number of queries and no data for branches without slots', function () {
+    $w = commerceWorld();
+    deliverySlot($w, 3);
+    $branch = $w->a->fresh()->load(['hours', 'holidays']);
+    $svc = app(SlotService::class);
+    $count = function (string $to) use ($svc, $branch) {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $svc->availableRange($branch, 'delivery', BusinessTime::now()->addDay()->toDateString(), $to);
+
+        return count(DB::getQueryLog());
+    };
+
+    expect($count(BusinessTime::now()->addDays(7)->toDateString()))->toBe($count(BusinessTime::now()->addDays(28)->toDateString()))
+        ->and($count(BusinessTime::now()->addDays(28)->toDateString()))->toBeLessThanOrEqual(3);
+
+    $empty = $w->b->fresh()->load(['hours', 'holidays']);
+    expect($svc->availableRange($empty, 'delivery', BusinessTime::now()->addDay()->toDateString(), BusinessTime::now()->addDays(5)->toDateString()))->toBe([]);
+});
+
+it('validates the date, the span and the mode, for delivery and pickup alike', function () {
+    $w = commerceWorld();
+    $url = fn (string $q, string $kind = 'delivery') => "/api/v1/branches/{$w->a->id}/{$kind}-slots?{$q}";
+    $d = fn (int $n) => BusinessTime::now()->addDays($n)->toDateString();
+
+    foreach (['delivery', 'pickup'] as $kind) {
+        $this->getJson($url('', $kind))->assertStatus(422);                                           // nothing given
+        $this->getJson($url('from='.$d(1), $kind))->assertStatus(422);                                // from without to
+        $this->getJson($url('to='.$d(3), $kind))->assertStatus(422);                                  // to without from
+        $this->getJson($url('from='.$d(3).'&to='.$d(1), $kind))->assertStatus(422);                   // backwards
+        $this->getJson($url('from='.$d(1).'&to='.$d(40), $kind))->assertStatus(422);                  // too far
+        $this->getJson($url('from='.BusinessTime::now()->subDay()->toDateString().'&to='.$d(2), $kind))->assertStatus(422); // starts in the past
+        $this->getJson($url('date='.$d(1).'&from='.$d(1).'&to='.$d(2), $kind))->assertStatus(422);    // one mode only
+        $this->getJson($url('from='.$d(0).'&to='.$d(29), $kind))->assertOk();                         // widest allowed span
+    }
+    $this->getJson($url('date='.$d(1)))->assertOk();                                                  // the original form still works
+});
+
+it('supports spans for pickup slots too', function () {
+    $w = commerceWorld();
+    $day = BusinessTime::now()->addDay();
+    DeliverySlot::create(['branch_id' => $w->a->id, 'fulfillment_type' => 'pickup', 'day_of_week' => $day->dayOfWeek, 'starts_at' => '16:00', 'ends_at' => '17:00', 'capacity' => 5, 'cutoff_minutes' => 60]);
+
+    $rows = $this->getJson("/api/v1/branches/{$w->a->id}/pickup-slots?from={$day->toDateString()}&to={$day->addDays(6)->toDateString()}")->assertOk()->json('data');
+    expect($rows)->toHaveCount(1)->and($rows[0]['date'])->toBe($day->toDateString())->and($rows[0]['slots'][0]['available'])->toBe(5);
 });

@@ -100,8 +100,9 @@ Create/update body: same fields (`delivery_zone_id` instead of the object). `rec
 | | `/branches/nearby?lat=&lng=&radius_km=30` | Branch[] with `distance_km`, sorted ascending (only when the customer consents to location) |
 | | `/branches/{id}` | Branch |
 | | `/branches/{id}/hours` | `{timezone, weekly:[{day_of_week (0=Sun), is_closed, opens_at "09:00", closes_at "22:00", break_starts_at, break_ends_at}], holidays:[{name, type, starts_at, ends_at}]}` |
-| | `/branches/{id}/pickup-slots?date=YYYY-MM-DD` | `[{id, date, starts_at "16:00", ends_at "18:00", available: 3, is_full}]` |
-| | `/branches/{id}/delivery-slots?date=YYYY-MM-DD` | same shape as pickup slots; 404 when the branch does not deliver; date must be today … +29 days |
+| | `/branches/{id}/pickup-slots?date=YYYY-MM-DD` | `[{id, date, starts_at "16:00", ends_at "18:00", capacity, available: 3, is_full}]` |
+| | `/branches/{id}/delivery-slots?date=YYYY-MM-DD` | same shape; 404 when the branch does not deliver |
+| | `/branches/{id}/{pickup,delivery}-slots?from=YYYY-MM-DD&to=YYYY-MM-DD[&only_available=1]` | **a span in one call**: `{data:[{date, available, slots:[slot…]}], meta:{from,to}}`, one entry per date that has slots; `only_available=1` drops dates with no free place. Dates run today … +29 days, span ≤ 30 days, `date` and `from/to` can't be combined (422) |
 | | `/delivery-zones` | `[{id, name, zone_numbers[]}]` |
 
 Branch:

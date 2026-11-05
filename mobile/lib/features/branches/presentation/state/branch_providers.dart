@@ -66,29 +66,19 @@ final deliverySlotsProvider = FutureProvider.autoDispose.family<List<DeliverySlo
   (ref, args) => ref.watch(branchRepositoryProvider).deliverySlots(args.branchId, args.date),
 );
 
-/// The next [days] days (from today, Qatar) that have at least one selectable
-/// delivery slot, in order. Days whose request fails are skipped; if every day
-/// fails the first error is rethrown so the UI can offer a retry.
+/// The next 7 days (from today, Qatar) that have at least one selectable
+/// delivery slot, in order — a single span request. A failure is rethrown so
+/// the UI can offer a retry.
 final deliveryDatesProvider = FutureProvider.autoDispose.family<List<String>, String>((ref, branchId) async {
   const days = 7;
   final today = QatarTime.today();
-  final dates = [for (var i = 0; i < days; i++) QatarTime.isoDate(today.add(Duration(days: i)))];
-  Object? firstError;
-  final results = await Future.wait([
-    for (final d in dates)
-      ref
-          .watch(deliverySlotsProvider((branchId: branchId, date: d)).future)
-          .then<List<DeliverySlot>?>((v) => v)
-          .catchError((Object e) {
-            firstError ??= e;
-            return null;
-          }),
-  ]);
-  if (results.every((r) => r == null) && firstError != null) throw firstError!;
+  final from = QatarTime.isoDate(today);
+  final to = QatarTime.isoDate(today.add(const Duration(days: days - 1)));
+  final span = await ref.watch(branchRepositoryProvider).deliverySlotDays(branchId, from: from, to: to, onlyAvailable: true);
   return [
-    for (var i = 0; i < days; i++)
-      if (results[i]?.any((s) => s.selectable) ?? false) dates[i],
-  ];
+    for (final d in span)
+      if (d.hasSelectable && d.date.compareTo(from) >= 0 && d.date.compareTo(to) <= 0) d.date,
+  ]..sort();
 });
 
 final deliveryZonesProvider = FutureProvider<List<DeliveryZone>>((ref) {

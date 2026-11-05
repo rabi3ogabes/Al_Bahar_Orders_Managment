@@ -13386,15 +13386,6 @@
                         "schema": {
                             "type": "string"
                         }
-                    },
-                    {
-                        "name": "date",
-                        "in": "query",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "format": "date"
-                        }
                     }
                 ],
                 "responses": {
@@ -13403,54 +13394,134 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "object",
-                                                "properties": {
-                                                    "id": {
-                                                        "type": "string"
-                                                    },
-                                                    "date": {
-                                                        "type": "string"
-                                                    },
-                                                    "starts_at": {
-                                                        "type": "string"
-                                                    },
-                                                    "ends_at": {
-                                                        "type": "string"
-                                                    },
-                                                    "capacity": {
-                                                        "type": "integer"
-                                                    },
-                                                    "available": {},
-                                                    "is_full": {
-                                                        "type": "boolean"
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "date": {
+                                                                "type": "string"
+                                                            },
+                                                            "available": {
+                                                                "type": "number"
+                                                            },
+                                                            "slots": {
+                                                                "type": "array",
+                                                                "items": {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "id": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "date": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "starts_at": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "ends_at": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "capacity": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "available": {},
+                                                                        "is_full": {
+                                                                            "type": "boolean"
+                                                                        }
+                                                                    },
+                                                                    "required": [
+                                                                        "id",
+                                                                        "date",
+                                                                        "starts_at",
+                                                                        "ends_at",
+                                                                        "capacity",
+                                                                        "available",
+                                                                        "is_full"
+                                                                    ]
+                                                                }
+                                                            }
+                                                        },
+                                                        "required": [
+                                                            "date",
+                                                            "available",
+                                                            "slots"
+                                                        ]
                                                     }
                                                 },
-                                                "required": [
-                                                    "id",
-                                                    "date",
-                                                    "starts_at",
-                                                    "ends_at",
-                                                    "capacity",
-                                                    "available",
-                                                    "is_full"
-                                                ]
-                                            }
+                                                "meta": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "from": {
+                                                            "type": "string"
+                                                        },
+                                                        "to": {
+                                                            "type": "string"
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "from",
+                                                        "to"
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "data",
+                                                "meta"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "string"
+                                                            },
+                                                            "date": {
+                                                                "type": "string"
+                                                            },
+                                                            "starts_at": {
+                                                                "type": "string"
+                                                            },
+                                                            "ends_at": {
+                                                                "type": "string"
+                                                            },
+                                                            "capacity": {
+                                                                "type": "string"
+                                                            },
+                                                            "available": {},
+                                                            "is_full": {
+                                                                "type": "boolean"
+                                                            }
+                                                        },
+                                                        "required": [
+                                                            "id",
+                                                            "date",
+                                                            "starts_at",
+                                                            "ends_at",
+                                                            "capacity",
+                                                            "available",
+                                                            "is_full"
+                                                        ]
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "data"
+                                            ]
                                         }
-                                    },
-                                    "required": [
-                                        "data"
                                     ]
                                 }
                             }
                         }
-                    },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
                     }
                 }
             }
@@ -13458,7 +13529,7 @@
         "/branches/{id}/delivery-slots": {
             "get": {
                 "operationId": "v1.branches.delivery-slots",
-                "summary": "Delivery time slots of a branch for one date (same shape as pickup slots)",
+                "summary": "Delivery time slots of a branch (same shape as pickup slots)",
                 "tags": [
                     "Branches",
                     "Branch"
@@ -13471,15 +13542,6 @@
                         "schema": {
                             "type": "string"
                         }
-                    },
-                    {
-                        "name": "date",
-                        "in": "query",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "format": "date"
-                        }
                     }
                 ],
                 "responses": {
@@ -13488,54 +13550,134 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "object",
-                                                "properties": {
-                                                    "id": {
-                                                        "type": "string"
-                                                    },
-                                                    "date": {
-                                                        "type": "string"
-                                                    },
-                                                    "starts_at": {
-                                                        "type": "string"
-                                                    },
-                                                    "ends_at": {
-                                                        "type": "string"
-                                                    },
-                                                    "capacity": {
-                                                        "type": "integer"
-                                                    },
-                                                    "available": {},
-                                                    "is_full": {
-                                                        "type": "boolean"
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "date": {
+                                                                "type": "string"
+                                                            },
+                                                            "available": {
+                                                                "type": "number"
+                                                            },
+                                                            "slots": {
+                                                                "type": "array",
+                                                                "items": {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "id": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "date": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "starts_at": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "ends_at": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "capacity": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "available": {},
+                                                                        "is_full": {
+                                                                            "type": "boolean"
+                                                                        }
+                                                                    },
+                                                                    "required": [
+                                                                        "id",
+                                                                        "date",
+                                                                        "starts_at",
+                                                                        "ends_at",
+                                                                        "capacity",
+                                                                        "available",
+                                                                        "is_full"
+                                                                    ]
+                                                                }
+                                                            }
+                                                        },
+                                                        "required": [
+                                                            "date",
+                                                            "available",
+                                                            "slots"
+                                                        ]
                                                     }
                                                 },
-                                                "required": [
-                                                    "id",
-                                                    "date",
-                                                    "starts_at",
-                                                    "ends_at",
-                                                    "capacity",
-                                                    "available",
-                                                    "is_full"
-                                                ]
-                                            }
+                                                "meta": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "from": {
+                                                            "type": "string"
+                                                        },
+                                                        "to": {
+                                                            "type": "string"
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "from",
+                                                        "to"
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "data",
+                                                "meta"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "string"
+                                                            },
+                                                            "date": {
+                                                                "type": "string"
+                                                            },
+                                                            "starts_at": {
+                                                                "type": "string"
+                                                            },
+                                                            "ends_at": {
+                                                                "type": "string"
+                                                            },
+                                                            "capacity": {
+                                                                "type": "string"
+                                                            },
+                                                            "available": {},
+                                                            "is_full": {
+                                                                "type": "boolean"
+                                                            }
+                                                        },
+                                                        "required": [
+                                                            "id",
+                                                            "date",
+                                                            "starts_at",
+                                                            "ends_at",
+                                                            "capacity",
+                                                            "available",
+                                                            "is_full"
+                                                        ]
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "data"
+                                            ]
                                         }
-                                    },
-                                    "required": [
-                                        "data"
                                     ]
                                 }
                             }
                         }
-                    },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
                     }
                 }
             }

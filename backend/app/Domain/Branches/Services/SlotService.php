@@ -20,19 +20,65 @@ class SlotService
     public function available(Branch $branch, string $type, string $date): array
     {
         $day = CarbonImmutable::parse($date, BusinessTime::zone());
-        $now = BusinessTime::now();
         $slots = DeliverySlot::where('branch_id', $branch->id)->where('fulfillment_type', $type)
             ->where('day_of_week', $day->dayOfWeek)->where('is_active', true)->orderBy('starts_at')->get();
         $booked = DeliverySlotBooking::whereIn('delivery_slot_id', $slots->pluck('id'))->whereDate('slot_date', $day->toDateString())
             ->pluck('booked', 'delivery_slot_id');
 
-        return $slots->map(function (DeliverySlot $slot) use ($day, $now, $booked, $branch) {
+        return $this->rows($branch, $slots, $day, $booked->all(), BusinessTime::now());
+    }
+
+    /**
+     * Availability for a span of dates in one go (two queries however long the span), one entry per date that has slots:
+     * [{date, available (total free places that day), slots: [...same rows as available()]}].
+     *
+     * @return list<array{date: string, available: int, slots: list<array<string, mixed>>}>
+     */
+    public function availableRange(Branch $branch, string $type, string $from, string $to, bool $onlyAvailable = false): array
+    {
+        $start = CarbonImmutable::parse($from, BusinessTime::zone())->startOfDay();
+        $end = CarbonImmutable::parse($to, BusinessTime::zone())->startOfDay();
+        $slots = DeliverySlot::where('branch_id', $branch->id)->where('fulfillment_type', $type)->where('is_active', true)->orderBy('starts_at')->get()->groupBy('day_of_week');
+        if ($slots->isEmpty()) {
+            return [];
+        }
+        $booked = [];
+        foreach (DeliverySlotBooking::whereIn('delivery_slot_id', $slots->flatten()->pluck('id'))->whereBetween('slot_date', [$start->toDateString(), $end->toDateString()])->get() as $b) {
+            $booked[substr((string) $b->getRawOriginal('slot_date'), 0, 10)][$b->delivery_slot_id] = (int) $b->booked;
+        }
+
+        $now = BusinessTime::now();
+        $out = [];
+        for ($day = $start; $day->lessThanOrEqualTo($end); $day = $day->addDay()) {
+            $forDay = $slots->get($day->dayOfWeek);
+            if ($forDay === null) {
+                continue;
+            }
+            $rows = $this->rows($branch, $forDay, $day, $booked[$day->toDateString()] ?? [], $now);
+            $free = array_sum(array_column($rows, 'available'));
+            if ($onlyAvailable && $free === 0) {
+                continue;
+            }
+            $out[] = ['date' => $day->toDateString(), 'available' => $free, 'slots' => $rows];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  iterable<DeliverySlot>  $slots  the branch's active slots for this weekday
+     * @param  array<string, int>  $booked  slot id => places already booked on $day
+     * @return list<array{id: string, date: string, starts_at: string, ends_at: string, capacity: int, available: int, is_full: bool}>
+     */
+    private function rows(Branch $branch, iterable $slots, CarbonImmutable $day, array $booked, CarbonImmutable $now): array
+    {
+        $rows = [];
+        foreach ($slots as $slot) {
             $start = $day->setTimeFromTimeString($slot->starts_at);
             $closedDay = ! $this->hours->isOpen($branch, $start->addMinute());
             $cutoffPassed = $now->greaterThan($start->subMinutes($slot->cutoff_minutes));
             $available = ($closedDay || $cutoffPassed) ? 0 : max(0, $slot->capacity - (int) ($booked[$slot->id] ?? 0));
-
-            return [
+            $rows[] = [
                 'id' => $slot->id,
                 'date' => $day->toDateString(),
                 'starts_at' => substr($slot->starts_at, 0, 5),
@@ -41,7 +87,9 @@ class SlotService
                 'available' => $available,
                 'is_full' => $available === 0,
             ];
-        })->values()->all();
+        }
+
+        return $rows;
     }
 
     /** Whether the branch publishes any active slot for this fulfillment type. */
