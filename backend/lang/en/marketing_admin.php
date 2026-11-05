@@ -1,6 +1,21 @@
 <?php
 
 return [
+    'scope_order' => 'Whole basket',
+    'scope_products' => 'Specific products',
+    'scope_n_products' => '{1} 1 product|[2,*] :count products',
+    'pick_products' => 'Choose at least one product.',
+    'search_products' => 'Search products by name or SKU…',
+    'no_product_results' => 'No matching products',
+    'paste_skus' => 'Paste a list of SKUs',
+    'paste_skus_hint' => 'One per line or comma-separated. Product or variant SKUs both work.',
+    'add_skus' => 'Add these products',
+    'products_selected' => '{0} No products chosen|{1} 1 product chosen (max :max)|[2,*] :count products chosen (max :max)',
+    'clear_all' => 'Clear all',
+    'no_products_yet' => 'Search above, or paste SKUs, to choose the products this promotion applies to.',
+    'max_products' => 'A promotion can target up to :n products; use categories for larger ranges.',
+    'skus_added' => ':n products added.',
+    'skus_missing' => 'Not found: :list',
     'a' => 'A:',
     'activate' => 'Activate',
     'activated' => 'Activated.',

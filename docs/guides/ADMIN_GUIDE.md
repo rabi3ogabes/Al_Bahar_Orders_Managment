@@ -71,7 +71,7 @@ real time on server time. Winners have a payment deadline; unpaid winners are ha
 **Editing lots:** a lot that has not opened can be changed completely (prices, times, linked product) or deleted if it has no bids. A **live** lot can only change its title, description and image, plus the reserve price until the first bid. To give bidders more time use **Extend time** in the console (30 s – 24 h, with a reason); it never shortens a lot and is separate from anti-sniping. A published auction always keeps at least one lot.
 
 ## 8. Marketing, content & notifications
-- **Promotions/coupons**: date windows, usage limits per customer and total, stackable flag. Free-delivery always combines.
+- **Promotions/coupons**: date windows, usage limits per customer and total, stackable flag. Free-delivery always combines. *Applies to*: the **whole basket**, **selected categories** (sub-categories included) or **specific products** — search by name or SKU, or paste a list of product/variant SKUs (up to 200 products; use categories beyond that). Only the targeted lines are discounted, a fixed amount never exceeds their value, and a coupon whose products aren't in the basket tells the customer it isn't eligible. A branch restriction can be combined with any of these.
 - **Campaigns**: only customers who gave marketing consent are targeted; schedule and preview before sending.
 - **Loyalty & referrals**: earning/redemption rules; manual point adjustments need a reason.
 - **Reviews**: approve/reject; answer product questions.
@@ -137,7 +137,7 @@ always limited to your branches. Large exports run in the background — collect
 **تعديل القطع:** القطعة التي لم تُفتح بعد يمكن تعديلها بالكامل (الأسعار والأوقات والمنتج المرتبط) أو حذفها إن لم تكن عليها مزايدات. أما القطعة **المعروضة** فيمكن تغيير عنوانها ووصفها وصورتها فقط، والسعر الاحتياطي حتى أول مزايدة. ولمنح المزايدين وقتاً أطول استخدم **تمديد الوقت** في الشاشة المباشرة (من 30 ثانية إلى 24 ساعة مع ذكر السبب)؛ لا يقصّر مدة القطعة أبداً ومنفصل عن منع القنص. ويحتفظ المزاد المنشور دائماً بقطعة واحدة على الأقل.
 
 ## ٨. التسويق والمحتوى والإشعارات
-- **العروض والقسائم**: فترات زمنية، حدود استخدام لكل عميل وإجمالية، وخيار الدمج. التوصيل المجاني يُدمج دائماً.
+- **العروض والقسائم**: فترات زمنية، حدود استخدام لكل عميل وإجمالية، وخيار الدمج. التوصيل المجاني يُدمج دائماً. *ينطبق على*: **السلة بالكامل** أو **فئات محددة** (مع فئاتها الفرعية) أو **منتجات محددة** — ابحث بالاسم أو الرمز SKU أو الصق قائمة رموز المنتجات/المتغيرات (حتى 200 منتج؛ استخدم الفئات لما يزيد). تُخصم القيمة من السطور المستهدفة فقط، ولا يتجاوز الخصم الثابت قيمتها، وإذا لم تكن منتجات القسيمة في السلة يُبلَغ العميل بأنها غير مؤهلة. ويمكن دمج تقييد الفرع مع أي منها.
 - **الحملات**: تستهدف فقط العملاء الموافقين على التسويق؛ جدولة ومعاينة قبل الإرسال.
 - **الولاء والإحالات**: قواعد الكسب والاستبدال؛ التعديل اليدوي للنقاط يتطلب سبباً.
 - **التقييمات**: قبول/رفض والرد على أسئلة المنتجات.

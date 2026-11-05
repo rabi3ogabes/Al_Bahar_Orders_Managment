@@ -51,7 +51,7 @@ cd mobile && flutter analyze && flutter test
 - Gift cards: not implemented (not required by the phase acceptance criteria).
 - Cash drawer: **built** — collector → branch cashier hand-in with counted-vs-expected variance (note required, third-person review), bank deposit with reference, drawer balance, driver-phone balance banner. Custody (receive/bank) needs `payments.edit`.
 - Auction lots: **built** — edit (rules depend on lot state), delete untouched lots, manual "Extend time".
-- Still without admin support: product-level promotion targeting in the editor (order and category scope are supported).
+- Promotion targeting: **whole basket, categories or specific products** (search or paste SKUs, up to 200; branch restriction combines with any). Not offered: excluding products from a promotion, or targeting by brand/attribute.
 - Finance edge cases handled manually: a late-capture payment is resolved with a finance note (it cannot be refunded through the refund flow); a partial branch cancellation releases stock but the refund is raised separately; drivers must attach a photo when proof of delivery is required.
 - Product videos and related/upsell products: not implemented in admin or app.
 - Delivery time slots: **built** — `GET /branches/{id}/delivery-slots`, a slot is required at checkout whenever the branch publishes delivery slots (single-branch orders), capacity is held at placement and released on cancellation, staff reschedule onto free slots, and the Flutter app has the picker. Slot lists also come as a date span in one request (`?from=&to=[&only_available=1]`, delivery and pickup), which the app uses for its date strip.

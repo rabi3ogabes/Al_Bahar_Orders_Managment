@@ -53,6 +53,7 @@
                                 @if ($r->first_order_only)<span class="badge-neutral">{{ __('marketing_admin.first_order') }}</span>@endif
                                 @if ($r->min_basket_amount)<span class="badge-neutral">≥ <x-admin.money :value="$r->min_basket_amount" /></span>@endif
                                 @if ($r->scope === 'categories')<span class="badge-neutral">{{ __('marketing_admin.scope_categories') }}</span>@endif
+                                @if ($r->scope === 'products')<span class="badge-neutral" title="{{ __('marketing_admin.scope_products') }}"><x-icon name="tag" class="size-3" />{{ trans_choice('marketing_admin.scope_n_products', (int) $r->products_count, ['count' => (int) $r->products_count]) }}</span>@endif
                             </div>
                         </td>
                         <td class="text-xs text-ink-500 tabular-nums">{{ $window($r) }}</td>
@@ -137,14 +138,56 @@
             </div>
             <div>
                 <span class="field-label">{{ __('marketing_admin.scope') }}</span>
-                <div class="mb-3 flex gap-2">
-                    @foreach (['order', 'categories'] as $sc)<label class="cursor-pointer rounded-full border px-3 py-1.5 text-sm {{ ($p['scope'] ?? '') === $sc ? 'border-brass-500 bg-brass-50 font-medium dark:bg-brass-500/10' : 'border-sand-200 dark:border-ink-700' }}"><input type="radio" wire:model.live="p.scope" value="{{ $sc }}" class="sr-only">{{ __('marketing_admin.scope_'.$sc) }}</label>@endforeach
+                <div class="mb-3 flex flex-wrap gap-2">
+                    @foreach (\App\Livewire\Admin\Marketing\PromotionIndex::SCOPES as $sc)<label class="cursor-pointer rounded-full border px-3 py-1.5 text-sm {{ ($p['scope'] ?? '') === $sc ? 'border-brass-500 bg-brass-50 font-medium dark:bg-brass-500/10' : 'border-sand-200 dark:border-ink-700' }}"><input type="radio" wire:model.live="p.scope" value="{{ $sc }}" class="sr-only">{{ __('marketing_admin.scope_'.$sc) }}</label>@endforeach
                 </div>
                 @if (($p['scope'] ?? '') === 'categories')
                     <div class="flex max-h-40 flex-wrap gap-2 overflow-y-auto rounded-xl border border-sand-200 p-3 dark:border-ink-700">
                         @foreach ($categories as $cat)<label class="inline-flex items-center gap-1.5 text-sm"><input type="checkbox" wire:model="categoryIds" value="{{ $cat->id }}" class="checkbox">{{ $cat->trans('name') }}</label>@endforeach
                     </div>
                     @error('categoryIds')<p class="field-error">{{ $message }}</p>@enderror
+                @elseif (($p['scope'] ?? '') === 'products')
+                    <div class="space-y-3">
+                        <div class="relative">
+                            <input type="search" wire:model.live.debounce.250ms="productSearch" placeholder="{{ __('marketing_admin.search_products') }}" class="input" autocomplete="off" aria-label="{{ __('marketing_admin.search_products') }}">
+                            @if (mb_strlen(trim($productSearch)) >= 2)
+                                <ul class="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-sand-200 bg-white p-1 shadow-lg dark:border-ink-700 dark:bg-ink-900">
+                                    @forelse ($productMatches as $m)
+                                        <li><button type="button" wire:click="addProduct('{{ $m->id }}')" wire:key="pm-{{ $m->id }}" class="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-start text-sm hover:bg-sand-50 dark:hover:bg-ink-800">
+                                            <span class="min-w-0 truncate">{{ $m->trans('name') }}</span><span class="shrink-0 font-mono text-xs text-ink-500" dir="ltr">{{ $m->sku }}</span>
+                                        </button></li>
+                                    @empty
+                                        <li class="px-3 py-2 text-sm text-ink-500">{{ __('marketing_admin.no_product_results') }}</li>
+                                    @endforelse
+                                </ul>
+                            @endif
+                        </div>
+                        <details class="rounded-xl border border-sand-200 p-3 text-sm dark:border-ink-700">
+                            <summary class="cursor-pointer font-medium">{{ __('marketing_admin.paste_skus') }}</summary>
+                            <p class="mt-2 text-xs text-ink-500">{{ __('marketing_admin.paste_skus_hint') }}</p>
+                            <textarea wire:model="skuPaste" rows="3" class="input mt-2 font-mono text-xs" dir="ltr" aria-label="{{ __('marketing_admin.paste_skus') }}"></textarea>
+                            <button type="button" wire:click="addBySkus" class="btn-secondary btn-sm mt-2">{{ __('marketing_admin.add_skus') }}</button>
+                        </details>
+                        <div>
+                            <div class="mb-1.5 flex items-center justify-between text-xs text-ink-500">
+                                <span>{{ trans_choice('marketing_admin.products_selected', count($productIds), ['count' => count($productIds), 'max' => \App\Livewire\Admin\Marketing\PromotionIndex::MAX_PRODUCTS]) }}</span>
+                                @if ($productIds)<button type="button" wire:click="$set('productIds', [])" class="text-ruby-soft hover:underline">{{ __('marketing_admin.clear_all') }}</button>@endif
+                            </div>
+                            @if ($pickedProducts->isEmpty())
+                                <p class="rounded-xl border border-dashed border-sand-300 p-3 text-center text-sm text-ink-500 dark:border-ink-700">{{ __('marketing_admin.no_products_yet') }}</p>
+                            @else
+                                <ul class="flex max-h-48 flex-wrap gap-1.5 overflow-y-auto rounded-xl border border-sand-200 p-2 dark:border-ink-700">
+                                    @foreach ($pickedProducts as $pp)
+                                        <li wire:key="pp-{{ $pp->id }}" class="inline-flex max-w-full items-center gap-1.5 rounded-full bg-sand-100 py-1 ps-3 pe-1 text-xs dark:bg-ink-800">
+                                            <span class="truncate">{{ $pp->trans('name') }}</span><span class="font-mono text-ink-500" dir="ltr">{{ $pp->sku }}</span>
+                                            <button type="button" wire:click="removeProduct('{{ $pp->id }}')" class="grid size-5 place-items-center rounded-full hover:bg-sand-200 dark:hover:bg-ink-700" aria-label="{{ __('org_admin.remove') }}"><x-icon name="x" class="size-3" /></button>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            @endif
+                        </div>
+                    </div>
+                    @error('productIds')<p class="field-error">{{ $message }}</p>@enderror
                 @endif
             </div>
             <div>

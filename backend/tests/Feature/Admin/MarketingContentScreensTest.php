@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Cms\Models\Banner;
@@ -36,6 +37,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -197,4 +199,62 @@ it('lets loyalty managers edit programme rules only with override permission', f
     $this->actingAs($this->admin);
     Livewire::test(LoyaltyIndex::class, ['tab' => 'rules'])->set('rules.points_per_qar', '2')->call('saveRules')->assertHasNoErrors();
     expect(app(Settings::class)->get('loyalty.points_per_qar'))->toBe(2);
+});
+
+it('targets a promotion at specific products: search, paste SKUs, validate, save, switch scope', function () {
+    $sofa = Product::factory()->create(['sku' => 'SOF-OSLO']);
+    $lamp = Product::factory()->create(['sku' => 'LMP-QAMAR']);
+    $rug = Product::factory()->create(['sku' => 'RUG-SADU']);
+    $old = Product::factory()->create(['sku' => 'OLD-ONE', 'status' => 'archived']);
+    $variantSku = $rug->variants()->first()->sku;
+    $this->actingAs($this->marketing);
+
+    $c = Livewire::test(PromotionIndex::class)->call('createPromotion')->set('p.name_en', 'Living room edit')->set('p.name_ar', 'ركن المعيشة')
+        ->set('p.type', 'percentage')->set('p.value', '15')->set('p.requires_coupon', false)->set('p.scope', 'products');
+
+    // A product-scoped promotion needs products.
+    $c->call('savePromotion')->assertHasErrors('productIds');
+    expect(Promotion::count())->toBe(0);
+
+    // Search by SKU fragment (archived products and already-chosen ones are never offered), then pick.
+    $c->set('productSearch', 'SOF-OSL')->assertViewHas('productMatches', fn ($m) => $m->pluck('id')->all() === [$sofa->id])
+        ->call('addProduct', $sofa->id)->assertSet('productSearch', '')
+        ->set('productSearch', 'SOF-OSL')->assertViewHas('productMatches', fn ($m) => $m->isEmpty())
+        ->set('productSearch', 'OLD-ON')->assertViewHas('productMatches', fn ($m) => $m->isEmpty())
+        ->call('addProduct', $old->id)                                                        // archived: refused
+        ->assertSet('productIds', [$sofa->id]);
+
+    // Paste a list: product SKUs, a variant SKU and an unknown code (case-insensitive, duplicates ignored).
+    $c->set('skuPaste', "lmp-qamar, {$variantSku}\nSOF-OSLO\nNOPE-1")->call('addBySkus')
+        ->assertDispatched('toast', type: 'warning')->assertSet('productIds', [$sofa->id, $lamp->id, $rug->id])->assertSet('skuPaste', '');
+    $c->call('removeProduct', $rug->id)->assertSet('productIds', [$sofa->id, $lamp->id])
+        ->assertViewHas('pickedProducts', fn ($p) => $p->pluck('id')->all() === [$sofa->id, $lamp->id]);
+
+    $c->call('savePromotion')->assertHasNoErrors();
+    $promo = Promotion::with('products:id')->firstOrFail();
+    expect($promo->scope)->toBe('products')->and($promo->products->pluck('id')->sort()->values()->all())->toBe(collect([$sofa->id, $lamp->id])->sort()->values()->all())
+        ->and(AuditLog::where('action', 'marketing.promotion_created')->first()->metadata['products'])->toHaveCount(2);
+
+    // Editing loads the chosen products; the list shows how many are targeted.
+    Livewire::test(PromotionIndex::class)->assertViewHas('rows', fn ($r) => $r->first()->products_count === 2)->assertSee('2 products')
+        ->call('editPromotion', $promo->id)->assertSet('p.scope', 'products')->assertViewHas('pickedProducts', fn ($p) => $p->count() === 2)
+        ->call('addProduct', $rug->id)->call('savePromotion')->assertHasNoErrors();
+    expect($promo->products()->count())->toBe(3);
+
+    // Switching back to the whole order clears the product list; ids can't be forged past validation.
+    Livewire::test(PromotionIndex::class)->call('editPromotion', $promo->id)->set('p.scope', 'order')->call('savePromotion')->assertHasNoErrors();
+    expect($promo->fresh()->scope)->toBe('order')->and($promo->products()->count())->toBe(0);
+    Livewire::test(PromotionIndex::class)->call('editPromotion', $promo->id)->set('p.scope', 'products')->set('productIds', ['not-a-uuid'])->call('savePromotion')->assertHasErrors('productIds.0');
+});
+
+it('caps a promotion at 200 targeted products and keeps others from editing it', function () {
+    $this->actingAs($this->marketing);
+    $products = Product::factory()->count(3)->create();
+    $c = Livewire::test(PromotionIndex::class)->call('createPromotion')->set('p.scope', 'products')->set('productIds', array_fill(0, PromotionIndex::MAX_PRODUCTS, (string) Str::uuid()));
+    $c->call('addProduct', "x' OR 1=1 --")->assertOk();                                          // garbage ids are ignored, not queried
+    $c->call('addProduct', $products[0]->id)->assertDispatched('toast', type: 'warning');
+    expect(count($c->get('productIds')))->toBe(PromotionIndex::MAX_PRODUCTS);
+
+    $this->actingAs(staffWithRole('auditor'));
+    Livewire::test(PromotionIndex::class)->call('addProduct', $products[0]->id)->assertForbidden();
 });

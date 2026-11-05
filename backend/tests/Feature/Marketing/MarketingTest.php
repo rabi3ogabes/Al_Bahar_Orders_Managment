@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Catalog\Models\Category;
+use App\Domain\Catalog\Models\Product;
 use App\Domain\Cms\Models\Banner;
 use App\Domain\Cms\Models\HomepageSection;
 use App\Domain\Identity\Models\User;
@@ -191,4 +192,45 @@ it('accepts verified-purchase reviews into moderation and updates ratings when a
     $this->getJson("/api/v1/products/{$this->w->p1->id}/reviews")->assertJsonCount(0, 'data');
     app(ReviewService::class)->moderate($review, staffWithRole('marketing_manager'), 'approved');
     expect($this->w->p1->fresh()->rating_count)->toBe(1)->and((float) $this->w->p1->fresh()->rating_average)->toBe(5.0);
+});
+
+it('discounts only the targeted products, whatever else is in the basket', function () {
+    $p = promo(['scope' => 'products', 'requires_coupon' => false, 'value' => '20']);
+    $p->products()->attach($this->w->p1->id);
+    $q = $this->postJson('/api/v1/checkout/quote', $this->opts)->json('data');
+    $lines = collect($q['lines'])->keyBy('variant_id');
+
+    expect($q['totals']['discount']['amount'])->toBe('200.00')                       // 20% of the 1000 sofa only
+        ->and($lines[$this->w->v1->id]['discount']['amount'])->toBe('200.00')
+        ->and($lines[$this->w->v2->id]['discount']['amount'])->toBe('0.00');
+
+    $p->products()->attach($this->w->p2->id);                                          // add the lamp to the target list
+    expect($this->postJson('/api/v1/checkout/quote', $this->opts)->json('data.totals.discount.amount'))->toBe('300.00');
+
+    $p->products()->detach();                                                          // nothing targeted → nothing eligible
+    expect($this->postJson('/api/v1/checkout/quote', $this->opts)->json('data.totals.discount.amount'))->toBe('0.00');
+});
+
+it('rejects a product-scoped coupon when the basket has none of its products, and caps fixed amounts at the eligible value', function () {
+    $other = Product::factory()->create(['price' => '75.00']);
+    $p = promo(['scope' => 'products', 'value' => '800', 'type' => 'fixed']);
+    $p->products()->attach($other->id);
+    Coupon::create(['promotion_id' => $p->id, 'code' => 'ONLYOTHER']);
+
+    $q = $this->postJson('/api/v1/checkout/quote', $this->opts + ['coupon_code' => 'ONLYOTHER'])->json('data');
+    expect($q['totals']['discount']['amount'])->toBe('0.00')->and(collect($q['warnings'])->pluck('code'))->toContain('coupon_not_eligible');
+
+    $p->products()->sync([$this->w->p2->id]);                                          // the lamps (2 × 250 = 500) are in the basket
+    $q = $this->postJson('/api/v1/checkout/quote', $this->opts + ['coupon_code' => 'ONLYOTHER'])->json('data');
+    expect($q['totals']['discount']['amount'])->toBe('500.00');                        // QAR 800 off, but only 500 is eligible
+});
+
+it('combines product targeting with a branch restriction', function () {
+    $p = promo(['scope' => 'products', 'requires_coupon' => false, 'value' => '20']);
+    $p->products()->attach($this->w->p1->id);
+    $p->branches()->attach($this->w->b->id);                                           // the basket is fulfilled from branch A
+    expect($this->postJson('/api/v1/checkout/quote', $this->opts)->json('data.totals.discount.amount'))->toBe('0.00');
+
+    $p->branches()->attach($this->w->a->id);
+    expect($this->postJson('/api/v1/checkout/quote', $this->opts)->json('data.totals.discount.amount'))->toBe('200.00');
 });
