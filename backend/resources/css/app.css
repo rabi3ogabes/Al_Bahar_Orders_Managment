@@ -115,3 +115,10 @@
 
 /* Mirror directional icons in RTL */
 html[dir="rtl"] .rtl-flip { transform: scaleX(-1); }
+
+/*
+ * Unlayered so they win over Tailwind utilities: display headings always use lining figures (old-style "1"/"0" read as
+ * "I"/"O" next to `tabular-nums`), and Arabic pages keep the Arabic display face even where `font-display` is applied.
+ */
+.font-display { font-variant-numeric: lining-nums tabular-nums; }
+html[lang="ar"] .font-display { font-family: var(--font-arabic); font-weight: 600; letter-spacing: 0; }

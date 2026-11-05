@@ -9,7 +9,7 @@
             default => __('marketing_admin.type_'.$promo->type),
         };
     };
-    $window = fn ($r) => $r->starts_at || $r->ends_at ? trim(($r->starts_at ? \App\Support\BusinessTime::display($r->starts_at, 'd M') : '…').' → '.($r->ends_at ? \App\Support\BusinessTime::display($r->ends_at, 'd M Y') : '∞')) : __('marketing_admin.always');
+    $window = fn ($r) => $r->starts_at || $r->ends_at ? trim(($r->starts_at ? \App\Support\BusinessTime::display($r->starts_at, 'd M') : '…').' – '.($r->ends_at ? \App\Support\BusinessTime::display($r->ends_at, 'd M Y') : '∞')) : __('marketing_admin.always');
     $stateOf = function ($r) {
         if (! $r->is_active) return 'inactive';
         if ($r->ends_at && $r->ends_at->isPast()) return 'expired';
@@ -56,7 +56,7 @@
                             </div>
                         </td>
                         <td class="text-xs text-ink-500 tabular-nums">{{ $window($r) }}</td>
-                        <td class="text-end tabular-nums">{{ $r->times_used }}@if ($r->usage_limit)<span class="text-ink-400"> / {{ $r->usage_limit }}</span>@endif</td>
+                        <td class="whitespace-nowrap text-end tabular-nums">{{ $r->times_used }}@if ($r->usage_limit)<span class="text-ink-400"> / {{ $r->usage_limit }}</span>@endif</td>
                         <td><x-admin.status :value="$stateOf($r)" /></td>
                         <td>
                             <div class="flex justify-end gap-1">
@@ -78,7 +78,7 @@
                         <td><span class="rounded-lg border border-dashed border-brass-400 bg-brass-50 px-2 py-1 font-mono text-sm font-semibold text-brass-700 dark:bg-brass-500/10 dark:text-brass-300" dir="ltr">{{ $r->code }}</span></td>
                         <td class="max-w-[16rem] truncate">{{ $r->promotion?->localized('name') }} <span class="text-xs text-ink-500">· {{ $r->promotion ? $badge($r->promotion) : '' }}</span></td>
                         <td class="text-xs text-ink-500 tabular-nums">{{ $window($r) }}</td>
-                        <td class="text-end tabular-nums">{{ $r->times_used }}@if ($r->usage_limit)<span class="text-ink-400"> / {{ $r->usage_limit }}</span>@endif @if ($r->per_customer_limit)<span class="block text-xs text-ink-500">{{ __('marketing_admin.per_customer_n', ['n' => $r->per_customer_limit]) }}</span>@endif</td>
+                        <td class="whitespace-nowrap text-end tabular-nums">{{ $r->times_used }}@if ($r->usage_limit)<span class="text-ink-400"> / {{ $r->usage_limit }}</span>@endif @if ($r->per_customer_limit)<span class="block text-xs text-ink-500">{{ __('marketing_admin.per_customer_n', ['n' => $r->per_customer_limit]) }}</span>@endif</td>
                         <td><x-admin.status :value="$stateOf($r)" /></td>
                         <td>@if ($canEdit)<button type="button" wire:click="toggle('coupon', '{{ $r->id }}')" class="btn-ghost btn-sm px-2" title="{{ $r->is_active ? __('marketing_admin.deactivate') : __('marketing_admin.activate') }}"><x-icon :name="$r->is_active ? 'pause' : 'play'" class="size-4" /></button>@endif</td>
                     </tr>

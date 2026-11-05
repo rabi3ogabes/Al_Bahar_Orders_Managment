@@ -47,7 +47,7 @@
                     <tr wire:key="a-{{ $a->id }}">
                         <td class="max-w-[18rem]"><a href="{{ route('admin.auctions.edit', $a) }}" wire:navigate class="block truncate font-medium text-ink-900 hover:text-brass-600 dark:text-ivory">{{ $a->trans('title') ?: '—' }}</a><span class="font-mono text-xs text-ink-500" dir="ltr">{{ $a->reference }}</span></td>
                         <td><span class="badge-neutral">{{ __('auction_admin.type_'.$a->type) }}</span></td>
-                        <td class="text-xs text-ink-500 tabular-nums">@if ($a->starts_at){{ \App\Support\BusinessTime::display($a->starts_at) }}<br>→ {{ \App\Support\BusinessTime::display($a->ends_at) }}@else — @endif</td>
+                        <td class="text-xs text-ink-500 tabular-nums">@if ($a->starts_at){{ \App\Support\BusinessTime::display($a->starts_at) }}<br>– {{ \App\Support\BusinessTime::display($a->ends_at) }}@else — @endif</td>
                         <td class="text-end tabular-nums">{{ $a->lots_count }}@if ($a->open_lots_count)<span class="ms-1 text-xs text-ruby-soft">({{ $a->open_lots_count }} {{ __('auction_admin.open') }})</span>@endif</td>
                         <td class="text-end tabular-nums">{{ (int) $a->bids_total }}</td>
                         <td><x-admin.status :value="$a->status" /></td>

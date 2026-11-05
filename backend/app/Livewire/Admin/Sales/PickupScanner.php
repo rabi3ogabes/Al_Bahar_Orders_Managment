@@ -2,8 +2,10 @@
 
 namespace App\Livewire\Admin\Sales;
 
+use App\Domain\Branches\Models\Branch;
 use App\Domain\Fulfillment\Models\PickupReservation;
 use App\Domain\Fulfillment\Services\PickupService;
+use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Payments\Models\Payment;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use App\Support\Money;
@@ -52,9 +54,9 @@ class PickupScanner extends Component
 
     private function branches()
     {
-        $scope = app(\App\Domain\Identity\Services\AccessControl::class)->scope(auth()->user(), 'pickup.view');
+        $scope = app(AccessControl::class)->scope(auth()->user(), 'pickup.view');
 
-        return \App\Domain\Branches\Models\Branch::query()->when(! $scope->all, fn ($q) => $q->whereIn('id', $scope->branchIds))->orderBy('sort_order')->get(['id', 'code', 'name_en', 'name_ar']);
+        return Branch::query()->when(! $scope->all, fn ($q) => $q->whereIn('id', $scope->branchIds))->orderBy('sort_order')->get(['id', 'code', 'name_en', 'name_ar']);
     }
 
     public function updatedBranchId(): void

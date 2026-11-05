@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin\Finance;
 
+use App\Domain\Identity\Models\User;
 use App\Domain\Payments\Models\Refund;
 use App\Domain\Payments\Services\RefundService;
 use App\Livewire\Admin\Concerns\WithAdminTable;
@@ -110,7 +111,7 @@ class RefundIndex extends Component
             ->with(['order:id,number,customer_name', 'order.fulfillments:id,order_id,branch_id', 'payment:id,method,provider,captured_amount,refunded_amount', 'requester:id,name'])
             ->when($s, fn ($q) => $q->where(fn ($w) => $w->where('number', 'ilike', "%{$s}%")->orWhereHas('order', fn ($o) => $o->where('number', 'ilike', "%{$s}%"))))
             ->latest()->paginate($this->perPage);
-        $approvers = \App\Domain\Identity\Models\User::whereIn('id', $rows->pluck('approved_by')->merge($rows->pluck('processed_by'))->filter()->unique())->pluck('name', 'id');
+        $approvers = User::whereIn('id', $rows->pluck('approved_by')->merge($rows->pluck('processed_by'))->filter()->unique())->pluck('name', 'id');
 
         return view('livewire.admin.finance.refunds', [
             'rows' => $rows,

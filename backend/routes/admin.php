@@ -61,3 +61,27 @@ Route::get('payments/{payment}', Admin\Finance\PaymentShow::class)->middleware('
 Route::get('cash', Admin\Finance\CashIndex::class)->middleware('permission:payments.view')->name('cash.index');
 Route::get('refunds', Admin\Finance\RefundIndex::class)->middleware('permission:refunds.view')->name('refunds.index');
 Route::get('reconciliation', Admin\Finance\ReconciliationIndex::class)->middleware('permission:reconciliation.view')->name('reconciliation.index');
+
+// ── Auctions ──────────────────────────────────────────────────────────────────
+Route::get('auctions', Admin\Auctions\AuctionIndex::class)->middleware('permission:auctions.view')->name('auctions.index');
+Route::get('auctions/create', Admin\Auctions\AuctionEditor::class)->middleware('permission:auctions.create')->name('auctions.create');
+Route::get('auctions/{auction}', Admin\Auctions\AuctionEditor::class)->middleware('permission:auctions.view')->name('auctions.edit');
+Route::get('auction-lots/{lot}/console', Admin\Auctions\AuctionConsole::class)->middleware('permission:auctions.view')->name('auctions.console');
+
+// ── Marketing ─────────────────────────────────────────────────────────────────
+Route::get('promotions', Admin\Marketing\PromotionIndex::class)->middleware('permission:marketing.view')->name('promotions.index');
+Route::get('campaigns', Admin\Marketing\CampaignIndex::class)->middleware('permission:marketing.view')->name('campaigns.index');
+Route::get('loyalty', Admin\Marketing\LoyaltyIndex::class)->middleware('permission:loyalty.view')->name('loyalty.index');
+Route::get('reviews', Admin\Marketing\ReviewIndex::class)->middleware('permission:reviews.view')->name('reviews.index');
+Route::get('support', Admin\Marketing\SupportIndex::class)->middleware('permission:support.view')->name('support.index');
+
+// ── Content ───────────────────────────────────────────────────────────────────
+Route::get('homepage', Admin\Content\HomepageIndex::class)->middleware('permission:cms.view')->name('homepage.index');
+Route::get('banners', Admin\Content\BannerIndex::class)->middleware('permission:cms.view')->name('banners.index');
+Route::get('pages', Admin\Content\PageIndex::class)->middleware('permission:cms.view')->name('pages.index');
+Route::get('notification-templates', Admin\Content\NotificationTemplateIndex::class)->middleware('permission:notifications.view')->name('notification-templates.index');
+
+// ── Insights ──────────────────────────────────────────────────────────────────
+Route::get('reports', Admin\Insights\ReportIndex::class)->middleware('permission:reports.view')->name('reports.index');
+Route::get('exports', Admin\Insights\ExportIndex::class)->middleware('permission:reports.export')->name('exports.index');
+Route::get('exports/{export}/download', [DocumentController::class, 'export'])->middleware('permission:reports.export')->name('exports.download');

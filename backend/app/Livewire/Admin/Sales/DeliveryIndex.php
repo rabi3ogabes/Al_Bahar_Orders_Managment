@@ -52,7 +52,9 @@ class DeliveryIndex extends Component
     {
         abort_unless(in_array($dialog, ['create', 'assign', 'reschedule', 'fail', 'cancel'], true), 422);
         $branch = $dialog === 'create' ? OrderFulfillment::findOrFail($target)->branch_id : Delivery::findOrFail($target)->branch_id;
-        $this->authorizeBranch(match ($dialog) { 'create' => 'deliveries.create', 'assign', 'reschedule', 'fail' => 'deliveries.assign', default => 'deliveries.edit' }, $branch);
+        $this->authorizeBranch(match ($dialog) {
+            'create' => 'deliveries.create', 'assign', 'reschedule', 'fail' => 'deliveries.assign', default => 'deliveries.edit'
+        }, $branch);
         $this->resetValidation();
         $this->dialog = $dialog;
         $this->target = $target;
@@ -127,7 +129,9 @@ class DeliveryIndex extends Component
     {
         abort_unless(in_array($action, ['pickup', 'out', 'return', 'retry'], true), 422);
         $d = Delivery::findOrFail($deliveryId);
-        $this->authorizeBranch(match ($action) { 'return', 'retry' => 'deliveries.edit', default => 'deliveries.assign' }, $d->branch_id);
+        $this->authorizeBranch(match ($action) {
+            'return', 'retry' => 'deliveries.edit', default => 'deliveries.assign'
+        }, $d->branch_id);
         $u = auth()->user();
         match ($action) {
             'pickup' => $this->attempt(fn () => $svc->pickUp($d, $u), __('sales_admin.delivery_picked_up')),

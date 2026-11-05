@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin\Marketing;
 
+use App\Domain\Identity\Models\User;
 use App\Domain\Marketing\Models\LoyaltyAccount;
 use App\Domain\Marketing\Models\LoyaltyTransaction;
 use App\Domain\Marketing\Models\Referral;
@@ -58,7 +59,9 @@ class LoyaltyIndex extends Component
         ], [], collect(self::RULES)->mapWithKeys(fn ($k) => ['rules.'.$k => __('marketing_admin.rule_'.$k)])->all());
         foreach (self::RULES as $k) {
             $v = $this->rules[$k];
-            $settings->set('loyalty.'.$k, match ($k) { 'enabled' => (bool) $v, 'redeem_value_per_point' => number_format((float) $v, 2, '.', ''), default => (int) $v });
+            $settings->set('loyalty.'.$k, match ($k) {
+                'enabled' => (bool) $v, 'redeem_value_per_point' => number_format((float) $v, 2, '.', ''), default => (int) $v
+            });
         }
         $this->editingRules = false;
         $this->loadRules($settings);
@@ -68,8 +71,8 @@ class LoyaltyIndex extends Component
     public function render()
     {
         $s = trim($this->search);
-        $customer = fn ($q) => $q->when($s, fn ($q) => $q->whereIn('loyalty_account_id', LoyaltyAccount::whereHas('user', fn ($u) => $u->where('name', 'ilike', "%{$s}%")
-            ->orWhere('phone', 'like', '%'.preg_replace('/\D+/', '', $s ?: 'x').'%'))->select('id')));
+        $customer = fn ($q) => $q->when($s, fn ($q) => $q->whereIn('loyalty_account_id', LoyaltyAccount::whereIn('user_id', User::where('type', 'customer')->where(fn ($u) => $u->where('name', 'ilike', "%{$s}%")
+            ->when(strlen(preg_replace('/\D+/', '', $s)) >= 4, fn ($x) => $x->orWhere('phone', 'like', '%'.preg_replace('/\D+/', '', $s).'%')))->select('id'))->select('id')));
         $since = now()->subDays(30);
 
         $ledger = $this->tab === 'ledger' ? LoyaltyTransaction::query()->tap($customer)->when($this->filterType, fn ($q, $t) => $q->where('type', $t))
@@ -77,9 +80,10 @@ class LoyaltyIndex extends Component
 
         return view('livewire.admin.marketing.loyalty', [
             'ledger' => $ledger,
-            'accounts' => $ledger ? LoyaltyAccount::with('user:id,name')->whereIn('id', $ledger->pluck('loyalty_account_id')->unique())->get()->keyBy('id') : collect(),
+            'accounts' => $ledger ? LoyaltyAccount::whereIn('id', $ledger->pluck('loyalty_account_id')->unique())->get()->keyBy('id') : collect(),
+            'names' => $ledger ? User::whereIn('id', LoyaltyAccount::whereIn('id', $ledger->pluck('loyalty_account_id')->unique())->select('user_id'))->pluck('name', 'id') : collect(),
             'referrals' => $this->tab === 'referrals' ? Referral::query()->orderByDesc('created_at')->paginate($this->perPage) : null,
-            'refUsers' => $this->tab === 'referrals' ? \App\Domain\Identity\Models\User::whereIn('id', Referral::query()->latest()->limit(100)->get(['referrer_id', 'referee_id'])->flatMap(fn ($r) => [$r->referrer_id, $r->referee_id]))->pluck('name', 'id') : collect(),
+            'refUsers' => $this->tab === 'referrals' ? User::whereIn('id', Referral::query()->latest()->limit(100)->get(['referrer_id', 'referee_id'])->flatMap(fn ($r) => [$r->referrer_id, $r->referee_id]))->pluck('name', 'id') : collect(),
             'stats' => [
                 'outstanding' => (int) LoyaltyAccount::sum('balance'),
                 'members' => LoyaltyAccount::where('balance', '>', 0)->count(),

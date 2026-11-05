@@ -2,13 +2,13 @@
 
 namespace App\Domain\Marketing\Services;
 
+use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Identity\Models\User;
-use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Notifications\Models\MarketingCampaign;
 use App\Domain\Notifications\Models\Notification;
-use App\Domain\Notifications\Services\TemplateRenderer;
 use App\Domain\Notifications\Services\NotificationService;
+use App\Domain\Notifications\Services\TemplateRenderer;
 use App\Domain\Orders\Models\Cart;
 use App\Domain\Settings\Services\Settings;
 use Illuminate\Database\Eloquent\Builder;

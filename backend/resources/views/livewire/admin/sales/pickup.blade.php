@@ -47,7 +47,7 @@
                 @endforeach
             </ul>
         @else
-            <ul class="grid gap-px bg-sand-100 sm:grid-cols-2 xl:grid-cols-3 dark:bg-ink-800">
+            <ul class="grid gap-4 p-4 sm:grid-cols-2 sm:p-6 xl:grid-cols-3">
                 @foreach ($rows as $r)
                     @php
                         $o = $r->fulfillment->order;
@@ -55,7 +55,7 @@
                         $left = $r->fulfillment->items->sum(fn ($i) => $i->quantity - $i->quantity_cancelled - $i->quantity_handed_over);
                         $expiring = $r->token_expires_at && $r->token_expires_at->lt(now()->addHours(12));
                     @endphp
-                    <li class="min-w-0 bg-white p-5 dark:bg-ink-900" wire:key="pr-{{ $r->id }}">
+                    <li class="min-w-0 rounded-2xl border border-sand-200/70 bg-white p-5 transition hover:border-brass-300 dark:border-ink-700 dark:bg-ink-900" wire:key="pr-{{ $r->id }}">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
                                 <a href="{{ route('admin.orders.show', $o) }}" wire:navigate class="font-mono font-medium hover:text-brass-600" dir="ltr">{{ $o->number }}</a>
@@ -65,7 +65,7 @@
                         </div>
                         <dl class="mt-4 grid grid-cols-2 gap-3 text-xs">
                             <div><dt class="text-ink-500">{{ __('admin.branch') }}</dt><dd class="font-mono font-medium" dir="ltr">{{ $r->branch->code }}</dd></div>
-                            <div><dt class="text-ink-500">{{ $tab === 'collected' ? __('sales_admin.collected_at') : __('sales_admin.waiting_since') }}</dt><dd class="tabular-nums">{{ $tab === 'collected' ? \App\Support\BusinessTime::display($r->collected_at, 'H:i') : $r->ready_at?->diffForHumans(short: true) }}</dd></div>
+                            <div><dt class="text-ink-500">{{ $tab === 'collected' ? __('sales_admin.collected_at') : __('sales_admin.waiting_since') }}</dt><dd class="tabular-nums">{{ $tab === 'collected' ? \App\Support\BusinessTime::display($r->collected_at, 'H:i') : $r->ready_at?->locale(app()->getLocale())->diffForHumans() }}</dd></div>
                             @if ($tab !== 'collected')
                                 <div><dt class="text-ink-500">{{ __('sales_admin.items_left') }}</dt><dd class="tabular-nums font-medium">{{ $left }}</dd></div>
                                 <div><dt class="text-ink-500">{{ __('sales_admin.to_collect') }}</dt><dd>@if ($due->isPositive() && ! $o->payment_status->isSettled())<x-admin.money :value="$due->toDecimal()" class="font-medium text-amber-soft" />@else<span class="text-emerald-soft">{{ __('status.paid') }}</span>@endif</dd></div>

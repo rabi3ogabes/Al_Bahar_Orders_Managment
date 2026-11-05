@@ -17,6 +17,8 @@ use App\Domain\Orders\Services\OrderService;
 use App\Domain\Payments\Models\Payment;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use App\Support\BusinessTime;
+use Illuminate\Support\Facades\Lang;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
 
@@ -222,7 +224,7 @@ class OrderShow extends Component
             'label' => $this->historyLabel($h->kind, $h->to_status, $o->fulfillments->firstWhere('id', $h->order_fulfillment_id)?->branch?->code),
             'at' => BusinessTime::display($h->created_at),
             'by' => $h->actor_id ? ($people[$h->actor_id] ?? null) : ($h->actor_type === 'system' ? __('sales_admin.system') : null),
-            'reason' => $h->reason,
+            'reason' => $h->reason ? self::reasonLabel($h->reason) : null,
             'internal' => ! $h->is_customer_visible,
             'state' => in_array($h->to_status, ['cancelled', 'failed', 'expired', 'rejected'], true) ? 'failed' : 'done',
         ])->all();
@@ -247,9 +249,21 @@ class OrderShow extends Component
         ])->title($o->number);
     }
 
+    /** Machine reason codes (placed, payment_received, out_of_stock…) → translated label; free text passes through. */
+    public static function reasonLabel(string $reason): string
+    {
+        foreach (['sales_admin.hr_', 'sales_admin.rc_', 'sales_admin.fail_', 'finance_admin.rrc_'] as $prefix) {
+            if (preg_match('/^[a-z_]+$/', $reason) && Lang::has($prefix.$reason)) {
+                return __($prefix.$reason);
+            }
+        }
+
+        return preg_match('/^[a-z_]+$/', $reason) ? Str::headline($reason) : $reason;
+    }
+
     private function historyLabel(string $kind, string $to, ?string $branch): string
     {
-        $status = \Illuminate\Support\Facades\Lang::has('status.'.$to) ? __('status.'.$to) : \Illuminate\Support\Str::headline($to);
+        $status = Lang::has('status.'.$to) ? __('status.'.$to) : Str::headline($to);
 
         return match ($kind) {
             'payment' => __('sales_admin.hist_payment', ['status' => $status]),

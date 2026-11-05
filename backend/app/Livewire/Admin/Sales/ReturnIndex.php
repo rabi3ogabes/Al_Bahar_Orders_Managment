@@ -5,6 +5,7 @@ namespace App\Livewire\Admin\Sales;
 use App\Domain\Orders\Models\OrderItem;
 use App\Domain\Orders\Models\ReturnRequest;
 use App\Domain\Orders\Services\ReturnService;
+use App\Domain\Payments\Models\Refund;
 use App\Livewire\Admin\Concerns\WithAdminTable;
 use App\Support\Money;
 use Livewire\Attributes\Locked;
@@ -121,7 +122,7 @@ class ReturnIndex extends Component
             'pending' => $base()->where('status', 'requested')->count(),
             'sel' => $sel,
             'items' => $items,
-            'refund' => $sel?->refund_id ? \App\Domain\Payments\Models\Refund::find($sel->refund_id) : null,
+            'refund' => $sel?->refund_id ? Refund::find($sel->refund_id) : null,
             'branches' => $this->scopedBranches('orders.view'),
         ])->title(__('nav.returns'));
     }

@@ -98,7 +98,7 @@
             <section class="card overflow-hidden">
                 <div class="flex items-center justify-between p-5 sm:p-6">
                     <h2 class="font-display text-xl font-semibold">{{ __('auction_admin.bid_feed') }}</h2>
-                    <span class="text-xs text-ink-500">{{ __('auction_admin.feed_hint') }}</span>
+                    <span class="hidden text-xs text-ink-500 sm:inline">{{ __('auction_admin.feed_hint') }}</span>
                 </div>
                 @if ($bids->isEmpty())
                     <x-admin.empty :title="__('auction_admin.no_bids')" :description="__('auction_admin.no_bids_hint')" icon="gavel" class="border-t border-sand-100 !py-12 dark:border-ink-800" />
@@ -107,12 +107,12 @@
                         @foreach ($bids as $b)
                             @php $lead = $b->id === $lot->current_bid_id; $paddle = $paddles[$b->user_id] ?? null; @endphp
                             <li class="flex items-center gap-3 px-5 py-3 sm:px-6 {{ $lead ? 'bg-brass-50/70 dark:bg-brass-500/10' : '' }} {{ $b->status !== 'accepted' ? 'opacity-50' : '' }}" wire:key="b-{{ $b->id }}">
-                                <span class="w-10 shrink-0 font-mono text-xs text-ink-400" dir="ltr">#{{ $b->bid_number }}</span>
+                                <span class="w-10 shrink-0 font-mono text-xs text-ink-400" dir="ltr">#{{ $b->bid_number ?? "—" }}</span>
                                 <div class="min-w-0 flex-1">
-                                    <p class="truncate text-sm font-medium text-ink-900 dark:text-ivory">{{ $b->user?->name }} @if ($paddle)<span class="ms-1 font-mono text-xs text-ink-500">· {{ __('auction_admin.paddle', ['n' => $paddle->paddle_number]) }}</span>@endif
-                                        @if ($paddle?->status === 'blocked')<span class="badge-danger ms-1 !text-[0.65rem]">{{ __('auction_admin.blocked') }}</span>@endif</p>
-                                    <p class="text-xs text-ink-500"><span dir="ltr">{{ $b->user?->phone }}</span> · {{ $b->type === 'auto' ? __('auction_admin.auto_bid') : __('auction_admin.manual_bid') }} · <span class="tabular-nums">{{ \App\Support\BusinessTime::display($b->placed_at, 'H:i:s') }}</span>
-                                        @if ($b->status !== 'accepted') · <span class="text-ruby-soft">{{ __('auction_admin.bid_'.$b->status) }}</span>@endif</p>
+                                    <p class="flex min-w-0 items-center gap-1.5 text-sm font-medium text-ink-900 dark:text-ivory"><span class="truncate" dir="auto">{{ $b->user?->name }}</span>
+                                        @if ($paddle?->status === 'blocked')<span class="badge-danger shrink-0 !text-[0.65rem]">{{ __('auction_admin.blocked') }}</span>@endif</p>
+                                    <p class="text-xs text-ink-500">@if ($paddle)<span class="font-mono">{{ __('auction_admin.paddle', ['n' => $paddle->paddle_number]) }}</span> · @endif<span dir="ltr">{{ $b->user?->phone }}</span> · {{ $b->type === 'auto' ? __('auction_admin.auto_bid') : __('auction_admin.manual_bid') }} · <span class="tabular-nums">{{ \App\Support\BusinessTime::display($b->placed_at, 'H:i:s') }}</span>
+                                        @if ($b->status !== 'accepted') · <span class="text-ruby-soft">{{ __('auction_admin.bidst_'.$b->status) }}</span>@endif</p>
                                 </div>
                                 <x-admin.money :value="$b->amount" class="font-semibold {{ $lead ? 'text-brass-700 dark:text-brass-300' : '' }}" />
                                 @if ($canOverride && $b->status === 'accepted' && in_array($st, ['open', 'paused'], true))

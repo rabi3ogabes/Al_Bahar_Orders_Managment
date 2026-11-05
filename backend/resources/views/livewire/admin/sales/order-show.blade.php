@@ -248,7 +248,7 @@
                                 <span class="relative z-10 mt-0.5 grid size-6 shrink-0 place-items-center rounded-full {{ $h['state'] === 'failed' ? 'bg-ruby-soft/15 text-ruby-soft' : ($loop->first ? 'bg-brass-500 text-ink-950' : 'bg-sand-100 text-ink-500 dark:bg-ink-800') }}"><span class="size-1.5 rounded-full bg-current"></span></span>
                                 <div class="min-w-0">
                                     <p class="text-sm font-medium text-ink-900 dark:text-ivory">{{ $h['label'] }} @if ($h['internal'])<span class="badge-neutral ms-1 !text-[0.65rem]">{{ __('sales_admin.internal') }}</span>@endif</p>
-                                    @if ($h['reason'])<p class="text-xs text-ink-600 dark:text-sand-200">{{ \Illuminate\Support\Str::headline($h['reason']) }}</p>@endif
+                                    @if ($h['reason'])<p class="text-xs text-ink-600 dark:text-sand-200">{{ $h['reason'] }}</p>@endif
                                     <p class="text-xs text-ink-500 tabular-nums">{{ $h['at'] }}@if ($h['by']) · {{ $h['by'] }}@endif</p>
                                 </div>
                             </li>
