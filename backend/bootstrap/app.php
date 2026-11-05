@@ -74,7 +74,9 @@ return Application::configure(basePath: dirname(__DIR__))
                 $e instanceof ModelNotFoundException, $e instanceof NotFoundHttpException => $payload('not_found', __('errors.not_found'), 404),
                 $e instanceof ThrottleRequestsException => $payload('too_many_requests', __('errors.too_many_requests'), 429),
                 $e instanceof HttpExceptionInterface => $payload(
-                    match ($e->getStatusCode()) { 403 => 'forbidden', 404 => 'not_found', 405 => 'method_not_allowed', 409 => 'conflict', 503 => 'unavailable', default => 'http_error' },
+                    match ($e->getStatusCode()) {
+                        403 => 'forbidden', 404 => 'not_found', 405 => 'method_not_allowed', 409 => 'conflict', 503 => 'unavailable', default => 'http_error'
+                    },
                     $e->getStatusCode() === 403 ? __('errors.forbidden') : ($e->getMessage() ?: __('errors.server_error')),
                     $e->getStatusCode()
                 ),

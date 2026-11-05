@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'otp.title' => 'Verification code',
+    'otp.body' => 'Al Bahar: your verification code is {{code}}. It expires in {{minutes}} minutes. Never share this code.',
     'order.created.title' => 'Order {{order_number}} received',
     'order.created.body' => 'Thank you, {{name}}. We\'ve received your order totalling {{total}}.',
     'order.confirmed.title' => 'Payment confirmed',

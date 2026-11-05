@@ -10422,6 +10422,9 @@
                                                     "bidder": {
                                                         "type": "string"
                                                     },
+                                                    "is_mine": {
+                                                        "type": "boolean"
+                                                    },
                                                     "placed_at": {
                                                         "type": [
                                                             "string",
@@ -10434,6 +10437,7 @@
                                                     "amount",
                                                     "type",
                                                     "bidder",
+                                                    "is_mine",
                                                     "placed_at"
                                                 ]
                                             }
@@ -11409,236 +11413,8 @@
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "type": "object",
-                                                "properties": {
-                                                    "id": {
-                                                        "type": "string"
-                                                    },
-                                                    "auction_id": {
-                                                        "type": "string"
-                                                    },
-                                                    "lot_number": {
-                                                        "type": "integer"
-                                                    },
-                                                    "title": {
-                                                        "type": [
-                                                            "string",
-                                                            "null"
-                                                        ]
-                                                    },
-                                                    "description": {
-                                                        "type": [
-                                                            "string",
-                                                            "null"
-                                                        ]
-                                                    },
-                                                    "image_url": {
-                                                        "type": [
-                                                            "string",
-                                                            "null"
-                                                        ]
-                                                    },
-                                                    "quantity": {
-                                                        "type": "integer"
-                                                    },
-                                                    "status": {
-                                                        "type": "string"
-                                                    },
-                                                    "starting_price": {
-                                                        "type": "object",
-                                                        "properties": {
-                                                            "amount": {
-                                                                "type": "string"
-                                                            },
-                                                            "currency": {
-                                                                "type": "string"
-                                                            },
-                                                            "formatted": {
-                                                                "type": "string"
-                                                            }
-                                                        },
-                                                        "required": [
-                                                            "amount",
-                                                            "currency",
-                                                            "formatted"
-                                                        ]
-                                                    },
-                                                    "current_price": {
-                                                        "type": [
-                                                            "object",
-                                                            "null"
-                                                        ],
-                                                        "properties": {
-                                                            "amount": {
-                                                                "type": "string"
-                                                            },
-                                                            "currency": {
-                                                                "type": "string"
-                                                            },
-                                                            "formatted": {
-                                                                "type": "string"
-                                                            }
-                                                        },
-                                                        "required": [
-                                                            "amount",
-                                                            "currency",
-                                                            "formatted"
-                                                        ]
-                                                    },
-                                                    "min_next_bid": {
-                                                        "type": "object",
-                                                        "properties": {
-                                                            "amount": {
-                                                                "type": "string"
-                                                            },
-                                                            "currency": {
-                                                                "type": "string"
-                                                            },
-                                                            "formatted": {
-                                                                "type": "string"
-                                                            }
-                                                        },
-                                                        "required": [
-                                                            "amount",
-                                                            "currency",
-                                                            "formatted"
-                                                        ]
-                                                    },
-                                                    "min_increment": {
-                                                        "type": "object",
-                                                        "properties": {
-                                                            "amount": {
-                                                                "type": "string"
-                                                            },
-                                                            "currency": {
-                                                                "type": "string"
-                                                            },
-                                                            "formatted": {
-                                                                "type": "string"
-                                                            }
-                                                        },
-                                                        "required": [
-                                                            "amount",
-                                                            "currency",
-                                                            "formatted"
-                                                        ]
-                                                    },
-                                                    "buy_now_price": {
-                                                        "type": [
-                                                            "object",
-                                                            "null"
-                                                        ],
-                                                        "properties": {
-                                                            "amount": {
-                                                                "type": "string"
-                                                            },
-                                                            "currency": {
-                                                                "type": "string"
-                                                            },
-                                                            "formatted": {
-                                                                "type": "string"
-                                                            }
-                                                        },
-                                                        "required": [
-                                                            "amount",
-                                                            "currency",
-                                                            "formatted"
-                                                        ]
-                                                    },
-                                                    "reserve_met": {
-                                                        "type": [
-                                                            "boolean",
-                                                            "null"
-                                                        ]
-                                                    },
-                                                    "bid_count": {
-                                                        "type": "integer"
-                                                    },
-                                                    "last_sequence": {
-                                                        "type": "integer"
-                                                    },
-                                                    "starts_at": {
-                                                        "type": [
-                                                            "string",
-                                                            "null"
-                                                        ]
-                                                    },
-                                                    "ends_at": {
-                                                        "type": [
-                                                            "string",
-                                                            "null"
-                                                        ]
-                                                    },
-                                                    "extension_count": {
-                                                        "type": "integer"
-                                                    },
-                                                    "server_time": {
-                                                        "type": "string"
-                                                    },
-                                                    "my_status": {
-                                                        "type": [
-                                                            "string",
-                                                            "null"
-                                                        ],
-                                                        "enum": [
-                                                            "won",
-                                                            "lost",
-                                                            "leading",
-                                                            "outbid",
-                                                            null
-                                                        ]
-                                                    },
-                                                    "my_max_auto_bid": {
-                                                        "type": [
-                                                            "object",
-                                                            "null"
-                                                        ],
-                                                        "properties": {
-                                                            "amount": {
-                                                                "type": "string"
-                                                            },
-                                                            "currency": {
-                                                                "type": "string"
-                                                            },
-                                                            "formatted": {
-                                                                "type": "string"
-                                                            }
-                                                        },
-                                                        "required": [
-                                                            "amount",
-                                                            "currency",
-                                                            "formatted"
-                                                        ]
-                                                    },
-                                                    "is_watching": {
-                                                        "type": "boolean"
-                                                    }
-                                                },
-                                                "required": [
-                                                    "id",
-                                                    "auction_id",
-                                                    "lot_number",
-                                                    "title",
-                                                    "description",
-                                                    "image_url",
-                                                    "quantity",
-                                                    "status",
-                                                    "starting_price",
-                                                    "current_price",
-                                                    "min_next_bid",
-                                                    "min_increment",
-                                                    "buy_now_price",
-                                                    "reserve_met",
-                                                    "bid_count",
-                                                    "last_sequence",
-                                                    "starts_at",
-                                                    "ends_at",
-                                                    "extension_count",
-                                                    "server_time",
-                                                    "my_status",
-                                                    "my_max_auto_bid",
-                                                    "is_watching"
-                                                ]
+                                                "type": "array",
+                                                "items": {}
                                             }
                                         }
                                     },
@@ -13549,6 +13325,30 @@
                                 }
                             }
                         }
+                    }
+                }
+            }
+        },
+        "/broadcasting/auth": {
+            "get": {
+                "operationId": "broadcast.authenticate",
+                "summary": "Authenticate the request for channel access",
+                "tags": [
+                    "Broadcast"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
                     }
                 }
             }

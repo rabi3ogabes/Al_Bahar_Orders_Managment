@@ -7,8 +7,8 @@ This report lists, phase by phase, what was delivered, how it is verified, and w
 
 | Area | Delivered | Verified by |
 |---|---|---|
-| Backend API (`backend/`) | Laravel 13 modular monolith, 132 PostgreSQL tables, REST `/api/v1` (OpenAPI in `docs/api/openapi.json`) | Pest: Unit + Feature suites, Concurrency suite (real multi-process row locks), migrations up/down/up |
-| Admin dashboard | Blade + Livewire, EN/AR with RTL, light/dark, phone-friendly; driver view at `/admin/driver`; pickup QR scanner | Feature tests per screen (authorised 200 / unauthorised 403, branch isolation, key workflows); screenshot review EN/AR at 1440 px and 390 px |
+| Backend API (`backend/`) | Laravel 13 modular monolith, 132 PostgreSQL tables, REST `/api/v1` with 143 documented paths (`docs/api/openapi.json`) | Pest: **298** Unit + Feature tests (1,461 assertions) and the Concurrency suite (real multi-process row locks), all passing; migrations up/down/up |
+| Admin dashboard | 50+ Blade + Livewire screens covering phases 1–10, EN/AR with RTL, light/dark, phone-friendly; driver view at `/admin/driver`; camera pickup scanner; live auctioneer console | Feature tests per screen (authorised 200 / unauthorised 403, branch isolation, key workflows); screenshot review EN/AR at 1440 px and 390 px |
 | Customer app (`mobile/`) | Flutter Android/iOS, 15 feature modules, EN/AR RTL, push, live auctions | `flutter analyze` (no issues), 116 unit/widget/contract tests, headless integration smoke test |
 | Operations | Docker image, compose stack, CI, deploy workflow, verified backups, monitoring/security/launch docs | CI pipeline (`.github/workflows/ci.yml`) |
 
@@ -49,6 +49,8 @@ cd mobile && flutter analyze && flutter test
 
 **Scope decisions:**
 - Gift cards: not implemented (not required by the phase acceptance criteria).
+- Admin gaps without a domain service yet: cash drawer hand-in/settlement (the Cash screen shows totals not handed in), manual lot extension (anti-sniping extends automatically), editing/deleting a lot after it is added, product-level promotion targeting in the editor (order and category scope are supported).
+- Finance edge cases handled manually: a late-capture payment is resolved with a finance note (it cannot be refunded through the refund flow); a partial branch cancellation releases stock but the refund is raised separately; drivers must attach a photo when proof of delivery is required.
 - Product videos and related/upsell products: not implemented in admin or app.
 - Delivery time slots: pickup slots exist; delivery uses date selection only (no delivery-slot endpoint).
 - `fulfillment_items` from the database spec are represented by `order_items.order_fulfillment_id`; auction lots link to products through `auction_products`.

@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'otp.title' => 'رمز التحقق',
+    'otp.body' => 'البحر: رمز التحقق الخاص بك هو {{code}}، صالح لمدة {{minutes}} دقائق. لا تشارك هذا الرمز مع أحد.',
     'order.created.title' => 'تم استلام طلبك {{order_number}}',
     'order.created.body' => 'شكراً لك يا {{name}}. استلمنا طلبك بإجمالي {{total}}.',
     'order.confirmed.title' => 'تم تأكيد الدفع',
