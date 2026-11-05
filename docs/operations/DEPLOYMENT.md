@@ -37,6 +37,16 @@ the mock courier adapter refuses to run in production.
    `up -d` → `optimize` → `queue:restart` → health check (`/api/v1/health` must return `"status":"ok"`) → records
    `.last-good-release`.
 
+## Rollout notes for recent releases
+
+- **Cash drawer** adds migration `2026_01_01_001100_create_cash_drawer_tables` (additive) and a new permission grant: re-run
+  `php artisan db:seed --class=RolesAndPermissionsSeeder --force` after deploying so branch managers receive `payments.edit`
+  (the seeder only adds grants, it never revokes custom ones). Accountants and admins already have it. Custom roles that should
+  receive or bank cash need `payments.edit` added in Organization › Roles.
+- **Delivery slots**: a branch that publishes delivery slots makes a slot mandatory for single-branch delivery orders. Configure slots
+  (Branches › Slots) *before* announcing the feature; branches without slots keep working exactly as before. Mobile builds older than
+  this release cannot choose a slot, so they cannot place delivery orders for slot-enabled branches — publish the app update first.
+
 ## Migrations policy
 
 - Migrations must be backward compatible with the previous release (expand → deploy → contract in a later release).

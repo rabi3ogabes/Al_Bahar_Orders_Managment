@@ -22,7 +22,8 @@
 ## Data & configuration
 
 - [ ] Roles & permissions seeded; super admins created with 2FA; staff accounts per branch with least privilege.
-- [ ] Branches: addresses, coordinates, hours, holidays, pickup slots, delivery zones & fees, COD limits.
+- [ ] Branches: addresses, coordinates, hours, holidays, pickup slots, **delivery slots** (required at checkout once published), delivery zones & fees, COD limits.
+- [ ] Cash handling: branch managers/accountants hold `payments.edit`; drivers and counters only `payments.create`; bank-reference format agreed with finance.
 - [ ] Catalog imported (CSV import with dry-run), images uploaded, prices per branch reviewed, stock counts posted via stocktake.
 - [ ] Settings: tax/VAT position, COD fee, payment window, loyalty rules, referral rewards, auction defaults.
 - [ ] CMS: homepage sections, banners, pages (about, privacy, terms, returns, auction rules) in AR & EN.

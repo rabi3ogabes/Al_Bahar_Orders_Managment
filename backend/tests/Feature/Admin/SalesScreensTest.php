@@ -2,6 +2,7 @@
 
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Branches\Models\BranchEmployee;
+use App\Domain\Branches\Models\DeliverySlot;
 use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Fulfillment\Models\PickupVerification;
 use App\Domain\Fulfillment\Services\PickupService;
@@ -19,6 +20,7 @@ use App\Livewire\Admin\Sales\OrderShow;
 use App\Livewire\Admin\Sales\PickupIndex;
 use App\Livewire\Admin\Sales\PickupScanner;
 use App\Livewire\Admin\Sales\ReturnIndex;
+use App\Support\BusinessTime;
 use App\Support\DocumentNumber;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Http\UploadedFile;
@@ -247,4 +249,33 @@ it('masks customer PII unless the viewer may edit customers, and adjusts points 
     $this->actingAs($care);
     Livewire::test(CustomerShow::class, ['customer' => $this->w->customer])->call('askStatus', 'suspended')->set('statusReason', 'Chargeback fraud investigation')->call('changeStatus');
     expect($this->w->customer->fresh()->status->value)->toBe('suspended');
+});
+
+it('reschedules from the dispatch board onto a slot on slot-enabled branches and by free time otherwise', function () {
+    $order = placeDeliveryOrder($this->w);
+    $f = $order->fulfillments->first();
+    $this->actingAs($this->mgrA);
+    $show = Livewire::test(OrderShow::class, ['order' => $order]);
+    foreach (['accepted', 'preparing', 'ready'] as $s) {
+        $show->call('advance', $f->id, $s);
+    }
+    $board = Livewire::test(DeliveryIndex::class)->call('open', 'create', $f->id)->call('confirmDialog');
+    $d = Delivery::firstOrFail();
+    $board->call('act', $d->id, 'pickup')->call('act', $d->id, 'out')
+        ->call('open', 'fail', $d->id)->set('form.reason_code', 'customer_absent')->call('confirmDialog');
+
+    // Without slots: a free time, entered in Qatar time and stored in UTC.
+    $board->call('open', 'reschedule', $d->id)->set('form.scheduled_for', BusinessTime::now()->addDay()->setTime(15, 0)->format('Y-m-d\TH:i'))->call('confirmDialog')->assertHasNoErrors();
+    expect(BusinessTime::local($d->fresh()->scheduled_for)->format('H:i'))->toBe('15:00')->and($d->fresh()->status->value)->toBe('rescheduled');
+
+    // With slots: the dialog offers that day's free slots and requires one.
+    $date = BusinessTime::now()->addDay();
+    $slot = DeliverySlot::create(['branch_id' => $this->w->a->id, 'fulfillment_type' => 'delivery', 'day_of_week' => $date->dayOfWeek,
+        'starts_at' => '17:00', 'ends_at' => '19:00', 'capacity' => 2, 'cutoff_minutes' => 60]);
+    $board->call('open', 'reschedule', $d->id)->set('form.slot_date', $date->toDateString())
+        ->assertViewHas('slotOptions', fn ($o) => $o->pluck('id')->contains($slot->id))
+        ->call('confirmDialog')->assertHasErrors('form.slot_id')
+        ->set('form.slot_id', $slot->id)->call('confirmDialog')->assertHasNoErrors();
+    expect(BusinessTime::local($d->fresh()->scheduled_for)->format('H:i'))->toBe('17:00')
+        ->and($f->fresh()->delivery_slot_id)->toBe($slot->id);
 });

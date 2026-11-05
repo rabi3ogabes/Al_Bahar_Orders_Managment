@@ -240,7 +240,14 @@ class QuoteService
 
     private function validateSlot(FulfillmentPlan $plan, Quote $q): void
     {
+        // Delivery on a single-branch order needs a slot whenever that branch publishes delivery slots.
+        // (Split orders can't share one slot; each branch confirms its own time.)
+        $plan->slotRequired = $plan->type === 'delivery' && ! $q->isSplit && $this->slots->hasSlots($plan->branch, 'delivery');
         if (! $plan->slotId || ! $plan->slotDate) {
+            if ($plan->slotRequired) {
+                $q->error('slot_required', ['branch' => $plan->branch->localized('name')]);
+            }
+
             return;
         }
         $slot = collect($this->slots->available($plan->branch, $plan->type, $plan->slotDate))->firstWhere('id', $plan->slotId);
@@ -248,6 +255,7 @@ class QuoteService
             $q->error('slot_unavailable', ['branch' => $plan->branch->localized('name')]);
         } else {
             $q->slot = $slot;
+            $plan->slotInfo = ['starts_at' => $slot['starts_at'], 'ends_at' => $slot['ends_at']];
         }
     }
 

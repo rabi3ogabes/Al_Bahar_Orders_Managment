@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'now' => 'now',
     'skip_to_content' => 'Skip to content',
     'main_navigation' => 'Main navigation',
     'console' => 'Operations console',

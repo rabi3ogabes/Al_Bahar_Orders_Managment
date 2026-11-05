@@ -11,6 +11,7 @@ return [
     'above_max_order' => 'لا يمكن أن تتجاوز طلبات التوصيل من :branch مبلغ :maximum.',
     'express_unavailable' => 'التوصيل السريع غير متاح من :branch لهذا العنوان.',
     'slot_unavailable' => 'الفترة المختارة في :branch لم تعد متاحة.',
+    'slot_required' => 'يرجى اختيار موعد التوصيل.',
     'slot_ignored_for_split' => 'تنطبق الفترات الزمنية على الطلبات من فرع واحد؛ سيؤكد كل فرع موعده.',
     'split_fulfillment' => 'سيصلك طلبك على :branches دفعات من فروع مختلفة. الرسوم لكل منها موضحة أدناه.',
     'price_changed' => 'تغير سعر :name من :from إلى :to.',

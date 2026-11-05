@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../../../core/providers.dart';
+import '../../../../core/utils/qatar_time.dart';
 import '../../data/branch_repository.dart';
 import '../../domain/branch_models.dart';
 
@@ -60,6 +61,35 @@ final branchHoursProvider = FutureProvider.autoDispose.family<BranchHours, Strin
 final pickupSlotsProvider = FutureProvider.autoDispose.family<List<PickupSlot>, ({String branchId, String date})>(
   (ref, args) => ref.watch(branchRepositoryProvider).pickupSlots(args.branchId, args.date),
 );
+
+final deliverySlotsProvider = FutureProvider.autoDispose.family<List<DeliverySlot>, ({String branchId, String date})>(
+  (ref, args) => ref.watch(branchRepositoryProvider).deliverySlots(args.branchId, args.date),
+);
+
+/// The next [days] days (from today, Qatar) that have at least one selectable
+/// delivery slot, in order. Days whose request fails are skipped; if every day
+/// fails the first error is rethrown so the UI can offer a retry.
+final deliveryDatesProvider = FutureProvider.autoDispose.family<List<String>, String>((ref, branchId) async {
+  const days = 7;
+  final today = QatarTime.today();
+  final dates = [for (var i = 0; i < days; i++) QatarTime.isoDate(today.add(Duration(days: i)))];
+  Object? firstError;
+  final results = await Future.wait([
+    for (final d in dates)
+      ref
+          .watch(deliverySlotsProvider((branchId: branchId, date: d)).future)
+          .then<List<DeliverySlot>?>((v) => v)
+          .catchError((Object e) {
+            firstError ??= e;
+            return null;
+          }),
+  ]);
+  if (results.every((r) => r == null) && firstError != null) throw firstError!;
+  return [
+    for (var i = 0; i < days; i++)
+      if (results[i]?.any((s) => s.selectable) ?? false) dates[i],
+  ];
+});
 
 final deliveryZonesProvider = FutureProvider<List<DeliveryZone>>((ref) {
   ref.watch(localeCodeProvider);

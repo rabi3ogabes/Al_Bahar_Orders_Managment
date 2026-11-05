@@ -32,6 +32,11 @@ class CashCollection extends Model
         return $this->belongsTo(Branch::class);
     }
 
+    public function handover(): BelongsTo
+    {
+        return $this->belongsTo(CashHandover::class, 'cash_handover_id');
+    }
+
     public function fulfillment(): BelongsTo
     {
         return $this->belongsTo(OrderFulfillment::class, 'order_fulfillment_id');

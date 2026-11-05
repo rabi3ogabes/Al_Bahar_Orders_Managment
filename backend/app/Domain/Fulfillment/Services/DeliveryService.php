@@ -4,6 +4,7 @@ namespace App\Domain\Fulfillment\Services;
 
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Branches\Models\BranchEmployee;
+use App\Domain\Branches\Services\SlotService;
 use App\Domain\Fulfillment\Enums\DeliveryStatus as DS;
 use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Fulfillment\Models\DeliveryAttempt;
@@ -19,6 +20,7 @@ use App\Domain\Orders\Services\OrderService;
 use App\Domain\Payments\Models\CashCollection;
 use App\Domain\Payments\Models\Payment;
 use App\Domain\Payments\Services\PaymentService;
+use App\Support\BusinessTime;
 use App\Support\DomainException;
 use App\Support\Money;
 use App\Support\Redactor;
@@ -42,6 +44,7 @@ class DeliveryService
         private readonly DeliveryProviderRegistry $providers,
         private readonly AccessControl $access,
         private readonly AuditLogger $audit,
+        private readonly SlotService $slots,
     ) {}
 
     public function create(OrderFulfillment $f, User $staff, string $mode = 'internal', ?string $providerId = null, ?string $scheduledFor = null): Delivery
@@ -54,11 +57,13 @@ class DeliveryService
             throw DomainException::make('delivery_exists', 409);
         }
         $codAmount = $f->order->payment_method === 'cod' ? $f->order->grand_total : '0.00';
+        // The customer's chosen slot is the default schedule for the delivery.
+        $scheduledFor ??= $f->delivery_slot_id && $f->slot_date ? $this->slots->startsAt($f->delivery_slot_id, $f->slot_date->toDateString()) : null;
         $delivery = Delivery::create([
             'order_fulfillment_id' => $f->id, 'branch_id' => $f->branch_id, 'mode' => $mode,
             'delivery_provider_id' => $mode === 'provider' ? $providerId : null, 'status' => DS::Pending,
             'tracking_number' => 'ABD'.now()->format('ymd').Str::upper(Str::random(6)), 'quoted_fee' => $f->delivery_fee,
-            'cod_amount' => $codAmount, 'requires_proof' => true, 'scheduled_for' => $scheduledFor,
+            'cod_amount' => $codAmount, 'requires_proof' => true, 'scheduled_for' => $scheduledFor ? BusinessTime::toUtc($scheduledFor) : null,
         ]);
         $this->log($delivery, null, DS::Pending, $staff, 'staff', 'created');
 
@@ -213,10 +218,32 @@ class DeliveryService
     public function reschedule(Delivery $delivery, User $actor, string $when): Delivery
     {
         $this->authorizeDriverOrStaff($delivery, $actor);
-        $delivery->update(['scheduled_for' => $when]);
+        $delivery->update(['scheduled_for' => BusinessTime::toUtc($when)]);
         $this->transition($delivery, DS::Rescheduled, $actor, $this->source($actor), 'rescheduled to '.$when);
 
         return $delivery->fresh();
+    }
+
+    /**
+     * Reschedule onto another delivery slot: the booking moves atomically (a full slot leaves the old booking untouched),
+     * the fulfillment records the new slot and the delivery's scheduled time follows the slot start.
+     */
+    public function rescheduleToSlot(Delivery $delivery, User $actor, string $slotId, string $date): Delivery
+    {
+        $this->authorize($actor, 'deliveries.assign', $delivery->branch_id);
+
+        return DB::transaction(function () use ($delivery, $actor, $slotId, $date) {
+            $f = OrderFulfillment::whereKey($delivery->order_fulfillment_id)->lockForUpdate()->firstOrFail();
+            $this->slots->move($f->delivery_slot_id, $f->slot_date?->toDateString(), $slotId, $date, $f->branch_id, 'delivery');
+            $old = ['slot_id' => $f->delivery_slot_id, 'date' => $f->slot_date?->toDateString()];
+            $f->update(['delivery_slot_id' => $slotId, 'slot_date' => $date]);
+            $when = $this->slots->startsAt($slotId, $date);
+            $delivery->update(['scheduled_for' => $when->utc()]);
+            $this->transition($delivery, DS::Rescheduled, $actor, $this->source($actor), 'rescheduled to slot '.$when->toDateTimeString());
+            $this->audit->log('delivery.rescheduled_to_slot', $delivery, $old, ['slot_id' => $slotId, 'date' => $date], branchId: $delivery->branch_id, actor: $actor);
+
+            return $delivery->fresh();
+        });
     }
 
     /** Failed delivery brought back to the branch: stock re-added via the fulfillment's return. */

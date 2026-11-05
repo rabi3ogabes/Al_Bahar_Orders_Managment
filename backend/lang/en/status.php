@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'in_drawer' => 'In drawer',
+    'deposited' => 'Banked',
     'active' => 'Active',
     'inactive' => 'Inactive',
     'draft' => 'Draft',

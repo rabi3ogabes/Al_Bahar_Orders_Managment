@@ -3643,6 +3643,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{method}'**
   String paymentMethodLabel(String method);
+
+  /// No description provided for @deliverySlotTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery time'**
+  String get deliverySlotTitle;
+
+  /// No description provided for @deliverySlotMoreDates.
+  ///
+  /// In en, this message translates to:
+  /// **'More dates'**
+  String get deliverySlotMoreDates;
+
+  /// No description provided for @deliverySlotNoDates.
+  ///
+  /// In en, this message translates to:
+  /// **'No delivery times in the next 7 days. Try “More dates”.'**
+  String get deliverySlotNoDates;
+
+  /// No description provided for @deliverySlotNoSlotsDay.
+  ///
+  /// In en, this message translates to:
+  /// **'No delivery times on this day.'**
+  String get deliverySlotNoSlotsDay;
+
+  /// No description provided for @deliverySlotRequiredHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a delivery time to place your order'**
+  String get deliverySlotRequiredHint;
+
+  /// No description provided for @deliverySlotRequiredError.
+  ///
+  /// In en, this message translates to:
+  /// **'Please choose a delivery time for this order.'**
+  String get deliverySlotRequiredError;
+
+  /// No description provided for @deliverySlotUnavailableError.
+  ///
+  /// In en, this message translates to:
+  /// **'That delivery time is no longer available. Please choose another.'**
+  String get deliverySlotUnavailableError;
+
+  /// No description provided for @deliverySlotSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery: {date}, {from} – {to}'**
+  String deliverySlotSummary(String date, String from, String to);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

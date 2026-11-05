@@ -15,6 +15,7 @@ import 'package:albahar_customer/features/branches/data/branch_repository.dart';
 import 'package:albahar_customer/features/branches/domain/branch_models.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
 import 'package:albahar_customer/features/checkout/domain/checkout_models.dart';
+import 'package:albahar_customer/features/checkout/presentation/delivery_slot_section.dart';
 import 'package:albahar_customer/features/checkout/presentation/payment_flow.dart';
 import 'package:albahar_customer/features/checkout/presentation/state/checkout_controller.dart';
 import 'package:albahar_customer/features/profile/domain/profile_models.dart';
@@ -166,6 +167,22 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   )
                 else
                   _PickupSection(options: o, onChanged: controller.update),
+                if (o.fulfillmentType == FulfillmentType.delivery &&
+                    quote != null &&
+                    quote.slotRequired &&
+                    quote.singleFulfillment != null) ...[
+                  const Gap(AppSpace.lg),
+                  DeliverySlotSection(
+                    key: ValueKey('slots-${quote.singleFulfillment!.branch.id}'),
+                    branchId: quote.singleFulfillment!.branch.id,
+                    selectedSlotId: o.deliverySlotId,
+                    selectedDate: o.deliveryDate,
+                    unavailable: state.slotUnavailable,
+                    slotRequired: quote.issue('slot_required') != null,
+                    onSelect: (slot, date) =>
+                        controller.selectDeliverySlot(slot, branchId: quote.singleFulfillment!.branch.id, date: date),
+                  ),
+                ],
                 if (quote != null && (quote.isSplit || quote.fulfillments.length > 1)) ...[
                   const Gap(AppSpace.lg),
                   _SplitPlan(quote: quote),
@@ -644,6 +661,27 @@ class _QuoteSummary extends StatelessWidget {
                   ],
                 ),
               ),
+            if (quote.deliverySlot case final slot?) ...[
+              Divider(color: context.palette.line, height: AppSpace.lg),
+              Row(
+                key: const ValueKey('delivery-slot-summary'),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.schedule_rounded, size: 18, color: context.palette.brass),
+                  const Gap(AppSpace.xs),
+                  Expanded(
+                    child: Text(
+                      l10n.deliverySlotSummary(
+                        QatarTime.slotDay(slot.date, context.localeCode),
+                        QatarTime.clock(slot.startsAt, context.localeCode),
+                        QatarTime.clock(slot.endsAt, context.localeCode),
+                      ),
+                      style: context.text.bodyMedium,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             Divider(color: context.palette.line, height: AppSpace.lg),
             SummaryRow(label: l10n.subtotal, value: t.subtotal.formatted),
             for (final d in quote.discounts)
@@ -669,7 +707,8 @@ class _QuoteSummary extends StatelessWidget {
                 padding: const EdgeInsets.only(top: AppSpace.xs),
                 child: Text(w.message, style: context.text.bodySmall?.copyWith(color: context.palette.warning)),
               ),
-            for (final e in quote.errors)
+            // Slot errors are shown inline in the delivery step.
+            for (final e in quote.errors.where((e) => e.code != 'slot_required' && e.code != 'slot_unavailable'))
               Padding(
                 padding: const EdgeInsets.only(top: AppSpace.xs),
                 child: Text(e.message, style: context.text.bodySmall?.copyWith(color: context.palette.danger)),
@@ -701,6 +740,7 @@ class _PlaceOrderBar extends StatelessWidget {
     final hint = switch (missing) {
       'address' => l10n.selectAddressFirst,
       'branch' => l10n.selectBranchFirst,
+      'slot' => l10n.deliverySlotRequiredHint,
       'payment' => l10n.selectPaymentFirst,
       _ => (state.quote != null && !state.quote!.canPlaceOrder) ? l10n.cannotPlaceOrder : null,
     };

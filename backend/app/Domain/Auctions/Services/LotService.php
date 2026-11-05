@@ -64,6 +64,32 @@ class LotService
         return $lot;
     }
 
+    /**
+     * Manual extension by the auctioneer (e.g. a technical problem): adds time to an open lot, or to the remaining time of a
+     * paused one. It never shortens a lot, and never revives a lot whose time already ran out (the tick closes those).
+     * Separate from anti-sniping: it does not count toward the auction's max_extensions.
+     */
+    public function extend(AuctionLot $lot, User $actor, int $seconds, string $reason): AuctionLot
+    {
+        if ($seconds < 30 || $seconds > 86400) {
+            throw DomainException::make('lot_invalid', 422, ['field' => 'seconds']);
+        }
+
+        return $this->mutate($lot, $actor, 'extended', function (AuctionLot $l) use ($seconds) {
+            if (! in_array($l->status, ['open', 'paused'], true)) {
+                throw DomainException::make('invalid_state_transition', 409, ['from' => $l->status]);
+            }
+            if ($l->status === 'open') {
+                if ($l->ends_at === null || $l->ends_at->lessThanOrEqualTo(now())) {
+                    throw DomainException::make('invalid_state_transition', 409, ['from' => 'ended']);
+                }
+                $l->forceFill(['ends_at' => $l->ends_at->addSeconds($seconds)])->save();
+            } else {
+                $l->forceFill(['paused_remaining_seconds' => (int) $l->paused_remaining_seconds + $seconds])->save();
+            }
+        }, ['manual' => true, 'seconds' => $seconds, 'reason' => $reason]);
+    }
+
     public function pause(AuctionLot $lot, User $actor, string $reason): AuctionLot
     {
         return $this->mutate($lot, $actor, 'paused', function (AuctionLot $l) {

@@ -11,6 +11,7 @@ return [
     'above_max_order' => 'Orders from :branch can\'t exceed :maximum for delivery.',
     'express_unavailable' => 'Express delivery isn\'t offered from :branch for this address.',
     'slot_unavailable' => 'That time slot at :branch is no longer available.',
+    'slot_required' => 'Please choose a delivery time slot.',
     'slot_ignored_for_split' => 'Time slots apply to single-branch orders; each branch will confirm its own time.',
     'split_fulfillment' => 'Your order will arrive in :branches parts from different branches. Fees for each are shown below.',
     'price_changed' => 'The price of :name changed from :from to :to.',

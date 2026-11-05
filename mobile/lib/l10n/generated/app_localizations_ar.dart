@@ -2019,4 +2019,30 @@ class AppLocalizationsAr extends AppLocalizations {
   String paymentMethodLabel(String method) {
     return '$method';
   }
+
+  @override
+  String get deliverySlotTitle => 'وقت التوصيل';
+
+  @override
+  String get deliverySlotMoreDates => 'تواريخ أخرى';
+
+  @override
+  String get deliverySlotNoDates => 'لا توجد مواعيد توصيل خلال الأيام السبعة القادمة. جرّب «تواريخ أخرى».';
+
+  @override
+  String get deliverySlotNoSlotsDay => 'لا توجد مواعيد توصيل في هذا اليوم.';
+
+  @override
+  String get deliverySlotRequiredHint => 'اختر موعد التوصيل لإتمام الطلب';
+
+  @override
+  String get deliverySlotRequiredError => 'يرجى اختيار موعد التوصيل لهذا الطلب.';
+
+  @override
+  String get deliverySlotUnavailableError => 'لم يعد موعد التوصيل هذا متاحًا. يرجى اختيار موعد آخر.';
+
+  @override
+  String deliverySlotSummary(String date, String from, String to) {
+    return 'التوصيل: $date، $from – $to';
+  }
 }

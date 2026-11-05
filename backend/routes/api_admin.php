@@ -83,10 +83,20 @@ Route::controller(V1\Admin\AuctionAdminController::class)->prefix('auctions')->n
     Route::post('{auction}/lots', 'addLot')->middleware('permission:auctions.edit')->name('lots.store');
     Route::post('{auction}/publish', 'publish')->middleware('permission:auctions.approve')->name('publish');
     Route::post('{auction}/cancel', 'cancel')->middleware('permission:auctions.delete')->name('cancel');
-    Route::post('lots/{lot}/{action}', 'lotAction')->middleware('permission:auctions.edit')->whereIn('action', ['open', 'pause', 'resume', 'close', 'cancel'])->name('lots.action');
+    Route::patch('lots/{lot}', 'updateLot')->middleware('permission:auctions.edit')->name('lots.update');
+    Route::delete('lots/{lot}', 'deleteLot')->middleware('permission:auctions.delete')->name('lots.destroy');
+    Route::post('lots/{lot}/{action}', 'lotAction')->middleware('permission:auctions.edit')->whereIn('action', ['open', 'pause', 'resume', 'close', 'cancel', 'extend'])->name('lots.action');
     Route::get('lots/{lot}/feed', 'feed')->middleware('permission:auctions.view')->name('lots.feed');
     Route::post('bids/{bid}/retract', 'retractBid')->middleware('permission:auctions.override')->name('bids.retract');
     Route::post('bidders/{bidder}/block', 'blockBidder')->middleware('permission:auctions.override')->name('bidders.block');
+});
+
+Route::controller(V1\Admin\CashDrawerController::class)->prefix('cash')->name('cash.')->group(function () {
+    Route::get('outstanding', 'outstanding')->middleware('permission:payments.view')->name('outstanding');
+    Route::get('handovers', 'handovers')->middleware('permission:payments.view')->name('handovers');
+    Route::post('handovers', 'handIn')->middleware('permission:payments.edit')->name('handovers.store');
+    Route::post('handovers/{handover}/resolve', 'resolve')->middleware('permission:payments.override')->name('handovers.resolve');
+    Route::post('deposits', 'deposit')->middleware('permission:payments.edit')->name('deposits.store');
 });
 
 Route::controller(V1\Admin\ReportAdminController::class)->group(function () {

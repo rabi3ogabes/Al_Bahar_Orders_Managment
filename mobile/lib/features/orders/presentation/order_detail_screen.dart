@@ -192,11 +192,17 @@ class _FulfillmentCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: AppSpace.xs),
               child: Text(
-                l10n.slotLabel(
-                  QatarTime.weekdayDate(DateTime.tryParse(asString(slot['date'])), locale),
-                  QatarTime.clock(asStringOrNull(slot['starts_at']), locale),
-                  QatarTime.clock(asStringOrNull(slot['ends_at']), locale),
-                ),
+                f.type == 'delivery'
+                    ? l10n.deliverySlotSummary(
+                        QatarTime.slotDay(asString(slot['date']), locale),
+                        QatarTime.clock(asStringOrNull(slot['starts_at']), locale),
+                        QatarTime.clock(asStringOrNull(slot['ends_at']), locale),
+                      )
+                    : l10n.slotLabel(
+                        QatarTime.slotDay(asString(slot['date']), locale),
+                        QatarTime.clock(asStringOrNull(slot['starts_at']), locale),
+                        QatarTime.clock(asStringOrNull(slot['ends_at']), locale),
+                      ),
                 style: context.text.bodySmall,
               ),
             ),

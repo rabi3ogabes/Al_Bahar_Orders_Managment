@@ -116,7 +116,15 @@
                                     <x-admin.status :value="$l->status" />
                                     @if ($winner)<x-admin.status :value="$winner->status" class="!text-[0.65rem]" />@endif
                                 </div>
-                                <a href="{{ route('admin.auctions.console', $l) }}" wire:navigate class="btn-ghost btn-sm" aria-label="{{ __('auction_admin.open_console') }}" title="{{ __('auction_admin.open_console') }}"><x-icon name="play" class="size-4" /></a>
+                                <div class="flex items-center">
+                                    @if ($canEditLots && in_array($l->status, ['pending', 'open', 'paused'], true))
+                                        <button type="button" wire:click="editLot('{{ $l->id }}')" class="btn-ghost btn-sm px-2" aria-label="{{ __('auction_admin.edit_lot') }}" title="{{ __('auction_admin.edit_lot') }}"><x-icon name="edit" class="size-4" /></button>
+                                    @endif
+                                    @if ($canDeleteLots && $l->status === 'pending' && $l->bid_count === 0)
+                                        <button type="button" wire:click="deleteLot('{{ $l->id }}')" wire:confirm="{{ __('auction_admin.confirm_delete_lot') }}" class="btn-ghost btn-sm px-2 text-ruby-soft" aria-label="{{ __('auction_admin.delete_lot') }}" title="{{ __('auction_admin.delete_lot') }}"><x-icon name="trash" class="size-4" /></button>
+                                    @endif
+                                    <a href="{{ route('admin.auctions.console', $l) }}" wire:navigate class="btn-ghost btn-sm px-2" aria-label="{{ __('auction_admin.open_console') }}" title="{{ __('auction_admin.open_console') }}"><x-icon name="play" class="size-4" /></a>
+                                </div>
                             </li>
                         @endforeach
                     </ul>
@@ -135,18 +143,22 @@
         </aside>
     </div>
 
-    <x-admin.dialog wire:model="showLot" :title="__('auction_admin.add_lot')" :description="__('auction_admin.add_lot_hint')" max-width="max-w-2xl">
-        <form wire:submit="addLot" class="space-y-5">
+    @php
+        $lotFull = ! $editingLot || $editingLot->status === 'pending';
+        $reserveFree = $lotFull || (int) $editingLot->bid_count === 0;
+    @endphp
+    <x-admin.dialog wire:model="showLot" :title="$editingLot ? __('auction_admin.edit_lot') : __('auction_admin.add_lot')" :description="$editingLot ? ($lotFull ? __('auction_admin.edit_lot_hint') : __('auction_admin.lot_live_locked_hint')) : __('auction_admin.add_lot_hint')" max-width="max-w-2xl">
+        <form wire:submit="saveLot" class="space-y-5">
             <div>
                 @if ($lotVariant)
                     <div class="flex items-center gap-3 rounded-xl border border-brass-300 bg-brass-50/60 p-3 dark:bg-brass-500/10">
                         <x-admin.variant :variant="$lotVariant" class="flex-1" />
-                        <button type="button" wire:click="clearVariant" class="btn-ghost btn-sm px-2" aria-label="{{ __('org_admin.remove') }}"><x-icon name="x" class="size-4" /></button>
+                        @if ($lotFull)<button type="button" wire:click="clearVariant" class="btn-ghost btn-sm px-2" aria-label="{{ __('org_admin.remove') }}"><x-icon name="x" class="size-4" /></button>@endif
                     </div>
                     <x-admin.field :label="__('auction_admin.stock_branch')" for="lot.branch_id" required class="mt-3" :hint="__('auction_admin.stock_branch_hint')">
-                        <select id="lot.branch_id" wire:model="lot.branch_id" class="input"><option value="">—</option>@foreach ($branches as $b)<option value="{{ $b->id }}">{{ $b->code }} · {{ $b->localized('name') }}</option>@endforeach</select>
+                        <select id="lot.branch_id" wire:model="lot.branch_id" class="input" @disabled(! $lotFull)><option value="">—</option>@foreach ($branches as $b)<option value="{{ $b->id }}">{{ $b->code }} · {{ $b->localized('name') }}</option>@endforeach</select>
                     </x-admin.field>
-                @else
+                @elseif ($lotFull)
                     <x-admin.variant-picker :results="$matches" :label="__('auction_admin.link_product')" />
                     <p class="field-hint">{{ __('auction_admin.link_product_hint') }}</p>
                 @endif
@@ -156,19 +168,19 @@
                 <x-admin.field :label="__('auction_admin.title_ar')" for="lot.title_ar" required><input id="lot.title_ar" wire:model="lot.title_ar" class="input" dir="rtl"></x-admin.field>
             </div>
             <div class="grid grid-cols-2 gap-4 sm:grid-cols-4 [&>*]:min-w-0">
-                <x-admin.field :label="__('auction_admin.starting_price')" for="lot.starting_price" required><input id="lot.starting_price" type="number" step="0.01" min="0" wire:model="lot.starting_price" class="input tabular-nums" dir="ltr"></x-admin.field>
-                <x-admin.field :label="__('auction_admin.increment')" for="lot.min_increment" required><input id="lot.min_increment" type="number" step="0.01" min="1" wire:model="lot.min_increment" class="input tabular-nums" dir="ltr"></x-admin.field>
-                <x-admin.field :label="__('auction_admin.reserve')" for="lot.reserve_price" :hint="__('auction_admin.reserve_hint')"><input id="lot.reserve_price" type="number" step="0.01" min="0" wire:model="lot.reserve_price" class="input tabular-nums" dir="ltr"></x-admin.field>
-                <x-admin.field :label="__('auction_admin.buy_now')" for="lot.buy_now_price"><input id="lot.buy_now_price" type="number" step="0.01" min="0" wire:model="lot.buy_now_price" class="input tabular-nums" dir="ltr"></x-admin.field>
+                <x-admin.field :label="__('auction_admin.starting_price')" for="lot.starting_price" required><input id="lot.starting_price" @disabled(! $lotFull) type="number" step="0.01" min="0" wire:model="lot.starting_price" class="input tabular-nums" dir="ltr"></x-admin.field>
+                <x-admin.field :label="__('auction_admin.increment')" for="lot.min_increment" required><input id="lot.min_increment" @disabled(! $lotFull) type="number" step="0.01" min="1" wire:model="lot.min_increment" class="input tabular-nums" dir="ltr"></x-admin.field>
+                <x-admin.field :label="__('auction_admin.reserve')" for="lot.reserve_price" :hint="__('auction_admin.reserve_hint')"><input id="lot.reserve_price" @disabled(! $reserveFree) type="number" step="0.01" min="0" wire:model="lot.reserve_price" class="input tabular-nums" dir="ltr"></x-admin.field>
+                <x-admin.field :label="__('auction_admin.buy_now')" for="lot.buy_now_price"><input id="lot.buy_now_price" @disabled(! $lotFull) type="number" step="0.01" min="0" wire:model="lot.buy_now_price" class="input tabular-nums" dir="ltr"></x-admin.field>
             </div>
             <div class="grid gap-4 sm:grid-cols-3 [&>*]:min-w-0">
-                <x-admin.field :label="__('admin.quantity')" for="lot.quantity" required><input id="lot.quantity" type="number" min="1" wire:model="lot.quantity" class="input tabular-nums"></x-admin.field>
-                <x-admin.field :label="__('auction_admin.starts_at')" for="lot.starts_at" :required="($form['type'] ?? '') === 'scheduled'"><input id="lot.starts_at" type="datetime-local" wire:model="lot.starts_at" class="input"></x-admin.field>
-                <x-admin.field :label="__('auction_admin.ends_at')" for="lot.ends_at" :required="($form['type'] ?? '') === 'scheduled'"><input id="lot.ends_at" type="datetime-local" wire:model="lot.ends_at" class="input"></x-admin.field>
+                <x-admin.field :label="__('admin.quantity')" for="lot.quantity" required><input id="lot.quantity" @disabled(! $lotFull) type="number" min="1" wire:model="lot.quantity" class="input tabular-nums"></x-admin.field>
+                <x-admin.field :label="__('auction_admin.starts_at')" for="lot.starts_at" :required="($form['type'] ?? '') === 'scheduled'"><input id="lot.starts_at" @disabled(! $lotFull) type="datetime-local" wire:model="lot.starts_at" class="input"></x-admin.field>
+                <x-admin.field :label="__('auction_admin.ends_at')" for="lot.ends_at" :required="($form['type'] ?? '') === 'scheduled'"><input id="lot.ends_at" @disabled(! $lotFull) type="datetime-local" wire:model="lot.ends_at" class="input"></x-admin.field>
             </div>
             <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">
                 <button type="button" class="btn-secondary" @click="open = false">{{ __('admin.cancel') }}</button>
-                <button class="btn-primary" wire:loading.attr="disabled" wire:target="addLot"><x-icon name="plus" class="size-4" />{{ __('auction_admin.add_lot') }}</button>
+                <button class="btn-primary" wire:loading.attr="disabled" wire:target="saveLot"><x-icon name="{{ $editingLot ? 'check' : 'plus' }}" class="size-4" />{{ $editingLot ? __('auction_admin.save_lot') : __('auction_admin.add_lot') }}</button>
             </div>
         </form>
     </x-admin.dialog>

@@ -1985,4 +1985,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String paymentMethodLabel(String method) {
     return '$method';
   }
+
+  @override
+  String get deliverySlotTitle => 'Delivery time';
+
+  @override
+  String get deliverySlotMoreDates => 'More dates';
+
+  @override
+  String get deliverySlotNoDates => 'No delivery times in the next 7 days. Try “More dates”.';
+
+  @override
+  String get deliverySlotNoSlotsDay => 'No delivery times on this day.';
+
+  @override
+  String get deliverySlotRequiredHint => 'Choose a delivery time to place your order';
+
+  @override
+  String get deliverySlotRequiredError => 'Please choose a delivery time for this order.';
+
+  @override
+  String get deliverySlotUnavailableError => 'That delivery time is no longer available. Please choose another.';
+
+  @override
+  String deliverySlotSummary(String date, String from, String to) {
+    return 'Delivery: $date, $from – $to';
+  }
 }

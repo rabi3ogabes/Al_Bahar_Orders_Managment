@@ -1,6 +1,18 @@
 <?php
 
 return [
+    'extend' => 'Extend time',
+    'extend_hint' => 'Adds time to the clock (for example after a technical problem). It never shortens a lot, and bidders see the new end time at once.',
+    'lot_extended' => 'The lot was extended.',
+    'edit_lot' => 'Edit lot',
+    'save_lot' => 'Save lot',
+    'lot_updated' => 'Lot updated.',
+    'lot_deleted' => 'Lot deleted.',
+    'delete_lot' => 'Delete lot',
+    'confirm_delete_lot' => 'Delete this lot? It has no bids, so nothing else is affected.',
+    'lot_live_locked_hint' => 'This lot is live. Only its title, description and (until the first bid) reserve can change; use Extend time in the console to move the end.',
+    'edit_lot_hint' => 'Changes are recorded in the audit log.',
+    'locked' => 'Locked while live',
     'add_lot' => 'Add lot',
     'add_lot_hint' => 'Link a catalogue product to reserve its stock while the lot is open, or create an auction-only lot.',
     'all_types' => 'All types',

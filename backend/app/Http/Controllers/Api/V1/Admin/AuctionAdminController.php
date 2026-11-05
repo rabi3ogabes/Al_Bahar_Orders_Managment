@@ -37,6 +37,26 @@ class AuctionAdminController extends ApiController
         return response()->json(['data' => $svc->addLot($this->user(), $auction, $data)], 201);
     }
 
+    /** Edit a lot; what may change depends on its state (see AuctionService::updateLot). Send only the fields to change. */
+    public function updateLot(Request $request, AuctionLot $lot, AuctionService $svc): JsonResponse
+    {
+        $data = $request->validate(['title_en' => 'sometimes|string|max:255', 'title_ar' => 'sometimes|string|max:255', 'description_en' => 'sometimes|nullable|string',
+            'description_ar' => 'sometimes|nullable|string', 'image_path' => 'sometimes|nullable|string|max:255', 'quantity' => 'sometimes|integer|min:1|max:1000',
+            'starting_price' => 'sometimes|numeric|min:0', 'reserve_price' => 'sometimes|nullable|numeric|min:0', 'min_increment' => 'sometimes|numeric|min:1',
+            'buy_now_price' => 'sometimes|nullable|numeric|min:0', 'lot_number' => 'sometimes|integer|min:1', 'sort_order' => 'sometimes|integer|min:0',
+            'starts_at' => 'sometimes|nullable|date', 'ends_at' => 'sometimes|nullable|date',
+            'product_variant_id' => 'sometimes|nullable|uuid|exists:product_variants,id', 'branch_id' => 'required_with:product_variant_id|nullable|uuid|exists:branches,id']);
+
+        return response()->json(['data' => $svc->updateLot($this->user(), $lot, $data)->makeVisible('reserve_price')]);
+    }
+
+    public function deleteLot(AuctionLot $lot, AuctionService $svc): JsonResponse
+    {
+        $svc->deleteLot($this->user(), $lot);
+
+        return response()->json(null, 204);
+    }
+
     public function publish(Auction $auction, AuctionService $svc): JsonResponse
     {
         return response()->json(['data' => $svc->publish($this->user(), $auction)]);
@@ -57,6 +77,7 @@ class AuctionAdminController extends ApiController
             'resume' => $lots->resume($lot, $u),
             'close' => $lots->close($lot, 'hammer', actor: $u),
             'cancel' => $lots->cancel($lot, $u, $request->validate(['reason' => 'required|string|max:255'])['reason']),
+            'extend' => $lots->extend($lot, $u, ...array_values($request->validate(['seconds' => 'required|integer|min:30|max:86400', 'reason' => 'required|string|max:255']))),
             default => abort(404),
         };
 
@@ -81,7 +102,7 @@ class AuctionAdminController extends ApiController
     public function feed(AuctionLot $lot): JsonResponse
     {
         return response()->json(['data' => ['lot' => $lot->makeVisible('reserve_price'), 'bids' => $lot->bids()->with('user:id,name,phone')->orderByDesc('created_at')->limit(200)->get(),
-            'auto_bids' => $lot->autoBids()->with('user:id,name')->get(), 'events' => $lot->events()->orderByDesc('sequence')->limit(100)->get()]]);
+            'auto_bids' => $lot->autoBids()->with('user:id,name')->get(), 'events' => $lot->events()->reorder('sequence', 'desc')->limit(100)->get()]]);
     }
 
     private function rules(Request $request, bool $partial = false): array

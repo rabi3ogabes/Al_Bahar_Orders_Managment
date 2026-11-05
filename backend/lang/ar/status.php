@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'in_drawer' => 'في الصندوق',
+    'deposited' => 'تم الإيداع',
     'active' => 'نشط',
     'inactive' => 'غير نشط',
     'draft' => 'مسودة',

@@ -31,6 +31,11 @@ class BranchRepository {
   Future<List<PickupSlot>> pickupSlots(String id, String date) =>
       _api.getList('/branches/$id/pickup-slots', PickupSlot.fromJson, query: {'date': date});
 
+  /// `date` must be today … +29 days (Qatar), otherwise the backend answers 422;
+  /// 404 when the branch does not deliver.
+  Future<List<DeliverySlot>> deliverySlots(String id, String date) =>
+      _api.getList('/branches/$id/delivery-slots', DeliverySlot.fromJson, query: {'date': date});
+
   Future<List<DeliveryZone>> deliveryZones() => _api.getList('/delivery-zones', DeliveryZone.fromJson);
 }
 

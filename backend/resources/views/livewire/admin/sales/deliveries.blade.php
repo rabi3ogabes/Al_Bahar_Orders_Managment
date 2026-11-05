@@ -135,7 +135,26 @@
                 </x-admin.field>
                 @if ($drivers->isEmpty())<p class="text-xs text-ink-500">{{ __('sales_admin.no_drivers') }}</p>@endif
             @endif
-            @if (in_array($dialog, ['create', 'reschedule'], true))
+            @if ($dialog === 'reschedule' && $slotOptions !== null)
+                <x-admin.field :label="__('sales_admin.slot_date')" for="form.slot_date" required><input id="form.slot_date" type="date" wire:model.live="form.slot_date" min="{{ \App\Support\BusinessTime::now()->toDateString() }}" class="input"></x-admin.field>
+                <div>
+                    <div class="mb-1.5 text-sm font-medium">{{ __('sales_admin.slot') }}</div>
+                    @if ($slotOptions->isEmpty())
+                        <p class="rounded-xl border border-dashed border-sand-300 p-3 text-sm text-ink-500 dark:border-ink-700">{{ __('sales_admin.no_slots_for_date') }}</p>
+                    @else
+                        <div class="grid grid-cols-2 gap-2">
+                            @foreach ($slotOptions as $sl)
+                                <label class="flex cursor-pointer flex-col rounded-xl border px-3 py-2.5 text-sm transition {{ ($form['slot_id'] ?? '') === $sl['id'] ? 'border-brass-500 bg-brass-50 dark:bg-brass-500/10' : 'border-sand-200 dark:border-ink-700' }}">
+                                    <input type="radio" wire:model.live="form.slot_id" value="{{ $sl['id'] }}" class="sr-only">
+                                    <span class="font-medium tabular-nums" dir="ltr">{{ $sl['starts_at'] }} – {{ $sl['ends_at'] }}</span>
+                                    <span class="text-xs text-ink-500">{{ __('sales_admin.slot_left', ['n' => $sl['available']]) }}</span>
+                                </label>
+                            @endforeach
+                        </div>
+                    @endif
+                    @error('form.slot_id')<p class="mt-1 text-xs text-ruby-soft">{{ $message }}</p>@enderror
+                </div>
+            @elseif (in_array($dialog, ['create', 'reschedule'], true))
                 <x-admin.field :label="__('sales_admin.scheduled_for')" for="form.scheduled_for" :required="$dialog === 'reschedule'"><input id="form.scheduled_for" type="datetime-local" wire:model="form.scheduled_for" class="input"></x-admin.field>
             @endif
             @if ($dialog === 'fail')

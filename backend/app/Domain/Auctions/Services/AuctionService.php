@@ -14,6 +14,7 @@ use App\Domain\Branches\Services\DeliveryZoneResolver;
 use App\Domain\Catalog\Models\ProductVariant;
 use App\Domain\Fulfillment\Models\PickupReservation;
 use App\Domain\Identity\Models\User;
+use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Inventory\Services\ReservationService;
 use App\Domain\Orders\Enums\FulfillmentStatus;
 use App\Domain\Orders\Enums\OrderStatus;
@@ -28,6 +29,8 @@ use App\Domain\Payments\Services\PaymentService;
 use App\Support\DocumentNumber;
 use App\Support\DomainException;
 use App\Support\Money;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -215,6 +218,169 @@ class AuctionService
 
             return $lot;
         });
+    }
+
+    /** Lot fields by when they may change (see updateLot). */
+    private const LOT_TEXT_FIELDS = ['title_en', 'title_ar', 'description_en', 'description_ar', 'image_path'];
+
+    private const LOT_PRICING_FIELDS = ['quantity', 'starting_price', 'min_increment', 'buy_now_price', 'lot_number', 'sort_order'];
+
+    private const LOT_SCHEDULE_FIELDS = ['starts_at', 'ends_at'];
+
+    /**
+     * Edit a lot. What may change depends on its state, so a live lot can never be altered under bidders' feet:
+     *  - pending (not yet open): everything, including the catalogue link (product_variant_id/branch_id; null variant removes it);
+     *  - open/paused: title, description and image; the reserve price only while there are no bids; nothing else
+     *    (use LotService::extend to move the end time);
+     *  - finished or cancelled lots, and lots of cancelled/closed auctions: read-only.
+     * Locked fields that are sent unchanged are ignored; sending a different value is refused with `lot_field_locked`.
+     */
+    public function updateLot(User $actor, AuctionLot $lot, array $data): AuctionLot
+    {
+        $this->authorizeLotEdit($actor);
+        $events = [];
+        $lot = DB::transaction(function () use ($actor, $lot, $data, &$events) {
+            $l = AuctionLot::whereKey($lot->id)->lockForUpdate()->firstOrFail();
+            $this->assertLotEditable($l);
+            $pending = $l->status === 'pending';
+
+            $changes = [];
+            foreach ([...self::LOT_TEXT_FIELDS, 'reserve_price', ...self::LOT_PRICING_FIELDS, ...self::LOT_SCHEDULE_FIELDS] as $field) {
+                if (! array_key_exists($field, $data) || $this->sameValue($l, $field, $data[$field])) {
+                    continue;
+                }
+                $locked = ! $pending && ! in_array($field, self::LOT_TEXT_FIELDS, true) && ! ($field === 'reserve_price' && (int) $l->bid_count === 0);
+                if ($locked) {
+                    throw DomainException::make('lot_field_locked', 422, ['field' => $field]);
+                }
+                $changes[$field] = $data[$field] === '' ? null : $data[$field];
+            }
+            $linkChange = $pending && (array_key_exists('product_variant_id', $data) || array_key_exists('branch_id', $data));
+            if (! $pending && (array_key_exists('product_variant_id', $data) && $data['product_variant_id'] !== ($l->products()->value('product_variant_id')))) {
+                throw DomainException::make('lot_field_locked', 422, ['field' => 'product_variant_id']);
+            }
+
+            $this->assertLotInvariants($l, $changes);
+            $before = $l->only(array_keys($changes));
+            try {
+                $l->forceFill($changes)->save();
+            } catch (QueryException $e) {
+                if (str_contains($e->getMessage(), 'auction_lots_auction_id_lot_number_unique')) {
+                    throw DomainException::make('lot_number_taken', 422);
+                }
+                throw $e;
+            }
+
+            if ($linkChange) {
+                $l->products()->delete();
+                if (! empty($data['product_variant_id'])) {
+                    $variant = ProductVariant::findOrFail($data['product_variant_id']);
+                    if (empty($data['branch_id'])) {
+                        throw DomainException::make('lot_field_locked', 422, ['field' => 'branch_id']);
+                    }
+                    AuctionProduct::create(['auction_lot_id' => $l->id, 'product_id' => $variant->product_id, 'product_variant_id' => $variant->id,
+                        'branch_id' => $data['branch_id'], 'quantity' => $l->quantity]);
+                }
+                $changes['product_variant_id'] = $data['product_variant_id'] ?? null;
+            } elseif ($pending && isset($changes['quantity'])) {
+                $l->products()->update(['quantity' => $l->quantity]);
+            }
+
+            if ($changes === []) {
+                return $l;
+            }
+            if (! $pending) {
+                $events[] = app(BidEngine::class)->event($l, 'edited', ['fields' => array_keys($changes)], $actor->id);
+            }
+            $this->audit->log('auction.lot_updated', $l, $before, $changes, actor: $actor);
+
+            return $l;
+        });
+        app(BidEngine::class)->broadcast($lot, $events);
+
+        return $lot->fresh();
+    }
+
+    /** Remove a lot that never took part in bidding (pending, no bids). Published auctions must keep at least one lot. */
+    public function deleteLot(User $actor, AuctionLot $lot): void
+    {
+        $this->authorizeLotEdit($actor, 'auctions.delete');
+        DB::transaction(function () use ($actor, $lot) {
+            $auction = Auction::whereKey($lot->auction_id)->lockForUpdate()->firstOrFail();
+            $l = AuctionLot::whereKey($lot->id)->lockForUpdate()->firstOrFail();
+            if ($l->status !== 'pending' || $l->bids()->exists() || $l->bid_count > 0) {
+                throw DomainException::make('lot_not_deletable', 409, ['status' => $l->status]);
+            }
+            if ($auction->status !== 'draft' && $auction->lots()->whereKeyNot($l->id)->doesntExist()) {
+                throw DomainException::make('auction_needs_a_lot', 409);
+            }
+            $snapshot = ['lot_number' => $l->lot_number, 'title_en' => $l->title_en, 'starting_price' => $l->starting_price];
+            try {
+                $l->delete();
+            } catch (QueryException) {
+                throw DomainException::make('lot_not_deletable', 409, ['status' => $l->status]);
+            }
+            // A live auction whose remaining lots are all finished ends with this removal.
+            if (in_array($auction->status, ['live', 'paused'], true) && ! $auction->lots()->whereIn('status', ['pending', 'open', 'paused'])->exists()) {
+                $auction->update(['status' => 'closed']);
+            }
+            $this->audit->log('auction.lot_deleted', $auction, $snapshot, [], actor: $actor);
+        });
+    }
+
+    private function authorizeLotEdit(User $actor, string $permission = 'auctions.edit'): void
+    {
+        if (! app(AccessControl::class)->allows($actor, $permission)) {
+            throw DomainException::make('branch_forbidden', 403);
+        }
+    }
+
+    private function assertLotEditable(AuctionLot $lot): void
+    {
+        $auction = $lot->auction()->first();
+        if (! in_array($lot->status, ['pending', 'open', 'paused'], true) || in_array($auction->status, ['closed', 'cancelled'], true)) {
+            throw DomainException::make('invalid_state_transition', 409, ['from' => $lot->status]);
+        }
+    }
+
+    private function sameValue(AuctionLot $lot, string $field, mixed $new): bool
+    {
+        $old = $lot->getAttribute($field);
+        if ($new === '' || $new === null) {
+            return $old === null;
+        }
+        if ($old === null) {
+            return false;
+        }
+        if (in_array($field, ['starting_price', 'reserve_price', 'min_increment', 'buy_now_price'], true)) {
+            return Money::of((string) $old)->equals(Money::of((string) $new));
+        }
+        if (in_array($field, self::LOT_SCHEDULE_FIELDS, true)) {
+            return $old->equalTo(CarbonImmutable::parse($new));
+        }
+
+        return (string) $old === (string) $new;
+    }
+
+    /** Cross-field rules, evaluated on the values the lot will have after the change. */
+    private function assertLotInvariants(AuctionLot $lot, array $changes): void
+    {
+        $get = fn (string $f) => array_key_exists($f, $changes) ? $changes[$f] : $lot->getAttribute($f);
+        $starting = Money::of((string) $get('starting_price'));
+        if ($get('buy_now_price') !== null && ! Money::of((string) $get('buy_now_price'))->greaterThan($starting)) {
+            throw DomainException::make('lot_invalid', 422, ['field' => 'buy_now_price']);
+        }
+        if (! Money::of((string) $get('min_increment'))->greaterThan(Money::zero())) {
+            throw DomainException::make('lot_invalid', 422, ['field' => 'min_increment']);
+        }
+        if ((int) $get('quantity') < 1) {
+            throw DomainException::make('lot_invalid', 422, ['field' => 'quantity']);
+        }
+        $starts = $get('starts_at');
+        $ends = $get('ends_at');
+        if ($starts && $ends && CarbonImmutable::parse($ends)->lessThanOrEqualTo(CarbonImmutable::parse($starts))) {
+            throw DomainException::make('lot_invalid', 422, ['field' => 'ends_at']);
+        }
     }
 
     public function publish(User $actor, Auction $auction): Auction

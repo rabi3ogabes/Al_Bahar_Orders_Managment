@@ -101,6 +101,7 @@ Create/update body: same fields (`delivery_zone_id` instead of the object). `rec
 | | `/branches/{id}` | Branch |
 | | `/branches/{id}/hours` | `{timezone, weekly:[{day_of_week (0=Sun), is_closed, opens_at "09:00", closes_at "22:00", break_starts_at, break_ends_at}], holidays:[{name, type, starts_at, ends_at}]}` |
 | | `/branches/{id}/pickup-slots?date=YYYY-MM-DD` | `[{id, date, starts_at "16:00", ends_at "18:00", available: 3, is_full}]` |
+| | `/branches/{id}/delivery-slots?date=YYYY-MM-DD` | same shape as pickup slots; 404 when the branch does not deliver; date must be today … +29 days |
 | | `/delivery-zones` | `[{id, name, zone_numbers[]}]` |
 
 Branch:
@@ -184,15 +185,23 @@ Cart:
 CheckoutOptions:
 ```json
 { "fulfillment_type":"delivery|pickup", "address_id":"uuid (delivery)", "branch_id":"uuid (pickup branch / preferred)",
-  "pickup_slot_id":"uuid?", "pickup_date":"YYYY-MM-DD?", "delivery_slot_id":"uuid?", "delivery_date":"…?",
+  "pickup_slot_id":"uuid?", "pickup_date":"YYYY-MM-DD?", "delivery_slot_id":"uuid?", "delivery_date":"YYYY-MM-DD?",
   "payment_method":"sadad|cod|pay_at_pickup", "coupon_code":"?", "loyalty_points":0,
   "allow_split":true, "express":false, "latitude":null, "longitude":null }
 ```
+**Delivery slots.** When a single-branch delivery order is quoted and that branch publishes delivery slots, a slot is
+required: the fulfillment carries `slot_required: true` and, until `delivery_slot_id` + `delivery_date` are sent, the
+quote has error `slot_required` (`can_place_order: false`). Pick the slot from
+`GET /branches/{fulfillments[0].branch.id}/delivery-slots?date=…`. A taken/invalid slot yields `slot_unavailable`
+(re-fetch slots). Split orders (several branches) cannot use a slot (warning `slot_ignored_for_split`).
+Capacity is reserved when the order is placed and released if it is cancelled.
+
 Quote:
 ```json
 { "quote_hash":"sha256…", "currency":"QAR",
   "fulfillments":[{"branch":{"id","name"}, "type":"delivery", "items":[{"variant_id","name","quantity","unit_price":EffectivePrice,"line_total":Money}],
-                   "subtotal":Money, "delivery_fee":Money, "eta_minutes":120, "slot":{…}|null}],
+                   "subtotal":Money, "delivery_fee":Money, "eta_minutes":120, "slot":{"id","date":"YYYY-MM-DD","starts_at":"16:00","ends_at":"18:00"}|null,
+                   "slot_required":true}],
   "is_split": false,
   "lines":[{"variant_id","name","variant_name","image_url","quantity","unit_price":EffectivePrice,"line_subtotal":Money,"discount":Money,"line_total":Money,"branch_id"}],
   "totals":{"subtotal":Money,"discount":Money,"delivery_fee":Money,"service_fee":Money,"cod_fee":Money,"tax":Money,"loyalty_discount":Money,"grand_total":Money},

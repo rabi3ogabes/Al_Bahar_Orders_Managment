@@ -16,6 +16,13 @@
         <div class="rounded-2xl bg-white p-3 shadow-[var(--shadow-card)] dark:bg-ink-900"><p class="font-display text-lg font-semibold leading-8"><x-admin.money :value="number_format($codTotal, 2, '.', '')" /></p><p class="text-[0.7rem] text-ink-500">{{ __('sales_admin.drv_cash_today') }}</p></div>
     </div>
 
+    @if ($cashToHandIn->isPositive())
+        <div class="mb-4 flex items-center gap-3 rounded-2xl border border-amber-soft/40 bg-amber-soft/10 p-3 text-sm">
+            <x-icon name="cash" class="size-5 shrink-0 text-amber-soft" />
+            <p class="min-w-0 flex-1"><span class="font-semibold tabular-nums">{{ $cashToHandIn->format() }}</span> — {{ __('sales_admin.drv_cash_to_hand_in') }}</p>
+        </div>
+    @endif
+
     @if ($active->isEmpty())
         <div class="rounded-3xl bg-white shadow-[var(--shadow-card)] dark:bg-ink-900">
             <x-admin.empty :title="__('sales_admin.drv_empty')" :description="$later ? trans_choice('sales_admin.drv_later', $later, ['count' => $later]) : __('sales_admin.drv_empty_hint')" icon="truck" />

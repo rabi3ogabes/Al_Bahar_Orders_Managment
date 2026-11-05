@@ -8,6 +8,12 @@ use App\Support\Money;
 
 final class FulfillmentPlan
 {
+    /** Set by the quote: whether the customer must pick a time slot, and the chosen slot's details. */
+    public bool $slotRequired = false;
+
+    /** @var array{starts_at: string, ends_at: string}|null */
+    public ?array $slotInfo = null;
+
     /** @param list<QuoteLine> $lines */
     public function __construct(
         public readonly Branch $branch,

@@ -2,7 +2,7 @@
 
 Generated from the live PostgreSQL schema (`docs/database/generate.py`). Regenerate after every migration.
 
-**132 tables**, 244 foreign keys, 63 CHECK constraints, 308 indexes.
+**133 tables**, 250 foreign keys, 68 CHECK constraints, 314 indexes.
 
 ## Append-only (immutable) tables
 
@@ -638,15 +638,53 @@ Indexes:
 | `handed_in_to` | uuid | yes |  |
 | `created_at` | timestamp with time zone | yes |  |
 | `updated_at` | timestamp with time zone | yes |  |
+| `cash_handover_id` | uuid | yes |  |
 
-Foreign keys: `branch_id` → `branches` (on delete restrict); `collected_by` → `users` (on delete restrict); `handed_in_to` → `users` (on delete set null); `order_fulfillment_id` → `order_fulfillments` (on delete restrict); `payment_id` → `payments` (on delete restrict); `payment_reconciliation_id` → `payment_reconciliations` (on delete set null)
+Foreign keys: `branch_id` → `branches` (on delete restrict); `cash_handover_id` → `cash_handovers` (on delete restrict); `collected_by` → `users` (on delete restrict); `handed_in_to` → `users` (on delete set null); `order_fulfillment_id` → `order_fulfillments` (on delete restrict); `payment_id` → `payments` (on delete restrict); `payment_reconciliation_id` → `payment_reconciliations` (on delete set null)
 
 Checks: `CHECK (((amount_due >= (0)::numeric) AND (amount_collected >= (0)::numeric)))`
 
 Indexes:
 
 - `INDEX cash_collections_branch_id_collected_at_index ON public.cash_collections USING btree (branch_id, collected_at)`
+- `INDEX cash_collections_cash_handover_id_index ON public.cash_collections USING btree (cash_handover_id)`
 - `INDEX cash_collections_collected_by_collected_at_index ON public.cash_collections USING btree (collected_by, collected_at)`
+
+## `cash_handovers`
+
+| Column | Type | Null | Default |
+|---|---|---|---|
+| `id` | uuid | no |  |
+| `number` | character varying(32) | no |  |
+| `branch_id` | uuid | no |  |
+| `collector_id` | uuid | no |  |
+| `received_by` | uuid | no |  |
+| `collections_count` | integer | no |  |
+| `expected_amount` | numeric | no |  |
+| `counted_amount` | numeric | no |  |
+| `variance` | numeric | no |  |
+| `status` | character varying(16) | no |  |
+| `note` | character varying(500) | yes |  |
+| `variance_status` | character varying(16) | yes |  |
+| `variance_resolved_by` | uuid | yes |  |
+| `variance_resolved_at` | timestamp with time zone | yes |  |
+| `variance_resolution` | character varying(500) | yes |  |
+| `deposited_at` | timestamp with time zone | yes |  |
+| `deposit_reference` | character varying(128) | yes |  |
+| `deposited_by` | uuid | yes |  |
+| `created_at` | timestamp with time zone | yes |  |
+| `updated_at` | timestamp with time zone | yes |  |
+
+Foreign keys: `branch_id` → `branches` (on delete restrict); `collector_id` → `users` (on delete restrict); `deposited_by` → `users` (on delete set null); `received_by` → `users` (on delete restrict); `variance_resolved_by` → `users` (on delete set null)
+
+Checks: `CHECK (((expected_amount >= (0)::numeric) AND (counted_amount >= (0)::numeric) AND (collections_count > 0) AND (variance = (counted_amount - expected_amount))))`; `CHECK (((deposited_at IS NULL) = (deposit_reference IS NULL)))`; `CHECK ((collector_id <> received_by))`; `CHECK (((status)::text = ANY ((ARRAY['balanced'::character varying, 'short'::character varying, 'over'::character varying])::text[])))`; `CHECK ((((variance = (0)::numeric) AND (variance_status IS NULL)) OR ((variance <> (0)::numeric) AND ((variance_status)::text = ANY ((ARRAY['open'::character varying, 'resolved'::character varying])::text[])))))`
+
+Indexes:
+
+- `INDEX cash_handovers_branch_id_created_at_index ON public.cash_handovers USING btree (branch_id, created_at)`
+- `INDEX cash_handovers_branch_id_deposited_at_index ON public.cash_handovers USING btree (branch_id, deposited_at)`
+- `INDEX cash_handovers_collector_id_created_at_index ON public.cash_handovers USING btree (collector_id, created_at)`
+- `UNIQUE INDEX cash_handovers_number_unique ON public.cash_handovers USING btree (number)`
 
 ## `catalog_imports`
 
@@ -1772,7 +1810,7 @@ Indexes:
 | `branch_id` | uuid | no |  |
 | `delivery_slot_id` | uuid | yes |  |
 | `slot_date` | date | yes |  |
-| `status` | character varying(16) | no | 'pending'::character varying |
+| `status` | character varying(24) | no | 'pending'::character varying |
 | `token_hash` | character varying(64) | yes |  |
 | `token_expires_at` | timestamp with time zone | yes |  |
 | `token_used_at` | timestamp with time zone | yes |  |

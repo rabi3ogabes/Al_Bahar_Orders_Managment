@@ -2,6 +2,7 @@ import 'package:albahar_customer/core/models/money.dart';
 import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/network/interceptors.dart';
 import 'package:albahar_customer/core/utils/json.dart';
+import 'package:albahar_customer/features/branches/domain/branch_models.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
 import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
 import 'package:albahar_customer/features/checkout/data/checkout_repository.dart';
@@ -22,6 +23,8 @@ class CheckoutState {
     this.quoteChanged = false,
     this.previousTotal,
     this.notes = '',
+    this.slotUnavailable = false,
+    this.slotBranchId,
   });
 
   final CheckoutOptions options;
@@ -37,11 +40,25 @@ class CheckoutState {
   final Money? previousTotal;
   final String notes;
 
+  /// The server rejected the chosen delivery slot (`slot_unavailable`); the
+  /// selection was cleared and stays flagged until a new slot is picked.
+  final bool slotUnavailable;
+
+  /// Branch the chosen delivery slot belongs to (a slot is only valid there).
+  final String? slotBranchId;
+
+  /// A single-branch delivery whose branch publishes slots needs one chosen.
+  bool get slotMissing =>
+      options.fulfillmentType == FulfillmentType.delivery &&
+      (quote?.slotRequired ?? false) &&
+      options.deliverySlotId == null;
+
   /// Client-side precondition check only; the server decides via
   /// `can_place_order`.
   String? get missingRequirement {
     if (options.fulfillmentType == FulfillmentType.delivery && options.addressId == null) return 'address';
     if (options.fulfillmentType == FulfillmentType.pickup && options.branchId == null) return 'branch';
+    if (slotMissing) return 'slot';
     if (options.paymentMethod == null) return 'payment';
     return null;
   }
@@ -58,6 +75,8 @@ class CheckoutState {
     bool? quoteChanged,
     Money? Function()? previousTotal,
     String? notes,
+    bool? slotUnavailable,
+    String? Function()? slotBranchId,
   }) => CheckoutState(
     options: options ?? this.options,
     quote: quote != null ? quote() : this.quote,
@@ -68,6 +87,8 @@ class CheckoutState {
     quoteChanged: quoteChanged ?? this.quoteChanged,
     previousTotal: previousTotal != null ? previousTotal() : this.previousTotal,
     notes: notes ?? this.notes,
+    slotUnavailable: slotUnavailable ?? this.slotUnavailable,
+    slotBranchId: slotBranchId != null ? slotBranchId() : this.slotBranchId,
   );
 }
 
@@ -105,14 +126,38 @@ class CheckoutController extends Notifier<CheckoutState> {
     try {
       final quote = await _repo.quote(quotedWith);
       if (!ref.mounted || seq != _quoteSeq) return;
-      final corrected = _correct(quotedWith, quote);
-      state = state.copyWith(quote: () => quote, quoting: false, options: corrected);
+      var corrected = _correct(quotedWith, quote);
+      var rejected = false;
+      if (corrected.deliverySlotId != null) {
+        final fulfillment = quote.singleFulfillment;
+        if (quote.issue('slot_unavailable') != null) {
+          // Invalid or full slot: drop it and refetch what is really free.
+          rejected = true;
+          corrected = _withoutSlot(corrected);
+          ref.invalidate(deliverySlotsProvider);
+        } else if (fulfillment == null ||
+            fulfillment.type != 'delivery' ||
+            (state.slotBranchId != null && fulfillment.branch.id != state.slotBranchId)) {
+          // Split order (slot ignored) or the branch changed: the slot no longer applies.
+          corrected = _withoutSlot(corrected);
+        }
+      }
+      state = state.copyWith(
+        quote: () => quote,
+        quoting: false,
+        options: corrected,
+        slotUnavailable: rejected ? true : null,
+        slotBranchId: corrected.deliverySlotId == null ? () => null : null,
+      );
       if (allowCorrection && corrected != quotedWith) await refreshQuote(allowCorrection: false);
     } catch (e) {
       if (!ref.mounted || seq != _quoteSeq) return;
       state = state.copyWith(quoting: false, quoteError: () => e);
     }
   }
+
+  static CheckoutOptions _withoutSlot(CheckoutOptions o) =>
+      o.copyWith(deliverySlotId: () => null, deliveryDate: () => null);
 
   static CheckoutOptions _correct(CheckoutOptions options, Quote quote) {
     var next = options;
@@ -130,10 +175,31 @@ class CheckoutController extends Notifier<CheckoutState> {
   }
 
   Future<void> update(CheckoutOptions Function(CheckoutOptions o) change) async {
-    final next = change(state.options);
-    if (next == state.options) return;
-    state = state.copyWith(options: next, quoteChanged: false, previousTotal: () => null);
+    final before = state.options;
+    var next = change(before);
+    if (next == before) return;
+    // A delivery slot belongs to one branch: a new address, branch or
+    // fulfilment type invalidates it (the quote will name the right branch).
+    final context =
+        next.addressId != before.addressId ||
+        next.branchId != before.branchId ||
+        next.fulfillmentType != before.fulfillmentType;
+    final slotChanged = next.deliverySlotId != before.deliverySlotId;
+    if (context && !slotChanged) next = _withoutSlot(next);
+    state = state.copyWith(
+      options: next,
+      quoteChanged: false,
+      previousTotal: () => null,
+      slotUnavailable: context ? false : null,
+      slotBranchId: next.deliverySlotId == null ? () => null : null,
+    );
     await refreshQuote();
+  }
+
+  /// Chooses [slot] of [branchId] (the branch named by the current quote).
+  Future<void> selectDeliverySlot(DeliverySlot slot, {required String branchId, required String date}) async {
+    state = state.copyWith(slotUnavailable: false, slotBranchId: () => branchId);
+    await update((o) => o.copyWith(deliverySlotId: () => slot.id, deliveryDate: () => date));
   }
 
   void setNotes(String notes) => state = state.copyWith(notes: notes);
@@ -177,6 +243,18 @@ class CheckoutController extends Notifier<CheckoutState> {
           state = state.copyWith(placing: false, quoteChanged: true, previousTotal: () => quote.totals.grandTotal);
           await refreshQuote();
         }
+        return null;
+      }
+      if (e.code == 'slot_unavailable') {
+        // Someone took the slot meanwhile: clear it, refetch, re-quote.
+        ref.invalidate(deliverySlotsProvider);
+        state = state.copyWith(
+          placing: false,
+          options: _withoutSlot(state.options),
+          slotUnavailable: true,
+          slotBranchId: () => null,
+        );
+        await refreshQuote();
         return null;
       }
       state = state.copyWith(placing: false, placeError: () => e);

@@ -19,6 +19,7 @@ use App\Domain\Payments\Models\Refund;
 use App\Domain\Payments\Services\PaymentService;
 use App\Domain\Payments\Services\RefundService;
 use App\Http\Controllers\Api\V1\ApiController;
+use App\Support\BusinessTime;
 use App\Support\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -144,7 +145,10 @@ class OrderOpsController extends ApiController
             'deliver' => $svc->deliver($delivery, $u, $request->input('recipient_name'), $request->file('proof'), $request->input('proof_type', 'photo'),
                 $request->has('cod') ? $request->validate(['cod.tender' => 'required|in:cash,card_terminal', 'cod.amount' => 'required|numeric|min:0', 'cod.receipt_reference' => 'nullable|string'])['cod'] : null),
             'fail' => $svc->fail($delivery, $u, $request->validate(['reason_code' => 'required|in:customer_unreachable,customer_absent,wrong_address,refused,damaged,access_denied,other'])['reason_code'], $request->input('notes')),
-            'reschedule' => $svc->reschedule($delivery, $u, $request->validate(['scheduled_for' => 'required|date|after:now'])['scheduled_for']),
+            // Either onto a delivery slot (capacity-safe) or, for branches without slots, to a free time (Qatar time unless an offset is given).
+            'reschedule' => $request->filled('slot_id')
+                ? $svc->rescheduleToSlot($delivery, $u, ...array_values($request->validate(['slot_id' => 'required|uuid', 'date' => 'required|date_format:Y-m-d|after_or_equal:today'])))
+                : $svc->reschedule($delivery, $u, $request->validate(['scheduled_for' => ['required', 'date', fn ($a, $v, $fail) => BusinessTime::toUtc((string) $v)->isFuture() ?: $fail(__('validation.after', ['attribute' => $a, 'date' => 'now']))]])['scheduled_for']),
             'return' => $svc->returnToBranch($delivery, $u),
             'cancel' => $svc->cancel($delivery, $u, $request->validate(['reason' => 'required|string|max:500'])['reason']),
             'retry-booking' => $svc->book($delivery),

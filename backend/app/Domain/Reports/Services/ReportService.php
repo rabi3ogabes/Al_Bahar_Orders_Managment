@@ -233,7 +233,7 @@ class ReportService
         $rows = $s->apply(DB::table('cash_collections as c')->join('branches as b', 'b.id', '=', 'c.branch_id')->join('users as u', 'u.id', '=', 'c.collected_by')
             ->whereBetween('c.collected_at', [$start, $end]), 'c.branch_id')
             ->selectRaw('b.code as branch, c.context, c.tender, u.name as collected_by, count(*) as collections, sum(c.amount_collected) as collected,
-                sum(CASE WHEN c.handed_in_at IS NULL THEN c.amount_collected ELSE 0 END) as not_handed_in')
+                sum(CASE WHEN c.handed_in_at IS NULL AND c.tender = \'cash\' THEN c.amount_collected ELSE 0 END) as not_handed_in')
             ->groupBy('b.code', 'c.context', 'c.tender', 'u.name')->get();
 
         return ['columns' => ['branch', 'context', 'tender', 'collected_by', 'collections', 'collected', 'not_handed_in'], 'rows' => $rows->map(fn ($r) => (array) $r)->all(),

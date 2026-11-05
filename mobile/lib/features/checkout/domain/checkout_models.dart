@@ -60,6 +60,8 @@ class CheckoutOptions {
     String? Function()? branchId,
     String? Function()? pickupSlotId,
     String? Function()? pickupDate,
+    String? Function()? deliverySlotId,
+    String? Function()? deliveryDate,
     PaymentMethod? Function()? paymentMethod,
     String? Function()? couponCode,
     int? loyaltyPoints,
@@ -70,8 +72,8 @@ class CheckoutOptions {
     branchId: branchId != null ? branchId() : this.branchId,
     pickupSlotId: pickupSlotId != null ? pickupSlotId() : this.pickupSlotId,
     pickupDate: pickupDate != null ? pickupDate() : this.pickupDate,
-    deliverySlotId: deliverySlotId,
-    deliveryDate: deliveryDate,
+    deliverySlotId: deliverySlotId != null ? deliverySlotId() : this.deliverySlotId,
+    deliveryDate: deliveryDate != null ? deliveryDate() : this.deliveryDate,
     paymentMethod: paymentMethod != null ? paymentMethod() : this.paymentMethod,
     couponCode: couponCode != null ? couponCode() : this.couponCode,
     loyaltyPoints: loyaltyPoints ?? this.loyaltyPoints,
@@ -84,9 +86,10 @@ class CheckoutOptions {
     if (fulfillmentType == FulfillmentType.delivery) 'address_id': ?addressId,
     'branch_id': ?branchId,
     if (fulfillmentType == FulfillmentType.pickup) ...{'pickup_slot_id': ?pickupSlotId, 'pickup_date': ?pickupDate},
-    if (fulfillmentType == FulfillmentType.delivery) ...{
-      'delivery_slot_id': ?deliverySlotId,
-      'delivery_date': ?deliveryDate,
+    // The backend wants the slot id and its date together, or neither.
+    if (fulfillmentType == FulfillmentType.delivery && deliverySlotId != null && deliveryDate != null) ...{
+      'delivery_slot_id': deliverySlotId,
+      'delivery_date': deliveryDate,
     },
     'payment_method': ?paymentMethod?.api,
     if (couponCode != null && couponCode!.isNotEmpty) 'coupon_code': couponCode,
@@ -140,6 +143,27 @@ class QuoteLine {
   final String? branchId;
 }
 
+/// `fulfillments[i].slot` of a quote: `{id, date, starts_at, ends_at}`.
+@immutable
+class QuoteSlot {
+  const QuoteSlot({required this.id, required this.date, required this.startsAt, required this.endsAt});
+  static QuoteSlot? maybe(Object? json) {
+    if (json is! Map) return null;
+    final m = asMap(json);
+    return QuoteSlot(
+      id: asString(m['id']),
+      date: asString(m['date']),
+      startsAt: asString(m['starts_at']),
+      endsAt: asString(m['ends_at']),
+    );
+  }
+
+  final String id;
+  final String date;
+  final String startsAt;
+  final String endsAt;
+}
+
 @immutable
 class QuoteFulfillment {
   const QuoteFulfillment({
@@ -150,6 +174,7 @@ class QuoteFulfillment {
     this.deliveryFee,
     this.etaMinutes,
     this.slot,
+    this.slotRequired = false,
   });
   factory QuoteFulfillment.fromJson(JsonMap json) => QuoteFulfillment(
     branch: NamedRef.fromJson(asMap(json['branch'])),
@@ -158,7 +183,8 @@ class QuoteFulfillment {
     subtotal: Money.maybe(json['subtotal']),
     deliveryFee: Money.maybe(json['delivery_fee']),
     etaMinutes: asIntOrNull(json['eta_minutes']),
-    slot: asMapOrNull(json['slot']),
+    slot: QuoteSlot.maybe(json['slot']),
+    slotRequired: asBool(json['slot_required']),
   );
   final NamedRef branch;
   final String type;
@@ -166,7 +192,10 @@ class QuoteFulfillment {
   final Money? subtotal;
   final Money? deliveryFee;
   final int? etaMinutes;
-  final JsonMap? slot;
+  final QuoteSlot? slot;
+
+  /// True for a single-branch delivery whose branch publishes delivery slots.
+  final bool slotRequired;
 }
 
 /// Totals object shared by Quote and Order.
@@ -305,6 +334,23 @@ class Quote {
   final DateTime? expiresAt;
 
   PaymentOption? option(PaymentMethod method) => paymentMethods.where((p) => p.code == method.api).firstOrNull;
+
+  /// The only fulfilment of a non-split quote (slots only apply there).
+  QuoteFulfillment? get singleFulfillment => !isSplit && fulfillments.length == 1 ? fulfillments.first : null;
+
+  /// A delivery slot must be chosen before this quote can be placed.
+  bool get slotRequired {
+    final f = singleFulfillment;
+    return f != null && f.type == 'delivery' && f.slotRequired;
+  }
+
+  /// Delivery window the server holds for this quote (non-split only).
+  QuoteSlot? get deliverySlot {
+    final f = singleFulfillment;
+    return f != null && f.type == 'delivery' ? f.slot : null;
+  }
+
+  QuoteIssue? issue(String code) => [...errors, ...warnings].where((w) => w.code == code).firstOrNull;
 
   /// Coupon problem reported by the quote (`coupon_invalid`, `coupon_expired`, …).
   QuoteIssue? get couponIssue => [...errors, ...warnings].where((w) => w.code.startsWith('coupon_')).firstOrNull;

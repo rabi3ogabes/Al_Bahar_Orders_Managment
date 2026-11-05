@@ -26,7 +26,7 @@ class AuctionConsole extends Component
 
     public bool $showDialog = false;
 
-    /** open | pause | cancel | retract | block */
+    /** open | pause | extend | cancel | retract | block */
     public ?string $dialog = null;
 
     #[Locked]
@@ -52,7 +52,7 @@ class AuctionConsole extends Component
 
     public function ask(string $dialog, ?string $target = null): void
     {
-        abort_unless(in_array($dialog, ['open', 'pause', 'cancel', 'retract', 'block'], true), 422);
+        abort_unless(in_array($dialog, ['open', 'pause', 'extend', 'cancel', 'retract', 'block'], true), 422);
         abort_unless($this->can(in_array($dialog, ['retract', 'block'], true) ? 'auctions.override' : 'auctions.edit'), 403);
         $this->dialog = $dialog;
         $this->target = $target;
@@ -71,9 +71,11 @@ class AuctionConsole extends Component
             $this->validate(['duration' => 'nullable|integer|min:30|max:604800'], [], ['duration' => __('auction_admin.duration')]);
             $ok = $this->attempt(fn () => $lots->open($lot, $u, (int) $this->duration ?: null), __('auction_admin.lot_opened'));
         } else {
-            $this->validate(['reason' => 'required|string|min:3|max:255'], [], ['reason' => __('admin.reason')]);
+            $this->validate(['reason' => 'required|string|min:3|max:255'] + ($this->dialog === 'extend' ? ['duration' => 'required|integer|min:30|max:86400'] : []),
+                [], ['reason' => __('admin.reason'), 'duration' => __('auction_admin.extend_by')]);
             $reason = trim($this->reason);
             $ok = match ($this->dialog) {
+                'extend' => $this->attempt(fn () => $lots->extend($lot, $u, (int) $this->duration, $reason), __('auction_admin.lot_extended')),
                 'pause' => $this->attempt(fn () => $lots->pause($lot, $u, $reason), __('auction_admin.lot_paused')),
                 'cancel' => $this->attempt(fn () => $lots->cancel($lot, $u, $reason), __('auction_admin.lot_cancelled')),
                 'retract' => $this->attempt(fn () => $lots->retractBid(AuctionBid::where('auction_lot_id', $lot->id)->findOrFail((string) $this->target), $u, $reason), __('auction_admin.bid_retracted')),

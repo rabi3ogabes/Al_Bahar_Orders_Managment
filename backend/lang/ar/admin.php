@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'now' => 'الآن',
     'skip_to_content' => 'انتقل إلى المحتوى',
     'main_navigation' => 'القائمة الرئيسية',
     'console' => 'منصة العمليات',

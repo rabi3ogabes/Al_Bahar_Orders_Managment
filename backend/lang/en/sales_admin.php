@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'drv_cash_to_hand_in' => 'cash to hand to the branch cashier at the end of your shift.',
+    'slot_date' => 'Delivery date',
+    'slot' => 'Time slot',
+    'no_slots_for_date' => 'No free slots on this date. Pick another day.',
+    'slot_left' => ':n left',
     'act_accept' => 'Accept',
     'act_arrange_delivery' => 'Arrange delivery',
     'act_out' => 'Out for delivery',

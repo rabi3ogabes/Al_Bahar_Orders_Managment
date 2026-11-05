@@ -591,5 +591,13 @@
   "paymentStatusPaid": "مدفوع",
   "paymentStatusFailed": "فشل",
   "paymentStatusRefunded": "مسترد",
-  "paymentMethodLabel": "{method}"
+  "paymentMethodLabel": "{method}",
+  "deliverySlotTitle": "وقت التوصيل",
+  "deliverySlotMoreDates": "تواريخ أخرى",
+  "deliverySlotNoDates": "لا توجد مواعيد توصيل خلال الأيام السبعة القادمة. جرّب «تواريخ أخرى».",
+  "deliverySlotNoSlotsDay": "لا توجد مواعيد توصيل في هذا اليوم.",
+  "deliverySlotRequiredHint": "اختر موعد التوصيل لإتمام الطلب",
+  "deliverySlotRequiredError": "يرجى اختيار موعد التوصيل لهذا الطلب.",
+  "deliverySlotUnavailableError": "لم يعد موعد التوصيل هذا متاحًا. يرجى اختيار موعد آخر.",
+  "deliverySlotSummary": "التوصيل: {date}، {from} – {to}"
 }

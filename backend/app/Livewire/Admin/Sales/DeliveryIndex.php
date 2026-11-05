@@ -2,13 +2,16 @@
 
 namespace App\Livewire\Admin\Sales;
 
+use App\Domain\Branches\Models\Branch;
 use App\Domain\Branches\Models\BranchEmployee;
+use App\Domain\Branches\Services\SlotService;
 use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Fulfillment\Models\DeliveryProvider;
 use App\Domain\Fulfillment\Services\DeliveryService;
 use App\Domain\Identity\Models\User;
 use App\Domain\Orders\Models\OrderFulfillment;
 use App\Livewire\Admin\Concerns\WithAdminTable;
+use App\Support\BusinessTime;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -43,6 +46,16 @@ class DeliveryIndex extends Component
         }
     }
 
+    public function updatedFormSlotDate(): void
+    {
+        $this->form['slot_id'] = '';
+    }
+
+    private function branchUsesSlots(string $branchId): bool
+    {
+        return app(SlotService::class)->hasSlots(Branch::findOrFail($branchId), 'delivery');
+    }
+
     public function updatedLane(): void
     {
         $this->resetPage();
@@ -58,7 +71,8 @@ class DeliveryIndex extends Component
         $this->resetValidation();
         $this->dialog = $dialog;
         $this->target = $target;
-        $this->form = ['mode' => 'internal', 'provider_id' => '', 'driver_id' => '', 'scheduled_for' => '', 'reason_code' => 'customer_unreachable', 'notes' => '', 'reason' => ''];
+        $this->form = ['mode' => 'internal', 'provider_id' => '', 'driver_id' => '', 'scheduled_for' => '', 'reason_code' => 'customer_unreachable', 'notes' => '', 'reason' => '',
+            'slot_date' => BusinessTime::now()->addDay()->toDateString(), 'slot_id' => ''];
         $this->showDialog = true;
     }
 
@@ -73,7 +87,15 @@ class DeliveryIndex extends Component
                 return $this->attempt(fn () => $svc->assignDriver($d, User::findOrFail($id), $u), __('sales_admin.driver_assigned'));
             }),
             'reschedule' => $this->withDelivery('deliveries.assign', function (Delivery $d) use ($svc, $u) {
-                $when = $this->validate(['form.scheduled_for' => 'required|date|after:now'], [], ['form.scheduled_for' => __('sales_admin.scheduled_for')])['form']['scheduled_for'];
+                // Branches that publish delivery slots reschedule onto a slot (capacity stays consistent); others use a free time.
+                if ($this->branchUsesSlots($d->branch_id)) {
+                    $f = $this->validate(['form.slot_date' => 'required|date_format:Y-m-d|after_or_equal:today', 'form.slot_id' => 'required|uuid'],
+                        [], ['form.slot_date' => __('sales_admin.slot_date'), 'form.slot_id' => __('sales_admin.slot')])['form'];
+
+                    return $this->attempt(fn () => $svc->rescheduleToSlot($d, $u, $f['slot_id'], $f['slot_date']), __('sales_admin.delivery_rescheduled'));
+                }
+                $when = $this->validate(['form.scheduled_for' => ['required', 'date', fn ($a, $v, $fail) => BusinessTime::toUtc((string) $v)->isFuture() ?: $fail(__('validation.after', ['attribute' => __('sales_admin.scheduled_for'), 'date' => __('admin.now')]))]],
+                    [], ['form.scheduled_for' => __('sales_admin.scheduled_for')])['form']['scheduled_for'];
 
                 return $this->attempt(fn () => $svc->reschedule($d, $u, $when), __('sales_admin.delivery_rescheduled'));
             }),
@@ -181,7 +203,15 @@ class DeliveryIndex extends Component
                 ->where('status', 'active')->orderBy('name')->get(['id', 'name'])
             : collect();
 
+        // Reschedule dialog on a slot-enabled branch: the slots of the chosen date, with live availability.
+        $slotOptions = null;
+        if ($this->showDialog && $this->dialog === 'reschedule' && $this->target && ($target = Delivery::with('branch')->find($this->target)) && $this->branchUsesSlots($target->branch_id)) {
+            $date = strtotime((string) ($this->form['slot_date'] ?? '')) ? $this->form['slot_date'] : BusinessTime::now()->addDay()->toDateString();
+            $slotOptions = collect(app(SlotService::class)->available($target->branch, 'delivery', $date))->reject(fn ($sl) => $sl['is_full'])->values();
+        }
+
         return view('livewire.admin.sales.deliveries', [
+            'slotOptions' => $slotOptions,
             'rows' => $rows,
             'counts' => $counts,
             'branches' => $this->scopedBranches('deliveries.view'),

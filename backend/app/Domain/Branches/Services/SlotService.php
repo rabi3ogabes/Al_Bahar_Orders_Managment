@@ -44,6 +44,32 @@ class SlotService
         })->values()->all();
     }
 
+    /** Whether the branch publishes any active slot for this fulfillment type. */
+    public function hasSlots(Branch $branch, string $type): bool
+    {
+        return DeliverySlot::where('branch_id', $branch->id)->where('fulfillment_type', $type)->where('is_active', true)->exists();
+    }
+
+    /** Start of the slot on $date in business time (used as the delivery's scheduled time). */
+    public function startsAt(string $slotId, string $date): CarbonImmutable
+    {
+        $slot = DeliverySlot::findOrFail($slotId);
+
+        return CarbonImmutable::parse($date, BusinessTime::zone())->setTimeFromTimeString($slot->starts_at);
+    }
+
+    /** Move a booking to another slot/date atomically (book the new one first so a full slot leaves the old booking intact). */
+    public function move(?string $fromSlotId, ?string $fromDate, string $toSlotId, string $toDate, string $branchId, string $type): void
+    {
+        DB::transaction(function () use ($fromSlotId, $fromDate, $toSlotId, $toDate, $branchId, $type) {
+            if ($fromSlotId === $toSlotId && $fromDate === $toDate) {
+                return;
+            }
+            $this->book($toSlotId, $toDate, $branchId, $type);
+            $this->release($fromSlotId, $fromDate);
+        });
+    }
+
     /** Must be called inside the checkout transaction. Throws when the slot is full. */
     public function book(string $slotId, string $date, string $branchId, string $type): void
     {

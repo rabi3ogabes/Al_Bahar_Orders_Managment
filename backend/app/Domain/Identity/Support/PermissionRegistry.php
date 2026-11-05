@@ -51,7 +51,7 @@ final class PermissionRegistry
         'branch_manager' => ['branch', 'Branch Manager', 'مدير الفرع', [
             'dashboard.view', 'branches.view', 'branches.edit', 'employees.*', 'zones.view', 'catalog.view', 'pricing.view', 'pricing.edit',
             'inventory.*', 'transfers.*', 'stocktaking.*', 'purchasing.view', 'purchasing.create', 'purchasing.edit', 'purchasing.approve',
-            'suppliers.view', 'orders.*', 'pickup.*', 'deliveries.*', 'payments.view', 'payments.create', 'refunds.view', 'refunds.create',
+            'suppliers.view', 'orders.*', 'pickup.*', 'deliveries.*', 'payments.view', 'payments.create', 'payments.edit', 'refunds.view', 'refunds.create',
             'reconciliation.view', 'reconciliation.create', 'reports.view', 'reports.export', 'customers.view', 'support.view',
         ]],
         'inventory_manager' => ['branch', 'Inventory Manager', 'مدير المخزون', [

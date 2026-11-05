@@ -151,23 +151,27 @@ class BranchHours {
 }
 
 @immutable
-class PickupSlot {
-  const PickupSlot({
+class BranchSlot {
+  const BranchSlot({
     required this.id,
     required this.date,
     required this.startsAt,
     required this.endsAt,
     required this.available,
     required this.isFull,
+    this.capacity = 0,
   });
-  factory PickupSlot.fromJson(JsonMap json) => PickupSlot(
+  factory BranchSlot.fromJson(JsonMap json) => BranchSlot(
     id: asString(json['id']),
     date: asString(json['date']),
     startsAt: asString(json['starts_at']),
     endsAt: asString(json['ends_at']),
+    capacity: asInt(json['capacity']),
     available: asInt(json['available']),
     isFull: asBool(json['is_full']),
   );
+  final int capacity;
+  bool get selectable => !isFull && available > 0;
   final String id;
   final String date;
   final String startsAt;
@@ -175,6 +179,10 @@ class PickupSlot {
   final int available;
   final bool isFull;
 }
+
+/// Pickup and delivery slots share one shape (`/pickup-slots`, `/delivery-slots`).
+typedef PickupSlot = BranchSlot;
+typedef DeliverySlot = BranchSlot;
 
 @immutable
 class DeliveryZone {

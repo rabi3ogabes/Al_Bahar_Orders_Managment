@@ -5,6 +5,7 @@ namespace App\Livewire\Admin\Sales;
 use App\Domain\Branches\Models\BranchEmployee;
 use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Fulfillment\Services\DeliveryService;
+use App\Domain\Payments\Services\CashDrawerService;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use App\Support\Money;
 use Livewire\Attributes\Layout;
@@ -127,6 +128,8 @@ class DriverConsole extends Component
             'later' => $later,
             'current' => $this->activeId ? $active->firstWhere('id', $this->activeId) : null,
             'codTotal' => $done->where('status.value', 'delivered')->sum(fn ($d) => (float) $d->cod_amount),
+            // Cash collected and not yet handed to the branch (all days): the driver must settle this with a cashier.
+            'cashToHandIn' => collect(app(CashDrawerService::class)->balancesFor(auth()->user()))->reduce(fn ($c, $b) => $c->plus($b['amount']), Money::zero()),
         ])->title(__('nav.driver'));
     }
 }

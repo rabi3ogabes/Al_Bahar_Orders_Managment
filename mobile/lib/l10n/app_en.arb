@@ -1666,5 +1666,33 @@
         "type": "String"
       }
     }
+  },
+  "deliverySlotTitle": "Delivery time",
+  "@deliverySlotTitle": {},
+  "deliverySlotMoreDates": "More dates",
+  "@deliverySlotMoreDates": {},
+  "deliverySlotNoDates": "No delivery times in the next 7 days. Try “More dates”.",
+  "@deliverySlotNoDates": {},
+  "deliverySlotNoSlotsDay": "No delivery times on this day.",
+  "@deliverySlotNoSlotsDay": {},
+  "deliverySlotRequiredHint": "Choose a delivery time to place your order",
+  "@deliverySlotRequiredHint": {},
+  "deliverySlotRequiredError": "Please choose a delivery time for this order.",
+  "@deliverySlotRequiredError": {},
+  "deliverySlotUnavailableError": "That delivery time is no longer available. Please choose another.",
+  "@deliverySlotUnavailableError": {},
+  "deliverySlotSummary": "Delivery: {date}, {from} – {to}",
+  "@deliverySlotSummary": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
   }
 }

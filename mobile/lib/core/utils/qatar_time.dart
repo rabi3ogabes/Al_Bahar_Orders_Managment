@@ -34,6 +34,22 @@ abstract final class QatarTime {
   static String isoDate(DateTime qatarDay) =>
       '${qatarDay.year.toString().padLeft(4, '0')}-${qatarDay.month.toString().padLeft(2, '0')}-${qatarDay.day.toString().padLeft(2, '0')}';
 
+  /// Parses a server `YYYY-MM-DD` day into a "naive" UTC date (no device-zone shift).
+  static DateTime? parseDay(String? iso) {
+    final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(iso ?? '');
+    if (m == null) return null;
+    return DateTime.utc(int.parse(m[1]!), int.parse(m[2]!), int.parse(m[3]!));
+  }
+
+  /// Calendar day of a server `YYYY-MM-DD` string, e.g. "Sat 8 Nov" / "السبت ٨ نوفمبر".
+  static String slotDay(String? iso, String locale) {
+    final d = parseDay(iso);
+    return d == null ? (iso ?? '') : DateFormat('EEE d MMM', locale).format(d);
+  }
+
+  /// "4:00 PM – 6:00 PM" for server "HH:mm" times (locale digits and meridiem).
+  static String slotRange(String? from, String? to, String locale) => '${clock(from, locale)} – ${clock(to, locale)}';
+
   static DateTime today([DateTime? now]) {
     final q = toQatar(now ?? DateTime.now());
     return DateTime.utc(q.year, q.month, q.day);

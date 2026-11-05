@@ -73,6 +73,7 @@ All are overridable with `--dart-define` (see README). Hostnames are placeholder
 | Section `see_all`, promotion `link` | **backend gap** (optional). Neither is sent. "See all" is derived from the section type, and promotions are not tappable. |
 | `GET /branches?per_page=50` (paginated resource); `/branches/nearby?lat&lng&radius_km` plain list with `distance_km` | ✓ verified |
 | Branch hours `day_of_week` 0 = Sunday, `HH:mm`; pickup slots `{id, date, starts_at, ends_at, capacity, available, is_full}` | ✓ verified |
+| `GET /branches/{id}/delivery-slots?date=YYYY-MM-DD` (today … +29 days, else 422; 404 if the branch does not deliver): same row shape as pickup slots, Qatar-local `HH:mm`. Quote `fulfillments[].slot {id,date,starts_at,ends_at}` and `slot_required`; errors `slot_required` / `slot_unavailable`; split orders ignore a slot (`slot_ignored_for_split`) | ✓ verified (backend contract tests). The checkout delivery-slot picker is built (`delivery_slot_section.dart`); covered by `test/features/delivery_slots_test.dart`. |
 
 ## 5. Cart & checkout
 

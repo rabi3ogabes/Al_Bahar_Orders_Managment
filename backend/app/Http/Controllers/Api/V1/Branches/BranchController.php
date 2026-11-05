@@ -72,6 +72,15 @@ class BranchController extends ApiController
         return response()->json(['data' => $slots->available($branch, 'pickup', $request->input('date'))]);
     }
 
+    /** Delivery time slots of a branch for one date (same shape as pickup slots). */
+    public function deliverySlots(Request $request, string $id, SlotService $slots): JsonResponse
+    {
+        $request->validate(['date' => 'required|date_format:Y-m-d|after_or_equal:today|before:+30 days']);
+        $branch = Branch::active()->where('delivery_enabled', true)->with(['hours', 'holidays'])->findOrFail($id);
+
+        return response()->json(['data' => $slots->available($branch, 'delivery', $request->input('date'))]);
+    }
+
     public function zones(): JsonResponse
     {
         return response()->json(['data' => DeliveryZone::where('is_active', true)->orderBy('name_en')->get()->map(fn ($z) => [

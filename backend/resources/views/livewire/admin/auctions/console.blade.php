@@ -77,6 +77,9 @@
                         @if ($st === 'open')
                             <button type="button" wire:click="ask('pause')" class="btn-secondary"><x-icon name="pause" class="size-4" />{{ __('auction_admin.pause') }}</button>
                         @endif
+                        @if (in_array($st, ['open', 'paused'], true))
+                            <button type="button" wire:click="ask('extend')" class="btn-secondary"><x-icon name="clock" class="size-4" />{{ __('auction_admin.extend') }}</button>
+                        @endif
                         @if ($st === 'paused')
                             <button type="button" wire:click="resume" class="btn-brass"><x-icon name="play" class="size-4" />{{ __('auction_admin.resume') }}</button>
                         @endif
@@ -185,14 +188,19 @@
         </aside>
     </div>
 
-    <x-admin.dialog wire:model="showDialog" :title="match ($dialog) { 'open' => __('auction_admin.open_lot'), 'pause' => __('auction_admin.pause'), 'cancel' => __('auction_admin.cancel_lot'), 'retract' => __('auction_admin.retract_bid'), 'block' => __('auction_admin.block_bidder'), default => '' }"
-                    :description="match ($dialog) { 'open' => __('auction_admin.open_hint'), 'retract' => __('auction_admin.retract_hint'), 'block' => __('auction_admin.block_hint'), default => null }">
+    <x-admin.dialog wire:model="showDialog" :title="match ($dialog) { 'open' => __('auction_admin.open_lot'), 'pause' => __('auction_admin.pause'), 'extend' => __('auction_admin.extend'), 'cancel' => __('auction_admin.cancel_lot'), 'retract' => __('auction_admin.retract_bid'), 'block' => __('auction_admin.block_bidder'), default => '' }"
+                    :description="match ($dialog) { 'open' => __('auction_admin.open_hint'), 'extend' => __('auction_admin.extend_hint'), 'retract' => __('auction_admin.retract_hint'), 'block' => __('auction_admin.block_hint'), default => null }">
         <form wire:submit="confirmDialog" class="space-y-5">
             @if ($dialog === 'open')
                 <x-admin.field :label="__('auction_admin.duration')" for="duration" :hint="__('auction_admin.duration_hint')">
                     <select id="duration" wire:model="duration" class="input">@foreach ([120 => '2', 300 => '5', 600 => '10', 900 => '15', 1800 => '30', 3600 => '60'] as $sec => $min)<option value="{{ $sec }}">{{ trans_choice('auction_admin.n_minutes', (int) $min, ['count' => $min]) }}</option>@endforeach<option value="0">{{ __('auction_admin.use_scheduled_end') }}</option></select>
                 </x-admin.field>
             @else
+                @if ($dialog === 'extend')
+                    <x-admin.field :label="__('auction_admin.extend_by')" for="duration" required>
+                        <select id="duration" wire:model="duration" class="input">@foreach ([60 => '1', 120 => '2', 300 => '5', 600 => '10', 900 => '15', 1800 => '30'] as $sec => $min)<option value="{{ $sec }}">{{ trans_choice('auction_admin.n_minutes', (int) $min, ['count' => $min]) }}</option>@endforeach</select>
+                    </x-admin.field>
+                @endif
                 <x-admin.field :label="__('admin.reason')" for="reason" required><textarea id="reason" wire:model="reason" rows="3" class="input"></textarea></x-admin.field>
             @endif
             <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">

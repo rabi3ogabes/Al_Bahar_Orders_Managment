@@ -11,6 +11,7 @@ Route::controller(V1\Branches\BranchController::class)->group(function () {
     Route::get('branches/{id}', 'show')->whereUuid('id')->name('branches.show');
     Route::get('branches/{id}/hours', 'hours')->whereUuid('id')->name('branches.hours');
     Route::get('branches/{id}/pickup-slots', 'pickupSlots')->whereUuid('id')->name('branches.pickup-slots');
+    Route::get('branches/{id}/delivery-slots', 'deliverySlots')->whereUuid('id')->name('branches.delivery-slots');
     Route::get('delivery-zones', 'zones')->name('delivery-zones.index');
 });
 
