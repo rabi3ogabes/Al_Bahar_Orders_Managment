@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Domain\Branches\Models\BranchEmployee;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
 use Illuminate\Support\Facades\Route;
@@ -24,6 +25,7 @@ final class AdminNavigation
                 ['label' => 'nav.orders', 'route' => 'admin.orders.index', 'icon' => 'bag', 'permission' => 'orders.view'],
                 ['label' => 'nav.pickup', 'route' => 'admin.pickup.index', 'icon' => 'qr', 'permission' => 'pickup.view'],
                 ['label' => 'nav.deliveries', 'route' => 'admin.deliveries.index', 'icon' => 'truck', 'permission' => 'deliveries.view'],
+                ['label' => 'nav.driver', 'route' => 'admin.driver', 'icon' => 'phone', 'permission' => 'deliveries.edit', 'drivers_only' => true],
                 ['label' => 'nav.customers', 'route' => 'admin.customers.index', 'icon' => 'users', 'permission' => 'customers.view'],
                 ['label' => 'nav.returns', 'route' => 'admin.returns.index', 'icon' => 'refund', 'permission' => 'orders.view'],
             ]],
@@ -80,9 +82,10 @@ final class AdminNavigation
             ]],
         ];
 
+        $isDriver = BranchEmployee::where('user_id', $user->id)->where('is_active', true)->where('is_delivery_driver', true)->exists();
         $out = [];
         foreach ($groups as $group) {
-            $items = array_values(array_filter($group['items'], fn ($i) => Route::has($i['route']) && $acl->allows($user, $i['permission'])));
+            $items = array_values(array_filter($group['items'], fn ($i) => Route::has($i['route']) && $acl->allows($user, $i['permission']) && (empty($i['drivers_only']) || $isDriver)));
             if ($items) {
                 $out[] = ['label' => $group['label'], 'items' => $items];
             }

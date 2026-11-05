@@ -21,7 +21,7 @@
             <ul class="divide-y divide-sand-100 dark:divide-ink-800">
                 @foreach ($rows as $r)
                     @php
-                        $branches = $r->order ? \App\Domain\Orders\Models\OrderFulfillment::where('order_id', $r->order_id)->pluck('branch_id')->all() : [];
+                        $branches = $r->order ? $r->order->fulfillments->pluck('branch_id')->unique()->all() : [];
                         $allowed = fn ($perm) => $branches ? collect($branches)->every(fn ($b) => $this->can($perm, $b)) : $this->can($perm);
                         $own = $r->requested_by === $me->id && ! $me->isSuperAdmin();
                         $manual = $r->method !== 'original';

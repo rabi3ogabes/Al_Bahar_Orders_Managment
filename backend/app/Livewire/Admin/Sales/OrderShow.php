@@ -63,7 +63,7 @@ class OrderShow extends Component
         return OrderFulfillment::where('order_id', $this->orderId)->findOrFail($id);
     }
 
-    public function transition(string $fulfillmentId, string $to, OrderService $svc): void
+    public function advance(string $fulfillmentId, string $to, OrderService $svc): void
     {
         $f = $this->fulfillment($fulfillmentId);
         $target = FS::tryFrom($to);

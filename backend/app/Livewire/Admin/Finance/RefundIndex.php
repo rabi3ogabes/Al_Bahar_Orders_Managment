@@ -107,7 +107,7 @@ class RefundIndex extends Component
         $base = fn () => $this->scopeByOrder(Refund::query(), $scope);
         $s = trim($this->search);
         $rows = $base()->whereIn('status', $statuses($this->tab))
-            ->with(['order:id,number,customer_name', 'payment:id,method,provider,captured_amount,refunded_amount', 'requester:id,name'])
+            ->with(['order:id,number,customer_name', 'order.fulfillments:id,order_id,branch_id', 'payment:id,method,provider,captured_amount,refunded_amount', 'requester:id,name'])
             ->when($s, fn ($q) => $q->where(fn ($w) => $w->where('number', 'ilike', "%{$s}%")->orWhereHas('order', fn ($o) => $o->where('number', 'ilike', "%{$s}%"))))
             ->latest()->paginate($this->perPage);
         $approvers = \App\Domain\Identity\Models\User::whereIn('id', $rows->pluck('approved_by')->merge($rows->pluck('processed_by'))->filter()->unique())->pluck('name', 'id');

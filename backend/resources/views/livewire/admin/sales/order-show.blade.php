@@ -117,7 +117,7 @@
                             @if ($act['return'])<button type="button" wire:click="open('return_fulfillment', '{{ $f->id }}')" class="btn-ghost sm:me-auto"><x-icon name="refund" class="size-4" />{{ __('sales_admin.mark_returned') }}</button>@endif
                             @foreach ($act['steps'] as $s)
                                 @if ($s['action'] === 'transition')
-                                    <button type="button" wire:click="transition('{{ $f->id }}', '{{ $s['to'] }}')" wire:loading.attr="disabled" wire:target="transition" class="{{ $loop->last ? 'btn-primary' : 'btn-secondary' }}"><x-icon :name="$stepMeta[$s['to']][0]" class="size-4" />{{ $stepMeta[$s['to']][1] }}</button>
+                                    <button type="button" wire:click="advance('{{ $f->id }}', '{{ $s['to'] }}')" wire:loading.attr="disabled" wire:target="advance" class="{{ $loop->last ? 'btn-primary' : 'btn-secondary' }}"><x-icon :name="$stepMeta[$s['to']][0]" class="size-4" />{{ $stepMeta[$s['to']][1] }}</button>
                                 @elseif ($s['action'] === 'pickup_ready')
                                     <button type="button" wire:click="markPickupReady('{{ $f->id }}')" wire:loading.attr="disabled" wire:target="markPickupReady" class="btn-primary"><x-icon name="qr" class="size-4" />{{ __('sales_admin.act_pickup_ready') }}</button>
                                 @elseif ($s['action'] === 'delivery')
