@@ -42,13 +42,6 @@ jobs:
         run: |
           composer require --dev larastan/larastan:^3.0 --no-interaction --no-progress -W
           vendor/bin/phpstan analyse --memory-limit=1G --no-progress
-      - name: PHPStan error summary (temporary diagnostics)
-        if: failure()
-        run: |
-          vendor/bin/phpstan analyse --memory-limit=1G --no-progress --error-format=json > /tmp/phpstan.json || true
-          echo "== by identifier"; jq -r '.files[].messages[].identifier' /tmp/phpstan.json | sort | uniq -c | sort -rn | head -25
-          echo "== by file (top 25)"; jq -r '.files | to_entries[] | "\(.value.errors) \(.key | sub(".*/app/"; "app/"))"' /tmp/phpstan.json | sort -rn | head -25
-          echo "== all errors"; jq -r '.files | to_entries[] | .key as $f | .value.messages[] | "\($f | sub(".*/app/"; "app/")):\(.line) [\(.identifier)] \(.message)"' /tmp/phpstan.json | head -250
       - name: Dependency audit
         run: composer audit --no-dev
       - name: Build admin assets
