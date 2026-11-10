@@ -18,26 +18,31 @@ class CashHandover extends Model
 
     protected $casts = ['variance_resolved_at' => 'immutable_datetime', 'deposited_at' => 'immutable_datetime', 'collections_count' => 'integer'];
 
+    /** @return BelongsTo<Branch, $this> */
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function collector(): BelongsTo
     {
         return $this->belongsTo(User::class, 'collector_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function receiver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'received_by');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function depositor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'deposited_by');
     }
 
+    /** @return HasMany<CashCollection, $this> */
     public function collections(): HasMany
     {
         return $this->hasMany(CashCollection::class);

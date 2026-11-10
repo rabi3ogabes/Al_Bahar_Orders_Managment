@@ -21,36 +21,43 @@ class OrderFulfillment extends Model
 
     protected $casts = ['status' => 'App\Domain\Orders\Enums\FulfillmentStatus', 'slot_date' => 'date', 'is_express' => 'boolean', 'accepted_at' => 'immutable_datetime', 'ready_at' => 'immutable_datetime', 'dispatched_at' => 'immutable_datetime', 'delivered_at' => 'immutable_datetime', 'picked_up_at' => 'immutable_datetime', 'cancelled_at' => 'immutable_datetime'];
 
+    /** @return BelongsTo<Order, $this> */
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
     }
 
+    /** @return BelongsTo<Branch, $this> */
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
     }
 
+    /** @return HasMany<OrderItem, $this> */
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class, 'order_fulfillment_id');
     }
 
+    /** @return BelongsTo<DeliveryZone, $this> */
     public function zone(): BelongsTo
     {
         return $this->belongsTo(DeliveryZone::class, 'delivery_zone_id');
     }
 
+    /** @return BelongsTo<DeliverySlot, $this> */
     public function slot(): BelongsTo
     {
         return $this->belongsTo(DeliverySlot::class, 'delivery_slot_id');
     }
 
+    /** @return HasOne<PickupReservation, $this> */
     public function pickup(): HasOne
     {
         return $this->hasOne(PickupReservation::class, 'order_fulfillment_id');
     }
 
+    /** @return HasMany<Delivery, $this> */
     public function deliveries(): HasMany
     {
         return $this->hasMany(Delivery::class, 'order_fulfillment_id');

@@ -17,6 +17,7 @@ class SupportMessage extends Model
 
     protected $casts = ['attachments' => 'array', 'is_internal' => 'boolean'];
 
+    /** @return BelongsTo<User, $this> */
     public function author(): BelongsTo
     {
         return $this->belongsTo(User::class, 'author_id');

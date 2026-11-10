@@ -20,26 +20,31 @@ class Payment extends Model
 
     protected $casts = ['status' => 'App\Domain\Payments\Enums\PaymentStatus', 'metadata' => 'array', 'expires_at' => 'immutable_datetime', 'paid_at' => 'immutable_datetime', 'failed_at' => 'immutable_datetime'];
 
+    /** @return BelongsTo<Order, $this> */
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /** @return HasMany<PaymentTransaction, $this> */
     public function transactions(): HasMany
     {
         return $this->hasMany(PaymentTransaction::class);
     }
 
+    /** @return HasMany<Refund, $this> */
     public function refunds(): HasMany
     {
         return $this->hasMany(Refund::class);
     }
 
+    /** @return HasMany<CashCollection, $this> */
     public function collections(): HasMany
     {
         return $this->hasMany(CashCollection::class);

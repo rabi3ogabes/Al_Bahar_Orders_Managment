@@ -12,6 +12,7 @@ class ProductAttributeValue extends Model
 
     protected $guarded = ['id'];
 
+    /** @return BelongsTo<ProductAttribute, $this> */
     public function attribute(): BelongsTo
     {
         return $this->belongsTo(ProductAttribute::class, 'product_attribute_id');

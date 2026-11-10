@@ -19,16 +19,19 @@ class Review extends Model
 
     protected $casts = ['is_verified_purchase' => 'boolean', 'moderated_at' => 'immutable_datetime'];
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /** @return BelongsTo<Product, $this> */
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
     }
 
+    /** @return HasMany<ReviewMedia, $this> */
     public function media(): HasMany
     {
         return $this->hasMany(ReviewMedia::class);

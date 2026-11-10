@@ -19,11 +19,13 @@ class StocktakingSession extends Model
 
     protected $casts = ['submitted_at' => 'immutable_datetime', 'posted_at' => 'immutable_datetime'];
 
+    /** @return HasMany<StocktakingItem, $this> */
     public function items(): HasMany
     {
         return $this->hasMany(StocktakingItem::class);
     }
 
+    /** @return BelongsTo<Branch, $this> */
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);

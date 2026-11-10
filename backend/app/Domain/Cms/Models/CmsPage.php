@@ -16,6 +16,7 @@ class CmsPage extends Model
 
     protected $casts = ['published_at' => 'immutable_datetime'];
 
+    /** @return HasMany<CmsPageTranslation, $this> */
     public function translations(): HasMany
     {
         return $this->hasMany(CmsPageTranslation::class);

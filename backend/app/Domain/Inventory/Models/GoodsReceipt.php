@@ -17,6 +17,7 @@ class GoodsReceipt extends Model
 
     protected $casts = ['received_at' => 'immutable_datetime'];
 
+    /** @return HasMany<GoodsReceiptItem, $this> */
     public function items(): HasMany
     {
         return $this->hasMany(GoodsReceiptItem::class);

@@ -18,16 +18,19 @@ class SupportTicket extends Model
 
     protected $casts = ['first_response_at' => 'immutable_datetime', 'resolved_at' => 'immutable_datetime', 'closed_at' => 'immutable_datetime'];
 
+    /** @return HasMany<SupportMessage, $this> */
     public function messages(): HasMany
     {
         return $this->hasMany(SupportMessage::class)->orderBy('created_at');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function assignee(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_to');

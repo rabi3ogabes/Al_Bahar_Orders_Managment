@@ -17,21 +17,25 @@ class Category extends Model
 
     protected $casts = ['filter_attribute_ids' => 'array', 'sort_order' => 'integer', 'depth' => 'integer'];
 
+    /** @return BelongsTo<self, $this> */
     public function parent(): BelongsTo
     {
         return $this->belongsTo(self::class, 'parent_id');
     }
 
+    /** @return HasMany<self, $this> */
     public function children(): HasMany
     {
         return $this->hasMany(self::class, 'parent_id')->orderBy('sort_order');
     }
 
+    /** @return HasMany<CategoryTranslation, $this> */
     public function translations(): HasMany
     {
         return $this->hasMany(CategoryTranslation::class);
     }
 
+    /** @return HasMany<Product, $this> */
     public function products(): HasMany
     {
         return $this->hasMany(Product::class);

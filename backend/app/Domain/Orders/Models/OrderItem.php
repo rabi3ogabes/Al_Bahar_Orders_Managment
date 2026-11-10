@@ -15,16 +15,19 @@ class OrderItem extends Model
 
     protected $casts = ['variant_attributes' => 'array', 'quantity' => 'integer', 'quantity_cancelled' => 'integer', 'quantity_returned' => 'integer', 'quantity_handed_over' => 'integer'];
 
+    /** @return BelongsTo<Order, $this> */
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
     }
 
+    /** @return BelongsTo<OrderFulfillment, $this> */
     public function fulfillment(): BelongsTo
     {
         return $this->belongsTo(OrderFulfillment::class, 'order_fulfillment_id');
     }
 
+    /** @return BelongsTo<ProductVariant, $this> */
     public function variant(): BelongsTo
     {
         return $this->belongsTo(ProductVariant::class, 'product_variant_id');

@@ -17,11 +17,13 @@ class UserAddress extends Model
 
     protected $casts = ['is_default' => 'boolean', 'latitude' => 'float', 'longitude' => 'float'];
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /** @return BelongsTo<DeliveryZone, $this> */
     public function zone(): BelongsTo
     {
         return $this->belongsTo(DeliveryZone::class, 'delivery_zone_id');

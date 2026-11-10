@@ -56,56 +56,67 @@ class Product extends Model
         return $this->status === 'active';
     }
 
+    /** @return HasMany<ProductTranslation, $this> */
     public function translations(): HasMany
     {
         return $this->hasMany(ProductTranslation::class);
     }
 
+    /** @return BelongsTo<Category, $this> */
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
     }
 
+    /** @return BelongsTo<Brand, $this> */
     public function brand(): BelongsTo
     {
         return $this->belongsTo(Brand::class);
     }
 
+    /** @return HasMany<ProductVariant, $this> */
     public function variants(): HasMany
     {
         return $this->hasMany(ProductVariant::class)->orderBy('sort_order');
     }
 
+    /** @return HasOne<ProductVariant, $this> */
     public function defaultVariant(): HasOne
     {
         return $this->hasOne(ProductVariant::class)->where('is_default', true);
     }
 
+    /** @return HasMany<ProductImage, $this> */
     public function images(): HasMany
     {
         return $this->hasMany(ProductImage::class)->orderBy('sort_order');
     }
 
+    /** @return HasMany<ProductVideo, $this> */
     public function videos(): HasMany
     {
         return $this->hasMany(ProductVideo::class)->orderBy('sort_order');
     }
 
+    /** @return HasMany<ProductBranchSetting, $this> */
     public function branchSettings(): HasMany
     {
         return $this->hasMany(ProductBranchSetting::class);
     }
 
+    /** @return HasOne<ProductWarranty, $this> */
     public function warranty(): HasOne
     {
         return $this->hasOne(ProductWarranty::class);
     }
 
+    /** @return BelongsToMany<self, $this> */
     public function related(): BelongsToMany
     {
         return $this->belongsToMany(self::class, 'product_related', 'product_id', 'related_product_id')->withPivot(['type', 'sort_order'])->orderByPivot('sort_order');
     }
 
+    /** @return HasMany<ProductPriceHistory, $this> */
     public function priceHistory(): HasMany
     {
         return $this->hasMany(ProductPriceHistory::class)->latest('created_at');

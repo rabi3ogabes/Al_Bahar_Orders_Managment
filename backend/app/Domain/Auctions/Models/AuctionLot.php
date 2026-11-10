@@ -24,31 +24,37 @@ class AuctionLot extends Model
         'paused_at' => 'immutable_datetime', 'closed_at' => 'immutable_datetime', 'bid_count' => 'integer', 'last_bid_number' => 'integer',
         'last_event_sequence' => 'integer', 'extension_count' => 'integer'];
 
+    /** @return BelongsTo<Auction, $this> */
     public function auction(): BelongsTo
     {
         return $this->belongsTo(Auction::class);
     }
 
+    /** @return HasMany<AuctionBid, $this> */
     public function bids(): HasMany
     {
         return $this->hasMany(AuctionBid::class);
     }
 
+    /** @return HasMany<AuctionProduct, $this> */
     public function products(): HasMany
     {
         return $this->hasMany(AuctionProduct::class);
     }
 
+    /** @return HasMany<AuctionAutoBid, $this> */
     public function autoBids(): HasMany
     {
         return $this->hasMany(AuctionAutoBid::class);
     }
 
+    /** @return HasMany<AuctionLotEvent, $this> */
     public function events(): HasMany
     {
         return $this->hasMany(AuctionLotEvent::class)->orderBy('sequence');
     }
 
+    /** @return HasMany<AuctionWinner, $this> */
     public function winners(): HasMany
     {
         return $this->hasMany(AuctionWinner::class)->orderBy('rank');

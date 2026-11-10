@@ -19,11 +19,13 @@ class InventoryAdjustment extends Model
 
     protected $casts = ['posted_at' => 'immutable_datetime'];
 
+    /** @return HasMany<InventoryAdjustmentItem, $this> */
     public function items(): HasMany
     {
         return $this->hasMany(InventoryAdjustmentItem::class);
     }
 
+    /** @return BelongsTo<Branch, $this> */
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);

@@ -16,6 +16,7 @@ class UserDevice extends Model
 
     protected $casts = ['last_seen_at' => 'immutable_datetime', 'disabled_at' => 'immutable_datetime'];
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

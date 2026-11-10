@@ -15,11 +15,13 @@ class DeliverySlot extends Model
 
     protected $casts = ['is_active' => 'boolean', 'day_of_week' => 'integer'];
 
+    /** @return BelongsTo<Branch, $this> */
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
     }
 
+    /** @return HasMany<DeliverySlotBooking, $this> */
     public function bookings(): HasMany
     {
         return $this->hasMany(DeliverySlotBooking::class);

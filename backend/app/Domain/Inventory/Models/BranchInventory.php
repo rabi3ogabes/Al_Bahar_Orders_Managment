@@ -48,11 +48,13 @@ class BranchInventory extends Model
         return $this->minimum_stock > 0 && $this->available() <= $this->minimum_stock;
     }
 
+    /** @return BelongsTo<Branch, $this> */
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
     }
 
+    /** @return BelongsTo<ProductVariant, $this> */
     public function variant(): BelongsTo
     {
         return $this->belongsTo(ProductVariant::class, 'product_variant_id');

@@ -20,11 +20,13 @@ class BranchDeliveryZone extends Pivot
 
     protected $casts = ['cod_enabled' => 'boolean', 'express_enabled' => 'boolean', 'is_active' => 'boolean'];
 
+    /** @return BelongsTo<Branch, $this> */
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
     }
 
+    /** @return BelongsTo<DeliveryZone, $this> */
     public function zone(): BelongsTo
     {
         return $this->belongsTo(DeliveryZone::class, 'delivery_zone_id');

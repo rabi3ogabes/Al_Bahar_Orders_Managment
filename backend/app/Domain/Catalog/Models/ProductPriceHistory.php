@@ -16,6 +16,7 @@ class ProductPriceHistory extends Model
 
     protected $casts = ['created_at' => 'immutable_datetime', 'sale_starts_at' => 'immutable_datetime', 'sale_ends_at' => 'immutable_datetime'];
 
+    /** @return BelongsTo<User, $this> */
     public function actor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'changed_by');

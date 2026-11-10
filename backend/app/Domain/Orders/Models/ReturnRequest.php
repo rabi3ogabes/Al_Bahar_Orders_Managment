@@ -15,11 +15,13 @@ class ReturnRequest extends Model
 
     protected $casts = ['items' => 'array', 'decided_at' => 'immutable_datetime', 'received_at' => 'immutable_datetime'];
 
+    /** @return BelongsTo<Order, $this> */
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

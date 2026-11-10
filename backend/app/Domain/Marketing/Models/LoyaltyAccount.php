@@ -14,6 +14,7 @@ class LoyaltyAccount extends Model
 
     protected $casts = ['balance' => 'integer', 'lifetime_earned' => 'integer'];
 
+    /** @return HasMany<LoyaltyTransaction, $this> */
     public function transactions(): HasMany
     {
         return $this->hasMany(LoyaltyTransaction::class);

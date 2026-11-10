@@ -17,11 +17,13 @@ class AuctionDeposit extends Model
 
     protected $casts = ['paid_at' => 'immutable_datetime', 'resolved_at' => 'immutable_datetime'];
 
+    /** @return BelongsTo<Auction, $this> */
     public function auction(): BelongsTo
     {
         return $this->belongsTo(Auction::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

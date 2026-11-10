@@ -20,6 +20,7 @@ class ProductBranchSetting extends Model
         'sale_ends_at' => 'immutable_datetime',
     ];
 
+    /** @return BelongsTo<Branch, $this> */
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);

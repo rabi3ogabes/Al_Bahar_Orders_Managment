@@ -17,6 +17,7 @@ class Role extends Model
 
     protected $casts = ['is_system' => 'boolean'];
 
+    /** @return BelongsToMany<Permission, $this> */
     public function permissions(): BelongsToMany
     {
         return $this->belongsToMany(Permission::class, 'role_permissions');

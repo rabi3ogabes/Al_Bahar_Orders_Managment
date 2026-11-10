@@ -16,11 +16,13 @@ class PaymentReconciliation extends Model
 
     protected $casts = ['period_start' => 'date', 'period_end' => 'date', 'finalized_at' => 'immutable_datetime'];
 
+    /** @return HasMany<PaymentReconciliationItem, $this> */
     public function items(): HasMany
     {
         return $this->hasMany(PaymentReconciliationItem::class);
     }
 
+    /** @return BelongsTo<Branch, $this> */
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);

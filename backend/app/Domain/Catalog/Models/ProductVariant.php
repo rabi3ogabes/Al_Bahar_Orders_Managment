@@ -24,26 +24,31 @@ class ProductVariant extends Model
         'is_default' => 'boolean',
     ];
 
+    /** @return BelongsTo<Product, $this> */
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
     }
 
+    /** @return BelongsToMany<ProductAttributeValue, $this> */
     public function attributeValues(): BelongsToMany
     {
         return $this->belongsToMany(ProductAttributeValue::class, 'product_variant_values')->with('attribute');
     }
 
+    /** @return HasMany<ProductVariantBranchSetting, $this> */
     public function branchSettings(): HasMany
     {
         return $this->hasMany(ProductVariantBranchSetting::class);
     }
 
+    /** @return HasMany<BranchInventory, $this> */
     public function inventory(): HasMany
     {
         return $this->hasMany(BranchInventory::class);
     }
 
+    /** @return HasMany<ProductImage, $this> */
     public function images(): HasMany
     {
         return $this->hasMany(ProductImage::class)->orderBy('sort_order');

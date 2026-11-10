@@ -16,6 +16,7 @@ class HomepageSection extends Model
 
     protected $casts = ['settings' => 'array', 'starts_at' => 'immutable_datetime', 'ends_at' => 'immutable_datetime'];
 
+    /** @return HasMany<HomepageSectionItem, $this> */
     public function items(): HasMany
     {
         return $this->hasMany(HomepageSectionItem::class)->orderBy('sort_order');

@@ -27,6 +27,7 @@ class AuditLog extends Model
         static::deleting(fn () => throw new LogicException('Audit logs are immutable.'));
     }
 
+    /** @return BelongsTo<User, $this> */
     public function actor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'actor_id');

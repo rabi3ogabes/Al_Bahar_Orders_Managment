@@ -14,6 +14,7 @@ class Wishlist extends Model
 
     protected $guarded = ['id'];
 
+    /** @return HasMany<WishlistItem, $this> */
     public function items(): HasMany
     {
         return $this->hasMany(WishlistItem::class);

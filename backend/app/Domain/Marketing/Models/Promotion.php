@@ -19,21 +19,25 @@ class Promotion extends Model
 
     protected $casts = ['starts_at' => 'immutable_datetime', 'ends_at' => 'immutable_datetime', 'is_active' => 'boolean', 'is_stackable' => 'boolean', 'requires_coupon' => 'boolean', 'first_order_only' => 'boolean', 'applies_to_auctions' => 'boolean'];
 
+    /** @return BelongsToMany<Product, $this> */
     public function products(): BelongsToMany
     {
         return $this->belongsToMany(Product::class, 'promotion_products');
     }
 
+    /** @return BelongsToMany<Category, $this> */
     public function categories(): BelongsToMany
     {
         return $this->belongsToMany(Category::class, 'promotion_categories');
     }
 
+    /** @return BelongsToMany<Branch, $this> */
     public function branches(): BelongsToMany
     {
         return $this->belongsToMany(Branch::class, 'promotion_branches');
     }
 
+    /** @return HasMany<Coupon, $this> */
     public function coupons(): HasMany
     {
         return $this->hasMany(Coupon::class);

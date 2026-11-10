@@ -15,11 +15,13 @@ class BranchEmployee extends Model
 
     protected $casts = ['is_active' => 'boolean', 'is_delivery_driver' => 'boolean'];
 
+    /** @return BelongsTo<Branch, $this> */
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

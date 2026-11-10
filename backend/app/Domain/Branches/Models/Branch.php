@@ -38,31 +38,37 @@ class Branch extends Model
         return $this->status === 'active';
     }
 
+    /** @return HasMany<BranchHour, $this> */
     public function hours(): HasMany
     {
         return $this->hasMany(BranchHour::class)->orderBy('day_of_week');
     }
 
+    /** @return HasMany<BranchHoliday, $this> */
     public function holidays(): HasMany
     {
         return $this->hasMany(BranchHoliday::class)->orderBy('starts_at');
     }
 
+    /** @return HasMany<BranchSetting, $this> */
     public function settings(): HasMany
     {
         return $this->hasMany(BranchSetting::class);
     }
 
+    /** @return HasMany<BranchEmployee, $this> */
     public function employeeAssignments(): HasMany
     {
         return $this->hasMany(BranchEmployee::class);
     }
 
+    /** @return BelongsToMany<User, $this> */
     public function employees(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'branch_employees')->withPivot(['job_title', 'is_active', 'is_delivery_driver'])->withTimestamps();
     }
 
+    /** @return BelongsToMany<DeliveryZone, $this> */
     public function deliveryZones(): BelongsToMany
     {
         return $this->belongsToMany(DeliveryZone::class, 'branch_delivery_zones')->using(BranchDeliveryZone::class)
@@ -70,11 +76,13 @@ class Branch extends Model
                 'cod_enabled', 'express_enabled', 'express_fee', 'estimated_minutes', 'priority', 'is_active'])->withTimestamps();
     }
 
+    /** @return HasMany<BranchDeliveryZone, $this> */
     public function zoneConfigs(): HasMany
     {
         return $this->hasMany(BranchDeliveryZone::class);
     }
 
+    /** @return HasMany<DeliverySlot, $this> */
     public function slots(): HasMany
     {
         return $this->hasMany(DeliverySlot::class);

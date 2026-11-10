@@ -78,46 +78,55 @@ class User extends Authenticatable
         return $this->two_factor_confirmed_at !== null && $this->two_factor_secret !== null;
     }
 
+    /** @return HasMany<UserRole, $this> */
     public function roleAssignments(): HasMany
     {
         return $this->hasMany(UserRole::class);
     }
 
+    /** @return BelongsToMany<Role, $this> */
     public function roles(): BelongsToMany
     {
         return $this->belongsToMany(Role::class, 'user_roles')->withPivot(['id', 'branch_id'])->withTimestamps();
     }
 
+    /** @return HasMany<BranchEmployee, $this> */
     public function branchAssignments(): HasMany
     {
         return $this->hasMany(BranchEmployee::class);
     }
 
+    /** @return BelongsToMany<Branch, $this> */
     public function branches(): BelongsToMany
     {
         return $this->belongsToMany(Branch::class, 'branch_employees')->withPivot(['job_title', 'is_active', 'is_delivery_driver'])->withTimestamps();
     }
 
+    /** @return HasMany<UserDevice, $this> */
     public function devices(): HasMany
     {
         return $this->hasMany(UserDevice::class);
     }
 
+    /** @return HasMany<UserSession, $this> */
     public function sessionsList(): HasMany
     {
         return $this->hasMany(UserSession::class);
     }
 
+    /** @return HasMany<UserAddress, $this> */
     public function addresses(): HasMany
     {
         return $this->hasMany(UserAddress::class);
     }
 
+    /** @return HasMany<Order, $this> */
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
     }
 
+    /** @return HasOne<LoyaltyAccount, $this> */
     public function loyaltyAccount(): HasOne
     {
         return $this->hasOne(LoyaltyAccount::class);

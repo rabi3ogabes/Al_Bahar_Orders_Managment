@@ -15,6 +15,7 @@ class PurchaseOrderItem extends Model
 
     protected $guarded = ['id'];
 
+    /** @return BelongsTo<ProductVariant, $this> */
     public function variant(): BelongsTo
     {
         return $this->belongsTo(ProductVariant::class, 'product_variant_id');

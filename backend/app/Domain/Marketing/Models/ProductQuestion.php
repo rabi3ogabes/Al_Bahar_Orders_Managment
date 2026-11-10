@@ -17,6 +17,7 @@ class ProductQuestion extends Model
 
     protected $casts = ['answered_at' => 'immutable_datetime'];
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

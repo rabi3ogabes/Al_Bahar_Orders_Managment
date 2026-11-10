@@ -14,6 +14,7 @@ class ProductAttribute extends Model
 
     protected $casts = ['is_filterable' => 'boolean', 'is_variant_axis' => 'boolean'];
 
+    /** @return HasMany<ProductAttributeValue, $this> */
     public function values(): HasMany
     {
         return $this->hasMany(ProductAttributeValue::class)->orderBy('sort_order');

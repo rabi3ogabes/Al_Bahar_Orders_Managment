@@ -15,11 +15,13 @@ class AuctionBidder extends Model
 
     protected $casts = ['terms_accepted_at' => 'immutable_datetime'];
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /** @return BelongsTo<Auction, $this> */
     public function auction(): BelongsTo
     {
         return $this->belongsTo(Auction::class);

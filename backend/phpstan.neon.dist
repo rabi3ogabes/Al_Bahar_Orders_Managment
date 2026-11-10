@@ -5,3 +5,13 @@ parameters:
     paths:
         - app
     treatPhpDocTypesAsCertain: false
+    ignoreErrors:
+        # PostgreSQL NUMERIC columns (prices, amounts, fees) are mapped to `float` by Larastan, but PDO returns them as
+        # strings at runtime and money is handled as strings / App\Support\Money (never floats, see ARCHITECTURE.md).
+        # Passing such an attribute to Money::of() or assigning a decimal string to it is therefore correct.
+        -
+            identifier: argument.type
+            message: '#^Parameter \#1 \$amount of static method App\\Support\\Money::of\(\) expects App\\Support\\Money\|int\|string\|null, float(\|null)? given\.$#'
+        -
+            identifier: assign.propertyType
+            message: '#^Property App\\Domain\\.+::\$\w+ \(float(\|null)?\) does not accept string(\|null)?\.$#'

@@ -24,21 +24,25 @@ class Auction extends Model
         'requires_registration' => 'boolean', 'requires_verified_phone' => 'boolean', 'cod_allowed' => 'boolean', 'pickup_allowed' => 'boolean',
         'delivery_allowed' => 'boolean', 'show_bidder_names' => 'boolean'];
 
+    /** @return HasMany<AuctionTranslation, $this> */
     public function translations(): HasMany
     {
         return $this->hasMany(AuctionTranslation::class);
     }
 
+    /** @return HasMany<AuctionLot, $this> */
     public function lots(): HasMany
     {
         return $this->hasMany(AuctionLot::class)->orderBy('sort_order')->orderBy('lot_number');
     }
 
+    /** @return HasMany<AuctionBidder, $this> */
     public function bidders(): HasMany
     {
         return $this->hasMany(AuctionBidder::class);
     }
 
+    /** @return BelongsToMany<Branch, $this> */
     public function branches(): BelongsToMany
     {
         return $this->belongsToMany(Branch::class, 'auction_branches');

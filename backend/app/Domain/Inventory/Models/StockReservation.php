@@ -15,6 +15,7 @@ class StockReservation extends Model
 
     protected $casts = ['expires_at' => 'immutable_datetime', 'consumed_at' => 'immutable_datetime', 'released_at' => 'immutable_datetime', 'quantity' => 'integer'];
 
+    /** @return BelongsTo<ProductVariant, $this> */
     public function variant(): BelongsTo
     {
         return $this->belongsTo(ProductVariant::class, 'product_variant_id');

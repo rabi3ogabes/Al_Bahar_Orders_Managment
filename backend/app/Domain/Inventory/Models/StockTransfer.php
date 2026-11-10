@@ -20,16 +20,19 @@ class StockTransfer extends Model
     protected $casts = ['submitted_at' => 'immutable_datetime', 'approved_at' => 'immutable_datetime', 'dispatched_at' => 'immutable_datetime',
         'received_at' => 'immutable_datetime', 'completed_at' => 'immutable_datetime', 'cancelled_at' => 'immutable_datetime'];
 
+    /** @return HasMany<StockTransferItem, $this> */
     public function items(): HasMany
     {
         return $this->hasMany(StockTransferItem::class);
     }
 
+    /** @return BelongsTo<Branch, $this> */
     public function source(): BelongsTo
     {
         return $this->belongsTo(Branch::class, 'source_branch_id');
     }
 
+    /** @return BelongsTo<Branch, $this> */
     public function destination(): BelongsTo
     {
         return $this->belongsTo(Branch::class, 'destination_branch_id');
