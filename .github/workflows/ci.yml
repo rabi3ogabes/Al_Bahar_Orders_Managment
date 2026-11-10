@@ -35,16 +35,24 @@ jobs:
       - run: cp .env.example .env && php artisan key:generate
       - name: Code style (Pint)
         run: vendor/bin/pint --test
+      # Runs before static analysis because Larastan reads model columns from the migrated schema.
+      - name: Migrations on a clean database (up, down, up)
+        run: php artisan migrate --force && php artisan migrate:rollback --force && php artisan migrate --force --seed
       - name: Static analysis (PHPStan + Larastan)
         run: |
           composer require --dev larastan/larastan:^3.0 --no-interaction --no-progress -W
           vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+      - name: PHPStan error summary (temporary diagnostics)
+        if: failure()
+        run: |
+          vendor/bin/phpstan analyse --memory-limit=1G --no-progress --error-format=json > /tmp/phpstan.json || true
+          echo "== by identifier"; jq -r '.files[].messages[].identifier' /tmp/phpstan.json | sort | uniq -c | sort -rn | head -25
+          echo "== by file (top 25)"; jq -r '.files | to_entries[] | "\(.value.errors) \(.key | sub(".*/app/"; "app/"))"' /tmp/phpstan.json | sort -rn | head -25
+          echo "== everything except undefined property/method"; jq -r '.files | to_entries[] | .key as $f | .value.messages[] | select(.identifier != "property.notFound" and .identifier != "method.notFound") | "\($f | sub(".*/app/"; "app/")):\(.line) [\(.identifier)] \(.message)"' /tmp/phpstan.json | head -300
       - name: Dependency audit
         run: composer audit --no-dev
       - name: Build admin assets
         run: npm ci && npm run build && npm audit --omit=dev --audit-level=high
-      - name: Migrations on a clean database (up, down, up)
-        run: php artisan migrate --force && php artisan migrate:rollback --force && php artisan migrate --force --seed
       - name: Tests (feature + unit)
         run: php artisan migrate:fresh --force && vendor/bin/pest --testsuite=Unit,Feature
       - name: Concurrency tests (multi-process, PostgreSQL row locks)
