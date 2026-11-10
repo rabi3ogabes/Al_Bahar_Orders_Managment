@@ -101,7 +101,7 @@ class OrderController extends ApiController
         $order = $this->own($id);
         $f = $order->fulfillments()->with(['pickup', 'branch'])->findOrFail($fulfillmentId);
         $pass = $f->pickup ? $pickup->pass($f->pickup) : null;
-        abort_unless($pass, 409, __('checkout.pickup_not_ready'));
+        abort_if($pass === null, 409, __('checkout.pickup_not_ready'));
 
         return response()->json(['data' => $pass + ['branch' => ['id' => $f->branch->id, 'name' => $f->branch->localized('name')], 'fulfillment_number' => $f->number]]);
     }

@@ -22,6 +22,7 @@ class CampaignService
 {
     public function __construct(private readonly NotificationService $notify, private readonly Settings $settings) {}
 
+    /** @return Builder<User> */
     public function audience(array $segment): Builder
     {
         return User::query()->where('type', 'customer')->where('status', 'active')->whereNotNull('marketing_consent_at')

@@ -15,7 +15,6 @@ use App\Domain\Catalog\Services\CatalogImportService;
 use App\Domain\Catalog\Services\CategoryService;
 use App\Domain\Catalog\Services\MediaService;
 use App\Domain\Catalog\Services\ProductService;
-use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Pricing\Services\PriceResolver;
 use App\Domain\Pricing\Services\PricingService;
 use App\Http\Controllers\Api\V1\ApiController;
@@ -31,7 +30,7 @@ use Illuminate\Http\Request;
  */
 class CatalogAdminController extends ApiController
 {
-    public function __construct(private readonly ProductService $products, private readonly PricingService $pricing, private readonly AccessControl $access) {}
+    public function __construct(private readonly ProductService $products, private readonly PricingService $pricing) {}
 
     public function index(Request $request): JsonResponse
     {

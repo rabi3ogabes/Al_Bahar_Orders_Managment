@@ -110,7 +110,7 @@ class EngagementController extends ApiController
     {
         $list = Wishlist::firstOrCreate(['user_id' => $this->user()->id, 'name' => 'Default']);
         $items = WishlistItem::where('wishlist_id', $list->id)->with(['product' => fn ($q) => $q->with(['translations', 'brand', 'images', 'variants' => fn ($v) => $v->where('status', 'active')])])->latest()->get()
-            ->filter(fn ($i) => $i->product);
+            ->filter(fn ($i) => $i->product !== null);
         $branch = $request->query('branch_id') ? Branch::active()->find($request->query('branch_id')) : null;
         $cards = collect($catalog->cards($items->pluck('product'), $branch))->keyBy('id');
 

@@ -99,6 +99,7 @@ class ProductPricing extends Component
             'variant' => $pricing->setVariantPrice($variant, ...$args),
             'product_branch' => $pricing->setProductBranchPrice($this->product, $e['branch_id'], ...$args),
             'variant_branch' => $pricing->setVariantBranchPrice($variant, $e['branch_id'], ...$args),
+            default => abort(422),
         }, __('catalog_admin.price_saved'));
         if ($ok) {
             $this->product->refresh();
@@ -119,6 +120,7 @@ class ProductPricing extends Component
             'variant' => $pricing->setVariantPrice($variant, ...$args),
             'product_branch' => $pricing->setProductBranchPrice($this->product, $e['branch_id'], ...$args),
             'variant_branch' => $pricing->setVariantBranchPrice($variant, $e['branch_id'], ...$args),
+            default => abort(422),
         }, __('catalog_admin.override_cleared'));
         if ($ok) {
             $this->showEditor = false;

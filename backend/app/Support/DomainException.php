@@ -10,7 +10,8 @@ use RuntimeException;
  */
 class DomainException extends RuntimeException
 {
-    public function __construct(
+    // final: callers (make()) instantiate with `new static`, which is only safe when no subclass can change the constructor.
+    final public function __construct(
         public readonly string $errorCode,
         ?string $message = null,
         public readonly int $status = 422,

@@ -18,6 +18,7 @@ class ProductQuery
 {
     public function __construct(private readonly ProductSearch $search) {}
 
+    /** @return Builder<Product> */
     public function build(array $f, ?string $branchId): Builder
     {
         $q = Product::query()->active()->select('products.*')

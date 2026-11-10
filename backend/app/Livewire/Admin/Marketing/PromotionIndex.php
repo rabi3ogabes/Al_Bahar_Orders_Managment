@@ -123,7 +123,7 @@ class PromotionIndex extends Component
             'p.name_en' => 'required|string|max:255', 'p.name_ar' => 'required|string|max:255',
             'p.description_en' => 'nullable|string|max:2000', 'p.description_ar' => 'nullable|string|max:2000',
             'p.type' => ['required', Rule::in(self::TYPES)],
-            'p.value' => array_filter([$type === 'free_delivery' ? 'nullable' : 'required', 'numeric', 'min:0', in_array($type, ['percentage', 'flash_sale'], true) ? 'max:100' : 'max:1000000']),
+            'p.value' => [$type === 'free_delivery' ? 'nullable' : 'required', 'numeric', 'min:0', in_array($type, ['percentage', 'flash_sale'], true) ? 'max:100' : 'max:1000000'],
             'p.scope' => ['required', Rule::in(self::SCOPES)],
             'p.min_basket_amount' => 'nullable|numeric|min:0', 'p.max_discount_amount' => 'nullable|numeric|min:0',
             'p.buy_quantity' => (in_array($type, ['bogo', 'bundle'], true) ? 'required' : 'nullable').'|integer|min:1|max:100',

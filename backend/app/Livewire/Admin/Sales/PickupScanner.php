@@ -99,7 +99,7 @@ class PickupScanner extends Component
 
     public function confirmHandover(PickupService $pickup): void
     {
-        abort_unless($this->reservationId, 422);
+        abort_if($this->reservationId === null || $this->reservationId === '', 422);
         $r = PickupReservation::with('fulfillment.order')->findOrFail($this->reservationId);
         abort_unless($r->branch_id === $this->branchId, 403);
         $this->authorizeBranch('pickup.approve', $r->branch_id);

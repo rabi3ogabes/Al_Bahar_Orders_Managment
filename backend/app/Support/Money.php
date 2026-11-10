@@ -40,7 +40,7 @@ final class Money implements JsonSerializable, Stringable
         if (! preg_match('/^(-)?(\d+)(?:\.(\d{1,4}))?$/', $amount, $m)) {
             throw new InvalidArgumentException("Invalid money amount [{$amount}].");
         }
-        $sign = ($m[1] ?? '') === '-' ? -1 : 1;
+        $sign = $m[1] === '-' ? -1 : 1;
         $fraction = str_pad($m[3] ?? '', 4, '0');
         // Round half-up from 4 decimal digits to 2.
         $minor = ((int) $m[2]) * 100 + (int) substr($fraction, 0, 2);

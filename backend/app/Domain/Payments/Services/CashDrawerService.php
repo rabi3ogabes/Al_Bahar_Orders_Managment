@@ -32,6 +32,7 @@ class CashDrawerService
     public function __construct(private readonly AccessControl $access, private readonly AuditLogger $audit) {}
 
     /** Cash collections that a collector still holds (not handed in), optionally narrowed to one branch. */
+    /** @return Builder<CashCollection> */
     public function openCollections(User|string $collector, ?string $branchId = null): Builder
     {
         return CashCollection::query()

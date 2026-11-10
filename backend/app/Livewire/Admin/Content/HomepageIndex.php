@@ -191,6 +191,7 @@ class HomepageIndex extends Component
                 'product' => Product::with('translations')->where(fn ($q) => $q->where('sku', 'ilike', $like)->orWhereHas('translations', fn ($t) => $t->where('name', 'ilike', $like)))->limit(8)->get()->mapWithKeys(fn ($p) => [$p->id => $p->trans('name')]),
                 'category' => Category::with('translations')->whereHas('translations', fn ($t) => $t->where('name', 'ilike', $like))->limit(8)->get()->mapWithKeys(fn ($c) => [$c->id => $c->trans('name')]),
                 'brand' => Brand::where(fn ($q) => $q->where('name_en', 'ilike', $like)->orWhere('name_ar', 'ilike', $like))->limit(8)->get()->mapWithKeys(fn ($b) => [$b->id => $b->localized('name')]),
+                default => collect(),
             };
         }
         $locale = app()->getLocale();

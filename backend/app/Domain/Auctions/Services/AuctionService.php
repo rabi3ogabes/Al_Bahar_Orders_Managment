@@ -317,7 +317,8 @@ class AuctionService
             $snapshot = ['lot_number' => $l->lot_number, 'title_en' => $l->title_en, 'starting_price' => $l->starting_price];
             try {
                 $l->delete();
-            } catch (QueryException) {
+                // An FK violation (bids, winners, watchers reference the lot) surfaces here from the database.
+            } catch (QueryException) { // @phpstan-ignore catch.neverThrown
                 throw DomainException::make('lot_not_deletable', 409, ['status' => $l->status]);
             }
             // A live auction whose remaining lots are all finished ends with this removal.

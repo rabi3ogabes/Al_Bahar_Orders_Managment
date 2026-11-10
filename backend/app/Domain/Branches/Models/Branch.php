@@ -68,7 +68,7 @@ class Branch extends Model
         return $this->belongsToMany(User::class, 'branch_employees')->withPivot(['job_title', 'is_active', 'is_delivery_driver'])->withTimestamps();
     }
 
-    /** @return BelongsToMany<DeliveryZone, $this> */
+    /** @return BelongsToMany<DeliveryZone, $this, BranchDeliveryZone, 'pivot'> */
     public function deliveryZones(): BelongsToMany
     {
         return $this->belongsToMany(DeliveryZone::class, 'branch_delivery_zones')->using(BranchDeliveryZone::class)

@@ -94,7 +94,7 @@ class AuditIndex extends Component
     public function render()
     {
         $logs = $this->query()->paginate($this->perPage);
-        $branchNames = Branch::whereIn('id', $logs->pluck('branch_id')->filter()->unique())->get(['id', 'code'])->pluck('code', 'id');
+        $branchNames = Branch::whereIn('id', $logs->pluck('branch_id')->filter()->unique())->pluck('code', 'id');
 
         return view('livewire.admin.organization.audit', [
             'logs' => $logs,

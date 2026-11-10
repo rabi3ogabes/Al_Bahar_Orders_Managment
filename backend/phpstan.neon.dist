@@ -15,3 +15,16 @@ parameters:
         -
             identifier: assign.propertyType
             message: '#^Property App\\Domain\\.+::\$\w+ \(float(\|null)?\) does not accept string(\|null)?\.$#'
+        # Date casts accept any DateTimeInterface: assigning now() (Illuminate\Support\Carbon) to an `immutable_datetime`
+        # attribute is fine; Eloquent normalises it on write.
+        -
+            identifier: assign.propertyType
+            message: '#^Property App\\Domain\\.+::\$\w+ \(Carbon\\CarbonImmutable\|null\) does not accept Illuminate\\Support\\Carbon\.$#'
+        # NUMERIC columns again, as method arguments (amounts and unit costs travel as decimal strings).
+        -
+            identifier: argument.type
+            message: '#^Parameter \#\d+ \$(amount|unitCost) of method .+ expects string\|null, float(\|null)? given\.$#'
+        # `$x?->prop ?? default` on a relation or first() result: Larastan models these as non-null, but they are null when
+        # the row does not exist. The defensive nullsafe is intentional.
+        -
+            identifier: nullsafe.neverNull
