@@ -49,6 +49,7 @@ class AuditIndex extends Component
         $this->resetPage();
     }
 
+    /** @return Builder<AuditLog> */
     private function query(): Builder
     {
         $q = AuditLog::query()->with('actor:id,name,email,type')

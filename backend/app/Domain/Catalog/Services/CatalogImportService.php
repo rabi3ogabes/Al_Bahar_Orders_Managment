@@ -124,8 +124,8 @@ class CatalogImportService
             foreach ($chunk as $p) {
                 $en = $p->translation('en');
                 $ar = $p->translation('ar');
-                $writer->addRow(Row::fromValues([$p->sku, $en?->name, $ar?->name, $p->price, $p->sale_price, $p->status, $p->category?->slug,
-                    $p->brand?->slug, $p->barcode, $en?->short_description, $ar?->short_description, $en?->description, $ar?->description,
+                $writer->addRow(Row::fromValues([$p->sku, $en?->getAttribute('name'), $ar?->getAttribute('name'), $p->price, $p->sale_price, $p->status, $p->category?->slug,
+                    $p->brand?->slug, $p->barcode, $en?->getAttribute('short_description'), $ar?->getAttribute('short_description'), $en?->getAttribute('description'), $ar?->getAttribute('description'),
                     $p->weight, $p->length, $p->width, $p->height, (int) $p->is_featured, (int) $p->is_new_arrival, (int) $p->is_bestseller,
                     (int) $p->requires_assembly, (int) $p->is_oversized, implode(',', $p->tags ?? [])]));
                 $count++;

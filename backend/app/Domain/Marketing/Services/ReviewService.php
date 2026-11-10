@@ -77,7 +77,7 @@ class ReviewService
 
     public function recalculate(string $productId): void
     {
-        $agg = Review::where('product_id', $productId)->where('status', 'approved')->selectRaw('count(*) as c, coalesce(avg(rating),0) as a')->first();
+        $agg = Review::where('product_id', $productId)->where('status', 'approved')->selectRaw('count(*) as c, coalesce(avg(rating),0) as a')->toBase()->first();
         Product::whereKey($productId)->update(['rating_count' => (int) $agg->c, 'rating_average' => round((float) $agg->a, 2)]);
     }
 }

@@ -29,7 +29,7 @@ class BranchResource extends JsonResource
             'cod_enabled' => $this->cod_enabled,
             'pay_at_pickup_enabled' => $this->pay_at_pickup_enabled,
             'opening' => $this->when($this->relationLoaded('hours'), fn () => app(BranchHoursService::class)->status($this->resource)),
-            'distance_km' => $this->when(isset($this->distance_km), fn () => round((float) $this->distance_km, 2)),
+            'distance_km' => $this->when($this->resource->getAttribute('distance_km') !== null, fn () => round((float) $this->resource->getAttribute('distance_km'), 2)),
         ];
     }
 }

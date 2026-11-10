@@ -46,7 +46,7 @@ class CashDrawerService
     public function balancesFor(User $collector): array
     {
         return $this->openCollections($collector)->groupBy('branch_id')
-            ->selectRaw('branch_id, count(*) as n, sum(amount_collected) as total, min(collected_at) as oldest')->get()
+            ->selectRaw('branch_id, count(*) as n, sum(amount_collected) as total, min(collected_at) as oldest')->toBase()->get()
             ->mapWithKeys(fn ($r) => [$r->branch_id => ['count' => (int) $r->n, 'amount' => Money::of((string) $r->total), 'oldest' => $r->oldest]])->all();
     }
 

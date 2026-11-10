@@ -27,7 +27,7 @@ class CashDrawerController extends ApiController
         if ($request->filled('branch_id')) {
             $q->where('branch_id', $request->query('branch_id'));
         }
-        $rows = $q->groupBy('branch_id', 'collected_by')->selectRaw('branch_id, collected_by, count(*) as n, sum(amount_collected) as total, min(collected_at) as oldest')->get();
+        $rows = $q->groupBy('branch_id', 'collected_by')->selectRaw('branch_id, collected_by, count(*) as n, sum(amount_collected) as total, min(collected_at) as oldest')->toBase()->get();
         $names = User::whereIn('id', $rows->pluck('collected_by'))->pluck('name', 'id');
 
         return response()->json(['data' => $rows->map(fn ($r) => [

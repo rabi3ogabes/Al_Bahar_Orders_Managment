@@ -179,7 +179,7 @@ class QuoteService
         }
 
         $addressId = $o['address_id'] ?? $cart->address_id;
-        $address = $addressId ? UserAddress::where('user_id', $user->id)->with('zone')->find($addressId) : null;
+        $address = $addressId ? UserAddress::where('user_id', $user->id)->with('zone')->whereKey($addressId)->first() : null;
         if (! $address) {
             $q->error('address_required');
 
@@ -197,10 +197,12 @@ class QuoteService
         if ($configs->isEmpty()) {
             $q->error('delivery_unavailable_area');
         }
-        $branches = $configs->map(function (BranchDeliveryZone $c) {
-            $c->branch->setAttribute('zone_priority', $c->priority);
+        $branches = $configs->map(function (BranchDeliveryZone $c): Branch {
+            /** @var Branch $branch the FK is NOT NULL */
+            $branch = $c->branch;
+            $branch->setAttribute('zone_priority', $c->priority);
 
-            return $c->branch;
+            return $branch;
         });
 
         return [$branches, $configs->keyBy('branch_id')->all(), $address];

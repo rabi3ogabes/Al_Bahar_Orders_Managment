@@ -122,7 +122,7 @@ class AuctionController extends ApiController
     public function myBids(): JsonResponse
     {
         $mine = AuctionBid::where('user_id', $this->user()->id)->where('status', 'accepted')->groupBy('auction_lot_id')
-            ->selectRaw('auction_lot_id, max(amount) as my_highest, max(placed_at) as my_last')->get()->keyBy('auction_lot_id');
+            ->selectRaw('auction_lot_id, max(amount) as my_highest, max(placed_at) as my_last')->toBase()->get()->keyBy('auction_lot_id');
 
         return response()->json(['data' => AuctionLot::whereIn('id', $mine->keys())->orderByDesc('updated_at')->get()->map(fn ($l) => $this->presenter->lot($l, $this->user()) + [
             'my_highest_bid' => Money::of((string) $mine[$l->id]->my_highest)->jsonSerialize(),

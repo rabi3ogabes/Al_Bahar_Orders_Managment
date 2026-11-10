@@ -12,6 +12,12 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class PostgresProductSearch implements ProductSearch
 {
+    /**
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
+     */
     public function apply(Builder $query, string $term, bool $orderByRelevance = true): Builder
     {
         $norm = SearchNormalizer::normalize($term);
