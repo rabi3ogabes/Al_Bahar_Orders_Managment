@@ -30,7 +30,8 @@ class OtpService
             throw OtpException::make('otp_hourly_limit', 429);
         }
 
-        $code = $this->generateCode($cfg['length']);
+        $testMode = $this->testModeCode();
+        $code = $testMode ?? $this->generateCode($cfg['length']);
 
         $otp = DB::transaction(function () use ($phone, $purpose, $code, $cfg, $ip, $userAgent) {
             // Any earlier unused code for this phone+purpose becomes invalid.
@@ -51,7 +52,7 @@ class OtpService
 
         $this->sms->send($phone, __('auth.otp_sms', ['code' => $code, 'minutes' => (int) ceil($cfg['ttl_seconds'] / 60)]), 'otp');
 
-        return ['otp' => $otp, 'debug_code' => $this->devEchoEnabled() ? $code : null];
+        return ['otp' => $otp, 'debug_code' => ($testMode !== null || $this->devEchoEnabled()) ? $code : null];
     }
 
     /**
@@ -110,6 +111,14 @@ class OtpService
     private function generateCode(int $length): string
     {
         return str_pad((string) random_int(0, (10 ** $length) - 1), $length, '0', STR_PAD_LEFT);
+    }
+
+    /** The fixed test code, only while no real SMS provider is configured. */
+    private function testModeCode(): ?string
+    {
+        $code = (string) config('platform.otp.test_code');
+
+        return ($code !== '' && config('services.sms.driver') !== 'http') ? $code : null;
     }
 
     private function devEchoEnabled(): bool

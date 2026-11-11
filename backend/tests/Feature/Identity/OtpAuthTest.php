@@ -115,3 +115,18 @@ it('responds identically to password-reset requests for unknown numbers (no enum
         ->assertOk()->assertJsonPath('data.sent', true);
     expect(OtpVerification::count())->toBe(0);
 });
+
+it('uses the fixed test code (and shows it) while OTP_TEST_CODE is set and no SMS provider is connected', function () {
+    config(['platform.otp.dev_echo' => false, 'platform.otp.test_code' => '123456', 'services.sms.driver' => 'null']);
+    $res = $this->postJson('/api/v1/auth/otp/request', ['phone' => '55123456', 'purpose' => 'login'])->assertOk();
+    expect($res->json('data.debug_code'))->toBe('123456');
+    app(OtpService::class)->verify('+97455123456', OtpPurpose::Login, '123456');
+    expect(OtpVerification::firstOrFail()->consumed_at)->not->toBeNull();
+});
+
+it('ignores the test code once a real SMS provider is configured', function () {
+    config(['platform.otp.dev_echo' => false, 'platform.otp.test_code' => '123456', 'services.sms.driver' => 'http']);
+    app()->bind(\App\Domain\Notifications\Contracts\SmsSender::class, fn () => new \App\Domain\Notifications\Channels\NullSmsSender);
+    $res = $this->postJson('/api/v1/auth/otp/request', ['phone' => '55123456', 'purpose' => 'login'])->assertOk();
+    expect($res->json('data.debug_code'))->toBeNull();
+});

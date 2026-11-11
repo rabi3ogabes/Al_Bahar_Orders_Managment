@@ -15,11 +15,26 @@ import { useAuthModal } from './AuthModal';
 import { Button, Drawer, IconButton, Modal, Pic, PriceTag, QtyStepper, Spinner } from './ui';
 import { useToast } from '../lib/toast';
 
+export function LogoMark({ className = 'h-9 w-9 sm:h-10 sm:w-10' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden="true" className={cx('shrink-0', className)}>
+      <circle cx="32" cy="32" r="32" fill="#16324F" />
+      <circle cx="32" cy="22" r="7" fill="#C4894A" />
+      <path d="M10 37c4.5-5 9-5 13.5 0s9 5 13.5 0 9-5 13.5 0 2.5 2.5 3.5 3.5" fill="none" stroke="#E7C894" strokeWidth="3" strokeLinecap="round" />
+      <path d="M10 47c4.5-5 9-5 13.5 0s9 5 13.5 0 9-5 13.5 0 2.5 2.5 3.5 3.5" fill="none" stroke="#FAF7F2" strokeWidth="3" strokeLinecap="round" opacity=".9" />
+    </svg>
+  );
+}
+
+/** Bilingual lockup: wave mark, Arabic name over the Latin name. */
 export function Logo({ light }: { light?: boolean }) {
   return (
-    <Link to="/" className={cx('flex flex-col items-center leading-none', light ? 'text-bg' : 'text-ink')} aria-label="Al Bahar Home & Living">
-      <span className="font-display whitespace-nowrap text-[20px] font-semibold tracking-[0.28em] ps-[0.28em] sm:text-[26px] sm:tracking-[0.32em]">AL BAHAR</span>
-      <span className="mt-1 whitespace-nowrap text-[8px] font-medium uppercase tracking-[0.36em] text-brass ps-[0.36em] sm:text-[9px] sm:tracking-[0.42em]">Home &amp; Living</span>
+    <Link to="/" className={cx('flex items-center gap-2.5 leading-none', light ? 'text-bg' : 'text-ink')} aria-label="Al Bahar البحار">
+      <LogoMark />
+      <span className="flex flex-col items-start">
+        <span lang="ar" dir="rtl" className="font-arabic text-[24px] font-semibold leading-[1.05] sm:text-[28px]">البحار</span>
+        <span className="mt-0.5 whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.3em] text-brass sm:text-[11px]">Al Bahar</span>
+      </span>
     </Link>
   );
 }
@@ -171,7 +186,7 @@ export function Header() {
       <a href="#main" className="sr-only-focusable fixed start-4 top-4 z-[200] rounded-full bg-ink px-4 py-2 text-bg">{t('a11y.skip')}</a>
       <div className="bg-ink text-[12px] text-bg/90">
         <div className="wrap flex items-center justify-between gap-4 py-2">
-          <span className="flex items-center gap-2"><Truck size={14} className="text-brass" />{t('top.promo')}</span>
+          <span className="flex min-w-0 items-center gap-2"><Truck size={14} className="shrink-0 text-brass" /><span className="truncate">{t('top.promo')}</span></span>
           {branches[0]?.phone && (
             <span className="hidden items-center gap-5 sm:flex">
               <a href={telHref(branches[0].phone)} className="flex items-center gap-1.5 hover:text-brass"><Phone size={13} /><bdi>{branches[0].phone}</bdi></a>
@@ -180,7 +195,7 @@ export function Header() {
         </div>
       </div>
       <header className={cx('sticky top-0 z-50 border-b transition-all duration-300', stuck ? 'border-line bg-bg/92 shadow-[0_6px_24px_-18px_rgb(0_0_0/0.4)] backdrop-blur-xl' : 'border-transparent bg-bg')}>
-        <div className="wrap grid h-[68px] grid-cols-[minmax(0,1fr)_auto_1fr] items-center gap-2 lg:h-[84px]">
+        <div className="wrap grid h-[68px] grid-cols-[1fr_auto_1fr] items-center gap-2 lg:h-[84px]">
           <div className="flex items-center gap-1">
             <IconButton label={t('nav.menu')} className="lg:hidden" onClick={() => setMenu(true)}><Menu size={22} /></IconButton>
             <nav aria-label={t('nav.main')} className="hidden items-center gap-7 lg:flex">
@@ -195,7 +210,7 @@ export function Header() {
               <NavLink to="/showrooms" className={link}>{t('nav.showrooms')}</NavLink>
             </nav>
             <IconButton label={t('search.title')} onClick={() => setSearch(true)}><Search size={20} /></IconButton>
-            <IconButton label={t('wishlist.title')} className="hidden sm:inline-flex" onClick={() => (user ? nav('/account/wishlist') : authModal.open({ reason: t('auth.reason_wishlist') }))}><Heart size={20} /></IconButton>
+            <span className="hidden sm:inline-flex"><IconButton label={t('wishlist.title')} onClick={() => (user ? nav('/account/wishlist') : authModal.open({ reason: t('auth.reason_wishlist') }))}><Heart size={20} /></IconButton></span>
             <IconButton label={user ? t('account.title') : t('auth.sign_in')} onClick={() => (user ? nav('/account') : authModal.open())}><UserIcon size={20} /></IconButton>
             <IconButton label={`${t('cart.title')} (${cart.count})`} onClick={cart.openDrawer}>
               <ShoppingBag size={20} />

@@ -62,6 +62,7 @@
   --color-danger: var(--danger);
   --color-info: var(--info);
   --font-display: 'Cormorant Garamond', 'IBM Plex Sans Arabic', Georgia, serif;
+  --font-arabic: 'IBM Plex Sans Arabic', 'Inter', system-ui, sans-serif;
   --font-sans: 'Inter', 'IBM Plex Sans Arabic', system-ui, sans-serif;
   --shadow-soft: var(--shadow);
 }

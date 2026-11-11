@@ -46,6 +46,10 @@ return [
         'max_per_phone_per_hour' => 5,
         // Development convenience only. Hard-disabled outside local/testing in AppServiceProvider.
         'dev_echo' => (bool) env('OTP_DEV_ECHO', false),
+        // TEMPORARY test mode until an SMS provider is connected: every login code is this fixed value and is
+        // shown on screen. Ignored automatically once SMS_DRIVER is a real provider. Leave empty in production
+        // with a provider.
+        'test_code' => (string) env('OTP_TEST_CODE', ''),
     ],
 
     'checkout' => [

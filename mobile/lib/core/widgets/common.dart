@@ -432,7 +432,38 @@ class SummaryRow extends StatelessWidget {
   }
 }
 
-/// Wordmark used on splash / auth screens.
+/// Wave mark: navy disc, gold sun and two waves. Same geometry as the web logo (64-unit box).
+class LogoMarkPainter extends CustomPainter {
+  const LogoMarkPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final k = size.width / 64;
+    canvas.drawCircle(Offset(32 * k, 32 * k), 32 * k, Paint()..color = AppPalette.navy);
+    canvas.drawCircle(Offset(32 * k, 22 * k), 7 * k, Paint()..color = AppPalette.brass);
+    Path wave(double y) {
+      final path = Path()..moveTo(10 * k, y * k);
+      for (var i = 0; i < 4; i++) {
+        final dir = i.isEven ? -1.0 : 1.0;
+        path.relativeCubicTo(3.4 * k, 5 * dir * k, 7.3 * k, 5 * dir * k, 10.75 * k, 0);
+      }
+      return path;
+    }
+
+    Paint stroke(Color c) => Paint()
+      ..color = c
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3 * k
+      ..strokeCap = StrokeCap.round;
+    canvas.drawPath(wave(37), stroke(AppPalette.goldSoft));
+    canvas.drawPath(wave(47), stroke(AppPalette.ivory.withValues(alpha: 0.9)));
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Bilingual wordmark used on splash / auth screens: mark, Arabic name, Latin name.
 class BrandMark extends StatelessWidget {
   const BrandMark({super.key, this.size = 1, this.color});
   final double size;
@@ -441,46 +472,31 @@ class BrandMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ink = color ?? context.colors.onSurface;
-    final isAr = context.localeCode == 'ar';
     return Semantics(
       label: context.l10n.appFullName,
       excludeSemantics: true,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 56 * size,
-            height: 56 * size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: context.palette.brass, width: 1.4),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              isAr ? 'ب' : 'B',
-              style: context.text.headlineMedium?.copyWith(
-                color: context.palette.brass,
-                fontSize: 26 * size,
-                height: 1,
-              ),
-            ),
+          SizedBox(
+            width: 68 * size,
+            height: 68 * size,
+            child: const CustomPaint(painter: LogoMarkPainter()),
           ),
           SizedBox(height: 14 * size),
           Text(
-            isAr ? 'البحر' : 'AL BAHAR',
-            style: context.text.displaySmall?.copyWith(
-              color: ink,
-              fontSize: 30 * size,
-              letterSpacing: isAr ? 0 : 6 * size,
-            ),
+            'البحار',
+            textDirection: TextDirection.rtl,
+            style: context.text.displaySmall?.copyWith(color: ink, fontSize: 38 * size, height: 1.1, letterSpacing: 0),
           ),
-          SizedBox(height: 4 * size),
+          SizedBox(height: 2 * size),
           Text(
-            isAr ? 'للمنزل والمعيشة' : 'HOME & LIVING',
-            style: context.text.labelSmall?.copyWith(
-              color: context.palette.brass,
-              letterSpacing: isAr ? 0 : 4 * size,
-              fontSize: 11 * size,
+            'AL BAHAR',
+            style: context.text.labelMedium?.copyWith(
+              color: AppPalette.brassDeep,
+              letterSpacing: 5 * size,
+              fontSize: 12 * size,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
