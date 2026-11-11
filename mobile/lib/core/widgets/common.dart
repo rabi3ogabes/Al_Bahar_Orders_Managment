@@ -138,24 +138,33 @@ class StatusChip extends StatelessWidget {
       StatusTone.danger => p.danger,
       StatusTone.accent => p.brass,
     };
+    // Soft pastel pill with darker text of the same hue (light); a translucent tint on dark.
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final (Color bg, Color fg) = dark
+        ? (color.withValues(alpha: 0.16), color)
+        : switch (tone) {
+            StatusTone.neutral => (const Color(0xFFECEEF1), const Color(0xFF4B5563)),
+            StatusTone.info => (AppPalette.infoTint, AppPalette.info),
+            StatusTone.success => (AppPalette.successTint, AppPalette.success),
+            StatusTone.warning => (AppPalette.warningTint, AppPalette.warning),
+            StatusTone.danger => (AppPalette.dangerTint, AppPalette.danger),
+            StatusTone.accent => (AppPalette.brassTint, AppPalette.brassDeep),
+          };
     return Container(
       padding: EdgeInsetsDirectional.symmetric(horizontal: dense ? 8 : 10, vertical: dense ? 3 : 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-      ),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(AppRadius.pill)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (icon != null) ...[Icon(icon, size: dense ? 12 : 14, color: color), const Gap(4)],
+          if (icon != null) ...[Icon(icon, size: dense ? 12 : 14, color: fg), const Gap(4)],
           Flexible(
             child: Text(
               label,
               overflow: TextOverflow.ellipsis,
               style: (dense ? context.text.labelSmall : context.text.labelMedium)?.copyWith(
-                color: color,
+                color: fg,
                 fontWeight: FontWeight.w600,
-                letterSpacing: 0.2,
+                letterSpacing: 0.1,
               ),
             ),
           ),
@@ -175,7 +184,8 @@ StatusTone toneForStatus(String? status) => switch (status) {
   'leading' ||
   'sold' ||
   'resolved' => StatusTone.success,
-  'ready_for_pickup' || 'pickup_ready' || 'out_for_delivery' || 'dispatched' || 'open' || 'live' => StatusTone.accent,
+  'out_for_delivery' || 'dispatched' => StatusTone.info,
+  'ready_for_pickup' || 'pickup_ready' || 'open' || 'live' => StatusTone.accent,
   'pending_payment' ||
   'cancellation_requested' ||
   'pending' ||
@@ -473,6 +483,71 @@ class BrandMark extends StatelessWidget {
               fontSize: 11 * size,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Three-step progress header (Bag → Delivery → Pay). [current] is 0-based; earlier steps show a tick.
+class CheckoutSteps extends StatelessWidget {
+  const CheckoutSteps({super.key, required this.current, required this.labels});
+  final int current;
+  final List<String> labels;
+
+  @override
+  Widget build(BuildContext context) {
+    final navy = context.colors.primary;
+    Widget dot(int i) {
+      final done = i < current;
+      final active = i == current;
+      final size = active ? 28.0 : 24.0;
+      return Container(
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: done || active ? navy : Colors.transparent,
+          border: done || active ? null : Border.all(color: context.palette.muted.withValues(alpha: 0.5), width: 1.5),
+          boxShadow: active ? [BoxShadow(color: navy.withValues(alpha: 0.16), spreadRadius: 4)] : null,
+        ),
+        child: done
+            ? Icon(Icons.check_rounded, size: 14, color: context.colors.onPrimary)
+            : Text(
+                '${i + 1}',
+                style: context.text.labelSmall?.copyWith(
+                  color: active ? context.colors.onPrimary : context.palette.muted,
+                  letterSpacing: 0,
+                ),
+              ),
+      );
+    }
+
+    return Semantics(
+      label: labels[current],
+      child: Row(
+        children: [
+          for (var i = 0; i < labels.length; i++) ...[
+            dot(i),
+            const Gap(6),
+            Text(
+              labels[i],
+              style: context.text.labelMedium?.copyWith(
+                color: i <= current ? navy : context.palette.muted,
+                fontWeight: i == current ? FontWeight.w600 : FontWeight.w500,
+                letterSpacing: 0,
+              ),
+            ),
+            if (i < labels.length - 1)
+              Expanded(
+                child: Container(
+                  height: 2,
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  color: i < current ? navy : context.palette.line,
+                ),
+              ),
+          ],
         ],
       ),
     );

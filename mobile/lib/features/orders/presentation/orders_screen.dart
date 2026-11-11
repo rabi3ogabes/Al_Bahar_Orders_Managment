@@ -20,20 +20,70 @@ class OrdersScreen extends StatelessWidget {
     return DefaultTabController(
       length: OrderFilter.values.length,
       child: Scaffold(
-        appBar: AppBar(
-          title: Text(l10n.ordersTitle),
-          bottom: TabBar(
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            tabs: [
-              Tab(text: l10n.filterAll),
-              Tab(text: l10n.filterActive),
-              Tab(text: l10n.filterCompleted),
-              Tab(text: l10n.filterCancelled),
+        appBar: AppBar(title: Text(l10n.ordersTitle)),
+        body: Column(
+          children: [
+            _SegmentedTabs(labels: [l10n.filterAll, l10n.filterActive, l10n.filterCompleted, l10n.filterCancelled]),
+            Expanded(
+              child: TabBarView(children: [for (final f in OrderFilter.values) _OrdersList(filter: f)]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Pill-shaped segmented control driving the surrounding [DefaultTabController].
+class _SegmentedTabs extends StatelessWidget {
+  const _SegmentedTabs({required this.labels});
+  final List<String> labels;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = DefaultTabController.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpace.gutter, AppSpace.xxs, AppSpace.gutter, AppSpace.xs),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(color: AppPalette.sand, borderRadius: BorderRadius.circular(AppRadius.pill)),
+        child: AnimatedBuilder(
+          animation: controller.animation!,
+          builder: (context, _) => Row(
+            children: [
+              for (var i = 0; i < labels.length; i++)
+                Expanded(
+                  child: Semantics(
+                    button: true,
+                    selected: controller.index == i,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => controller.animateTo(i),
+                      child: AnimatedContainer(
+                        duration: AppDurations.fast,
+                        height: 40,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: controller.index == i ? context.colors.primary : Colors.transparent,
+                          borderRadius: BorderRadius.circular(AppRadius.pill),
+                        ),
+                        child: Text(
+                          labels[i],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: context.text.labelMedium?.copyWith(
+                            color: controller.index == i ? context.colors.onPrimary : AppPalette.inkSoft,
+                            fontWeight: controller.index == i ? FontWeight.w600 : FontWeight.w500,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
-        body: TabBarView(children: [for (final f in OrderFilter.values) _OrdersList(filter: f)]),
       ),
     );
   }
@@ -84,6 +134,7 @@ class _OrdersList extends ConsumerWidget {
   }
 }
 
+/// Order summary card: status pill + number, thumbnails, items and total, date.
 class OrderCard extends StatelessWidget {
   const OrderCard({super.key, required this.order});
   final OrderSummary order;
@@ -94,36 +145,68 @@ class OrderCard extends StatelessWidget {
     return ContentWidth(
       child: SurfaceCard(
         onTap: () => context.push('/orders/${order.id}'),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Expanded(child: Text(l10n.orderNumber(order.number), style: context.text.titleMedium)),
                 StatusChip(label: order.statusLabel ?? order.status, tone: toneForStatus(order.status), dense: true),
+                const Spacer(),
+                Text(order.number, style: context.text.bodySmall),
               ],
             ),
-            const Gap(AppSpace.xxs),
-            Text(l10n.placedOn(QatarTime.dateTime(order.placedAt, context.localeCode)), style: context.text.bodySmall),
-            if (order.thumbnails.isNotEmpty) ...[
-              const Gap(AppSpace.sm),
-              Row(
-                children: [
-                  for (final t in order.thumbnails)
-                    Padding(
-                      padding: const EdgeInsetsDirectional.only(end: AppSpace.xs),
-                      child: AppNetworkImage(url: t, width: 48, height: 56, borderRadius: BorderRadius.circular(8)),
-                    ),
-                ],
-              ),
-            ],
             const Gap(AppSpace.sm),
             Row(
               children: [
-                if (order.itemsCount != null) Text(l10n.itemsCount(order.itemsCount!), style: context.text.bodySmall),
-                const Spacer(),
-                if (order.grandTotal != null) Text(order.grandTotal!.formatted, style: context.text.titleSmall),
-                const Icon(Icons.chevron_right_rounded),
+                if (order.thumbnails.isNotEmpty)
+                  for (final t in order.thumbnails.take(3))
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(end: AppSpace.xs),
+                      child: Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          borderRadius: AppRadius.imageAll,
+                          border: Border.all(color: context.palette.line),
+                        ),
+                        child: AppNetworkImage(
+                          url: t,
+                          width: 52,
+                          height: 52,
+                          borderRadius: AppRadius.imageAll,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    )
+                else
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: const BoxDecoration(color: AppPalette.tint, borderRadius: AppRadius.imageAll),
+                    child: Icon(Icons.inventory_2_outlined, color: context.colors.primary),
+                  ),
+                const Gap(AppSpace.xs),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (order.grandTotal != null)
+                        Text(
+                          order.itemsCount != null
+                              ? '${l10n.itemsCount(order.itemsCount!)} · ${order.grandTotal!.formatted}'
+                              : order.grandTotal!.formatted,
+                          style: context.text.titleSmall,
+                        ),
+                      const Gap(2),
+                      Text(
+                        l10n.placedOn(QatarTime.dateTime(order.placedAt, context.localeCode)),
+                        style: context.text.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, color: context.palette.muted),
               ],
             ),
           ],

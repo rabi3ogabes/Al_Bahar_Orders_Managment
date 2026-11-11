@@ -79,10 +79,7 @@ class ProductCardSkeleton extends StatelessWidget {
   Widget build(BuildContext context) => const Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      AspectRatio(
-        aspectRatio: 1,
-        child: Skeleton(radius: AppRadius.card),
-      ),
+      AspectRatio(aspectRatio: 1, child: Skeleton(radius: AppRadius.card)),
       Gap(AppSpace.sm),
       Skeleton(height: 14),
       Gap(AppSpace.xs),

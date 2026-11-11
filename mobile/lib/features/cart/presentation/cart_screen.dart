@@ -70,15 +70,26 @@ class CartScreen extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          if (c.warnings.isNotEmpty || c.hasIssues) _WarningsBanner(cart: c),
-                          for (final item in c.items) ...[CartLine(item: item), Divider(color: context.palette.line)],
+                          CheckoutSteps(current: 0, labels: [l10n.cartTitle, l10n.delivery, l10n.paymentMethod]),
                           const Gap(AppSpace.md),
+                          if (c.warnings.isNotEmpty || c.hasIssues) _WarningsBanner(cart: c),
+                          for (final item in c.items) CartLine(item: item),
+                          const Gap(AppSpace.xs),
                           _CouponField(code: c.couponCode),
-                          const Gap(AppSpace.lg),
-                          SummaryRow(label: l10n.itemsCount(c.itemsCount), value: ''),
-                          SummaryRow(label: l10n.subtotal, value: c.subtotal.formatted, emphasize: true),
-                          const Gap(AppSpace.xxs),
-                          Text(l10n.totalsCalculatedAtCheckout, style: context.text.bodySmall),
+                          const Gap(AppSpace.md),
+                          SurfaceCard(
+                            child: Column(
+                              children: [
+                                SummaryRow(label: l10n.itemsCount(c.itemsCount), value: ''),
+                                SummaryRow(label: l10n.subtotal, value: c.subtotal.formatted, emphasize: true),
+                                const Gap(AppSpace.xxs),
+                                Align(
+                                  alignment: AlignmentDirectional.centerStart,
+                                  child: Text(l10n.totalsCalculatedAtCheckout, style: context.text.bodySmall),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -167,89 +178,104 @@ class CartLine extends ConsumerWidget {
           confirmAction(context, title: l10n.removeItemConfirm, confirmLabel: l10n.remove, destructive: true),
       onDismissed: (_) => run(() => ref.read(cartControllerProvider.notifier).removeItem(item.id)),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppSpace.md),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            GestureDetector(
-              onTap: () => openProduct(context, item.product, heroScope: 'cart'),
-              child: SizedBox(
-                width: 88,
-                height: 110,
-                child: Hero(
-                  tag: item.product.heroTag('cart'),
-                  child: AppNetworkImage(url: item.product.image?.listUrl, borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: SurfaceCard(
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              GestureDetector(
+                onTap: () => openProduct(context, item.product, heroScope: 'cart'),
+                child: SizedBox(
+                  width: 80,
+                  height: 80,
+                  child: Hero(
+                    tag: item.product.heroTag('cart'),
+                    child: AppNetworkImage(
+                      url: item.product.image?.listUrl,
+                      borderRadius: AppRadius.imageAll,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
                 ),
               ),
-            ),
-            const Gap(AppSpace.md),
-            Expanded(
-              child: Opacity(
-                opacity: item.hasIssue && item.issue != 'insufficient_stock' ? 0.6 : 1,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.product.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: context.text.titleSmall,
-                    ),
-                    if (item.variantName != null) Text(item.variantName!, style: context.text.bodySmall),
-                    const Gap(AppSpace.xxs),
-                    if (item.unitPrice != null)
-                      PriceTag(price: item.unitPrice!, size: PriceTagSize.small, showBadge: false),
-                    if (item.priceChanged && item.previousPrice != null)
+              const Gap(AppSpace.sm),
+              Expanded(
+                child: Opacity(
+                  opacity: item.hasIssue && item.issue != 'insufficient_stock' ? 0.6 : 1,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        l10n.priceChangedFrom(item.previousPrice!.formatted),
-                        style: context.text.bodySmall?.copyWith(color: palette.warning),
+                        item.product.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.text.titleSmall,
                       ),
-                    if (issue != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(issue, style: context.text.bodySmall?.copyWith(color: palette.danger)),
-                      ),
-                    const Gap(AppSpace.xs),
-                    // Wraps onto two lines on narrow phones / large text.
-                    Wrap(
-                      alignment: WrapAlignment.spaceBetween,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: AppSpace.sm,
-                      runSpacing: AppSpace.xs,
-                      children: [
-                        QuantityStepper(
-                          value: item.quantity,
-                          max: maxQty,
-                          busy: busy,
-                          compact: true,
-                          onChanged: item.hasIssue && item.issue != 'insufficient_stock'
-                              ? null
-                              : (q) => run(() => ref.read(cartControllerProvider.notifier).updateQuantity(item.id, q)),
+                      if (item.variantName != null) Text(item.variantName!, style: context.text.bodySmall),
+                      const Gap(AppSpace.xxs),
+                      if (item.unitPrice != null)
+                        PriceTag(price: item.unitPrice!, size: PriceTagSize.small, showBadge: false),
+                      if (item.priceChanged && item.previousPrice != null)
+                        Text(
+                          l10n.priceChangedFrom(item.previousPrice!.formatted),
+                          style: context.text.bodySmall?.copyWith(color: palette.warning),
                         ),
-                        if (item.lineTotal != null) Text(item.lineTotal!.formatted, style: context.text.titleSmall),
-                      ],
-                    ),
-                  ],
+                      if (issue != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(issue, style: context.text.bodySmall?.copyWith(color: palette.danger)),
+                        ),
+                      const Gap(AppSpace.xs),
+                      // Wraps onto two lines on narrow phones / large text.
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: AppSpace.sm,
+                        runSpacing: AppSpace.xs,
+                        children: [
+                          QuantityStepper(
+                            value: item.quantity,
+                            max: maxQty,
+                            busy: busy,
+                            compact: true,
+                            onChanged: item.hasIssue && item.issue != 'insufficient_stock'
+                                ? null
+                                : (q) =>
+                                      run(() => ref.read(cartControllerProvider.notifier).updateQuantity(item.id, q)),
+                          ),
+                          if (item.lineTotal != null)
+                            Text(
+                              item.lineTotal!.formatted,
+                              style: context.text.titleSmall?.copyWith(
+                                color: context.colors.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            IconButton(
-              tooltip: l10n.remove,
-              icon: const Icon(Icons.close_rounded, size: 20),
-              onPressed: busy
-                  ? null
-                  : () async {
-                      if (await confirmAction(
-                        context,
-                        title: l10n.removeItemConfirm,
-                        confirmLabel: l10n.remove,
-                        destructive: true,
-                      )) {
-                        await run(() => ref.read(cartControllerProvider.notifier).removeItem(item.id));
-                      }
-                    },
-            ),
-          ],
+              IconButton(
+                tooltip: l10n.remove,
+                icon: const Icon(Icons.close_rounded, size: 20),
+                onPressed: busy
+                    ? null
+                    : () async {
+                        if (await confirmAction(
+                          context,
+                          title: l10n.removeItemConfirm,
+                          confirmLabel: l10n.remove,
+                          destructive: true,
+                        )) {
+                          await run(() => ref.read(cartControllerProvider.notifier).removeItem(item.id));
+                        }
+                      },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -402,6 +428,7 @@ class _CheckoutBarState extends ConsumerState<_CheckoutBar> {
                 Expanded(
                   child: AppButton(
                     label: l10n.proceedToCheckout,
+                    icon: Icons.arrow_forward_rounded,
                     loading: _busy,
                     onPressed: widget.cart.canCheckout ? _go : null,
                   ),

@@ -38,12 +38,16 @@ class BranchRepository {
 
   /// Delivery slots for a span of dates in ONE request (`from`…`to`, today … +29 days, at most 30 days).
   /// Only dates that have slots come back; [onlyAvailable] also drops dates with no free place.
-  Future<List<SlotDay>> deliverySlotDays(String id, {required String from, required String to, bool onlyAvailable = false}) =>
-      _api.getList(
-        '/branches/$id/delivery-slots',
-        SlotDay.fromJson,
-        query: {'from': from, 'to': to, if (onlyAvailable) 'only_available': 1},
-      );
+  Future<List<SlotDay>> deliverySlotDays(
+    String id, {
+    required String from,
+    required String to,
+    bool onlyAvailable = false,
+  }) => _api.getList(
+    '/branches/$id/delivery-slots',
+    SlotDay.fromJson,
+    query: {'from': from, 'to': to, if (onlyAvailable) 'only_available': 1},
+  );
 
   Future<List<DeliveryZone>> deliveryZones() => _api.getList('/delivery-zones', DeliveryZone.fromJson);
 }

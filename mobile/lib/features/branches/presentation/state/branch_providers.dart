@@ -74,7 +74,9 @@ final deliveryDatesProvider = FutureProvider.autoDispose.family<List<String>, St
   final today = QatarTime.today();
   final from = QatarTime.isoDate(today);
   final to = QatarTime.isoDate(today.add(const Duration(days: days - 1)));
-  final span = await ref.watch(branchRepositoryProvider).deliverySlotDays(branchId, from: from, to: to, onlyAvailable: true);
+  final span = await ref
+      .watch(branchRepositoryProvider)
+      .deliverySlotDays(branchId, from: from, to: to, onlyAvailable: true);
   return [
     for (final d in span)
       if (d.hasSelectable && d.date.compareTo(from) >= 0 && d.date.compareTo(to) <= 0) d.date,

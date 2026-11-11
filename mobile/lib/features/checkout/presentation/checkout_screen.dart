@@ -139,24 +139,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _StepTitle(l10n.fulfillmentMethod),
-                SegmentedButton<FulfillmentType>(
-                  segments: [
-                    ButtonSegment(
-                      value: FulfillmentType.delivery,
-                      label: Text(l10n.delivery),
-                      icon: const Icon(Icons.local_shipping_outlined),
-                    ),
-                    ButtonSegment(
-                      value: FulfillmentType.pickup,
-                      label: Text(l10n.pickup),
-                      icon: const Icon(Icons.storefront_outlined),
-                    ),
-                  ],
-                  selected: {o.fulfillmentType},
-                  onSelectionChanged: (s) {
+                CheckoutSteps(current: 1, labels: [l10n.cartTitle, l10n.delivery, l10n.paymentMethod]),
+                const Gap(AppSpace.md),
+                _FulfillmentToggle(
+                  selected: o.fulfillmentType,
+                  onChanged: (t) {
                     Haptics.tap();
-                    controller.update((x) => x.copyWith(fulfillmentType: s.first, pickupSlotId: () => null));
+                    controller.update((x) => x.copyWith(fulfillmentType: t, pickupSlotId: () => null));
                   },
                 ),
                 const Gap(AppSpace.md),
@@ -227,6 +216,65 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         ],
       ),
       bottomNavigationBar: _PlaceOrderBar(state: state, onPlace: _place),
+    );
+  }
+}
+
+/// Sand track with a navy selected pill (Delivery / Pickup).
+class _FulfillmentToggle extends StatelessWidget {
+  const _FulfillmentToggle({required this.selected, required this.onChanged});
+  final FulfillmentType selected;
+  final ValueChanged<FulfillmentType> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    Widget seg(FulfillmentType t, String label, IconData icon) {
+      final on = selected == t;
+      return Expanded(
+        child: Semantics(
+          button: true,
+          selected: on,
+          label: label,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => onChanged(t),
+            child: AnimatedContainer(
+              duration: AppDurations.medium,
+              height: 44,
+              decoration: BoxDecoration(
+                color: on ? context.colors.primary : Colors.transparent,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              alignment: Alignment.center,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 18, color: on ? context.colors.onPrimary : context.palette.muted),
+                  const Gap(AppSpace.xs),
+                  Text(
+                    label,
+                    style: context.text.labelLarge?.copyWith(
+                      color: on ? context.colors.onPrimary : context.palette.muted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(color: context.palette.line, borderRadius: BorderRadius.circular(999)),
+      child: Row(
+        children: [
+          seg(FulfillmentType.delivery, l10n.delivery, Icons.local_shipping_outlined),
+          seg(FulfillmentType.pickup, l10n.pickup, Icons.storefront_outlined),
+        ],
+      ),
     );
   }
 }
@@ -527,27 +575,40 @@ class _PaymentMethods extends StatelessWidget {
     };
     String reason(String? r) => r == 'exceeds_cod_limit' ? l10n.paymentReasonCodLimit : l10n.paymentUnavailable;
 
-    return Card(
-      child: RadioGroup<PaymentMethod>(
-        groupValue: selected,
-        onChanged: (m) {
-          if (m == null) return;
-          Haptics.tap();
-          onChanged(m);
-        },
-        child: Column(
-          children: [
-            for (final opt in quote!.paymentMethods)
-              if (opt.method != null)
-                RadioListTile<PaymentMethod>(
-                  value: opt.method!,
-                  enabled: opt.available,
-                  secondary: Icon(icon(opt.method!)),
-                  title: Text(label(opt.method!)),
-                  subtitle: opt.available ? null : Text(reason(opt.reason), style: context.text.bodySmall),
+    return RadioGroup<PaymentMethod>(
+      groupValue: selected,
+      onChanged: (m) {
+        if (m == null) return;
+        Haptics.tap();
+        onChanged(m);
+      },
+      child: Column(
+        children: [
+          for (final opt in quote!.paymentMethods)
+            if (opt.method != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpace.xs),
+                child: Material(
+                  color: context.colors.surface,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: AppRadius.inputAll,
+                    side: BorderSide(
+                      color: selected == opt.method ? context.colors.primary : Colors.transparent,
+                      width: 1.5,
+                    ),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: RadioListTile<PaymentMethod>(
+                    value: opt.method!,
+                    enabled: opt.available,
+                    shape: const RoundedRectangleBorder(borderRadius: AppRadius.inputAll),
+                    secondary: Icon(icon(opt.method!), color: context.colors.primary),
+                    title: Text(label(opt.method!)),
+                    subtitle: opt.available ? null : Text(reason(opt.reason), style: context.text.bodySmall),
+                  ),
                 ),
-          ],
-        ),
+              ),
+        ],
       ),
     );
   }
@@ -788,7 +849,7 @@ class _PlaceOrderBar extends StatelessWidget {
                     ),
                     const Gap(AppSpace.md),
                     Expanded(
-                      child: AppButton(
+                      child: AppButton.accent(
                         label: l10n.placeOrder,
                         loading: state.placing,
                         onPressed: state.canPlace ? onPlace : null,

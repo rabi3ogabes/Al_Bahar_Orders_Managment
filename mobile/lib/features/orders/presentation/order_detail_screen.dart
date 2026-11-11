@@ -96,20 +96,43 @@ class _PlacedBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => TweenAnimationBuilder<double>(
-    tween: Tween(begin: 0.9, end: 1),
+    tween: Tween(begin: 0.92, end: 1),
     duration: AppDurations.slow,
     curve: Curves.easeOutBack,
     builder: (_, v, child) => Transform.scale(scale: v, child: child),
     child: Container(
       margin: const EdgeInsets.only(bottom: AppSpace.lg),
-      padding: const EdgeInsets.all(AppSpace.lg),
-      decoration: BoxDecoration(color: context.palette.brassTint, borderRadius: AppRadius.lgAll),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg, vertical: AppSpace.xl),
+      decoration: BoxDecoration(color: context.palette.brassTint, borderRadius: AppRadius.cardAll),
       child: Column(
         children: [
-          Icon(Icons.celebration_outlined, size: 40, color: context.palette.brass),
+          // Check in a navy disc with two soft halo rings.
+          Container(
+            width: 112,
+            height: 112,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: AppPalette.navy.withValues(alpha: 0.06)),
+            child: Container(
+              width: 82,
+              height: 82,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: AppPalette.navy.withValues(alpha: 0.09)),
+              child: Container(
+                width: 56,
+                height: 56,
+                decoration: const BoxDecoration(shape: BoxShape.circle, color: AppPalette.navy),
+                child: const Icon(Icons.check_rounded, size: 32, color: Colors.white),
+              ),
+            ),
+          ),
           const Gap(AppSpace.sm),
           Text(context.l10n.orderPlaced, style: context.text.headlineMedium),
-          Text(context.l10n.orderPlacedMessage(number), textAlign: TextAlign.center),
+          const Gap(AppSpace.xxs),
+          Text(
+            context.l10n.orderPlacedMessage(number),
+            textAlign: TextAlign.center,
+            style: context.text.bodyMedium?.copyWith(color: context.palette.muted),
+          ),
         ],
       ),
     ),
@@ -341,6 +364,8 @@ class _Timeline extends ConsumerWidget {
   }
 }
 
+/// One step of the vertical tracker: done steps are filled navy with a tick, the current (last) step carries a
+/// soft halo and a tinted row, a failure/cancel step is red.
 class _TimelineRow extends StatelessWidget {
   const _TimelineRow({required this.entry, required this.first, required this.last});
   final TimelineEntry entry;
@@ -349,38 +374,46 @@ class _TimelineRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = switch (toneForStatus(entry.status)) {
-      StatusTone.success => context.palette.success,
-      StatusTone.danger => context.palette.danger,
-      StatusTone.warning => context.palette.warning,
-      _ => context.palette.brass,
-    };
+    final tone = toneForStatus(entry.status);
+    final failed = tone == StatusTone.danger;
+    final fill = failed ? context.palette.danger : context.colors.primary;
+    final onFill = failed ? Colors.white : context.colors.onPrimary;
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(
-            width: 24,
+            width: 32,
             child: Column(
               children: [
-                Container(width: 2, height: 8, color: first ? Colors.transparent : context.palette.line),
+                Expanded(child: Container(width: 2, color: first ? Colors.transparent : fill)),
                 Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: fill,
+                    shape: BoxShape.circle,
+                    boxShadow: last ? [BoxShadow(color: fill.withValues(alpha: 0.18), spreadRadius: 5)] : null,
+                  ),
+                  child: Icon(failed ? Icons.close_rounded : Icons.check_rounded, size: 14, color: onFill),
                 ),
-                Expanded(child: Container(width: 2, color: last ? Colors.transparent : context.palette.line)),
+                Expanded(child: Container(width: 2, color: last ? Colors.transparent : fill)),
               ],
             ),
           ),
-          const Gap(AppSpace.sm),
+          const Gap(AppSpace.xs),
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: AppSpace.md),
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: AppSpace.xs),
+              decoration: BoxDecoration(
+                color: last ? AppPalette.tint : Colors.transparent,
+                borderRadius: AppRadius.imageAll,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(entry.label, style: context.text.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                  Text(entry.label, style: context.text.titleSmall),
                   Text(QatarTime.dateTime(entry.at, context.localeCode), style: context.text.bodySmall),
                 ],
               ),

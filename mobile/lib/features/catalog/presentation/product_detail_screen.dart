@@ -95,83 +95,97 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             ),
           ),
           SliverToBoxAdapter(
-            child: ContentWidth(
-              maxWidth: 760,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(AppSpace.gutter, AppSpace.lg, AppSpace.gutter, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (product.summary.brand != null)
-                      Text(
-                        product.summary.brand!.name.toUpperCase(),
-                        style: context.text.labelSmall?.copyWith(color: context.palette.brass, letterSpacing: 1.6),
-                      ),
-                    const Gap(AppSpace.xxs),
-                    Semantics(header: true, child: Text(product.name, style: context.text.headlineLarge)),
-                    const Gap(AppSpace.xs),
-                    Row(
+            child: Transform.translate(
+              offset: const Offset(0, -24),
+              child: Material(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.sheet)),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: ContentWidth(
+                  maxWidth: 760,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(AppSpace.gutter, AppSpace.lg, AppSpace.gutter, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (product.summary.rating.count > 0) ...[
-                          RatingStars(average: product.summary.rating.average, count: product.summary.rating.count),
-                          const Gap(AppSpace.sm),
-                        ],
-                        if ((variant?.sku ?? product.summary.sku) != null)
-                          Flexible(
-                            child: Text(
-                              l10n.skuLabel(variant?.sku ?? product.summary.sku!),
-                              style: context.text.bodySmall,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                        if (product.summary.brand != null)
+                          Text(
+                            product.summary.brand!.name,
+                            style: context.text.labelMedium?.copyWith(color: AppPalette.brassDeep, letterSpacing: 0.4),
                           ),
+                        const Gap(AppSpace.xxs),
+                        Semantics(header: true, child: Text(product.name, style: context.text.headlineLarge)),
+                        const Gap(AppSpace.xs),
+                        Row(
+                          children: [
+                            if (product.summary.rating.count > 0) ...[
+                              RatingStars(average: product.summary.rating.average, count: product.summary.rating.count),
+                              const Gap(AppSpace.sm),
+                            ],
+                            if ((variant?.sku ?? product.summary.sku) != null)
+                              Flexible(
+                                child: Text(
+                                  l10n.skuLabel(variant?.sku ?? product.summary.sku!),
+                                  style: context.text.bodySmall,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                          ],
+                        ),
+                        const Gap(AppSpace.md),
+                        if (price != null) ...[
+                          PriceTag(price: price, size: PriceTagSize.large),
+                          if (price.isOnSale && price.saleEndsAt != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                l10n.saleEnds(QatarTime.date(price.saleEndsAt, context.localeCode)),
+                                style: context.text.bodySmall?.copyWith(color: context.palette.danger),
+                              ),
+                            ),
+                        ] else
+                          Text(l10n.selectBranchToBuy, style: context.text.bodyMedium),
+                        if (product.shortDescription != null) ...[
+                          const Gap(AppSpace.md),
+                          Text(
+                            product.shortDescription!,
+                            style: context.text.bodyLarge?.copyWith(color: context.palette.muted),
+                          ),
+                        ],
+                        for (final attr in product.attributes) ...[
+                          const Gap(AppSpace.lg),
+                          _AttributeSelector(
+                            attribute: attr,
+                            selectedId: _selection![attr.code],
+                            isSelectable: (valueId) => product.isValueSelectable(_selection!, attr.code, valueId),
+                            onSelected: (valueId) {
+                              Haptics.tap();
+                              setState(() {
+                                final next = {..._selection!, attr.code: valueId};
+                                // If the combination does not exist, keep only this choice
+                                // and let the resolver pick the closest variant.
+                                final resolved =
+                                    product.resolveVariant(next) ?? product.resolveVariant({attr.code: valueId});
+                                _selection = resolved == null ? next : product.selectionFor(resolved);
+                              });
+                            },
+                          ),
+                        ],
+                        const Gap(AppSpace.lg),
+                        _AvailabilityCard(product: product, variant: variant, branchName: branch?.name),
+                        const Gap(AppSpace.lg),
+                        _DetailsSection(product: product),
+                        const Gap(AppSpace.lg),
+                        ReviewsPreview(
+                          productId: product.id,
+                          productName: product.name,
+                          rating: product.summary.rating,
+                        ),
                       ],
                     ),
-                    const Gap(AppSpace.md),
-                    if (price != null) ...[
-                      PriceTag(price: price, size: PriceTagSize.large),
-                      if (price.isOnSale && price.saleEndsAt != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            l10n.saleEnds(QatarTime.date(price.saleEndsAt, context.localeCode)),
-                            style: context.text.bodySmall?.copyWith(color: context.palette.danger),
-                          ),
-                        ),
-                    ] else
-                      Text(l10n.selectBranchToBuy, style: context.text.bodyMedium),
-                    if (product.shortDescription != null) ...[
-                      const Gap(AppSpace.md),
-                      Text(
-                        product.shortDescription!,
-                        style: context.text.bodyLarge?.copyWith(color: context.palette.muted),
-                      ),
-                    ],
-                    for (final attr in product.attributes) ...[
-                      const Gap(AppSpace.lg),
-                      _AttributeSelector(
-                        attribute: attr,
-                        selectedId: _selection![attr.code],
-                        isSelectable: (valueId) => product.isValueSelectable(_selection!, attr.code, valueId),
-                        onSelected: (valueId) {
-                          Haptics.tap();
-                          setState(() {
-                            final next = {..._selection!, attr.code: valueId};
-                            // If the combination does not exist, keep only this choice
-                            // and let the resolver pick the closest variant.
-                            final resolved =
-                                product.resolveVariant(next) ?? product.resolveVariant({attr.code: valueId});
-                            _selection = resolved == null ? next : product.selectionFor(resolved);
-                          });
-                        },
-                      ),
-                    ],
-                    const Gap(AppSpace.lg),
-                    _AvailabilityCard(product: product, variant: variant, branchName: branch?.name),
-                    const Gap(AppSpace.lg),
-                    _DetailsSection(product: product),
-                    const Gap(AppSpace.lg),
-                    ReviewsPreview(productId: product.id, productName: product.name, rating: product.summary.rating),
-                  ],
+                  ),
                 ),
               ),
             ),
