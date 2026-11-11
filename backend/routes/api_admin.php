@@ -118,3 +118,9 @@ Route::controller(V1\Admin\DispatchController::class)->prefix('dispatch')->name(
     Route::get('fleet', 'fleet')->middleware('permission:deliveries.view')->name('fleet');
     Route::post('fulfillments/{fulfillment}/assign', 'assign')->middleware('permission:deliveries.assign')->name('assign');
 });
+
+// Push token of the staff / driver apps (same handler as the customer's /me/devices).
+Route::controller(V1\Customer\ProfileController::class)->prefix('devices')->name('devices.')->group(function () {
+    Route::post('/', 'registerDevice')->name('store');
+    Route::delete('/', 'unregisterDevice')->name('destroy');
+});

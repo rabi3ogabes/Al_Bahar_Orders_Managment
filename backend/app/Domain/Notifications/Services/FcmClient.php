@@ -30,6 +30,25 @@ class FcmClient
         return ['ok' => $res->successful(), 'unregistered' => $res->status() === 404 || str_contains($res->body(), 'UNREGISTERED')];
     }
 
+    /**
+     * Order progress: Android receives a data-only message (the app draws the live progress notification, also while in the
+     * background); iOS receives a regular alert. `collapse_key` keeps one card per order.
+     *
+     * @return array{ok: bool, unregistered?: bool}
+     */
+    public function sendProgress(string $token, string $title, string $body, array $data): array
+    {
+        $res = Http::withToken($this->accessToken())->timeout(10)
+            ->post('https://fcm.googleapis.com/v1/projects/'.config('services.fcm.project_id').'/messages:send', ['message' => [
+                'token' => $token,
+                'data' => array_map('strval', $data + ['title' => $title, 'body' => $body]),
+                'android' => ['priority' => 'high', 'collapse_key' => 'order-'.($data['order_id'] ?? '')],
+                'apns' => ['headers' => ['apns-collapse-id' => 'order-'.($data['order_id'] ?? '')], 'payload' => ['aps' => ['alert' => ['title' => $title, 'body' => $body], 'sound' => 'default', 'thread-id' => 'order-'.($data['order_id'] ?? '')]]],
+            ]]);
+
+        return ['ok' => $res->successful(), 'unregistered' => $res->status() === 404 || str_contains($res->body(), 'UNREGISTERED')];
+    }
+
     private function accessToken(): string
     {
         return Cache::remember('fcm:access_token', 3000, function () {
