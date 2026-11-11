@@ -16,6 +16,7 @@ class AccountDeletionRequest extends Model
 
     protected $casts = ['scheduled_for' => 'immutable_datetime', 'processed_at' => 'immutable_datetime'];
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

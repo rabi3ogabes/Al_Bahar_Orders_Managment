@@ -1,0 +1,4 @@
+"CFBundleDisplayName" = "البحر";
+"NSLocationWhenInUseUsageDescription" = "يستخدم تطبيق البحر موقعك لإيجاد أقرب صالات العرض وتحديد عنوان التوصيل.";
+"NSCameraUsageDescription" = "التقاط صور لإرفاقها بتقييمك للمنتج.";
+"NSPhotoLibraryUsageDescription" = "اختيار صور لإرفاقها بتقييمك للمنتج.";

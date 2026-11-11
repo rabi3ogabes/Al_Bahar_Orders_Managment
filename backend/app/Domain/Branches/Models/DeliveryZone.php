@@ -16,6 +16,7 @@ class DeliveryZone extends Model
 
     protected $casts = ['polygon' => 'array', 'is_active' => 'boolean', 'is_remote' => 'boolean'];
 
+    /** @return HasMany<BranchDeliveryZone, $this> */
     public function branchConfigs(): HasMany
     {
         return $this->hasMany(BranchDeliveryZone::class);

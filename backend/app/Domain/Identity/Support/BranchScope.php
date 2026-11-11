@@ -42,7 +42,14 @@ final class BranchScope
         return $this->all || in_array($branchId, $this->branchIds, true);
     }
 
-    /** Constrain a query to the scope. An empty scope yields no rows (fail closed). */
+    /**
+     * Constrain a query to the scope. An empty scope yields no rows (fail closed).
+     *
+     * @template TBuilder of QueryBuilder
+     *
+     * @param  TBuilder  $query
+     * @return TBuilder
+     */
     public function apply(QueryBuilder $query, string $column = 'branch_id'): QueryBuilder
     {
         if ($this->all) {

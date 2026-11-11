@@ -1,0 +1,30 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+parameters:
+    level: 5
+    paths:
+        - app
+    treatPhpDocTypesAsCertain: false
+    ignoreErrors:
+        # PostgreSQL NUMERIC columns (prices, amounts, fees) are mapped to `float` by Larastan, but PDO returns them as
+        # strings at runtime and money is handled as strings / App\Support\Money (never floats, see ARCHITECTURE.md).
+        # Passing such an attribute to Money::of() or assigning a decimal string to it is therefore correct.
+        -
+            identifier: argument.type
+            message: '#^Parameter \#1 \$amount of static method App\\Support\\Money::of\(\) expects App\\Support\\Money\|int\|string\|null, float(\|null)? given\.$#'
+        -
+            identifier: assign.propertyType
+            message: '#^Property App\\Domain\\.+::\$\w+ \(float(\|null)?\) does not accept string(\|null)?\.$#'
+        # Date casts accept any DateTimeInterface: assigning now() (Illuminate\Support\Carbon) to an `immutable_datetime`
+        # attribute is fine; Eloquent normalises it on write.
+        -
+            identifier: assign.propertyType
+            message: '#^Property App\\Domain\\.+::\$\w+ \(Carbon\\CarbonImmutable\|null\) does not accept Illuminate\\Support\\Carbon\.$#'
+        # NUMERIC columns again, as method arguments (amounts and unit costs travel as decimal strings).
+        -
+            identifier: argument.type
+            message: '#^Parameter \#\d+ \$(amount|unitCost) of method .+ expects string\|null, float(\|null)? given\.$#'
+        # `$x?->prop ?? default` on a relation or first() result: Larastan models these as non-null, but they are null when
+        # the row does not exist. The defensive nullsafe is intentional.
+        -
+            identifier: nullsafe.neverNull

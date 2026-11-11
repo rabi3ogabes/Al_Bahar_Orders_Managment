@@ -4,6 +4,7 @@ namespace App\Domain\Audit\Services;
 
 use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Identity\Models\User;
+use App\Support\BranchOf;
 use App\Support\Redactor;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
@@ -31,7 +32,7 @@ class AuditLogger
             is_string($subject) => [$subject, null],
             default => [null, null],
         };
-        $branchId ??= $subject instanceof Model ? \App\Support\BranchOf::model($subject) : null;
+        $branchId ??= $subject instanceof Model ? BranchOf::model($subject) : null;
 
         return AuditLog::create([
             'actor_id' => $actor?->getKey(),

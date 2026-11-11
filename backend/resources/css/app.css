@@ -1,9 +1,125 @@
-@import 'tailwindcss';
+@import "tailwindcss";
+@plugin "@tailwindcss/forms";
 
-@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/cormorant-garamond/500.css";
+@import "@fontsource/cormorant-garamond/600.css";
+@import "@fontsource/ibm-plex-sans-arabic/400.css";
+@import "@fontsource/ibm-plex-sans-arabic/500.css";
+@import "@fontsource/ibm-plex-sans-arabic/600.css";
 
+@source "../views";
+@source "../../app/Livewire";
+@source "../../app/View";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Al Bahar design tokens — calm luxury: warm ivory surfaces, deep ink text, brass accents.
+ * Every colour pair used for text meets WCAG AA contrast on its intended surface.
+ */
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: "Inter", "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+    --font-display: "Cormorant Garamond", "IBM Plex Sans Arabic", Georgia, serif;
+    --font-arabic: "IBM Plex Sans Arabic", "Inter", sans-serif;
+
+    --color-ivory: #faf7f2;
+    --color-sand-50: #f6f1e9;
+    --color-sand-100: #efe7da;
+    --color-sand-200: #e2d6c3;
+    --color-sand-300: #cdbb9f;
+    --color-ink-950: #0e1016;
+    --color-ink-900: #14161c;
+    --color-ink-800: #1d2029;
+    --color-ink-700: #2a2e3a;
+    --color-ink-600: #434857;
+    --color-ink-500: #5f6575;
+    --color-ink-400: #8a8f9c;
+    --color-ink-300: #b5b9c3;
+    --color-brass-50: #f8f1e4;
+    --color-brass-100: #efe0c4;
+    --color-brass-300: #d4b47e;
+    --color-brass-400: #c29f66;
+    --color-brass-500: #b08d57;
+    --color-brass-600: #96743f;
+    --color-brass-700: #7a5c30;
+    --color-emerald-soft: #2f6f5e;
+    --color-ruby-soft: #a23b3b;
+    --color-amber-soft: #b4771f;
+    --color-sky-soft: #2f5d86;
+
+    --radius-card: 1.125rem;
+    --shadow-card: 0 1px 2px rgb(20 22 28 / 0.04), 0 8px 24px -12px rgb(20 22 28 / 0.12);
+    --shadow-lift: 0 2px 4px rgb(20 22 28 / 0.06), 0 18px 40px -18px rgb(20 22 28 / 0.28);
 }
+
+@layer base {
+    html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+    html[lang="ar"] body { font-family: var(--font-arabic); letter-spacing: 0; }
+    /* Editorial serif for headings, but lining tabular figures so numbers read crisply. */
+    .font-display { font-variant-numeric: lining-nums tabular-nums; }
+    html[lang="ar"] .font-display { font-family: var(--font-arabic); font-weight: 600; letter-spacing: 0; }
+    body { @apply bg-ivory text-ink-900 dark:bg-ink-950 dark:text-sand-100; }
+    ::selection { @apply bg-brass-100 text-ink-900; }
+    :focus-visible { @apply outline-2 outline-offset-2 outline-brass-500; }
+    [x-cloak] { display: none !important; }
+}
+
+@utility btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition duration-150 select-none disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2; }
+@utility btn-primary { @apply btn bg-ink-900 text-ivory hover:bg-ink-700 active:bg-ink-950 dark:bg-brass-500 dark:text-ink-950 dark:hover:bg-brass-400; }
+@utility btn-brass { @apply btn bg-brass-500 text-ink-950 hover:bg-brass-400 active:bg-brass-600; }
+@utility btn-secondary { @apply btn border border-sand-300 bg-white text-ink-800 hover:border-brass-400 hover:bg-sand-50 dark:border-ink-600 dark:bg-ink-800 dark:text-sand-100 dark:hover:bg-ink-700; }
+@utility btn-ghost { @apply btn text-ink-600 hover:bg-sand-100 hover:text-ink-900 dark:text-ink-300 dark:hover:bg-ink-800; }
+@utility btn-danger { @apply btn bg-ruby-soft text-white hover:bg-ruby-soft/90; }
+@utility btn-sm { @apply px-3 py-1.5 text-xs rounded-lg; }
+@utility badge { @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap; }
+@utility badge-neutral { @apply badge bg-sand-100 text-ink-700 dark:bg-ink-800 dark:text-sand-200; }
+@utility badge-success { @apply badge bg-emerald-soft/10 text-emerald-soft dark:text-emerald-300; }
+@utility badge-warning { @apply badge bg-amber-soft/10 text-amber-soft dark:text-amber-300; }
+@utility badge-danger { @apply badge bg-ruby-soft/10 text-ruby-soft dark:text-red-300; }
+@utility badge-info { @apply badge bg-sky-soft/10 text-sky-soft dark:text-sky-300; }
+@utility badge-brass { @apply badge bg-brass-50 text-brass-700 dark:bg-brass-500/15 dark:text-brass-300; }
+
+@layer components {
+    .card { @apply rounded-[var(--radius-card)] border border-sand-200/70 bg-white shadow-[var(--shadow-card)] dark:border-ink-700 dark:bg-ink-900; }
+    .card-pad { @apply p-5 sm:p-6; }
+    .eyebrow { @apply text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-brass-600 dark:text-brass-300; }
+    html[lang="ar"] .eyebrow { @apply tracking-normal text-xs; }
+
+
+    .field-label { @apply mb-1.5 block text-sm font-medium text-ink-700 dark:text-sand-200; }
+    .field-hint { @apply mt-1.5 text-xs text-ink-500 dark:text-ink-400; }
+    .field-error { @apply mt-1.5 text-xs font-medium text-ruby-soft; }
+    .input { @apply block w-full rounded-xl border-sand-300 bg-white px-3.5 py-2.5 text-sm text-ink-900 placeholder:text-ink-400 shadow-sm transition focus:border-brass-500 focus:ring-2 focus:ring-brass-500/25 dark:border-ink-600 dark:bg-ink-800 dark:text-sand-100; }
+    .input:disabled { @apply cursor-not-allowed bg-sand-100 text-ink-500 opacity-70 shadow-none dark:bg-ink-900 dark:text-ink-400; }
+    select.input { padding-inline-end: 2.5rem; }
+    [dir=rtl] select.input { background-position: left 0.5rem center; }
+    .input-error { @apply border-ruby-soft focus:border-ruby-soft focus:ring-ruby-soft/20; }
+    .checkbox { @apply size-4 rounded border-sand-300 text-brass-600 focus:ring-brass-500/30 dark:border-ink-600 dark:bg-ink-800; }
+
+
+    .table-wrap { @apply overflow-x-auto; }
+    .table { @apply min-w-full text-sm; }
+    .table thead th { @apply bg-sand-50/80 px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-ink-500 dark:bg-ink-800/60 dark:text-ink-400; }
+    html[lang="ar"] .table thead th { @apply tracking-normal; }
+    .table tbody td { @apply border-t border-sand-100 px-4 py-3.5 align-middle text-ink-700 dark:border-ink-800 dark:text-sand-200; }
+    .table tbody tr { @apply transition hover:bg-sand-50/60 dark:hover:bg-ink-800/40; }
+
+    .nav-link { @apply flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-ink-300 transition hover:bg-white/5 hover:text-ivory; }
+    .nav-link-active { @apply bg-white/[0.07] text-ivory shadow-[inset_2px_0_0_var(--color-brass-400)]; }
+    html[dir="rtl"] .nav-link-active { @apply shadow-[inset_-2px_0_0_var(--color-brass-400)]; }
+
+    .skeleton { @apply animate-pulse rounded-lg bg-sand-100 dark:bg-ink-800; }
+}
+
+/* Mirror directional icons in RTL */
+html[dir="rtl"] .rtl-flip { transform: scaleX(-1); }
+
+/*
+ * Unlayered so they win over Tailwind utilities: display headings always use lining figures (old-style "1"/"0" read as
+ * "I"/"O" next to `tabular-nums`), and Arabic pages keep the Arabic display face even where `font-display` is applied.
+ */
+.font-display { font-variant-numeric: lining-nums tabular-nums; }
+html[lang="ar"] .font-display { font-family: var(--font-arabic); font-weight: 600; letter-spacing: 0; }

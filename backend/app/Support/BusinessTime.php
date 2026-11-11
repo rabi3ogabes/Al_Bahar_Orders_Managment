@@ -29,6 +29,15 @@ final class BusinessTime
         return CarbonImmutable::parse($value)->setTimezone(self::zone());
     }
 
+    /**
+     * Parse a staff-entered or client-sent time as business time (unless it carries its own offset) and return it in UTC,
+     * which is what must be stored: Eloquent writes the wall-clock value without an offset.
+     */
+    public static function toUtc(DateTimeInterface|string $value): CarbonImmutable
+    {
+        return CarbonImmutable::parse($value, self::zone())->utc();
+    }
+
     /** ISO-8601 with offset, for API payloads. */
     public static function iso(DateTimeInterface|string|null $value): ?string
     {

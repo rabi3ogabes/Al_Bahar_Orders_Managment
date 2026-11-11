@@ -2,11 +2,12 @@
 
 namespace App\Http\Resources\V1;
 
+use App\Domain\Identity\Models\User;
 use App\Support\BusinessTime;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-/** @mixin \App\Domain\Identity\Models\User */
+/** @mixin User */
 class UserResource extends JsonResource
 {
     public function toArray(Request $request): array

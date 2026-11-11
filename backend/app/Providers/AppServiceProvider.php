@@ -2,11 +2,14 @@
 
 namespace App\Providers;
 
+use App\Domain\Auctions\Models\AuctionDeposit;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Notifications\Channels\HttpSmsSender;
 use App\Domain\Notifications\Channels\NullSmsSender;
 use App\Domain\Notifications\Contracts\SmsSender;
+use App\Domain\Orders\Models\Order;
+use App\Support\BranchOf;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Model;
@@ -57,8 +60,8 @@ class AppServiceProvider extends ServiceProvider
 
         Relation::enforceMorphMap([
             'user' => User::class,
-            'order' => \App\Domain\Orders\Models\Order::class,
-            'auction_deposit' => \App\Domain\Auctions\Models\AuctionDeposit::class,
+            'order' => Order::class,
+            'auction_deposit' => AuctionDeposit::class,
         ]);
 
         // RBAC: every ability shaped "module.action" is resolved by AccessControl.
@@ -70,7 +73,7 @@ class AppServiceProvider extends ServiceProvider
             $target = $arguments[0] ?? null;
             $branchId = match (true) {
                 is_string($target) => $target,
-                $target instanceof Model => \App\Support\BranchOf::model($target),
+                $target instanceof Model => BranchOf::model($target),
                 default => null,
             };
 
@@ -78,6 +81,9 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->configureRateLimiting();
+
+        // API docs (/docs/api): open locally, staff-only (docs viewers need settings.view) elsewhere.
+        Gate::define('viewApiDocs', fn (?User $user) => $this->app->environment('local') || ($user && app(AccessControl::class)->allows($user, 'settings.view')));
     }
 
     private function configureRateLimiting(): void

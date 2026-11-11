@@ -1,0 +1,158 @@
+@php
+    use App\Livewire\Admin\Sales\CustomerIndex; use App\Support\Phone;
+    $tabs = ['orders' => ['bag', __('admin.orders'), $stats->n], 'addresses' => ['map-pin', __('sales_admin.addresses'), $c->addresses->count()], 'loyalty' => ['gift', __('sales_admin.loyalty'), null], 'consent' => ['shield', __('sales_admin.consents'), null]];
+@endphp
+<div class="mx-auto max-w-7xl">
+    <a href="{{ route('admin.customers.index') }}" wire:navigate class="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-brass-600"><x-icon name="chevron-left" class="size-4 rtl-flip" />{{ __('nav.customers') }}</a>
+
+    <div class="mb-8 flex flex-col gap-5 md:flex-row md:items-center">
+        <span class="grid size-16 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-brass-100 to-brass-300 font-display text-2xl font-semibold text-ink-900">{{ mb_substr($c->name, 0, 1) }}</span>
+        <div class="min-w-0 flex-1">
+            <h1 class="truncate font-display text-3xl font-semibold tracking-tight text-ink-900 dark:text-ivory">{{ $c->name }}</h1>
+            <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-500">
+                <x-admin.status :value="$c->status->value" />
+                <span class="inline-flex items-center gap-1.5" dir="ltr"><x-icon name="phone" class="size-3.5" />{{ $reveal ? $c->phone : Phone::mask($c->phone) }}</span>
+                @if ($c->email)<span class="inline-flex items-center gap-1.5"><x-icon name="mail" class="size-3.5" /><span dir="ltr">{{ $reveal ? $c->email : CustomerIndex::maskEmail($c->email) }}</span></span>@endif
+                <span>{{ __('sales_admin.joined', ['date' => \App\Support\BusinessTime::display($c->created_at, 'd M Y')]) }}</span>
+                @unless ($reveal)<span class="inline-flex items-center gap-1 text-xs"><x-icon name="lock" class="size-3" />{{ __('sales_admin.masked') }}</span>@endunless
+            </div>
+        </div>
+        @if ($canEdit)
+            <div class="flex gap-2">
+                @if ($c->status->value === 'active')
+                    <button type="button" wire:click="askStatus('suspended')" class="btn-secondary text-ruby-soft"><x-icon name="ban" class="size-4" />{{ __('sales_admin.suspend') }}</button>
+                @elseif ($c->status->value === 'suspended')
+                    <button type="button" wire:click="askStatus('active')" class="btn-secondary"><x-icon name="check" class="size-4" />{{ __('sales_admin.reactivate') }}</button>
+                @endif
+            </div>
+        @endif
+    </div>
+
+    <div class="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4 [&>*]:min-w-0">
+        <x-admin.stat :label="__('admin.orders')" :value="number_format($stats->n)" icon="bag" />
+        <x-admin.stat :label="__('sales_admin.lifetime_spend')" :value="\App\Support\Money::of($stats->spend)->format()" icon="wallet" />
+        <x-admin.stat :label="__('sales_admin.points_balance')" :value="number_format($account->balance)" icon="gift" tone="brass" :hint="__('sales_admin.worth', ['amount' => \App\Support\Money::ofMinor($account->balance * $pointValue->minor)->format()])" />
+        <x-admin.stat :label="__('sales_admin.tier')" :value="__('sales_admin.tier_'.$account->tier)" icon="crown" :hint="$stats->last_at ? __('sales_admin.last_order', ['at' => \App\Support\BusinessTime::display($stats->last_at, 'd M Y')]) : null" />
+    </div>
+
+    <x-admin.tabs :tabs="$tabs" :current="$tab" />
+
+    @if ($tab === 'orders')
+        <div class="card">
+            @if (! $orders || $orders->isEmpty())
+                <x-admin.empty :title="__('sales_admin.no_orders_customer')" icon="bag" />
+            @else
+                <div class="table-wrap"><table class="table">
+                    <thead><tr><th>{{ __('admin.order') }}</th><th>{{ __('sales_admin.branches') }}</th><th>{{ __('admin.payment') }}</th><th class="!text-end">{{ __('admin.total') }}</th><th>{{ __('admin.status') }}</th></tr></thead>
+                    <tbody>@foreach ($orders as $o)
+                        <tr wire:key="co-{{ $o->id }}">
+                            <td><a href="{{ route('admin.orders.show', $o) }}" wire:navigate class="font-mono font-medium hover:text-brass-600" dir="ltr">{{ $o->number }}</a><span class="block text-xs text-ink-500 tabular-nums">{{ \App\Support\BusinessTime::display($o->placed_at) }}</span></td>
+                            <td><span class="font-mono text-xs" dir="ltr">{{ $o->fulfillments->pluck('branch.code')->implode(' · ') }}</span></td>
+                            <td><x-admin.status :value="$o->payment_status->value" /></td>
+                            <td class="text-end"><x-admin.money :value="$o->grand_total" /></td>
+                            <td><x-admin.status :value="$o->status->value" /></td>
+                        </tr>
+                    @endforeach</tbody>
+                </table></div>
+                @if ($orders->hasPages())<div class="border-t border-sand-100 p-4 dark:border-ink-800">{{ $orders->links('components.admin.pagination') }}</div>@endif
+            @endif
+        </div>
+    @elseif ($tab === 'addresses')
+        @if ($c->addresses->isEmpty())
+            <div class="card"><x-admin.empty :title="__('sales_admin.no_addresses')" icon="map-pin" /></div>
+        @else
+            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0">
+                @foreach ($c->addresses as $a)
+                    <div class="card card-pad" wire:key="ad-{{ $a->id }}">
+                        <div class="mb-2 flex items-center gap-2"><span class="font-medium">{{ $a->label ?: __('sales_admin.address') }}</span>@if ($a->is_default)<span class="badge-brass">{{ __('sales_admin.default') }}</span>@endif</div>
+                        <p class="text-sm text-ink-600 dark:text-sand-200">{{ $reveal ? $a->recipient_name : mb_substr((string) $a->recipient_name, 0, 1).'•••' }} · <span dir="ltr">{{ $reveal ? $a->recipient_phone : Phone::mask($a->recipient_phone) }}</span></p>
+                        <p class="mt-1 text-sm text-ink-500">{{ $reveal ? collect([__('sales_admin.zone_n', ['n' => $a->zone_number]), __('sales_admin.street_n', ['n' => $a->street_number]), __('sales_admin.building_n', ['n' => $a->building_number]), $a->unit_number, $a->area])->filter()->implode(', ') : __('sales_admin.zone_n', ['n' => $a->zone_number]).' · •••' }}</p>
+                    </div>
+                @endforeach
+            </div>
+        @endif
+    @elseif ($tab === 'loyalty')
+        <div class="grid gap-6 lg:grid-cols-3 [&>*]:min-w-0">
+            <div class="card overflow-hidden lg:col-span-2">
+                <div class="p-5 sm:p-6"><h2 class="font-display text-xl font-semibold">{{ __('sales_admin.points_ledger') }}</h2></div>
+                @if ($ledger->isEmpty())
+                    <x-admin.empty :title="__('sales_admin.ledger_empty')" icon="gift" class="border-t border-sand-100 dark:border-ink-800" />
+                @else
+                    <div class="table-wrap"><table class="table">
+                        <thead><tr><th>{{ __('admin.date') }}</th><th>{{ __('sales_admin.type') }}</th><th>{{ __('admin.reason') }}</th><th class="!text-end">{{ __('sales_admin.points') }}</th><th class="!text-end">{{ __('sales_admin.balance') }}</th></tr></thead>
+                        <tbody>@foreach ($ledger as $t)
+                            <tr wire:key="lt-{{ $t->id }}">
+                                <td class="text-xs text-ink-500 tabular-nums">{{ \App\Support\BusinessTime::display($t->created_at) }}</td>
+                                <td><span class="badge-neutral">{{ __('marketing_admin.ltype_'.$t->type) }}</span></td>
+                                <td class="max-w-[16rem] truncate text-sm" title="{{ $t->reason }}">{{ $t->reason }}</td>
+                                <td class="text-end font-medium tabular-nums {{ $t->points < 0 ? 'text-ruby-soft' : 'text-emerald-soft' }}" dir="ltr">{{ $t->points > 0 ? '+' : '' }}{{ number_format($t->points) }}</td>
+                                <td class="text-end tabular-nums">{{ number_format($t->balance_after) }}</td>
+                            </tr>
+                        @endforeach</tbody>
+                    </table></div>
+                    @if ($ledger->hasPages())<div class="border-t border-sand-100 p-4 dark:border-ink-800">{{ $ledger->links('components.admin.pagination') }}</div>@endif
+                @endif
+            </div>
+            <div class="space-y-6">
+                @if ($canAdjust)
+                    <form wire:submit="adjustPoints" class="card card-pad space-y-4">
+                        <h2 class="font-display text-xl font-semibold">{{ __('sales_admin.adjust_points') }}</h2>
+                        <div class="grid grid-cols-2 gap-2">
+                            @foreach (['credit' => __('sales_admin.credit'), 'debit' => __('sales_admin.debit')] as $k => $label)
+                                <label class="flex cursor-pointer items-center justify-center rounded-xl border py-2 text-sm font-medium {{ $adjust['direction'] === $k ? 'border-brass-500 bg-brass-50 dark:bg-brass-500/10' : 'border-sand-200 dark:border-ink-700' }}"><input type="radio" wire:model.live="adjust.direction" value="{{ $k }}" class="sr-only">{{ $label }}</label>
+                            @endforeach
+                        </div>
+                        <x-admin.field :label="__('sales_admin.points')" for="adjust.points" required><input id="adjust.points" type="number" min="1" wire:model="adjust.points" class="input tabular-nums"></x-admin.field>
+                        <x-admin.field :label="__('admin.reason')" for="adjust.reason" required :hint="__('sales_admin.adjust_reason_hint')"><textarea id="adjust.reason" wire:model="adjust.reason" rows="2" class="input"></textarea></x-admin.field>
+                        <button class="btn-primary w-full" wire:loading.attr="disabled" wire:target="adjustPoints"><x-icon name="check" class="size-4" />{{ __('sales_admin.post_adjustment') }}</button>
+                    </form>
+                @endif
+                <div class="card card-pad text-sm">
+                    <h2 class="mb-3 font-display text-xl font-semibold">{{ __('sales_admin.referrals') }}</h2>
+                    <dl class="space-y-2">
+                        <div class="flex justify-between"><dt class="text-ink-500">{{ __('sales_admin.referral_code') }}</dt><dd class="font-mono" dir="ltr">{{ $referral['code'] ?? '—' }}</dd></div>
+                        <div class="flex justify-between"><dt class="text-ink-500">{{ __('sales_admin.referred') }}</dt><dd class="tabular-nums">{{ $referral['referred_count'] }}</dd></div>
+                        <div class="flex justify-between"><dt class="text-ink-500">{{ __('sales_admin.rewarded') }}</dt><dd class="tabular-nums">{{ $referral['rewarded_count'] }}</dd></div>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    @else
+        <div class="grid gap-6 lg:grid-cols-3 [&>*]:min-w-0">
+            <div class="card card-pad">
+                <h2 class="mb-4 font-display text-xl font-semibold">{{ __('sales_admin.marketing_consent') }}</h2>
+                @if ($c->marketing_consent_at)
+                    <p class="flex items-center gap-2 text-sm text-emerald-soft"><x-icon name="check" class="size-4" />{{ __('sales_admin.consent_given', ['at' => \App\Support\BusinessTime::display($c->marketing_consent_at, 'd M Y')]) }}</p>
+                @else
+                    <p class="flex items-center gap-2 text-sm text-ink-500"><x-icon name="x" class="size-4" />{{ __('sales_admin.consent_not_given') }}</p>
+                @endif
+                <dl class="mt-4 space-y-2 border-t border-sand-100 pt-4 text-sm dark:border-ink-800">
+                    <div class="flex justify-between"><dt class="text-ink-500">{{ __('sales_admin.phone_verified') }}</dt><dd>{{ $c->phone_verified_at ? __('admin.yes') : __('admin.no') }}</dd></div>
+                    <div class="flex justify-between"><dt class="text-ink-500">{{ __('admin.language') }}</dt><dd>{{ $c->locale === 'ar' ? 'العربية' : 'English' }}</dd></div>
+                </dl>
+                <p class="mt-4 text-xs text-ink-500">{{ __('sales_admin.consent_customer_only') }}</p>
+            </div>
+            <div class="card overflow-hidden lg:col-span-2">
+                <div class="p-5 sm:p-6"><h2 class="font-display text-xl font-semibold">{{ __('sales_admin.notification_prefs') }}</h2></div>
+                <div class="table-wrap"><table class="table">
+                    <thead><tr><th>{{ __('sales_admin.category') }}</th>@foreach (\App\Domain\Notifications\Services\NotificationCatalog::CHANNELS as $ch)<th class="!text-center">{{ __('content_admin.ch_'.$ch) }}</th>@endforeach</tr></thead>
+                    <tbody>@foreach ($prefs as $cat => $rows)
+                        <tr><td class="font-medium">{{ __('sales_admin.cat_'.$cat) }}</td>
+                            @foreach ($rows as $p)<td class="text-center">@if ($p['is_enabled'])<x-icon name="check" class="inline size-4 text-emerald-soft" /><span class="sr-only">{{ __('admin.yes') }}</span>@else<x-icon name="minus" class="inline size-4 text-ink-300" /><span class="sr-only">{{ __('admin.no') }}</span>@endif</td>@endforeach
+                        </tr>
+                    @endforeach</tbody>
+                </table></div>
+            </div>
+        </div>
+    @endif
+
+    <x-admin.dialog wire:model="showStatus" :title="$newStatus === 'suspended' ? __('sales_admin.suspend_customer') : __('sales_admin.reactivate_customer')" :description="$newStatus === 'suspended' ? __('sales_admin.suspend_hint') : null">
+        <form wire:submit="changeStatus" class="space-y-5">
+            <x-admin.field :label="__('admin.reason')" for="statusReason" required><textarea id="statusReason" wire:model="statusReason" rows="3" class="input"></textarea></x-admin.field>
+            <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">
+                <button type="button" class="btn-secondary" @click="open = false">{{ __('admin.back') }}</button>
+                <button class="{{ $newStatus === 'suspended' ? 'btn-danger' : 'btn-primary' }}">{{ __('admin.confirm') }}</button>
+            </div>
+        </form>
+    </x-admin.dialog>
+</div>

@@ -1,9 +1,11 @@
 <?php
 
 use App\Domain\Identity\Enums\OtpPurpose;
+use App\Domain\Identity\Exceptions\OtpException;
 use App\Domain\Identity\Models\OtpVerification;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\OtpService;
+use Illuminate\Cache\RateLimiter;
 use Illuminate\Support\Facades\Log;
 
 beforeEach(function () {
@@ -79,15 +81,15 @@ it('locks the OTP after the maximum number of wrong attempts (attempts persist a
     $max = config('platform.otp.max_attempts');
 
     foreach (range(1, $max - 1) as $i) {
-        app(\Illuminate\Cache\RateLimiter::class)->clear('login:+97455123456|127.0.0.1');
-        expect(fn () => app(OtpService::class)->verify('+97455123456', OtpPurpose::Login, $wrong))->toThrow(\App\Domain\Identity\Exceptions\OtpException::class);
+        app(RateLimiter::class)->clear('login:+97455123456|127.0.0.1');
+        expect(fn () => app(OtpService::class)->verify('+97455123456', OtpPurpose::Login, $wrong))->toThrow(OtpException::class);
     }
     expect(OtpVerification::first()->attempts)->toBe($max - 1);
 
     expect(fn () => app(OtpService::class)->verify('+97455123456', OtpPurpose::Login, $wrong))
-        ->toThrow(fn (\App\Domain\Identity\Exceptions\OtpException $e) => expect($e->errorCode)->toBe('otp_attempts_exceeded'));
+        ->toThrow(fn (OtpException $e) => expect($e->errorCode)->toBe('otp_attempts_exceeded'));
     // Even the correct code is now refused.
-    expect(fn () => app(OtpService::class)->verify('+97455123456', OtpPurpose::Login, $code))->toThrow(\App\Domain\Identity\Exceptions\OtpException::class);
+    expect(fn () => app(OtpService::class)->verify('+97455123456', OtpPurpose::Login, $code))->toThrow(OtpException::class);
 });
 
 it('enforces a resend cooldown and invalidates the previous code when a new one is issued', function () {
@@ -95,7 +97,7 @@ it('enforces a resend cooldown and invalidates the previous code when a new one 
     $this->postJson('/api/v1/auth/otp/request', ['phone' => '55123456'])->assertStatus(429)->assertJsonPath('code', 'otp_cooldown');
 
     $this->travel(61)->seconds();
-    app(\Illuminate\Cache\RateLimiter::class)->clear(md5('otp'.'otp-ip:127.0.0.1'));
+    app(RateLimiter::class)->clear(md5('otp'.'otp-ip:127.0.0.1'));
     $second = requestCode();
     expect(OtpVerification::whereNotNull('invalidated_at')->count())->toBe(1);
     if ($first !== $second) {

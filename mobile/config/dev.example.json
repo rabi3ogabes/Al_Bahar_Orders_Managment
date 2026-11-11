@@ -1,0 +1,10 @@
+{
+  "FLAVOR": "dev",
+  "API_BASE_URL": "http://10.0.2.2:8000/api/v1",
+  "REVERB_APP_KEY": "albahar-dev",
+  "REVERB_HOST": "10.0.2.2",
+  "REVERB_PORT": "8080",
+  "REVERB_SCHEME": "ws",
+  "PUSH_ENABLED": "false",
+  "MAP_TILE_URL": "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+}

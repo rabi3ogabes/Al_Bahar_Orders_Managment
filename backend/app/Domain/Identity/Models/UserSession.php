@@ -21,6 +21,7 @@ class UserSession extends Model
         'revoked_at' => 'immutable_datetime',
     ];
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

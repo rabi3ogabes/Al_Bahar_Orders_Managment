@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Universal links: https://albahar.qa/app/… (requires apple-app-site-association on the host). -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:albahar.qa</string>
+		<string>applinks:www.albahar.qa</string>
+	</array>
+	<!-- Push notifications (switch to "production" for App Store builds; Xcode manages this per configuration). -->
+	<key>aps-environment</key>
+	<string>development</string>
+</dict>
+</plist>

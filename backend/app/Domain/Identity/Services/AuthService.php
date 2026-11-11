@@ -9,6 +9,7 @@ use App\Domain\Identity\Enums\UserType;
 use App\Domain\Identity\Events\CustomerRegistered;
 use App\Domain\Identity\Models\User;
 use App\Support\DomainException;
+use App\Support\Phone;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
@@ -95,7 +96,7 @@ class AuthService
     {
         $query = User::query();
         if (! empty($data['phone'])) {
-            $query->where('phone', \App\Support\Phone::normalize($data['phone']) ?? '__invalid__');
+            $query->where('phone', Phone::normalize($data['phone']) ?? '__invalid__');
         } else {
             $query->whereRaw('lower(email) = ?', [strtolower($data['email'])]);
         }

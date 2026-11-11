@@ -1,0 +1,14 @@
+.git
+mobile
+docs
+backend/vendor
+backend/node_modules
+backend/tests
+backend/tools
+backend/.env
+backend/storage/logs/*
+backend/storage/framework/cache/*
+backend/storage/framework/sessions/*
+backend/storage/framework/views/*
+backend/public/build
+backend/public/hot

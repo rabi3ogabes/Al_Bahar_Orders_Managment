@@ -1,0 +1,22 @@
+<?php
+
+namespace App\Domain\Marketing\Models;
+
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Wishlist extends Model
+{
+    use HasUuids;
+
+    protected $table = 'wishlists';
+
+    protected $guarded = ['id'];
+
+    /** @return HasMany<WishlistItem, $this> */
+    public function items(): HasMany
+    {
+        return $this->hasMany(WishlistItem::class);
+    }
+}

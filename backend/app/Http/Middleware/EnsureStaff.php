@@ -9,7 +9,8 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Admin/employee access policy, separate from customers: only active staff accounts pass.
  * For API tokens, also requires the "staff" ability so a customer token can never reach staff routes.
- * Staff with 2FA enabled must have completed the second factor in this web session.
+ * Staff with 2FA enabled must have completed the second factor in this web session; when
+ * platform.auth.staff_two_factor_required is on, staff without 2FA may only open their profile to enrol.
  */
 class EnsureStaff
 {
@@ -32,6 +33,12 @@ class EnsureStaff
 
         if (! $isApiToken && $user->hasTwoFactorEnabled() && ! $request->session()->get('two_factor_passed')) {
             return redirect()->route('admin.two-factor.challenge');
+        }
+
+        if (! $isApiToken && ! $user->hasTwoFactorEnabled() && config('platform.auth.staff_two_factor_required')
+            && ! $request->routeIs('admin.profile') && ! $request->hasHeader('X-Livewire')) {
+            return redirect()->route('admin.profile')
+                ->with('toast', ['type' => 'warning', 'message' => __('admin.two_factor_enrolment_required')]);
         }
 
         return $next($request);

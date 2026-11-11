@@ -1,0 +1,10 @@
+{
+  "FLAVOR": "staging",
+  "API_BASE_URL": "https://staging-api.albahar.qa/api/v1",
+  "REVERB_APP_KEY": "albahar-staging",
+  "REVERB_HOST": "staging-ws.albahar.qa",
+  "REVERB_PORT": "443",
+  "REVERB_SCHEME": "wss",
+  "PUSH_ENABLED": "true",
+  "MAP_TILE_URL": "https://tiles.example-provider.com/{z}/{x}/{y}.png?key=REPLACE_ME"
+}

@@ -61,7 +61,7 @@ return new class extends Migration
 
             $table->index(['payment_id', 'created_at']);
         });
-        DB::statement("CREATE UNIQUE INDEX payment_transactions_reference_unique ON payment_transactions (gateway, transaction_reference, type) WHERE transaction_reference IS NOT NULL");
+        DB::statement('CREATE UNIQUE INDEX payment_transactions_reference_unique ON payment_transactions (gateway, transaction_reference, type) WHERE transaction_reference IS NOT NULL');
         DB::unprepared('CREATE TRIGGER payment_transactions_append_only BEFORE UPDATE OR DELETE ON payment_transactions FOR EACH ROW EXECUTE FUNCTION prevent_ledger_mutation()');
 
         Schema::create('payment_webhook_events', function (Blueprint $table) {
