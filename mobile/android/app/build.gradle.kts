@@ -21,6 +21,9 @@ val keystoreProperties = Properties().apply {
 
 android {
     namespace = "qa.albahar.customer"
+    buildFeatures {
+        resValues = true
+    }
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
