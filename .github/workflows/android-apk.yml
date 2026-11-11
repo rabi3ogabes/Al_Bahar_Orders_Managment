@@ -1,8 +1,9 @@
 name: Android APK
 
-# Every run publishes its OWN GitHub release, so older builds stay available and you can always tell which one is
-# installed: tag `customer-<version>-b<build>`, file `albahar-customer-<version>-b<build>-<commit>.apk`, notes with the
-# commit and what changed since the previous build. The same version/build is baked into the app (Settings -> About).
+# Builds the THREE Android apps (customer, driver, branch staff) and publishes one GitHub release per app per run, so
+# older builds stay available and you can always tell which one is installed: tag `<app>-<version>-b<build>`, file
+# `albahar-<app>-<version>-b<build>-<commit>.apk`, notes with the commit and what changed since that app's previous build.
+# The version/build/commit is baked into each app (customer: Settings -> About; driver and staff: sign-in screen footer).
 #
 # Runs automatically when the app changes on the development branch, or by hand from the Actions tab.
 # The APK is signed with the debug key until a release keystore is added (see android/app/build.gradle.kts).
@@ -23,6 +24,13 @@ jobs:
   apk:
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { app: customer, entry: lib/main.dart,        title: 'Customer app' }
+          - { app: driver,   entry: lib/main_driver.dart, title: 'Driver app' }
+          - { app: staff,    entry: lib/main_staff.dart,  title: 'Branch staff app' }
     defaults: { run: { working-directory: mobile } }
     steps:
       - uses: actions/checkout@v4
@@ -42,12 +50,12 @@ jobs:
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
           echo "build=$BUILD" >> "$GITHUB_OUTPUT"
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
-          echo "tag=customer-$NAME-b$BUILD" >> "$GITHUB_OUTPUT"
-          echo "file=albahar-customer-$NAME-b$BUILD-$SHA.apk" >> "$GITHUB_OUTPUT"
+          echo "tag=${{ matrix.app }}-$NAME-b$BUILD" >> "$GITHUB_OUTPUT"
+          echo "file=albahar-${{ matrix.app }}-$NAME-b$BUILD-$SHA.apk" >> "$GITHUB_OUTPUT"
 
       - name: Build APK
         run: >
-          flutter build apk --release --flavor prod
+          flutter build apk --release --flavor ${{ matrix.app }}Prod -t ${{ matrix.entry }}
           --build-name=${{ steps.v.outputs.name }} --build-number=${{ steps.v.outputs.build }}
           --dart-define=FLAVOR=prod
           --dart-define=API_BASE_URL=https://albahar.atharqatar.net/api/v1
@@ -55,23 +63,23 @@ jobs:
           --dart-define=BUILD_SHA=${{ steps.v.outputs.sha }}
 
       - name: Name the file
-        run: cp build/app/outputs/flutter-apk/app-prod-release.apk "$RUNNER_TEMP/${{ steps.v.outputs.file }}"
+        run: cp build/app/outputs/flutter-apk/app-${{ matrix.app }}-prod-release.apk "$RUNNER_TEMP/${{ steps.v.outputs.file }}"
 
       - name: Release notes
         run: |
-          PREV=$(git tag --list 'customer-*' --sort=-creatordate | head -1 || true)
+          PREV=$(git tag --list '${{ matrix.app }}-*' --sort=-creatordate | head -1 || true)
           {
-            echo "## Al Bahar customer app ${{ steps.v.outputs.name }} (build ${{ steps.v.outputs.build }})"
+            echo "## Al Bahar ${{ matrix.title }} ${{ steps.v.outputs.name }} (build ${{ steps.v.outputs.build }})"
             echo
             echo "- **Commit:** \`${{ steps.v.outputs.sha }}\` on \`${{ github.ref_name }}\`"
             echo "- **Built:** $(date -u '+%Y-%m-%d %H:%M UTC')"
             echo "- **Server:** https://albahar.atharqatar.net"
-            echo "- **Check it:** open the app, Settings, About: it shows \`${{ steps.v.outputs.name }} (${{ steps.v.outputs.build }})\` and the commit."
+            echo "- **Package:** \`$(case ${{ matrix.app }} in customer) echo qa.albahar.customer;; driver) echo qa.albahar.driver;; staff) echo qa.albahar.staff;; esac)\`"
             echo
             echo "### What changed"
             if [ -n "$PREV" ]; then git log "$PREV"..HEAD --no-merges --pretty='- %s' -- . ../backend ../storefront | head -25; else git log -10 --no-merges --pretty='- %s'; fi
             echo
-            echo "Install: download the APK on an Android phone and allow installs from this source. A newer build installs over an older one."
+            echo "Install: download the APK on an Android phone and allow installs from this source. A newer build installs over an older one of the same app. The three apps install side by side."
           } > "$RUNNER_TEMP/notes.md"
 
       - uses: actions/upload-artifact@v4
@@ -82,5 +90,5 @@ jobs:
         run: |
           gh release create "${{ steps.v.outputs.tag }}" "$RUNNER_TEMP/${{ steps.v.outputs.file }}" \
             --repo "${{ github.repository }}" --target "${{ github.sha }}" --prerelease \
-            --title "Customer app ${{ steps.v.outputs.name }} · build ${{ steps.v.outputs.build }} · ${{ steps.v.outputs.sha }}" \
+            --title "${{ matrix.title }} ${{ steps.v.outputs.name }} · build ${{ steps.v.outputs.build }} · ${{ steps.v.outputs.sha }}" \
             --notes-file "$RUNNER_TEMP/notes.md"

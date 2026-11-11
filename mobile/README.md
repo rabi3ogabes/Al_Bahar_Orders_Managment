@@ -48,14 +48,14 @@ Use a file per environment: `cp config/dev.example.json config/dev.json`, then
 
 ```bash
 # Android emulator against a local backend (php artisan serve --host=0.0.0.0)
-flutter run --flavor dev -t lib/main_dev.dart --dart-define-from-file=config/dev.json
+flutter run --flavor customerDev -t lib/main_dev.dart --dart-define-from-file=config/dev.json
 
 # Physical device on the same Wi-Fi
-flutter run --flavor dev -t lib/main_dev.dart --dart-define=API_BASE_URL=http://192.168.1.20:8000/api/v1
+flutter run --flavor customerDev -t lib/main_dev.dart --dart-define=API_BASE_URL=http://192.168.1.20:8000/api/v1
 
 # Staging / prod
-flutter run --flavor staging -t lib/main_staging.dart --dart-define-from-file=config/staging.json
-flutter run --release --flavor prod -t lib/main_prod.dart --dart-define-from-file=config/prod.json
+flutter run --flavor customerStaging -t lib/main_staging.dart --dart-define-from-file=config/staging.json
+flutter run --release --flavor customerProd -t lib/main_prod.dart --dart-define-from-file=config/prod.json
 
 # Web (compile smoke test; also runnable)
 flutter build web --release --dart-define=FLAVOR=staging
@@ -186,7 +186,7 @@ keyPassword=…
 keyAlias=upload
 storeFile=/absolute/path/albahar-upload.jks
 EOF
-flutter build appbundle --release --flavor prod -t lib/main_prod.dart \
+flutter build appbundle --release --flavor customerProd -t lib/main_prod.dart \
   --dart-define-from-file=config/prod.json --obfuscate --split-debug-info=build/symbols
 ```
 
@@ -237,3 +237,23 @@ See the hand-over report; in short: no device/emulator was available in the buil
 iOS per-flavour schemes and the localized `InfoPlist.strings` registration need a one-time Xcode
 step, Firebase config files must be added, and the API assumptions in
 `docs/API_ASSUMPTIONS.md` should be confirmed against the backend.
+
+
+## Driver and branch staff apps
+
+Three apps share this codebase (own package id, name and icon each; they install side by side):
+
+| App | Package | Entry point | Flavour (prod) |
+|---|---|---|---|
+| Customer | `qa.albahar.customer` | `lib/main.dart` | `customerProd` |
+| Driver | `qa.albahar.driver` | `lib/main_driver.dart` | `driverProd` |
+| Branch staff | `qa.albahar.staff` | `lib/main_staff.dart` | `staffProd` |
+
+```bash
+flutter run --flavor driverDev -t lib/main_driver.dart --dart-define=API_BASE_URL=http://10.0.2.2:8000/api/v1
+flutter build apk --release --flavor staffProd -t lib/main_staff.dart --dart-define=FLAVOR=prod --dart-define=API_BASE_URL=https://<server>/api/v1
+```
+
+Both sign in with a staff **email + password** (`POST /admin/auth/login`). The driver account must be a *delivery driver* of at least one branch;
+the staff account needs `orders.view`. Dispatch (auto or by a branch employee) is chosen per branch in the admin panel: **Branches > edit >
+Who assigns deliveries**. The GitHub workflow "Android APK" publishes one release per app per run.

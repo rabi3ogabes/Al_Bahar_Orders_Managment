@@ -1,0 +1,110 @@
+import 'package:flutter/widgets.dart';
+
+/// English / Arabic text for the two staff apps (kept small and local; the customer app uses ARB files).
+class OpsStrings {
+  const OpsStrings(this.code);
+  final String code;
+
+  static OpsStrings of(BuildContext context) => OpsStrings(Localizations.localeOf(context).languageCode);
+
+  bool get ar => code == 'ar';
+  String _t(String en, String arText) => ar ? arText : en;
+
+  String get driverApp => _t('Al Bahar Driver', 'سائق البحار');
+  String get staffApp => _t('Al Bahar Branch', 'موظف فرع البحار');
+  String get signIn => _t('Sign in', 'تسجيل الدخول');
+  String get email => _t('Email', 'البريد الإلكتروني');
+  String get password => _t('Password', 'كلمة المرور');
+  String get signOut => _t('Sign out', 'تسجيل الخروج');
+  String get signInHintDriver =>
+      _t('Use the account your branch manager created for you.', 'استخدم الحساب الذي أنشأه لك مدير الفرع.');
+  String get signInHintStaff => _t('Sign in with your branch staff account.', 'سجّل الدخول بحساب موظف الفرع.');
+  String get notDriver => _t('This account is not set up as a delivery driver.', 'هذا الحساب غير مفعّل كسائق توصيل.');
+  String get notStaff =>
+      _t('This account cannot manage branch orders.', 'هذا الحساب لا يملك صلاحية إدارة طلبات الفرع.');
+  String get retry => _t('Try again', 'حاول مرة أخرى');
+  String get refresh => _t('Refresh', 'تحديث');
+
+  // Driver
+  String get onDuty => _t('On duty', 'متواجد');
+  String get offDuty => _t('Off duty', 'غير متواجد');
+  String get dutyOnHint => _t('You will receive deliveries from your branches.', 'ستصلك طلبات التوصيل من فروعك.');
+  String get dutyOffHint => _t('Go on duty to receive deliveries.', 'فعّل التواجد لاستلام الطلبات.');
+  String get myJobs => _t('My deliveries', 'توصيلاتي');
+  String get history => _t('History', 'السجل');
+  String get noJobs => _t('No deliveries yet', 'لا توجد توصيلات الآن');
+  String get noJobsHint => _t(
+    'New deliveries appear here as soon as they are assigned to you.',
+    'تظهر التوصيلات الجديدة هنا فور إسنادها إليك.',
+  );
+  String get cod => _t('Collect cash', 'تحصيل نقدي');
+  String get call => _t('Call', 'اتصال');
+  String get navigate => _t('Navigate', 'الاتجاه');
+  String get accept => _t('Accept', 'قبول');
+  String get pickedUp => _t('Picked up from branch', 'تم الاستلام من الفرع');
+  String get onTheWay => _t('On my way', 'في الطريق');
+  String get delivered => _t('Delivered', 'تم التسليم');
+  String get failed => _t('Could not deliver', 'تعذّر التسليم');
+  String get receivedBy => _t('Received by', 'استلم الطلب');
+  String get takePhoto => _t('Take proof photo', 'التقط صورة الإثبات');
+  String get photoTaken => _t('Photo added', 'تمت إضافة الصورة');
+  String get photoRequired => _t('A proof photo is required.', 'صورة الإثبات مطلوبة.');
+  String get cashCollected => _t('Cash collected', 'المبلغ المحصّل');
+  String get confirm => _t('Confirm', 'تأكيد');
+  String get cancel => _t('Cancel', 'إلغاء');
+  String get reason => _t('Reason', 'السبب');
+  String reasonLabel(String code) => switch (code) {
+    'customer_unreachable' => _t('Customer unreachable', 'لا يمكن الوصول للعميل'),
+    'customer_absent' => _t('Customer not there', 'العميل غير موجود'),
+    'wrong_address' => _t('Wrong address', 'عنوان خاطئ'),
+    'refused' => _t('Refused the order', 'رفض الطلب'),
+    'damaged' => _t('Damaged', 'تالف'),
+    'access_denied' => _t('No access', 'لا يمكن الدخول'),
+    _ => _t('Other', 'أخرى'),
+  };
+  String statusLabel(String s) => switch (s) {
+    'assigned' => _t('New', 'جديد'),
+    'accepted' => _t('Accepted', 'تم القبول'),
+    'picked_up' => _t('Picked up', 'تم الاستلام'),
+    'out_for_delivery' => _t('On the way', 'في الطريق'),
+    'delivered' => _t('Delivered', 'تم التسليم'),
+    'failed' => _t('Failed', 'تعذّر'),
+    'rescheduled' => _t('Rescheduled', 'أعيدت جدولته'),
+    'returned' => _t('Returned', 'أُعيد'),
+    'cancelled' => _t('Cancelled', 'ملغي'),
+    'pending' => _t('Waiting for a driver', 'بانتظار سائق'),
+    _ => s,
+  };
+
+  // Staff
+  String get orders => _t('Orders', 'الطلبات');
+  String get drivers => _t('Drivers', 'السائقون');
+  String get stageNew => _t('New', 'جديدة');
+  String get stagePreparing => _t('Preparing', 'قيد التحضير');
+  String get stageReady => _t('Ready', 'جاهزة');
+  String get stageOut => _t('On the way', 'في الطريق');
+  String get waitingForDriver => _t('Waiting for a driver', 'بانتظار سائق');
+  String get driversOnDuty => _t('Drivers on duty', 'سائقون متواجدون');
+  String get autoDispatch => _t(
+    'Auto dispatch: ready orders go to the least busy driver.',
+    'التوزيع التلقائي: تُسند الطلبات الجاهزة للسائق الأقل انشغالاً.',
+  );
+  String get manualDispatch => _t('You assign drivers to ready orders.', 'أنت تُسند السائقين للطلبات الجاهزة.');
+  String get noOrders => _t('Nothing here right now', 'لا يوجد شيء هنا الآن');
+  String get acceptOrder => _t('Accept order', 'قبول الطلب');
+  String get startPreparing => _t('Start preparing', 'بدء التحضير');
+  String get markReady => _t('Mark ready', 'جاهز للتسليم');
+  String get assignDriver => _t('Assign driver', 'إسناد سائق');
+  String get changeDriver => _t('Change driver', 'تغيير السائق');
+  String get chooseDriver => _t('Choose a driver', 'اختر سائقاً');
+  String get noDrivers => _t(
+    'No drivers in this branch yet. Add them in the admin panel.',
+    'لا يوجد سائقون في هذا الفرع بعد. أضفهم من لوحة الإدارة.',
+  );
+  String openJobs(int n) => _t('$n open', '$n مفتوحة');
+  String items(int n) => _t('$n items', '$n قطعة');
+  String assignedTo(String name) => _t('Driver: $name', 'السائق: $name');
+  String get offDutyTag => _t('Off duty', 'غير متواجد');
+  String get done => _t('Done', 'تم');
+  String get language => _t('العربية', 'English');
+}

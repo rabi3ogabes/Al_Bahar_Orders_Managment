@@ -43,8 +43,21 @@ android {
         resValue("string", "app_link_host", "albahar.qa")
     }
 
-    flavorDimensions += "env"
+    // Three apps from one codebase: customer, driver and branch staff (each with its own id, name and icon),
+    // each in dev / staging / prod. Flutter flavour names combine them, e.g. `driverProd`, `customerStaging`.
+    flavorDimensions += listOf("app", "env")
     productFlavors {
+        create("customer") {
+            dimension = "app"
+        }
+        create("driver") {
+            dimension = "app"
+            applicationId = "qa.albahar.driver"
+        }
+        create("staff") {
+            dimension = "app"
+            applicationId = "qa.albahar.staff"
+        }
         create("dev") {
             dimension = "env"
             applicationIdSuffix = ".dev"
