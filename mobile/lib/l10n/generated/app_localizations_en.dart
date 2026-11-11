@@ -2011,4 +2011,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String deliverySlotSummary(String date, String from, String to) {
     return 'Delivery: $date, $from – $to';
   }
+
+  @override
+  String get coloursTitle => 'Colours';
+
+  @override
+  String get coloursHint => 'Choose how many of each colour';
+
+  @override
+  String addItemsToBag(int count) {
+    return 'Add $count to bag';
+  }
+
+  @override
+  String get colourOutOfStock => 'Out of stock';
+
+  @override
+  String get pickAtLeastOne => 'Pick a quantity for at least one colour';
 }

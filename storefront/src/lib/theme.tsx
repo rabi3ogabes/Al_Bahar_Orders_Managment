@@ -12,7 +12,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   });
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#121419' : '#F8F4EE');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#181115' : '#FCF9FA');
     try { localStorage.setItem(KEY, theme); } catch { /* ignore */ }
   }, [theme]);
   return <Ctx.Provider value={{ theme, toggle: () => setTheme((t) => (t === 'dark' ? 'light' : 'dark')) }}>{children}</Ctx.Provider>;

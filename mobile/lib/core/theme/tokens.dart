@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
 
-/// Brand palette — "Ivory Navy": ivory screens, white soft cards, deep navy primary, gold accent.
+/// Brand palette — "Qatar Light": bright screens, white soft cards, Qatar maroon (Pantone 1955 C, #8A1538) primary.
 /// (Names such as `ink`/`brass` are kept for the whole code base; their values follow the soft-card design.)
 abstract final class AppPalette {
   // Light
-  static const ivory = Color(0xFFFAF7F2); // screen background
-  static const sand = Color(0xFFEDE7DD); // segmented tracks, neutral wells
-  static const sandDeep = Color(0xFFE2D9CB);
+  static const ivory = Color(0xFFFCF9FA); // screen background
+  static const sand = Color(0xFFF4ECEF); // segmented tracks, neutral wells
+  static const sandDeep = Color(0xFFEADDE2);
   static const paper = Color(0xFFFFFFFF); // card surface
-  static const canvas = Color(0xFFEFE9E0);
-  static const ink = Color(0xFF14263A); // text
-  static const inkSoft = Color(0xFF3A4A5E);
-  static const navy = Color(0xFF16324F); // primary (buttons, active tab, prices)
-  static const navySoft = Color(0xFF24507A);
-  static const tint = Color(0xFFEEF2F6); // icon wells, selected tiles, info strips
-  static const muted = Color(0xFF6B7280);
-  static const line = Color(0xFFE9E4DA);
-  static const brass = Color(0xFFC4894A); // gold accent (fills)
-  static const brassDeep = Color(0xFF9A6428); // gold for text on light surfaces (AA)
-  static const brassTint = Color(0xFFFBF3E8);
-  static const goldSoft = Color(0xFFE7C894); // gold on navy
+  static const canvas = Color(0xFFF6EEF1);
+  static const ink = Color(0xFF2A1A20); // text
+  static const inkSoft = Color(0xFF4F3B43);
+  static const navy = Color(0xFF8A1538); // primary (buttons, active tab, prices)
+  static const navySoft = Color(0xFFA3294E);
+  static const tint = Color(0xFFFBEDF1); // icon wells, selected tiles, info strips
+  static const muted = Color(0xFF736369);
+  static const line = Color(0xFFF0E4E8);
+  static const brass = Color(0xFFB3254F); // rose accent (fills, white text)
+  static const brassDeep = Color(0xFF8A1538); // maroon for text on light surfaces (AA)
+  static const brassTint = Color(0xFFFBEDF1);
+  static const goldSoft = Color(0xFFF6D3DC); // soft rose on maroon
 
   // Semantic
   static const success = Color(0xFF1F7A4D);
@@ -32,14 +32,14 @@ abstract final class AppPalette {
   static const infoTint = Color(0xFFDCEBFB);
 
   // Dark
-  static const nightBg = Color(0xFF0F1722);
-  static const nightSurface = Color(0xFF172131);
-  static const nightSurfaceHigh = Color(0xFF212C3F);
+  static const nightBg = Color(0xFF181115);
+  static const nightSurface = Color(0xFF221A1E);
+  static const nightSurfaceHigh = Color(0xFF2E2328);
   static const nightInk = Color(0xFFF1ECE3);
   static const nightMuted = Color(0xFFA6B0BE);
-  static const nightLine = Color(0xFF2B3649);
-  static const nightBrass = Color(0xFFD9A55F);
-  static const nightNavy = Color(0xFF9DB9D9);
+  static const nightLine = Color(0xFF3A2E34);
+  static const nightBrass = Color(0xFFE58AA5);
+  static const nightNavy = Color(0xFFE8A3B8);
 }
 
 /// 8-pt spacing scale.

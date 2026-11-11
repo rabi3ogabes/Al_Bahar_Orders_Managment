@@ -2045,4 +2045,21 @@ class AppLocalizationsAr extends AppLocalizations {
   String deliverySlotSummary(String date, String from, String to) {
     return 'التوصيل: $date، $from – $to';
   }
+
+  @override
+  String get coloursTitle => 'الألوان';
+
+  @override
+  String get coloursHint => 'اختر الكمية لكل لون';
+
+  @override
+  String addItemsToBag(int count) {
+    return 'أضف $count إلى الحقيبة';
+  }
+
+  @override
+  String get colourOutOfStock => 'غير متوفر';
+
+  @override
+  String get pickAtLeastOne => 'اختر كمية للون واحد على الأقل';
 }

@@ -110,15 +110,17 @@ FakeHandler _backend({
       if (from == null) return ok(_slotsFor('${r.query['date']}'));
       final to = r.query['to'] as String;
       final onlyAvailable = r.query['only_available'] != null;
-      return ok([
-        for (var i = 0; i < 30; i++)
-          if (_day(i).compareTo(from) >= 0 && _day(i).compareTo(to) <= 0 && _slotsFor(_day(i)).isNotEmpty)
-            {
-              'date': _day(i),
-              'available': _slotsFor(_day(i)).fold<int>(0, (a, s) => a + (s['available'] as int)),
-              'slots': _slotsFor(_day(i)),
-            },
-      ].where((d) => !onlyAvailable || (d['available'] as int) > 0).toList());
+      return ok(
+        [
+          for (var i = 0; i < 30; i++)
+            if (_day(i).compareTo(from) >= 0 && _day(i).compareTo(to) <= 0 && _slotsFor(_day(i)).isNotEmpty)
+              {
+                'date': _day(i),
+                'available': _slotsFor(_day(i)).fold<int>(0, (a, s) => a + (s['available'] as int)),
+                'slots': _slotsFor(_day(i)),
+              },
+        ].where((d) => !onlyAvailable || (d['available'] as int) > 0).toList(),
+      );
     },
     'GET /branches/br2/delivery-slots': (_) => error(404, 'not_found'),
     'POST /checkout/quote': (r) {
@@ -196,7 +198,10 @@ void main() {
           {
             'date': '2026-11-08',
             'available': 8,
-            'slots': [_slot('a', '2026-11-08', '16:00', '18:00', available: 2), _slot('b', '2026-11-08', '18:00', '20:00')],
+            'slots': [
+              _slot('a', '2026-11-08', '16:00', '18:00', available: 2),
+              _slot('b', '2026-11-08', '18:00', '20:00'),
+            ],
           },
           {
             'date': '2026-11-09',
@@ -205,7 +210,8 @@ void main() {
           },
         ]),
       );
-      final days = await BranchRepository(_client(adapter)).deliverySlotDays('br1', from: '2026-11-08', to: '2026-11-14', onlyAvailable: true);
+      final days = await BranchRepository(_client(adapter))
+          .deliverySlotDays('br1', from: '2026-11-08', to: '2026-11-14', onlyAvailable: true);
       final req = adapter.requests.single;
       expect(req.path, '/branches/br1/delivery-slots');
       expect(req.query['from'], '2026-11-08');

@@ -43,7 +43,7 @@ export function ProductCard({ p, priority }: { p: P; priority?: boolean }) {
           {!p.in_stock && <div className="absolute inset-0 flex items-end bg-bg/55 p-3"><Badge tone="sand">{t('product.out_of_stock')}</Badge></div>}
           {p.purchasable && !p.has_variants && p.in_stock && (
             <button onClick={quickAdd} disabled={busy} aria-label={t('product.add_to_bag')}
-              className="absolute bottom-3 end-3 flex h-11 w-11 translate-y-2 items-center justify-center rounded-full bg-ink text-bg opacity-0 shadow-soft transition-all duration-300 hover:bg-brass-deep focus-visible:translate-y-0 focus-visible:opacity-100 group-hover:translate-y-0 group-hover:opacity-100 max-md:translate-y-0 max-md:opacity-100">
+              className="absolute bottom-3 end-3 flex h-11 w-11 translate-y-2 items-center justify-center rounded-full bg-primary text-bg opacity-0 shadow-soft transition-all duration-300 hover:bg-brass-deep focus-visible:translate-y-0 focus-visible:opacity-100 group-hover:translate-y-0 group-hover:opacity-100 max-md:translate-y-0 max-md:opacity-100">
               <ShoppingBag size={18} className={busy ? 'animate-pulse' : ''} />
             </button>
           )}

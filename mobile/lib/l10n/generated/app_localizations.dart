@@ -3691,6 +3691,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Delivery: {date}, {from} – {to}'**
   String deliverySlotSummary(String date, String from, String to);
+
+  /// No description provided for @coloursTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Colours'**
+  String get coloursTitle;
+
+  /// No description provided for @coloursHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose how many of each colour'**
+  String get coloursHint;
+
+  /// No description provided for @addItemsToBag.
+  ///
+  /// In en, this message translates to:
+  /// **'Add {count} to bag'**
+  String addItemsToBag(int count);
+
+  /// No description provided for @colourOutOfStock.
+  ///
+  /// In en, this message translates to:
+  /// **'Out of stock'**
+  String get colourOutOfStock;
+
+  /// No description provided for @pickAtLeastOne.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a quantity for at least one colour'**
+  String get pickAtLeastOne;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

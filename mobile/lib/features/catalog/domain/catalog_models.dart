@@ -315,6 +315,14 @@ class ProductDetail {
     return null;
   }
 
+  /// The colour attribute when a product is sold in several colours (each can be bought in its own quantity).
+  ProductAttribute? get colourAttribute {
+    for (final a in attributes) {
+      if ((a.isColor || a.values.any((v) => v.colorHex != null)) && a.values.length > 1) return a;
+    }
+    return null;
+  }
+
   ProductVariant? get defaultVariant =>
       variantById(defaultVariantId) ?? variants.where((v) => v.purchasable).firstOrNull ?? variants.firstOrNull;
 

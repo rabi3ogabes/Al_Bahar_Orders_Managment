@@ -89,7 +89,7 @@ export default function Shop() {
         <div>
           <h3 className="eyebrow mb-3">{t('filter.brand')}</h3>
           <ul className="flex flex-wrap gap-2">
-            {brands.data!.map((b) => <li key={b.id}><button aria-pressed={brand?.id === b.id} onClick={() => set({ brand: brand?.id === b.id ? null : b.slug })} className={cx('rounded-full border px-3.5 py-1.5 text-[13px] transition-colors', brand?.id === b.id ? 'border-ink bg-ink text-bg' : 'border-line bg-paper hover:border-brass')}>{b.name}</button></li>)}
+            {brands.data!.map((b) => <li key={b.id}><button aria-pressed={brand?.id === b.id} onClick={() => set({ brand: brand?.id === b.id ? null : b.slug })} className={cx('rounded-full border px-3.5 py-1.5 text-[13px] transition-colors', brand?.id === b.id ? 'border-primary bg-primary text-bg' : 'border-line bg-paper hover:border-brass')}>{b.name}</button></li>)}
           </ul>
         </div>
       )}

@@ -40,7 +40,7 @@ export function AccountLayout() {
       <div className="grid gap-8 lg:grid-cols-[250px_minmax(0,1fr)]">
         <nav aria-label={t('account.title')} className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-2 lg:mx-0 lg:flex-col lg:gap-1 lg:overflow-visible lg:px-0">
           {NAV.map(({ to, icon: I, key, ...r }) => (
-            <NavLink key={to} to={to} end={'end' in r} className={({ isActive }) => cx('flex shrink-0 items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-colors', isActive ? 'bg-ink text-bg' : 'text-ink-soft hover:bg-sand')}><I size={17} />{t(key)}</NavLink>
+            <NavLink key={to} to={to} end={'end' in r} className={({ isActive }) => cx('flex shrink-0 items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-colors', isActive ? 'bg-primary text-bg' : 'text-ink-soft hover:bg-sand')}><I size={17} />{t(key)}</NavLink>
           ))}
         </nav>
         <div className="min-w-0"><Outlet /></div>
@@ -79,7 +79,7 @@ function ReferralCard() {
   const ref = useQuery({ queryKey: ['referral'], queryFn: async () => (await get<{ data: { code: string; share_url: string; referred_count: number; referrer_reward_points: number } }>('/me/referral')).data });
   if (!ref.data) return null;
   return (
-    <section className="rounded-[28px] bg-ink p-6 text-bg">
+    <section className="rounded-[28px] bg-primary p-6 text-bg">
       <p className="eyebrow !text-brass">{t('referral.eyebrow')}</p>
       <h2 className="mt-1 text-3xl">{t('referral.title', { n: ref.data.referrer_reward_points })}</h2>
       <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -181,7 +181,7 @@ export function LoyaltyPage() {
   const l = q.data;
   return (
     <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-[28px] bg-ink p-8 text-bg">
+      <section className="relative overflow-hidden rounded-[28px] bg-primary p-8 text-bg">
         <Star className="absolute -end-6 -top-6 text-brass/20" size={160} strokeWidth={1} />
         <p className="eyebrow !text-brass">{t('loyalty.tier')}: {t(`tier.${l.tier}`)}</p>
         <p className="mt-3 font-display text-7xl leading-none">{num(l.balance)}</p>

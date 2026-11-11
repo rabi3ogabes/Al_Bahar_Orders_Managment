@@ -99,7 +99,7 @@ function AuctionBand({ items }: { items: Auction[] }) {
   if (!items.length) return null;
   const a = items[0];
   return (
-    <section className="mt-24 bg-ink text-bg">
+    <section className="mt-24 bg-primary text-bg">
       <div className="wrap grid items-center gap-10 py-16 md:grid-cols-2">
         <div>
           <p className="eyebrow mb-4 !text-brass"><span className="me-2 inline-block h-2 w-2 animate-pulse rounded-full bg-danger align-middle" />{t('auction.live_now')}</p>
@@ -165,7 +165,7 @@ export default function Home() {
           <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {byType('promotions')[0].items.slice(0, 3).map((p: any) => (
               <li key={p.id}><Link to="/shop?sale=1" className="flex h-full items-center gap-4 rounded-[24px] border border-brass/30 bg-brass-tint p-5 transition-shadow hover:shadow-soft">
-                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brass text-sm font-bold text-[#1d2330]">{p.badge ?? '%'}</span>
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brass text-sm font-bold text-white">{p.badge ?? '%'}</span>
                 <span><span className="block font-display text-2xl leading-tight">{p.name}</span>{p.description && <span className="text-sm text-ink-soft">{p.description}</span>}</span></Link></li>
             ))}
           </ul>

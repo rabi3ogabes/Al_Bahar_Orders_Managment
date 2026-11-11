@@ -56,7 +56,7 @@ export function Showrooms() {
             <div className="mt-4 flex flex-wrap gap-2">{b.pickup_enabled && <Badge tone="brass">{t('checkout.pickup')}</Badge>}{b.delivery_enabled && <Badge tone="brass">{t('checkout.delivery')}</Badge>}{b.pay_at_pickup_enabled && <Badge>{t('pay.pickup')}</Badge>}</div>
             <details className="mt-4 group"><summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-semibold"><Clock size={16} className="text-brass" />{t('branch.hours')}</summary><Hours id={b.id} /></details>
             <div className="mt-6 flex flex-wrap gap-2">
-              {mapsHref(b.latitude, b.longitude, b.name) && <a href={mapsHref(b.latitude, b.longitude, b.name)} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center gap-2 rounded-full border border-line px-5 text-sm font-medium hover:border-ink"><Navigation size={15} />{t('order.directions')}</a>}
+              {mapsHref(b.latitude, b.longitude, b.name) && <a href={mapsHref(b.latitude, b.longitude, b.name)} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center gap-2 rounded-full border border-line px-5 text-sm font-medium hover:border-primary"><Navigation size={15} />{t('order.directions')}</a>}
               <Button size="sm" variant={branchId === b.id ? 'primary' : 'outline'} className="h-10" onClick={() => select(b.id)}>{branchId === b.id ? t('branch.selected') : t('branch.shop_here')}</Button>
             </div>
           </article>

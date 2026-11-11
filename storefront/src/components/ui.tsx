@@ -8,10 +8,10 @@ import type { Price } from '../lib/types';
 /* ───────────── Buttons ───────────── */
 type Variant = 'primary' | 'brass' | 'ghost' | 'outline' | 'danger';
 const vclass: Record<Variant, string> = {
-  primary: 'bg-ink text-bg hover:bg-ink-soft',
-  brass: 'bg-brass text-[#1d2330] hover:bg-brass-deep hover:text-white',
+  primary: 'bg-primary text-bg hover:bg-primary-soft',
+  brass: 'bg-brass text-white hover:bg-brass-deep hover:text-white',
   ghost: 'text-ink hover:bg-sand',
-  outline: 'border border-line bg-paper text-ink hover:border-ink',
+  outline: 'border border-line bg-paper text-ink hover:border-primary',
   danger: 'bg-danger text-white hover:opacity-90',
 };
 const sclass = { sm: 'h-9 px-4 text-[13px]', md: 'h-11 px-6 text-sm', lg: 'h-[52px] px-8 text-[15px]' };
@@ -70,7 +70,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
 export function Checkbox({ checked, onChange, children }: { checked: boolean; onChange: (v: boolean) => void; children: ReactNode }) {
   return (
     <label className="flex cursor-pointer items-start gap-3 text-sm text-ink-soft">
-      <span className={cx('mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors', checked ? 'border-ink bg-ink text-bg' : 'border-line bg-paper')}>
+      <span className={cx('mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors', checked ? 'border-primary bg-primary text-bg' : 'border-line bg-paper')}>
         {checked && <Check size={13} strokeWidth={3} />}
       </span>
       <input type="checkbox" className="sr-only" checked={checked} onChange={(e) => onChange(e.target.checked)} />
@@ -83,7 +83,7 @@ export function Checkbox({ checked, onChange, children }: { checked: boolean; on
 export const Skeleton = ({ className }: { className?: string }) => <div aria-hidden className={cx('skeleton', className)} />;
 export const Spinner = ({ size = 20 }: { size?: number }) => <Loader2 size={size} className="animate-spin text-brass" aria-label="Loading" />;
 export function Badge({ children, tone = 'sand' }: { children: ReactNode; tone?: 'sand' | 'brass' | 'ink' | 'success' | 'danger' | 'warning' }) {
-  const tones = { sand: 'bg-sand text-ink-soft', brass: 'bg-brass-tint text-brass-deep ring-1 ring-inset ring-brass/30', ink: 'bg-ink text-bg', success: 'bg-success/12 text-success', danger: 'bg-danger/12 text-danger', warning: 'bg-warning/15 text-warning' };
+  const tones = { sand: 'bg-sand text-ink-soft', brass: 'bg-brass-tint text-brass-deep ring-1 ring-inset ring-brass/30', ink: 'bg-primary text-bg', success: 'bg-success/12 text-success', danger: 'bg-danger/12 text-danger', warning: 'bg-warning/15 text-warning' };
   return <span className={cx('inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-wide', tones[tone])}>{children}</span>;
 }
 export function EmptyState({ icon, title, text, action }: { icon?: ReactNode; title: string; text?: string; action?: ReactNode }) {
@@ -228,7 +228,7 @@ export function Segmented<T extends string>({ value, onChange, options, label }:
     <div role="radiogroup" aria-label={label} className="grid gap-2" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0,1fr))` }}>
       {options.map((o) => (
         <button key={o.value} type="button" role="radio" aria-checked={value === o.value} disabled={o.disabled} onClick={() => onChange(o.value)}
-          className={cx('rounded-2xl border px-4 py-3 text-start transition-all disabled:cursor-not-allowed disabled:opacity-45', value === o.value ? 'border-ink bg-paper shadow-soft ring-1 ring-ink' : 'border-line bg-paper hover:border-brass')}>
+          className={cx('rounded-2xl border px-4 py-3 text-start transition-all disabled:cursor-not-allowed disabled:opacity-45', value === o.value ? 'border-primary bg-paper shadow-soft ring-1 ring-ink' : 'border-line bg-paper hover:border-brass')}>
           <span className="block text-sm font-semibold">{o.label}</span>
           {o.sub && <span className="mt-0.5 block text-[12px] text-muted">{o.sub}</span>}
         </button>

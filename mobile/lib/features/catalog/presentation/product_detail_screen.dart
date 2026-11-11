@@ -44,6 +44,7 @@ class ProductDetailScreen extends ConsumerStatefulWidget {
 class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   Map<String, String>? _selection;
   int _quantity = 1;
+  final Map<String, int> _colourQty = {};
   bool _adding = false;
 
   @override
@@ -67,6 +68,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final variant = product.attributes.isEmpty ? product.defaultVariant : product.resolveVariant(_selection!);
     final price = variant?.price ?? product.summary.price;
     final branch = ref.watch(preferredBranchProvider);
+    final colourAttr = product.colourAttribute;
+    final multi = colourAttr != null;
+    final rows = multi ? _colourRows(product, colourAttr) : const <_ColourRow>[];
+    final pickedCount = rows.fold<int>(0, (n, r) => n + (_colourQty[r.variant.id] ?? 0));
     final purchasable = variant != null && variant.purchasable && product.availability.purchasable;
 
     return Scaffold(
@@ -154,7 +159,16 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             style: context.text.bodyLarge?.copyWith(color: context.palette.muted),
                           ),
                         ],
-                        for (final attr in product.attributes) ...[
+                        if (multi) ...[
+                          const Gap(AppSpace.lg),
+                          _ColourQuantities(
+                            title: colourAttr.name.isEmpty ? l10n.coloursTitle : colourAttr.name,
+                            rows: rows,
+                            quantities: _colourQty,
+                            onChanged: (id, q) => setState(() => q <= 0 ? _colourQty.remove(id) : _colourQty[id] = q),
+                          ),
+                        ],
+                        for (final attr in product.attributes.where((a) => a != colourAttr)) ...[
                           const Gap(AppSpace.lg),
                           _AttributeSelector(
                             attribute: attr,
@@ -200,7 +214,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         ],
       ),
       bottomNavigationBar: _BuyBar(
-        purchasable: purchasable,
+        multiCount: multi ? pickedCount : null,
+        onAddMany: multi ? () => _addColours(rows) : null,
+        purchasable: multi ? rows.any((r) => r.variant.purchasable) : purchasable,
         price: price?.finalPrice,
         quantity: _quantity,
         maxQuantity: 10,
@@ -225,6 +241,48 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       await ref.read(cartControllerProvider.notifier).addItem(variant.id, quantity: _quantity);
       Haptics.success();
       if (!mounted) return;
+      showInfoSnack(
+        context,
+        l10n.addedToCart,
+        action: SnackBarAction(label: l10n.viewCart, onPressed: () => context.go('/cart')),
+      );
+    } on ApiException catch (e) {
+      if (mounted) showErrorSnack(context, e);
+    } finally {
+      if (mounted) setState(() => _adding = false);
+    }
+  }
+
+  /// One row per colour (for the current choice of the other attributes).
+  List<_ColourRow> _colourRows(ProductDetail product, ProductAttribute colour) {
+    final others = {..._selection!}..remove(colour.code);
+    final rows = <_ColourRow>[];
+    for (final v in colour.values) {
+      final variant = product.resolveVariant({...others, colour.code: v.id});
+      if (variant != null && variant.attributeValueIds.contains(v.id)) rows.add(_ColourRow(v, variant));
+    }
+    return rows;
+  }
+
+  Future<void> _addColours(List<_ColourRow> rows) async {
+    if (!requireAuth(context, ref)) return;
+    final l10n = context.l10n;
+    final picked = [
+      for (final r in rows)
+        if ((_colourQty[r.variant.id] ?? 0) > 0) (r.variant.id, _colourQty[r.variant.id]!),
+    ];
+    if (picked.isEmpty) {
+      showInfoSnack(context, l10n.pickAtLeastOne);
+      return;
+    }
+    setState(() => _adding = true);
+    try {
+      for (final (id, qty) in picked) {
+        await ref.read(cartControllerProvider.notifier).addItem(id, quantity: qty);
+      }
+      Haptics.success();
+      if (!mounted) return;
+      setState(_colourQty.clear);
       showInfoSnack(
         context,
         l10n.addedToCart,
@@ -432,6 +490,85 @@ class _ZoomViewerState extends State<_ZoomViewer> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ColourRow {
+  const _ColourRow(this.value, this.variant);
+  final AttributeValue value;
+  final ProductVariant variant;
+}
+
+/// "Colours": every colour on its own row with a − / + stepper, so several colours can go in the bag at once.
+class _ColourQuantities extends StatelessWidget {
+  const _ColourQuantities({required this.title, required this.rows, required this.quantities, required this.onChanged});
+  final String title;
+  final List<_ColourRow> rows;
+  final Map<String, int> quantities;
+  final void Function(String variantId, int quantity) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Semantics(header: true, child: Text(title, style: context.text.titleMedium)),
+        const Gap(2),
+        Text(l10n.coloursHint, style: context.text.bodySmall),
+        const Gap(AppSpace.sm),
+        for (final r in rows)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpace.xs),
+            child: SurfaceCard(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: AppSpace.xs),
+              child: Row(
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: r.value.colorHex != null ? colorFromHex(r.value.colorHex!) : context.palette.surfaceMuted,
+                      border: Border.all(color: context.palette.line, width: 1.5),
+                    ),
+                  ),
+                  const Gap(AppSpace.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(r.value.name, style: context.text.titleSmall),
+                        if (r.variant.price != null)
+                          Text(
+                            r.variant.price!.finalPrice.formatted,
+                            style: context.text.bodySmall?.copyWith(
+                              color: context.colors.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (r.variant.purchasable)
+                    QuantityStepper(
+                      value: quantities[r.variant.id] ?? 0,
+                      min: 0,
+                      max: 10,
+                      compact: true,
+                      onChanged: (q) {
+                        Haptics.tap();
+                        onChanged(r.variant.id, q);
+                      },
+                    )
+                  else
+                    StatusChip(label: l10n.colourOutOfStock, tone: StatusTone.danger),
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -772,7 +909,13 @@ class _BuyBar extends StatelessWidget {
     required this.onQuantity,
     required this.onAdd,
     required this.onNotify,
+    this.multiCount,
+    this.onAddMany,
   });
+
+  /// Colour mode: how many items are picked, their total and the add-all action.
+  final int? multiCount;
+  final VoidCallback? onAddMany;
 
   final bool purchasable;
   final Money? price;
@@ -797,7 +940,14 @@ class _BuyBar extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(AppSpace.gutter, AppSpace.sm, AppSpace.gutter, AppSpace.sm),
           child: ContentWidth(
             maxWidth: 760,
-            child: purchasable
+            child: multiCount != null && purchasable
+                ? AppButton(
+                    label: multiCount! > 0 ? l10n.addItemsToBag(multiCount!) : l10n.addToCart,
+                    icon: Icons.shopping_bag_outlined,
+                    loading: adding,
+                    onPressed: multiCount! > 0 ? onAddMany : null,
+                  )
+                : purchasable
                 ? Row(
                     children: [
                       QuantityStepper(value: quantity, max: maxQuantity, onChanged: onQuantity, compact: true),

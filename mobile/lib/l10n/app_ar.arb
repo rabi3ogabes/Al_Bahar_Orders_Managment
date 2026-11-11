@@ -599,5 +599,10 @@
   "deliverySlotRequiredHint": "اختر موعد التوصيل لإتمام الطلب",
   "deliverySlotRequiredError": "يرجى اختيار موعد التوصيل لهذا الطلب.",
   "deliverySlotUnavailableError": "لم يعد موعد التوصيل هذا متاحًا. يرجى اختيار موعد آخر.",
-  "deliverySlotSummary": "التوصيل: {date}، {from} – {to}"
+  "deliverySlotSummary": "التوصيل: {date}، {from} – {to}",
+  "coloursTitle": "الألوان",
+  "coloursHint": "اختر الكمية لكل لون",
+  "addItemsToBag": "أضف {count} إلى الحقيبة",
+  "colourOutOfStock": "غير متوفر",
+  "pickAtLeastOne": "اختر كمية للون واحد على الأقل"
 }

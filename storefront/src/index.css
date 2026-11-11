@@ -11,17 +11,20 @@
 
 /* Brand tokens mirror the customer app (mobile/lib/core/theme/tokens.dart). */
 :root {
-  --bg: #f8f4ee;
-  --paper: #fffdf9;
-  --sand: #efe6d8;
-  --sand-deep: #e2d5c1;
-  --ink: #1d2330;
-  --ink-soft: #3a4252;
-  --muted: #6b6f78;
-  --line: #e6ddcf;
-  --brass: #b08d57;
-  --brass-deep: #8a6a3a;
-  --brass-tint: #f2e8d8;
+  --bg: #fcf9fa;
+  --paper: #ffffff;
+  --sand: #f4ecef;
+  --sand-deep: #eaddE2;
+  --ink: #2a1a20;
+  --primary: #8a1538; /* Qatar maroon, Pantone 1955 C */
+  --primary-soft: #a3294e;
+  --rose: #f6d3dc;
+  --ink-soft: #4f3b43;
+  --muted: #736369;
+  --line: #f0e4e8;
+  --brass: #b3254f;
+  --brass-deep: #8a1538;
+  --brass-tint: #fbedf1;
   --success: #3f7a57;
   --warning: #b4781f;
   --danger: #b0453a;
@@ -30,17 +33,19 @@
   color-scheme: light;
 }
 :root[data-theme='dark'] {
-  --bg: #121419;
-  --paper: #1a1d24;
-  --sand: #232731;
-  --sand-deep: #2e333d;
+  --bg: #181115;
+  --primary: #c24a6c;
+  --primary-soft: #d0637f;
+  --paper: #221a1e;
+  --sand: #2e2328;
+  --sand-deep: #3a2e34;
   --ink: #f1ece3;
   --ink-soft: #d9d3c7;
   --muted: #a7a29a;
-  --line: #2e333d;
-  --brass: #cdaa70;
-  --brass-deep: #e0c18c;
-  --brass-tint: #2b2619;
+  --line: #3a2e34;
+  --brass: #e58aa5;
+  --brass-deep: #f0a8bd;
+  --brass-tint: #33202a;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 10px 30px -12px rgb(0 0 0 / 0.6);
   color-scheme: dark;
 }
@@ -51,6 +56,9 @@
   --color-sand: var(--sand);
   --color-sand-deep: var(--sand-deep);
   --color-ink: var(--ink);
+  --color-primary: var(--primary);
+  --color-primary-soft: var(--primary-soft);
+  --color-rose: var(--rose);
   --color-ink-soft: var(--ink-soft);
   --color-muted: var(--muted);
   --color-line: var(--line);

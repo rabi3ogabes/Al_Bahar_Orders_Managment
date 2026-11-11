@@ -23,7 +23,7 @@ function PickupPass({ orderId, fulfillmentId }: { orderId: string; fulfillmentId
   const { t, date } = useI18n();
   const pass = useQuery({ queryKey: ['pass', orderId, fulfillmentId], retry: false, queryFn: async () => (await get<{ data: { qr_payload: string; expires_at: string | null; branch: { name: string } } }>(`/orders/${orderId}/fulfillments/${fulfillmentId}/pickup-pass`)).data });
   const [svg, setSvg] = useState('');
-  useEffect(() => { if (pass.data) QRCode.toString(pass.data.qr_payload, { type: 'svg', margin: 1, width: 220, color: { dark: '#1d2330', light: '#ffffff' } }).then(setSvg).catch(() => setSvg('')); }, [pass.data]);
+  useEffect(() => { if (pass.data) QRCode.toString(pass.data.qr_payload, { type: 'svg', margin: 1, width: 220, color: { dark: '#2a1a20', light: '#ffffff' } }).then(setSvg).catch(() => setSvg('')); }, [pass.data]);
   if (!pass.data) return null;
   return (
     <div className="mt-4 flex flex-col items-center gap-3 rounded-3xl border border-brass/40 bg-brass-tint/50 p-6 text-center">

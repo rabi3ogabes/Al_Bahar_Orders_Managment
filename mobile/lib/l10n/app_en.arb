@@ -1694,5 +1694,17 @@
         "type": "String"
       }
     }
-  }
+  },
+  "coloursTitle": "Colours",
+  "coloursHint": "Choose how many of each colour",
+  "addItemsToBag": "Add {count} to bag",
+  "@addItemsToBag": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "colourOutOfStock": "Out of stock",
+  "pickAtLeastOne": "Pick a quantity for at least one colour"
 }

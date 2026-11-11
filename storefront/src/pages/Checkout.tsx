@@ -21,7 +21,7 @@ function Step({ n, title, done, children }: { n: number; title: string; done?: b
   return (
     <section className="rounded-[28px] border border-line bg-paper p-5 sm:p-7">
       <h2 className="mb-5 flex items-center gap-3 text-[26px]">
-        <span className={cx('flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold', done ? 'bg-success text-white' : 'bg-ink text-bg')}>{done ? <Check size={16} /> : n}</span>{title}
+        <span className={cx('flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold', done ? 'bg-success text-white' : 'bg-primary text-bg')}>{done ? <Check size={16} /> : n}</span>{title}
       </h2>
       {children}
     </section>
@@ -46,7 +46,7 @@ function Slots({ branchId, kind, value, date, onPick, required }: { branchId: st
           const dt = new Date(`${d.date}T12:00:00`);
           const on = current.date === d.date;
           return (
-            <button key={d.date} role="tab" aria-selected={on} onClick={() => { setDay(d.date); onPick(null, null); }} className={cx('flex w-[74px] shrink-0 flex-col items-center rounded-2xl border py-3 transition-colors', on ? 'border-ink bg-ink text-bg' : 'border-line bg-bg hover:border-brass')}>
+            <button key={d.date} role="tab" aria-selected={on} onClick={() => { setDay(d.date); onPick(null, null); }} className={cx('flex w-[74px] shrink-0 flex-col items-center rounded-2xl border py-3 transition-colors', on ? 'border-primary bg-primary text-bg' : 'border-line bg-bg hover:border-brass')}>
               <span className="text-[11px] uppercase tracking-wider opacity-80">{fmt(dt, { weekday: 'short' })}</span>
               <span className="font-display text-3xl leading-none">{dt.getDate()}</span>
               <span className="text-[11px] opacity-80">{fmt(dt, { month: 'short' })}</span>
@@ -58,7 +58,7 @@ function Slots({ branchId, kind, value, date, onPick, required }: { branchId: st
         {current.slots.map((s) => {
           const on = value === s.id;
           return (
-            <button key={s.id} role="radio" aria-checked={on} disabled={s.is_full} onClick={() => onPick(s.id, s.date)} className={cx('rounded-2xl border px-3 py-3 text-center text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40', on ? 'border-ink ring-1 ring-ink' : 'border-line bg-bg hover:border-brass')}>
+            <button key={s.id} role="radio" aria-checked={on} disabled={s.is_full} onClick={() => onPick(s.id, s.date)} className={cx('rounded-2xl border px-3 py-3 text-center text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40', on ? 'border-primary ring-1 ring-ink' : 'border-line bg-bg hover:border-brass')}>
               <span className="block font-semibold tabular-nums" dir="ltr">{s.starts_at} – {s.ends_at}</span>
               <span className="text-[11px] text-muted">{s.is_full ? t('checkout.slot_full') : t('checkout.slot_left', { n: s.available })}</span>
             </button>
@@ -188,7 +188,7 @@ export default function Checkout() {
                 {addresses.isLoading ? <Skeleton className="h-24" /> : addresses.data?.length ? (
                   <div role="radiogroup" aria-label={t('checkout.address')} className="grid gap-3 sm:grid-cols-2">
                     {addresses.data.map((a) => (
-                      <button key={a.id} role="radio" aria-checked={addressId === a.id} onClick={() => setAddressId(a.id)} className={cx('rounded-2xl border p-4 text-start transition-colors', addressId === a.id ? 'border-ink bg-bg ring-1 ring-ink' : 'border-line bg-bg hover:border-brass')}>
+                      <button key={a.id} role="radio" aria-checked={addressId === a.id} onClick={() => setAddressId(a.id)} className={cx('rounded-2xl border p-4 text-start transition-colors', addressId === a.id ? 'border-primary bg-bg ring-1 ring-ink' : 'border-line bg-bg hover:border-brass')}>
                         <span className="flex items-center justify-between"><b className="text-sm">{a.label || a.recipient_name}</b>{a.is_default && <span className="text-[11px] text-brass-deep">{t('address.default')}</span>}</span>
                         <span className="mt-1 block text-[13px] text-muted">{a.summary}{a.area ? `, ${a.area}` : ''}</span>
                         <span className="block text-[13px] text-muted">{a.recipient_name} · <bdi>{a.recipient_phone}</bdi></span>
@@ -202,7 +202,7 @@ export default function Checkout() {
                 <h3 className="mb-3 flex items-center gap-2 text-lg"><Store size={18} className="text-brass" />{t('checkout.pickup_from')}</h3>
                 <div role="radiogroup" className="grid gap-3 sm:grid-cols-2">
                   {pickupBranches.map((b: Branch) => (
-                    <button key={b.id} role="radio" aria-checked={pickBranch === b.id} onClick={() => setPickBranch(b.id)} className={cx('rounded-2xl border p-4 text-start transition-colors', pickBranch === b.id ? 'border-ink bg-bg ring-1 ring-ink' : 'border-line bg-bg hover:border-brass')}>
+                    <button key={b.id} role="radio" aria-checked={pickBranch === b.id} onClick={() => setPickBranch(b.id)} className={cx('rounded-2xl border p-4 text-start transition-colors', pickBranch === b.id ? 'border-primary bg-bg ring-1 ring-ink' : 'border-line bg-bg hover:border-brass')}>
                       <span className="flex items-center justify-between gap-2"><b className="text-sm">{b.name}</b><span className={cx('text-[11px] font-semibold', b.opening.is_open ? 'text-success' : 'text-muted')}>{b.opening.is_open ? t('branch.open') : t('branch.closed')}</span></span>
                       <span className="text-[13px] text-muted">{b.area}{b.address ? ` · ${b.address}` : ''}</span>
                     </button>
@@ -225,10 +225,10 @@ export default function Checkout() {
                 {q.payment_methods.map((m) => {
                   const meta = methodMeta[m.code]; const on = method === m.code;
                   return (
-                    <button key={m.code} role="radio" aria-checked={on} disabled={!m.available} onClick={() => setMethod(m.code)} className={cx('flex w-full items-start gap-4 rounded-2xl border p-4 text-start transition-colors disabled:cursor-not-allowed disabled:opacity-50', on ? 'border-ink bg-bg ring-1 ring-ink' : 'border-line bg-bg hover:border-brass')}>
+                    <button key={m.code} role="radio" aria-checked={on} disabled={!m.available} onClick={() => setMethod(m.code)} className={cx('flex w-full items-start gap-4 rounded-2xl border p-4 text-start transition-colors disabled:cursor-not-allowed disabled:opacity-50', on ? 'border-primary bg-bg ring-1 ring-ink' : 'border-line bg-bg hover:border-brass')}>
                       <span className="mt-0.5 text-brass">{meta.icon}</span>
                       <span className="flex-1"><b className="block text-sm">{meta.title}</b><span className="text-[13px] text-muted">{m.available ? meta.text : t(`pay.reason.${m.reason ?? 'unavailable'}`)}</span></span>
-                      <span className={cx('mt-1 flex h-5 w-5 items-center justify-center rounded-full border', on ? 'border-ink bg-ink text-bg' : 'border-line')}>{on && <Check size={12} />}</span>
+                      <span className={cx('mt-1 flex h-5 w-5 items-center justify-center rounded-full border', on ? 'border-primary bg-primary text-bg' : 'border-line')}>{on && <Check size={12} />}</span>
                     </button>
                   );
                 })}
@@ -260,7 +260,7 @@ export default function Checkout() {
             <ul className="mt-5 max-h-64 space-y-4 overflow-y-auto pe-1">
               {cart.lines.map((l) => (
                 <li key={l.key} className="flex gap-3.5">
-                  <div className="relative w-16 shrink-0"><Pic src={l.image} alt={l.name} ratio="1/1" className="rounded-xl" /><span className="absolute -end-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-ink px-1 text-[11px] font-semibold text-bg">{l.qty}</span></div>
+                  <div className="relative w-16 shrink-0"><Pic src={l.image} alt={l.name} ratio="1/1" className="rounded-xl" /><span className="absolute -end-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold text-bg">{l.qty}</span></div>
                   <div className="min-w-0 flex-1 text-sm"><p className="line-clamp-2 font-display text-lg leading-tight">{l.name}</p>{l.variantName && <p className="text-xs text-muted">{l.variantName}</p>}</div>
                   <span className="text-sm font-semibold tabular-nums">{l.total.formatted}</span>
                 </li>

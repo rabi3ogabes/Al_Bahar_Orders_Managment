@@ -231,7 +231,7 @@ export default function Product() {
                     </button>
                   ) : (
                     <button key={v.id} type="button" disabled={!st.exists} aria-pressed={on} onClick={() => setSel({ ...sel, [a.code]: v.id })}
-                      className={cx('h-11 rounded-full border px-5 text-sm transition-colors disabled:opacity-30', on ? 'border-ink bg-ink text-bg' : 'border-line bg-paper hover:border-brass', st.exists && !st.inStock && !on && 'text-muted line-through')}>{v.name}</button>
+                      className={cx('h-11 rounded-full border px-5 text-sm transition-colors disabled:opacity-30', on ? 'border-primary bg-primary text-bg' : 'border-line bg-paper hover:border-brass', st.exists && !st.inStock && !on && 'text-muted line-through')}>{v.name}</button>
                   );
                 })}
               </div>
@@ -247,11 +247,11 @@ export default function Product() {
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <QtyStepper value={qty} onChange={setQty} max={max} />
             <Button size="lg" className="min-w-0 flex-1" disabled={!canBuy} loading={adding} onClick={() => add(false)}>{t('product.add_to_bag')}</Button>
-            <button onClick={() => wl.toggle(p.id)} aria-pressed={liked} aria-label={liked ? t('wishlist.remove') : t('wishlist.add')} className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-line bg-paper hover:border-ink"><Heart size={20} className={liked ? 'fill-danger text-danger' : ''} /></button>
+            <button onClick={() => wl.toggle(p.id)} aria-pressed={liked} aria-label={liked ? t('wishlist.remove') : t('wishlist.add')} className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-line bg-paper hover:border-primary"><Heart size={20} className={liked ? 'fill-danger text-danger' : ''} /></button>
           </div>
           <div className="mt-3 flex gap-3">
             <Button variant="brass" size="lg" block disabled={!canBuy} onClick={() => add(true)}>{t('product.buy_now')}</Button>
-            <button onClick={share} aria-label={t('product.share')} className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full border border-line bg-paper hover:border-ink"><Share2 size={19} /></button>
+            <button onClick={share} aria-label={t('product.share')} className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full border border-line bg-paper hover:border-primary"><Share2 size={19} /></button>
           </div>
           {variant && !canBuy && <button onClick={notify} className="mt-4 flex items-center gap-2 text-sm font-medium text-brass-deep hover:underline"><Bell size={15} />{t('product.notify')}</button>}
 

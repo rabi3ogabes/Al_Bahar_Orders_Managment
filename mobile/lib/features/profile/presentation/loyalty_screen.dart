@@ -48,7 +48,7 @@ class LoyaltyScreen extends ConsumerWidget {
                           padding: const EdgeInsets.all(AppSpace.lg),
                           decoration: const BoxDecoration(
                             borderRadius: AppRadius.lgAll,
-                            gradient: LinearGradient(colors: [AppPalette.ink, AppPalette.inkSoft]),
+                            gradient: LinearGradient(colors: [AppPalette.navy, AppPalette.navySoft]),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,

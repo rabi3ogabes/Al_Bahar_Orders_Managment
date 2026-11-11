@@ -18,10 +18,10 @@ import { useToast } from '../lib/toast';
 export function LogoMark({ className = 'h-9 w-9 sm:h-10 sm:w-10' }: { className?: string }) {
   return (
     <svg viewBox="0 0 64 64" aria-hidden="true" className={cx('shrink-0', className)}>
-      <circle cx="32" cy="32" r="32" fill="#16324F" />
-      <circle cx="32" cy="22" r="7" fill="#C4894A" />
-      <path d="M10 37c4.5-5 9-5 13.5 0s9 5 13.5 0 9-5 13.5 0 2.5 2.5 3.5 3.5" fill="none" stroke="#E7C894" strokeWidth="3" strokeLinecap="round" />
-      <path d="M10 47c4.5-5 9-5 13.5 0s9 5 13.5 0 9-5 13.5 0 2.5 2.5 3.5 3.5" fill="none" stroke="#FAF7F2" strokeWidth="3" strokeLinecap="round" opacity=".9" />
+      <circle cx="32" cy="32" r="32" fill="#8A1538" />
+      <circle cx="32" cy="22" r="7" fill="#F6D3DC" />
+      <path d="M10 37c4.5-5 9-5 13.5 0s9 5 13.5 0 9-5 13.5 0 2.5 2.5 3.5 3.5" fill="none" stroke="#F6D3DC" strokeWidth="3" strokeLinecap="round" />
+      <path d="M10 47c4.5-5 9-5 13.5 0s9 5 13.5 0 9-5 13.5 0 2.5 2.5 3.5 3.5" fill="none" stroke="#FCF9FA" strokeWidth="3" strokeLinecap="round" opacity=".9" />
     </svg>
   );
 }
@@ -63,7 +63,7 @@ function SearchOverlay({ open, onClose }: { open: boolean; onClose: () => void }
     <div className="fixed inset-0 z-[85]" role="dialog" aria-modal="true" aria-label={t('search.title')}>
       <div className="fade absolute inset-0 bg-ink/45 backdrop-blur-[2px]" onClick={onClose} />
       <div className="rise relative mx-auto mt-0 max-w-3xl rounded-b-[28px] bg-bg p-5 shadow-soft sm:mt-6 sm:rounded-[28px] sm:p-7">
-        <form onSubmit={go} className="flex items-center gap-3 border-b border-ink pb-3">
+        <form onSubmit={go} className="flex items-center gap-3 border-b border-primary pb-3">
           <Search size={22} className="text-muted" />
           <input ref={ref} value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('search.placeholder')} aria-label={t('search.title')} className="flex-1 bg-transparent font-display text-[26px] outline-none placeholder:text-muted/60" />
           <IconButton label={t('action.close')} type="button" onClick={onClose}><X size={20} /></IconButton>
@@ -99,11 +99,11 @@ function BranchPicker({ open, onClose }: { open: boolean; onClose: () => void })
     <Modal open={open} onClose={onClose} title={t('branch.pick_title')}>
       <p className="-mt-2 mb-5 text-sm text-muted">{t('branch.pick_text')}</p>
       <div className="space-y-2.5">
-        <button onClick={() => { select(null); onClose(); }} className={cx('w-full rounded-2xl border p-4 text-start transition-colors', !branchId ? 'border-ink ring-1 ring-ink' : 'border-line hover:border-brass')}>
+        <button onClick={() => { select(null); onClose(); }} className={cx('w-full rounded-2xl border p-4 text-start transition-colors', !branchId ? 'border-primary ring-1 ring-ink' : 'border-line hover:border-brass')}>
           <span className="block font-semibold">{t('branch.all')}</span><span className="text-[13px] text-muted">{t('branch.all_sub')}</span>
         </button>
         {branches.map((b) => (
-          <button key={b.id} onClick={() => { select(b.id); onClose(); }} className={cx('w-full rounded-2xl border p-4 text-start transition-colors', branchId === b.id ? 'border-ink ring-1 ring-ink' : 'border-line hover:border-brass')}>
+          <button key={b.id} onClick={() => { select(b.id); onClose(); }} className={cx('w-full rounded-2xl border p-4 text-start transition-colors', branchId === b.id ? 'border-primary ring-1 ring-ink' : 'border-line hover:border-brass')}>
             <span className="flex items-center justify-between gap-3"><span className="font-semibold">{b.name}</span>
               <span className={cx('rounded-full px-2 py-0.5 text-[11px] font-semibold', b.opening.is_open ? 'bg-success/12 text-success' : 'bg-muted/15 text-muted')}>{b.opening.is_open ? t('branch.open') : t('branch.closed')}</span></span>
             <span className="text-[13px] text-muted">{b.area}{b.address ? ` · ${b.address}` : ''}</span>
@@ -183,10 +183,10 @@ export function Header() {
 
   return (
     <>
-      <a href="#main" className="sr-only-focusable fixed start-4 top-4 z-[200] rounded-full bg-ink px-4 py-2 text-bg">{t('a11y.skip')}</a>
-      <div className="bg-ink text-[12px] text-bg/90">
+      <a href="#main" className="sr-only-focusable fixed start-4 top-4 z-[200] rounded-full bg-primary px-4 py-2 text-bg">{t('a11y.skip')}</a>
+      <div className="bg-primary text-[12px] text-bg/90">
         <div className="wrap flex items-center justify-between gap-4 py-2">
-          <span className="flex min-w-0 items-center gap-2"><Truck size={14} className="shrink-0 text-brass" /><span className="truncate">{t('top.promo')}</span></span>
+          <span className="flex min-w-0 items-center gap-2"><Truck size={14} className="shrink-0 text-rose" /><span className="truncate">{t('top.promo')}</span></span>
           {branches[0]?.phone && (
             <span className="hidden items-center gap-5 sm:flex">
               <a href={telHref(branches[0].phone)} className="flex items-center gap-1.5 hover:text-brass"><Phone size={13} /><bdi>{branches[0].phone}</bdi></a>
@@ -214,7 +214,7 @@ export function Header() {
             <IconButton label={user ? t('account.title') : t('auth.sign_in')} onClick={() => (user ? nav('/account') : authModal.open())}><UserIcon size={20} /></IconButton>
             <IconButton label={`${t('cart.title')} (${cart.count})`} onClick={cart.openDrawer}>
               <ShoppingBag size={20} />
-              {cart.count > 0 && <span className="absolute end-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-brass px-1 text-[10px] font-bold text-[#1d2330]">{cart.count}</span>}
+              {cart.count > 0 && <span className="absolute end-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-brass px-1 text-[10px] font-bold text-white">{cart.count}</span>}
             </IconButton>
           </div>
         </div>
@@ -264,7 +264,7 @@ export function Footer() {
   const Arrow = dir === 'rtl' ? ArrowLeft : ArrowRight;
   const [email, setEmail] = useState('');
   return (
-    <footer className="mt-24 bg-ink text-bg/85">
+    <footer className="mt-24 bg-primary text-bg/85">
       <div className="wrap grid gap-10 py-16 md:grid-cols-[1.3fr_1fr_1fr_1.2fr]">
         <div>
           <Logo light />
@@ -300,7 +300,7 @@ export function Footer() {
           <form onSubmit={(e) => { e.preventDefault(); setEmail(''); toast.push(t('footer.thanks')); }} className="flex items-center rounded-full border border-bg/25 p-1 focus-within:border-brass">
             <Mail size={16} className="mx-3 shrink-0 text-bg/50" />
             <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('footer.email')} aria-label={t('footer.email')} className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-bg/45" />
-            <button aria-label={t('footer.subscribe')} className="flex h-10 w-10 items-center justify-center rounded-full bg-brass text-[#1d2330] hover:bg-bg"><Arrow size={16} /></button>
+            <button aria-label={t('footer.subscribe')} className="flex h-10 w-10 items-center justify-center rounded-full bg-brass text-white hover:bg-bg"><Arrow size={16} /></button>
           </form>
           {branches[0]?.phone && <a href={telHref(branches[0].phone)} className="mt-6 flex items-center gap-2 text-sm hover:text-brass"><Phone size={15} className="text-brass" />{branches[0].phone}</a>}
         </div>
