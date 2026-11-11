@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\V1\Commerce;
 
 use App\Domain\Checkout\Services\CartService;
+use App\Domain\Fulfillment\Models\Delivery;
+use App\Domain\Fulfillment\Models\DriverProfile;
 use App\Domain\Fulfillment\Services\PickupService;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\ReturnRequest;
@@ -38,6 +40,30 @@ class OrderController extends ApiController
     public function show(string $id): JsonResponse
     {
         return response()->json(['data' => $this->presenter->detail($this->own($id))]);
+    }
+
+    /**
+     * Live tracking for the customer: the driver's last position (only while the order is out with a driver), the destination
+     * and the branch. Realtime moves arrive on private-orders.{id} (driver.moved); this is the first paint and the fallback poll.
+     */
+    public function tracking(string $id): JsonResponse
+    {
+        $order = $this->own($id)->load('fulfillments.branch:id,name_en,name_ar,latitude,longitude');
+        $delivery = Delivery::with('driver:id,name')->whereIn('order_fulfillment_id', $order->fulfillments->pluck('id'))
+            ->whereIn('status', ['accepted', 'picked_up', 'out_for_delivery'])->latest('assigned_at')->first();
+        $live = $delivery && in_array($delivery->status->value, ['picked_up', 'out_for_delivery'], true);
+        $profile = $live ? DriverProfile::where('user_id', $delivery->driver_id)->first(['last_lat', 'last_lng', 'last_seen_at']) : null;
+        $branch = $order->fulfillments->first()?->branch;
+        $dest = $order->address_snapshot ?? [];
+
+        return response()->json(['data' => [
+            'order_id' => $order->id, 'number' => $order->number, 'status' => $order->status->value,
+            'tracking' => $live && $profile?->last_lat !== null,
+            'driver' => $live ? ['name' => $delivery->driver?->name, 'lat' => $profile?->last_lat !== null ? (float) $profile->last_lat : null,
+                'lng' => $profile?->last_lng !== null ? (float) $profile->last_lng : null, 'at' => $profile?->last_seen_at?->toIso8601String(), 'status' => $delivery->status->value] : null,
+            'destination' => isset($dest['latitude'], $dest['longitude']) ? ['lat' => (float) $dest['latitude'], 'lng' => (float) $dest['longitude']] : null,
+            'branch' => $branch ? ['name' => $branch->localized('name'), 'lat' => $branch->latitude !== null ? (float) $branch->latitude : null, 'lng' => $branch->longitude !== null ? (float) $branch->longitude : null] : null,
+        ]]);
     }
 
     public function timeline(string $id): JsonResponse

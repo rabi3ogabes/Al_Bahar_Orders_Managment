@@ -52,9 +52,10 @@ class DispatchController extends ApiController
 
     public function location(Request $request): JsonResponse
     {
-        $d = $request->validate(['latitude' => 'required|numeric|between:-90,90', 'longitude' => 'required|numeric|between:-180,180']);
+        $d = $request->validate(['latitude' => 'required|numeric|between:-90,90', 'longitude' => 'required|numeric|between:-180,180',
+            'speed_kmh' => 'nullable|numeric|between:0,300', 'heading' => 'nullable|integer|between:0,360', 'accuracy' => 'nullable|integer|between:0,100000']);
         $this->assertDriver($this->user());
-        $this->dispatch->heartbeat($this->user(), (float) $d['latitude'], (float) $d['longitude']);
+        $this->dispatch->heartbeat($this->user(), (float) $d['latitude'], (float) $d['longitude'], isset($d['speed_kmh']) ? (float) $d['speed_kmh'] : null, $d['heading'] ?? null, $d['accuracy'] ?? null);
 
         return response()->json(['data' => ['ok' => true]]);
     }
@@ -72,6 +73,14 @@ class DispatchController extends ApiController
             ->get();
 
         return response()->json(['data' => $rows->map(fn (Delivery $d) => $this->job($d))->values()]);
+    }
+
+    /** Live fleet for the dashboard map and the staff app: drivers with last position and current job (branch-scoped). */
+    public function fleet(Request $request): JsonResponse
+    {
+        $scope = $this->scope('deliveries.view', $request->validate(['branch_id' => 'nullable|uuid'])['branch_id'] ?? null);
+
+        return response()->json(['data' => $this->dispatch->fleet($scope->all ? null : $scope->branchIds)]);
     }
 
     // ── Branch staff app ───────────────────────────────────────────────────

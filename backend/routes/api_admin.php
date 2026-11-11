@@ -115,5 +115,6 @@ Route::controller(V1\Admin\DispatchController::class)->prefix('dispatch')->name(
     Route::get('overview', 'overview')->middleware('permission:orders.view')->name('overview');
     Route::get('queue', 'queue')->middleware('permission:orders.view')->name('queue');
     Route::get('drivers', 'drivers')->middleware('permission:deliveries.view')->name('drivers');
+    Route::get('fleet', 'fleet')->middleware('permission:deliveries.view')->name('fleet');
     Route::post('fulfillments/{fulfillment}/assign', 'assign')->middleware('permission:deliveries.assign')->name('assign');
 });

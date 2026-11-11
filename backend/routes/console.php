@@ -23,6 +23,7 @@ Artisan::command('payments:reconcile-pending', fn (PaymentService $p) => $this->
 Artisan::command('loyalty:expire-points', fn (LoyaltyService $l) => $this->info('Expired points: '.$l->expireDue()))
     ->purpose('Expire loyalty points past their expiry date');
 
+Schedule::command('drivers:prune-locations')->dailyAt('03:30')->timezone('Asia/Qatar')->onOneServer();
 Schedule::command('orders:expire-unpaid')->everyMinute()->withoutOverlapping()->onOneServer();
 Schedule::command('inventory:expire-reservations')->everyMinute()->withoutOverlapping()->onOneServer();
 Schedule::command('payments:reconcile-pending')->everyFiveMinutes()->withoutOverlapping()->onOneServer();

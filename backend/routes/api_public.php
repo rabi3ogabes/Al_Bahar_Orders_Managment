@@ -53,6 +53,7 @@ Route::middleware(['auth:sanctum', 'customer'])->group(function () {
         Route::get('orders', 'index')->name('orders.index');
         Route::get('orders/{id}', 'show')->name('orders.show');
         Route::get('orders/{id}/timeline', 'timeline')->name('orders.timeline');
+        Route::get('orders/{id}/tracking', 'tracking')->name('orders.tracking');
         Route::post('orders/{id}/cancel', 'cancel')->name('orders.cancel');
         Route::post('orders/{id}/reorder', 'reorder')->name('orders.reorder');
         Route::get('orders/{id}/invoice', 'invoice')->name('orders.invoice');

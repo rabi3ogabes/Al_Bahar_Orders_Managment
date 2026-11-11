@@ -6,12 +6,15 @@ use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Branches\Models\BranchEmployee;
 use App\Domain\Fulfillment\Enums\DeliveryStatus as DS;
+use App\Domain\Fulfillment\Events\DriverMoved;
 use App\Domain\Fulfillment\Models\Delivery;
+use App\Domain\Fulfillment\Models\DriverLocation;
 use App\Domain\Fulfillment\Models\DriverProfile;
 use App\Domain\Identity\Models\User;
 use App\Domain\Orders\Models\OrderFulfillment;
 use App\Support\DomainException;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -56,9 +59,50 @@ class DispatchService
         return $p->fresh();
     }
 
-    public function heartbeat(User $driver, float $lat, float $lng): void
+    /**
+     * The driver app reports its position (about every 10 s while on duty, also in the background). Always keeps the latest
+     * position; stores a breadcrumb and broadcasts at most once every 3 s so a chatty phone cannot flood the sockets.
+     */
+    public function heartbeat(User $driver, float $lat, float $lng, ?float $speedKmh = null, ?int $heading = null, ?int $accuracy = null): void
     {
         $this->profile($driver)->update(['last_lat' => $lat, 'last_lng' => $lng, 'last_seen_at' => now()]);
+        if (! Cache::add('driver:beat:'.$driver->id, 1, 3)) {
+            return;
+        }
+        $delivery = Delivery::where('driver_id', $driver->id)->whereIn('status', ['accepted', 'picked_up', 'out_for_delivery'])->latest('assigned_at')->first();
+        DriverLocation::create(['driver_id' => $driver->id, 'delivery_id' => $delivery?->id, 'lat' => $lat, 'lng' => $lng, 'speed_kmh' => $speedKmh,
+            'heading' => $heading, 'accuracy_m' => $accuracy, 'recorded_at' => now()]);
+        $orderId = $delivery ? $delivery->fulfillment()->value('order_id') : null;
+        rescue(fn () => event(new DriverMoved($driver->id, $driver->name, $lat, $lng, $orderId, $delivery?->status->value, $heading, $speedKmh)), report: true);
+    }
+
+    /**
+     * Live fleet for the dashboard: drivers on duty (or heard from in the last 15 minutes) with their last position and job.
+     *
+     * @param  list<string>|null  $branchIds  null = all branches
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function fleet(?array $branchIds): Collection
+    {
+        $assignments = BranchEmployee::where('is_delivery_driver', true)->where('is_active', true)->when($branchIds !== null, fn ($q) => $q->whereIn('branch_id', $branchIds))->get();
+        $ids = $assignments->pluck('user_id')->unique();
+        $profiles = DriverProfile::whereIn('user_id', $ids)->where(fn ($q) => $q->where('on_duty', true)->orWhere('last_seen_at', '>=', now()->subMinutes(15)))->get()->keyBy('user_id');
+        $jobs = Delivery::with('fulfillment.order:id,number')->whereIn('driver_id', $profiles->keys())->whereIn('status', self::OPEN)->get()->groupBy('driver_id');
+        $branches = Branch::whereIn('id', $assignments->pluck('branch_id'))->get()->keyBy('id');
+
+        return User::whereIn('id', $profiles->keys())->get()->map(function (User $u) use ($profiles, $jobs, $assignments, $branches) {
+            $p = $profiles[$u->id];
+            $job = $jobs->get($u->id)?->first();
+
+            return [
+                'id' => $u->id, 'name' => $u->name, 'phone' => $u->phone, 'on_duty' => (bool) $p->on_duty,
+                'lat' => $p->last_lat !== null ? (float) $p->last_lat : null, 'lng' => $p->last_lng !== null ? (float) $p->last_lng : null,
+                'last_seen_at' => $p->last_seen_at?->toIso8601String(),
+                'branches' => $assignments->where('user_id', $u->id)->map(fn ($a) => $branches[$a->branch_id]?->localized('name'))->filter()->values(),
+                'open_jobs' => (int) ($jobs->get($u->id)?->count() ?? 0),
+                'job' => $job ? ['delivery_id' => $job->id, 'status' => $job->status->value, 'order_number' => $job->fulfillment?->order?->number] : null,
+            ];
+        })->values();
     }
 
     /**

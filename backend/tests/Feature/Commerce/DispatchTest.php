@@ -1,7 +1,16 @@
 <?php
 
+use App\Broadcasting\FleetChannel;
+use App\Broadcasting\OrderChannel;
 use App\Domain\Branches\Models\BranchEmployee;
+use App\Domain\Fulfillment\Events\DriverMoved;
 use App\Domain\Fulfillment\Models\Delivery;
+use App\Domain\Fulfillment\Models\DriverLocation;
+use App\Domain\Identity\Models\User;
+use App\Domain\Orders\Models\Order;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Event;
+use Laravel\Sanctum\Sanctum;
 
 it('auto mode hands a ready delivery to the least busy on-duty driver', function () {
     $w = commerceWorld();
@@ -89,4 +98,56 @@ it('lists a branch driver who has never gone on duty (no profile row yet)', func
     $this->getJson('/api/v1/admin/dispatch/drivers?branch_id='.$w->a->id)->assertOk()->assertJsonPath('data.0.on_duty', false)->assertJsonPath('data.0.open_jobs', 0);
     actingAsStaff($driver);
     $this->getJson('/api/v1/admin/dispatch/driver')->assertOk()->assertJsonPath('data.on_duty', false);
+});
+
+it('tracks the driver live: breadcrumbs, throttled broadcast, customer tracking and the staff fleet', function () {
+    $w = commerceWorld();
+    $driver = driverFor($w->a);
+    [$f, $mgr] = readyOrder($w);
+    $this->postJson("/api/v1/admin/dispatch/fulfillments/{$f->id}/assign", ['driver_id' => $driver->id])->assertOk();
+    $orderId = $f->order_id;
+    $w->address->update(['latitude' => 25.30, 'longitude' => 51.50]);
+    Order::find($orderId)->update(['address_snapshot' => $w->address->fresh()->snapshot()]);
+
+    $this->actingAs($w->customer, 'sanctum');
+    $this->getJson("/api/v1/orders/{$orderId}/tracking")->assertOk()->assertJsonPath('data.tracking', false)->assertJsonPath('data.driver', null);
+
+    actingAsStaff($driver);
+    $job = $this->getJson('/api/v1/admin/dispatch/driver/jobs')->json('data.0');
+    $this->postJson("/api/v1/admin/deliveries/{$job['id']}/accept")->assertOk();
+    $this->postJson("/api/v1/admin/deliveries/{$job['id']}/pickup")->assertOk();
+
+    Event::fake([DriverMoved::class]);
+    Cache::flush();
+    $this->postJson('/api/v1/admin/dispatch/driver/location', ['latitude' => 25.28, 'longitude' => 51.52, 'speed_kmh' => 32.5, 'heading' => 90])->assertOk();
+    $this->postJson('/api/v1/admin/dispatch/driver/location', ['latitude' => 25.281, 'longitude' => 51.521])->assertOk(); // inside the 3 s window
+    Event::assertDispatchedTimes(DriverMoved::class, 1);
+    Event::assertDispatched(DriverMoved::class, fn ($e) => $e->orderId === $orderId && $e->lat === 25.28);
+    expect(DriverLocation::count())->toBe(1)->and(DriverLocation::first()->delivery_id)->toBe($job['id']);
+
+    $this->actingAs($w->customer, 'sanctum');
+    $t = $this->getJson("/api/v1/orders/{$orderId}/tracking")->assertOk()->assertJsonPath('data.tracking', true)->json('data');
+    expect($t['driver']['lat'])->toBe(25.281)->and($t['driver']['status'])->toBe('picked_up')->and($t['destination'])->toHaveKeys(['lat', 'lng']);
+
+    $other = User::factory()->create();
+    Sanctum::actingAs($other, ['customer']);
+    $this->getJson("/api/v1/orders/{$orderId}/tracking")->assertNotFound();
+
+    actingAsStaff($mgr);
+    $fleet = $this->getJson('/api/v1/admin/dispatch/fleet')->assertOk()->json('data');
+    expect($fleet)->toHaveCount(1)->and($fleet[0]['id'])->toBe($driver->id)->and($fleet[0]['open_jobs'])->toBe(1)->and($fleet[0]['lat'])->toBe(25.281);
+
+    DriverLocation::query()->update(['recorded_at' => now()->subDays(10)]);
+    $this->artisan('drivers:prune-locations')->assertSuccessful();
+    expect(DriverLocation::count())->toBe(0);
+});
+
+it('only lets people who watch the fleet or own the order listen to live positions', function () {
+    $w = commerceWorld();
+    $driver = driverFor($w->a);
+    [$f, $mgr] = readyOrder($w);
+    expect((new OrderChannel)->join($w->customer, $f->order_id))->toBeTrue()
+        ->and((new OrderChannel)->join($driver, $f->order_id))->toBeFalse()
+        ->and((new FleetChannel)->join($mgr))->toBeTrue()
+        ->and((new FleetChannel)->join($w->customer))->toBeFalse();
 });
