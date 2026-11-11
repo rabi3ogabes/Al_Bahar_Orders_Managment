@@ -50,6 +50,7 @@ Route::get('orders/{order}/invoice', [DocumentController::class, 'invoice'])->mi
 Route::get('pickup', Admin\Sales\PickupIndex::class)->middleware('permission:pickup.view')->name('pickup.index');
 Route::get('pickup/scan', Admin\Sales\PickupScanner::class)->middleware('permission:pickup.view')->name('pickup.scan');
 Route::get('deliveries', Admin\Sales\DeliveryIndex::class)->middleware('permission:deliveries.view')->name('deliveries.index');
+Route::get('fleet', Admin\Sales\FleetMap::class)->middleware('permission:deliveries.view')->name('fleet');
 Route::get('driver', Admin\Sales\DriverConsole::class)->middleware('permission:deliveries.edit')->name('driver');
 Route::get('customers', Admin\Sales\CustomerIndex::class)->middleware('permission:customers.view')->name('customers.index');
 Route::get('customers/{customer}', Admin\Sales\CustomerShow::class)->middleware('permission:customers.view')->name('customers.show');

@@ -18,3 +18,6 @@ window.toggleTheme = () => {
 
 // Lazy-load the QR scanner only on pages that need it (pickup verification).
 window.loadQrScanner = () => import('html5-qrcode').then((m) => m.Html5Qrcode);
+
+// Lazy-load Leaflet (fleet map) only on pages that need it.
+window.loadLeaflet = () => Promise.all([import('leaflet'), import('leaflet/dist/leaflet.css')]).then(([m]) => m.default);

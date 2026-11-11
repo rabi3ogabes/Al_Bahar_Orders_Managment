@@ -20,3 +20,6 @@ Broadcast::channel('fleet', FleetChannel::class, ['guards' => ['sanctum', 'web']
 
 // Mobile clients authorise private channels with their Sanctum bearer token: POST /api/v1/broadcasting/auth.
 Broadcast::routes(['prefix' => 'api/v1', 'middleware' => ['auth:sanctum']]);
+
+// The admin dashboard (session login) authorises its private channels, e.g. the live fleet map, here.
+Broadcast::routes(['middleware' => ['web', 'auth']]);
