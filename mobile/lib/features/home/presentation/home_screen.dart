@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:albahar_customer/core/l10n/l10n.dart';
+import 'package:albahar_customer/core/theme/brand_theme.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/qatar_time.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
@@ -15,7 +16,9 @@ import 'package:albahar_customer/features/catalog/presentation/widgets/catalog_w
 import 'package:albahar_customer/features/home/data/home_repository.dart';
 import 'package:albahar_customer/features/home/domain/home_models.dart';
 import 'package:albahar_customer/features/home/presentation/buy_again_section.dart';
+import 'package:albahar_customer/features/home/presentation/season_banner.dart';
 import 'package:albahar_customer/features/notifications/presentation/state/notifications_controller.dart';
+import 'package:albahar_customer/features/orders/presentation/state/order_providers.dart';
 import 'package:albahar_customer/features/orders/presentation/widgets/active_order_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,7 +37,12 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       body: RefreshIndicator(
-        onRefresh: () => ref.refresh(homeFeedProvider.future),
+        onRefresh: () async {
+          unawaited(ref.read(brandThemeProvider.notifier).refresh());
+          ref.invalidate(activeOrdersProvider);
+          ref.invalidate(homeFeedProvider);
+          await ref.read(homeFeedProvider.future);
+        },
         child: CustomScrollView(
           slivers: [
             const _HomeHeader(),
@@ -50,6 +58,7 @@ class HomeScreen extends ConsumerWidget {
                   ];
                 }
                 return [
+                  const SliverToBoxAdapter(child: SeasonBanner()),
                   const SliverToBoxAdapter(child: ActiveOrderCard()),
                   const SliverToBoxAdapter(child: BuyAgainSection()),
                   for (final s in data.sections) SliverToBoxAdapter(child: HomeSectionView(section: s)),
@@ -93,8 +102,8 @@ class _HomeHeader extends ConsumerWidget {
           Container(
             width: 38,
             height: 38,
-            decoration: BoxDecoration(color: AppPalette.navy, borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.waves_rounded, color: AppPalette.goldSoft, size: 22),
+            decoration: BoxDecoration(color: context.colors.primary, borderRadius: BorderRadius.circular(12)),
+            child: Icon(Icons.waves_rounded, color: context.palette.onPrimarySoft, size: 22),
           ),
           const Gap(AppSpace.sm),
           Expanded(
@@ -378,11 +387,11 @@ class _BannerCarouselState extends State<BannerCarousel> {
                           if (b.imageUrl == null || b.imageUrl!.isEmpty)
                             // No picture: the brand banner — navy gradient with soft gold discs.
                             DecoratedBox(
-                              decoration: const BoxDecoration(
+                              decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
-                                  colors: [AppPalette.navy, AppPalette.navySoft],
+                                  colors: [context.colors.primary, context.palette.primarySoft],
                                 ),
                               ),
                               child: Stack(
@@ -395,7 +404,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
                                       height: 170,
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
-                                        color: AppPalette.brass.withValues(alpha: 0.28),
+                                        color: context.palette.brass.withValues(alpha: 0.28),
                                       ),
                                     ),
                                   ),
@@ -458,7 +467,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
                                   Container(
                                     padding: const EdgeInsetsDirectional.symmetric(horizontal: 14, vertical: 8),
                                     decoration: BoxDecoration(
-                                      color: AppPalette.brass,
+                                      color: context.palette.brass,
                                       borderRadius: BorderRadius.circular(AppRadius.pill),
                                     ),
                                     child: Row(
@@ -557,7 +566,7 @@ class _CategoryChips extends StatelessWidget {
                       Container(
                         width: 40,
                         height: 40,
-                        decoration: BoxDecoration(color: AppPalette.tint, borderRadius: BorderRadius.circular(12)),
+                        decoration: BoxDecoration(color: context.palette.tint, borderRadius: BorderRadius.circular(12)),
                         child: Icon(Icons.category_outlined, size: 22, color: context.colors.primary),
                       ),
                     const Gap(AppSpace.xs),

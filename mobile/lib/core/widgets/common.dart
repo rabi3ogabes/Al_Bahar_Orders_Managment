@@ -148,7 +148,7 @@ class StatusChip extends StatelessWidget {
             StatusTone.success => (AppPalette.successTint, AppPalette.success),
             StatusTone.warning => (AppPalette.warningTint, AppPalette.warning),
             StatusTone.danger => (AppPalette.dangerTint, AppPalette.danger),
-            StatusTone.accent => (AppPalette.brassTint, AppPalette.brassDeep),
+            StatusTone.accent => (p.brassTint, p.brassDeep),
           };
     return Container(
       padding: EdgeInsetsDirectional.symmetric(horizontal: dense ? 8 : 10, vertical: dense ? 3 : 5),
@@ -434,13 +434,23 @@ class SummaryRow extends StatelessWidget {
 
 /// Wave mark: navy disc, gold sun and two waves. Same geometry as the web logo (64-unit box).
 class LogoMarkPainter extends CustomPainter {
-  const LogoMarkPainter();
+  const LogoMarkPainter({
+    this.disc = AppPalette.navy,
+    this.sun = AppPalette.brass,
+    this.waveColor = AppPalette.goldSoft,
+    this.waveColor2 = AppPalette.ivory,
+  });
+
+  final Color disc;
+  final Color sun;
+  final Color waveColor;
+  final Color waveColor2;
 
   @override
   void paint(Canvas canvas, Size size) {
     final k = size.width / 64;
-    canvas.drawCircle(Offset(32 * k, 32 * k), 32 * k, Paint()..color = AppPalette.navy);
-    canvas.drawCircle(Offset(32 * k, 22 * k), 7 * k, Paint()..color = AppPalette.brass);
+    canvas.drawCircle(Offset(32 * k, 32 * k), 32 * k, Paint()..color = disc);
+    canvas.drawCircle(Offset(32 * k, 22 * k), 7 * k, Paint()..color = sun);
     Path wave(double y) {
       final path = Path()..moveTo(10 * k, y * k);
       for (var i = 0; i < 4; i++) {
@@ -455,8 +465,8 @@ class LogoMarkPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3 * k
       ..strokeCap = StrokeCap.round;
-    canvas.drawPath(wave(37), stroke(AppPalette.goldSoft));
-    canvas.drawPath(wave(47), stroke(AppPalette.ivory.withValues(alpha: 0.9)));
+    canvas.drawPath(wave(37), stroke(waveColor));
+    canvas.drawPath(wave(47), stroke(waveColor2.withValues(alpha: 0.9)));
   }
 
   @override
@@ -481,7 +491,14 @@ class BrandMark extends StatelessWidget {
           SizedBox(
             width: 68 * size,
             height: 68 * size,
-            child: const CustomPaint(painter: LogoMarkPainter()),
+            child: CustomPaint(
+              painter: LogoMarkPainter(
+                disc: context.colors.primary,
+                sun: context.palette.brass,
+                waveColor: context.palette.onPrimarySoft,
+                waveColor2: context.colors.surfaceContainerLowest,
+              ),
+            ),
           ),
           SizedBox(height: 14 * size),
           Text(
@@ -493,7 +510,7 @@ class BrandMark extends StatelessWidget {
           Text(
             'AL BAHAR',
             style: context.text.labelMedium?.copyWith(
-              color: AppPalette.brassDeep,
+              color: context.palette.brassDeep,
               letterSpacing: 5 * size,
               fontSize: 12 * size,
               fontWeight: FontWeight.w600,

@@ -111,16 +111,16 @@ class _PlacedBanner extends StatelessWidget {
             width: 112,
             height: 112,
             alignment: Alignment.center,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: AppPalette.navy.withValues(alpha: 0.06)),
+            decoration: BoxDecoration(shape: BoxShape.circle, color: context.colors.primary.withValues(alpha: 0.06)),
             child: Container(
               width: 82,
               height: 82,
               alignment: Alignment.center,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: AppPalette.navy.withValues(alpha: 0.09)),
+              decoration: BoxDecoration(shape: BoxShape.circle, color: context.colors.primary.withValues(alpha: 0.09)),
               child: Container(
                 width: 56,
                 height: 56,
-                decoration: const BoxDecoration(shape: BoxShape.circle, color: AppPalette.navy),
+                decoration: BoxDecoration(shape: BoxShape.circle, color: context.colors.primary),
                 child: const Icon(Icons.check_rounded, size: 32, color: Colors.white),
               ),
             ),
@@ -407,7 +407,7 @@ class _TimelineRow extends StatelessWidget {
               margin: const EdgeInsets.symmetric(vertical: 2),
               padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: AppSpace.xs),
               decoration: BoxDecoration(
-                color: last ? AppPalette.tint : Colors.transparent,
+                color: last ? context.palette.tint : Colors.transparent,
                 borderRadius: AppRadius.imageAll,
               ),
               child: Column(

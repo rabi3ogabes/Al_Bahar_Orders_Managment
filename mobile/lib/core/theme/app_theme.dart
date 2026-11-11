@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'brand_theme.dart';
 import 'tokens.dart';
 
 abstract final class AppFonts {
@@ -13,8 +14,9 @@ abstract final class AppFonts {
 /// Builds light/dark themes ("Ivory Navy" soft-card design). Arabic uses IBM Plex Sans Arabic throughout;
 /// Latin uses Inter for headings and body alike (heavier weights for headings, no serif).
 abstract final class AppTheme {
-  static ThemeData light(Locale locale) => _build(Brightness.light, locale);
-  static ThemeData dark(Locale locale) => _build(Brightness.dark, locale);
+  /// [brand] is the look chosen in the dashboard (Qatar events etc.); dark mode keeps its own palette.
+  static ThemeData light(Locale locale, {BrandTheme? brand}) => _build(Brightness.light, locale, brand);
+  static ThemeData dark(Locale locale) => _build(Brightness.dark, locale, null);
 
   static TextTheme textTheme(Locale locale, Color ink, Color muted) {
     final isArabic = locale.languageCode == 'ar';
@@ -54,27 +56,44 @@ abstract final class AppTheme {
     );
   }
 
-  static ThemeData _build(Brightness brightness, Locale locale) {
+  static Color _mix(Color a, Color b, double t) => Color.lerp(a, b, t)!;
+
+  static ThemeData _build(Brightness brightness, Locale locale, BrandTheme? brand) {
     final isDark = brightness == Brightness.dark;
-    final ext = isDark ? AppColors.dark : AppColors.light;
-    final bg = isDark ? AppPalette.nightBg : AppPalette.ivory;
-    final surface = isDark ? AppPalette.nightSurface : AppPalette.paper;
-    final surfaceHigh = isDark ? AppPalette.nightSurfaceHigh : AppPalette.tint;
+    var ext = isDark ? AppColors.dark : AppColors.light;
+    var bg = isDark ? AppPalette.nightBg : AppPalette.ivory;
+    var surface = isDark ? AppPalette.nightSurface : AppPalette.paper;
+    var primary = AppPalette.navy;
+    if (!isDark && brand != null) {
+      bg = brand.background;
+      surface = brand.surface;
+      primary = brand.primary;
+      ext = ext.copyWith(
+        brass: brand.accent,
+        brassTint: _mix(brand.accent, Colors.white, 0.9),
+        brassDeep: brand.primary,
+        primarySoft: brand.primarySoft,
+        tint: _mix(brand.primary, Colors.white, 0.93),
+        onPrimarySoft: _mix(brand.primarySoft, Colors.white, 0.75),
+        ink: brand.ink,
+      );
+    }
+    final surfaceHigh = isDark ? AppPalette.nightSurfaceHigh : ext.tint;
     final ink = ext.ink;
     // Brand primary: deep navy on light, a soft navy tint on dark.
-    final navy = isDark ? AppPalette.nightNavy : AppPalette.navy;
+    final navy = isDark ? AppPalette.nightNavy : primary;
     final onNavy = isDark ? AppPalette.nightBg : Colors.white;
 
     final scheme = ColorScheme(
       brightness: brightness,
       primary: navy,
       onPrimary: onNavy,
-      primaryContainer: isDark ? AppPalette.nightSurfaceHigh : AppPalette.tint,
-      onPrimaryContainer: isDark ? AppPalette.nightInk : AppPalette.navy,
+      primaryContainer: isDark ? AppPalette.nightSurfaceHigh : ext.tint,
+      onPrimaryContainer: isDark ? AppPalette.nightInk : primary,
       secondary: ext.brass,
-      onSecondary: isDark ? AppPalette.nightBg : AppPalette.ink,
+      onSecondary: isDark ? AppPalette.nightBg : ext.ink,
       secondaryContainer: ext.brassTint,
-      onSecondaryContainer: isDark ? AppPalette.nightBrass : AppPalette.brassDeep,
+      onSecondaryContainer: isDark ? AppPalette.nightBrass : ext.brassDeep,
       tertiary: ext.info,
       onTertiary: Colors.white,
       error: ext.danger,
@@ -90,7 +109,7 @@ abstract final class AppTheme {
       outline: ext.line,
       outlineVariant: ext.line,
       shadow: Colors.black,
-      inverseSurface: isDark ? AppPalette.paper : AppPalette.navy,
+      inverseSurface: isDark ? AppPalette.paper : primary,
       onInverseSurface: isDark ? AppPalette.ink : AppPalette.paper,
     );
 

@@ -183,7 +183,7 @@ class OrderCard extends StatelessWidget {
                   Container(
                     width: 52,
                     height: 52,
-                    decoration: const BoxDecoration(color: AppPalette.tint, borderRadius: AppRadius.imageAll),
+                    decoration: BoxDecoration(color: context.palette.tint, borderRadius: AppRadius.imageAll),
                     child: Icon(Icons.inventory_2_outlined, color: context.colors.primary),
                   ),
                 const Gap(AppSpace.xs),

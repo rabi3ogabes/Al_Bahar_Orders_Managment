@@ -99,6 +99,10 @@ class AppColors extends ThemeExtension<AppColors> {
   const AppColors({
     required this.brass,
     required this.brassTint,
+    required this.brassDeep,
+    required this.primarySoft,
+    required this.tint,
+    required this.onPrimarySoft,
     required this.ink,
     required this.muted,
     required this.line,
@@ -114,6 +118,10 @@ class AppColors extends ThemeExtension<AppColors> {
   static const light = AppColors(
     brass: AppPalette.brass,
     brassTint: AppPalette.brassTint,
+    brassDeep: AppPalette.brassDeep,
+    primarySoft: AppPalette.navySoft,
+    tint: AppPalette.tint,
+    onPrimarySoft: AppPalette.goldSoft,
     ink: AppPalette.ink,
     muted: AppPalette.muted,
     line: AppPalette.line,
@@ -129,6 +137,10 @@ class AppColors extends ThemeExtension<AppColors> {
   static const dark = AppColors(
     brass: AppPalette.nightBrass,
     brassTint: Color(0xFF2B2418),
+    brassDeep: AppPalette.nightBrass,
+    primarySoft: Color(0xFFC77A92),
+    tint: AppPalette.nightSurfaceHigh,
+    onPrimarySoft: Color(0xFFF6D3DC),
     ink: AppPalette.nightInk,
     muted: AppPalette.nightMuted,
     line: AppPalette.nightLine,
@@ -143,6 +155,10 @@ class AppColors extends ThemeExtension<AppColors> {
 
   final Color brass;
   final Color brassTint;
+  final Color brassDeep;
+  final Color primarySoft;
+  final Color tint;
+  final Color onPrimarySoft;
   final Color ink;
   final Color muted;
   final Color line;
@@ -158,6 +174,10 @@ class AppColors extends ThemeExtension<AppColors> {
   AppColors copyWith({
     Color? brass,
     Color? brassTint,
+    Color? brassDeep,
+    Color? primarySoft,
+    Color? tint,
+    Color? onPrimarySoft,
     Color? ink,
     Color? muted,
     Color? line,
@@ -171,6 +191,10 @@ class AppColors extends ThemeExtension<AppColors> {
   }) => AppColors(
     brass: brass ?? this.brass,
     brassTint: brassTint ?? this.brassTint,
+    brassDeep: brassDeep ?? this.brassDeep,
+    primarySoft: primarySoft ?? this.primarySoft,
+    tint: tint ?? this.tint,
+    onPrimarySoft: onPrimarySoft ?? this.onPrimarySoft,
     ink: ink ?? this.ink,
     muted: muted ?? this.muted,
     line: line ?? this.line,
@@ -189,6 +213,10 @@ class AppColors extends ThemeExtension<AppColors> {
     return AppColors(
       brass: Color.lerp(brass, other.brass, t)!,
       brassTint: Color.lerp(brassTint, other.brassTint, t)!,
+      brassDeep: Color.lerp(brassDeep, other.brassDeep, t)!,
+      primarySoft: Color.lerp(primarySoft, other.primarySoft, t)!,
+      tint: Color.lerp(tint, other.tint, t)!,
+      onPrimarySoft: Color.lerp(onPrimarySoft, other.onPrimarySoft, t)!,
       ink: Color.lerp(ink, other.ink, t)!,
       muted: Color.lerp(muted, other.muted, t)!,
       line: Color.lerp(line, other.line, t)!,

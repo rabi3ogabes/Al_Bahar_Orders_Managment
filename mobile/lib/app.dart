@@ -5,6 +5,7 @@ import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/push/push_service.dart';
 import 'package:albahar_customer/core/router/app_router.dart';
 import 'package:albahar_customer/core/theme/app_theme.dart';
+import 'package:albahar_customer/core/theme/brand_theme.dart';
 import 'package:albahar_customer/features/auctions/data/auction_repository.dart';
 import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
 import 'package:albahar_customer/features/notifications/data/notifications_repository.dart';
@@ -73,6 +74,7 @@ class _AlBaharAppState extends ConsumerState<AlBaharApp> with WidgetsBindingObse
     if (state == AppLifecycleState.resumed) {
       unawaited(ref.read(unreadCountProvider.notifier).refresh());
       ref.read(pusherClientProvider).reconnectNow();
+      unawaited(ref.read(brandThemeProvider.notifier).refresh());
     }
   }
 
@@ -115,7 +117,7 @@ class _AlBaharAppState extends ConsumerState<AlBaharApp> with WidgetsBindingObse
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      theme: AppTheme.light(locale),
+      theme: AppTheme.light(locale, brand: ref.watch(brandThemeProvider)),
       darkTheme: AppTheme.dark(locale),
       themeMode: themeMode,
       builder: (context, child) {

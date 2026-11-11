@@ -118,7 +118,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         if (product.summary.brand != null)
                           Text(
                             product.summary.brand!.name,
-                            style: context.text.labelMedium?.copyWith(color: AppPalette.brassDeep, letterSpacing: 0.4),
+                            style: context.text.labelMedium?.copyWith(
+                              color: context.palette.brassDeep,
+                              letterSpacing: 0.4,
+                            ),
                           ),
                         const Gap(AppSpace.xxs),
                         Semantics(header: true, child: Text(product.name, style: context.text.headlineLarge)),

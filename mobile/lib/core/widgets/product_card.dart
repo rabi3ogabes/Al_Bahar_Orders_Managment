@@ -36,7 +36,7 @@ class ProductCardView extends StatelessWidget {
     final l10n = context.l10n;
     final palette = context.palette;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final badge = _primaryBadge(l10n);
+    final badge = _primaryBadge(l10n, context.colors.primary);
 
     return Semantics(
       button: true,
@@ -155,7 +155,7 @@ class ProductCardView extends StatelessWidget {
     ],
   );
 
-  ({String label, Color bg, Color fg})? _primaryBadge(AppLocalizations l10n) {
+  ({String label, Color bg, Color fg})? _primaryBadge(AppLocalizations l10n, Color primary) {
     if (!product.inStock) return (label: l10n.outOfStock, bg: AppPalette.sand, fg: AppPalette.inkSoft);
     final pct = product.price?.discountPercent;
     if (product.badges.contains('sale') || (product.price?.isOnSale ?? false)) {
@@ -165,7 +165,7 @@ class ProductCardView extends StatelessWidget {
         fg: AppPalette.danger,
       );
     }
-    if (product.badges.contains('new')) return (label: l10n.badgeNew, bg: AppPalette.navy, fg: Colors.white);
+    if (product.badges.contains('new')) return (label: l10n.badgeNew, bg: primary, fg: Colors.white);
     if (product.badges.contains('bestseller')) {
       return (label: l10n.badgeBestseller, bg: AppPalette.successTint, fg: AppPalette.success);
     }

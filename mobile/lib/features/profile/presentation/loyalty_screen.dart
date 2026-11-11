@@ -46,9 +46,9 @@ class LoyaltyScreen extends ConsumerWidget {
                       children: [
                         Container(
                           padding: const EdgeInsets.all(AppSpace.lg),
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             borderRadius: AppRadius.lgAll,
-                            gradient: LinearGradient(colors: [AppPalette.navy, AppPalette.navySoft]),
+                            gradient: LinearGradient(colors: [context.colors.primary, context.palette.primarySoft]),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -56,7 +56,10 @@ class LoyaltyScreen extends ConsumerWidget {
                               if (l.tier != null)
                                 Text(
                                   l10n.tierLabel(l.tier!).toUpperCase(),
-                                  style: context.text.labelSmall?.copyWith(color: AppPalette.brass, letterSpacing: 2),
+                                  style: context.text.labelSmall?.copyWith(
+                                    color: context.palette.brass,
+                                    letterSpacing: 2,
+                                  ),
                                 ),
                               const Gap(AppSpace.sm),
                               TweenAnimationBuilder<double>(

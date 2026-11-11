@@ -137,13 +137,13 @@ class _Header extends StatelessWidget {
     final top = MediaQuery.paddingOf(context).top;
     return Container(
       padding: EdgeInsets.fromLTRB(AppSpace.gutter, top + AppSpace.lg, AppSpace.gutter, signedIn ? 56 : AppSpace.xl),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppPalette.navy, AppPalette.navySoft],
+          colors: [context.colors.primary, context.palette.primarySoft],
         ),
-        borderRadius: BorderRadiusDirectional.vertical(bottom: Radius.circular(36)),
+        borderRadius: const BorderRadiusDirectional.vertical(bottom: Radius.circular(36)),
       ),
       child: ClipRRect(
         child: Stack(
@@ -155,7 +155,7 @@ class _Header extends StatelessWidget {
               child: Container(
                 width: 200,
                 height: 200,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: AppPalette.brass.withValues(alpha: 0.3)),
+                decoration: BoxDecoration(shape: BoxShape.circle, color: context.palette.brass.withValues(alpha: 0.3)),
               ),
             ),
             Center(
@@ -170,13 +170,13 @@ class _Header extends StatelessWidget {
                           height: 88,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: AppPalette.goldSoft,
+                            color: context.palette.onPrimarySoft,
                             shape: BoxShape.circle,
                             border: Border.all(color: Colors.white.withValues(alpha: 0.9), width: 4),
                           ),
                           child: Text(
                             name.isNotEmpty ? name.characters.first.toUpperCase() : '•',
-                            style: context.text.displaySmall?.copyWith(color: AppPalette.navy),
+                            style: context.text.displaySmall?.copyWith(color: context.colors.primary),
                           ),
                         ),
                         PositionedDirectional(
@@ -189,10 +189,10 @@ class _Header extends StatelessWidget {
                             child: InkWell(
                               customBorder: const CircleBorder(),
                               onTap: () => context.push('/profile/edit'),
-                              child: const SizedBox(
+                              child: SizedBox(
                                 width: 30,
                                 height: 30,
-                                child: Icon(Icons.edit_outlined, size: 15, color: AppPalette.navy),
+                                child: Icon(Icons.edit_outlined, size: 15, color: context.colors.primary),
                               ),
                             ),
                           ),
@@ -249,7 +249,7 @@ class _StatsCard extends ConsumerWidget {
         child: IntrinsicHeight(
           child: Row(
             children: [
-              stat(points == null ? '—' : '$points', l10n.loyaltyPoints, color: AppPalette.brassDeep),
+              stat(points == null ? '—' : '$points', l10n.loyaltyPoints, color: context.palette.brassDeep),
               VerticalDivider(width: 1, color: context.palette.line),
               stat('$saved', l10n.myWishlist),
             ],
@@ -279,7 +279,7 @@ class _SettingsRow extends StatelessWidget {
           Container(
             width: 40,
             height: 40,
-            decoration: BoxDecoration(color: AppPalette.tint, borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: context.palette.tint, borderRadius: BorderRadius.circular(12)),
             child: Icon(icon, size: 20, color: context.colors.primary),
           ),
           const Gap(AppSpace.sm),
