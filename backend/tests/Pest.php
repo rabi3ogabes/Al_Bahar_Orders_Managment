@@ -9,12 +9,14 @@ use App\Domain\Branches\Models\BranchEmployee;
 use App\Domain\Branches\Models\DeliveryZone;
 use App\Domain\Branches\Services\BranchService;
 use App\Domain\Catalog\Models\Product;
+use App\Domain\Fulfillment\Models\DriverProfile;
 use App\Domain\Identity\Models\Role;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Models\UserRole;
 use App\Domain\Inventory\Enums\MovementType;
 use App\Domain\Inventory\Models\BranchInventory;
 use App\Domain\Inventory\Services\InventoryLedger;
+use App\Domain\Orders\Models\Order;
 use App\Support\Money;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -126,4 +128,31 @@ function auctionWorld(array $lot = [], array $auction = []): object
 function bid(object $w, User $u, string $amount, ?string $key = null): array
 {
     return app(BidEngine::class)->placeBid($u, $w->lot->id, Money::of($amount), $key ?? (string) Str::uuid());
+}
+
+/** A delivery driver of the given branch(es), on or off duty. */
+function driverFor($branches, bool $onDuty = true)
+{
+    $driver = staffWithRole('delivery_employee', null);
+    foreach (Arr::wrap($branches) as $b) {
+        BranchEmployee::create(['branch_id' => $b->id, 'user_id' => $driver->id, 'is_active' => true, 'is_delivery_driver' => true]);
+        UserRole::create(['user_id' => $driver->id, 'role_id' => Role::where('key', 'delivery_employee')->value('id'), 'branch_id' => $b->id]);
+    }
+    DriverProfile::create(['user_id' => $driver->id, 'on_duty' => $onDuty]);
+
+    return $driver;
+}
+
+/** Places a COD order and walks its fulfillment to ready as a branch manager; returns [fulfillment, manager]. */
+function readyOrder($w): array
+{
+    test()->postJson('/api/v1/cart/items', ['variant_id' => $w->v1->id, 'quantity' => 1]);
+    $orderId = quoteAndPlace(['address_id' => $w->address->id, 'payment_method' => 'cod'])->json('data.order.id');
+    $f = Order::with('fulfillments')->find($orderId)->fulfillments->first();
+    $mgr = actingAsStaff(staffWithRole('order_manager', $w->a));
+    foreach (['accepted', 'preparing', 'ready'] as $s) {
+        test()->postJson("/api/v1/admin/fulfillments/{$f->id}/transition", ['status' => $s])->assertOk();
+    }
+
+    return [$f->fresh(), $mgr];
 }

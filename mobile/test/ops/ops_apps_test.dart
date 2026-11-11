@@ -81,7 +81,12 @@ class _FakeOps implements OpsRepository {
 }
 
 Widget _host(Widget home, _FakeOps repo) => ProviderScope(
-  overrides: [opsRepositoryProvider.overrideWithValue(repo)],
+  overrides: [
+    opsRepositoryProvider.overrideWithValue(repo),
+    // No socket in tests: real-time pings are covered by the backend tests.
+    driverEventsProvider.overrideWith((ref) => const Stream.empty()),
+    staffEventsProvider.overrideWith((ref) => const Stream.empty()),
+  ],
   child: MaterialApp(
     locale: const Locale('en'),
     supportedLocales: const [Locale('en'), Locale('ar')],

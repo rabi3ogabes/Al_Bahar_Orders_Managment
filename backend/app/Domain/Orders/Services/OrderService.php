@@ -4,6 +4,7 @@ namespace App\Domain\Orders\Services;
 
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Branches\Services\SlotService;
+use App\Domain\Fulfillment\Events\DispatchUpdated;
 use App\Domain\Fulfillment\Services\DispatchService;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
@@ -106,6 +107,7 @@ class OrderService
             $f->save();
 
             $this->history($order, $f, 'fulfillment', $from->value, $to->value, $actor, $reason, $meta);
+            DB::afterCommit(fn () => rescue(fn () => event(new DispatchUpdated($f->branch_id, $order->number, 'order', $to->value, null, $f->id)), report: true));
             $this->audit->log('order.fulfillment_'.$to->value, $f, ['status' => $from->value], ['status' => $to->value], ['order' => $order->number, 'reason' => $reason], branchId: $f->branch_id, actor: $actor);
             $this->refreshOrderStatus($order, $actor);
             if ($to === FS::Ready && $f->type === 'delivery') {

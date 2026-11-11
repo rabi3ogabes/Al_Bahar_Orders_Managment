@@ -1,6 +1,9 @@
+import 'package:albahar_customer/core/realtime/pusher_client.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
+import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
+import 'package:albahar_customer/features/auctions/data/auction_repository.dart';
 import 'package:albahar_customer/ops/ops_app.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_repository.dart';
@@ -22,6 +25,13 @@ final staffDriversProvider = FutureProvider.autoDispose<List<BranchDriver>>(
   (ref) => ref.watch(opsRepositoryProvider).drivers(),
 );
 
+/// Real-time pings for the branch (`private-branches.{id}`): an order or delivery moved.
+final staffEventsProvider = StreamProvider.autoDispose<PusherEvent>((ref) {
+  final id = ref.watch(staffOverviewProvider.select((o) => o.value?.branchId));
+  if (id == null || id.isEmpty) return const Stream.empty();
+  return ref.watch(pusherClientProvider).channel('private-branches.$id');
+});
+
 const _stages = ['new', 'preparing', 'ready', 'out'];
 
 /// Branch staff app: the day's delivery orders by stage, one-tap order steps, and (when the branch is on manual
@@ -37,7 +47,7 @@ class _StaffHomeState extends ConsumerState<StaffHome> with OpsPolling {
   @override
   void initState() {
     super.initState();
-    startPolling(_reload, every: const Duration(seconds: 15));
+    startPolling(_reload, every: const Duration(seconds: 60));
   }
 
   void _reload() {
@@ -53,6 +63,15 @@ class _StaffHomeState extends ConsumerState<StaffHome> with OpsPolling {
     final t = OpsStrings.of(context);
     final overview = ref.watch(staffOverviewProvider);
     final o = overview.value;
+    ref.listen(staffEventsProvider, (_, next) {
+      final e = next.value;
+      if (e == null || e.event != 'dispatch.updated') return;
+      _reload();
+      if (e.data['kind'] == 'order' && e.data['status'] == 'pending') {
+        Haptics.success();
+        showInfoSnack(context, t.newOrderAlert('${e.data['number'] ?? ''}'));
+      }
+    });
     return DefaultTabController(
       length: 5,
       child: Scaffold(

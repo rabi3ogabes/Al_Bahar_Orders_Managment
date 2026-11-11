@@ -2,36 +2,6 @@
 
 use App\Domain\Branches\Models\BranchEmployee;
 use App\Domain\Fulfillment\Models\Delivery;
-use App\Domain\Fulfillment\Models\DriverProfile;
-use App\Domain\Identity\Models\Role;
-use App\Domain\Identity\Models\UserRole;
-use App\Domain\Orders\Models\Order;
-use Illuminate\Support\Arr;
-
-function driverFor($branches, bool $onDuty = true)
-{
-    $driver = staffWithRole('delivery_employee', null);
-    foreach (Arr::wrap($branches) as $b) {
-        BranchEmployee::create(['branch_id' => $b->id, 'user_id' => $driver->id, 'is_active' => true, 'is_delivery_driver' => true]);
-        UserRole::create(['user_id' => $driver->id, 'role_id' => Role::where('key', 'delivery_employee')->value('id'), 'branch_id' => $b->id]);
-    }
-    DriverProfile::create(['user_id' => $driver->id, 'on_duty' => $onDuty]);
-
-    return $driver;
-}
-
-function readyOrder($w): array
-{
-    test()->postJson('/api/v1/cart/items', ['variant_id' => $w->v1->id, 'quantity' => 1]);
-    $orderId = quoteAndPlace(['address_id' => $w->address->id, 'payment_method' => 'cod'])->json('data.order.id');
-    $f = Order::with('fulfillments')->find($orderId)->fulfillments->first();
-    $mgr = actingAsStaff(staffWithRole('order_manager', $w->a));
-    foreach (['accepted', 'preparing', 'ready'] as $s) {
-        test()->postJson("/api/v1/admin/fulfillments/{$f->id}/transition", ['status' => $s])->assertOk();
-    }
-
-    return [$f->fresh(), $mgr];
-}
 
 it('auto mode hands a ready delivery to the least busy on-duty driver', function () {
     $w = commerceWorld();

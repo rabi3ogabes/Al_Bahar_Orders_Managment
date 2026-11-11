@@ -1,8 +1,11 @@
 import 'dart:io';
 
+import 'package:albahar_customer/core/realtime/pusher_client.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
+import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
+import 'package:albahar_customer/features/auctions/data/auction_repository.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
 import 'package:albahar_customer/ops/ops_app.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
@@ -15,6 +18,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 final driverMeProvider = FutureProvider.autoDispose<DriverMe>((ref) => ref.watch(opsRepositoryProvider).driver());
+
+/// Real-time pings for this driver (`private-drivers.{id}`): a job was assigned or changed.
+final driverEventsProvider = StreamProvider.autoDispose<PusherEvent>((ref) {
+  final id = ref.watch(driverMeProvider.select((m) => m.value?.id));
+  if (id == null || id.isEmpty) return const Stream.empty();
+  return ref.watch(pusherClientProvider).channel('private-drivers.$id');
+});
 
 final driverJobsProvider = FutureProvider.autoDispose.family<List<DriverJob>, bool>(
   (ref, history) => ref.watch(opsRepositoryProvider).jobs(history: history),
@@ -35,7 +45,7 @@ class _DriverHomeState extends ConsumerState<DriverHome> with OpsPolling {
   @override
   void initState() {
     super.initState();
-    startPolling(() {
+    startPolling(every: const Duration(seconds: 60), () {
       ref.invalidate(driverJobsProvider(false));
       ref.invalidate(driverMeProvider);
       // Every third tick (about a minute) tell the server where this driver is while on duty.
@@ -69,6 +79,17 @@ class _DriverHomeState extends ConsumerState<DriverHome> with OpsPolling {
   Widget build(BuildContext context) {
     final t = OpsStrings.of(context);
     final me = ref.watch(driverMeProvider);
+    ref.listen(driverEventsProvider, (_, next) {
+      final e = next.value;
+      if (e == null || e.event != 'dispatch.updated') return;
+      ref
+        ..invalidate(driverJobsProvider(false))
+        ..invalidate(driverMeProvider);
+      if (e.data['status'] == 'assigned') {
+        Haptics.success();
+        showInfoSnack(context, t.newJobAlert('${e.data['number'] ?? ''}'));
+      }
+    });
     return DefaultTabController(
       length: 2,
       child: Scaffold(

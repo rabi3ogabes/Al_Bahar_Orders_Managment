@@ -6,6 +6,7 @@ use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Branches\Models\BranchEmployee;
 use App\Domain\Branches\Services\SlotService;
 use App\Domain\Fulfillment\Enums\DeliveryStatus as DS;
+use App\Domain\Fulfillment\Events\DispatchUpdated;
 use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Fulfillment\Models\DeliveryAttempt;
 use App\Domain\Fulfillment\Models\DeliveryProof;
@@ -374,12 +375,16 @@ class DeliveryService
     /** Tells the customer's apps (real time) that their delivery moved. Never blocks the driver's action. */
     private function ping(Delivery $d, DS $to): void
     {
-        DB::afterCommit(fn () => rescue(function () use ($d, $to) {
-            $order = $d->fulfillment()->with('order')->first()?->order;
-            if ($order?->user_id) {
-                event(new OrderUpdated($order->user_id, $order->id, $order->number, $order->status->value, $to->value));
-            }
-        }, report: true));
+        // The broadcasts are queued and carry nothing that depends on this transaction, so they are safe to fire now.
+        // Each one is isolated: a broadcast failure never blocks the driver's action or the other ping.
+        $order = rescue(fn () => $d->fulfillment()->with('order')->first()?->order, report: true);
+        if (! $order) {
+            return;
+        }
+        if ($order->user_id) {
+            rescue(fn () => event(new OrderUpdated($order->user_id, $order->id, $order->number, $order->status->value, $to->value)), report: true);
+        }
+        rescue(fn () => event(new DispatchUpdated($d->branch_id, $order->number, 'delivery', $to->value, $d->driver_id, $d->order_fulfillment_id)), report: true);
     }
 
     private function log(Delivery $d, ?DS $from, DS $to, ?User $actor, string $source, ?string $note, ?float $lat = null, ?float $lng = null): void

@@ -88,15 +88,23 @@ class DriverJob {
 
 @immutable
 class DriverMe {
-  const DriverMe({required this.name, required this.onDuty, required this.openJobs, required this.branches});
+  const DriverMe({
+    this.id = '',
+    required this.name,
+    required this.onDuty,
+    required this.openJobs,
+    required this.branches,
+  });
 
   factory DriverMe.fromJson(JsonMap j) => DriverMe(
+    id: asString(j['id']),
     name: asString(j['name']),
     onDuty: asBool(j['on_duty']),
     openJobs: asInt(j['open_jobs']),
     branches: mapList(j['branches'], (b) => asString(b['name'])),
   );
 
+  final String id;
   final String name;
   final bool onDuty;
   final int openJobs;

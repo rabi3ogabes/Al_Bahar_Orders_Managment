@@ -76,6 +76,10 @@ class OpsStrings {
     _ => s,
   };
 
+  String newJobAlert(String number) => _t('New delivery #$number assigned to you', 'تم إسناد توصيل جديد #$number إليك');
+  String newOrderAlert(String number) => _t('New order #$number', 'طلب جديد #$number');
+  String get liveUpdate => _t('Live', 'مباشر');
+
   // Staff
   String get orders => _t('Orders', 'الطلبات');
   String get drivers => _t('Drivers', 'السائقون');
