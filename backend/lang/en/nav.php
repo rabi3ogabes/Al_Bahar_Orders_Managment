@@ -38,6 +38,7 @@ return [
     'support' => 'Support desk',
     'content' => 'Content',
     'homepage' => 'Homepage builder',
+    'appearance' => 'Appearance',
     'banners' => 'Banners',
     'pages' => 'Pages',
     'notification_templates' => 'Notification templates',

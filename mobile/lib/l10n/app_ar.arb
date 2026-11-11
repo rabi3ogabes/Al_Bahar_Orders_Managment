@@ -609,5 +609,18 @@
   "searchSeeAll": "عرض كل النتائج لـ «{term}»",
   "buyAgainTitle": "اشترِ مرة أخرى",
   "buyAgainAdd": "أضف",
-  "buyAgainBought": "اشتريته {count} مرات"
+  "buyAgainBought": "اشتريته {count} مرات",
+  "chooseOptions": "اختر الخيارات",
+  "orderStepPlaced": "تم الطلب",
+  "orderStepPreparing": "قيد التحضير",
+  "orderStepReady": "جاهز",
+  "orderStepOnTheWay": "في الطريق",
+  "orderStepDone": "تم",
+  "orderLivePendingPayment": "بانتظار الدفع",
+  "orderLiveConfirmed": "تم تأكيد طلبك",
+  "orderLivePreparing": "نجهّز طلبك الآن",
+  "orderLiveOnTheWay": "طلبك في الطريق إليك",
+  "orderLiveReady": "جاهز للاستلام",
+  "orderNumberLabel": "الطلب {number}",
+  "orderMoreCount": "+{count} أخرى"
 }

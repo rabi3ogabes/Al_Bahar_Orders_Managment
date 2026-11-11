@@ -5,6 +5,7 @@ import { get } from '../lib/api';
 import { useBranch } from '../lib/branch';
 import { useI18n } from '../lib/i18n';
 import { useDocTitle, useTick } from '../lib/hooks';
+import { useBrand } from '../lib/brand';
 import type { Auction, Brand, HomeSection, ProductCard as P } from '../lib/types';
 import { Rail } from '../components/Rail';
 import { BuyAgain } from '../components/BuyAgain';
@@ -22,6 +23,10 @@ function linkFor(l?: { type: string; value: string } | null): string {
 function Hero({ banner }: { banner?: { title: string; subtitle: string | null; image_url: string | null; link: any } }) {
   const { t, dir, num } = useI18n();
   const { branches, branchId } = useBranch();
+  const brand = useBrand();
+  const heroImage = brand?.images.hero ?? banner?.image_url ?? null;
+  const eventTitle = brand && brand.kind !== 'base' ? brand.banner.title : null;
+  const eventSub = brand && brand.kind !== 'base' ? brand.banner.subtitle : null;
   const cats = useQuery({ queryKey: ['categories'], queryFn: async () => (await get<{ data: unknown[] }>('/categories')).data, staleTime: 10 * 60_000 });
   const total = useQuery({ queryKey: ['catalogue-size', branchId], queryFn: async () => (await get<{ meta: { total: number } }>('/products', { per_page: 1, branch_id: branchId })).meta.total, staleTime: 10 * 60_000 });
   const stats: [string, string][] = [];
@@ -34,8 +39,8 @@ function Hero({ banner }: { banner?: { title: string; subtitle: string | null; i
       <div className="wrap grid items-center gap-10 py-10 md:py-16 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:py-20">
         <div className="rise order-2 lg:order-1">
           <p className="eyebrow mb-5 flex items-center gap-2"><Sparkles size={14} />{t('home.eyebrow')}</p>
-          <h1 className="text-[clamp(44px,7vw,92px)] leading-[0.98]">{banner?.title || t('home.title')}</h1>
-          <p className="mt-6 max-w-lg text-[17px] leading-relaxed text-ink-soft">{banner?.subtitle || t('home.subtitle')}</p>
+          <h1 className="text-[clamp(44px,7vw,92px)] leading-[0.98]">{eventTitle || banner?.title || t('home.title')}</h1>
+          <p className="mt-6 max-w-lg text-[17px] leading-relaxed text-ink-soft">{eventSub || banner?.subtitle || t('home.subtitle')}</p>
           <div className="mt-9 flex flex-wrap gap-3">
             <LinkButton to={banner ? linkFor(banner.link) : '/shop'} size="lg" variant="primary">{t('home.cta')}<Arrow size={18} /></LinkButton>
             <LinkButton to="/showrooms" size="lg" variant="outline"><MapPin size={17} />{t('home.cta_showrooms')}</LinkButton>
@@ -50,7 +55,7 @@ function Hero({ banner }: { banner?: { title: string; subtitle: string | null; i
           <div className="relative mx-auto aspect-[4/5] w-full max-w-[520px]">
             {/* Arch-shaped frame — a nod to Qatari majlis architecture. */}
             <div className="absolute inset-0 overflow-hidden rounded-t-[999px] rounded-b-[32px] bg-[radial-gradient(90%_70%_at_50%_0%,var(--brass-tint),var(--sand)_60%,var(--sand-deep))] shadow-soft">
-              {banner?.image_url ? <img src={banner.image_url} alt="" className="h-full w-full object-cover" fetchPriority="high" /> : (
+              {heroImage ? <img src={heroImage} alt="" className="h-full w-full object-cover" fetchPriority="high" /> : (
                 <svg viewBox="0 0 400 500" className="h-full w-full" aria-hidden>
                   <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="var(--brass)" stopOpacity=".35" /><stop offset="1" stopColor="var(--brass)" stopOpacity=".05" /></linearGradient></defs>
                   <path d="M60 500V230a140 140 0 0 1 280 0v270" fill="none" stroke="var(--brass)" strokeOpacity=".5" strokeWidth="1.5" />

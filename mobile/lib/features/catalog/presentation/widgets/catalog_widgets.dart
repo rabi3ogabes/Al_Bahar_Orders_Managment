@@ -10,6 +10,7 @@ import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/auth/presentation/require_auth.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
+import 'package:albahar_customer/features/catalog/presentation/widgets/quick_add_stepper.dart';
 import 'package:albahar_customer/features/wishlist/presentation/state/wishlist_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -66,6 +67,7 @@ class ProductTile extends StatelessWidget {
     width: width,
     onTap: () => openProduct(context, product, heroScope: heroScope),
     topAction: WishlistHeart(product: product),
+    bottomAction: QuickAddStepper(product: product),
   );
 }
 
@@ -119,6 +121,8 @@ class BranchPill extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // One branch only: no dropdown, nothing to choose.
+    if (!ref.watch(multipleBranchesProvider)) return const SizedBox.shrink();
     final branch = ref.watch(preferredBranchProvider);
     final l10n = context.l10n;
     return Semantics(

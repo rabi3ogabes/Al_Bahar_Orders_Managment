@@ -78,6 +78,7 @@ Route::get('support', Admin\Marketing\SupportIndex::class)->middleware('permissi
 // ── Content ───────────────────────────────────────────────────────────────────
 Route::get('homepage', Admin\Content\HomepageIndex::class)->middleware('permission:cms.view')->name('homepage.index');
 Route::get('banners', Admin\Content\BannerIndex::class)->middleware('permission:cms.view')->name('banners.index');
+Route::get('appearance', Admin\Content\ThemeIndex::class)->middleware('permission:cms.view')->name('appearance.index');
 Route::get('pages', Admin\Content\PageIndex::class)->middleware('permission:cms.view')->name('pages.index');
 Route::get('notification-templates', Admin\Content\NotificationTemplateIndex::class)->middleware('permission:notifications.view')->name('notification-templates.index');
 

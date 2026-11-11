@@ -15,6 +15,7 @@ use App\Domain\Fulfillment\Models\DeliveryStatusHistory;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Orders\Enums\FulfillmentStatus as FS;
+use App\Domain\Orders\Events\OrderUpdated;
 use App\Domain\Orders\Models\OrderFulfillment;
 use App\Domain\Orders\Services\OrderService;
 use App\Domain\Payments\Models\CashCollection;
@@ -367,6 +368,18 @@ class DeliveryService
         }
         $d->update(['status' => $to]);
         $this->log($d, $from, $to, $actor, $source, $note, $lat, $lng);
+        $this->ping($d, $to);
+    }
+
+    /** Tells the customer's apps (real time) that their delivery moved. Never blocks the driver's action. */
+    private function ping(Delivery $d, DS $to): void
+    {
+        DB::afterCommit(fn () => rescue(function () use ($d, $to) {
+            $order = $d->fulfillment()->with('order')->first()?->order;
+            if ($order?->user_id) {
+                event(new OrderUpdated($order->user_id, $order->id, $order->number, $order->status->value, $to->value));
+            }
+        }, report: true));
     }
 
     private function log(Delivery $d, ?DS $from, DS $to, ?User $actor, string $source, ?string $note, ?float $lat = null, ?float $lng = null): void

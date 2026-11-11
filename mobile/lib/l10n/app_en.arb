@@ -1732,5 +1732,32 @@
         "type": "int"
       }
     }
+  },
+  "chooseOptions": "Choose options",
+  "orderStepPlaced": "Placed",
+  "orderStepPreparing": "Preparing",
+  "orderStepReady": "Ready",
+  "orderStepOnTheWay": "On the way",
+  "orderStepDone": "Done",
+  "orderLivePendingPayment": "Waiting for payment",
+  "orderLiveConfirmed": "Order confirmed",
+  "orderLivePreparing": "We are preparing your order",
+  "orderLiveOnTheWay": "Your order is on the way",
+  "orderLiveReady": "Ready for pickup",
+  "orderNumberLabel": "Order {number}",
+  "orderMoreCount": "+{count} more",
+  "@orderNumberLabel": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "@orderMoreCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

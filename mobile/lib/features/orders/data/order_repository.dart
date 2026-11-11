@@ -20,6 +20,25 @@ class OrderRepository {
   /// rows, scanning ahead (up to [_maxScanPages]) until a page yields a match
   /// so infinite scroll never stalls on an empty page. The returned
   /// `currentPage` is the last backend page read, so `page + 1` continues.
+  /// Orders still in progress (newest first), for the Home widget.
+  Future<List<OrderSummary>> active() async {
+    final page = await _api.getPage(
+      '/orders',
+      OrderSummary.fromJson,
+      query: {'status': _activeStatuses.join(','), 'per_page': 5},
+    );
+    return page.items;
+  }
+
+  static const _activeStatuses = [
+    'pending_payment',
+    'confirmed',
+    'processing',
+    'partially_fulfilled',
+    'ready_for_pickup',
+    'out_for_delivery',
+  ];
+
   Future<Paginated<OrderSummary>> list({Set<String>? statuses, int page = 1}) async {
     if (statuses == null || statuses.isEmpty || statuses.length == 1) {
       return _api.getPage('/orders', OrderSummary.fromJson, query: {'status': statuses?.firstOrNull, 'page': page});

@@ -14,6 +14,7 @@ import type { Category, ProductCard } from '../lib/types';
 import { useAuthModal } from './AuthModal';
 import { Button, Drawer, IconButton, Modal, Pic, PriceTag, QtyStepper, Spinner } from './ui';
 import { useToast } from '../lib/toast';
+import { useBrand } from '../lib/brand';
 
 export function LogoMark({ className = 'h-9 w-9 sm:h-10 sm:w-10' }: { className?: string }) {
   return (
@@ -28,14 +29,29 @@ export function LogoMark({ className = 'h-9 w-9 sm:h-10 sm:w-10' }: { className?
 
 /** Bilingual lockup: wave mark, Arabic name over the Latin name. */
 export function Logo({ light }: { light?: boolean }) {
+  const brand = useBrand();
   return (
     <Link to="/" className={cx('flex items-center gap-2.5 leading-none', light ? 'text-bg' : 'text-ink')} aria-label="Al Bahar البحار">
-      <LogoMark />
+      {brand?.images.logo ? <img src={brand.images.logo} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover sm:h-10 sm:w-10" /> : <LogoMark />}
       <span className="flex flex-col items-start">
         <span lang="ar" dir="rtl" className="font-arabic text-[24px] font-semibold leading-[1.05] sm:text-[28px]">البحار</span>
         <span className="mt-0.5 whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.3em] text-brass sm:text-[11px]">Al Bahar</span>
       </span>
     </Link>
+  );
+}
+
+/** Seasonal strip from the dashboard (Qatar events). Hidden on the normal look. */
+function SeasonBanner() {
+  const brand = useBrand();
+  if (!brand || brand.kind === 'base' || !brand.banner.title) return null;
+  return (
+    <div className="relative overflow-hidden bg-brass text-white" role="note" aria-label={brand.name}>
+      {brand.images.banner && <img src={brand.images.banner} alt="" className="absolute inset-0 h-full w-full object-cover opacity-40" />}
+      <div className="wrap relative flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 py-2 text-center text-[13px]">
+        <Sparkles size={14} className="shrink-0" /><strong className="font-semibold">{brand.banner.title}</strong>{brand.banner.subtitle && <span className="opacity-90">{brand.banner.subtitle}</span>}
+      </div>
+    </div>
   );
 }
 
@@ -196,6 +212,7 @@ export function Header() {
   return (
     <>
       <a href="#main" className="sr-only-focusable fixed start-4 top-4 z-[200] rounded-full bg-primary px-4 py-2 text-bg">{t('a11y.skip')}</a>
+      <SeasonBanner />
       <div className="bg-primary text-[12px] text-bg/90">
         <div className="wrap flex items-center justify-between gap-4 py-2">
           <span className="flex min-w-0 items-center gap-2"><Truck size={14} className="shrink-0 text-rose" /><span className="truncate">{t('top.promo')}</span></span>

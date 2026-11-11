@@ -15,6 +15,7 @@ class ProductCardView extends StatelessWidget {
     required this.product,
     this.onTap,
     this.topAction,
+    this.bottomAction,
     this.heroScope = '',
     this.width,
   });
@@ -24,6 +25,9 @@ class ProductCardView extends StatelessWidget {
 
   /// Usually a wishlist heart; placed at the top-end corner.
   final Widget? topAction;
+
+  /// Quick add to bag (a + that becomes − 1 +), placed at the bottom-end corner of the picture.
+  final Widget? bottomAction;
   final String heroScope;
   final double? width;
 
@@ -147,6 +151,7 @@ class ProductCardView extends StatelessWidget {
           child: _Badge(label: badge.label, background: badge.bg, foreground: badge.fg),
         ),
       if (topAction != null) PositionedDirectional(top: 0, end: 0, child: topAction!),
+      if (bottomAction != null) PositionedDirectional(bottom: 2, end: 2, child: bottomAction!),
     ],
   );
 

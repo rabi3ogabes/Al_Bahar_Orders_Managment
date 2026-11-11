@@ -58,3 +58,10 @@ final orderTimelineProvider = FutureProvider.autoDispose.family<List<TimelineEnt
 final pickupPassProvider = FutureProvider.autoDispose.family<PickupPass, ({String orderId, String fulfillmentId})>(
   (ref, args) => ref.watch(orderRepositoryProvider).pickupPass(args.orderId, args.fulfillmentId),
 );
+
+/// Orders in progress for the signed-in customer (empty for guests).
+final activeOrdersProvider = FutureProvider.autoDispose<List<OrderSummary>>((ref) {
+  ref.watch(localeCodeProvider);
+  if (!ref.watch(isAuthenticatedProvider)) return const [];
+  return ref.watch(orderRepositoryProvider).active();
+});

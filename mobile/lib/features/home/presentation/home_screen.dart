@@ -16,6 +16,7 @@ import 'package:albahar_customer/features/home/data/home_repository.dart';
 import 'package:albahar_customer/features/home/domain/home_models.dart';
 import 'package:albahar_customer/features/home/presentation/buy_again_section.dart';
 import 'package:albahar_customer/features/notifications/presentation/state/notifications_controller.dart';
+import 'package:albahar_customer/features/orders/presentation/widgets/active_order_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -49,6 +50,7 @@ class HomeScreen extends ConsumerWidget {
                   ];
                 }
                 return [
+                  const SliverToBoxAdapter(child: ActiveOrderCard()),
                   const SliverToBoxAdapter(child: BuyAgainSection()),
                   for (final s in data.sections) SliverToBoxAdapter(child: HomeSectionView(section: s)),
                   const SliverToBoxAdapter(child: Gap(AppSpace.xxl)),
@@ -78,6 +80,7 @@ class _HomeHeader extends ConsumerWidget {
     final user = ref.watch(sessionControllerProvider).user;
     final unread = ref.watch(unreadCountProvider);
     final signedIn = ref.watch(isAuthenticatedProvider);
+    final multiBranch = ref.watch(multipleBranchesProvider);
     return SliverAppBar(
       floating: true,
       snap: true,
@@ -123,14 +126,13 @@ class _HomeHeader extends ConsumerWidget {
         const Gap(AppSpace.xs),
       ],
       bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(124),
+        preferredSize: Size.fromHeight(multiBranch ? 124 : 72),
         child: Padding(
           padding: const EdgeInsetsDirectional.fromSTEB(AppSpace.gutter, 0, AppSpace.gutter, AppSpace.sm),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const BranchPill(),
-              const Gap(AppSpace.xs),
+              if (multiBranch) ...[const BranchPill(), const Gap(AppSpace.xs)],
               Row(
                 children: [
                   Expanded(

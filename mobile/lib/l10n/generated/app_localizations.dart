@@ -3751,6 +3751,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Bought {count} times'**
   String buyAgainBought(int count);
+
+  /// No description provided for @chooseOptions.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose options'**
+  String get chooseOptions;
+
+  /// No description provided for @orderStepPlaced.
+  ///
+  /// In en, this message translates to:
+  /// **'Placed'**
+  String get orderStepPlaced;
+
+  /// No description provided for @orderStepPreparing.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing'**
+  String get orderStepPreparing;
+
+  /// No description provided for @orderStepReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready'**
+  String get orderStepReady;
+
+  /// No description provided for @orderStepOnTheWay.
+  ///
+  /// In en, this message translates to:
+  /// **'On the way'**
+  String get orderStepOnTheWay;
+
+  /// No description provided for @orderStepDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get orderStepDone;
+
+  /// No description provided for @orderLivePendingPayment.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for payment'**
+  String get orderLivePendingPayment;
+
+  /// No description provided for @orderLiveConfirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'Order confirmed'**
+  String get orderLiveConfirmed;
+
+  /// No description provided for @orderLivePreparing.
+  ///
+  /// In en, this message translates to:
+  /// **'We are preparing your order'**
+  String get orderLivePreparing;
+
+  /// No description provided for @orderLiveOnTheWay.
+  ///
+  /// In en, this message translates to:
+  /// **'Your order is on the way'**
+  String get orderLiveOnTheWay;
+
+  /// No description provided for @orderLiveReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready for pickup'**
+  String get orderLiveReady;
+
+  /// No description provided for @orderNumberLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Order {number}'**
+  String orderNumberLabel(String number);
+
+  /// No description provided for @orderMoreCount.
+  ///
+  /// In en, this message translates to:
+  /// **'+{count} more'**
+  String orderMoreCount(int count);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

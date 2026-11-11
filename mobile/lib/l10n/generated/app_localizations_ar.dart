@@ -2083,4 +2083,47 @@ class AppLocalizationsAr extends AppLocalizations {
   String buyAgainBought(int count) {
     return 'اشتريته $count مرات';
   }
+
+  @override
+  String get chooseOptions => 'اختر الخيارات';
+
+  @override
+  String get orderStepPlaced => 'تم الطلب';
+
+  @override
+  String get orderStepPreparing => 'قيد التحضير';
+
+  @override
+  String get orderStepReady => 'جاهز';
+
+  @override
+  String get orderStepOnTheWay => 'في الطريق';
+
+  @override
+  String get orderStepDone => 'تم';
+
+  @override
+  String get orderLivePendingPayment => 'بانتظار الدفع';
+
+  @override
+  String get orderLiveConfirmed => 'تم تأكيد طلبك';
+
+  @override
+  String get orderLivePreparing => 'نجهّز طلبك الآن';
+
+  @override
+  String get orderLiveOnTheWay => 'طلبك في الطريق إليك';
+
+  @override
+  String get orderLiveReady => 'جاهز للاستلام';
+
+  @override
+  String orderNumberLabel(String number) {
+    return 'الطلب $number';
+  }
+
+  @override
+  String orderMoreCount(int count) {
+    return '+$count أخرى';
+  }
 }

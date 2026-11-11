@@ -30,6 +30,7 @@ class ProductSummary {
     required this.badges,
     required this.inStock,
     required this.hasVariants,
+    this.variantId,
   });
 
   factory ProductSummary.fromJson(JsonMap json) => ProductSummary(
@@ -44,6 +45,7 @@ class ProductSummary {
     badges: asStringList(json['badges']),
     inStock: asBool(json['in_stock'], true),
     hasVariants: asBool(json['has_variants']),
+    variantId: asStringOrNull(json['variant_id']),
   );
 
   final String id;
@@ -57,6 +59,9 @@ class ProductSummary {
   final List<String> badges;
   final bool inStock;
   final bool hasVariants;
+
+  /// The single variant a card can add straight to the bag (null when the shopper must pick colour/size first).
+  final String? variantId;
 
   String heroTag([String scope = '']) => 'product-image-$scope-$id';
 }

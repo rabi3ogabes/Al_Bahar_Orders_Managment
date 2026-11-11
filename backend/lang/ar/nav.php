@@ -38,6 +38,7 @@ return [
     'support' => 'مكتب الدعم',
     'content' => 'المحتوى',
     'homepage' => 'منشئ الصفحة الرئيسية',
+    'appearance' => 'المظهر والمناسبات',
     'banners' => 'البانرات',
     'pages' => 'الصفحات',
     'notification_templates' => 'قوالب الإشعارات',

@@ -15,6 +15,8 @@ Route::controller(V1\Branches\BranchController::class)->group(function () {
     Route::get('delivery-zones', 'zones')->name('delivery-zones.index');
 });
 
+Route::get('theme', [V1\Cms\ThemeController::class, 'show'])->name('theme');
+
 Route::controller(V1\Catalog\CatalogController::class)->group(function () {
     Route::get('categories', 'categories')->name('categories.index');
     Route::get('categories/{id}', 'category')->name('categories.show');

@@ -186,3 +186,10 @@ final autoBranchSelectionProvider = FutureProvider<void>((ref) async {
   }
   if (chosen != null) await controller.select(chosen.ref, auto: true);
 });
+
+/// True only when the customer can actually choose between branches (more than one is open to orders).
+/// With a single branch the pickers are hidden: there is nothing to choose.
+final multipleBranchesProvider = Provider<bool>((ref) {
+  final list = ref.watch(branchesProvider).value ?? const <Branch>[];
+  return list.where((b) => b.deliveryEnabled || b.pickupEnabled).length > 1;
+});

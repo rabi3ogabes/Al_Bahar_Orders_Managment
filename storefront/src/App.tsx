@@ -7,6 +7,7 @@ import { BranchProvider } from './lib/branch';
 import { CartProvider } from './lib/cart';
 import { I18nProvider } from './lib/i18n';
 import { ThemeProvider } from './lib/theme';
+import { BrandProvider } from './lib/brand';
 import { ToastProvider } from './lib/toast';
 import { WishlistProvider } from './lib/wishlist';
 import { AuthModalProvider, useAuthModal } from './components/AuthModal';
@@ -47,6 +48,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
+        <BrandProvider>
         <I18nProvider>
           <ToastProvider>
             <AuthProvider>
@@ -92,6 +94,7 @@ export default function App() {
             </AuthProvider>
           </ToastProvider>
         </I18nProvider>
+        </BrandProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

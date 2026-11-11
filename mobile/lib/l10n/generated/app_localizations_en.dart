@@ -2049,4 +2049,47 @@ class AppLocalizationsEn extends AppLocalizations {
   String buyAgainBought(int count) {
     return 'Bought $count times';
   }
+
+  @override
+  String get chooseOptions => 'Choose options';
+
+  @override
+  String get orderStepPlaced => 'Placed';
+
+  @override
+  String get orderStepPreparing => 'Preparing';
+
+  @override
+  String get orderStepReady => 'Ready';
+
+  @override
+  String get orderStepOnTheWay => 'On the way';
+
+  @override
+  String get orderStepDone => 'Done';
+
+  @override
+  String get orderLivePendingPayment => 'Waiting for payment';
+
+  @override
+  String get orderLiveConfirmed => 'Order confirmed';
+
+  @override
+  String get orderLivePreparing => 'We are preparing your order';
+
+  @override
+  String get orderLiveOnTheWay => 'Your order is on the way';
+
+  @override
+  String get orderLiveReady => 'Ready for pickup';
+
+  @override
+  String orderNumberLabel(String number) {
+    return 'Order $number';
+  }
+
+  @override
+  String orderMoreCount(int count) {
+    return '+$count more';
+  }
 }

@@ -15,6 +15,7 @@ use App\Domain\Marketing\Services\PromotionEngine;
 use App\Domain\Orders\Enums\FulfillmentStatus as FS;
 use App\Domain\Orders\Enums\OrderStatus as OS;
 use App\Domain\Orders\Events\OrderStatusChanged;
+use App\Domain\Orders\Events\OrderUpdated;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderCancellation;
 use App\Domain\Orders\Models\OrderFulfillment;
@@ -163,7 +164,12 @@ class OrderService
             }
             $order->save();
             $this->history($order, null, 'order', $from->value, $to->value, $actor, $reason);
-            DB::afterCommit(fn () => event(new OrderStatusChanged($order->id, $from->value, $to->value)));
+            DB::afterCommit(function () use ($order, $from, $to) {
+                event(new OrderStatusChanged($order->id, $from->value, $to->value));
+                if ($order->user_id) {
+                    event(new OrderUpdated($order->user_id, $order->id, $order->number, $to->value));
+                }
+            });
         }
 
         return $order;

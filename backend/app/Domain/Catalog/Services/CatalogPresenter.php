@@ -53,6 +53,8 @@ class CatalogPresenter
             'id' => $p->id,
             'slug' => $p->trans('slug'),
             'sku' => $p->sku,
+            // The one variant to add from a product card (null when the shopper must choose, e.g. colour or size).
+            'variant_id' => $p->variants->count() === 1 ? $p->variants->first()->id : null,
             'name' => $p->trans('name'),
             'short_description' => $p->trans('short_description'),
             'brand' => $p->brand ? ['id' => $p->brand->id, 'name' => $p->brand->localized('name')] : null,
