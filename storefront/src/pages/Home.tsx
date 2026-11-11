@@ -19,7 +19,14 @@ function linkFor(l?: { type: string; value: string } | null): string {
 }
 
 function Hero({ banner }: { banner?: { title: string; subtitle: string | null; image_url: string | null; link: any } }) {
-  const { t, dir } = useI18n();
+  const { t, dir, num } = useI18n();
+  const { branches, branchId } = useBranch();
+  const cats = useQuery({ queryKey: ['categories'], queryFn: async () => (await get<{ data: unknown[] }>('/categories')).data, staleTime: 10 * 60_000 });
+  const total = useQuery({ queryKey: ['catalogue-size', branchId], queryFn: async () => (await get<{ meta: { total: number } }>('/products', { per_page: 1, branch_id: branchId })).meta.total, staleTime: 10 * 60_000 });
+  const stats: [string, string][] = [];
+  if (branches.length) stats.push([num(branches.length), t('home.stat_showrooms')]);
+  if (total.data) stats.push([total.data >= 100 ? `${num(Math.floor(total.data / 50) * 50)}+` : num(total.data), t('home.stat_warranty')]);
+  if (cats.data?.length) stats.push([num(cats.data.length), t('home.stat_delivery')]);
   const Arrow = dir === 'rtl' ? ArrowLeft : ArrowRight;
   return (
     <section className="relative overflow-hidden">
@@ -30,10 +37,10 @@ function Hero({ banner }: { banner?: { title: string; subtitle: string | null; i
           <p className="mt-6 max-w-lg text-[17px] leading-relaxed text-ink-soft">{banner?.subtitle || t('home.subtitle')}</p>
           <div className="mt-9 flex flex-wrap gap-3">
             <LinkButton to={banner ? linkFor(banner.link) : '/shop'} size="lg" variant="primary">{t('home.cta')}<Arrow size={18} /></LinkButton>
-            <LinkButton to="/auctions" size="lg" variant="outline"><Gavel size={17} />{t('home.cta_auctions')}</LinkButton>
+            <LinkButton to="/showrooms" size="lg" variant="outline"><MapPin size={17} />{t('home.cta_showrooms')}</LinkButton>
           </div>
-          <dl className="mt-12 grid max-w-lg grid-cols-3 gap-6 border-t border-line pt-6 text-sm">
-            {[['5', t('home.stat_showrooms')], ['60', t('home.stat_warranty')], ['48h', t('home.stat_delivery')]].map(([n, l]) => (
+          <dl className="mt-12 grid max-w-lg grid-cols-3 gap-6 border-t border-line pt-6 text-sm empty:hidden">
+            {stats.map(([n, l]) => (
               <div key={l}><dt className="font-display text-4xl text-brass-deep">{n}</dt><dd className="mt-0.5 text-[13px] text-muted">{l}</dd></div>
             ))}
           </dl>
@@ -48,7 +55,8 @@ function Hero({ banner }: { banner?: { title: string; subtitle: string | null; i
                   <path d="M60 500V230a140 140 0 0 1 280 0v270" fill="none" stroke="var(--brass)" strokeOpacity=".5" strokeWidth="1.5" />
                   <path d="M100 500V240a100 100 0 0 1 200 0v260" fill="url(#g)" stroke="var(--brass)" strokeOpacity=".6" strokeWidth="1.5" />
                   <path d="M150 500V250a50 50 0 0 1 100 0v250" fill="var(--paper)" fillOpacity=".7" stroke="var(--brass)" strokeOpacity=".7" strokeWidth="1.5" />
-                  <rect x="120" y="360" width="160" height="26" rx="13" fill="var(--ink)" fillOpacity=".85" /><rect x="132" y="386" width="10" height="46" rx="3" fill="var(--ink)" fillOpacity=".85" /><rect x="258" y="386" width="10" height="46" rx="3" fill="var(--ink)" fillOpacity=".85" />
+                  <g fill="var(--ink)" fillOpacity=".85"><rect x="118" y="352" width="44" height="86" rx="10" /><rect x="132" y="334" width="16" height="22" rx="4" /><rect x="170" y="372" width="40" height="66" rx="9" /><rect x="182" y="356" width="16" height="20" rx="4" /><rect x="222" y="384" width="62" height="54" rx="8" /></g>
+                  <rect x="232" y="396" width="42" height="7" rx="3.5" fill="var(--brass)" fillOpacity=".8" /><rect x="118" y="438" width="166" height="8" rx="4" fill="var(--brass)" fillOpacity=".55" />
                   <circle cx="200" cy="140" r="4" fill="var(--brass)" />
                 </svg>
               )}
