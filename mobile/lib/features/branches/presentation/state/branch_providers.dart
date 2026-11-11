@@ -17,13 +17,17 @@ class PreferredBranchController extends Notifier<BranchRef?> {
   }
 
   /// Listeners (e.g. the cart) react to the change via `ref.listen`.
-  Future<void> select(BranchRef branch) async {
+  /// [auto] marks a choice made by the app (nearest / available); a customer's own pick is never overridden.
+  Future<void> select(BranchRef branch, {bool auto = false}) async {
+    final prefs = ref.read(appPreferencesProvider);
+    await prefs.setPreferredBranchIsAuto(auto);
     if (state == branch) return;
     state = branch;
-    await ref.read(appPreferencesProvider).setPreferredBranch(branch.toJson());
+    await prefs.setPreferredBranch(branch.toJson());
   }
 
   Future<void> clear() async {
+    await ref.read(appPreferencesProvider).setPreferredBranchIsAuto(false);
     state = null;
     await ref.read(appPreferencesProvider).setPreferredBranch(null);
   }
@@ -146,4 +150,39 @@ final nearbyBranchesProvider = FutureProvider.autoDispose<NearbyResult>((ref) as
   if (pos == null) return const NearbyResult(access: LocationAccess.denied);
   final list = await ref.watch(branchRepositoryProvider).nearby(lat: pos.lat, lng: pos.lng);
   return NearbyResult(access: access, branches: list);
+});
+
+/// The best branch for delivery: delivers, open now, nearest first (the list order). Falls back to the nearest that
+/// delivers, then to the first branch. Null when there are no branches.
+Branch? pickBestBranch(List<Branch> branches) {
+  if (branches.isEmpty) return null;
+  final delivering = branches.where((b) => b.deliveryEnabled).toList();
+  final pool = delivering.isEmpty ? branches : delivering;
+  return pool.where((b) => b.opening?.isOpen ?? true).firstOrNull ?? pool.first;
+}
+
+/// Picks the branch automatically once per app session: a single branch is used outright; with several, the nearest
+/// open delivering one (when location is allowed) or the first open one. A branch the customer chose is kept.
+/// Location is only asked for when there is more than one branch to choose from.
+final autoBranchSelectionProvider = FutureProvider<void>((ref) async {
+  final prefs = ref.read(appPreferencesProvider);
+  final controller = ref.read(preferredBranchProvider.notifier);
+  if (ref.read(preferredBranchProvider) != null && !prefs.preferredBranchIsAuto) return;
+
+  final all = (await ref.read(branchRepositoryProvider).list()).items;
+  Branch? chosen;
+  if (all.length == 1) {
+    chosen = all.first;
+  } else if (all.length > 1) {
+    final location = ref.read(locationServiceProvider);
+    if (await location.ensurePermission() == LocationAccess.granted) {
+      final pos = await location.currentPosition();
+      if (pos != null) {
+        final near = await ref.read(branchRepositoryProvider).nearby(lat: pos.lat, lng: pos.lng, radiusKm: 100);
+        chosen = pickBestBranch(near);
+      }
+    }
+    chosen ??= pickBestBranch(all);
+  }
+  if (chosen != null) await controller.select(chosen.ref, auto: true);
 });

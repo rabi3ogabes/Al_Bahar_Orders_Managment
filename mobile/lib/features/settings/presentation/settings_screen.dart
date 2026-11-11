@@ -34,18 +34,10 @@ class SettingsScreen extends ConsumerWidget {
     final info = ref.watch(packageInfoProvider).value;
 
     Widget header(String t) => Padding(
-      padding: const EdgeInsetsDirectional.fromSTEB(
-        AppSpace.md,
-        AppSpace.lg,
-        AppSpace.md,
-        AppSpace.xs,
-      ),
+      padding: const EdgeInsetsDirectional.fromSTEB(AppSpace.md, AppSpace.lg, AppSpace.md, AppSpace.xs),
       child: Semantics(
         header: true,
-        child: Text(
-          t.toUpperCase(),
-          style: context.text.labelSmall?.copyWith(letterSpacing: 1.4),
-        ),
+        child: Text(t.toUpperCase(), style: context.text.labelSmall?.copyWith(letterSpacing: 1.4)),
       ),
     );
     Widget page(IconData icon, String title, String slug) => ListTile(
@@ -69,9 +61,7 @@ class SettingsScreen extends ConsumerWidget {
                   onChanged: (code) async {
                     if (code == null) return;
                     Haptics.tap();
-                    await ref
-                        .read(localeControllerProvider.notifier)
-                        .setLocale(Locale(code));
+                    await ref.read(localeControllerProvider.notifier).setLocale(Locale(code));
                     if (ref.read(isAuthenticatedProvider)) {
                       unawaited(
                         ref
@@ -83,14 +73,8 @@ class SettingsScreen extends ConsumerWidget {
                   },
                   child: const Column(
                     children: [
-                      RadioListTile<String>(
-                        value: 'ar',
-                        title: Text('العربية'),
-                      ),
-                      RadioListTile<String>(
-                        value: 'en',
-                        title: Text('English'),
-                      ),
+                      RadioListTile<String>(value: 'ar', title: Text('العربية')),
+                      RadioListTile<String>(value: 'en', title: Text('English')),
                     ],
                   ),
                 ),
@@ -116,8 +100,7 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                     ],
                     selected: {themeMode},
-                    onSelectionChanged: (s) =>
-                        ref.read(themeModeProvider.notifier).set(s.first),
+                    onSelectionChanged: (s) => ref.read(themeModeProvider.notifier).set(s.first),
                   ),
                 ),
                 if (signedIn) ...[
@@ -129,14 +112,8 @@ class SettingsScreen extends ConsumerWidget {
                     onTap: () => context.push('/preferences/notifications'),
                   ),
                   ListTile(
-                    leading: Icon(
-                      Icons.delete_forever_outlined,
-                      color: context.palette.danger,
-                    ),
-                    title: Text(
-                      l10n.deleteAccount,
-                      style: TextStyle(color: context.palette.danger),
-                    ),
+                    leading: Icon(Icons.delete_forever_outlined, color: context.palette.danger),
+                    title: Text(l10n.deleteAccount, style: TextStyle(color: context.palette.danger)),
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () => context.push('/settings/delete-account'),
                   ),
@@ -145,11 +122,7 @@ class SettingsScreen extends ConsumerWidget {
                 page(Icons.info_outline_rounded, l10n.aboutUs, 'about'),
                 page(Icons.description_outlined, l10n.termsOfService, 'terms'),
                 page(Icons.privacy_tip_outlined, l10n.privacyPolicy, 'privacy'),
-                page(
-                  Icons.assignment_return_outlined,
-                  l10n.returnsPolicy,
-                  'returns',
-                ),
+                page(Icons.assignment_return_outlined, l10n.returnsPolicy, 'returns'),
                 page(Icons.gavel_outlined, l10n.auctionTerms, 'auction-terms'),
                 page(Icons.quiz_outlined, l10n.faq, 'faq'),
                 page(Icons.call_outlined, l10n.contactUs, 'contact'),
@@ -166,9 +139,7 @@ class SettingsScreen extends ConsumerWidget {
                         confirmLabel: l10n.signOut,
                       );
                       if (!ok) return;
-                      await ref
-                          .read(sessionControllerProvider.notifier)
-                          .logout();
+                      await ref.read(sessionControllerProvider.notifier).logout();
                       if (context.mounted) context.go('/home');
                     },
                   ),
@@ -183,9 +154,7 @@ class SettingsScreen extends ConsumerWidget {
                         destructive: true,
                       );
                       if (!ok) return;
-                      await ref
-                          .read(sessionControllerProvider.notifier)
-                          .logout(allDevices: true);
+                      await ref.read(sessionControllerProvider.notifier).logout(allDevices: true);
                       if (context.mounted) context.go('/home');
                     },
                   ),

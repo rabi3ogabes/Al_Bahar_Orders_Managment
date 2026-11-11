@@ -16,8 +16,7 @@ class DeleteAccountScreen extends ConsumerStatefulWidget {
   const DeleteAccountScreen({super.key});
 
   @override
-  ConsumerState<DeleteAccountScreen> createState() =>
-      _DeleteAccountScreenState();
+  ConsumerState<DeleteAccountScreen> createState() => _DeleteAccountScreenState();
 }
 
 class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
@@ -45,9 +44,7 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
     if (!ok) return;
     setState(() => _busy = true);
     try {
-      final r = await ref
-          .read(profileRepositoryProvider)
-          .requestDeletion(reason: _reason.text.trim());
+      final r = await ref.read(profileRepositoryProvider).requestDeletion(reason: _reason.text.trim());
       Haptics.heavy();
       if (mounted) setState(() => _request = r);
     } catch (e) {
@@ -86,55 +83,27 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Icon(
-                        Icons.schedule_rounded,
-                        size: 56,
-                        color: context.palette.warning,
-                      ),
+                      Icon(Icons.schedule_rounded, size: 56, color: context.palette.warning),
                       const Gap(AppSpace.md),
                       Text(
-                        l10n.deleteAccountRequested(
-                          QatarTime.date(
-                            _request!.scheduledFor,
-                            context.localeCode,
-                          ),
-                        ),
+                        l10n.deleteAccountRequested(QatarTime.date(_request!.scheduledFor, context.localeCode)),
                         textAlign: TextAlign.center,
                         style: context.text.headlineSmall,
                       ),
                       const Gap(AppSpace.lg),
-                      AppButton.secondary(
-                        label: l10n.cancelDeletion,
-                        loading: _busy,
-                        onPressed: _cancel,
-                      ),
+                      AppButton.secondary(label: l10n.cancelDeletion, loading: _busy, onPressed: _cancel),
                     ],
                   )
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Icon(
-                        Icons.warning_amber_rounded,
-                        size: 48,
-                        color: context.palette.danger,
-                      ),
+                      Icon(Icons.warning_amber_rounded, size: 48, color: context.palette.danger),
                       const Gap(AppSpace.md),
-                      Text(
-                        l10n.deleteAccountTitle,
-                        style: context.text.headlineMedium,
-                      ),
+                      Text(l10n.deleteAccountTitle, style: context.text.headlineMedium),
                       const Gap(AppSpace.sm),
-                      Text(
-                        l10n.deleteAccountWarning,
-                        style: context.text.bodyMedium,
-                      ),
+                      Text(l10n.deleteAccountWarning, style: context.text.bodyMedium),
                       const Gap(AppSpace.lg),
-                      AppTextField(
-                        controller: _reason,
-                        label: l10n.deleteAccountReason,
-                        maxLines: 3,
-                        minLines: 2,
-                      ),
+                      AppTextField(controller: _reason, label: l10n.deleteAccountReason, maxLines: 3, minLines: 2),
                       const Gap(AppSpace.md),
                       AppTextField(
                         controller: _confirm,
@@ -149,10 +118,7 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
                         onPressed: matches ? _submit : null,
                       ),
                       const Gap(AppSpace.sm),
-                      AppButton.secondary(
-                        label: l10n.cancelDeletion,
-                        onPressed: _busy ? null : _cancel,
-                      ),
+                      AppButton.secondary(label: l10n.cancelDeletion, onPressed: _busy ? null : _cancel),
                     ],
                   ),
           ),

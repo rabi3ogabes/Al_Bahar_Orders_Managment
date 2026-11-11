@@ -14,6 +14,7 @@ class AppPreferences {
   static const _kLocale = 'locale';
   static const _kOnboarding = 'onboarding_done';
   static const _kBranch = 'preferred_branch';
+  static const _kBranchAuto = 'preferred_branch_auto';
   static const _kRecentSearches = 'recent_searches';
   static const _kThemeMode = 'theme_mode';
   static const _kPushPrefs = 'push_category_prefs';
@@ -38,6 +39,10 @@ class AppPreferences {
 
   Future<void> setPreferredBranch(JsonMap? branch) =>
       branch == null ? _prefs.remove(_kBranch) : _prefs.setString(_kBranch, jsonEncode(branch));
+
+  /// True when the app picked the branch itself (nearest / available); false when the customer chose it.
+  bool get preferredBranchIsAuto => _prefs.getBool(_kBranchAuto) ?? false;
+  Future<void> setPreferredBranchIsAuto(bool value) => _prefs.setBool(_kBranchAuto, value);
 
   List<String> get recentSearches => _prefs.getStringList(_kRecentSearches) ?? const [];
   Future<void> setRecentSearches(List<String> values) => _prefs.setStringList(_kRecentSearches, values);
