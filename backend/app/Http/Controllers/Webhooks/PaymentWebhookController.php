@@ -36,7 +36,8 @@ class PaymentWebhookController extends Controller
     {
         $payment = Payment::find($request->input('ORDERID') ?? $request->input('payment'));
 
-        return response()->view('payments.return', ['payment' => $payment, 'deepLink' => $payment ? 'albahar://payments/'.$payment->id.'/return' : 'albahar://orders'])
+        return response()->view('payments.return', ['payment' => $payment, 'deepLink' => $payment ? 'albahar://payments/'.$payment->id.'/return' : 'albahar://orders',
+            'webLink' => $payment ? '/orders/'.$payment->order_id.'?payment='.$payment->id : '/account/orders'])
             ->header('Cache-Control', 'no-store');
     }
 

@@ -7,6 +7,23 @@ RUN npm ci --no-audit --no-fund
 COPY backend/ ./
 RUN npm run build
 
+# Customer storefront (React + TypeScript) → /store
+FROM node:22-alpine AS storefront
+WORKDIR /app
+COPY storefront/package.json storefront/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY storefront/ ./
+RUN npm run build
+
+# Customer app for the web (Flutter) → /mobile-web. Same-origin API, no CDN, no push.
+FROM ghcr.io/cirruslabs/flutter:stable AS mobileweb
+WORKDIR /app
+COPY mobile/pubspec.yaml mobile/pubspec.lock ./
+RUN flutter pub get
+COPY mobile/ ./
+RUN flutter build web --release --no-web-resources-cdn --base-href /mobile-web/ \
+    --dart-define=FLAVOR=prod --dart-define=API_BASE_URL=/api/v1 --dart-define=PUSH_ENABLED=false
+
 FROM php:8.3-fpm-alpine AS base
 RUN apk add --no-cache icu-libs libpq libzip libpng libjpeg-turbo libwebp freetype fcgi \
  && apk add --no-cache --virtual .build $PHPIZE_DEPS icu-dev postgresql-dev libzip-dev libpng-dev libjpeg-turbo-dev libwebp-dev freetype-dev linux-headers \
@@ -24,6 +41,8 @@ RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-in
 # .dockerignore excludes tests, tools, node_modules, .env and local storage from the build context.
 COPY backend/ ./
 COPY --from=assets /app/public/build ./public/build
+COPY --from=storefront /app/dist ./public/store
+COPY --from=mobileweb /app/build/web ./public/mobile-web
 RUN composer dump-autoload --optimize --classmap-authoritative --no-dev \
  && chown -R www-data:www-data storage bootstrap/cache
 USER www-data

@@ -1,5 +1,8 @@
 .git
-mobile
+mobile/build
+mobile/.dart_tool
+storefront/node_modules
+storefront/dist
 docs
 backend/vendor
 backend/node_modules
@@ -12,3 +15,5 @@ backend/storage/framework/sessions/*
 backend/storage/framework/views/*
 backend/public/build
 backend/public/hot
+backend/public/store
+backend/public/mobile-web

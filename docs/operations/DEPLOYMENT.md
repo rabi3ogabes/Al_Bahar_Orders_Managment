@@ -26,6 +26,18 @@ repository. Mandatory in production:
 `AppServiceProvider` refuses to boot with `APP_DEBUG=true` in production or `OTP_DEV_ECHO=true` outside local/testing;
 the mock courier adapter refuses to run in production.
 
+## Web surfaces served by the image
+
+| Path | What | Built from |
+|---|---|---|
+| `/` | Customer storefront (React/TypeScript) | `storefront/` → `public/store` |
+| `/mobile-web/` | The Flutter customer app for browsers | `mobile/` → `public/mobile-web` |
+| `/admin` | Staff dashboard (Livewire) | `backend/` |
+| `/api/v1` | REST API | `backend/` |
+
+`docker/php/Dockerfile` builds all of it (`storefront` and `mobileweb` stages), so a deploy needs no manual asset step.
+Customer sign-in is by phone OTP: configure `SMS_DRIVER=http` before launch or customers cannot register.
+
 ## Pipeline
 
 1. **CI** (`.github/workflows/ci.yml`, every push/PR): Pint, Larastan, `composer audit`, `npm audit`, migrations

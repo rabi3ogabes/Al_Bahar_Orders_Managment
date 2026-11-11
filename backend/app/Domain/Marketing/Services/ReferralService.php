@@ -56,7 +56,7 @@ class ReferralService
     {
         return [
             'code' => $user->referral_code,
-            'share_url' => rtrim(config('app.url'), '/').'/app/invite/'.$user->referral_code,
+            'share_url' => rtrim(config('app.url'), '/').'/?ref='.$user->referral_code,
             'referred_count' => Referral::where('referrer_id', $user->id)->count(),
             'rewarded_count' => Referral::where('referrer_id', $user->id)->where('status', 'rewarded')->count(),
             'referrer_reward_points' => (int) $this->settings->get('loyalty.referral_referrer_points', 500),

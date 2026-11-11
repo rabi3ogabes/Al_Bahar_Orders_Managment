@@ -1,12 +1,11 @@
 <?php
 
 use App\Http\Controllers\Admin\SessionController;
+use App\Http\Controllers\StorefrontController;
 use App\Http\Controllers\Webhooks\PaymentWebhookController;
 use App\Livewire\Admin;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\Route;
-
-Route::redirect('/', '/admin');
 
 // ── Payment & delivery provider endpoints (no session/CSRF; authenticity verified per provider) ──────────
 Route::controller(PaymentWebhookController::class)->withoutMiddleware([VerifyCsrfToken::class])->group(function () {
@@ -39,3 +38,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
         require __DIR__.'/admin.php';
     });
 });
+
+/*
+|--------------------------------------------------------------------------
+| Customer storefront (React single-page app built into public/store)
+|--------------------------------------------------------------------------
+| Every GET that is not the API, the admin, a provider endpoint or a static asset directory falls through
+| to the storefront shell; the client router renders the page (or its own 404).
+*/
+Route::get('/{path?}', [StorefrontController::class, 'show'])
+    ->where('path', '^(?!(?:admin|api|app|broadcasting|webhooks|payments|docs|build|store|mobile-web|storage|up|health)(?:/|$)).*$')
+    ->name('storefront');

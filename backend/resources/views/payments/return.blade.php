@@ -6,4 +6,9 @@
 <p><b>We are confirming your payment with SADAD.</b><br>This usually takes a few seconds.</p>
 <p dir="rtl"><b>نقوم بتأكيد عملية الدفع مع سداد.</b><br>يستغرق ذلك عادةً بضع ثوانٍ.</p>
 <a href="{{ $deepLink }}">Return to the app · العودة إلى التطبيق</a>
-</div><script>setTimeout(function(){location.href=@json($deepLink)},800)</script></body></html>
+</div><script>
+// Same-origin storefront checkouts leave a marker before they redirect to SADAD; they come back to the web order page,
+// everything else (the mobile app's in-app browser) goes back to the app through its deep link.
+var web=false;try{web=localStorage.getItem('albahar.web_checkout')==='1'}catch(e){}
+setTimeout(function(){location.href=web?@json($webLink):@json($deepLink)},800)
+</script></body></html>
