@@ -64,6 +64,8 @@ Customer sign-in is by phone OTP: configure `SMS_DRIVER=http` before launch or c
 ```bash
 docker compose run --rm app php artisan db:seed --class=MarketCatalogSeeder --force      # branch, zones, 11 categories, 60 brands, 734 products, stock (no accounts)
 docker compose run --rm app php artisan catalog:import-images --delay=250                 # pictures from database/data/market_images.json (re-runnable)
+docker compose run --rm app php artisan catalog:category-art                              # Qatari-style cover per category (database/data/category_art)
+docker compose run --rm app php artisan catalog:rebrand                                   # rename the source store to Al Bahar (idempotent)
 ```
 
 - `MarketCatalogSeeder` creates **one** branch, *Al Markhiya Main Branch*, and serves every delivery zone from it. Complete its phone,
