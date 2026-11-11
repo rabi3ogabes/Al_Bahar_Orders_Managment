@@ -36,7 +36,10 @@ class PriceTag extends StatelessWidget {
         spacing: AppSpace.xs,
         runSpacing: 2,
         children: [
-          Text(price.finalPrice.formatted, style: main?.copyWith(color: onSale ? palette.danger : null)),
+          Text(
+            price.finalPrice.formatted,
+            style: main?.copyWith(color: onSale ? palette.danger : context.colors.primary, fontWeight: FontWeight.w700),
+          ),
           if (onSale)
             Text(
               price.regular.formatted,

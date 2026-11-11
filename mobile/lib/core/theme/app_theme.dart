@@ -10,15 +10,15 @@ abstract final class AppFonts {
   static const body = 'Inter';
 }
 
-/// Builds light/dark themes. Arabic uses IBM Plex Sans Arabic throughout;
-/// Latin pairs Playfair Display (display/headlines) with Inter (UI/body).
+/// Builds light/dark themes ("Ivory Navy" soft-card design). Arabic uses IBM Plex Sans Arabic throughout;
+/// Latin uses Inter for headings and body alike (heavier weights for headings, no serif).
 abstract final class AppTheme {
   static ThemeData light(Locale locale) => _build(Brightness.light, locale);
   static ThemeData dark(Locale locale) => _build(Brightness.dark, locale);
 
   static TextTheme textTheme(Locale locale, Color ink, Color muted) {
     final isArabic = locale.languageCode == 'ar';
-    final display = isArabic ? AppFonts.arabic : AppFonts.display;
+    final display = isArabic ? AppFonts.arabic : AppFonts.body;
     final body = isArabic ? AppFonts.arabic : AppFonts.body;
     // Mixed content (Arabic product names in English UI and vice versa).
     final fallback = isArabic ? const [AppFonts.body] : const [AppFonts.arabic];
@@ -36,13 +36,13 @@ abstract final class AppTheme {
     );
 
     return TextTheme(
-      displayLarge: s(display, 44, FontWeight.w600, 1.1, ls: -0.5),
-      displayMedium: s(display, 36, FontWeight.w600, 1.12, ls: -0.4),
-      displaySmall: s(display, 30, FontWeight.w600, 1.15, ls: -0.2),
-      headlineLarge: s(display, 28, FontWeight.w600, 1.2),
-      headlineMedium: s(display, 24, FontWeight.w600, 1.22),
-      headlineSmall: s(display, 21, FontWeight.w600, 1.25),
-      titleLarge: s(display, 19, FontWeight.w600, 1.3),
+      displayLarge: s(display, 40, FontWeight.w700, 1.1, ls: -0.6),
+      displayMedium: s(display, 34, FontWeight.w700, 1.12, ls: -0.5),
+      displaySmall: s(display, 28, FontWeight.w700, 1.15, ls: -0.3),
+      headlineLarge: s(display, 28, FontWeight.w700, 1.2, ls: -0.2),
+      headlineMedium: s(display, 24, FontWeight.w700, 1.22),
+      headlineSmall: s(display, 21, FontWeight.w700, 1.25),
+      titleLarge: s(display, 20, FontWeight.w600, 1.3),
       titleMedium: s(body, 16, FontWeight.w600, 1.35, ls: 0.1),
       titleSmall: s(body, 14, FontWeight.w600, 1.35, ls: 0.1),
       bodyLarge: s(body, 16, FontWeight.w400, 1.5),
@@ -59,17 +59,20 @@ abstract final class AppTheme {
     final ext = isDark ? AppColors.dark : AppColors.light;
     final bg = isDark ? AppPalette.nightBg : AppPalette.ivory;
     final surface = isDark ? AppPalette.nightSurface : AppPalette.paper;
-    final surfaceHigh = isDark ? AppPalette.nightSurfaceHigh : AppPalette.sand;
+    final surfaceHigh = isDark ? AppPalette.nightSurfaceHigh : AppPalette.tint;
     final ink = ext.ink;
+    // Brand primary: deep navy on light, a soft navy tint on dark.
+    final navy = isDark ? AppPalette.nightNavy : AppPalette.navy;
+    final onNavy = isDark ? AppPalette.nightBg : Colors.white;
 
     final scheme = ColorScheme(
       brightness: brightness,
-      primary: isDark ? AppPalette.nightInk : AppPalette.ink,
-      onPrimary: isDark ? AppPalette.nightBg : AppPalette.paper,
-      primaryContainer: isDark ? AppPalette.nightSurfaceHigh : AppPalette.sand,
-      onPrimaryContainer: ink,
+      primary: navy,
+      onPrimary: onNavy,
+      primaryContainer: isDark ? AppPalette.nightSurfaceHigh : AppPalette.tint,
+      onPrimaryContainer: isDark ? AppPalette.nightInk : AppPalette.navy,
       secondary: ext.brass,
-      onSecondary: isDark ? AppPalette.nightBg : Colors.white,
+      onSecondary: isDark ? AppPalette.nightBg : AppPalette.ink,
       secondaryContainer: ext.brassTint,
       onSecondaryContainer: isDark ? AppPalette.nightBrass : AppPalette.brassDeep,
       tertiary: ext.info,
@@ -87,7 +90,7 @@ abstract final class AppTheme {
       outline: ext.line,
       outlineVariant: ext.line,
       shadow: Colors.black,
-      inverseSurface: isDark ? AppPalette.paper : AppPalette.ink,
+      inverseSurface: isDark ? AppPalette.paper : AppPalette.navy,
       onInverseSurface: isDark ? AppPalette.ink : AppPalette.paper,
     );
 
@@ -111,28 +114,30 @@ abstract final class AppTheme {
         surfaceTintColor: Colors.transparent,
         foregroundColor: ink,
         elevation: 0,
-        scrolledUnderElevation: 0.5,
+        scrolledUnderElevation: 0,
         centerTitle: true,
         titleTextStyle: text.titleLarge,
         systemOverlayStyle: isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
       ),
+      // Soft white cards: no outline on light (a gentle shadow instead), a hairline on dark.
       cardTheme: CardThemeData(
         color: surface,
         surfaceTintColor: Colors.transparent,
-        elevation: 0,
+        shadowColor: const Color(0x33101828),
+        elevation: isDark ? 0 : 2,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: AppRadius.cardAll,
-          side: BorderSide(color: ext.line.withValues(alpha: 0.7)),
+          side: isDark ? BorderSide(color: ext.line) : BorderSide.none,
         ),
       ),
       dividerTheme: DividerThemeData(color: ext.line, thickness: 1, space: 1),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          minimumSize: const Size(kMinTouchTarget, 52),
+          minimumSize: const Size(kMinTouchTarget, 54),
           padding: const EdgeInsetsDirectional.symmetric(horizontal: AppSpace.lg),
           shape: const RoundedRectangleBorder(borderRadius: AppRadius.inputAll),
-          textStyle: text.labelLarge,
+          textStyle: text.labelLarge?.copyWith(fontSize: 16),
           backgroundColor: scheme.primary,
           foregroundColor: scheme.onPrimary,
           disabledBackgroundColor: ink.withValues(alpha: 0.10),
@@ -141,18 +146,18 @@ abstract final class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size(kMinTouchTarget, 52),
+          minimumSize: const Size(kMinTouchTarget, 54),
           padding: const EdgeInsetsDirectional.symmetric(horizontal: AppSpace.lg),
           shape: const RoundedRectangleBorder(borderRadius: AppRadius.inputAll),
-          side: BorderSide(color: ink.withValues(alpha: 0.25)),
-          foregroundColor: ink,
-          textStyle: text.labelLarge,
+          side: BorderSide(color: navy, width: 1.5),
+          foregroundColor: navy,
+          textStyle: text.labelLarge?.copyWith(fontSize: 16),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           minimumSize: const Size(kMinTouchTarget, kMinTouchTarget),
-          foregroundColor: isDark ? AppPalette.nightBrass : AppPalette.brassDeep,
+          foregroundColor: navy,
           textStyle: text.labelLarge,
         ),
       ),
@@ -164,7 +169,7 @@ abstract final class AppTheme {
         fillColor: surface,
         contentPadding: const EdgeInsetsDirectional.symmetric(horizontal: AppSpace.md, vertical: 16),
         labelStyle: text.bodyMedium?.copyWith(color: ext.muted),
-        floatingLabelStyle: text.bodyMedium?.copyWith(color: ext.brass),
+        floatingLabelStyle: text.bodyMedium?.copyWith(color: navy),
         hintStyle: text.bodyMedium?.copyWith(color: ext.muted.withValues(alpha: 0.8)),
         border: OutlineInputBorder(
           borderRadius: inputRadius,
@@ -176,7 +181,7 @@ abstract final class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: inputRadius,
-          borderSide: BorderSide(color: ext.brass, width: 1.4),
+          borderSide: BorderSide(color: navy, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: inputRadius,
@@ -187,30 +192,45 @@ abstract final class AppTheme {
           borderSide: BorderSide(color: ext.danger, width: 1.4),
         ),
       ),
+      // Filter chips: white pill with a hairline; the selected one is filled navy (white text).
       chipTheme: ChipThemeData(
         backgroundColor: surface,
-        selectedColor: ext.brassTint,
+        selectedColor: navy,
         side: BorderSide(color: ext.line),
         shape: const StadiumBorder(),
-        labelStyle: text.labelMedium,
+        labelStyle: WidgetStateTextStyle.resolveWith(
+          (states) => (text.labelMedium ?? const TextStyle()).copyWith(
+            color: states.contains(WidgetState.selected) ? onNavy : ink,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0,
+          ),
+        ),
         padding: const EdgeInsetsDirectional.symmetric(horizontal: AppSpace.sm, vertical: AppSpace.xs),
         showCheckmark: false,
       ),
+      // Bottom bar: white, hairline on top, no pill indicator — the active item is a filled navy icon + semibold label.
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: surface,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: ext.brassTint,
-        height: 68,
+        indicatorColor: Colors.transparent,
+        height: 72,
         elevation: 0,
-        labelTextStyle: WidgetStatePropertyAll(text.labelSmall?.copyWith(letterSpacing: 0.2, color: ink)),
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (states) => text.labelSmall?.copyWith(
+            letterSpacing: 0.1,
+            fontSize: 11,
+            fontWeight: states.contains(WidgetState.selected) ? FontWeight.w600 : FontWeight.w500,
+            color: states.contains(WidgetState.selected) ? navy : ext.muted,
+          ),
+        ),
         iconTheme: WidgetStateProperty.resolveWith(
-          (states) => IconThemeData(color: states.contains(WidgetState.selected) ? ink : ext.muted, size: 24),
+          (states) => IconThemeData(color: states.contains(WidgetState.selected) ? navy : ext.muted, size: 24),
         ),
       ),
       navigationRailTheme: NavigationRailThemeData(
         backgroundColor: surface,
         indicatorColor: ext.brassTint,
-        selectedIconTheme: IconThemeData(color: ink),
+        selectedIconTheme: IconThemeData(color: navy),
         unselectedIconTheme: IconThemeData(color: ext.muted),
       ),
       bottomSheetTheme: BottomSheetThemeData(
@@ -242,26 +262,27 @@ abstract final class AppTheme {
         contentPadding: const EdgeInsetsDirectional.symmetric(horizontal: AppSpace.md),
       ),
       tabBarTheme: TabBarThemeData(
-        labelColor: ink,
+        labelColor: navy,
         unselectedLabelColor: ext.muted,
         labelStyle: text.titleSmall,
         unselectedLabelStyle: text.titleSmall,
-        indicatorColor: ext.brass,
+        indicatorColor: navy,
         dividerColor: ext.line,
         indicatorSize: TabBarIndicatorSize.label,
       ),
       switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? Colors.white : null),
-        trackColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? ext.brass : null),
+        thumbColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? onNavy : null),
+        trackColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? navy : null),
       ),
       radioTheme: RadioThemeData(
-        fillColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? ext.brass : ext.muted),
+        fillColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? navy : ext.muted),
       ),
       checkboxTheme: CheckboxThemeData(
-        fillColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? ext.brass : null),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+        fillColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? navy : null),
+        checkColor: WidgetStatePropertyAll(onNavy),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       ),
-      progressIndicatorTheme: ProgressIndicatorThemeData(color: ext.brass, linearTrackColor: ext.line),
+      progressIndicatorTheme: ProgressIndicatorThemeData(color: navy, linearTrackColor: ext.line),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),

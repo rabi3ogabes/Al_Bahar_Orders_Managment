@@ -83,12 +83,13 @@ void main() {
     expect(t.getTopLeft(find.byKey(key)).dx, 24);
   });
 
-  test('typography uses Arabic font for ar and Playfair/Inter for en', () {
+  test('typography uses Arabic font for ar and Inter for en (soft-card design: no serif)', () {
     final ar = AppTheme.light(const Locale('ar')).textTheme;
     final en = AppTheme.light(const Locale('en')).textTheme;
     expect(ar.headlineLarge!.fontFamily, AppFonts.arabic);
     expect(ar.bodyMedium!.fontFamily, AppFonts.arabic);
-    expect(en.headlineLarge!.fontFamily, AppFonts.display);
+    expect(en.headlineLarge!.fontFamily, AppFonts.body);
+    expect(en.headlineLarge!.fontWeight, FontWeight.w700);
     expect(en.bodyMedium!.fontFamily, AppFonts.body);
     expect(en.bodyMedium!.fontFamilyFallback, contains(AppFonts.arabic));
     expect(AppTheme.dark(const Locale('en')).brightness, Brightness.dark);

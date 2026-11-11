@@ -179,7 +179,7 @@ void main() {
         ),
       );
       await t.pump();
-      expect(find.text('NORDIC'), findsOneWidget);
+      expect(find.text('Nordic'), findsOneWidget);
       expect(find.text('Product 1'), findsOneWidget);
       expect(find.text('QAR 900.00'), findsOneWidget);
       expect(find.text('-10%'), findsOneWidget);

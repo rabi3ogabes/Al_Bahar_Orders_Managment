@@ -79,25 +79,40 @@ class _HomeHeader extends ConsumerWidget {
       centerTitle: false,
       toolbarHeight: 64,
       titleSpacing: AppSpace.gutter,
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      title: Row(
         children: [
-          Text(
-            user != null ? l10n.homeGreetingNamed(user.firstName) : l10n.homeGreeting,
-            style: context.text.headlineSmall,
+          // Brand mark: navy rounded square with the gold wave.
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(color: AppPalette.navy, borderRadius: BorderRadius.circular(12)),
+            child: const Icon(Icons.waves_rounded, color: AppPalette.goldSoft, size: 22),
+          ),
+          const Gap(AppSpace.sm),
+          Expanded(
+            child: Text(
+              user != null ? l10n.homeGreetingNamed(user.firstName) : l10n.homeGreeting,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: context.text.headlineSmall,
+            ),
           ),
         ],
       ),
       actions: [
         if (signedIn)
-          IconButton(
-            tooltip: l10n.notificationsTitle,
-            onPressed: () => context.push('/notifications'),
-            icon: Badge.count(
-              count: unread,
-              isLabelVisible: unread > 0,
-              backgroundColor: context.palette.brass,
-              child: const Icon(Icons.notifications_none_rounded),
+          Container(
+            decoration: BoxDecoration(color: context.colors.surface, shape: BoxShape.circle, boxShadow: kSoftShadow),
+            child: IconButton(
+              tooltip: l10n.notificationsTitle,
+              onPressed: () => context.push('/notifications'),
+              icon: Badge.count(
+                count: unread,
+                isLabelVisible: unread > 0,
+                backgroundColor: context.palette.brass,
+                textColor: AppPalette.ink,
+                child: const Icon(Icons.notifications_none_rounded),
+              ),
             ),
           ),
         const Gap(AppSpace.xs),
@@ -111,35 +126,59 @@ class _HomeHeader extends ConsumerWidget {
             children: [
               const BranchPill(),
               const Gap(AppSpace.xs),
-              Semantics(
-                button: true,
-                label: l10n.searchHint,
-                child: InkWell(
-                  borderRadius: AppRadius.inputAll,
-                  onTap: () => context.push('/search'),
-                  child: Container(
-                    height: 52,
-                    padding: const EdgeInsetsDirectional.symmetric(horizontal: AppSpace.md),
-                    decoration: BoxDecoration(
-                      color: context.colors.surface,
-                      borderRadius: AppRadius.inputAll,
-                      border: Border.all(color: context.palette.line),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.search_rounded, color: context.palette.muted),
-                        const Gap(AppSpace.sm),
-                        Expanded(
-                          child: Text(
-                            l10n.searchHint,
-                            overflow: TextOverflow.ellipsis,
-                            style: context.text.bodyMedium?.copyWith(color: context.palette.muted),
+              Row(
+                children: [
+                  Expanded(
+                    child: Semantics(
+                      button: true,
+                      label: l10n.searchHint,
+                      child: InkWell(
+                        borderRadius: AppRadius.inputAll,
+                        onTap: () => context.push('/search'),
+                        child: Container(
+                          height: 52,
+                          padding: const EdgeInsetsDirectional.symmetric(horizontal: AppSpace.md),
+                          decoration: BoxDecoration(
+                            color: context.colors.surface,
+                            borderRadius: AppRadius.inputAll,
+                            boxShadow: kSoftShadow,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.search_rounded, color: context.palette.muted),
+                              const Gap(AppSpace.sm),
+                              Expanded(
+                                child: Text(
+                                  l10n.searchHint,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: context.text.bodyMedium?.copyWith(color: context.palette.muted),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
+                  const Gap(AppSpace.sm),
+                  Semantics(
+                    button: true,
+                    label: l10n.searchHint,
+                    child: Material(
+                      color: context.colors.primary,
+                      borderRadius: AppRadius.inputAll,
+                      child: InkWell(
+                        borderRadius: AppRadius.inputAll,
+                        onTap: () => context.push('/search'),
+                        child: SizedBox(
+                          width: 52,
+                          height: 52,
+                          child: Icon(Icons.tune_rounded, color: context.colors.onPrimary),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -325,11 +364,51 @@ class _BannerCarouselState extends State<BannerCarousel> {
                   child: GestureDetector(
                     onTap: () => openHomeLink(context, b.link),
                     child: ClipRRect(
-                      borderRadius: AppRadius.lgAll,
+                      borderRadius: AppRadius.cardAll,
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          AppNetworkImage(url: b.imageUrl),
+                          if (b.imageUrl == null || b.imageUrl!.isEmpty)
+                            // No picture: the brand banner — navy gradient with soft gold discs.
+                            DecoratedBox(
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [AppPalette.navy, AppPalette.navySoft],
+                                ),
+                              ),
+                              child: Stack(
+                                children: [
+                                  PositionedDirectional(
+                                    end: -40,
+                                    top: -40,
+                                    child: Container(
+                                      width: 170,
+                                      height: 170,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: AppPalette.brass.withValues(alpha: 0.28),
+                                      ),
+                                    ),
+                                  ),
+                                  PositionedDirectional(
+                                    end: 30,
+                                    bottom: -60,
+                                    child: Container(
+                                      width: 120,
+                                      height: 120,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.white.withValues(alpha: 0.08),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            AppNetworkImage(url: b.imageUrl),
                           if (b.title != null || b.subtitle != null)
                             DecoratedBox(
                               decoration: BoxDecoration(
@@ -369,11 +448,26 @@ class _BannerCarouselState extends State<BannerCarousel> {
                                 ],
                                 if (b.link != null) ...[
                                   const Gap(AppSpace.sm),
-                                  Text(
-                                    context.l10n.shopNow.toUpperCase(),
-                                    style: context.text.labelSmall?.copyWith(
-                                      color: AppPalette.brassTint,
-                                      letterSpacing: 2,
+                                  Container(
+                                    padding: const EdgeInsetsDirectional.symmetric(horizontal: 14, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: AppPalette.brass,
+                                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          context.l10n.shopNow,
+                                          style: context.text.labelMedium?.copyWith(
+                                            color: AppPalette.ink,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0,
+                                          ),
+                                        ),
+                                        const Gap(4),
+                                        const Icon(Icons.arrow_forward_rounded, size: 16, color: AppPalette.ink),
+                                      ],
                                     ),
                                   ),
                                 ],
@@ -401,7 +495,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
                   width: i == _index ? 18 : 6,
                   height: 6,
                   decoration: BoxDecoration(
-                    color: i == _index ? context.palette.brass : context.palette.line,
+                    color: i == _index ? context.colors.primary : context.palette.line,
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
@@ -413,47 +507,62 @@ class _BannerCarouselState extends State<BannerCarousel> {
   }
 }
 
+/// Category tiles: soft white squares with a line icon (or the category picture) above the name.
 class _CategoryChips extends StatelessWidget {
   const _CategoryChips({required this.categories});
   final List<CatalogCategory> categories;
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    height: 120,
+    height: 104,
     child: ListView.separated(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsetsDirectional.symmetric(horizontal: AppSpace.gutter),
       itemCount: categories.length,
-      separatorBuilder: (_, _) => const Gap(AppSpace.md),
+      separatorBuilder: (_, _) => const Gap(10),
       itemBuilder: (context, i) {
         final c = categories[i];
+        final image = c.imageUrl ?? c.iconUrl;
         return Semantics(
           button: true,
           label: c.name,
           excludeSemantics: true,
-          child: InkWell(
-            borderRadius: AppRadius.cardAll,
-            onTap: () => context.push('/categories/${c.id}'),
-            child: SizedBox(
-              width: 80,
-              child: Column(
-                children: [
-                  ClipOval(
-                    child: SizedBox(
-                      width: 72,
-                      height: 72,
-                      child: AppNetworkImage(url: c.imageUrl ?? c.iconUrl, width: 72, height: 72),
+          child: Material(
+            color: context.colors.surface,
+            borderRadius: AppRadius.inputAll,
+            elevation: 0,
+            child: InkWell(
+              borderRadius: AppRadius.inputAll,
+              onTap: () => context.push('/categories/${c.id}'),
+              child: Container(
+                width: 88,
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+                decoration: BoxDecoration(
+                  borderRadius: AppRadius.inputAll,
+                  border: Border.all(color: context.palette.line),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (image != null && image.isNotEmpty)
+                      AppNetworkImage(url: image, width: 40, height: 40, borderRadius: BorderRadius.circular(12))
+                    else
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(color: AppPalette.tint, borderRadius: BorderRadius.circular(12)),
+                        child: Icon(Icons.category_outlined, size: 22, color: context.colors.primary),
+                      ),
+                    const Gap(AppSpace.xs),
+                    Text(
+                      c.name,
+                      maxLines: 2,
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.text.labelMedium?.copyWith(fontSize: 12, height: 1.2),
                     ),
-                  ),
-                  const Gap(AppSpace.xs),
-                  Text(
-                    c.name,
-                    maxLines: 2,
-                    textAlign: TextAlign.center,
-                    overflow: TextOverflow.ellipsis,
-                    style: context.text.labelMedium,
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

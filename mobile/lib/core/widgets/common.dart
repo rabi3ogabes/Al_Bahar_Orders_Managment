@@ -30,12 +30,19 @@ class AppNetworkImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    // On-brand tile while there is no photo (never an empty grey box): warm gradient + a quiet line icon.
     Widget fallback() => Container(
       width: width,
       height: height,
-      color: palette.surfaceMuted,
       alignment: Alignment.center,
-      child: Icon(Icons.chair_outlined, color: palette.muted.withValues(alpha: 0.6), size: 28),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [palette.brassTint, palette.surfaceMuted],
+        ),
+      ),
+      child: Icon(Icons.inventory_2_outlined, color: context.colors.primary.withValues(alpha: 0.55), size: 30),
     );
 
     Widget image;

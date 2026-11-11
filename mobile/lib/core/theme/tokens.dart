@@ -1,34 +1,45 @@
 import 'package:flutter/material.dart';
 
-/// Brand palette — warm ivory & sand, deep charcoal-navy ink, brass accent.
+/// Brand palette — "Ivory Navy": ivory screens, white soft cards, deep navy primary, gold accent.
+/// (Names such as `ink`/`brass` are kept for the whole code base; their values follow the soft-card design.)
 abstract final class AppPalette {
   // Light
-  static const ivory = Color(0xFFF8F4EE);
-  static const sand = Color(0xFFEFE6D8);
-  static const sandDeep = Color(0xFFE2D5C1);
-  static const paper = Color(0xFFFFFDF9);
-  static const ink = Color(0xFF1D2330);
-  static const inkSoft = Color(0xFF3A4252);
-  static const muted = Color(0xFF6B6F78);
-  static const line = Color(0xFFE6DDCF);
-  static const brass = Color(0xFFB08D57);
-  static const brassDeep = Color(0xFF8A6A3A);
-  static const brassTint = Color(0xFFF2E8D8);
+  static const ivory = Color(0xFFFAF7F2); // screen background
+  static const sand = Color(0xFFEDE7DD); // segmented tracks, neutral wells
+  static const sandDeep = Color(0xFFE2D9CB);
+  static const paper = Color(0xFFFFFFFF); // card surface
+  static const canvas = Color(0xFFEFE9E0);
+  static const ink = Color(0xFF14263A); // text
+  static const inkSoft = Color(0xFF3A4A5E);
+  static const navy = Color(0xFF16324F); // primary (buttons, active tab, prices)
+  static const navySoft = Color(0xFF24507A);
+  static const tint = Color(0xFFEEF2F6); // icon wells, selected tiles, info strips
+  static const muted = Color(0xFF6B7280);
+  static const line = Color(0xFFE9E4DA);
+  static const brass = Color(0xFFC4894A); // gold accent (fills)
+  static const brassDeep = Color(0xFF9A6428); // gold for text on light surfaces (AA)
+  static const brassTint = Color(0xFFFBF3E8);
+  static const goldSoft = Color(0xFFE7C894); // gold on navy
 
   // Semantic
-  static const success = Color(0xFF3F7A57);
-  static const warning = Color(0xFFB4781F);
-  static const danger = Color(0xFFB0453A);
-  static const info = Color(0xFF3E5C80);
+  static const success = Color(0xFF1F7A4D);
+  static const successTint = Color(0xFFDDF3E6);
+  static const warning = Color(0xFF9A5F0F);
+  static const warningTint = Color(0xFFFCE9CF);
+  static const danger = Color(0xFFB42323);
+  static const dangerTint = Color(0xFFFDE2E2);
+  static const info = Color(0xFF1F5FAD);
+  static const infoTint = Color(0xFFDCEBFB);
 
   // Dark
-  static const nightBg = Color(0xFF121419);
-  static const nightSurface = Color(0xFF1A1D24);
-  static const nightSurfaceHigh = Color(0xFF232731);
+  static const nightBg = Color(0xFF0F1722);
+  static const nightSurface = Color(0xFF172131);
+  static const nightSurfaceHigh = Color(0xFF212C3F);
   static const nightInk = Color(0xFFF1ECE3);
-  static const nightMuted = Color(0xFFA7A29A);
-  static const nightLine = Color(0xFF2E333D);
-  static const nightBrass = Color(0xFFCDAA70);
+  static const nightMuted = Color(0xFFA6B0BE);
+  static const nightLine = Color(0xFF2B3649);
+  static const nightBrass = Color(0xFFD9A55F);
+  static const nightNavy = Color(0xFF9DB9D9);
 }
 
 /// 8-pt spacing scale.
@@ -48,16 +59,21 @@ abstract final class AppSpace {
 
 abstract final class AppRadius {
   static const double sm = 10;
-  static const double input = 14;
-  static const double card = 16;
-  static const double lg = 20;
+  static const double image = 14;
+  static const double input = 16;
+  static const double card = 20;
+  static const double lg = 24;
   static const double sheet = 28;
   static const double pill = 999;
 
   static const cardAll = BorderRadius.all(Radius.circular(card));
   static const lgAll = BorderRadius.all(Radius.circular(lg));
   static const inputAll = BorderRadius.all(Radius.circular(input));
+  static const imageAll = BorderRadius.all(Radius.circular(image));
 }
+
+/// Soft card shadow from the design ("0 8px 24px rgba(16,24,40,.06)").
+const List<BoxShadow> kSoftShadow = [BoxShadow(color: Color(0x0F101828), blurRadius: 24, offset: Offset(0, 8))];
 
 abstract final class AppDurations {
   static const fast = Duration(milliseconds: 150);
@@ -106,21 +122,21 @@ class AppColors extends ThemeExtension<AppColors> {
     warning: AppPalette.warning,
     danger: AppPalette.danger,
     info: AppPalette.info,
-    skeletonBase: Color(0xFFEDE5D8),
-    skeletonHighlight: Color(0xFFF8F3EA),
+    skeletonBase: Color(0xFFEDE7DD),
+    skeletonHighlight: Color(0xFFF7F3EC),
   );
 
   static const dark = AppColors(
     brass: AppPalette.nightBrass,
-    brassTint: Color(0xFF2D2719),
+    brassTint: Color(0xFF2B2418),
     ink: AppPalette.nightInk,
     muted: AppPalette.nightMuted,
     line: AppPalette.nightLine,
     surfaceMuted: AppPalette.nightSurfaceHigh,
     success: Color(0xFF6FB48A),
     warning: Color(0xFFE0A84F),
-    danger: Color(0xFFE07A6E),
-    info: Color(0xFF8AA8CF),
+    danger: Color(0xFFE88A80),
+    info: Color(0xFF8AB0E0),
     skeletonBase: Color(0xFF242832),
     skeletonHighlight: Color(0xFF2F3440),
   );

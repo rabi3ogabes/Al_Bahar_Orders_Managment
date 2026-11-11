@@ -124,7 +124,7 @@ class LanguageScreen extends ConsumerWidget {
                     Text(
                       label,
                       style: context.text.headlineSmall?.copyWith(
-                        fontFamily: code == 'ar' ? 'IBMPlexSansArabic' : 'PlayfairDisplay',
+                        fontFamily: code == 'ar' ? 'IBMPlexSansArabic' : 'Inter',
                       ),
                     ),
                     const Gap(AppSpace.xxs),

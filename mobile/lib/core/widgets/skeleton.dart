@@ -80,15 +80,15 @@ class ProductCardSkeleton extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       AspectRatio(
-        aspectRatio: 4 / 5,
+        aspectRatio: 1,
         child: Skeleton(radius: AppRadius.card),
       ),
       Gap(AppSpace.sm),
-      Skeleton(width: 70, height: 10),
-      Gap(AppSpace.xs),
       Skeleton(height: 14),
       Gap(AppSpace.xs),
-      Skeleton(width: 90, height: 14),
+      Skeleton(width: 70, height: 10),
+      Gap(AppSpace.xs),
+      Skeleton(width: 90, height: 16),
     ],
   );
 }

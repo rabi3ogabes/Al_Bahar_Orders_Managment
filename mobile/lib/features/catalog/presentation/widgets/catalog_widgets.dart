@@ -80,11 +80,13 @@ class ProductCarousel extends StatelessWidget {
     final width = MediaQuery.sizeOf(context).width;
     final cardWidth = width >= 900 ? 220.0 : (width >= 600 ? 200.0 : 164.0);
     final textScale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.6);
+    // Square image tile + details, plus room above/below so the soft card shadow is not clipped.
     return SizedBox(
-      height: cardWidth * 5 / 4 + 116 * textScale,
+      height: cardWidth + 120 * textScale + 28,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsetsDirectional.symmetric(horizontal: AppSpace.gutter),
+        clipBehavior: Clip.none,
+        padding: const EdgeInsetsDirectional.fromSTEB(AppSpace.gutter, 4, AppSpace.gutter, 24),
         itemCount: products.length,
         separatorBuilder: (_, _) => const Gap(AppSpace.md),
         itemBuilder: (_, i) => ProductTile(product: products[i], heroScope: scope, width: cardWidth),
@@ -99,11 +101,11 @@ class ProductCarouselSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    height: 164 * 5 / 4 + 116,
+    height: 164 + 120 + 28,
     child: ListView.separated(
       scrollDirection: Axis.horizontal,
       physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsetsDirectional.symmetric(horizontal: AppSpace.gutter),
+      padding: const EdgeInsetsDirectional.fromSTEB(AppSpace.gutter, 4, AppSpace.gutter, 24),
       itemCount: 4,
       separatorBuilder: (_, _) => const Gap(AppSpace.md),
       itemBuilder: (_, _) => const SizedBox(width: 164, child: ProductCardSkeleton()),

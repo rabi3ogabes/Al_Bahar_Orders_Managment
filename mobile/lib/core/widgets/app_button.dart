@@ -72,7 +72,7 @@ class AppButton extends StatelessWidget {
 
     final fg = switch (variant) {
       AppButtonVariant.primary => context.colors.onPrimary,
-      AppButtonVariant.accent => Colors.white,
+      AppButtonVariant.accent => AppPalette.ink,
       AppButtonVariant.destructive => Colors.white,
       _ => context.colors.onSurface,
     };
@@ -102,7 +102,7 @@ class AppButton extends StatelessWidget {
         onPressed: enabled ? handle : null,
         style: FilledButton.styleFrom(
           backgroundColor: palette.brass,
-          foregroundColor: Colors.white,
+          foregroundColor: AppPalette.ink,
           disabledBackgroundColor: palette.ink.withValues(alpha: 0.10),
           disabledForegroundColor: palette.ink.withValues(alpha: 0.40),
         ),
