@@ -54,7 +54,7 @@ class DemoSeeder extends Seeder
         });
     }
 
-    private function branches(): array
+    protected function branches(): array
     {
         $svc = app(BranchService::class);
         $defs = [
@@ -84,7 +84,7 @@ class DemoSeeder extends Seeder
         return $out;
     }
 
-    private function zones(array $b): void
+    protected function zones(array $b): void
     {
         $zones = [
             ['DOHA-C', 'Central Doha', 'وسط الدوحة', '1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27'],
@@ -141,7 +141,7 @@ class DemoSeeder extends Seeder
             'password' => self::PASSWORD, 'phone_verified_at' => now(), 'locale' => 'ar', 'referral_code' => 'ABNOOR01', 'marketing_consent_at' => now()]);
     }
 
-    private function catalog(array $b): void
+    protected function catalog(array $b): void
     {
         $cats = app(CategoryService::class);
         $tree = [
@@ -237,7 +237,7 @@ class DemoSeeder extends Seeder
     }
 
     /** Demo cost price ≈ 55% of retail. */
-    private static function cost(string $price): string
+    protected static function cost(string $price): string
     {
         return Money::of($price)->percent('55')->toDecimal();
     }

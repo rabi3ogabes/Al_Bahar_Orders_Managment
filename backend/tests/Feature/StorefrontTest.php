@@ -75,3 +75,22 @@ it('loads the sample catalogue without creating any account, even in production'
     app(DemoSeeder::class)->run();
     expect(User::count())->toBe($users);
 });
+
+it('ships a consistent bilingual market catalogue file', function () {
+    $c = json_decode(file_get_contents(database_path('data/market_catalog.json')), true, flags: JSON_THROW_ON_ERROR);
+    $cats = collect($c['categories'])->pluck('slug');
+    $brands = collect($c['brands'])->pluck('slug');
+    $skus = collect($c['products'])->pluck('sku');
+
+    expect($c['products'])->not->toBeEmpty()
+        ->and($skus->unique()->count())->toBe($skus->count())
+        ->and($cats->unique()->count())->toBe($cats->count());
+
+    foreach ($c['products'] as $p) {
+        expect($cats)->toContain($p['category']);
+        expect($p['brand'] === null || $brands->contains($p['brand']))->toBeTrue();
+        expect($p['name_en'])->not->toBe('')->and($p['name_ar'])->not->toBe('')->and($p['desc_en'])->not->toBe('')->and($p['desc_ar'])->not->toBe('');
+        expect($p['price'])->toBeGreaterThan(0);
+        expect($p['sale_price'] === null || $p['sale_price'] < $p['price'])->toBeTrue();
+    }
+});
