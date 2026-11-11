@@ -16,7 +16,13 @@ COPY storefront/ ./
 RUN npm run build
 
 # Customer app for the web (Flutter) → /mobile-web. Same-origin API, no CDN, no push.
-FROM ghcr.io/cirruslabs/flutter:stable AS mobileweb
+# Flutter is pinned to the version the app is developed and tested with (Dart 3.13.x).
+FROM debian:bookworm-slim AS mobileweb
+ARG FLUTTER_VERSION=3.47.9
+RUN apt-get update && apt-get install -y --no-install-recommends git curl unzip xz-utils ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN git clone --depth 1 --branch ${FLUTTER_VERSION} https://github.com/flutter/flutter.git /opt/flutter
+ENV PATH=/opt/flutter/bin:$PATH FLUTTER_SUPPRESS_ANALYTICS=true CI=true
+RUN git config --global --add safe.directory /opt/flutter && flutter config --no-analytics --enable-web && flutter precache --web
 WORKDIR /app
 COPY mobile/pubspec.yaml mobile/pubspec.lock ./
 RUN flutter pub get
