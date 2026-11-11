@@ -59,6 +59,13 @@
                             <input type="checkbox" wire:model="form.{{ $field }}" class="checkbox">
                         </label>
                     @endforeach
+                    <x-admin.field :label="__('branches.dispatch_mode')">
+                        <select wire:model="form.dispatch_mode" class="input">
+                            <option value="manual">{{ __('branches.dispatch_manual') }}</option>
+                            <option value="auto">{{ __('branches.dispatch_auto') }}</option>
+                        </select>
+                        <p class="mt-1 text-xs text-muted">{{ __('branches.dispatch_hint') }}</p>
+                    </x-admin.field>
                     <x-admin.field :label="__('branches.tenders')">
                         <div class="flex gap-4 text-sm">
                             <label class="flex items-center gap-2"><input type="checkbox" value="cash" wire:model="form.pay_at_pickup_tenders" class="checkbox">{{ __('branches.cash') }}</label>

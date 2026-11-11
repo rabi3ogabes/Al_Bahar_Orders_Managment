@@ -75,6 +75,34 @@ class DeliveryService
         return $delivery->fresh();
     }
 
+    /** Delivery created by the system (auto dispatch), without a staff actor. */
+    public function createSystem(OrderFulfillment $f): Delivery
+    {
+        $codAmount = $f->order->payment_method === 'cod' ? $f->order->grand_total : '0.00';
+        $scheduledFor = $f->delivery_slot_id && $f->slot_date ? $this->slots->startsAt($f->delivery_slot_id, $f->slot_date->toDateString()) : null;
+        $delivery = Delivery::create([
+            'order_fulfillment_id' => $f->id, 'branch_id' => $f->branch_id, 'mode' => 'internal', 'status' => DS::Pending,
+            'tracking_number' => 'ABD'.now()->format('ymd').Str::upper(Str::random(6)), 'quoted_fee' => $f->delivery_fee,
+            'cod_amount' => $codAmount, 'requires_proof' => true, 'scheduled_for' => $scheduledFor ? BusinessTime::toUtc($scheduledFor) : null,
+        ]);
+        $this->log($delivery, null, DS::Pending, null, 'system', 'created automatically');
+
+        return $delivery;
+    }
+
+    /** Auto dispatch: assigns an eligible driver without a staff actor (eligibility is still enforced). */
+    public function assignSystem(Delivery $delivery, User $driver): Delivery
+    {
+        $isDriver = BranchEmployee::where('branch_id', $delivery->branch_id)->where('user_id', $driver->id)->where('is_active', true)->where('is_delivery_driver', true)->exists();
+        if (! $isDriver || ! $driver->isActive()) {
+            throw DomainException::make('driver_not_eligible', 422);
+        }
+        $delivery->update(['driver_id' => $driver->id, 'assigned_at' => now(), 'mode' => 'internal']);
+        $this->transition($delivery, DS::Assigned, null, 'system', 'auto-assigned to '.$driver->name, system: true);
+
+        return $delivery->fresh();
+    }
+
     /** Create the courier booking; provider errors/timeouts are stored safely and can be retried. */
     public function book(Delivery $delivery): Delivery
     {

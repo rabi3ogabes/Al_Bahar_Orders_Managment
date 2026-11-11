@@ -140,6 +140,7 @@ class OrderOpsController extends ApiController
         $u = $this->user();
         $d = match ($action) {
             'assign' => $svc->assignDriver($delivery, User::findOrFail($request->validate(['driver_id' => 'required|uuid'])['driver_id']), $u),
+            'accept' => $svc->accept($delivery, $u),
             'pickup' => $svc->pickUp($delivery, $u),
             'out-for-delivery' => $svc->outForDelivery($delivery, $u, $request->float('latitude') ?: null, $request->float('longitude') ?: null),
             'deliver' => $svc->deliver($delivery, $u, $request->input('recipient_name'), $request->file('proof'), $request->input('proof_type', 'photo'),

@@ -34,6 +34,7 @@ class BranchRequest extends FormRequest
             'opening_status' => ['sometimes', 'in:open,temporarily_closed'],
             'pickup_enabled' => ['sometimes', 'boolean'],
             'delivery_enabled' => ['sometimes', 'boolean'],
+            'dispatch_mode' => ['sometimes', 'in:manual,auto'],
             'cod_enabled' => ['sometimes', 'boolean'],
             'pay_at_pickup_enabled' => ['sometimes', 'boolean'],
             'pay_at_pickup_tenders' => ['nullable', 'array'],

@@ -61,7 +61,7 @@ class BranchEditor extends Component
         } else {
             abort_unless($acl->allowsGlobally(auth()->user(), 'branches.create'), 403);
             $this->form = ['code' => '', 'name_en' => '', 'name_ar' => '', 'status' => 'active', 'opening_status' => 'open', 'pickup_enabled' => true,
-                'delivery_enabled' => true, 'cod_enabled' => true, 'pay_at_pickup_enabled' => true, 'pay_at_pickup_tenders' => ['cash', 'card_terminal'],
+                'delivery_enabled' => true, 'dispatch_mode' => 'manual', 'cod_enabled' => true, 'pay_at_pickup_enabled' => true, 'pay_at_pickup_tenders' => ['cash', 'card_terminal'],
                 'pickup_preparation_minutes' => 60, 'sort_order' => 0, 'is_fulfillment_hub' => false];
         }
         foreach (range(0, 6) as $d) {

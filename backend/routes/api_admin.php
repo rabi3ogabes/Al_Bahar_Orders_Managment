@@ -70,7 +70,7 @@ Route::controller(V1\Admin\OrderOpsController::class)->group(function () {
     Route::post('pickup/verify', 'pickupVerify')->middleware('permission:pickup.view')->name('pickup.verify');
     Route::post('pickup/{reservation}/handover', 'pickupHandover')->middleware('permission:pickup.approve')->name('pickup.handover');
     Route::post('fulfillments/{fulfillment}/deliveries', 'createDelivery')->middleware('permission:deliveries.create')->name('deliveries.store');
-    Route::post('deliveries/{delivery}/{action}', 'deliveryAction')->middleware('permission:deliveries.edit')->whereIn('action', ['assign', 'pickup', 'out-for-delivery', 'deliver', 'fail', 'reschedule', 'return', 'cancel', 'retry-booking'])->name('deliveries.action');
+    Route::post('deliveries/{delivery}/{action}', 'deliveryAction')->middleware('permission:deliveries.edit')->whereIn('action', ['assign', 'accept', 'pickup', 'out-for-delivery', 'deliver', 'fail', 'reschedule', 'return', 'cancel', 'retry-booking'])->name('deliveries.action');
     Route::get('me/deliveries', 'myDeliveries')->middleware('permission:deliveries.view')->name('deliveries.mine');
     Route::post('payments/{payment}/collections', 'collect')->middleware('permission:payments.create')->name('payments.collect');
     Route::post('payments/{payment}/refunds', 'requestRefund')->middleware('permission:refunds.create')->name('refunds.store');
@@ -104,4 +104,16 @@ Route::controller(V1\Admin\ReportAdminController::class)->group(function () {
     Route::post('exports', 'export')->middleware(['permission:reports.export', 'throttle:exports'])->name('exports.store');
     Route::get('exports', 'exports')->middleware('permission:reports.export')->name('exports.index');
     Route::get('exports/{export}/download', 'download')->middleware('permission:reports.export')->name('exports.download');
+});
+
+// ── Mobile dispatch (driver app + branch staff app) ──────────────────────────
+Route::controller(V1\Admin\DispatchController::class)->prefix('dispatch')->name('dispatch.')->group(function () {
+    Route::get('driver', 'driver')->name('driver');
+    Route::put('driver/duty', 'duty')->name('driver.duty');
+    Route::post('driver/location', 'location')->middleware('throttle:60,1')->name('driver.location');
+    Route::get('driver/jobs', 'jobs')->name('driver.jobs');
+    Route::get('overview', 'overview')->middleware('permission:orders.view')->name('overview');
+    Route::get('queue', 'queue')->middleware('permission:orders.view')->name('queue');
+    Route::get('drivers', 'drivers')->middleware('permission:deliveries.view')->name('drivers');
+    Route::post('fulfillments/{fulfillment}/assign', 'assign')->middleware('permission:deliveries.assign')->name('assign');
 });
