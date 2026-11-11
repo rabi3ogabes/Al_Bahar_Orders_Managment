@@ -65,13 +65,13 @@ it('loads the sample catalogue without creating any account, even in production'
     $this->app['env'] = 'production';
     $users = User::count();
 
-    $this->seed(DemoCatalogSeeder::class);
+    app(DemoCatalogSeeder::class)->run();
 
     expect(Branch::where('code', 'WB')->exists())->toBeTrue()
         ->and(Product::count())->toBeGreaterThan(5)
         ->and(User::count())->toBe($users);
 
     // The regular demo seeder still refuses in production.
-    $this->seed(DemoSeeder::class);
+    app(DemoSeeder::class)->run();
     expect(User::count())->toBe($users);
 });
