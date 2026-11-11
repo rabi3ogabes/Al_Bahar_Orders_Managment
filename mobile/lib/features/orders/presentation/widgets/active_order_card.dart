@@ -157,6 +157,18 @@ class _Card extends StatelessWidget {
                   ),
               ],
             ),
+            if (order.status == 'out_for_delivery') ...[
+              const Gap(AppSpace.sm),
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: FilledButton.icon(
+                  onPressed: () => context.push('/orders/${order.id}/track'),
+                  icon: const Icon(Icons.location_on_rounded),
+                  label: Text(l10n.trackOrder),
+                ),
+              ),
+            ],
           ],
         ),
       ),

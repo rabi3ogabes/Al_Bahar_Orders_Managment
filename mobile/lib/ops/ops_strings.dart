@@ -30,6 +30,8 @@ class OpsStrings {
   String get offDuty => _t('Off duty', 'غير متواجد');
   String get dutyOnHint => _t('You will receive deliveries from your branches.', 'ستصلك طلبات التوصيل من فروعك.');
   String get dutyOffHint => _t('Go on duty to receive deliveries.', 'فعّل التواجد لاستلام الطلبات.');
+  String get trackingTitle => _t('Sharing your live location', 'مشاركة موقعك المباشر');
+  String get trackingBody => _t('Customers and dispatch can follow your delivery.', 'يتابع العملاء والمرسل توصيلك.');
   String get myJobs => _t('My deliveries', 'توصيلاتي');
   String get history => _t('History', 'السجل');
   String get noJobs => _t('No deliveries yet', 'لا توجد توصيلات الآن');

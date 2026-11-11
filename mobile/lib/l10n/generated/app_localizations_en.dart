@@ -2092,4 +2092,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String orderMoreCount(int count) {
     return '+$count more';
   }
+
+  @override
+  String get trackOrder => 'Track order';
+
+  @override
+  String get trackTitle => 'Live tracking';
+
+  @override
+  String get trackDriverOnWay => 'Your driver is on the way';
+
+  @override
+  String get trackWaiting => 'Your driver will appear here once the order is picked up';
+
+  @override
+  String get trackYou => 'Delivery address';
+
+  @override
+  String get trackBranch => 'Branch';
+
+  @override
+  String get trackUpdated => 'Updated live';
 }

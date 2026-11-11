@@ -62,6 +62,8 @@ class OrderRepository {
     );
   }
 
+  Future<OrderTracking> tracking(String id) => _api.getObject('/orders/$id/tracking', OrderTracking.fromJson);
+
   Future<Order> get(String id) => _api.getObject('/orders/$id', Order.fromJson);
 
   Future<List<TimelineEntry>> timeline(String id) => _api.getList('/orders/$id/timeline', TimelineEntry.fromJson);

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:albahar_customer/core/realtime/pusher_client.dart';
@@ -7,6 +8,7 @@ import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/auctions/data/auction_repository.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
+import 'package:albahar_customer/ops/driver/driver_tracker.dart';
 import 'package:albahar_customer/ops/ops_app.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_repository.dart';
@@ -40,7 +42,7 @@ class DriverHome extends ConsumerStatefulWidget {
 }
 
 class _DriverHomeState extends ConsumerState<DriverHome> with OpsPolling {
-  int _beat = 0;
+  late final DriverTracker _tracker = DriverTracker(ref.read(opsRepositoryProvider));
 
   @override
   void initState() {
@@ -48,18 +50,23 @@ class _DriverHomeState extends ConsumerState<DriverHome> with OpsPolling {
     startPolling(every: const Duration(seconds: 60), () {
       ref.invalidate(driverJobsProvider(false));
       ref.invalidate(driverMeProvider);
-      // Every third tick (about a minute) tell the server where this driver is while on duty.
-      if (++_beat % 3 == 0) _sendPosition();
     });
   }
 
-  Future<void> _sendPosition() async {
-    if (ref.read(driverMeProvider).value?.onDuty != true) return;
-    final pos = await ref.read(locationServiceProvider).currentPosition();
-    if (pos == null) return;
-    try {
-      await ref.read(opsRepositoryProvider).heartbeat(pos.lat, pos.lng);
-    } catch (_) {}
+  @override
+  void dispose() {
+    unawaited(_tracker.stop());
+    super.dispose();
+  }
+
+  /// Live tracking runs exactly while the driver is on duty and location is allowed.
+  Future<void> _syncTracking(bool onDuty) async {
+    if (!onDuty) return _tracker.stop();
+    if (_tracker.running) return;
+    if (await ref.read(locationServiceProvider).ensurePermission() != LocationAccess.granted) return;
+    if (!mounted) return;
+    final t = OpsStrings.of(context);
+    await _tracker.start(title: t.trackingTitle, body: t.trackingBody);
   }
 
   Future<void> _toggleDuty(bool on) async {
@@ -79,6 +86,9 @@ class _DriverHomeState extends ConsumerState<DriverHome> with OpsPolling {
   Widget build(BuildContext context) {
     final t = OpsStrings.of(context);
     final me = ref.watch(driverMeProvider);
+    ref.listen(driverMeProvider.select((m) => m.value?.onDuty), (_, on) {
+      if (on != null) unawaited(_syncTracking(on));
+    });
     ref.listen(driverEventsProvider, (_, next) {
       final e = next.value;
       if (e == null || e.event != 'dispatch.updated') return;

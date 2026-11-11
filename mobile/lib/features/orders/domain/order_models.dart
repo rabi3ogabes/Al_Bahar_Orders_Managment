@@ -2,6 +2,7 @@ import 'package:albahar_customer/core/models/money.dart';
 import 'package:albahar_customer/core/utils/json.dart';
 import 'package:albahar_customer/features/checkout/domain/checkout_models.dart';
 import 'package:flutter/foundation.dart';
+import 'package:latlong2/latlong.dart';
 
 /// Row in `GET /orders` (`OrderPresenter::summary`).
 @immutable
@@ -294,3 +295,39 @@ class PickupPass {
 /// Cancellation reason codes (subset of the backend's list, which also has `payment_issue`).
 const cancelReasonCodes = ['changed_mind', 'ordered_by_mistake', 'delivery_too_long', 'found_better_price', 'other'];
 const returnReasonCodes = ['damaged', 'wrong_item', 'not_as_described', 'changed_mind', 'other'];
+
+/// Where the driver is right now (`GET /orders/{id}/tracking`); live moves arrive on `private-orders.{id}`.
+class OrderTracking {
+  const OrderTracking({
+    required this.tracking,
+    this.driverName,
+    this.driver,
+    this.destination,
+    this.branch,
+    this.status,
+  });
+
+  factory OrderTracking.fromJson(Map<String, dynamic> j) {
+    LatLng? pt(Object? o) {
+      if (o is! Map || o['lat'] == null || o['lng'] == null) return null;
+      return LatLng((o['lat'] as num).toDouble(), (o['lng'] as num).toDouble());
+    }
+
+    final d = j['driver'];
+    return OrderTracking(
+      tracking: j['tracking'] == true,
+      driverName: d is Map ? d['name']?.toString() : null,
+      driver: pt(d),
+      destination: pt(j['destination']),
+      branch: pt(j['branch']),
+      status: j['status']?.toString(),
+    );
+  }
+
+  final bool tracking;
+  final String? driverName;
+  final LatLng? driver;
+  final LatLng? destination;
+  final LatLng? branch;
+  final String? status;
+}

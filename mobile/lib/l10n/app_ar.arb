@@ -622,5 +622,12 @@
   "orderLiveOnTheWay": "طلبك في الطريق إليك",
   "orderLiveReady": "جاهز للاستلام",
   "orderNumberLabel": "الطلب {number}",
-  "orderMoreCount": "+{count} أخرى"
+  "orderMoreCount": "+{count} أخرى",
+  "trackOrder": "تتبّع الطلب",
+  "trackTitle": "التتبّع المباشر",
+  "trackDriverOnWay": "السائق في الطريق إليك",
+  "trackWaiting": "سيظهر السائق هنا بعد استلام الطلب",
+  "trackYou": "عنوان التوصيل",
+  "trackBranch": "الفرع",
+  "trackUpdated": "تحديث مباشر"
 }

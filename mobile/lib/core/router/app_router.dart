@@ -24,6 +24,7 @@ import 'package:albahar_customer/features/notifications/presentation/notificatio
 import 'package:albahar_customer/features/onboarding/presentation/onboarding_screens.dart';
 import 'package:albahar_customer/features/onboarding/presentation/state/onboarding_state.dart';
 import 'package:albahar_customer/features/orders/presentation/order_detail_screen.dart';
+import 'package:albahar_customer/features/orders/presentation/order_tracking_screen.dart';
 import 'package:albahar_customer/features/orders/presentation/orders_screen.dart';
 import 'package:albahar_customer/features/orders/presentation/pickup_pass_screen.dart';
 import 'package:albahar_customer/features/profile/presentation/account_screen.dart';
@@ -281,6 +282,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, s) =>
                 OrderDetailScreen(orderId: s.pathParameters['id']!, justPlaced: s.uri.queryParameters['placed'] == '1'),
             routes: [
+              GoRoute(
+                path: 'track',
+                builder: (_, s) => OrderTrackingScreen(orderId: s.pathParameters['id']!),
+              ),
               GoRoute(
                 path: 'pickup/:fid',
                 builder: (_, s) =>

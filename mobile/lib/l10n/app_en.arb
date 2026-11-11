@@ -1759,5 +1759,12 @@
         "type": "int"
       }
     }
-  }
+  },
+  "trackOrder": "Track order",
+  "trackTitle": "Live tracking",
+  "trackDriverOnWay": "Your driver is on the way",
+  "trackWaiting": "Your driver will appear here once the order is picked up",
+  "trackYou": "Delivery address",
+  "trackBranch": "Branch",
+  "trackUpdated": "Updated live"
 }

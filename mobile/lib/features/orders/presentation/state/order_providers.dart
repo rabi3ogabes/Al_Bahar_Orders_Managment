@@ -65,3 +65,7 @@ final activeOrdersProvider = FutureProvider.autoDispose<List<OrderSummary>>((ref
   if (!ref.watch(isAuthenticatedProvider)) return const [];
   return ref.watch(orderRepositoryProvider).active();
 });
+
+final orderTrackingProvider = FutureProvider.autoDispose.family<OrderTracking, String>(
+  (ref, id) => ref.watch(orderRepositoryProvider).tracking(id),
+);

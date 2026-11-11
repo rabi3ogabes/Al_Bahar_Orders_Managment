@@ -2126,4 +2126,25 @@ class AppLocalizationsAr extends AppLocalizations {
   String orderMoreCount(int count) {
     return '+$count أخرى';
   }
+
+  @override
+  String get trackOrder => 'تتبّع الطلب';
+
+  @override
+  String get trackTitle => 'التتبّع المباشر';
+
+  @override
+  String get trackDriverOnWay => 'السائق في الطريق إليك';
+
+  @override
+  String get trackWaiting => 'سيظهر السائق هنا بعد استلام الطلب';
+
+  @override
+  String get trackYou => 'عنوان التوصيل';
+
+  @override
+  String get trackBranch => 'الفرع';
+
+  @override
+  String get trackUpdated => 'تحديث مباشر';
 }

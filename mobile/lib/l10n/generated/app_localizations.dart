@@ -3829,6 +3829,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'+{count} more'**
   String orderMoreCount(int count);
+
+  /// No description provided for @trackOrder.
+  ///
+  /// In en, this message translates to:
+  /// **'Track order'**
+  String get trackOrder;
+
+  /// No description provided for @trackTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Live tracking'**
+  String get trackTitle;
+
+  /// No description provided for @trackDriverOnWay.
+  ///
+  /// In en, this message translates to:
+  /// **'Your driver is on the way'**
+  String get trackDriverOnWay;
+
+  /// No description provided for @trackWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Your driver will appear here once the order is picked up'**
+  String get trackWaiting;
+
+  /// No description provided for @trackYou.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery address'**
+  String get trackYou;
+
+  /// No description provided for @trackBranch.
+  ///
+  /// In en, this message translates to:
+  /// **'Branch'**
+  String get trackBranch;
+
+  /// No description provided for @trackUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated live'**
+  String get trackUpdated;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

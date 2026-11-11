@@ -41,8 +41,11 @@ class OpsRepository {
     return asBool(data['on_duty']);
   }
 
-  Future<void> heartbeat(double lat, double lng) async {
-    await _api.post('/admin/dispatch/driver/location', data: {'latitude': lat, 'longitude': lng});
+  Future<void> heartbeat(double lat, double lng, {double? speedKmh, int? heading, int? accuracy}) async {
+    await _api.post(
+      '/admin/dispatch/driver/location',
+      data: {'latitude': lat, 'longitude': lng, 'speed_kmh': ?speedKmh, 'heading': ?heading, 'accuracy': ?accuracy},
+    );
   }
 
   Future<List<DriverJob>> jobs({bool history = false}) =>
