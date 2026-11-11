@@ -36,7 +36,7 @@ class DispatchController extends ApiController
         $branches = Branch::whereIn('id', $this->dispatch->driverBranchIds($u))->get();
 
         return response()->json(['data' => [
-            'id' => $u->id, 'name' => $u->name, 'phone' => $u->phone, 'on_duty' => $p->on_duty,
+            'id' => $u->id, 'name' => $u->name, 'phone' => $u->phone, 'on_duty' => (bool) $p->on_duty,
             'branches' => $branches->map(fn (Branch $b) => ['id' => $b->id, 'name' => $b->localized('name'), 'dispatch_mode' => $b->dispatch_mode])->values(),
             'open_jobs' => Delivery::where('driver_id', $u->id)->whereIn('status', ['assigned', 'accepted', 'picked_up', 'out_for_delivery', 'rescheduled', 'failed'])->count(),
         ]]);

@@ -39,7 +39,7 @@ class DispatchService
 
     public function profile(User $driver): DriverProfile
     {
-        return DriverProfile::firstOrCreate(['user_id' => $driver->id]);
+        return DriverProfile::firstOrCreate(['user_id' => $driver->id], ['on_duty' => false]);
     }
 
     public function setDuty(User $driver, bool $onDuty, ?float $lat = null, ?float $lng = null): DriverProfile
@@ -74,8 +74,8 @@ class DispatchService
 
         return User::whereIn('id', $ids)->where('status', 'active')->get()->map(fn (User $u) => [
             'id' => $u->id, 'name' => $u->name, 'phone' => $u->phone,
-            'on_duty' => (bool) ($profiles[$u->id]->on_duty ?? false), 'open_jobs' => (int) ($load[$u->id] ?? 0),
-            'last_seen_at' => $profiles[$u->id]?->last_seen_at?->toIso8601String(),
+            'on_duty' => (bool) $profiles->get($u->id)?->on_duty, 'open_jobs' => (int) $load->get($u->id, 0),
+            'last_seen_at' => $profiles->get($u->id)?->last_seen_at?->toIso8601String(),
         ])->sortBy([['on_duty', 'desc'], ['open_jobs', 'asc'], ['name', 'asc']])->values();
     }
 

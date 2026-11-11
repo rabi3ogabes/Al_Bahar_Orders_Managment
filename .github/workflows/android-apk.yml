@@ -6,7 +6,8 @@ name: Android APK
 # The version/build/commit is baked into each app (customer: Settings -> About; driver and staff: sign-in screen footer).
 #
 # Runs automatically when the app changes on the development branch, or by hand from the Actions tab.
-# The APK is signed with the debug key until a release keystore is added (see android/app/build.gradle.kts).
+# Signing: with the repo secrets ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD set, the apps are
+# signed with the Play Store upload key and an .aab is attached; without them the debug key is used (see docs/operations/PLAY_STORE.md).
 on:
   workflow_dispatch:
   push:
@@ -53,9 +54,41 @@ jobs:
           echo "tag=${{ matrix.app }}-$NAME-b$BUILD" >> "$GITHUB_OUTPUT"
           echo "file=albahar-${{ matrix.app }}-$NAME-b$BUILD-$SHA.apk" >> "$GITHUB_OUTPUT"
 
+      - name: Release signing (Play Store upload key)
+        id: sign
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            {
+              echo "storeFile=$RUNNER_TEMP/release.jks"
+              echo "storePassword=$KS_PASS"
+              echo "keyAlias=$KEY_ALIAS"
+              echo "keyPassword=$KEY_PASS"
+            } > android/key.properties
+            echo "signed=release" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No release keystore secrets set: building with the debug key (not for the Play Store)."
+            echo "signed=debug" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build APK
         run: >
           flutter build apk --release --flavor ${{ matrix.app }}Prod -t ${{ matrix.entry }}
+          --build-name=${{ steps.v.outputs.name }} --build-number=${{ steps.v.outputs.build }}
+          --dart-define=FLAVOR=prod
+          --dart-define=API_BASE_URL=https://albahar.atharqatar.net/api/v1
+          --dart-define=PUSH_ENABLED=false
+          --dart-define=BUILD_SHA=${{ steps.v.outputs.sha }}
+
+      - name: Build app bundle (Play Store)
+        if: steps.sign.outputs.signed == 'release'
+        run: >
+          flutter build appbundle --release --flavor ${{ matrix.app }}Prod -t ${{ matrix.entry }}
           --build-name=${{ steps.v.outputs.name }} --build-number=${{ steps.v.outputs.build }}
           --dart-define=FLAVOR=prod
           --dart-define=API_BASE_URL=https://albahar.atharqatar.net/api/v1
@@ -67,6 +100,9 @@ jobs:
           ls -la build/app/outputs/flutter-apk/
           APK=$(ls build/app/outputs/flutter-apk/*-release.apk | head -1)
           cp "$APK" "$RUNNER_TEMP/${{ steps.v.outputs.file }}"
+          AAB=$(ls build/app/outputs/bundle/*/*.aab 2>/dev/null | head -1 || true)
+          if [ -n "$AAB" ]; then cp "$AAB" "$RUNNER_TEMP/${{ steps.v.outputs.file }}.aab"; fi
+          rm -f android/key.properties
 
       - name: Release notes
         run: |
@@ -82,16 +118,20 @@ jobs:
             echo "### What changed"
             if [ -n "$PREV" ]; then git log "$PREV"..HEAD --no-merges --pretty='- %s' -- . ../backend ../storefront | head -25; else git log -10 --no-merges --pretty='- %s'; fi
             echo
+            echo "- **Signing:** ${{ steps.sign.outputs.signed }} key$([ '${{ steps.sign.outputs.signed }}' = release ] && echo ' (Play Store upload key; the .aab file is the one to upload)')"
+            echo
             echo "Install: download the APK on an Android phone and allow installs from this source. A newer build installs over an older one of the same app. The three apps install side by side."
           } > "$RUNNER_TEMP/notes.md"
 
       - uses: actions/upload-artifact@v4
-        with: { name: '${{ steps.v.outputs.file }}', path: '${{ runner.temp }}/${{ steps.v.outputs.file }}' }
+        with: { name: '${{ steps.v.outputs.file }}', path: '${{ runner.temp }}/albahar-*' }
 
       - name: Publish release
         env: { GH_TOKEN: '${{ github.token }}' }
         run: |
-          gh release create "${{ steps.v.outputs.tag }}" "$RUNNER_TEMP/${{ steps.v.outputs.file }}" \
+          FILES=("$RUNNER_TEMP/${{ steps.v.outputs.file }}")
+          [ -f "$RUNNER_TEMP/${{ steps.v.outputs.file }}.aab" ] && FILES+=("$RUNNER_TEMP/${{ steps.v.outputs.file }}.aab")
+          gh release create "${{ steps.v.outputs.tag }}" "${FILES[@]}" \
             --repo "${{ github.repository }}" --target "${{ github.sha }}" --prerelease \
             --title "${{ matrix.title }} ${{ steps.v.outputs.name }} · build ${{ steps.v.outputs.build }} · ${{ steps.v.outputs.sha }}" \
             --notes-file "$RUNNER_TEMP/notes.md"

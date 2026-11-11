@@ -108,3 +108,15 @@ it('keeps staff of one branch out of another branch', function () {
     actingAsStaff(staffWithRole('order_manager', $w->a));
     $this->getJson('/api/v1/admin/dispatch/overview?branch_id='.$w->b->id)->assertStatus(403);
 });
+
+it('lists a branch driver who has never gone on duty (no profile row yet)', function () {
+    $w = commerceWorld();
+    $driver = staffWithRole('delivery_employee', null);
+    BranchEmployee::create(['branch_id' => $w->a->id, 'user_id' => $driver->id, 'is_active' => true, 'is_delivery_driver' => true]);
+    actingAsStaff(staffWithRole('order_manager', $w->a));
+
+    $this->getJson('/api/v1/admin/dispatch/overview?branch_id='.$w->a->id)->assertOk()->assertJsonPath('data.drivers_total', 1)->assertJsonPath('data.drivers_on_duty', 0);
+    $this->getJson('/api/v1/admin/dispatch/drivers?branch_id='.$w->a->id)->assertOk()->assertJsonPath('data.0.on_duty', false)->assertJsonPath('data.0.open_jobs', 0);
+    actingAsStaff($driver);
+    $this->getJson('/api/v1/admin/dispatch/driver')->assertOk()->assertJsonPath('data.on_duty', false);
+});
