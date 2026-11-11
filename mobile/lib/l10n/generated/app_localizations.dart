@@ -749,7 +749,7 @@ abstract class AppLocalizations {
   /// No description provided for @searchHint.
   ///
   /// In en, this message translates to:
-  /// **'Search sofas, lighting, rugs…'**
+  /// **'Search detergents, tissues, cleaning…'**
   String get searchHint;
 
   /// No description provided for @homeEmpty.
@@ -3721,6 +3721,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Pick a quantity for at least one colour'**
   String get pickAtLeastOne;
+
+  /// No description provided for @didYouMean.
+  ///
+  /// In en, this message translates to:
+  /// **'Did you mean “{term}”?'**
+  String didYouMean(String term);
+
+  /// No description provided for @searchSeeAll.
+  ///
+  /// In en, this message translates to:
+  /// **'See all results for “{term}”'**
+  String searchSeeAll(String term);
+
+  /// No description provided for @buyAgainTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Buy again'**
+  String get buyAgainTitle;
+
+  /// No description provided for @buyAgainAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get buyAgainAdd;
+
+  /// No description provided for @buyAgainBought.
+  ///
+  /// In en, this message translates to:
+  /// **'Bought {count} times'**
+  String buyAgainBought(int count);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

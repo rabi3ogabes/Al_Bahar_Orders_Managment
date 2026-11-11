@@ -29,7 +29,7 @@ class RebrandCatalog extends Command
         $total = 0;
         foreach (self::COLUMNS as $table => $columns) {
             foreach ($columns as $column) {
-                $pattern = "(al[ -]?marwah?|almarwah?|المروة|المروه)";
+                $pattern = '(al[ -]?marwah?|almarwah?|المروة|المروه)';
                 $matches = DB::table($table)->whereRaw("{$column} ~* ?", [$pattern])->count();
                 if ($matches === 0) {
                     continue;

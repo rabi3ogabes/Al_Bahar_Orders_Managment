@@ -109,7 +109,7 @@
   "sendResetCode": "إرسال رمز الاستعادة",
   "homeGreeting": "سعداء برؤيتك",
   "homeGreetingNamed": "مرحبًا {name}",
-  "searchHint": "ابحث عن كنب، إضاءة، سجاد…",
+  "searchHint": "ابحث عن منظفات، مناديل، تنظيف…",
   "homeEmpty": "نُجهّز تشكيلتنا الجديدة. عُد إلينا قريبًا.",
   "endsIn": "ينتهي خلال {time}",
   "startsIn": "يبدأ خلال {time}",
@@ -604,5 +604,10 @@
   "coloursHint": "اختر الكمية لكل لون",
   "addItemsToBag": "أضف {count} إلى الحقيبة",
   "colourOutOfStock": "غير متوفر",
-  "pickAtLeastOne": "اختر كمية للون واحد على الأقل"
+  "pickAtLeastOne": "اختر كمية للون واحد على الأقل",
+  "didYouMean": "هل تقصد «{term}»؟",
+  "searchSeeAll": "عرض كل النتائج لـ «{term}»",
+  "buyAgainTitle": "اشترِ مرة أخرى",
+  "buyAgainAdd": "أضف",
+  "buyAgainBought": "اشتريته {count} مرات"
 }

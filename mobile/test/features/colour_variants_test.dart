@@ -33,6 +33,7 @@ Map<String, Object?> _product({required bool twoColours}) => {
 };
 
 void main() {
+  _searchAndBuyAgainModels();
   test('a product sold in several colours exposes its colour attribute and one variant per colour', () {
     final p = ProductDetail.fromJson(_product(twoColours: true));
     expect(p.colourAttribute?.code, 'color');
@@ -42,5 +43,28 @@ void main() {
 
   test('a single colour keeps the normal flow (no per-colour quantities)', () {
     expect(ProductDetail.fromJson(_product(twoColours: false)).colourAttribute, isNull);
+  });
+}
+
+void _searchAndBuyAgainModels() {
+  test('search suggestions and buy-again items parse the API shape', () {
+    final s = SearchSuggestions.fromJson({
+      'query': 'lavendr',
+      'products': [],
+      'categories': [
+        {'id': 'c1', 'slug': 'dish', 'name': 'Dishwashing'},
+      ],
+      'brands': [],
+      'did_you_mean': 'lavender',
+    });
+    expect(s.didYouMean, 'lavender');
+    expect(s.isEmpty, isFalse);
+    final b = BuyAgainItem.fromJson({
+      'product': {'id': 'p1', 'name': 'Towel'},
+      'variant_id': 'v1',
+      'last_quantity': 3,
+      'times_ordered': 2,
+    });
+    expect([b.variantId, b.lastQuantity, b.timesOrdered], ['v1', 3, 2]);
   });
 }

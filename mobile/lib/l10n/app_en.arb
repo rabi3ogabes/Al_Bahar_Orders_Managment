@@ -260,7 +260,7 @@
       }
     }
   },
-  "searchHint": "Search sofas, lighting, rugs…",
+  "searchHint": "Search detergents, tissues, cleaning…",
   "@searchHint": {},
   "homeEmpty": "Our new collection is being arranged. Check back soon.",
   "@homeEmpty": {},
@@ -1706,5 +1706,31 @@
     }
   },
   "colourOutOfStock": "Out of stock",
-  "pickAtLeastOne": "Pick a quantity for at least one colour"
+  "pickAtLeastOne": "Pick a quantity for at least one colour",
+  "didYouMean": "Did you mean “{term}”?",
+  "searchSeeAll": "See all results for “{term}”",
+  "buyAgainTitle": "Buy again",
+  "buyAgainAdd": "Add",
+  "buyAgainBought": "Bought {count} times",
+  "@didYouMean": {
+    "placeholders": {
+      "term": {
+        "type": "String"
+      }
+    }
+  },
+  "@searchSeeAll": {
+    "placeholders": {
+      "term": {
+        "type": "String"
+      }
+    }
+  },
+  "@buyAgainBought": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

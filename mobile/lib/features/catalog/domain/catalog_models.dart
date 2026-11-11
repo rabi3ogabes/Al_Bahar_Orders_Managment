@@ -683,3 +683,54 @@ class ProductQuery {
     sort,
   );
 }
+
+/// Search-as-you-type result: products, matching categories and brands, and a typo correction.
+@immutable
+class SearchSuggestions {
+  const SearchSuggestions({
+    required this.query,
+    required this.products,
+    required this.categories,
+    required this.brands,
+    required this.didYouMean,
+  });
+
+  factory SearchSuggestions.fromJson(JsonMap json) => SearchSuggestions(
+    query: asString(json['query']),
+    products: mapList(json['products'], ProductSummary.fromJson),
+    categories: mapList(json['categories'], NamedRef.fromJson),
+    brands: mapList(json['brands'], NamedRef.fromJson),
+    didYouMean: asStringOrNull(json['did_you_mean']),
+  );
+
+  final String query;
+  final List<ProductSummary> products;
+  final List<NamedRef> categories;
+  final List<NamedRef> brands;
+  final String? didYouMean;
+
+  bool get isEmpty => products.isEmpty && categories.isEmpty && brands.isEmpty;
+}
+
+/// A product the customer has bought before, with the variant and quantity to re-add in one tap.
+@immutable
+class BuyAgainItem {
+  const BuyAgainItem({
+    required this.product,
+    required this.variantId,
+    required this.lastQuantity,
+    required this.timesOrdered,
+  });
+
+  factory BuyAgainItem.fromJson(JsonMap json) => BuyAgainItem(
+    product: ProductSummary.fromJson(asMap(json['product'])),
+    variantId: asString(json['variant_id']),
+    lastQuantity: asInt(json['last_quantity'], 1),
+    timesOrdered: asInt(json['times_ordered'], 1),
+  );
+
+  final ProductSummary product;
+  final String variantId;
+  final int lastQuantity;
+  final int timesOrdered;
+}

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Heart, Languages, MapPin, Menu, Moon, Search, ShoppingBag, Sun, User as UserIcon, X, Phone, Mail, ArrowRight, ArrowLeft, Truck, ShieldCheck, Gavel } from 'lucide-react';
+import { Heart, Languages, MapPin, Menu, Moon, Search, ShoppingBag, Sun, User as UserIcon, X, Phone, Mail, ArrowRight, ArrowLeft, Truck, ShieldCheck, Gavel, Sparkles } from 'lucide-react';
 import { get } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useBranch } from '../lib/branch';
@@ -10,7 +10,7 @@ import { useI18n } from '../lib/i18n';
 import { useTheme } from '../lib/theme';
 import { useDebounce } from '../lib/hooks';
 import { cx, telHref } from '../lib/format';
-import type { Category, Paged, ProductCard } from '../lib/types';
+import type { Category, ProductCard } from '../lib/types';
 import { useAuthModal } from './AuthModal';
 import { Button, Drawer, IconButton, Modal, Pic, PriceTag, QtyStepper, Spinner } from './ui';
 import { useToast } from '../lib/toast';
@@ -44,6 +44,8 @@ function useCategories() {
 }
 
 /* ───────────── Search ───────────── */
+interface Suggest { products: ProductCard[]; categories: { id: string; slug: string; name: string }[]; brands: { id: string; slug: string; name: string }[]; did_you_mean: string | null }
+
 function SearchOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useI18n();
   const nav = useNavigate();
@@ -53,8 +55,9 @@ function SearchOverlay({ open, onClose }: { open: boolean; onClose: () => void }
   const { branchId } = useBranch();
   const res = useQuery({
     queryKey: ['suggest', dq, branchId], enabled: open && dq.length >= 2,
-    queryFn: async () => (await get<Paged<ProductCard>>('/products', { q: dq, per_page: 6, branch_id: branchId })).data,
+    queryFn: async () => (await get<{ data: Suggest }>('/search/suggest', { q: dq, branch_id: branchId })).data,
   });
+  const products = res.data?.products ?? [];
   useEffect(() => { if (open) { setQ(''); setTimeout(() => ref.current?.focus(), 50); } }, [open]);
   useEffect(() => { if (!open) return; const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [open, onClose]);
   if (!open) return null;
@@ -70,10 +73,19 @@ function SearchOverlay({ open, onClose }: { open: boolean; onClose: () => void }
         </form>
         <div className="mt-5 min-h-24">
           {res.isFetching && <div className="flex justify-center py-6"><Spinner /></div>}
-          {!res.isFetching && dq.length >= 2 && res.data?.length === 0 && <p className="py-6 text-center text-muted">{t('search.none', { q: dq })}</p>}
-          {!res.isFetching && res.data && res.data.length > 0 && (
+          {res.data?.did_you_mean && (
+            <button onClick={() => setQ(res.data!.did_you_mean!)} className="mb-3 flex items-center gap-2 rounded-full bg-brass-tint px-4 py-2 text-sm font-medium text-brass-deep hover:underline"><Sparkles size={15} />{t('search.did_you_mean', { q: res.data.did_you_mean })}</button>
+          )}
+          {res.data && (res.data.categories.length > 0 || res.data.brands.length > 0) && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {res.data.categories.map((c) => <Link key={c.id} to={`/shop?category=${c.slug}`} onClick={onClose} className="rounded-full border border-line bg-paper px-3.5 py-1.5 text-sm hover:border-primary">{c.name}</Link>)}
+              {res.data.brands.map((b) => <Link key={b.id} to={`/shop?brand=${b.slug}`} onClick={onClose} className="rounded-full border border-line bg-paper px-3.5 py-1.5 text-sm text-muted hover:border-primary">{b.name}</Link>)}
+            </div>
+          )}
+          {!res.isFetching && dq.length >= 2 && res.data && products.length === 0 && !res.data.did_you_mean && <p className="py-6 text-center text-muted">{t('search.none', { q: dq })}</p>}
+          {!res.isFetching && products.length > 0 && (
             <ul className="divide-y divide-line">
-              {res.data.map((p) => (
+              {products.map((p) => (
                 <li key={p.id}>
                   <Link to={`/products/${p.slug}`} onClick={onClose} className="flex items-center gap-4 py-3 hover:opacity-80">
                     <Pic src={p.image?.thumb_url} alt={p.name} ratio="1/1" className="h-16 w-16 shrink-0 rounded-xl" />

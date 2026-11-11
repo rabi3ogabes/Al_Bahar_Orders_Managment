@@ -1,6 +1,7 @@
 import 'package:albahar_customer/core/models/paginated.dart';
 import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/widgets/paged.dart';
+import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
 import 'package:albahar_customer/features/catalog/data/catalog_repository.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
@@ -108,3 +109,17 @@ class RecentSearches extends Notifier<List<String>> {
 }
 
 final recentSearchesProvider = NotifierProvider<RecentSearches, List<String>>(RecentSearches.new);
+
+/// Live suggestions for the search box (keyed by the typed term).
+final searchSuggestionsProvider = FutureProvider.autoDispose.family<SearchSuggestions, String>((ref, term) {
+  ref.watch(localeCodeProvider);
+  return ref.watch(catalogRepositoryProvider).suggest(term, branchId: ref.watch(preferredBranchIdProvider));
+});
+
+/// Products the signed-in customer already bought (empty for guests).
+final buyAgainProvider = FutureProvider.autoDispose<List<BuyAgainItem>>((ref) {
+  ref.watch(localeCodeProvider);
+  final branchId = ref.watch(preferredBranchIdProvider);
+  if (!ref.watch(sessionControllerProvider).isAuthenticated) return const [];
+  return ref.watch(catalogRepositoryProvider).buyAgain(branchId: branchId);
+});

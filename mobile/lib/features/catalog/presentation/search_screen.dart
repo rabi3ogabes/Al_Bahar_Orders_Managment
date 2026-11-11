@@ -6,6 +6,7 @@ import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
 import 'package:albahar_customer/features/catalog/presentation/product_list_screen.dart';
 import 'package:albahar_customer/features/catalog/presentation/state/catalog_providers.dart';
+import 'package:albahar_customer/features/catalog/presentation/widgets/search_suggestions_panel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -25,10 +26,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   late String _term = (widget.initialQuery ?? '').trim();
   ProductQuery? _query;
 
+  /// Typing shows live suggestions; pressing search (or tapping one) shows the full result list.
+  bool _submitted = false;
+
   @override
   void initState() {
     super.initState();
-    if (_term.length >= 2) _query = ProductQuery(q: _term);
+    if (_term.length >= 2) {
+      _query = ProductQuery(q: _term);
+      _submitted = true;
+    }
   }
 
   @override
@@ -44,9 +51,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       final term = value.trim();
       setState(() {
         _term = term;
-        _query = term.length >= 2 ? (_query ?? const ProductQuery()).copyWith(q: term) : null;
+        _submitted = false;
+        _query = null;
       });
     });
+  }
+
+  void _submitWith(String term) {
+    _controller.text = term;
+    _controller.selection = TextSelection.collapsed(offset: term.length);
+    _submit(term);
   }
 
   void _submit(String value) {
@@ -54,8 +68,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final term = value.trim();
     if (term.isEmpty) return;
     ref.read(recentSearchesProvider.notifier).add(term);
+    FocusScope.of(context).unfocus();
+    if (_controller.text.trim() != term) _controller.text = term;
     setState(() {
       _term = term;
+      _submitted = true;
       _query = (_query ?? const ProductQuery()).copyWith(q: term);
     });
   }
@@ -87,6 +104,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         _controller.clear();
                         setState(() {
                           _term = '';
+                          _submitted = false;
                           _query = null;
                         });
                       },
@@ -96,7 +114,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
         ),
       ),
-      body: _query == null
+      body: (_query == null && _term.length >= 2 && !_submitted)
+          ? SearchSuggestionsPanel(term: _term, onSearch: _submitWith)
+          : _query == null
           ? ListView(
               padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
               children: [

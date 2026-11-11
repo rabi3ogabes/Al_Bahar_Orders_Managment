@@ -13,6 +13,7 @@ import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/catalog_widgets.dart';
 import 'package:albahar_customer/features/home/data/home_repository.dart';
 import 'package:albahar_customer/features/home/domain/home_models.dart';
+import 'package:albahar_customer/features/home/presentation/buy_again_section.dart';
 import 'package:albahar_customer/features/notifications/presentation/state/notifications_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -45,6 +46,7 @@ class HomeScreen extends ConsumerWidget {
                   ];
                 }
                 return [
+                  const SliverToBoxAdapter(child: BuyAgainSection()),
                   for (final s in data.sections) SliverToBoxAdapter(child: HomeSectionView(section: s)),
                   const SliverToBoxAdapter(child: Gap(AppSpace.xxl)),
                 ];

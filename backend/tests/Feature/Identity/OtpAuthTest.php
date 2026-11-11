@@ -5,6 +5,8 @@ use App\Domain\Identity\Exceptions\OtpException;
 use App\Domain\Identity\Models\OtpVerification;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\OtpService;
+use App\Domain\Notifications\Channels\NullSmsSender;
+use App\Domain\Notifications\Contracts\SmsSender;
 use Illuminate\Cache\RateLimiter;
 use Illuminate\Support\Facades\Log;
 
@@ -126,7 +128,7 @@ it('uses the fixed test code (and shows it) while OTP_TEST_CODE is set and no SM
 
 it('ignores the test code once a real SMS provider is configured', function () {
     config(['platform.otp.dev_echo' => false, 'platform.otp.test_code' => '123456', 'services.sms.driver' => 'http']);
-    app()->bind(\App\Domain\Notifications\Contracts\SmsSender::class, fn () => new \App\Domain\Notifications\Channels\NullSmsSender);
+    app()->bind(SmsSender::class, fn () => new NullSmsSender);
     $res = $this->postJson('/api/v1/auth/otp/request', ['phone' => '55123456', 'purpose' => 'login'])->assertOk();
     expect($res->json('data.debug_code'))->toBeNull();
 });

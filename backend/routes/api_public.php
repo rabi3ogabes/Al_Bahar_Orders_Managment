@@ -21,6 +21,7 @@ Route::controller(V1\Catalog\CatalogController::class)->group(function () {
     Route::get('brands', 'brands')->name('brands.index');
     Route::get('products', 'products')->name('products.index');
     Route::get('products/search', 'search')->name('products.search');
+    Route::get('search/suggest', 'suggest')->middleware('throttle:120,1')->name('search.suggest');
     Route::get('products/{id}/availability', 'availability')->whereUuid('id')->name('products.availability');
     Route::get('products/{idOrSlug}', 'product')->name('products.show');
     Route::get('branches/{branchId}/products', 'branchProducts')->whereUuid('branchId')->name('branches.products');
@@ -95,6 +96,7 @@ Route::controller(V1\Engagement\EngagementController::class)->group(function () 
         Route::put('me/notification-preferences', 'updatePreferences')->name('me.preferences.update');
         Route::get('me/loyalty', 'loyalty')->name('me.loyalty');
         Route::get('me/referral', 'referral')->name('me.referral');
+        Route::get('me/buy-again', 'buyAgain')->name('me.buy-again');
         Route::get('me/wishlist', 'wishlist')->name('me.wishlist');
         Route::post('me/wishlist', 'addWishlist')->name('me.wishlist.add');
         Route::delete('me/wishlist/{productId}', 'removeWishlist')->name('me.wishlist.remove');

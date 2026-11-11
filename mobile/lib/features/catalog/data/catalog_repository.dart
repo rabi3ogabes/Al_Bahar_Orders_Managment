@@ -78,6 +78,12 @@ class CatalogRepository {
     await _api.post('/reviews/$reviewId/report', data: {'reason': reason});
   }
 
+  Future<SearchSuggestions> suggest(String term, {String? branchId}) =>
+      _api.getObject('/search/suggest', SearchSuggestions.fromJson, query: {'q': term, 'branch_id': ?branchId});
+
+  Future<List<BuyAgainItem>> buyAgain({String? branchId}) =>
+      _api.getList('/me/buy-again', BuyAgainItem.fromJson, query: {'branch_id': ?branchId});
+
   Future<void> createStockAlert({required String variantId, String type = 'back_in_stock', String? branchId}) async {
     await _api.post('/me/stock-alerts', data: {'variant_id': variantId, 'type': type, 'branch_id': ?branchId});
   }

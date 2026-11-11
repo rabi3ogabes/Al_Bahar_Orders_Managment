@@ -351,7 +351,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get searchHint => 'Search sofas, lighting, rugs…';
+  String get searchHint => 'Search detergents, tissues, cleaning…';
 
   @override
   String get homeEmpty => 'Our new collection is being arranged. Check back soon.';
@@ -2028,4 +2028,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pickAtLeastOne => 'Pick a quantity for at least one colour';
+
+  @override
+  String didYouMean(String term) {
+    return 'Did you mean “$term”?';
+  }
+
+  @override
+  String searchSeeAll(String term) {
+    return 'See all results for “$term”';
+  }
+
+  @override
+  String get buyAgainTitle => 'Buy again';
+
+  @override
+  String get buyAgainAdd => 'Add';
+
+  @override
+  String buyAgainBought(int count) {
+    return 'Bought $count times';
+  }
 }

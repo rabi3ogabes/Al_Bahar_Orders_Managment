@@ -7,6 +7,7 @@ import { useI18n } from '../lib/i18n';
 import { useDocTitle, useTick } from '../lib/hooks';
 import type { Auction, Brand, HomeSection, ProductCard as P } from '../lib/types';
 import { Rail } from '../components/Rail';
+import { BuyAgain } from '../components/BuyAgain';
 import { CardSkeletons, ProductCard } from '../components/ProductCard';
 import { Badge, LinkButton, Pic, SectionHead, Skeleton } from '../components/ui';
 
@@ -140,6 +141,7 @@ export default function Home() {
     <>
       <Hero banner={banner} />
       <PromiseStrip />
+      <BuyAgain />
 
       {cats && cats.items.length > 0 && (
         <section className="wrap mt-24">

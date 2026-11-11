@@ -10,6 +10,7 @@ use App\Domain\Catalog\Models\ProductAttribute;
 use App\Domain\Catalog\Services\CatalogPresenter;
 use App\Domain\Catalog\Services\CategoryService;
 use App\Domain\Catalog\Services\ProductQuery;
+use App\Domain\Catalog\Services\SearchSuggester;
 use App\Domain\Pricing\Services\PriceResolver;
 use App\Http\Controllers\Api\V1\ApiController;
 use Illuminate\Http\JsonResponse;
@@ -74,6 +75,14 @@ class CatalogController extends ApiController
         $request->validate(['q' => 'required|string|min:1|max:120']);
 
         return $this->products($request);
+    }
+
+    /** Search-as-you-type: products, categories, brands and a "did you mean" correction. */
+    public function suggest(Request $request, SearchSuggester $suggester): JsonResponse
+    {
+        $f = $request->validate(['q' => 'required|string|min:2|max:80', 'branch_id' => 'nullable|uuid']);
+
+        return response()->json(['data' => $suggester->suggest($f['q'], $this->branch($f['branch_id'] ?? null))]);
     }
 
     public function product(Request $request, string $idOrSlug): JsonResponse

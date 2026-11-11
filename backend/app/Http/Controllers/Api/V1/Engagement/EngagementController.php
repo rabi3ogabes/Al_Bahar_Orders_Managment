@@ -26,7 +26,9 @@ use App\Http\Controllers\Api\V1\ApiController;
 use App\Support\BusinessTime;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -104,6 +106,43 @@ class EngagementController extends ApiController
     public function referral(ReferralService $referrals): JsonResponse
     {
         return response()->json(['data' => $referrals->summary($this->user())]);
+    }
+
+    /**
+     * "Buy again": products this customer has already ordered (cancelled, unpaid and returned orders excluded),
+     * most often bought first, then most recent. Each card carries the variant to re-add and the last quantity.
+     */
+    public function buyAgain(Request $request, CatalogPresenter $catalog): JsonResponse
+    {
+        $request->validate(['branch_id' => 'nullable|uuid', 'limit' => 'nullable|integer|min:1|max:30']);
+        $limit = (int) $request->query('limit', 12);
+        $rows = DB::table('order_items as oi')->join('orders as o', 'o.id', '=', 'oi.order_id')
+            ->where('o.user_id', $this->user()->id)
+            ->whereNotIn('o.status', ['pending_payment', 'cancelled', 'cancellation_requested', 'returned'])
+            ->whereNotNull('oi.product_id')
+            ->selectRaw('oi.product_id, count(distinct oi.order_id) as times, max(o.placed_at) as last_at')
+            ->groupBy('oi.product_id')->orderByDesc('times')->orderByDesc('last_at')->limit($limit * 2)->get();
+        if ($rows->isEmpty()) {
+            return response()->json(['data' => []]);
+        }
+        $products = Product::active()->whereIn('id', $rows->pluck('product_id'))
+            ->with(['translations', 'brand', 'images' => fn ($i) => $i->limit(1), 'variants' => fn ($v) => $v->where('status', 'active')])->get()->keyBy('id');
+        $last = DB::table('order_items as oi')->join('orders as o', 'o.id', '=', 'oi.order_id')
+            ->where('o.user_id', $this->user()->id)->whereIn('oi.product_id', $products->keys())
+            ->whereNotIn('o.status', ['pending_payment', 'cancelled', 'cancellation_requested', 'returned'])
+            ->orderByDesc('o.placed_at')->get(['oi.product_id', 'oi.product_variant_id', 'oi.quantity'])->unique('product_id')->keyBy('product_id');
+        $branch = $request->query('branch_id') ? Branch::active()->find($request->query('branch_id')) : null;
+        $ordered = $rows->filter(fn ($r) => $products->has($r->product_id))->take($limit);
+        $cards = collect($catalog->cards($ordered->map(fn ($r) => $products[$r->product_id]), $branch))->keyBy('id');
+
+        return response()->json(['data' => $ordered->map(function ($r) use ($cards, $products, $last) {
+            $variantIds = $products[$r->product_id]->variants->pluck('id');
+            $l = $last[$r->product_id] ?? null;
+            $variantId = $l && $variantIds->contains($l->product_variant_id) ? $l->product_variant_id : $variantIds->first();
+
+            return ['product' => $cards[$r->product_id] ?? null, 'times_ordered' => (int) $r->times, 'last_ordered_at' => BusinessTime::iso(Carbon::parse($r->last_at)),
+                'variant_id' => $variantId, 'last_quantity' => (int) ($l->quantity ?? 1)];
+        })->filter(fn ($row) => $row['product'] !== null && $row['variant_id'] !== null)->values()]);
     }
 
     public function wishlist(Request $request, CatalogPresenter $catalog): JsonResponse

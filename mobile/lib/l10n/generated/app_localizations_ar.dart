@@ -351,7 +351,7 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get searchHint => 'ابحث عن كنب، إضاءة، سجاد…';
+  String get searchHint => 'ابحث عن منظفات، مناديل، تنظيف…';
 
   @override
   String get homeEmpty => 'نُجهّز تشكيلتنا الجديدة. عُد إلينا قريبًا.';
@@ -2062,4 +2062,25 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get pickAtLeastOne => 'اختر كمية للون واحد على الأقل';
+
+  @override
+  String didYouMean(String term) {
+    return 'هل تقصد «$term»؟';
+  }
+
+  @override
+  String searchSeeAll(String term) {
+    return 'عرض كل النتائج لـ «$term»';
+  }
+
+  @override
+  String get buyAgainTitle => 'اشترِ مرة أخرى';
+
+  @override
+  String get buyAgainAdd => 'أضف';
+
+  @override
+  String buyAgainBought(int count) {
+    return 'اشتريته $count مرات';
+  }
 }
