@@ -30,9 +30,14 @@ class DemoSeeder extends Seeder
 {
     private const PASSWORD = 'AlBahar#Demo2026';
 
+    /** Demo staff and the demo customer share a published password, so only local/test seeding may create them. */
+    protected bool $withAccounts = true;
+
+    protected bool $allowProduction = false;
+
     public function run(): void
     {
-        if (app()->isProduction()) {
+        if (app()->isProduction() && ! $this->allowProduction) {
             return;
         }
         if (Branch::where('code', 'WB')->exists()) {
@@ -42,7 +47,9 @@ class DemoSeeder extends Seeder
         DB::transaction(function () {
             $branches = $this->branches();
             $this->zones($branches);
-            $this->staff($branches);
+            if ($this->withAccounts) {
+                $this->staff($branches);
+            }
             $this->catalog($branches);
         });
     }

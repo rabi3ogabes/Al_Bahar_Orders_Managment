@@ -1,7 +1,11 @@
 <?php
 
+use App\Domain\Branches\Models\Branch;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Catalog\Services\CatalogPresenter;
+use App\Domain\Identity\Models\User;
+use Database\Seeders\DemoCatalogSeeder;
+use Database\Seeders\DemoSeeder;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -55,3 +59,19 @@ it('shares product links that open the storefront product page', function () {
 
     expect($detail['share_url'])->toEndWith('/products/'.$product->slug)->not->toContain('/app/');
 })->skip(fn () => ! class_exists(Product::class) || ! method_exists(Product::class, 'factory'), 'no product factory');
+
+it('loads the sample catalogue without creating any account, even in production', function () {
+    $this->seed(RolesAndPermissionsSeeder::class);
+    $this->app['env'] = 'production';
+    $users = User::count();
+
+    $this->seed(DemoCatalogSeeder::class);
+
+    expect(Branch::where('code', 'WB')->exists())->toBeTrue()
+        ->and(Product::count())->toBeGreaterThan(5)
+        ->and(User::count())->toBe($users);
+
+    // The regular demo seeder still refuses in production.
+    $this->seed(DemoSeeder::class);
+    expect(User::count())->toBe($users);
+});
