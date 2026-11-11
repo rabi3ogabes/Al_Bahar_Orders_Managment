@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:albahar_customer/core/providers.dart';
+import 'package:albahar_customer/core/push/push_service.dart';
 import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/l10n/generated/app_localizations.dart';
@@ -21,6 +24,9 @@ class OpsApp extends ConsumerWidget {
     final role = ref.watch(opsRoleProvider);
     final locale = Locale(ref.watch(localeCodeProvider));
     final auth = ref.watch(opsSessionProvider);
+    ref.listen(opsSessionProvider, (_, next) {
+      if (next == OpsAuth.signedIn) unawaited(ref.read(pushServiceProvider).register().catchError((Object _) {}));
+    });
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       onGenerateTitle: (c) => role == OpsRole.driver ? OpsStrings.of(c).driverApp : OpsStrings.of(c).staffApp,

@@ -129,6 +129,24 @@ void main() {
       expect(local.shown.map((m) => m.title), ['Order']);
     });
 
+    test('order progress pushes become a live progress notification, bypassing category prefs', () async {
+      final h = await TestHarness.create();
+      final local = FakeLocalNotifier();
+      final push = PushService(
+        messaging: NoopPushMessaging(),
+        local: local,
+        api: h.read(apiClientProvider),
+        prefs: h.read(appPreferencesProvider),
+        enabled: true,
+      );
+      push.debugHandleForeground(
+        const PushMessage(data: {'kind': 'order_progress', 'order_id': 'o1', 'step': '2', 'total': '4'}),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(local.progress.single['step'], '2');
+      expect(local.shown, isEmpty);
+    });
+
     test('register posts the device token; unregister deletes it', () async {
       final h = await TestHarness.create(
         tokens: AuthTokens.fromJson(tokens('A', 'R')),

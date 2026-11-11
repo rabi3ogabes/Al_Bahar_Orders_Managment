@@ -211,6 +211,7 @@ class TestHarness {
 
 class FakeLocalNotifier implements LocalNotifier {
   final shown = <PushMessage>[];
+  final progress = <Map<String, dynamic>>[];
   String? launch;
   void Function(String? payload)? onTap;
 
@@ -222,6 +223,9 @@ class FakeLocalNotifier implements LocalNotifier {
 
   @override
   Future<void> show(PushMessage message) async => shown.add(message);
+
+  @override
+  Future<void> showProgress(Map<String, dynamic> data) async => progress.add(data);
 }
 
 /// Wraps a widget with theme + localisation for widget tests.

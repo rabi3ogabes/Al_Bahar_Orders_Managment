@@ -1,5 +1,6 @@
 import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/providers.dart';
+import 'package:albahar_customer/core/push/push_service.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -62,6 +63,9 @@ class OpsSession extends Notifier<OpsAuth> {
   }
 
   Future<void> signOut() async {
+    try {
+      await ref.read(pushServiceProvider).unregister();
+    } catch (_) {}
     await ref.read(tokenStoreProvider).clear();
     state = OpsAuth.signedOut;
   }

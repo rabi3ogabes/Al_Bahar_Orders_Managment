@@ -14,6 +14,7 @@ import '../providers.dart';
 import '../router/deep_links.dart';
 import '../storage/app_preferences.dart';
 import '../utils/platform.dart';
+import 'order_progress.dart';
 
 /// Platform-neutral push message.
 @immutable
@@ -41,6 +42,13 @@ abstract class PushMessaging {
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Notification messages are displayed by the OS; data handling happens
   // when the user taps (onMessageOpenedApp / getInitialMessage).
+  // Order progress arrives data-only: draw it here so it updates with the app closed.
+  if (!isOrderProgress(message.data)) return;
+  final plugin = FlutterLocalNotificationsPlugin();
+  await plugin.initialize(
+    settings: const InitializationSettings(android: AndroidInitializationSettings('ic_stat_notify')),
+  );
+  await showOrderProgress(plugin, Map<String, dynamic>.from(message.data));
 }
 
 class FirebasePushMessaging implements PushMessaging {
@@ -128,6 +136,7 @@ class NoopPushMessaging implements PushMessaging {
 abstract class LocalNotifier {
   Future<void> initialize(void Function(String? payload) onTap);
   Future<void> show(PushMessage message);
+  Future<void> showProgress(Map<String, dynamic> data);
   Future<String?> launchPayload();
 }
 
@@ -149,7 +158,7 @@ class FlutterLocalNotifier implements LocalNotifier {
     try {
       await _plugin.initialize(
         settings: const InitializationSettings(
-          android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+          android: AndroidInitializationSettings('ic_stat_notify'),
           iOS: DarwinInitializationSettings(
             requestAlertPermission: false,
             requestBadgePermission: false,
@@ -177,6 +186,11 @@ class FlutterLocalNotifier implements LocalNotifier {
   }
 
   @override
+  Future<void> showProgress(Map<String, dynamic> data) async {
+    if (_ready) await showOrderProgress(_plugin, data);
+  }
+
+  @override
   Future<String?> launchPayload() async {
     if (!_ready) return null;
     final details = await _plugin.getNotificationAppLaunchDetails();
@@ -194,6 +208,7 @@ class PushService {
     required this.api,
     required this.prefs,
     required this.enabled,
+    this.devicesPath = '/me/devices',
   });
 
   final PushMessaging messaging;
@@ -201,6 +216,9 @@ class PushService {
   final ApiClient api;
   final AppPreferences prefs;
   final bool enabled;
+
+  /// Where the push token is registered: `/me/devices` (customers) or `/admin/devices` (driver and staff apps).
+  final String devicesPath;
 
   /// Navigation callback, set by the app once the router exists.
   void Function(String location)? onNavigate;
@@ -247,7 +265,7 @@ class PushService {
     final token = prefs.registeredPushToken;
     if (token == null) return;
     try {
-      await api.delete('/me/devices', data: {'push_token': token});
+      await api.delete(devicesPath, data: {'push_token': token});
     } finally {
       await prefs.setRegisteredPushToken(null);
     }
@@ -265,13 +283,17 @@ class PushService {
       version = '${info.version}+${info.buildNumber}';
     } catch (_) {}
     await api.post(
-      '/me/devices',
+      devicesPath,
       data: {'platform': platformCode(), 'push_token': token, 'device_id': deviceId, 'app_version': ?version},
     );
     await prefs.setRegisteredPushToken(token);
   }
 
   void _handleForeground(PushMessage message) {
+    if (isOrderProgress(message.data)) {
+      unawaited(local.showProgress(message.data));
+      return;
+    }
     final category = notificationCategory(message.data['event']?.toString());
     final allowed = prefs.pushCategoryPrefs[category] ?? true;
     if (!allowed) return;
@@ -322,6 +344,8 @@ class PushService {
 final pushMessagingProvider = Provider<PushMessaging>((ref) => FirebasePushMessaging());
 final localNotifierProvider = Provider<LocalNotifier>((ref) => FlutterLocalNotifier());
 
+final pushDevicesPathProvider = Provider<String>((ref) => '/me/devices');
+
 final pushServiceProvider = Provider<PushService>((ref) {
   final service = PushService(
     messaging: ref.watch(pushMessagingProvider),
@@ -329,6 +353,7 @@ final pushServiceProvider = Provider<PushService>((ref) {
     api: ref.watch(apiClientProvider),
     prefs: ref.watch(appPreferencesProvider),
     enabled: ref.watch(appConfigProvider).pushEnabled,
+    devicesPath: ref.watch(pushDevicesPathProvider),
   );
   ref.onDispose(service.dispose);
   return service;

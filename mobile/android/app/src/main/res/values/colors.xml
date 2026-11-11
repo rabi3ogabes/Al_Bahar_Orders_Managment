@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Qatar maroon: tint of the notification icon. -->
+    <color name="notification_accent">#8A1538</color>
+</resources>
