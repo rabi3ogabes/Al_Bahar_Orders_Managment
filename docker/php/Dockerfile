@@ -50,6 +50,8 @@ COPY --from=assets /app/public/build ./public/build
 COPY --from=storefront /app/dist ./public/store
 COPY --from=mobileweb /app/build/web ./public/mobile-web
 RUN composer dump-autoload --optimize --classmap-authoritative --no-dev \
+ && ln -sfn ../storage/app/public public/storage \
+ && mkdir -p storage/app/public \
  && chown -R www-data:www-data storage bootstrap/cache
 USER www-data
 HEALTHCHECK --interval=30s --timeout=5s CMD php -r "exit(@fsockopen('127.0.0.1', 9000) ? 0 : 1);"

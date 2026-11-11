@@ -150,7 +150,7 @@ export function Header() {
   const { t, locale, setLocale } = useI18n();
   const { theme, toggle } = useTheme();
   const { user } = useAuth();
-  const { branch } = useBranch();
+  const { branch, branches } = useBranch();
   const cart = useCart();
   const authModal = useAuthModal();
   const cats = useCategories();
@@ -172,9 +172,11 @@ export function Header() {
       <div className="bg-ink text-[12px] text-bg/90">
         <div className="wrap flex items-center justify-between gap-4 py-2">
           <span className="flex items-center gap-2"><Truck size={14} className="text-brass" />{t('top.promo')}</span>
-          <span className="hidden items-center gap-5 sm:flex">
-            <a href="tel:+97444100000" className="flex items-center gap-1.5 hover:text-brass"><Phone size={13} />+974 4410 0000</a>
-          </span>
+          {branches[0]?.phone && (
+            <span className="hidden items-center gap-5 sm:flex">
+              <a href={telHref(branches[0].phone)} className="flex items-center gap-1.5 hover:text-brass"><Phone size={13} /><bdi>{branches[0].phone}</bdi></a>
+            </span>
+          )}
         </div>
       </div>
       <header className={cx('sticky top-0 z-50 border-b transition-all duration-300', stuck ? 'border-line bg-bg/92 shadow-[0_6px_24px_-18px_rgb(0_0_0/0.4)] backdrop-blur-xl' : 'border-transparent bg-bg')}>
@@ -203,7 +205,11 @@ export function Header() {
         </div>
         <div className="hidden border-t border-line/70 lg:block">
           <div className="wrap flex h-10 items-center justify-between text-[13px] text-muted">
-            <button onClick={() => setPick(true)} className="flex items-center gap-2 hover:text-ink"><MapPin size={14} className="text-brass" />{branch ? branch.name : t('branch.all')}<span className="text-[11px] underline underline-offset-2">{t('branch.change')}</span></button>
+            {branches.length > 1 ? (
+              <button onClick={() => setPick(true)} className="flex items-center gap-2 hover:text-ink"><MapPin size={14} className="text-brass" />{branch ? branch.name : t('branch.all')}<span className="text-[11px] underline underline-offset-2">{t('branch.change')}</span></button>
+            ) : (
+              <Link to="/showrooms" className="flex items-center gap-2 hover:text-ink"><MapPin size={14} className="text-brass" />{branches[0] ? `${branches[0].name}${branches[0].area ? ` · ${branches[0].area}` : ''}` : t('nav.showrooms')}</Link>
+            )}
             <div className="flex items-center gap-1">
               <button onClick={toggle} aria-label={theme === 'dark' ? t('theme.light') : t('theme.dark')} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-sand">{theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}</button>
               <button onClick={() => setLocale(locale === 'en' ? 'ar' : 'en')} className="flex h-8 items-center gap-1.5 rounded-full px-3 hover:bg-sand"><Languages size={15} />{locale === 'en' ? 'العربية' : 'English'}</button>
@@ -222,7 +228,7 @@ export function Header() {
             <li><Link className="block py-4" to="/showrooms">{t('nav.showrooms')}</Link></li>
           </ul>
           <div className="mt-6 grid gap-2 text-sm">
-            <button onClick={() => { setMenu(false); setPick(true); }} className="flex items-center gap-3 rounded-2xl border border-line bg-paper p-4"><MapPin size={18} className="text-brass" />{branch ? branch.name : t('branch.all')}</button>
+            {branches.length > 1 && <button onClick={() => { setMenu(false); setPick(true); }} className="flex items-center gap-3 rounded-2xl border border-line bg-paper p-4"><MapPin size={18} className="text-brass" />{branch ? branch.name : t('branch.all')}</button>}
             <button onClick={() => setLocale(locale === 'en' ? 'ar' : 'en')} className="flex items-center gap-3 rounded-2xl border border-line bg-paper p-4"><Languages size={18} className="text-brass" />{locale === 'en' ? 'العربية' : 'English'}</button>
             <button onClick={toggle} className="flex items-center gap-3 rounded-2xl border border-line bg-paper p-4">{theme === 'dark' ? <Sun size={18} className="text-brass" /> : <Moon size={18} className="text-brass" />}{theme === 'dark' ? t('theme.light') : t('theme.dark')}</button>
           </div>

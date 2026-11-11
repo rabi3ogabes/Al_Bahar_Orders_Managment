@@ -24,7 +24,7 @@ function Hero({ banner }: { banner?: { title: string; subtitle: string | null; i
   const cats = useQuery({ queryKey: ['categories'], queryFn: async () => (await get<{ data: unknown[] }>('/categories')).data, staleTime: 10 * 60_000 });
   const total = useQuery({ queryKey: ['catalogue-size', branchId], queryFn: async () => (await get<{ meta: { total: number } }>('/products', { per_page: 1, branch_id: branchId })).meta.total, staleTime: 10 * 60_000 });
   const stats: [string, string][] = [];
-  if (branches.length) stats.push([num(branches.length), t('home.stat_showrooms')]);
+  if (branches.length > 1) stats.push([num(branches.length), t('home.stat_showrooms')]);
   if (total.data) stats.push([total.data >= 100 ? `${num(Math.floor(total.data / 50) * 50)}+` : num(total.data), t('home.stat_warranty')]);
   if (cats.data?.length) stats.push([num(cats.data.length), t('home.stat_delivery')]);
   const Arrow = dir === 'rtl' ? ArrowLeft : ArrowRight;
