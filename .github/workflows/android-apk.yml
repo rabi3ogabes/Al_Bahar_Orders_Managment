@@ -1,15 +1,23 @@
 name: Android APK
 
-# Builds an installable test APK of the customer app against the live server and publishes it as a GitHub release.
-# Run it from the Actions tab (or push a tag like apk-1). The APK is signed with the debug key until a release
-# keystore is added (see mobile/android/key.properties handling in app/build.gradle.kts).
+# Every run publishes its OWN GitHub release, so older builds stay available and you can always tell which one is
+# installed: tag `customer-<version>-b<build>`, file `albahar-customer-<version>-b<build>-<commit>.apk`, notes with the
+# commit and what changed since the previous build. The same version/build is baked into the app (Settings -> About).
+#
+# Runs automatically when the app changes on the development branch, or by hand from the Actions tab.
+# The APK is signed with the debug key until a release keystore is added (see android/app/build.gradle.kts).
 on:
   workflow_dispatch:
   push:
-    tags: ['apk-*']
+    branches: [claude/optimistic-euler-cffll1]
+    paths: ['mobile/**', '.github/workflows/android-apk.yml']
 
 permissions:
   contents: write
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   apk:
@@ -18,26 +26,61 @@ jobs:
     defaults: { run: { working-directory: mobile } }
     steps:
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '17' }
       - uses: subosito/flutter-action@v2
         with: { flutter-version: '3.47.9', channel: stable, cache: true }
       - run: flutter pub get
+
+      - name: Work out the version
+        id: v
+        run: |
+          NAME=$(grep -m1 '^version:' pubspec.yaml | sed -E 's/version: *([0-9.]+).*/\1/')
+          BUILD=${{ github.run_number }}
+          SHA=$(git rev-parse --short=7 HEAD)
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "tag=customer-$NAME-b$BUILD" >> "$GITHUB_OUTPUT"
+          echo "file=albahar-customer-$NAME-b$BUILD-$SHA.apk" >> "$GITHUB_OUTPUT"
+
       - name: Build APK
         run: >
           flutter build apk --release --flavor prod
+          --build-name=${{ steps.v.outputs.name }} --build-number=${{ steps.v.outputs.build }}
           --dart-define=FLAVOR=prod
           --dart-define=API_BASE_URL=https://albahar.atharqatar.net/api/v1
           --dart-define=PUSH_ENABLED=false
+          --dart-define=BUILD_SHA=${{ steps.v.outputs.sha }}
+
       - name: Name the file
-        run: cp build/app/outputs/flutter-apk/app-prod-release.apk "$RUNNER_TEMP/albahar.apk"
+        run: cp build/app/outputs/flutter-apk/app-prod-release.apk "$RUNNER_TEMP/${{ steps.v.outputs.file }}"
+
+      - name: Release notes
+        run: |
+          PREV=$(git tag --list 'customer-*' --sort=-creatordate | head -1 || true)
+          {
+            echo "## Al Bahar customer app ${{ steps.v.outputs.name }} (build ${{ steps.v.outputs.build }})"
+            echo
+            echo "- **Commit:** \`${{ steps.v.outputs.sha }}\` on \`${{ github.ref_name }}\`"
+            echo "- **Built:** $(date -u '+%Y-%m-%d %H:%M UTC')"
+            echo "- **Server:** https://albahar.atharqatar.net"
+            echo "- **Check it:** open the app, Settings, About: it shows \`${{ steps.v.outputs.name }} (${{ steps.v.outputs.build }})\` and the commit."
+            echo
+            echo "### What changed"
+            if [ -n "$PREV" ]; then git log "$PREV"..HEAD --no-merges --pretty='- %s' -- . ../backend ../storefront | head -25; else git log -10 --no-merges --pretty='- %s'; fi
+            echo
+            echo "Install: download the APK on an Android phone and allow installs from this source. A newer build installs over an older one."
+          } > "$RUNNER_TEMP/notes.md"
+
       - uses: actions/upload-artifact@v4
-        with: { name: albahar-apk, path: '${{ runner.temp }}/albahar.apk' }
+        with: { name: '${{ steps.v.outputs.file }}', path: '${{ runner.temp }}/${{ steps.v.outputs.file }}' }
+
       - name: Publish release
         env: { GH_TOKEN: '${{ github.token }}' }
         run: |
-          TAG="apk-${{ github.run_number }}"
-          gh release create "$TAG" "$RUNNER_TEMP/albahar.apk#albahar.apk" \
-            --repo "${{ github.repository }}" --target "${{ github.sha }}" \
-            --title "Al Bahar app (Android) build ${{ github.run_number }}" \
-            --notes "Test build of the customer app, connected to https://albahar.atharqatar.net. Install the APK on an Android phone (allow installs from this source)."
+          gh release create "${{ steps.v.outputs.tag }}" "$RUNNER_TEMP/${{ steps.v.outputs.file }}" \
+            --repo "${{ github.repository }}" --target "${{ github.sha }}" --prerelease \
+            --title "Customer app ${{ steps.v.outputs.name }} · build ${{ steps.v.outputs.build }} · ${{ steps.v.outputs.sha }}" \
+            --notes-file "$RUNNER_TEMP/notes.md"
