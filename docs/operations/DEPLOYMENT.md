@@ -59,6 +59,20 @@ Customer sign-in is by phone OTP: configure `SMS_DRIVER=http` before launch or c
   (Branches › Slots) *before* announcing the feature; branches without slots keep working exactly as before. Mobile builds older than
   this release cannot choose a slot, so they cannot place delivery orders for slot-enabled branches — publish the app update first.
 
+## Catalogue and pictures (household catalogue)
+
+```bash
+docker compose run --rm app php artisan db:seed --class=MarketCatalogSeeder --force      # branch, zones, 11 categories, 60 brands, 734 products, stock (no accounts)
+docker compose run --rm app php artisan catalog:import-images --delay=250                 # pictures from database/data/market_images.json (re-runnable)
+```
+
+- `MarketCatalogSeeder` creates **one** branch, *Al Markhiya Main Branch*, and serves every delivery zone from it. Complete its phone,
+  coordinates and opening hours in **Branches** before launch; delivery fees on the zones are placeholders.
+- `catalog:import-images` downloads each URL through `MediaService` (type and size checked, re-encoded to WebP, three thumbnail widths) and skips
+  products that already have pictures. Files are written to `storage/app/public` (the `storage` volume), served by nginx at `/storage/`
+  (`public/storage` link in the image; the web container mounts the same volume read-only).
+- The sample showrooms from `DemoCatalogSeeder`/`DemoSeeder` are for local testing only.
+
 ## Migrations policy
 
 - Migrations must be backward compatible with the previous release (expand → deploy → contract in a later release).
