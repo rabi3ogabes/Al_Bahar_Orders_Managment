@@ -63,7 +63,10 @@ jobs:
           --dart-define=BUILD_SHA=${{ steps.v.outputs.sha }}
 
       - name: Name the file
-        run: cp build/app/outputs/flutter-apk/app-${{ matrix.app }}-prod-release.apk "$RUNNER_TEMP/${{ steps.v.outputs.file }}"
+        run: |
+          ls -la build/app/outputs/flutter-apk/
+          APK=$(ls build/app/outputs/flutter-apk/*-release.apk | head -1)
+          cp "$APK" "$RUNNER_TEMP/${{ steps.v.outputs.file }}"
 
       - name: Release notes
         run: |
