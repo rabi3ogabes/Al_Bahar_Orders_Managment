@@ -130,6 +130,8 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
       final r = await ref
           .read(opsRepositoryProvider)
           .describe(titleEn: _titleEn.text.trim(), titleAr: _titleAr.text.trim(), categoryId: _category?.id);
+      if (_titleEn.text.trim().isEmpty) _titleEn.text = r.nameEn;
+      if (_titleAr.text.trim().isEmpty) _titleAr.text = r.nameAr;
       _shortEn.text = r.shortEn;
       _descEn.text = r.descriptionEn;
       _shortAr.text = r.shortAr;

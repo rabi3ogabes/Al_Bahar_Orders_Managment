@@ -12,7 +12,7 @@
                 @if ($canEdit)
                     <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-brass-500/10 px-4 py-3">
                         <p class="text-sm text-ink-700 dark:text-sand-100"><span class="font-medium">{{ __('catalog_admin.ai_title') }}</span> <span class="text-ink-500">{{ $aiReady ? __('catalog_admin.ai_hint') : __('catalog_admin.ai_not_ready') }}</span></p>
-                        <button type="button" wire:click="describeWithAi" wire:loading.attr="disabled" wire:target="describeWithAi" @disabled(! $aiReady) class="btn-secondary min-h-11"><x-icon name="sparkles" class="size-4" /><span wire:loading.remove wire:target="describeWithAi">{{ __('catalog_admin.ai_write') }}</span><span wire:loading wire:target="describeWithAi">{{ __('catalog_admin.ai_writing') }}</span></button>
+                        <button type="button" wire:click="describeWithAi" wire:loading.attr="disabled" wire:target="describeWithAi" class="btn-secondary min-h-11"><x-icon name="sparkles" class="size-4" /><span wire:loading.remove wire:target="describeWithAi">{{ __('catalog_admin.ai_write') }}</span><span wire:loading wire:target="describeWithAi">{{ __('catalog_admin.ai_writing') }}</span></button>
                     </div>
                 @endif
                 <div class="grid gap-6 md:grid-cols-2">
@@ -74,7 +74,7 @@
                     @if ($canEdit)
                     <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-brass-500/10 px-4 py-3">
                         <p class="text-sm text-ink-700 dark:text-sand-100"><span class="font-medium">{{ __('catalog_admin.ai_title') }}</span> <span class="text-ink-500">{{ $aiReady ? __('catalog_admin.ai_hint') : __('catalog_admin.ai_not_ready') }}</span></p>
-                        <button type="button" wire:click="describeWithAi" wire:loading.attr="disabled" wire:target="describeWithAi" @disabled(! $aiReady) class="btn-secondary min-h-11"><x-icon name="sparkles" class="size-4" /><span wire:loading.remove wire:target="describeWithAi">{{ __('catalog_admin.ai_write') }}</span><span wire:loading wire:target="describeWithAi">{{ __('catalog_admin.ai_writing') }}</span></button>
+                        <button type="button" wire:click="describeWithAi" wire:loading.attr="disabled" wire:target="describeWithAi" class="btn-secondary min-h-11"><x-icon name="sparkles" class="size-4" /><span wire:loading.remove wire:target="describeWithAi">{{ __('catalog_admin.ai_write') }}</span><span wire:loading wire:target="describeWithAi">{{ __('catalog_admin.ai_writing') }}</span></button>
                     </div>
                 @endif
                 <div class="card overflow-hidden">

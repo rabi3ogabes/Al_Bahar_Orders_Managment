@@ -5,6 +5,7 @@ namespace App\Domain\Catalog\Services;
 use App\Domain\Settings\Services\Settings;
 use App\Support\DomainException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Writes the product description (English and Arabic) from the title with Claude. The key is an admin setting (sealed);
@@ -19,7 +20,12 @@ class ProductAi
         return (string) $this->settings->get('ai.anthropic_api_key', '') !== '';
     }
 
-    /** @return array{en: array{short: string, description: string}, ar: array{short: string, description: string}} */
+    /**
+     * Writes both languages from whatever the admin typed: the missing title is translated (a typed title is kept as it is)
+     * and the short and full descriptions are written in English and Arabic.
+     *
+     * @return array{name: array{en: string, ar: string}, en: array{short: string, description: string}, ar: array{short: string, description: string}}
+     */
     public function describe(?string $titleEn, ?string $titleAr, ?string $category = null, ?string $material = null): array
     {
         $titleEn = trim((string) $titleEn);
@@ -33,30 +39,60 @@ class ProductAi
         }
         $facts = array_filter(['Title (English)' => $titleEn, 'Title (Arabic)' => $titleAr, 'Category' => $category, 'Material' => $material]);
         $prompt = "You write product copy for Al Bahar Home & Living, a premium home furnishing store in Qatar.\n"
-            ."Write for this product, using ONLY the facts below. Do not invent sizes, materials, colours, warranties, certifications, prices or claims that are not stated.\n"
+            ."Use ONLY the facts below. Do not invent sizes, materials, colours, warranties, certifications, prices or claims that are not stated.\n"
             ."Tone: calm, elegant, specific and honest. No exclamation marks, no emojis, no filler.\n\n"
             .collect($facts)->map(fn ($v, $k) => "$k: $v")->implode("\n")."\n\n"
-            ."Return ONLY JSON: {\"en\":{\"short\":\"max 160 characters\",\"description\":\"two short paragraphs as <p>…</p>\"},\"ar\":{\"short\":\"…\",\"description\":\"…\"}}\n"
-            .'The Arabic must be natural Modern Standard Arabic written for Qatar, not a literal translation. If one title is missing, base both languages on the other.';
+            ."Return ONLY one JSON object, no other text:\n"
+            .'{"name":{"en":"…","ar":"…"},"en":{"short":"max 160 characters","description":"two short paragraphs as <p>…</p>"},"ar":{"short":"…","description":"…"}}'."\n"
+            ."name: if a title is missing, translate the other one into a natural, short product name (Title Case in English); if a title is given, return it unchanged.\n"
+            .'The Arabic must be natural Modern Standard Arabic written for Qatar, not a literal translation. Write every string on one line (no line breaks inside strings).';
 
-        $res = Http::withHeaders(['x-api-key' => $key, 'anthropic-version' => '2023-06-01'])->timeout(40)->acceptJson()
-            ->post('https://api.anthropic.com/v1/messages', [
-                'model' => (string) ($this->settings->get('ai.model') ?: 'claude-sonnet-5-5'), 'max_tokens' => 1200,
-                'messages' => [['role' => 'user', 'content' => $prompt]],
-            ]);
-        if (! $res->successful()) {
+        $json = null;
+        foreach ([1, 2] as $attempt) {
+            $res = Http::withHeaders(['x-api-key' => $key, 'anthropic-version' => '2023-06-01'])->timeout(60)->acceptJson()
+                ->post('https://api.anthropic.com/v1/messages', [
+                    'model' => (string) ($this->settings->get('ai.model') ?: 'claude-sonnet-5-5'), 'max_tokens' => 2500,
+                    'messages' => [['role' => 'user', 'content' => $prompt]],
+                ]);
+            if (! $res->successful()) {
+                Log::warning('ai.describe http '.$res->status().' '.substr($res->body(), 0, 300));
+
+                continue;
+            }
+            $json = $this->parse((string) data_get($res->json(), 'content.0.text', ''));
+            if ($json !== null) {
+                break;
+            }
+            Log::warning('ai.describe unreadable answer: '.substr((string) data_get($res->json(), 'content.0.text', ''), 0, 300));
+        }
+        if ($json === null) {
             throw DomainException::make('ai_failed', 502);
         }
-        $text = (string) data_get($res->json(), 'content.0.text', '');
-        $json = json_decode(preg_replace('/^```(?:json)?\s*|\s*```$/m', '', trim($text)) ?? '', true);
+        $name = fn (string $l, string $typed) => $typed !== '' ? $typed : mb_substr(trim(strip_tags((string) data_get($json, "name.$l", ''))), 0, 255);
+
+        return [
+            'name' => ['en' => $name('en', $titleEn), 'ar' => $name('ar', $titleAr)],
+            'en' => ['short' => mb_substr(strip_tags($json['en']['short']), 0, 300), 'description' => $this->clean($json['en']['description'])],
+            'ar' => ['short' => mb_substr(strip_tags($json['ar']['short']), 0, 300), 'description' => $this->clean($json['ar']['description'])],
+        ];
+    }
+
+    /** The first JSON object in the answer (the model may wrap it in a code block or add a word), or null when it is not usable. */
+    private function parse(string $text): ?array
+    {
+        $a = strpos($text, '{');
+        $b = strrpos($text, '}');
+        if ($a === false || $b === false || $b <= $a) {
+            return null;
+        }
+        $json = json_decode(substr($text, $a, $b - $a + 1), true, 16, JSON_INVALID_UTF8_SUBSTITUTE);
         foreach (['en', 'ar'] as $l) {
             if (! is_array($json) || ! is_string(data_get($json, "$l.short")) || ! is_string(data_get($json, "$l.description"))) {
-                throw DomainException::make('ai_failed', 502);
+                return null;
             }
         }
 
-        return ['en' => ['short' => mb_substr(strip_tags($json['en']['short']), 0, 300), 'description' => $this->clean($json['en']['description'])],
-            'ar' => ['short' => mb_substr(strip_tags($json['ar']['short']), 0, 300), 'description' => $this->clean($json['ar']['description'])]];
+        return $json;
     }
 
     /** Only paragraph tags survive: the text goes into a rich-text field that is rendered on the storefront. */

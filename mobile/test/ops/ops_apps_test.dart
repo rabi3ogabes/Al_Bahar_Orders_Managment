@@ -210,11 +210,11 @@ void main() {
 
     // AI writing needs a title first.
     await tester.scrollUntilVisible(
-      find.text('Write the description with AI'),
+      find.text('Translate and write the description with AI'),
       300,
       scrollable: find.descendant(of: find.byType(Form), matching: find.byType(Scrollable)).first,
     );
-    await tester.tap(find.text('Write the description with AI'));
+    await tester.tap(find.text('Translate and write the description with AI'));
     await tester.pumpAndSettle();
     expect(find.text('Write a title first.'), findsOneWidget);
     expect(repo.calls, isEmpty);
@@ -226,11 +226,11 @@ void main() {
     );
     await tester.enterText(find.widgetWithText(TextFormField, 'Title (English)'), 'Linen Throw Sand');
     await tester.scrollUntilVisible(
-      find.text('Write the description with AI'),
+      find.text('Translate and write the description with AI'),
       300,
       scrollable: find.descendant(of: find.byType(Form), matching: find.byType(Scrollable)).first,
     );
-    await tester.tap(find.text('Write the description with AI'));
+    await tester.tap(find.text('Translate and write the description with AI'));
     await tester.pumpAndSettle();
     expect(repo.calls, ['describe:Linen Throw Sand']);
     expect(find.text('<p>Long</p>', skipOffstage: false), findsOneWidget);

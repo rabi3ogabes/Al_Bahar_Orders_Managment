@@ -255,12 +255,22 @@ class ShopCategory {
 
 /// Short and full description in both languages, as written by Claude or typed by hand.
 class ProductDraftText {
-  const ProductDraftText({this.shortEn = '', this.descriptionEn = '', this.shortAr = '', this.descriptionAr = ''});
+  const ProductDraftText({
+    this.shortEn = '',
+    this.descriptionEn = '',
+    this.shortAr = '',
+    this.descriptionAr = '',
+    this.nameEn = '',
+    this.nameAr = '',
+  });
 
   factory ProductDraftText.fromJson(JsonMap j) {
     final en = asMap(j['en']);
     final ar = asMap(j['ar']);
+    final name = j['name'] is Map ? asMap(j['name']) : const <String, dynamic>{};
     return ProductDraftText(
+      nameEn: asString(name['en']),
+      nameAr: asString(name['ar']),
       shortEn: asString(en['short']),
       descriptionEn: asString(en['description']),
       shortAr: asString(ar['short']),
@@ -272,6 +282,10 @@ class ProductDraftText {
   final String descriptionEn;
   final String shortAr;
   final String descriptionAr;
+
+  /// The title in each language; the one that was missing is translated.
+  final String nameEn;
+  final String nameAr;
 }
 
 /// One driver on the live map (`GET /admin/dispatch/fleet`): last position, duty, and the job in hand.

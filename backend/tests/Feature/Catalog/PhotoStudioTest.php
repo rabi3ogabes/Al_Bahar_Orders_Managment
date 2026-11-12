@@ -109,3 +109,24 @@ it('fills both languages from the title in the product editor and shows the stud
         ->call('askPhoto', $img->id, 'clean_background'); // duplicate is refused with a toast, not an error page
     expect(ProductPhotoRequest::where('product_id', $product->id)->count())->toBe(1);
 });
+
+it('translates an Arabic-only title into the English name and writes both descriptions, even if the model wraps its answer', function () {
+    Storage::fake('public');
+    config(['platform.media.disk' => 'public']);
+    [$w, $product] = productWithPhoto();
+    $admin = catalogStaff();
+    app(Settings::class)->set('ai.anthropic_api_key', 'sk-ant-test-key-1234567890', secret: true);
+    $answer = "Here you go:\n```json\n".json_encode(['name' => ['en' => 'Wooden Coffee Table', 'ar' => 'طاولة قهوة خشبية'], 'en' => ['short' => 'A warm wooden table.', 'description' => '<p>Solid wood.</p>'], 'ar' => ['short' => 'طاولة خشبية دافئة.', 'description' => '<p>خشب متين.</p>']], JSON_UNESCAPED_UNICODE)."\n```";
+    Http::fake(['api.anthropic.com/*' => Http::sequence()->push(['content' => [['text' => 'not json at all']]])->push(['content' => [['text' => $answer]]])->whenEmpty(Http::response(['content' => [['text' => $answer]]]))]);
+
+    Livewire::actingAs($admin)->test(ProductEditor::class)
+        ->set('tr.ar.name', 'طاولة قهوة خشبية')->set('tr.en.name', '')
+        ->call('describeWithAi')
+        ->assertSet('tr.en.name', 'Wooden Coffee Table')->assertSet('tr.ar.name', 'طاولة قهوة خشبية')
+        ->assertSet('tr.en.short_description', 'A warm wooden table.')->assertSet('tr.ar.description', '<p>خشب متين.</p>');
+    Http::assertSentCount(2); // the first unreadable answer was retried once
+
+    // A name you typed is never overwritten.
+    Livewire::actingAs($admin)->test(ProductEditor::class)
+        ->set('tr.ar.name', 'طاولة قهوة خشبية')->set('tr.en.name', 'My Own English Name')->call('describeWithAi')->assertSet('tr.en.name', 'My Own English Name');
+});

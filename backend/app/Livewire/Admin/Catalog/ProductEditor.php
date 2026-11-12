@@ -202,6 +202,9 @@ class ProductEditor extends Component
             return;
         }
         foreach (['en', 'ar'] as $l) {
+            if (trim((string) ($this->tr[$l]['name'] ?? '')) === '') {
+                $this->tr[$l]['name'] = $out['name'][$l]; // the missing title: translated from the one you typed
+            }
             $this->tr[$l]['short_description'] = $out[$l]['short'];
             $this->tr[$l]['description'] = $out[$l]['description'];
         }

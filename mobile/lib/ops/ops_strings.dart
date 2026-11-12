@@ -130,7 +130,7 @@ class OpsStrings {
   String get noCategory => _t('No category', 'بدون فئة');
   String get description => _t('Description', 'الوصف');
   String get shortDescription => _t('Short description', 'وصف مختصر');
-  String get writeWithAi => _t('Write the description with AI', 'اكتب الوصف بالذكاء الاصطناعي');
+  String get writeWithAi => _t('Translate and write the description with AI', 'ترجم واكتب الوصف بالذكاء الاصطناعي');
   String get writing => _t('Writing…', 'جارٍ الكتابة…');
   String get aiHint => _t(
     'Claude writes it from the title, in English and Arabic. Read it and change what you like.',
