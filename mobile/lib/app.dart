@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/push/push_service.dart';
+import 'package:albahar_customer/core/router/app_footer.dart';
 import 'package:albahar_customer/core/router/app_router.dart';
 import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:albahar_customer/core/theme/brand_theme.dart';
@@ -127,7 +128,10 @@ class _AlBaharAppState extends ConsumerState<AlBaharApp> with WidgetsBindingObse
         final mq = MediaQuery.of(context);
         return MediaQuery(
           data: mq.copyWith(textScaler: mq.textScaler.clamp(minScaleFactor: 0.9, maxScaleFactor: 1.6)),
-          child: UpdateGate(baseUrl: config.apiBaseUrl, child: child ?? const SizedBox.shrink()),
+          child: UpdateGate(
+            baseUrl: config.apiBaseUrl,
+            child: FooterScope(router: router, child: child ?? const SizedBox.shrink()),
+          ),
         );
       },
     );
