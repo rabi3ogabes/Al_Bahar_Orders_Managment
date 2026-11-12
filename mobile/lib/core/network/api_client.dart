@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import '../config/app_config.dart';
 import '../models/paginated.dart';
 import '../storage/token_storage.dart';
+import '../update/app_update.dart';
 import '../utils/json.dart';
 import 'api_exception.dart';
 import 'auth_interceptor.dart';
@@ -40,7 +41,7 @@ class ApiClient {
       refreshDio.httpClientAdapter = adapter;
     }
     for (final d in [dio, refreshDio]) {
-      d.interceptors.addAll([LocaleInterceptor(localeCode), RequestIdInterceptor()]);
+      d.interceptors.addAll([LocaleInterceptor(localeCode), RequestIdInterceptor(), AppIdentityInterceptor()]);
     }
     dio.interceptors.add(
       AuthInterceptor(tokenStore: tokenStore, dio: dio, refreshDio: refreshDio, onSessionExpired: onSessionExpired),

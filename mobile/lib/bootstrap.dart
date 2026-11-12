@@ -4,6 +4,7 @@ import 'package:albahar_customer/app.dart';
 import 'package:albahar_customer/core/config/app_config.dart';
 import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/push/push_service.dart';
+import 'package:albahar_customer/core/update/app_update.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,6 +23,7 @@ Future<void> bootstrap(Flavor? flavor) async {
 
   await Future.wait([initializeDateFormatting('ar'), initializeDateFormatting('en')]);
   final prefs = await SharedPreferences.getInstance();
+  await AppIdentity.init('customer');
 
   final container = ProviderContainer(
     overrides: [appConfigProvider.overrideWithValue(config), sharedPreferencesProvider.overrideWithValue(prefs)],

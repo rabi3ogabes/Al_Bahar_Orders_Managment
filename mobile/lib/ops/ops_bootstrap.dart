@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:albahar_customer/core/config/app_config.dart';
 import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/push/push_service.dart';
+import 'package:albahar_customer/core/update/app_update.dart';
 import 'package:albahar_customer/ops/ops_app.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_session.dart';
@@ -16,6 +17,7 @@ Future<void> runOps(OpsRole role) async {
   WidgetsFlutterBinding.ensureInitialized();
   await Future.wait([initializeDateFormatting('ar'), initializeDateFormatting('en')]);
   final prefs = await SharedPreferences.getInstance();
+  await AppIdentity.init(role == OpsRole.driver ? 'driver' : 'staff');
   final container = ProviderContainer(
     overrides: [
       appConfigProvider.overrideWithValue(AppConfig.fromEnvironment()),

@@ -6,6 +6,7 @@ import 'package:albahar_customer/core/push/push_service.dart';
 import 'package:albahar_customer/core/router/app_router.dart';
 import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:albahar_customer/core/theme/brand_theme.dart';
+import 'package:albahar_customer/core/update/app_update.dart';
 import 'package:albahar_customer/features/auctions/data/auction_repository.dart';
 import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
 import 'package:albahar_customer/features/notifications/data/notifications_repository.dart';
@@ -126,7 +127,7 @@ class _AlBaharAppState extends ConsumerState<AlBaharApp> with WidgetsBindingObse
         final mq = MediaQuery.of(context);
         return MediaQuery(
           data: mq.copyWith(textScaler: mq.textScaler.clamp(minScaleFactor: 0.9, maxScaleFactor: 1.6)),
-          child: child ?? const SizedBox.shrink(),
+          child: UpdateGate(baseUrl: config.apiBaseUrl, child: child ?? const SizedBox.shrink()),
         );
       },
     );

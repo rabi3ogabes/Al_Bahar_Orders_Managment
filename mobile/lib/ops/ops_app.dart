@@ -4,6 +4,7 @@ import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/push/push_service.dart';
 import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
+import 'package:albahar_customer/core/update/app_update.dart';
 import 'package:albahar_customer/l10n/generated/app_localizations.dart';
 import 'package:albahar_customer/ops/driver/driver_home.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
@@ -41,6 +42,8 @@ class OpsApp extends ConsumerWidget {
       theme: AppTheme.light(locale),
       darkTheme: AppTheme.dark(locale),
       themeMode: ref.watch(themeModeProvider),
+      builder: (context, child) =>
+          UpdateGate(baseUrl: ref.read(appConfigProvider).apiBaseUrl, child: child ?? const SizedBox.shrink()),
       home: auth == OpsAuth.signedIn
           ? (role == OpsRole.driver ? const DriverHome() : const StaffHome())
           : const OpsLoginScreen(),
