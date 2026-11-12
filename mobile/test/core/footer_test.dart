@@ -1,5 +1,6 @@
 import 'package:albahar_customer/core/router/app_footer.dart';
 import 'package:albahar_customer/core/theme/app_theme.dart';
+import 'package:albahar_customer/core/theme/brand_theme.dart';
 import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
 import 'package:albahar_customer/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -29,8 +30,14 @@ GoRouter _router() => GoRouter(
   ],
 );
 
+/// The look the app has before the server answers: no footer config, so the built-in footer shows.
+class _FallbackTheme extends BrandThemeController {
+  @override
+  BrandTheme build() => BrandTheme.fallback;
+}
+
 Widget _app(GoRouter router) => ProviderScope(
-  overrides: [cartCountProvider.overrideWithValue(2)],
+  overrides: [cartCountProvider.overrideWithValue(2), brandThemeProvider.overrideWith(_FallbackTheme.new)],
   child: MaterialApp.router(
     routerConfig: router,
     locale: const Locale('en'),
