@@ -1,4 +1,4 @@
-<div class="space-y-6">
+<div class="space-y-6" @if ($requests->whereIn('status', ['requested', 'processing'])->isNotEmpty()) wire:poll.15s @endif>
     @if ($canEdit)
         <div class="card card-pad">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-center">
@@ -24,6 +24,45 @@
             @error('uploads.*')<p class="field-error mt-2">{{ $message }}</p>@enderror
             @error('uploads')<p class="field-error mt-2">{{ $message }}</p>@enderror
         </div>
+    @endif
+
+    @if ($requests->isNotEmpty() || ($canEdit && $images->isNotEmpty()))
+        <section class="card card-pad" aria-labelledby="studio-h">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div><h2 id="studio-h" class="flex items-center gap-2 font-display text-xl font-semibold"><x-icon name="sparkles" class="size-5 text-brass-500" />{{ __('catalog_admin.studio_title') }}</h2><p class="text-sm text-ink-500">{{ __('catalog_admin.studio_hint') }}</p></div>
+                @if ($canEdit && $images->isNotEmpty())
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" wire:click="askDesigns(3)" class="btn-secondary min-h-11"><x-icon name="plus" class="size-4" />{{ __('catalog_admin.studio_designs') }}</button>
+                    </div>
+                @endif
+            </div>
+            @foreach ($requests as $r)
+                <div class="mt-5 border-t border-sand-100 pt-5 dark:border-ink-800" wire:key="rq-{{ $r->id }}">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <p class="text-sm font-medium">{{ __('catalog_admin.studio_kind_'.$r->kind) }}@if ($r->count > 1) × {{ $r->count }}@endif
+                            <span class="ms-2 {{ $r->status === 'failed' ? 'badge-danger' : ($r->status === 'ready' ? 'badge-success' : 'badge-warning') }}">{{ __('catalog_admin.studio_status_'.$r->status) }}</span></p>
+                        @if ($canEdit && in_array($r->status, ['requested', 'processing'], true))<button type="button" wire:click="cancelRequest('{{ $r->id }}')" class="btn-ghost btn-sm">{{ __('admin.cancel') }}</button>@endif
+                    </div>
+                    @if ($r->status === 'failed' && $r->result_note)<p class="mt-1 text-sm text-ink-500">{{ $r->result_note }}</p>@endif
+                    @if ($r->results->isNotEmpty())
+                        <ul class="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                            @foreach ($r->results as $res)
+                                <li wire:key="res-{{ $res->id }}" class="overflow-hidden rounded-2xl border border-sand-200 dark:border-ink-700">
+                                    <img src="{{ $res->url() }}" alt="" class="aspect-square w-full object-cover" loading="lazy">
+                                    @if ($canEdit)
+                                        <div class="flex flex-wrap gap-1.5 p-2">
+                                            <button type="button" wire:click="useResult('{{ $res->id }}', false)" class="btn-primary btn-sm min-h-9 flex-1">{{ __('catalog_admin.studio_use') }}</button>
+                                            <button type="button" wire:click="useResult('{{ $res->id }}', true)" class="btn-secondary btn-sm min-h-9">{{ __('catalog_admin.studio_cover') }}</button>
+                                            <button type="button" wire:click="discardResult('{{ $res->id }}')" class="btn-ghost btn-sm min-h-9 text-ruby-soft" aria-label="{{ __('catalog_admin.studio_discard') }}"><x-icon name="trash" class="size-4" /></button>
+                                        </div>
+                                    @endif
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+                </div>
+            @endforeach
+        </section>
     @endif
 
     @if ($images->isEmpty())
@@ -52,6 +91,14 @@
                         @if ($canEdit)
                             <div class="flex items-center justify-between">
                                 <button type="button" wire:click="delete('{{ $img->id }}')" wire:confirm="{{ __('catalog_admin.confirm_delete_image') }}" class="btn-ghost btn-sm px-2 text-ruby-soft" aria-label="{{ __('admin.delete') }}"><x-icon name="trash" class="size-4" /></button>
+                                <div class="relative" x-data="{ o: false }" @keydown.escape="o = false" @click.outside="o = false">
+                                    <button type="button" class="btn-ghost btn-sm min-h-9" @click="o = !o" :aria-expanded="o" aria-haspopup="menu"><x-icon name="sparkles" class="size-3.5 text-brass-500" />{{ __('catalog_admin.studio_improve') }}</button>
+                                    <div x-show="o" x-cloak role="menu" class="absolute bottom-full end-0 z-20 mb-1 w-56 rounded-xl border border-sand-200 bg-white p-1 shadow-lg dark:border-ink-700 dark:bg-ink-900">
+                                        @foreach (['clean_background', 'studio_white', 'lifestyle', 'new_design'] as $k)
+                                            <button type="button" role="menuitem" class="flex min-h-11 w-full items-center rounded-lg px-3 text-start text-sm hover:bg-sand-100 dark:hover:bg-ink-800" wire:click="askPhoto('{{ $img->id }}', '{{ $k }}')" @click="o = false">{{ __('catalog_admin.studio_kind_'.$k) }}</button>
+                                        @endforeach
+                                    </div>
+                                </div>
                                 <button class="btn-secondary btn-sm" wire:loading.attr="disabled" wire:target="saveMeta('{{ $img->id }}')"><x-icon name="check" class="size-3.5" />{{ __('admin.save') }}</button>
                             </div>
                         @endif

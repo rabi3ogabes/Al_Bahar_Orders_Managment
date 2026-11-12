@@ -2,12 +2,16 @@
 
 use App\Domain\Catalog\Models\ProductPhotoRequest;
 use App\Domain\Catalog\Services\MediaService;
+use App\Domain\Identity\Models\User;
 use App\Domain\Settings\Services\Settings;
+use App\Livewire\Admin\Catalog\ProductEditor;
+use App\Livewire\Admin\Catalog\ProductMedia;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Livewire;
 
-function catalogStaff(): \App\Domain\Identity\Models\User
+function catalogStaff(): User
 {
     return actingAsStaff(staffWithRole('super_admin'));
 }
@@ -86,4 +90,22 @@ it('keeps photo studio away from staff without catalog access and from non-image
     catalogStaff();
     $r = ProductPhotoRequest::create(['product_id' => $product->id, 'kind' => 'new_design']);
     $this->post("/api/v1/admin/catalog/photo-requests/{$r->id}/results", ['images' => [UploadedFile::fake()->create('x.pdf', 10, 'application/pdf')]], ['Accept' => 'application/json'])->assertStatus(422);
+});
+
+it('fills both languages from the title in the product editor and shows the studio panel on the photos tab', function () {
+    Storage::fake('public');
+    config(['platform.media.disk' => 'public']);
+    [$w, $product, $img] = productWithPhoto();
+    $admin = catalogStaff();
+    app(Settings::class)->set('ai.anthropic_api_key', 'sk-ant-test-key-1234567890', secret: true);
+    Http::fake(['api.anthropic.com/*' => Http::response(['content' => [['text' => json_encode(['en' => ['short' => 'Short EN', 'description' => '<p>Long EN</p>'], 'ar' => ['short' => 'قصير', 'description' => '<p>طويل</p>']])]]])]);
+
+    Livewire::actingAs($admin)->test(ProductEditor::class, ['product' => $product])
+        ->call('describeWithAi')->assertSet('tr.en.short_description', 'Short EN')->assertSet('tr.ar.description', '<p>طويل</p>');
+
+    Livewire::actingAs($admin)->test(ProductMedia::class, ['product' => $product])
+        ->assertSee(__('catalog_admin.studio_title'))
+        ->call('askPhoto', $img->id, 'clean_background')->assertSee(__('catalog_admin.studio_kind_clean_background'))
+        ->call('askPhoto', $img->id, 'clean_background'); // duplicate is refused with a toast, not an error page
+    expect(ProductPhotoRequest::where('product_id', $product->id)->count())->toBe(1);
 });

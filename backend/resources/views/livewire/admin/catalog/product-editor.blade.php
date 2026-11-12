@@ -9,6 +9,12 @@
         <x-admin.page-header :title="__('catalog_admin.new_product')" :eyebrow="__('nav.catalog')" :description="__('catalog_admin.new_product_hint')" />
         <form wire:submit="create" class="grid gap-6 [&>*]:min-w-0 lg:grid-cols-3">
             <div class="min-w-0 card card-pad space-y-6 lg:col-span-2">
+                @if ($canEdit)
+                    <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-brass-500/10 px-4 py-3">
+                        <p class="text-sm text-ink-700 dark:text-sand-100"><span class="font-medium">{{ __('catalog_admin.ai_title') }}</span> <span class="text-ink-500">{{ $aiReady ? __('catalog_admin.ai_hint') : __('catalog_admin.ai_not_ready') }}</span></p>
+                        <button type="button" wire:click="describeWithAi" wire:loading.attr="disabled" wire:target="describeWithAi" @disabled(! $aiReady) class="btn-secondary min-h-11"><x-icon name="sparkles" class="size-4" /><span wire:loading.remove wire:target="describeWithAi">{{ __('catalog_admin.ai_write') }}</span><span wire:loading wire:target="describeWithAi">{{ __('catalog_admin.ai_writing') }}</span></button>
+                    </div>
+                @endif
                 <div class="grid gap-6 md:grid-cols-2">
                     @foreach ($langs as $l => [$dir, $label])
                         <div class="space-y-5" wire:key="new-{{ $l }}">
@@ -65,7 +71,13 @@
         @if ($tab === 'content')
             <form wire:submit="saveContent" class="grid gap-6 [&>*]:min-w-0 lg:grid-cols-3">
                 <fieldset class="min-w-0 space-y-6 lg:col-span-2" @disabled(! $canEdit)>
-                    <div class="card overflow-hidden">
+                    @if ($canEdit)
+                    <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-brass-500/10 px-4 py-3">
+                        <p class="text-sm text-ink-700 dark:text-sand-100"><span class="font-medium">{{ __('catalog_admin.ai_title') }}</span> <span class="text-ink-500">{{ $aiReady ? __('catalog_admin.ai_hint') : __('catalog_admin.ai_not_ready') }}</span></p>
+                        <button type="button" wire:click="describeWithAi" wire:loading.attr="disabled" wire:target="describeWithAi" @disabled(! $aiReady) class="btn-secondary min-h-11"><x-icon name="sparkles" class="size-4" /><span wire:loading.remove wire:target="describeWithAi">{{ __('catalog_admin.ai_write') }}</span><span wire:loading wire:target="describeWithAi">{{ __('catalog_admin.ai_writing') }}</span></button>
+                    </div>
+                @endif
+                <div class="card overflow-hidden">
                         <div class="grid md:grid-cols-2 md:divide-x md:divide-sand-100 rtl:md:divide-x-reverse dark:md:divide-ink-800">
                             @foreach ($langs as $l => [$dir, $label])
                                 <div class="space-y-5 p-5 sm:p-6" wire:key="c-{{ $l }}">

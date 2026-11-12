@@ -5,7 +5,10 @@ namespace App\Livewire\Admin\Catalog;
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Catalog\Models\ProductImage;
+use App\Domain\Catalog\Models\ProductPhotoRequest;
+use App\Domain\Catalog\Models\ProductPhotoResult;
 use App\Domain\Catalog\Services\MediaService;
+use App\Domain\Catalog\Services\ProductPhotoStudio;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -93,6 +96,44 @@ class ProductMedia extends Component
         }
     }
 
+    public function askPhoto(string $imageId, string $kind, ProductPhotoStudio $studio): void
+    {
+        abort_unless($this->canGlobally('catalog.edit'), 403);
+        $source = ProductImage::where('product_id', $this->product->id)->findOrFail($imageId);
+        if ($this->attempt(fn () => $studio->request($this->product, $source, $kind, $kind === 'new_design' ? 3 : 1, null, auth()->user()), __('catalog_admin.studio_asked'))) {
+            $this->dispatch('studio-changed');
+        }
+    }
+
+    public function askDesigns(int $count, ProductPhotoStudio $studio): void
+    {
+        abort_unless($this->canGlobally('catalog.edit'), 403);
+        $source = $this->product->images()->orderBy('sort_order')->first();
+        $this->attempt(fn () => $studio->request($this->product, $source, 'new_design', $count, null, auth()->user()), __('catalog_admin.studio_asked'));
+    }
+
+    public function useResult(string $resultId, bool $cover, ProductPhotoStudio $studio): void
+    {
+        abort_unless($this->canGlobally('catalog.edit'), 403);
+        $res = ProductPhotoResult::whereHas('request', fn ($q) => $q->where('product_id', $this->product->id))->findOrFail($resultId);
+        if ($this->attempt(fn () => $studio->use($res, auth()->user(), $cover), __('catalog_admin.studio_used'))) {
+            $this->loadMeta();
+        }
+    }
+
+    public function discardResult(string $resultId, ProductPhotoStudio $studio): void
+    {
+        abort_unless($this->canGlobally('catalog.edit'), 403);
+        $res = ProductPhotoResult::whereHas('request', fn ($q) => $q->where('product_id', $this->product->id))->findOrFail($resultId);
+        $this->attempt(fn () => $studio->discard($res));
+    }
+
+    public function cancelRequest(string $id, ProductPhotoStudio $studio): void
+    {
+        abort_unless($this->canGlobally('catalog.edit'), 403);
+        $this->attempt(fn () => $studio->cancel(ProductPhotoRequest::where('product_id', $this->product->id)->findOrFail($id)), __('catalog_admin.studio_cancelled'));
+    }
+
     public function delete(string $id, MediaService $media): void
     {
         abort_unless($this->canGlobally('catalog.edit'), 403);
@@ -107,6 +148,8 @@ class ProductMedia extends Component
         return view('livewire.admin.catalog.product-media', [
             'images' => $this->product->images()->get(),
             'variants' => $this->product->variants()->with('attributeValues')->get()->each(fn ($v) => $v->setRelation('product', $this->product)),
+            'requests' => ProductPhotoRequest::with(['source', 'results' => fn ($q) => $q->where('decision', 'pending')])->where('product_id', $this->product->id)
+                ->where(fn ($q) => $q->whereIn('status', ['requested', 'processing', 'failed'])->orWhereHas('results', fn ($r) => $r->where('decision', 'pending')))->latest()->limit(20)->get(),
             'canEdit' => $this->canGlobally('catalog.edit'),
             'maxKb' => (int) config('platform.media.max_image_kb'),
         ]);

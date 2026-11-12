@@ -5,9 +5,11 @@ namespace App\Livewire\Admin\Catalog;
 use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Catalog\Models\Brand;
+use App\Domain\Catalog\Models\Category;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Catalog\Models\ProductPriceHistory;
 use App\Domain\Catalog\Models\ProductVariant;
+use App\Domain\Catalog\Services\ProductAi;
 use App\Domain\Catalog\Services\ProductService;
 use App\Http\Requests\Admin\ProductRequest;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
@@ -190,9 +192,27 @@ class ProductEditor extends Component
         $this->attempt(fn () => $products->update($this->product, $data), __('admin.saved'));
     }
 
+    /** Fills the short and long description (EN + AR) from the title with Claude. Nothing is saved until the form is. */
+    public function describeWithAi(ProductAi $ai): void
+    {
+        abort_unless($this->canGlobally($this->product ? 'catalog.edit' : 'catalog.create'), 403);
+        $category = ($this->form['category_id'] ?? null) ? Category::find($this->form['category_id'])?->trans('name', 'en') : null;
+        $out = $this->attempt(fn () => $ai->describe($this->tr['en']['name'] ?? null, $this->tr['ar']['name'] ?? null, $category, $this->tr['en']['material'] ?? null));
+        if (! $out) {
+            return;
+        }
+        foreach (['en', 'ar'] as $l) {
+            $this->tr[$l]['short_description'] = $out[$l]['short'];
+            $this->tr[$l]['description'] = $out[$l]['description'];
+        }
+        $this->dispatch('ai-description-ready');
+        $this->toast(__('catalog_admin.ai_written'));
+    }
+
     public function render()
     {
         $data = [
+            'aiReady' => app(ProductAi::class)->configured(),
             'categories' => CategoryIndex::treeOptions(),
             'brands' => Brand::orderBy('name_en')->get(['id', 'name_en', 'name_ar']),
             'canEdit' => $this->canGlobally($this->product ? 'catalog.edit' : 'catalog.create'),
