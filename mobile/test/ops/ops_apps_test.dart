@@ -1,16 +1,22 @@
+import 'dart:async';
 import 'dart:io';
 
+import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:albahar_customer/l10n/generated/app_localizations.dart';
 import 'package:albahar_customer/ops/driver/driver_home.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_repository.dart';
 import 'package:albahar_customer/ops/staff/add_product_screen.dart';
+import 'package:albahar_customer/ops/staff/fleet_map_tab.dart';
 import 'package:albahar_customer/ops/staff/staff_home.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../helpers/fakes.dart' show testConfig;
 
 class _FakeOps implements OpsRepository {
   final calls = <String>[];
@@ -69,6 +75,22 @@ class _FakeOps implements OpsRepository {
   @override
   Future<List<BranchDriver>> drivers({String? branchId}) async => const [
     BranchDriver(id: 'u1', name: 'Omar', phone: null, onDuty: true, openJobs: 0),
+  ];
+
+  @override
+  Future<List<FleetDriver>> fleet({String? branchId}) async => [
+    FleetDriver.fromJson({
+      'id': 'u1',
+      'name': 'Omar',
+      'phone': '+97455123456',
+      'on_duty': true,
+      'lat': 25.28,
+      'lng': 51.52,
+      'last_seen_at': DateTime.now().toIso8601String(),
+      'open_jobs': 1,
+      'job': {'order_number': 'AB100008', 'status': 'out_for_delivery'},
+    }),
+    FleetDriver.fromJson({'id': 'u2', 'name': 'Salem', 'on_duty': true, 'lat': null, 'lng': null, 'open_jobs': 0}),
   ];
 
   @override
@@ -221,4 +243,44 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Leave without saving?'), findsNothing);
   });
+
+  testWidgets(
+    'live map: lists every driver with their job, pins the ones with a position and moves a pin on a live event',
+    (tester) async {
+      final repo = _FakeOps();
+      final events = StreamController<Map<String, dynamic>>.broadcast();
+      addTearDown(events.close);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [opsRepositoryProvider.overrideWithValue(repo), appConfigProvider.overrideWithValue(testConfig)],
+          child: MaterialApp(
+            locale: const Locale('en'),
+            supportedLocales: const [Locale('en'), Locale('ar')],
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            theme: AppTheme.light(const Locale('en')),
+            home: Scaffold(body: FleetMapTab(events: events.stream)),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('Omar'), findsWidgets);
+      expect(find.textContaining('Order AB100008 · On the way'), findsOneWidget);
+      expect(find.textContaining('No location yet'), findsOneWidget); // Salem has not shared a position
+      final pins = find.descendant(of: find.byType(MarkerLayer), matching: find.byIcon(Icons.two_wheeler_rounded));
+      expect(pins, findsOneWidget); // Omar is pinned; Salem is listed but has no position
+
+      // A live position for Salem pins him without a refresh.
+      events.add({'driver_id': 'u2', 'lat': 25.2805, 'lng': 51.5205});
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(pins, findsNWidgets(2));
+    },
+  );
 }

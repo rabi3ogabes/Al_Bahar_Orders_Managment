@@ -1,5 +1,6 @@
 <?php
 
+use App\Broadcasting\BranchChannel;
 use App\Broadcasting\FleetChannel;
 use App\Broadcasting\OrderChannel;
 use App\Domain\Branches\Models\BranchEmployee;
@@ -151,6 +152,23 @@ it('only lets people who watch the fleet or own the order listen to live positio
     [$f, $mgr] = readyOrder($w);
     expect((new OrderChannel)->join($w->customer, $f->order_id))->toBeTrue()
         ->and((new OrderChannel)->join($driver, $f->order_id))->toBeFalse()
-        ->and((new FleetChannel)->join($mgr))->toBeTrue()
+        ->and((new FleetChannel)->join($mgr))->toBeFalse()                       // branch staff use their branch channel, not the company-wide one
+        ->and((new FleetChannel)->join(staffWithRole('super_admin')))->toBeTrue()
+        ->and((new BranchChannel)->join($mgr, $w->a->id))->toBeTrue()
+        ->and((new BranchChannel)->join($mgr, $w->b->id))->toBeFalse()
         ->and((new FleetChannel)->join($w->customer))->toBeFalse();
+});
+
+it('sends a driver position to the staff of the branches that driver works for only', function () {
+    $w = commerceWorld();
+    $driver = driverFor([$w->a]);
+    Event::fake([DriverMoved::class]);
+    Cache::flush();
+    actingAsStaff($driver);
+    $this->postJson('/api/v1/admin/dispatch/driver/location', ['latitude' => 25.28, 'longitude' => 51.52])->assertOk();
+    Event::assertDispatched(DriverMoved::class, function (DriverMoved $e) use ($w) {
+        $names = collect($e->broadcastOn())->map(fn ($c) => $c->name)->all();
+
+        return in_array('private-branches.'.$w->a->id, $names, true) && ! in_array('private-branches.'.$w->b->id, $names, true) && in_array('private-fleet', $names, true);
+    });
 });

@@ -158,5 +158,23 @@ class OpsStrings {
   String get fieldRequired => _t('Required', 'مطلوب');
   String get priceInvalid => _t('Enter a price like 120 or 120.50', 'أدخل سعراً مثل 120 أو 120.50');
   String get close => _t('Close', 'إغلاق');
+  // Live map
+  String get mapTab => _t('Live map', 'الخريطة');
+  String get liveNow => _t('Live', 'مباشر');
+  String get noLocationYet => _t('No location yet', 'لا يوجد موقع بعد');
+  String get driversFree => _t('Free', 'متاح');
+  String get recenter => _t('Show all drivers', 'عرض كل السائقين');
+  String get mapEmptyTitle => _t('No drivers to show', 'لا يوجد سائقون لعرضهم');
+  String get mapEmptyHint => _t(
+    'Drivers appear here once they go on duty in the driver app and share their location.',
+    'يظهر السائقون هنا عندما يبدؤون الدوام في تطبيق السائق ويشاركون موقعهم.',
+  );
+  String orderNo(String n) => _t('Order $n', 'الطلب $n');
+  String seenAgo(Duration d) {
+    if (d.inSeconds < 45) return _t('just now', 'الآن');
+    if (d.inMinutes < 60) return _t('${d.inMinutes} min ago', 'قبل ${d.inMinutes} د');
+    return _t('${d.inHours} h ago', 'قبل ${d.inHours} س');
+  }
+
   String get language => _t('العربية', 'English');
 }

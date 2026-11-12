@@ -73,7 +73,8 @@ class DispatchService
         DriverLocation::create(['driver_id' => $driver->id, 'delivery_id' => $delivery?->id, 'lat' => $lat, 'lng' => $lng, 'speed_kmh' => $speedKmh,
             'heading' => $heading, 'accuracy_m' => $accuracy, 'recorded_at' => now()]);
         $orderId = $delivery ? $delivery->fulfillment()->value('order_id') : null;
-        rescue(fn () => event(new DriverMoved($driver->id, $driver->name, $lat, $lng, $orderId, $delivery?->status->value, $heading, $speedKmh)), report: true);
+        $branchIds = $this->driverBranchIds($driver)->all();
+        rescue(fn () => event(new DriverMoved($driver->id, $driver->name, $lat, $lng, $orderId, $delivery?->status->value, $heading, $speedKmh, $branchIds)), report: true);
     }
 
     /**

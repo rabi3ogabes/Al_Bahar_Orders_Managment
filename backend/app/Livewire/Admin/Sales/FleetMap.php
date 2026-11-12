@@ -21,6 +21,8 @@ class FleetMap extends Component
 
         return view('livewire.admin.sales.fleet-map', [
             'fleet' => $fleet,
+            // Company-wide staff listen on private-fleet; branch staff on the private channel of each of their branches.
+            'channels' => $scope->all ? ['fleet'] : array_map(fn ($b) => 'branches.'.$b, $scope->branchIds),
             'branches' => Branch::whereIn('id', $this->scopedBranches('deliveries.view')->pluck('id'))->orderBy('sort_order')->get(['id', 'code', 'name_en', 'name_ar', 'latitude', 'longitude']),
         ])->title(__('nav.fleet'));
     }

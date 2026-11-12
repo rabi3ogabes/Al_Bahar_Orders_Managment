@@ -146,6 +146,9 @@ class OpsRepository {
   Future<List<BranchDriver>> drivers({String? branchId}) =>
       _api.getList('/admin/dispatch/drivers', BranchDriver.fromJson, query: {'branch_id': ?branchId});
 
+  Future<List<FleetDriver>> fleet({String? branchId}) =>
+      _api.getList('/admin/dispatch/fleet', FleetDriver.fromJson, query: {'branch_id': ?branchId});
+
   Future<void> assign(String fulfillmentId, String driverId) async {
     await _api.post('/admin/dispatch/fulfillments/$fulfillmentId/assign', data: {'driver_id': driverId});
   }

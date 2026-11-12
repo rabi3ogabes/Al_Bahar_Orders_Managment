@@ -7,8 +7,8 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 
 /**
- * "driver.moved": the driver's new position, to the customer following that order (private-orders.{id}) and to the
- * dashboard fleet map (private-fleet). Throttled upstream (about every 3 s per driver).
+ * "driver.moved": the driver's new position, to the customer following that order (private-orders.{id}), the staff of each
+ * branch the driver works for (private-branches.{id}, so a branch only ever sees its own drivers) and the company-wide fleet map (private-fleet). Throttled upstream (about every 3 s per driver).
  */
 class DriverMoved implements ShouldBroadcast
 {
@@ -23,12 +23,18 @@ class DriverMoved implements ShouldBroadcast
         public readonly ?string $deliveryStatus = null,
         public readonly ?int $heading = null,
         public readonly ?float $speedKmh = null,
+        /** @var list<string> branches this driver works for: their staff follow the driver on private-branches.{id} */
+        public readonly array $branchIds = [],
     ) {}
 
     /** @return list<PrivateChannel> */
     public function broadcastOn(): array
     {
-        return array_values(array_filter([new PrivateChannel('fleet'), $this->orderId ? new PrivateChannel('orders.'.$this->orderId) : null]));
+        return array_values(array_filter([
+            new PrivateChannel('fleet'),
+            ...array_map(fn (string $b) => new PrivateChannel('branches.'.$b), $this->branchIds),
+            $this->orderId ? new PrivateChannel('orders.'.$this->orderId) : null,
+        ]));
     }
 
     public function broadcastAs(): string

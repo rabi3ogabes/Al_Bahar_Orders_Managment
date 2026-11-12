@@ -273,3 +273,48 @@ class ProductDraftText {
   final String shortAr;
   final String descriptionAr;
 }
+
+/// One driver on the live map (`GET /admin/dispatch/fleet`): last position, duty, and the job in hand.
+class FleetDriver {
+  const FleetDriver({
+    required this.id,
+    required this.name,
+    required this.phone,
+    required this.onDuty,
+    required this.lat,
+    required this.lng,
+    required this.lastSeen,
+    required this.openJobs,
+    this.orderNumber,
+    this.jobStatus,
+  });
+
+  factory FleetDriver.fromJson(JsonMap j) {
+    final job = j['job'] is Map ? asMap(j['job']) : const <String, dynamic>{};
+    return FleetDriver(
+      id: asString(j['id']),
+      name: asString(j['name']),
+      phone: asStringOrNull(j['phone']),
+      onDuty: asBool(j['on_duty']),
+      lat: j['lat'] == null ? null : asDouble(j['lat']),
+      lng: j['lng'] == null ? null : asDouble(j['lng']),
+      lastSeen: DateTime.tryParse(asString(j['last_seen_at'])),
+      openJobs: asInt(j['open_jobs']),
+      orderNumber: asStringOrNull(job['order_number']),
+      jobStatus: asStringOrNull(job['status']),
+    );
+  }
+
+  final String id;
+  final String name;
+  final String? phone;
+  final bool onDuty;
+  final double? lat;
+  final double? lng;
+  final DateTime? lastSeen;
+  final int openJobs;
+  final String? orderNumber;
+  final String? jobStatus;
+
+  bool get hasPosition => lat != null && lng != null;
+}

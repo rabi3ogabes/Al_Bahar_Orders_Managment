@@ -11,6 +11,7 @@ import 'package:albahar_customer/ops/ops_session.dart';
 import 'package:albahar_customer/ops/ops_strings.dart';
 import 'package:albahar_customer/ops/ops_widgets.dart';
 import 'package:albahar_customer/ops/staff/add_product_screen.dart';
+import 'package:albahar_customer/ops/staff/fleet_map_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -31,6 +32,17 @@ final staffEventsProvider = StreamProvider.autoDispose<PusherEvent>((ref) {
   final id = ref.watch(staffOverviewProvider.select((o) => o.value?.branchId));
   if (id == null || id.isEmpty) return const Stream.empty();
   return ref.watch(pusherClientProvider).channel('private-branches.$id');
+});
+
+/// `driver.moved` payloads from the branch channel, for the live map.
+final staffMovesProvider = Provider.autoDispose<Stream<Map<String, dynamic>>>((ref) {
+  final id = ref.watch(staffOverviewProvider.select((o) => o.value?.branchId));
+  if (id == null || id.isEmpty) return const Stream.empty();
+  return ref
+      .watch(pusherClientProvider)
+      .channel('private-branches.$id')
+      .where((e) => e.event == 'driver.moved')
+      .map((e) => e.data);
 });
 
 const _stages = ['new', 'preparing', 'ready', 'out'];
@@ -80,7 +92,7 @@ class _StaffHomeState extends ConsumerState<StaffHome> with OpsPolling {
       }
     });
     return DefaultTabController(
-      length: 5,
+      length: 6,
       child: Scaffold(
         appBar: AppBar(
           title: Row(
@@ -114,6 +126,7 @@ class _StaffHomeState extends ConsumerState<StaffHome> with OpsPolling {
               Tab(text: '${t.stageReady}${o == null ? '' : ' · ${o.ready}'}'),
               Tab(text: '${t.stageOut}${o == null ? '' : ' · ${o.out}'}'),
               Tab(text: t.drivers),
+              Tab(text: t.mapTab),
             ],
           ),
         ),
@@ -127,6 +140,7 @@ class _StaffHomeState extends ConsumerState<StaffHome> with OpsPolling {
                       children: [
                         for (final s in _stages) _OrderList(stage: s, autoDispatch: o?.autoDispatch ?? false),
                         const _DriverList(),
+                        FleetMapTab(events: ref.watch(staffMovesProvider)),
                       ],
                     ),
                   ),

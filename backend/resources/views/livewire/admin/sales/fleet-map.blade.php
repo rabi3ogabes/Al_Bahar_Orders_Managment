@@ -11,7 +11,7 @@
     <x-admin.page-header :title="__('nav.fleet')" :eyebrow="__('nav.sales')" :description="__('fleet.hint')" />
 
     <div class="grid gap-6 lg:grid-cols-3 [&>*]:min-w-0"
-         x-data="fleetMap(@js($payload), @js($statusLabels), @js(['offline' => __('fleet.offline'), 'idle' => __('fleet.idle'), 'job' => __('fleet.job'), 'seen' => __('fleet.seen')]))"
+         x-data="fleetMap(@js($payload), @js($statusLabels), @js($channels), @js(['offline' => __('fleet.offline'), 'idle' => __('fleet.idle'), 'job' => __('fleet.job'), 'seen' => __('fleet.seen')]))"
          x-init="init()">
         <section class="card overflow-hidden lg:col-span-2">
             <div class="flex items-center justify-between gap-3 border-b border-sand-200 px-4 py-3 dark:border-ink-800">
@@ -50,7 +50,7 @@
 
 @script
 <script>
-    Alpine.data('fleetMap', (initial, statuses, t) => ({
+    Alpine.data('fleetMap', (initial, statuses, channels, t) => ({
         live: false, L: null, map: null, markers: {}, data: initial,
         async init() {
             this.L = await window.loadLeaflet();
@@ -62,10 +62,10 @@
             $wire.on('fleet-updated', (e) => this.draw((e.drivers ?? e[0]?.drivers) || [], false));
             const e = window.echo && window.echo();
             if (e) {
-                e.private('fleet').listen('.driver.moved', (m) => this.moved(m));
+                channels.forEach((c) => e.private(c).listen('.driver.moved', (m) => this.moved(m)));
                 e.connector?.pusher?.connection?.bind('state_change', (s) => this.live = s.current === 'connected');
                 this.live = e.connector?.pusher?.connection?.state === 'connected';
-                document.addEventListener('livewire:navigating', () => e.leave('fleet'), { once: true });
+                document.addEventListener('livewire:navigating', () => channels.forEach((c) => e.leave(c)), { once: true });
             }
         },
         icon(color, glyph) {
