@@ -28,21 +28,56 @@ class ThemeService
             ?? BrandTheme::where('is_default', true)->first();
     }
 
-    /** True when today falls in the theme's one-off window or its yearly MM-DD window (Qatar time). */
+    /** True when now falls in the theme's one-off window or its yearly window, to the minute (Qatar time). */
     public function matches(BrandTheme $t, CarbonImmutable $now): bool
     {
         if ($t->starts_at || $t->ends_at) {
             return (! $t->starts_at || $t->starts_at->lte($now)) && (! $t->ends_at || $t->ends_at->gt($now));
         }
         if ($t->recur_start && $t->recur_end) {
-            $today = BusinessTime::local($now)->format('m-d');
+            $nowKey = BusinessTime::local($now)->format('m-d H:i');
+            $from = $t->recur_start.' '.($t->recur_start_time ?: '00:00');
+            $to = $t->recur_end.' '.($t->recur_end_time ?: '23:59');
 
-            return $t->recur_start <= $t->recur_end
-                ? ($today >= $t->recur_start && $today <= $t->recur_end)
-                : ($today >= $t->recur_start || $today <= $t->recur_end); // wraps over new year
+            return $from <= $to
+                ? ($nowKey >= $from && $nowKey <= $to)
+                : ($nowKey >= $from || $nowKey <= $to); // wraps over new year
         }
 
         return false;
+    }
+
+    /**
+     * The window to show on a card: the one running now, else the next one coming (yearly looks: this year's or next year's).
+     *
+     * @return array{start: CarbonImmutable, end: CarbonImmutable, live: bool}|null
+     */
+    public function window(BrandTheme $t, ?CarbonImmutable $now = null): ?array
+    {
+        $now ??= CarbonImmutable::now();
+        if ($t->starts_at || $t->ends_at) {
+            $start = $t->starts_at ?? $now->subYears(1);
+            $end = $t->ends_at ?? $now->addYears(1);
+
+            return ['start' => $start, 'end' => $end, 'live' => $start->lte($now) && $end->gt($now)];
+        }
+        if (! $t->recur_start || ! $t->recur_end) {
+            return null;
+        }
+        $zone = BusinessTime::zone();
+        $year = (int) BusinessTime::local($now)->format('Y');
+        $next = null;
+        foreach ([$year - 1, $year, $year + 1] as $y) {
+            $start = CarbonImmutable::parse("$y-{$t->recur_start} ".($t->recur_start_time ?: '00:00'), $zone);
+            $endYear = ($t->recur_end.' '.($t->recur_end_time ?: '23:59')) < ($t->recur_start.' '.($t->recur_start_time ?: '00:00')) ? $y + 1 : $y;
+            $end = CarbonImmutable::parse("$endYear-{$t->recur_end} ".($t->recur_end_time ?: '23:59'), $zone);
+            if ($start->lte($now) && $end->gte($now)) {
+                return ['start' => $start, 'end' => $end, 'live' => true];
+            }
+            $next ??= $start->gt($now) ? ['start' => $start, 'end' => $end, 'live' => false] : null;
+        }
+
+        return $next;
     }
 
     /** @return array<string, mixed> */
@@ -64,7 +99,8 @@ class ThemeService
     public function present(BrandTheme $t): array
     {
         $url = fn (?string $p) => $p ? (str_starts_with($p, 'http') ? $p : Storage::disk(config('platform.media.disk'))->url($p)) : null;
-        $nextChange = $t->is_forced || $t->kind === 'base' ? null : $t->ends_at?->toIso8601String();
+        $w = $t->is_forced || $t->kind === 'base' ? null : $this->window($t);
+        $nextChange = $w && $w['live'] ? $w['end']->toIso8601String() : null; // the apps refresh the look when this moment passes
 
         return [
             'key' => $t->key, 'kind' => $t->kind, 'name' => $t->localized('name'),
@@ -115,8 +151,27 @@ class ThemeService
         return $n;
     }
 
+    /** Presets the admin has not added yet (or deleted), for the "Add a Qatar event" list. @return list<array<string, mixed>> */
+    public function availablePresets(): array
+    {
+        $have = BrandTheme::pluck('key')->all();
+
+        return array_values(array_filter($this->presets(), fn ($p) => ! in_array($p['key'], $have, true)));
+    }
+
+    public function addPreset(string $key): ?BrandTheme
+    {
+        $p = collect($this->presets())->firstWhere('key', $key);
+        if (! $p || BrandTheme::where('key', $key)->exists()) {
+            return null;
+        }
+        $this->forget();
+
+        return BrandTheme::create($p);
+    }
+
     /** @return list<array<string, mixed>> */
-    private function presets(): array
+    public function presets(): array
     {
         $c = fn (string $p, string $soft, string $a, string $bg = '#FCF9FA', string $s = '#FFFFFF', string $ink = '#2A1A20') => ['primary' => $p, 'primary_soft' => $soft, 'accent' => $a, 'background' => $bg, 'surface' => $s, 'ink' => $ink];
 
@@ -138,6 +193,28 @@ class ThemeService
             ['key' => 'eid-al-adha', 'kind' => 'event', 'name_en' => 'Eid Al Adha', 'name_ar' => 'عيد الأضحى', 'colors' => $c('#0F5C4D', '#1B7A67', '#C9A24D', '#FAFBF7'),
                 'banner_title_en' => 'Eid Al Adha Mubarak', 'banner_title_ar' => 'عيد أضحى مبارك', 'banner_subtitle_en' => 'Blessed Eid from Al Bahar', 'banner_subtitle_ar' => 'عيد مبارك من البحار',
                 'starts_at' => CarbonImmutable::parse('2027-05-16 00:00', BusinessTime::zone())->utc(), 'ends_at' => CarbonImmutable::parse('2027-05-20 00:00', BusinessTime::zone())->utc(), 'is_enabled' => false, 'priority' => 190],
+            // More of Qatar's calendar and shopping seasons. They start switched off: confirm the dates, then turn them on.
+            ['key' => 'independence-day', 'kind' => 'event', 'name_en' => 'Qatar Independence Day', 'name_ar' => 'يوم الاستقلال', 'colors' => $c('#8A1538', '#6E102D', '#C9A24D', '#FFFFFF'),
+                'banner_title_en' => 'Happy Independence Day', 'banner_title_ar' => 'كل عام وقطر بخير في يوم الاستقلال', 'banner_subtitle_en' => '3 September — proud to be Qatari', 'banner_subtitle_ar' => '٣ سبتمبر — فخورون بقطر',
+                'recur_start' => '09-02', 'recur_end' => '09-04', 'is_enabled' => false, 'priority' => 170],
+            ['key' => 'gargeean', 'kind' => 'event', 'name_en' => 'Gargee\'an', 'name_ar' => 'القرنقعوه', 'colors' => $c('#5B2A86', '#7A44A8', '#F2A541', '#FFF9F2'),
+                'banner_title_en' => 'Happy Gargee\'an', 'banner_title_ar' => 'قرنقعوه مبارك', 'banner_subtitle_en' => 'Sweets, joy and tradition', 'banner_subtitle_ar' => 'حلوى وفرحة وتراث',
+                'starts_at' => CarbonImmutable::parse('2027-02-20 12:00', BusinessTime::zone())->utc(), 'ends_at' => CarbonImmutable::parse('2027-02-22 00:00', BusinessTime::zone())->utc(), 'is_enabled' => false, 'priority' => 185],
+            ['key' => 'hijri-new-year', 'kind' => 'event', 'name_en' => 'Hijri New Year', 'name_ar' => 'رأس السنة الهجرية', 'colors' => $c('#0F5C4D', '#1B7A67', '#C9A24D', '#FAFBF7'),
+                'banner_title_en' => 'Happy Hijri New Year', 'banner_title_ar' => 'كل عام وأنتم بخير بالعام الهجري الجديد', 'banner_subtitle_en' => 'A blessed new year', 'banner_subtitle_ar' => 'عام مبارك',
+                'starts_at' => CarbonImmutable::parse('2027-06-05 00:00', BusinessTime::zone())->utc(), 'ends_at' => CarbonImmutable::parse('2027-06-07 00:00', BusinessTime::zone())->utc(), 'is_enabled' => false, 'priority' => 160],
+            ['key' => 'white-friday', 'kind' => 'event', 'name_en' => 'White Friday', 'name_ar' => 'الجمعة البيضاء', 'colors' => $c('#14161C', '#2B2E38', '#C9A24D', '#FFFFFF', '#FFFFFF', '#14161C'),
+                'banner_title_en' => 'White Friday', 'banner_title_ar' => 'الجمعة البيضاء', 'banner_subtitle_en' => 'The biggest offers of the year', 'banner_subtitle_ar' => 'أكبر عروض العام',
+                'recur_start' => '11-24', 'recur_end' => '11-30', 'is_enabled' => false, 'priority' => 175],
+            ['key' => 'new-year', 'kind' => 'event', 'name_en' => 'New Year', 'name_ar' => 'رأس السنة الميلادية', 'colors' => $c('#14161C', '#2B2E38', '#C9A24D', '#FBF8F3'),
+                'banner_title_en' => 'Happy New Year', 'banner_title_ar' => 'سنة جديدة سعيدة', 'banner_subtitle_en' => 'Start the year at home', 'banner_subtitle_ar' => 'ابدأ عامك في بيتك',
+                'recur_start' => '12-31', 'recur_start_time' => '12:00', 'recur_end' => '01-02', 'recur_end_time' => '23:59', 'is_enabled' => false, 'priority' => 140],
+            ['key' => 'back-to-school', 'kind' => 'event', 'name_en' => 'Back to School', 'name_ar' => 'العودة إلى المدارس', 'colors' => $c('#1F4E8C', '#3068AD', '#F2A541', '#F7FAFF'),
+                'banner_title_en' => 'Back to school', 'banner_title_ar' => 'العودة إلى المدارس', 'banner_subtitle_en' => 'Desks, lamps and cosy corners', 'banner_subtitle_ar' => 'مكاتب وإضاءة وأركان مريحة',
+                'recur_start' => '08-15', 'recur_end' => '09-05', 'is_enabled' => false, 'priority' => 120],
+            ['key' => 'mothers-day', 'kind' => 'event', 'name_en' => 'Mother\'s Day', 'name_ar' => 'عيد الأم', 'colors' => $c('#A3294E', '#C2476D', '#F2A541', '#FFF8F9'),
+                'banner_title_en' => 'Happy Mother\'s Day', 'banner_title_ar' => 'عيد أم سعيد', 'banner_subtitle_en' => 'Gifts for the heart of the home', 'banner_subtitle_ar' => 'هدايا لقلب البيت',
+                'recur_start' => '03-19', 'recur_end' => '03-22', 'is_enabled' => false, 'priority' => 130],
         ];
     }
 }

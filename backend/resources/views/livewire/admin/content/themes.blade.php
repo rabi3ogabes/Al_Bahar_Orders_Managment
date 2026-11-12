@@ -27,12 +27,30 @@
         </div>
     @endif
 
+    {{-- What is coming: the next events on the calendar, to the minute (Qatar time). --}}
+    @if ($upcoming->isNotEmpty())
+        <section class="mb-6" aria-labelledby="upcoming-h">
+            <h2 id="upcoming-h" class="mb-3 font-display text-lg font-semibold">{{ __('theme_admin.upcoming') }}</h2>
+            <ol class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5 [&>*]:min-w-0">
+                @foreach ($upcoming as $u)
+                    @php $w = $windows[$u->id]; @endphp
+                    <li class="card flex flex-col gap-1 p-4 {{ $w['live'] ? 'ring-2 ring-emerald-400' : '' }}">
+                        <span class="flex items-center gap-2 text-xs font-medium {{ $w['live'] ? 'text-emerald-700 dark:text-emerald-300' : 'text-ink-500' }}"><span class="size-2 rounded-full {{ $w['live'] ? 'animate-pulse bg-emerald-500' : 'bg-brass-400' }}"></span>{{ $w['live'] ? __('theme_admin.live_now') : $w['start']->locale(app()->getLocale())->diffForHumans(['parts' => 2, 'short' => true]) }}</span>
+                        <span class="truncate font-medium">{{ $name($u) }}</span>
+                        <span class="text-xs text-ink-500 tabular-nums">{{ \App\Support\BusinessTime::display($w['start'], 'j M, H:i') }} → {{ \App\Support\BusinessTime::display($w['end'], 'j M, H:i') }}</span>
+                    </li>
+                @endforeach
+            </ol>
+        </section>
+    @endif
+
     <ul class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0">
         @foreach ($themes as $t)
             @php
                 $live = $active && $active->id === $t->id;
-                $window = $t->recur_start ? \Illuminate\Support\Carbon::createFromFormat('m-d', $t->recur_start)->translatedFormat('j M').' – '.\Illuminate\Support\Carbon::createFromFormat('m-d', $t->recur_end)->translatedFormat('j M').' · '.__('theme_admin.every_year')
-                    : (($t->starts_at || $t->ends_at) ? \App\Support\BusinessTime::display($t->starts_at, 'j M Y').' – '.\App\Support\BusinessTime::display($t->ends_at, 'j M Y') : null);
+                $w = $windows[$t->id] ?? null;
+                $window = $w ? \App\Support\BusinessTime::display($w['start'], 'j M Y, H:i').' → '.\App\Support\BusinessTime::display($w['end'], 'j M Y, H:i') : null;
+                $yearly = (bool) $t->recur_start;
             @endphp
             <li class="card overflow-hidden {{ $live ? 'ring-2 ring-brass-500' : '' }}" wire:key="th-{{ $t->id }}">
                 <div class="relative h-28" style="background: linear-gradient(135deg, {{ $t->colors['primary'] }}, {{ $t->colors['primary_soft'] }})">
@@ -50,7 +68,18 @@
                 </div>
                 <div class="p-4">
                     <p class="truncate font-medium text-ink-900 dark:text-ivory">{{ $name($t) }}</p>
-                    <p class="mt-0.5 text-xs text-ink-500">{{ __('theme_admin.kind_'.$t->kind) }}@if ($window) · {{ $window }}@endif</p>
+                    <p class="mt-0.5 text-xs text-ink-500">{{ __('theme_admin.kind_'.$t->kind) }}@if ($yearly) · {{ __('theme_admin.every_year') }}@endif</p>
+                    @if ($window)
+                        <p class="mt-2 flex items-start gap-2 text-xs tabular-nums text-ink-700 dark:text-sand-100"><x-icon name="clock" class="mt-0.5 size-3.5 shrink-0 text-brass-500" /><span><span class="block">{{ __('theme_admin.from') }} {{ \App\Support\BusinessTime::display($w['start'], 'j M Y · H:i') }}</span><span class="block">{{ __('theme_admin.to') }} {{ \App\Support\BusinessTime::display($w['end'], 'j M Y · H:i') }}</span></span></p>
+                        <p class="mt-1 text-xs {{ $w['live'] ? 'font-medium text-emerald-700 dark:text-emerald-300' : 'text-ink-500' }}">
+                            @if ($w['live']) {{ __('theme_admin.live_now') }} · {{ __('theme_admin.ends') }} {{ $w['end']->locale(app()->getLocale())->diffForHumans() }}
+                            @elseif ($w['start']->isFuture()) {{ __('theme_admin.starts') }} {{ $w['start']->locale(app()->getLocale())->diffForHumans() }}
+                            @else {{ __('theme_admin.ended') }} {{ $w['end']->locale(app()->getLocale())->diffForHumans() }} @endif
+                            @if (! $t->is_enabled && ! $t->is_default) · {{ __('theme_admin.confirm_dates') }} @endif
+                        </p>
+                    @else
+                        <p class="mt-2 text-xs text-ink-500">{{ __('theme_admin.no_dates') }}</p>
+                    @endif
                     <div class="mt-3 flex flex-wrap items-center gap-1">
                         @if ($canEdit)
                             @if (! $live || ! $forced)<button type="button" wire:click="activate('{{ $t->id }}')" class="btn-primary btn-sm">{{ __('theme_admin.activate_now') }}</button>@endif
@@ -66,6 +95,18 @@
             </li>
         @endforeach
     </ul>
+
+    @if ($canCreate && count($availablePresets))
+        <section class="mt-8" aria-labelledby="presets-h">
+            <h2 id="presets-h" class="font-display text-lg font-semibold">{{ __('theme_admin.add_event') }}</h2>
+            <p class="mb-3 text-sm text-ink-500">{{ __('theme_admin.add_event_hint') }}</p>
+            <ul class="flex flex-wrap gap-2">
+                @foreach ($availablePresets as $p)
+                    <li><button type="button" wire:click="addPreset('{{ $p['key'] }}')" class="inline-flex min-h-11 items-center gap-2 rounded-full border border-sand-300 bg-white px-4 text-sm hover:border-brass-400 dark:border-ink-600 dark:bg-ink-800"><x-icon name="plus" class="size-4" />{{ $name((object) $p) }}</button></li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
 
     <x-admin.dialog wire:model="showEditor" :title="$editingId ? __('theme_admin.edit') : __('theme_admin.new')" max-width="max-w-4xl">
         <form wire:submit="save" class="space-y-6">
@@ -137,8 +178,20 @@
                         </select>
                     </x-admin.field>
                     @if (($form['schedule'] ?? 'none') === 'yearly')
-                        <x-admin.field :label="__('theme_admin.recur_start')" for="form.recur_start" :hint="__('theme_admin.recur_hint')"><input id="form.recur_start" wire:model="form.recur_start" class="input tabular-nums" placeholder="12-14" maxlength="5" dir="ltr"></x-admin.field>
-                        <x-admin.field :label="__('theme_admin.recur_end')" for="form.recur_end"><input id="form.recur_end" wire:model="form.recur_end" class="input tabular-nums" placeholder="12-19" maxlength="5" dir="ltr"></x-admin.field>
+                        <fieldset class="sm:col-span-2 grid gap-3 rounded-xl border border-sand-100 p-3 dark:border-ink-800 sm:grid-cols-2 [&>*]:min-w-0">
+                            <legend class="px-1 text-xs font-medium text-ink-500">{{ __('theme_admin.yearly_hint') }}</legend>
+                            @foreach ([['rs', __('theme_admin.from')], ['re', __('theme_admin.to')]] as [$p, $lbl])
+                                <div>
+                                    <p class="mb-1 text-xs font-medium">{{ $lbl }}</p>
+                                    <div class="grid grid-cols-[1fr_5rem_6.5rem] gap-2">
+                                        <select wire:model="form.{{ $p }}_m" class="input" aria-label="{{ __('theme_admin.month') }}">@foreach (range(1, 12) as $m)<option value="{{ $m }}">{{ \Illuminate\Support\Carbon::create(2000, $m, 1)->locale(app()->getLocale())->translatedFormat('F') }}</option>@endforeach</select>
+                                        <select wire:model="form.{{ $p }}_d" class="input" aria-label="{{ __('theme_admin.day') }}">@foreach (range(1, 31) as $d)<option value="{{ $d }}">{{ $d }}</option>@endforeach</select>
+                                        <input type="time" wire:model="form.{{ $p }}_t" class="input tabular-nums" aria-label="{{ __('theme_admin.time') }}">
+                                    </div>
+                                    @error('form.'.$p.'_d')<p class="field-error">{{ $message }}</p>@enderror
+                                </div>
+                            @endforeach
+                        </fieldset>
                     @elseif (($form['schedule'] ?? 'none') === 'once')
                         <x-admin.field :label="__('theme_admin.starts_at')" for="form.starts_at"><input id="form.starts_at" type="datetime-local" wire:model="form.starts_at" class="input"></x-admin.field>
                         <x-admin.field :label="__('theme_admin.ends_at')" for="form.ends_at"><input id="form.ends_at" type="datetime-local" wire:model="form.ends_at" class="input"></x-admin.field>

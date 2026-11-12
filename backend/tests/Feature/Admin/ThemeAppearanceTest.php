@@ -2,6 +2,7 @@
 
 use App\Domain\Cms\Models\BrandTheme;
 use App\Domain\Cms\Services\ThemeService;
+use App\Domain\Identity\Models\User;
 use App\Livewire\Admin\Content\ThemeIndex;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -89,4 +90,50 @@ it('does not let the default look be deleted', function () {
     $default = BrandTheme::where('is_default', true)->first();
     expect(fn () => Livewire::actingAs($mkt)->test(ThemeIndex::class)->call('delete', $default->id))->not->toThrow(Throwable::class);
     expect(BrandTheme::where('is_default', true)->exists())->toBeTrue();
+});
+
+it('switches a yearly look on and off to the minute, in Qatar time', function () {
+    $t = BrandTheme::create(['key' => 'nd', 'kind' => 'event', 'name_en' => 'ND', 'name_ar' => 'ن', 'colors' => BrandTheme::where('key', 'qatar-maroon')->value('colors'),
+        'recur_start' => '12-18', 'recur_start_time' => '06:00', 'recur_end' => '12-19', 'recur_end_time' => '01:30', 'is_enabled' => true]);
+    $svc = app(ThemeService::class);
+    $q = fn (string $at) => CarbonImmutable::parse($at, 'Asia/Qatar')->utc();
+    expect($svc->matches($t, $q('2026-12-18 05:59')))->toBeFalse()
+        ->and($svc->matches($t, $q('2026-12-18 06:00')))->toBeTrue()
+        ->and($svc->matches($t, $q('2026-12-19 01:30')))->toBeTrue()
+        ->and($svc->matches($t, $q('2026-12-19 01:31')))->toBeFalse();
+    $w = $svc->window($t, $q('2026-11-12 10:00'));
+    expect($w['live'])->toBeFalse()->and($w['start']->setTimezone('Asia/Qatar')->format('Y-m-d H:i'))->toBe('2026-12-18 06:00')->and($w['end']->setTimezone('Asia/Qatar')->format('Y-m-d H:i'))->toBe('2026-12-19 01:30');
+    expect($svc->window($t, $q('2026-12-18 12:00'))['live'])->toBeTrue()
+        ->and($svc->window($t, $q('2026-12-25 12:00'))['start']->setTimezone('Asia/Qatar')->format('Y'))->toBe('2027'); // next year's occurrence
+});
+
+it('wraps a yearly look with times over new year (New Year 12-31 12:00 to 01-02 23:59)', function () {
+    $t = BrandTheme::create(['key' => 'ny', 'kind' => 'event', 'name_en' => 'NY', 'name_ar' => 'س', 'colors' => BrandTheme::where('key', 'qatar-maroon')->value('colors'),
+        'recur_start' => '12-31', 'recur_start_time' => '12:00', 'recur_end' => '01-02', 'recur_end_time' => '23:59', 'is_enabled' => true]);
+    $svc = app(ThemeService::class);
+    $q = fn (string $at) => CarbonImmutable::parse($at, 'Asia/Qatar')->utc();
+    expect($svc->matches($t, $q('2026-12-31 11:59')))->toBeFalse()->and($svc->matches($t, $q('2026-12-31 12:00')))->toBeTrue()
+        ->and($svc->matches($t, $q('2027-01-02 23:59')))->toBeTrue()->and($svc->matches($t, $q('2027-01-03 00:30')))->toBeFalse();
+    $w = $svc->window($t, $q('2027-01-01 09:00'));
+    expect($w['live'])->toBeTrue()->and($w['end']->setTimezone('Asia/Qatar')->format('Y-m-d'))->toBe('2027-01-02');
+});
+
+it('lets the admin set a yearly event with date and time from the form, rejects a day that does not exist, and adds missing Qatar events', function () {
+    $admin = User::factory()->superAdmin()->create();
+    $c = Livewire::actingAs($admin)->test(ThemeIndex::class)->call('create')
+        ->set('form.name_en', 'National Day')->set('form.name_ar', 'اليوم الوطني')->set('form.schedule', 'yearly')
+        ->set('form.rs_m', '12')->set('form.rs_d', '17')->set('form.rs_t', '18:30')->set('form.re_m', '12')->set('form.re_d', '19')->set('form.re_t', '02:00');
+    $c->call('save')->assertHasNoErrors();
+    $t = BrandTheme::where('name_en', 'National Day')->first();
+    expect($t->recur_start)->toBe('12-17')->and($t->recur_start_time)->toBe('18:30')->and($t->recur_end)->toBe('12-19')->and($t->recur_end_time)->toBe('02:00');
+    Livewire::actingAs($admin)->test(ThemeIndex::class)->call('create')->set('form.name_en', 'X')->set('form.name_ar', 'س')
+        ->set('form.schedule', 'yearly')->set('form.rs_m', '2')->set('form.rs_d', '31')->call('save')->assertHasErrors('form.rs_d');
+
+    app(ThemeService::class)->seedPresets();
+    expect(BrandTheme::whereIn('key', ['independence-day', 'gargeean', 'hijri-new-year', 'white-friday', 'new-year', 'back-to-school', 'mothers-day'])->count())->toBe(7)
+        ->and(BrandTheme::where('key', 'white-friday')->value('is_enabled'))->toBeFalse();
+    BrandTheme::where('key', 'white-friday')->delete();
+    expect(collect(app(ThemeService::class)->availablePresets())->pluck('key')->all())->toBe(['white-friday']);
+    Livewire::actingAs($admin)->test(ThemeIndex::class)->call('addPreset', 'white-friday');
+    expect(BrandTheme::where('key', 'white-friday')->exists())->toBeTrue();
 });
