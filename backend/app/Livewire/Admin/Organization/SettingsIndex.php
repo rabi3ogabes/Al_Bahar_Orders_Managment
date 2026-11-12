@@ -102,6 +102,8 @@ class SettingsIndex extends Component
                 'payments.sadad.website' => ['type' => 'text', 'rules' => ['nullable', 'string', 'max:191'], 'dir' => 'ltr'],
                 'payments.sadad.fee_percent' => ['type' => 'percent', 'rules' => ['required', 'numeric', 'min:0', 'max:100']],
                 'payments.sadad.fee_fixed' => ['type' => 'money', 'rules' => $money],
+                'ai.anthropic_api_key' => ['type' => 'secret', 'rules' => ['nullable', 'string', 'min:20', 'max:255']],
+                'ai.model' => ['type' => 'text', 'rules' => ['nullable', 'string', 'max:64'], 'dir' => 'ltr'],
                 'payments.sadad.secret_key' => ['type' => 'secret', 'rules' => ['nullable', 'string', 'min:8', 'max:255']],
             ],
         ];

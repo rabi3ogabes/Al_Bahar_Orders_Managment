@@ -210,6 +210,8 @@ return [
         'payments__sadad__website' => 'SADAD registered website',
         'payments__sadad__fee_percent' => 'SADAD fee (% of the payment)',
         'payments__sadad__fee_fixed' => 'SADAD fixed fee per payment (QAR)',
+        'ai__anthropic_api_key' => 'Claude API key (AI descriptions)',
+        'ai__model' => 'Claude model for descriptions',
         'payments__sadad__secret_key' => 'SADAD secret key',
     ],
     'setting_hint' => [
@@ -217,6 +219,7 @@ return [
         'checkout__reservation_ttl_minutes' => 'Unpaid online orders release their stock after this time.',
         'auctions__default_extension_window_seconds' => 'A bid placed this close to the end extends the auction.',
         'payments__sadad__fee_percent' => 'Used by the partner statistics to work out the net after SADAD. Ask your SADAD account manager for the exact rate.',
+        'ai__anthropic_api_key' => 'The product screens use it to write the description from the title. Create a key at console.anthropic.com. Leave the model empty to use the default.',
         'payments__sadad__mode' => 'Use sandbox until the merchant account is approved for live payments.',
     ],
     'option' => [

@@ -124,3 +124,17 @@ Route::controller(V1\Customer\ProfileController::class)->prefix('devices')->name
     Route::post('/', 'registerDevice')->name('store');
     Route::delete('/', 'unregisterDevice')->name('destroy');
 });
+
+// Photo studio + AI writer (catalog): staff ask, the studio editor delivers, staff approve.
+Route::controller(V1\Admin\PhotoStudioController::class)->prefix('catalog')->name('studio.')->group(function () {
+    Route::get('ai/status', 'aiStatus')->middleware('permission:catalog.view')->name('ai.status');
+    Route::post('ai/describe', 'describe')->middleware(['permission:catalog.create,catalog.edit', 'throttle:20,1'])->name('ai.describe');
+    Route::post('products/{product}/photo-requests', 'requestPhoto')->middleware('permission:catalog.edit')->name('photo.request');
+    Route::get('photo-requests', 'index')->middleware('permission:catalog.view')->name('photo.index');
+    Route::post('photo-requests/{photoRequest}/claim', 'claim')->middleware('permission:catalog.edit')->name('photo.claim');
+    Route::post('photo-requests/{photoRequest}/results', 'addResults')->middleware(['permission:catalog.edit', 'throttle:30,1'])->name('photo.results');
+    Route::post('photo-requests/{photoRequest}/fail', 'fail')->middleware('permission:catalog.edit')->name('photo.fail');
+    Route::post('photo-requests/{photoRequest}/cancel', 'cancel')->middleware('permission:catalog.edit')->name('photo.cancel');
+    Route::post('photo-results/{result}/use', 'useResult')->middleware('permission:catalog.edit')->name('photo.use');
+    Route::post('photo-results/{result}/discard', 'discardResult')->middleware('permission:catalog.edit')->name('photo.discard');
+});

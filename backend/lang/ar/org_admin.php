@@ -210,6 +210,8 @@ return [
         'payments__sadad__website' => 'الموقع المسجّل في سداد',
         'payments__sadad__fee_percent' => 'رسوم سداد (٪ من الدفعة)',
         'payments__sadad__fee_fixed' => 'رسوم سداد الثابتة لكل دفعة (ر.ق)',
+        'ai__anthropic_api_key' => 'مفتاح Claude (الوصف الذكي)',
+        'ai__model' => 'نموذج Claude للوصف',
         'payments__sadad__secret_key' => 'المفتاح السري لسداد',
     ],
     'setting_hint' => [
@@ -217,6 +219,7 @@ return [
         'checkout__reservation_ttl_minutes' => 'يُحرَّر مخزون الطلبات الإلكترونية غير المدفوعة بعد هذه المدة.',
         'auctions__default_extension_window_seconds' => 'المزايدة في هذه المدة قبل النهاية تمدّد المزاد.',
         'payments__sadad__fee_percent' => 'تُستخدم في إحصائيات الشركاء لحساب الصافي بعد سداد. اسأل مدير حسابك في سداد عن النسبة الدقيقة.',
+        'ai__anthropic_api_key' => 'تستخدمه شاشات المنتج لكتابة الوصف من العنوان. أنشئ مفتاحاً من console.anthropic.com. اترك النموذج فارغاً لاستخدام الافتراضي.',
         'payments__sadad__mode' => 'استخدم بيئة الاختبار حتى تتم الموافقة على حساب التاجر للدفع الفعلي.',
     ],
     'option' => [
