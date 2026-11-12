@@ -130,3 +130,11 @@ it('translates an Arabic-only title into the English name and writes both descri
     Livewire::actingAs($admin)->test(ProductEditor::class)
         ->set('tr.ar.name', 'طاولة قهوة خشبية')->set('tr.en.name', 'My Own English Name')->call('describeWithAi')->assertSet('tr.en.name', 'My Own English Name');
 });
+
+it('reads the answer even when the model puts a thinking block before the text', function () {
+    catalogStaff();
+    app(Settings::class)->set('ai.anthropic_api_key', 'sk-ant-test-key-1234567890', secret: true);
+    $body = json_encode(['name' => ['en' => 'Table', 'ar' => 'طاولة'], 'en' => ['short' => 'S', 'description' => '<p>D</p>'], 'ar' => ['short' => 'ق', 'description' => '<p>و</p>']], JSON_UNESCAPED_UNICODE);
+    Http::fake(['api.anthropic.com/*' => Http::response(['content' => [['type' => 'thinking', 'thinking' => '...'], ['type' => 'text', 'text' => $body]]])]);
+    $this->postJson('/api/v1/admin/catalog/ai/describe', ['title_ar' => 'طاولة'])->assertOk()->assertJsonPath('data.name.en', 'Table')->assertJsonPath('data.ar.short', 'ق');
+});

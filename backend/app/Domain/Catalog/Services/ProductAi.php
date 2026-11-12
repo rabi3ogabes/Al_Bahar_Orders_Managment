@@ -59,11 +59,13 @@ class ProductAi
 
                 continue;
             }
-            $json = $this->parse((string) data_get($res->json(), 'content.0.text', ''));
+            // The answer can start with a thinking block: read every text block, not only the first one.
+            $text = collect((array) data_get($res->json(), 'content', []))->filter(fn ($b) => isset($b['text']) && ($b['type'] ?? 'text') === 'text')->pluck('text')->implode("\n");
+            $json = $this->parse($text);
             if ($json !== null) {
                 break;
             }
-            Log::warning('ai.describe unreadable answer: '.substr((string) data_get($res->json(), 'content.0.text', ''), 0, 300));
+            Log::warning('ai.describe unreadable answer (stop='.data_get($res->json(), 'stop_reason').', blocks='.collect((array) data_get($res->json(), 'content', []))->pluck('type')->implode(',').'): '.substr($text, 0, 300));
         }
         if ($json === null) {
             throw DomainException::make('ai_failed', 502);
