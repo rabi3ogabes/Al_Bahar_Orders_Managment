@@ -139,6 +139,9 @@ it('tracks the driver live: breadcrumbs, throttled broadcast, customer tracking 
 
     DriverLocation::query()->update(['recorded_at' => now()->subDays(10)]);
     $this->artisan('drivers:prune-locations')->assertSuccessful();
+    expect(DriverLocation::count())->toBe(1); // an order's route is kept for a year
+    DriverLocation::query()->update(['recorded_at' => now()->subDays(400)]);
+    $this->artisan('drivers:prune-locations')->assertSuccessful();
     expect(DriverLocation::count())->toBe(0);
 });
 
