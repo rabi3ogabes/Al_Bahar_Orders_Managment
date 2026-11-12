@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:albahar_customer/core/providers.dart';
+import 'package:albahar_customer/core/router/footer_config.dart';
 import 'package:albahar_customer/core/utils/json.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,6 +26,7 @@ class BrandTheme {
     this.splashUrl,
     this.bannerTitle,
     this.bannerSubtitle,
+    this.footer,
   });
 
   /// Qatar maroon: what the app shows before the server answers and when it is offline.
@@ -74,6 +76,7 @@ class BrandTheme {
       splashUrl: asStringOrNull(img['splash']),
       bannerTitle: asStringOrNull(banner['title']),
       bannerSubtitle: asStringOrNull(banner['subtitle']),
+      footer: FooterConfig.fromJson(j['footer']),
     );
   }
 
@@ -92,6 +95,9 @@ class BrandTheme {
   final String? bannerTitle;
   final String? bannerSubtitle;
 
+  /// The bottom menu chosen in the dashboard; null means the built-in five-tab footer.
+  final FooterConfig? footer;
+
   bool get isEvent => kind != 'base';
 
   @override
@@ -106,11 +112,12 @@ class BrandTheme {
       other.ink == ink &&
       other.heroUrl == heroUrl &&
       other.bannerTitle == bannerTitle &&
-      other.logoUrl == logoUrl;
+      other.logoUrl == logoUrl &&
+      other.footer == footer;
 
   @override
   int get hashCode =>
-      Object.hash(key, primary, primarySoft, accent, background, surface, ink, heroUrl, bannerTitle, logoUrl);
+      Object.hash(key, primary, primarySoft, accent, background, surface, ink, heroUrl, bannerTitle, logoUrl, footer);
 }
 
 const _kBrandCache = 'brand_theme_payload';

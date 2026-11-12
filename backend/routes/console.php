@@ -40,3 +40,5 @@ Artisan::command('marketing:send-scheduled', function (CampaignService $c) {
 })->purpose('Send campaigns whose scheduled time has arrived');
 Schedule::command('marketing:abandoned-carts')->everyFifteenMinutes()->onOneServer();
 Schedule::command('marketing:send-scheduled')->everyMinute()->withoutOverlapping()->onOneServer();
+
+Schedule::command('journeys:tick')->everyMinute()->withoutOverlapping(5)->onOneServer();

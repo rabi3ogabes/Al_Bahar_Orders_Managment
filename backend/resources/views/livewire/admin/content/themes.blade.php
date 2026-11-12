@@ -8,7 +8,7 @@
 @endphp
 <div>
     <x-admin.page-header :title="__('nav.appearance')" :eyebrow="__('nav.content')" :description="__('theme_admin.hint')">
-        <x-slot:actions>@if ($canCreate)<button type="button" wire:click="create" class="btn-primary"><x-icon name="plus" class="size-4" />{{ __('theme_admin.new') }}</button>@endif</x-slot:actions>
+        <x-slot:actions><a href="{{ route('admin.appearance.footer') }}" class="btn-secondary" wire:navigate><x-icon name="menu" class="size-4" />{{ __('footer_admin.title') }}</a>@if ($canCreate)<button type="button" wire:click="create" class="btn-primary"><x-icon name="plus" class="size-4" />{{ __('theme_admin.new') }}</button>@endif</x-slot:actions>
     </x-admin.page-header>
 
     @if ($active)

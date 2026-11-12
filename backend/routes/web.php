@@ -24,6 +24,7 @@ Route::prefix('partner/{token}')->name('partner.')->controller(PartnerController
     Route::get('data', 'day')->middleware('throttle:60,1')->name('data');
     Route::get('orders/{id}', 'order')->middleware('throttle:90,1')->name('order');
     Route::get('fleet', 'fleet')->middleware('throttle:60,1')->name('fleet');
+    Route::get('events', 'events')->middleware('throttle:40,1')->name('events');
 });
 
 /*

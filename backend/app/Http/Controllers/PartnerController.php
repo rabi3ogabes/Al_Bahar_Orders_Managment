@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Orders\Services\LiveOrderFeed;
 use App\Domain\Partners\Services\PartnerAccess;
 use App\Domain\Partners\Services\PartnerReport;
 use App\Support\BusinessTime;
@@ -19,7 +20,7 @@ class PartnerController extends Controller
 {
     private const SESSION_KEY = 'partner_unlocked';
 
-    public function __construct(private readonly PartnerAccess $access, private readonly PartnerReport $report) {}
+    public function __construct(private readonly PartnerAccess $access, private readonly PartnerReport $report, private readonly LiveOrderFeed $feed) {}
 
     public function show(Request $request, string $token): Response
     {
@@ -84,6 +85,15 @@ class PartnerController extends Controller
         $this->guardData($request, $token);
 
         return $this->json(['drivers' => $this->report->fleet(), 'at' => now()->toIso8601String()]);
+    }
+
+    /** New orders and order status changes since the cursor (Unix ms) for the live toasts; without a cursor it only hands one out. */
+    public function events(Request $request, string $token): JsonResponse
+    {
+        $this->guardData($request, $token);
+        $since = $request->validate(['since' => 'nullable|integer|min:0|max:99999999999999'])['since'] ?? null;
+
+        return $this->json($this->feed->since($since === null ? null : (int) $since));
     }
 
     private function json(mixed $data): JsonResponse

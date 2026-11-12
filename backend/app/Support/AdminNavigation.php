@@ -58,6 +58,7 @@ final class AdminNavigation
             ['label' => 'nav.marketing', 'items' => [
                 ['label' => 'nav.promotions', 'route' => 'admin.promotions.index', 'icon' => 'percent', 'permission' => 'marketing.view'],
                 ['label' => 'nav.campaigns', 'route' => 'admin.campaigns.index', 'icon' => 'megaphone', 'permission' => 'marketing.view'],
+                ['label' => 'nav.journeys', 'route' => 'admin.journeys.index', 'icon' => 'gift', 'permission' => 'marketing.view'],
                 ['label' => 'nav.loyalty', 'route' => 'admin.loyalty.index', 'icon' => 'gift', 'permission' => 'loyalty.view'],
                 ['label' => 'nav.reviews', 'route' => 'admin.reviews.index', 'icon' => 'star', 'permission' => 'reviews.view'],
                 ['label' => 'nav.support', 'route' => 'admin.support.index', 'icon' => 'life-buoy', 'permission' => 'support.view'],
@@ -66,6 +67,7 @@ final class AdminNavigation
                 ['label' => 'nav.homepage', 'route' => 'admin.homepage.index', 'icon' => 'sparkles', 'permission' => 'cms.view'],
                 ['label' => 'nav.banners', 'route' => 'admin.banners.index', 'icon' => 'image', 'permission' => 'cms.view'],
                 ['label' => 'nav.appearance', 'route' => 'admin.appearance.index', 'icon' => 'sparkles', 'permission' => 'cms.view'],
+                ['label' => 'nav.app_footer', 'route' => 'admin.appearance.footer', 'icon' => 'menu', 'permission' => 'cms.view'],
                 ['label' => 'nav.pages', 'route' => 'admin.pages.index', 'icon' => 'file-text', 'permission' => 'cms.view'],
                 ['label' => 'nav.notification_templates', 'route' => 'admin.notification-templates.index', 'icon' => 'bell', 'permission' => 'notifications.view'],
             ]],

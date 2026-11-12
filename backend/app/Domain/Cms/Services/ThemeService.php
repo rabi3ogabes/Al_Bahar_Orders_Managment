@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Storage;
  */
 class ThemeService
 {
-    public const CACHE_KEY = 'brand_theme:active:v1';
+    public const CACHE_KEY = 'brand_theme:active:v2';
 
     public function active(?CarbonImmutable $now = null): ?BrandTheme
     {
@@ -86,7 +86,7 @@ class ThemeService
         return Cache::remember(self::CACHE_KEY, 60, function () {
             $t = $this->active();
 
-            return $t ? $this->present($t) : $this->fallback();
+            return ($t ? $this->present($t) : $this->fallback()) + ['footer' => app(AppFooterService::class)->config()];
         });
     }
 

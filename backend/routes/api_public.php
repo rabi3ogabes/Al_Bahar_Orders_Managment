@@ -15,6 +15,7 @@ Route::controller(V1\Branches\BranchController::class)->group(function () {
     Route::get('delivery-zones', 'zones')->name('delivery-zones.index');
 });
 
+Route::post('integrations/n8n/delivery', [V1\Integrations\N8nController::class, 'delivery'])->middleware('throttle:webhooks')->name('integrations.n8n.delivery');
 Route::get('theme', [V1\Cms\ThemeController::class, 'show'])->name('theme');
 
 Route::controller(V1\Catalog\CatalogController::class)->group(function () {

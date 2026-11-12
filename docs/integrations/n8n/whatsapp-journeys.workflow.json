@@ -1,0 +1,61 @@
+{
+  "name": "Al Bahar - WhatsApp journeys",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "bahar-whatsapp", "responseMode": "responseNode", "options": { "rawBody": true } },
+      "id": "a1", "name": "Webhook", "type": "n8n-nodes-base.webhook", "typeVersion": 2, "position": [0, 0], "webhookId": "bahar-whatsapp"
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst secret = $env.BAHAR_N8N_SECRET;\nconst h = $input.first().json.headers;\nconst raw = $input.first().binary?.data ? Buffer.from($input.first().binary.data.data, 'base64').toString('utf8') : JSON.stringify($input.first().json.body);\nconst ts = h['x-bahar-timestamp'];\nconst expected = 'sha256=' + crypto.createHmac('sha256', secret).update(ts + '.' + raw).digest('hex');\nconst fresh = Math.abs(Date.now() / 1000 - Number(ts)) < 300;\nconst ok = fresh && h['x-bahar-signature'] === expected;\nreturn [{ json: { ok, ...$input.first().json.body } }];"
+      },
+      "id": "a2", "name": "Verify signature", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [220, 0]
+    },
+    {
+      "parameters": { "conditions": { "boolean": [ { "value1": "={{ $json.ok }}", "value2": true } ] } },
+      "id": "a3", "name": "Signed?", "type": "n8n-nodes-base.if", "typeVersion": 1, "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "operation": "send", "phoneNumberId": "YOUR_WHATSAPP_PHONE_NUMBER_ID", "recipientPhoneNumber": "={{ $json.to.replace('+', '') }}",
+        "textBody": "={{ $json.message }}"
+      },
+      "id": "a4", "name": "Send WhatsApp", "type": "n8n-nodes-base.whatsApp", "typeVersion": 1.1, "position": [660, -80],
+      "credentials": { "whatsAppApi": { "id": "REPLACE", "name": "WhatsApp account" } }, "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": { "respondWith": "json", "responseBody": "={{ { id: $json.messages?.[0]?.id ?? null } }}" },
+      "id": "a5", "name": "Reply to Al Bahar", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1, "position": [880, -80]
+    },
+    {
+      "parameters": { "respondWith": "json", "responseBody": "={{ { error: 'invalid_signature' } }}", "options": { "responseCode": 401 } },
+      "id": "a6", "name": "Reject", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1, "position": [660, 120]
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst d = $('Verify signature').first().json;\nconst failed = !!$json.error;\nconst body = JSON.stringify({ delivery_id: d.delivery_id, status: failed ? 'failed' : 'delivered', external_id: $json.messages?.[0]?.id ?? null, reason: failed ? String($json.error?.message ?? 'send_failed').slice(0, 190) : null });\nconst ts = String(Math.floor(Date.now() / 1000));\nconst sig = 'sha256=' + crypto.createHmac('sha256', $env.BAHAR_N8N_SECRET).update(ts + '.' + body).digest('hex');\nreturn [{ json: { url: d.callback_url, body, ts, sig, skip: !d.delivery_id } }];"
+      },
+      "id": "a7", "name": "Build delivery report", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [1100, -80]
+    },
+    {
+      "parameters": {
+        "method": "POST", "url": "={{ $json.url }}", "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "Content-Type", "value": "application/json" },
+          { "name": "X-Bahar-Timestamp", "value": "={{ $json.ts }}" },
+          { "name": "X-Bahar-Signature", "value": "={{ $json.sig }}" } ] },
+        "sendBody": true, "contentType": "raw", "rawContentType": "application/json", "body": "={{ $json.body }}"
+      },
+      "id": "a8", "name": "Report back", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [1320, -80]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Verify signature", "type": "main", "index": 0 }]] },
+    "Verify signature": { "main": [[{ "node": "Signed?", "type": "main", "index": 0 }]] },
+    "Signed?": { "main": [[{ "node": "Send WhatsApp", "type": "main", "index": 0 }], [{ "node": "Reject", "type": "main", "index": 0 }]] },
+    "Send WhatsApp": { "main": [[{ "node": "Reply to Al Bahar", "type": "main", "index": 0 }], [{ "node": "Reply to Al Bahar", "type": "main", "index": 0 }]] },
+    "Reply to Al Bahar": { "main": [[{ "node": "Build delivery report", "type": "main", "index": 0 }]] },
+    "Build delivery report": { "main": [[{ "node": "Report back", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

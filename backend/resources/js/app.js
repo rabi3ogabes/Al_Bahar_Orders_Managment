@@ -21,3 +21,6 @@ window.loadQrScanner = () => import('html5-qrcode').then((m) => m.Html5Qrcode);
 
 // Lazy-load Leaflet (fleet map) only on pages that need it.
 window.loadLeaflet = () => Promise.all([import('leaflet'), import('leaflet/dist/leaflet.css')]).then(([m]) => m.default);
+
+// Lazy-load the live order toasts only on pages that show live events (fleet map).
+window.loadLiveToasts = () => import('./live-toasts.js');

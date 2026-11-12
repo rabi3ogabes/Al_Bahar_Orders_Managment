@@ -176,6 +176,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navAccount => 'Account';
 
   @override
+  String get navOrders => 'Orders';
+
+  @override
+  String get navWishlist => 'Wishlist';
+
+  @override
+  String get navSearch => 'Search';
+
+  @override
+  String get navSupport => 'Help';
+
+  @override
+  String get navNotifications => 'Alerts';
+
+  @override
   String get onboardingTitle1 => 'Living, beautifully considered';
 
   @override

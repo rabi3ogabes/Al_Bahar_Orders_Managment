@@ -3,6 +3,7 @@
 use App\Broadcasting\BranchChannel;
 use App\Broadcasting\DriverChannel;
 use App\Broadcasting\FleetChannel;
+use App\Broadcasting\LiveOrdersChannel;
 use App\Broadcasting\OrderChannel;
 use Illuminate\Support\Facades\Broadcast;
 
@@ -17,6 +18,9 @@ Broadcast::channel('branches.{id}', BranchChannel::class, ['guards' => ['sanctum
 Broadcast::channel('drivers.{id}', DriverChannel::class, ['guards' => ['sanctum', 'web']]);
 Broadcast::channel('orders.{id}', OrderChannel::class, ['guards' => ['sanctum', 'web']]);
 Broadcast::channel('fleet', FleetChannel::class, ['guards' => ['sanctum', 'web']]);
+// Live order toasts on the staff dashboard: all branches, or one branch the staff member may see orders of.
+Broadcast::channel('live-orders', LiveOrdersChannel::class, ['guards' => ['sanctum', 'web']]);
+Broadcast::channel('live-orders.{branch}', LiveOrdersChannel::class, ['guards' => ['sanctum', 'web']]);
 
 // Mobile clients authorise private channels with their Sanctum bearer token: POST /api/v1/broadcasting/auth.
 Broadcast::routes(['prefix' => 'api/v1', 'middleware' => ['auth:sanctum']]);

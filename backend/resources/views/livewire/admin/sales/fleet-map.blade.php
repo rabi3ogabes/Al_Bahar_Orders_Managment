@@ -11,7 +11,7 @@
     <x-admin.page-header :title="__('nav.fleet')" :eyebrow="__('nav.sales')" :description="__('fleet.hint')" />
 
     <div class="grid gap-6 lg:grid-cols-3 [&>*]:min-w-0"
-         x-data="fleetMap(@js($payload), @js($statusLabels), @js($channels), @js(['offline' => __('fleet.offline'), 'idle' => __('fleet.idle'), 'job' => __('fleet.job'), 'seen' => __('fleet.seen')]))"
+         x-data="fleetMap(@js($payload), @js($statusLabels), @js($channels), @js(['offline' => __('fleet.offline'), 'idle' => __('fleet.idle'), 'job' => __('fleet.job'), 'seen' => __('fleet.seen')]), @js(['channels' => $liveChannels, 'text' => $liveText, 'orderUrl' => route('admin.orders.show', '__ID__')]))"
          x-init="init()">
         <section class="card overflow-hidden lg:col-span-2">
             <div class="flex items-center justify-between gap-3 border-b border-sand-200 px-4 py-3 dark:border-ink-800">
@@ -50,8 +50,8 @@
 
 @script
 <script>
-    Alpine.data('fleetMap', (initial, statuses, channels, t) => ({
-        live: false, L: null, map: null, markers: {}, data: initial,
+    Alpine.data('fleetMap', (initial, statuses, channels, t, liveOrders) => ({
+        live: false, L: null, map: null, markers: {}, data: initial, toasts: null,
         async init() {
             this.L = await window.loadLeaflet();
             const L = this.L;
@@ -66,7 +66,20 @@
                 e.connector?.pusher?.connection?.bind('state_change', (s) => this.live = s.current === 'connected');
                 this.live = e.connector?.pusher?.connection?.state === 'connected';
                 document.addEventListener('livewire:navigating', () => channels.forEach((c) => e.leave(c)), { once: true });
+                this.startLiveToasts(e);
             }
+        },
+        /** New orders and status changes from the staff live-orders channels, shown as toasts (de-duplicated across channels). */
+        async startLiveToasts(e) {
+            if (!liveOrders.channels.length) return;
+            const { createLiveToasts } = await window.loadLiveToasts();
+            this.toasts = createLiveToasts({
+                t: (k, v) => (liveOrders.text[k] ?? k).replace(/:(\w+)/g, (m, n) => (v && n in v ? v[n] : m)),
+                href: (ev) => liveOrders.orderUrl.replace('__ID__', encodeURIComponent(ev.orderId)),
+                navigate: true,
+            });
+            liveOrders.channels.forEach((c) => e.private(c).listen('.order.live', (m) => this.toasts?.push(m)));
+            document.addEventListener('livewire:navigating', () => { liveOrders.channels.forEach((c) => e.leave(c)); this.toasts?.destroy(); this.toasts = null; }, { once: true });
         },
         icon(color, glyph) {
             return this.L.divIcon({ className: '', iconSize: [34, 34], iconAnchor: [17, 17],

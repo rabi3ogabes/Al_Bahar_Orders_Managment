@@ -5,6 +5,7 @@ namespace App\Domain\Marketing\Services;
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Identity\Models\User;
+use App\Domain\Marketing\Models\Journey;
 use App\Domain\Notifications\Models\MarketingCampaign;
 use App\Domain\Notifications\Models\Notification;
 use App\Domain\Notifications\Services\NotificationService;
@@ -73,6 +74,9 @@ class CampaignService
     /** Remind consenting customers about inactive carts, within frequency limits. Prices/stock are re-validated on return. */
     public function remindAbandonedCarts(): int
     {
+        if (Journey::where('key', 'abandoned_cart')->where('is_enabled', true)->exists()) {
+            return 0; // the customer journey owns abandoned-cart follow-ups now
+        }
         $after = (int) $this->settings->get('notifications.abandoned_cart_after_minutes', 120);
         $max = (int) $this->settings->get('notifications.abandoned_cart_max_messages', 2);
         $gapHours = (int) $this->settings->get('notifications.abandoned_cart_min_interval_hours', 24);

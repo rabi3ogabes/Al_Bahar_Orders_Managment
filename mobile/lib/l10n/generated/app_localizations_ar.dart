@@ -176,6 +176,21 @@ class AppLocalizationsAr extends AppLocalizations {
   String get navAccount => 'حسابي';
 
   @override
+  String get navOrders => 'طلباتي';
+
+  @override
+  String get navWishlist => 'المفضلة';
+
+  @override
+  String get navSearch => 'بحث';
+
+  @override
+  String get navSupport => 'الدعم';
+
+  @override
+  String get navNotifications => 'الإشعارات';
+
+  @override
   String get onboardingTitle1 => 'عيشٌ بجمالٍ مدروس';
 
   @override

@@ -416,6 +416,36 @@ abstract class AppLocalizations {
   /// **'Account'**
   String get navAccount;
 
+  /// No description provided for @navOrders.
+  ///
+  /// In en, this message translates to:
+  /// **'Orders'**
+  String get navOrders;
+
+  /// No description provided for @navWishlist.
+  ///
+  /// In en, this message translates to:
+  /// **'Wishlist'**
+  String get navWishlist;
+
+  /// No description provided for @navSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get navSearch;
+
+  /// No description provided for @navSupport.
+  ///
+  /// In en, this message translates to:
+  /// **'Help'**
+  String get navSupport;
+
+  /// No description provided for @navNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Alerts'**
+  String get navNotifications;
+
   /// No description provided for @onboardingTitle1.
   ///
   /// In en, this message translates to:

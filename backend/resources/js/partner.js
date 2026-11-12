@@ -1,5 +1,7 @@
 // Partner statistics page: password unlock, one business day of orders (table / grid), order drawer with items,
 // fees, SADAD and the recorded route, and a live driver map. Plain DOM code: no framework on this public page.
+import { createLiveToasts } from './live-toasts.js';
+
 const body = document.body;
 const TOKEN = body.dataset.token;
 const BASE = `/partner/${TOKEN}`;
@@ -13,6 +15,8 @@ const T = {
     number: 'Order', time: 'Time', customer: 'Customer', status: 'Status', sadad_txn: 'SADAD transaction / status', sadad_status: 'SADAD status', method: 'Payment', kind: 'Type', cod: 'Cash on delivery', sadad: 'SADAD', pay_at_pickup: 'Pay at pickup', t_delivery: 'Delivery', t_pickup: 'Pickup', none: '—', empty: 'No orders on this day.', empty_hint: 'Pick another date to see its orders.',
     items_n: (n) => `${n} item${n === 1 ? '' : 's'}`, qty: 'Qty', unit: 'Unit price', line: 'Total', cancelled: 'cancelled', close: 'Close', order_items: 'Items', fees: 'Money', route: 'Route history', no_route: 'No route recorded for this order.', transactions: 'SADAD transactions',
     driver: 'Driver', assigned: 'Assigned', picked: 'Picked up', delivered: 'Delivered', no_driver: 'No driver yet', estimate: 'SADAD fee rate is not set yet, so the fee shows 0. Set it in Settings → Integrations.', updated: 'Updated', no_drivers: 'No drivers on duty.', idle: 'Free', job: (n) => `Order ${n}`,
+    toast_new_order: 'New order', toast_status_update: 'Order update', toast_view: 'View', toast_close: 'Close', toast_sound_on: 'Turn chime on', toast_sound_off: 'Turn chime off', toast_mute: 'Mute live notifications', toast_unmute: 'Show live notifications', toast_more: '+:n more', toast_controls: 'Live notifications', toast_by: 'for :name',
+    status_pending_payment: 'Awaiting payment', status_confirmed: 'Confirmed', status_processing: 'Processing', status_partially_fulfilled: 'Partially fulfilled', status_ready_for_pickup: 'Ready for pickup', status_out_for_delivery: 'Out for delivery', status_completed: 'Completed', status_cancellation_requested: 'Cancellation requested', status_cancelled: 'Cancelled', status_partially_cancelled: 'Partially cancelled', status_returned: 'Returned',
     net_note: 'Net = paid − SADAD fee − delivery fee', load_error: 'Could not load. Retrying…', copied: 'Copied',
   },
   ar: {
@@ -22,6 +26,8 @@ const T = {
     number: 'الطلب', time: 'الوقت', customer: 'العميل', status: 'الحالة', sadad_txn: 'معاملة سداد / الحالة', sadad_status: 'حالة سداد', method: 'الدفع', kind: 'النوع', cod: 'الدفع عند الاستلام', sadad: 'سداد', pay_at_pickup: 'الدفع عند الاستلام من الفرع', t_delivery: 'توصيل', t_pickup: 'استلام من الفرع', none: '—', empty: 'لا توجد طلبات في هذا اليوم.', empty_hint: 'اختر تاريخاً آخر لعرض طلباته.',
     items_n: (n) => `${n} قطعة`, qty: 'الكمية', unit: 'سعر الوحدة', line: 'الإجمالي', cancelled: 'ملغاة', close: 'إغلاق', order_items: 'المنتجات', fees: 'المبالغ', route: 'سجل المسار', no_route: 'لا يوجد مسار مسجل لهذا الطلب.', transactions: 'معاملات سداد',
     driver: 'السائق', assigned: 'تم التعيين', picked: 'تم الاستلام', delivered: 'تم التسليم', no_driver: 'لا يوجد سائق بعد', estimate: 'نسبة رسوم سداد غير محددة بعد، لذلك تظهر الرسوم صفر. حددها من الإعدادات ← التكاملات.', updated: 'آخر تحديث', no_drivers: 'لا يوجد سائقون في الدوام.', idle: 'متاح', job: (n) => `الطلب ${n}`,
+    toast_new_order: 'طلب جديد', toast_status_update: 'تحديث الطلب', toast_view: 'عرض', toast_close: 'إغلاق', toast_sound_on: 'تشغيل النغمة', toast_sound_off: 'إيقاف النغمة', toast_mute: 'كتم الإشعارات المباشرة', toast_unmute: 'إظهار الإشعارات المباشرة', toast_more: '+:n أخرى', toast_controls: 'الإشعارات المباشرة', toast_by: 'لـ :name',
+    status_pending_payment: 'بانتظار الدفع', status_confirmed: 'مؤكد', status_processing: 'قيد التجهيز', status_partially_fulfilled: 'مكتمل جزئياً', status_ready_for_pickup: 'جاهز للاستلام', status_out_for_delivery: 'خرج للتوصيل', status_completed: 'مكتمل', status_cancellation_requested: 'طلب إلغاء', status_cancelled: 'ملغي', status_partially_cancelled: 'ملغي جزئياً', status_returned: 'مرتجع',
     net_note: 'الصافي = المدفوع − رسوم سداد − رسوم التوصيل', load_error: 'تعذر التحميل. نعيد المحاولة…', copied: 'تم النسخ',
   },
 };
@@ -220,10 +226,29 @@ if (app) {
   $('today').addEventListener('click', () => setDate(body.dataset.today));
   dateInput.addEventListener('change', () => dateInput.value && setDate(dateInput.value));
   $('v-table').addEventListener('click', () => setView('table')); $('v-grid').addEventListener('click', () => setView('grid'));
-  document.querySelectorAll('#lang').forEach((b) => b.addEventListener('click', () => toggleLang(() => { renderKpis(); renderOrders(); setView(state.view); loadFleet(); })));
+  document.querySelectorAll('#lang').forEach((b) => b.addEventListener('click', () => toggleLang(() => { renderKpis(); renderOrders(); setView(state.view); loadFleet(); toasts.refresh(); })));
   $('signout').addEventListener('click', async () => { await api('/lock', { method: 'POST' }).catch(() => {}); location.reload(); });
 
-  applyLang(); dateInput.value = state.date; setView(state.view); renderKpis(); loadDay(); loadFleet();
+  /* Live order toasts: an incremental poll (cursor = server time in ms) of new orders and status changes. */
+  const toasts = createLiveToasts({
+    t: (k, v) => {
+      const key = k.startsWith('status.') ? `status_${k.slice(7)}` : (['delivery', 'pickup'].includes(k) ? `t_${k}` : (['cod', 'sadad', 'pay_at_pickup'].includes(k) ? k : `toast_${k}`));
+      return String(t(key, v)).replace(/:(\w+)/g, (m, n) => (v && n in v ? v[n] : m));
+    },
+    onView: (ev) => openOrder(ev.orderId),
+    onEvents: () => { if (state.date === body.dataset.today) loadDay(true); },
+  });
+  let cursor = null;
+  const pollEvents = async () => {
+    try {
+      const r = await api(`/events${cursor === null ? '' : `?since=${cursor}`}`);
+      if (!r.ok) return;
+      const d = (await r.json()).data; cursor = d.cursor; d.events.forEach((ev) => toasts.push(ev));
+    } catch { /* retried on the next tick */ }
+  };
+
+  applyLang(); dateInput.value = state.date; setView(state.view); renderKpis(); loadDay(); loadFleet(); pollEvents();
   setInterval(() => { if (!document.hidden) { if (state.date === body.dataset.today) loadDay(true); } }, 30000);
   setInterval(() => { if (!document.hidden) loadFleet(); }, 10000);
+  setInterval(() => { if (!document.hidden) pollEvents(); }, 8000);
 }
