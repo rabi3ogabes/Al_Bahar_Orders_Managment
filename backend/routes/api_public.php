@@ -114,3 +114,6 @@ Route::controller(V1\Engagement\EngagementController::class)->group(function () 
         Route::post('me/support/tickets/{id}/messages', 'replyTicket')->name('me.tickets.reply');
     });
 });
+
+// ── Store apps: is an update available or required? (public, tiny, never cached) ─────────────────────────
+Route::get('app-update', [V1\AppUpdateController::class, 'show'])->middleware('throttle:60,1')->name('app-update');

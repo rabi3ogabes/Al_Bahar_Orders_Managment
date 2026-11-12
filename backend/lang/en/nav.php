@@ -38,6 +38,7 @@ return [
     'support' => 'Support desk',
     'content' => 'Content',
     'homepage' => 'Homepage builder',
+    'app_updates' => 'App updates',
     'issues' => 'Issue log',
     'partners' => 'Partner statistics',
     'fleet' => 'Live fleet',

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\AssignRequestId;
+use App\Http\Middleware\EnforceMinimumAppBuild;
 use App\Http\Middleware\EnsureCustomer;
 use App\Http\Middleware\EnsureStaff;
 use App\Http\Middleware\RequirePermission;
@@ -32,7 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(AssignRequestId::class);
         $middleware->append(SecurityHeaders::class);
-        $middleware->api(prepend: [SetApiLocale::class]);
+        $middleware->api(prepend: [SetApiLocale::class], append: [EnforceMinimumAppBuild::class]);
         $middleware->web(append: [SetAdminLocale::class]);
         $middleware->alias([
             'staff' => EnsureStaff::class,
