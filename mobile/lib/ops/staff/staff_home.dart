@@ -10,6 +10,7 @@ import 'package:albahar_customer/ops/ops_repository.dart';
 import 'package:albahar_customer/ops/ops_session.dart';
 import 'package:albahar_customer/ops/ops_strings.dart';
 import 'package:albahar_customer/ops/ops_widgets.dart';
+import 'package:albahar_customer/ops/staff/add_product_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -36,6 +37,10 @@ const _stages = ['new', 'preparing', 'ready', 'out'];
 
 /// Branch staff app: the day's delivery orders by stage, one-tap order steps, and (when the branch is on manual
 /// dispatch) assigning a driver to a ready order. Several employees can use it at once; every screen reloads often.
+final _staffPermissionsProvider = FutureProvider.autoDispose<List<String>>(
+  (ref) => ref.watch(opsRepositoryProvider).permissions(),
+);
+
 class StaffHome extends ConsumerStatefulWidget {
   const StaffHome({super.key});
 
@@ -63,6 +68,8 @@ class _StaffHomeState extends ConsumerState<StaffHome> with OpsPolling {
     final t = OpsStrings.of(context);
     final overview = ref.watch(staffOverviewProvider);
     final o = overview.value;
+    final perms = ref.watch(_staffPermissionsProvider).value ?? const <String>[];
+    final canAddProduct = perms.contains('*') || perms.contains('catalog.create');
     ref.listen(staffEventsProvider, (_, next) {
       final e = next.value;
       if (e == null || e.event != 'dispatch.updated') return;
@@ -84,6 +91,13 @@ class _StaffHomeState extends ConsumerState<StaffHome> with OpsPolling {
             ],
           ),
           actions: [
+            if (canAddProduct)
+              IconButton(
+                tooltip: t.addProduct,
+                icon: const Icon(Icons.add_photo_alternate_rounded),
+                onPressed: () => Navigator.of(context)
+                    .push(MaterialPageRoute<bool>(fullscreenDialog: true, builder: (_) => const AddProductScreen())),
+              ),
             IconButton(tooltip: t.refresh, icon: const Icon(Icons.refresh_rounded), onPressed: _reload),
             IconButton(
               tooltip: t.signOut,

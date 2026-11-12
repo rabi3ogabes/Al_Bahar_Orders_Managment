@@ -69,6 +69,73 @@ class OpsRepository {
     await _api.post('/admin/deliveries/$id/fail', data: {'reason_code': reason});
   }
 
+  // Catalogue: add a product with photos, let Claude write the description, ask the photo studio.
+  Future<List<ShopCategory>> categories() async => _flatten(await _api.getList('/categories', ShopCategory.fromJson));
+
+  List<ShopCategory> _flatten(List<ShopCategory> tree, [String prefix = '']) => [
+    for (final c in tree) ...[
+      ShopCategory(id: c.id, name: '$prefix${c.name}'),
+      ..._flatten(c.children, '$prefix${c.name} › '),
+    ],
+  ];
+
+  Future<bool> aiReady() async => asBool(asMap(await _api.get('/admin/catalog/ai/status'))['description_ready']);
+
+  Future<ProductDraftText> describe({String? titleEn, String? titleAr, String? categoryId}) async {
+    final data = asMap(
+      await _api.post(
+        '/admin/catalog/ai/describe',
+        data: {'title_en': ?titleEn, 'title_ar': ?titleAr, 'category_id': ?categoryId},
+      ),
+    );
+    return ProductDraftText.fromJson(data);
+  }
+
+  /// Creates the product, then uploads the photos. Returns the product id and the uploaded image ids.
+  Future<({String id, List<String> imageIds})> createProduct({
+    required String sku,
+    required String price,
+    required String titleEn,
+    required String titleAr,
+    required ProductDraftText text,
+    String? categoryId,
+    required bool publish,
+    required List<File> photos,
+  }) async {
+    final data = asMap(
+      await _api.post(
+        '/admin/catalog/products',
+        data: {
+          'sku': sku,
+          'price': price,
+          'category_id': ?categoryId,
+          'status': publish ? 'active' : 'draft',
+          'available_in_all_branches': true,
+          'translations': {
+            'en': {'name': titleEn, 'short_description': text.shortEn, 'description': text.descriptionEn},
+            'ar': {'name': titleAr, 'short_description': text.shortAr, 'description': text.descriptionAr},
+          },
+        },
+      ),
+    );
+    final id = asString(data['id']);
+    final ids = <String>[];
+    for (final f in photos) {
+      final res = asMap(
+        await _api.post(
+          '/admin/catalog/products/$id/images',
+          data: FormData.fromMap({'image': await MultipartFile.fromFile(f.path, filename: 'photo.jpg')}),
+        ),
+      );
+      ids.add(asString(res['id']));
+    }
+    return (id: id, imageIds: ids);
+  }
+
+  Future<void> askPhotoStudio(String productId, String imageId, String kind) async {
+    await _api.post('/admin/catalog/products/$productId/photo-requests', data: {'image_id': imageId, 'kind': kind});
+  }
+
   // Branch staff
   Future<StaffOverview> overview({String? branchId}) =>
       _api.getObject('/admin/dispatch/overview', StaffOverview.fromJson, query: {'branch_id': ?branchId});

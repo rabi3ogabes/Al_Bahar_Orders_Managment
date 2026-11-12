@@ -112,5 +112,51 @@ class OpsStrings {
   String assignedTo(String name) => _t('Driver: $name', 'السائق: $name');
   String get offDutyTag => _t('Off duty', 'غير متواجد');
   String get done => _t('Done', 'تم');
+  // Add product
+  String get addProduct => _t('Add product', 'إضافة منتج');
+  String get newProduct => _t('New product', 'منتج جديد');
+  String get photos => _t('Photos', 'الصور');
+  String get addPhoto => _t('Add photo', 'إضافة صورة');
+  String get takeProductPhoto => _t('Take a photo', 'التقاط صورة');
+  String get fromGallery => _t('Choose from gallery', 'اختيار من المعرض');
+  String get removePhoto => _t('Remove photo', 'حذف الصورة');
+  String get photosHint => _t('Up to 8 photos. The first one is the cover.', 'حتى 8 صور. الأولى هي الغلاف.');
+  String get titleEn => _t('Title (English)', 'العنوان (بالإنجليزية)');
+  String get titleAr => _t('Title (Arabic)', 'العنوان (بالعربية)');
+  String get price => _t('Price (QAR)', 'السعر (ر.ق)');
+  String get category => _t('Category', 'الفئة');
+  String get chooseCategory => _t('Choose a category', 'اختر فئة');
+  String get searchCategory => _t('Search categories', 'ابحث في الفئات');
+  String get noCategory => _t('No category', 'بدون فئة');
+  String get description => _t('Description', 'الوصف');
+  String get shortDescription => _t('Short description', 'وصف مختصر');
+  String get writeWithAi => _t('Write the description with AI', 'اكتب الوصف بالذكاء الاصطناعي');
+  String get writing => _t('Writing…', 'جارٍ الكتابة…');
+  String get aiHint => _t(
+    'Claude writes it from the title, in English and Arabic. Read it and change what you like.',
+    'يكتبه Claude من العنوان بالعربية والإنجليزية. اقرأه وعدّل ما تشاء.',
+  );
+  String get aiNotReady => _t(
+    'AI writing is not set up yet. Ask the admin to add the Claude key.',
+    'الكتابة الذكية غير مفعّلة بعد. اطلب من المدير إضافة مفتاح Claude.',
+  );
+  String get needTitleFirst => _t('Write a title first.', 'اكتب العنوان أولاً.');
+  String get saveDraft => _t('Save as draft', 'حفظ كمسودة');
+  String get publishNow => _t('Publish now', 'نشر الآن');
+  String get saveProduct => _t('Save product', 'حفظ المنتج');
+  String get saving => _t('Saving…', 'جارٍ الحفظ…');
+  String get studioOption => _t('Ask the photo studio to clean the background', 'اطلب من استوديو الصور تنظيف الخلفية');
+  String get studioOptionHint => _t(
+    'An edited copy appears in the dashboard for approval. Nothing goes live by itself.',
+    'تظهر نسخة معدّلة في لوحة التحكم للموافقة. لا ينشر شيء تلقائياً.',
+  );
+  String get productSaved => _t('Product saved.', 'تم حفظ المنتج.');
+  String get leaveQ => _t('Leave without saving?', 'المغادرة دون حفظ؟');
+  String get leaveBody => _t('The photos and text you entered will be lost.', 'ستفقد الصور والنصوص التي أدخلتها.');
+  String get leave => _t('Leave', 'مغادرة');
+  String get stay => _t('Keep editing', 'متابعة التعديل');
+  String get fieldRequired => _t('Required', 'مطلوب');
+  String get priceInvalid => _t('Enter a price like 120 or 120.50', 'أدخل سعراً مثل 120 أو 120.50');
+  String get close => _t('Close', 'إغلاق');
   String get language => _t('العربية', 'English');
 }

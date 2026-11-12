@@ -5,6 +5,7 @@ import 'package:albahar_customer/l10n/generated/app_localizations.dart';
 import 'package:albahar_customer/ops/driver/driver_home.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_repository.dart';
+import 'package:albahar_customer/ops/staff/add_product_screen.dart';
 import 'package:albahar_customer/ops/staff/staff_home.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -69,6 +70,26 @@ class _FakeOps implements OpsRepository {
   Future<List<BranchDriver>> drivers({String? branchId}) async => const [
     BranchDriver(id: 'u1', name: 'Omar', phone: null, onDuty: true, openJobs: 0),
   ];
+
+  @override
+  Future<List<String>> permissions() async => const ['*'];
+
+  @override
+  Future<List<ShopCategory>> categories() async => const [ShopCategory(id: 'c1', name: 'Living › Sofas')];
+
+  @override
+  Future<bool> aiReady() async => true;
+
+  @override
+  Future<ProductDraftText> describe({String? titleEn, String? titleAr, String? categoryId}) async {
+    calls.add('describe:$titleEn');
+    return const ProductDraftText(
+      shortEn: 'Short',
+      descriptionEn: '<p>Long</p>',
+      shortAr: 'قصير',
+      descriptionAr: '<p>طويل</p>',
+    );
+  }
 
   @override
   Future<void> assign(String fulfillmentId, String driverId) async => calls.add('assign:$fulfillmentId:$driverId');
@@ -150,5 +171,54 @@ void main() {
       ['accept', 'pickup', 'out-for-delivery', 'deliver', null],
     );
     expect(File('lib/main_driver.dart').existsSync() && File('lib/main_staff.dart').existsSync(), isTrue);
+  });
+
+  testWidgets('add product: needs a title and a price, Claude fills the descriptions, leaving asks first', (
+    tester,
+  ) async {
+    final repo = _FakeOps();
+    await tester.pumpWidget(_host(const AddProductScreen(), repo));
+    await tester.pumpAndSettle();
+
+    // Save with nothing typed → inline errors, nothing sent.
+    await tester.tap(find.text('Save product'));
+    await tester.pumpAndSettle();
+    expect(find.text('Required'), findsOneWidget);
+    expect(find.text('Enter a price like 120 or 120.50'), findsOneWidget);
+
+    // AI writing needs a title first.
+    await tester.scrollUntilVisible(
+      find.text('Write the description with AI'),
+      300,
+      scrollable: find.descendant(of: find.byType(Form), matching: find.byType(Scrollable)).first,
+    );
+    await tester.tap(find.text('Write the description with AI'));
+    await tester.pumpAndSettle();
+    expect(find.text('Write a title first.'), findsOneWidget);
+    expect(repo.calls, isEmpty);
+
+    await tester.scrollUntilVisible(
+      find.widgetWithText(TextFormField, 'Title (English)'),
+      -300,
+      scrollable: find.descendant(of: find.byType(Form), matching: find.byType(Scrollable)).first,
+    );
+    await tester.enterText(find.widgetWithText(TextFormField, 'Title (English)'), 'Linen Throw Sand');
+    await tester.scrollUntilVisible(
+      find.text('Write the description with AI'),
+      300,
+      scrollable: find.descendant(of: find.byType(Form), matching: find.byType(Scrollable)).first,
+    );
+    await tester.tap(find.text('Write the description with AI'));
+    await tester.pumpAndSettle();
+    expect(repo.calls, ['describe:Linen Throw Sand']);
+    expect(find.text('<p>Long</p>', skipOffstage: false), findsOneWidget);
+
+    // Typed input → the exit asks "Leave without saving?", Keep editing stays.
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    expect(find.text('Leave without saving?'), findsOneWidget);
+    await tester.tap(find.text('Keep editing'));
+    await tester.pumpAndSettle();
+    expect(find.text('Leave without saving?'), findsNothing);
   });
 }

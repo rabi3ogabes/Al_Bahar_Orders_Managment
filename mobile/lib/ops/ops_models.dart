@@ -237,3 +237,39 @@ class BranchDriver {
   final bool onDuty;
   final int openJobs;
 }
+
+/// A category for the product form; `name` already carries the parent path ("Living › Sofas").
+class ShopCategory {
+  const ShopCategory({required this.id, required this.name, this.children = const []});
+
+  factory ShopCategory.fromJson(JsonMap j) => ShopCategory(
+    id: asString(j['id']),
+    name: asString(j['name']),
+    children: [for (final c in asList(j['children'])) ShopCategory.fromJson(asMap(c))],
+  );
+
+  final String id;
+  final String name;
+  final List<ShopCategory> children;
+}
+
+/// Short and full description in both languages, as written by Claude or typed by hand.
+class ProductDraftText {
+  const ProductDraftText({this.shortEn = '', this.descriptionEn = '', this.shortAr = '', this.descriptionAr = ''});
+
+  factory ProductDraftText.fromJson(JsonMap j) {
+    final en = asMap(j['en']);
+    final ar = asMap(j['ar']);
+    return ProductDraftText(
+      shortEn: asString(en['short']),
+      descriptionEn: asString(en['description']),
+      shortAr: asString(ar['short']),
+      descriptionAr: asString(ar['description']),
+    );
+  }
+
+  final String shortEn;
+  final String descriptionEn;
+  final String shortAr;
+  final String descriptionAr;
+}
