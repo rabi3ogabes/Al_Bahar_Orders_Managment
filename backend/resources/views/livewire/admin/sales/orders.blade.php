@@ -8,9 +8,24 @@
     ];
 @endphp
 <div>
-    <x-admin.page-header :title="__('nav.orders')" :eyebrow="__('nav.sales')" :description="__('sales_admin.orders_hint')" />
+    <x-admin.page-header :title="__('nav.orders', [], 'en').' · '.__('nav.orders', [], 'ar')" :eyebrow="__('nav.sales', [], 'en').' · '.__('nav.sales', [], 'ar')" :description="__('sales_admin.orders_hint')" />
 
     <x-admin.tabs :tabs="$tabs" :current="$tab" />
+
+    {{-- One-tap kinds: cash on delivery, SADAD payment, pickup — with live counts. --}}
+    <div class="mb-4 flex flex-wrap items-center gap-2" role="group" aria-label="{{ __('sales_admin.quick_kind') }}">
+        <button type="button" wire:click="setQuick('')" aria-pressed="{{ $quick === '' ? 'true' : 'false' }}" class="inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium transition {{ $quick === '' ? 'border-ink-900 bg-ink-900 text-ivory dark:border-brass-500 dark:bg-brass-500 dark:text-ink-950' : 'border-sand-300 bg-white hover:border-brass-400 dark:border-ink-600 dark:bg-ink-800' }}">
+            <x-admin.bi :en="__('sales_admin.tab_all', [], 'en')" :ar="__('sales_admin.tab_all', [], 'ar')" />
+        </button>
+        @foreach ([['cod', 'cash', 'status.cod'], ['sadad', 'credit-card', 'status.sadad'], ['pickup', 'store', 'sales_admin.type_pickup']] as [$k, $icon, $label])
+            <button type="button" wire:click="setQuick('{{ $k }}')" aria-pressed="{{ $quick === $k ? 'true' : 'false' }}" class="inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium transition {{ $quick === $k ? 'border-ink-900 bg-ink-900 text-ivory dark:border-brass-500 dark:bg-brass-500 dark:text-ink-950' : 'border-sand-300 bg-white hover:border-brass-400 dark:border-ink-600 dark:bg-ink-800' }}">
+                <x-icon :name="$icon" class="size-4" />
+                <x-admin.bi :en="__($label, [], 'en')" :ar="__($label, [], 'ar')" />
+                <span class="rounded-full px-1.5 text-[0.7rem] tabular-nums {{ $quick === $k ? 'bg-white/15' : 'bg-sand-100 dark:bg-ink-700' }}">{{ $quickCounts[$k] }}</span>
+            </button>
+        @endforeach
+        <span class="ms-auto text-xs text-ink-500" aria-live="polite">{{ trans_choice('sales_admin.orders_count', $orders->total(), ['count' => $orders->total()]) }}</span>
+    </div>
 
     <div class="card">
         <x-admin.toolbar>
@@ -55,8 +70,10 @@
             <div class="table-wrap" wire:loading.class="opacity-60">
                 <table class="table">
                     <thead><tr>
-                        <th>{{ __('admin.order') }}</th><th>{{ __('admin.customer') }}</th><th>{{ __('sales_admin.branches') }}</th>
-                        <th>{{ __('admin.payment') }}</th><th class="!text-end">{{ __('admin.total') }}</th><th>{{ __('admin.status') }}</th><th class="w-12"></th>
+                        @foreach ([['admin.order', 'order'], ['admin.customer', 'cust'], ['sales_admin.branches', 'br'], ['sales_admin.kind', 'kind'], ['admin.payment', 'pay'], ['admin.total', 'tot'], ['admin.status', 'st']] as [$k, $id])
+                            <th class="{{ $id === 'tot' ? '!text-end' : '' }}"><x-admin.bi :en="__($k, [], 'en')" :ar="__($k, [], 'ar')" /></th>
+                        @endforeach
+                        <th class="w-12"></th>
                     </tr></thead>
                     <tbody>
                     @foreach ($orders as $o)
@@ -80,12 +97,10 @@
                                     @endforeach
                                 </div>
                             </td>
-                            <td>
-                                <span class="block text-xs text-ink-500">{{ __('status.'.$o->payment_method) }}</span>
-                                <x-admin.status :value="$o->payment_status->value" />
-                            </td>
+                            <td><x-admin.order-kind :method="$o->payment_method" :type="$o->fulfillment_type" /></td>
+                            <td><x-admin.status :value="$o->payment_status->value" bi /></td>
                             <td class="text-end font-medium"><x-admin.money :value="$o->grand_total" /></td>
-                            <td><x-admin.status :value="$o->status->value" /></td>
+                            <td><x-admin.status :value="$o->status->value" bi /></td>
                             <td><a href="{{ route('admin.orders.show', $o) }}" wire:navigate class="btn-ghost btn-sm" aria-label="{{ __('admin.details') }}"><x-icon name="chevron-right" class="size-4 rtl-flip" /></a></td>
                         </tr>
                     @endforeach

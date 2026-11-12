@@ -1,4 +1,4 @@
-@props(['value', 'domain' => 'status'])
+@props(['value', 'domain' => 'status', 'bi' => false])
 @php
     $tone = match ($value) {
         'active', 'open', 'paid', 'completed', 'delivered', 'picked_up', 'approved', 'posted', 'received', 'published', 'collected', 'processed', 'sold', 'matched', 'resolved', 'deposited', 'live', 'success', 'confirmed', 'finalized' => 'badge-success',
@@ -9,5 +9,5 @@
     };
 @endphp
 <span {{ $attributes->merge(['class' => $tone]) }}>
-    <span class="size-1.5 rounded-full bg-current opacity-70"></span>{{ \Illuminate\Support\Facades\Lang::has('status.'.$value) ? __('status.'.$value) : \Illuminate\Support\Str::headline($value) }}
+    <span class="size-1.5 rounded-full bg-current opacity-70"></span>@if ($bi && \Illuminate\Support\Facades\Lang::has('status.'.$value))<x-admin.bi :en="__('status.'.$value, [], 'en')" :ar="__('status.'.$value, [], 'ar')" />@else{{ \Illuminate\Support\Facades\Lang::has('status.'.$value) ? __('status.'.$value) : \Illuminate\Support\Str::headline($value) }}@endif
 </span>

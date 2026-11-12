@@ -10,7 +10,7 @@ const T = {
     lock_title: 'Partner statistics', lock_hint: 'Enter the password you were given.', password: 'Password', open: 'Open statistics',
     wrong: 'That password is not right. Try again.', too_many: 'Too many attempts. Please wait a few minutes.', title: 'Partner statistics', live: 'Live', today: 'Today', table: 'Table', grid: 'Grid', signout: 'Lock',
     drivers_live: 'Drivers, live', orders: 'Orders', items: 'Items', paid: 'Paid', delivery: 'Delivery fees', sadad_fee: 'SADAD fees', net: 'Net', subtotal: 'Items total', discount: 'Discount', service: 'Service fee', tax: 'Tax', grand: 'Order total',
-    number: 'Order', time: 'Time', customer: 'Customer', status: 'Status', sadad_txn: 'SADAD transaction', sadad_status: 'SADAD status', method: 'Payment', none: '—', empty: 'No orders on this day.', empty_hint: 'Pick another date to see its orders.',
+    number: 'Order', time: 'Time', customer: 'Customer', status: 'Status', sadad_txn: 'SADAD transaction', sadad_status: 'SADAD status', method: 'Payment', kind: 'Type', cod: 'Cash on delivery', sadad: 'SADAD', pay_at_pickup: 'Pay at pickup', t_delivery: 'Delivery', t_pickup: 'Pickup', none: '—', empty: 'No orders on this day.', empty_hint: 'Pick another date to see its orders.',
     items_n: (n) => `${n} item${n === 1 ? '' : 's'}`, qty: 'Qty', unit: 'Unit price', line: 'Total', cancelled: 'cancelled', close: 'Close', order_items: 'Items', fees: 'Money', route: 'Route history', no_route: 'No route recorded for this order.', transactions: 'SADAD transactions',
     driver: 'Driver', assigned: 'Assigned', picked: 'Picked up', delivered: 'Delivered', no_driver: 'No driver yet', estimate: 'SADAD fee rate is not set yet, so the fee shows 0. Set it in Settings → Integrations.', updated: 'Updated', no_drivers: 'No drivers on duty.', idle: 'Free', job: (n) => `Order ${n}`,
     net_note: 'Net = paid − SADAD fee − delivery fee', load_error: 'Could not load. Retrying…', copied: 'Copied',
@@ -19,7 +19,7 @@ const T = {
     lock_title: 'إحصائيات الشركاء', lock_hint: 'أدخل كلمة المرور التي تم تزويدك بها.', password: 'كلمة المرور', open: 'فتح الإحصائيات',
     wrong: 'كلمة المرور غير صحيحة. حاول مرة أخرى.', too_many: 'محاولات كثيرة. يرجى الانتظار بضع دقائق.', title: 'إحصائيات الشركاء', live: 'مباشر', today: 'اليوم', table: 'جدول', grid: 'بطاقات', signout: 'قفل',
     drivers_live: 'السائقون مباشرة', orders: 'الطلبات', items: 'القطع', paid: 'المدفوع', delivery: 'رسوم التوصيل', sadad_fee: 'رسوم سداد', net: 'الصافي', subtotal: 'مجموع المنتجات', discount: 'الخصم', service: 'رسوم الخدمة', tax: 'الضريبة', grand: 'إجمالي الطلب',
-    number: 'الطلب', time: 'الوقت', customer: 'العميل', status: 'الحالة', sadad_txn: 'معاملة سداد', sadad_status: 'حالة سداد', method: 'الدفع', none: '—', empty: 'لا توجد طلبات في هذا اليوم.', empty_hint: 'اختر تاريخاً آخر لعرض طلباته.',
+    number: 'الطلب', time: 'الوقت', customer: 'العميل', status: 'الحالة', sadad_txn: 'معاملة سداد', sadad_status: 'حالة سداد', method: 'الدفع', kind: 'النوع', cod: 'الدفع عند الاستلام', sadad: 'سداد', pay_at_pickup: 'الدفع عند الاستلام من الفرع', t_delivery: 'توصيل', t_pickup: 'استلام من الفرع', none: '—', empty: 'لا توجد طلبات في هذا اليوم.', empty_hint: 'اختر تاريخاً آخر لعرض طلباته.',
     items_n: (n) => `${n} قطعة`, qty: 'الكمية', unit: 'سعر الوحدة', line: 'الإجمالي', cancelled: 'ملغاة', close: 'إغلاق', order_items: 'المنتجات', fees: 'المبالغ', route: 'سجل المسار', no_route: 'لا يوجد مسار مسجل لهذا الطلب.', transactions: 'معاملات سداد',
     driver: 'السائق', assigned: 'تم التعيين', picked: 'تم الاستلام', delivered: 'تم التسليم', no_driver: 'لا يوجد سائق بعد', estimate: 'نسبة رسوم سداد غير محددة بعد، لذلك تظهر الرسوم صفر. حددها من الإعدادات ← التكاملات.', updated: 'آخر تحديث', no_drivers: 'لا يوجد سائقون في الدوام.', idle: 'متاح', job: (n) => `الطلب ${n}`,
     net_note: 'الصافي = المدفوع − رسوم سداد − رسوم التوصيل', load_error: 'تعذر التحميل. نعيد المحاولة…', copied: 'تم النسخ',
@@ -82,6 +82,12 @@ if (app) {
     return s ? `<span class="inline-flex whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}">${esc(label(s))}</span>` : t('none');
   };
 
+  // Payment kind and delivery/pickup, always in both languages (English line, Arabic line).
+  const BI = { cod: ['Cash on delivery', 'الدفع عند الاستلام'], sadad: ['SADAD', 'سداد'], pay_at_pickup: ['Pay at pickup', 'الدفع عند الاستلام من الفرع'], delivery: ['Delivery', 'توصيل'], pickup: ['Pickup', 'استلام من الفرع'] };
+  const TONE = { cod: 'bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/30', sadad: 'bg-sky-50 text-sky-800 ring-sky-200 dark:bg-sky-500/10 dark:text-sky-200 dark:ring-sky-500/30', pay_at_pickup: 'bg-violet-50 text-violet-800 ring-violet-200 dark:bg-violet-500/10 dark:text-violet-200 dark:ring-violet-500/30', delivery: 'bg-sand-100 text-ink-700 ring-sand-200 dark:bg-ink-800 dark:text-sand-100 dark:ring-ink-700', pickup: 'bg-emerald-50 text-emerald-800 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-200 dark:ring-emerald-500/30' };
+  const biChip = (k) => { const b = BI[k]; return b ? `<span class="inline-flex flex-col rounded-xl px-2.5 py-1 text-xs font-medium leading-tight ring-1 ring-inset ${TONE[k]}"><span dir="ltr">${b[0]}</span><span dir="rtl" lang="ar" class="opacity-80">${b[1]}</span></span>` : t('none'); };
+  const kindCell = (o) => `<div class="flex flex-col items-start gap-1">${biChip(o.payment_method)}${biChip(o.fulfillment_type)}</div>`;
+
   const renderOrders = () => {
     const box = $('orders'); const d = state.day;
     if (!d) { box.innerHTML = '<div class="card h-64 animate-pulse"></div>'; return; }
@@ -91,15 +97,15 @@ if (app) {
       box.innerHTML = note + `<div class="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">${d.orders.map((o) => `
         <button type="button" data-order="${o.id}" class="card block w-full p-4 text-start transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-brass-500">
           <div class="flex items-start justify-between gap-2"><div><p class="font-display text-lg font-semibold">${esc(o.number)}</p><p class="text-xs text-ink-500">${fmtTime(o.placed_at)} · ${esc(o.customer)}</p></div>${pill(o.status)}</div>
-          <p class="mt-3 text-sm text-ink-600 dark:text-ink-300">${t('items_n', o.item_count)} · ${esc(label(o.payment_method))}</p>
+          <div class="mt-3 flex flex-wrap items-center gap-2 text-sm text-ink-600 dark:text-ink-300"><span>${t('items_n', o.item_count)}</span>${biChip(o.payment_method)}${biChip(o.fulfillment_type)}</div>
           <dl class="mt-3 grid grid-cols-3 gap-2 text-xs"><div><dt class="text-ink-500">${t('paid')}</dt><dd class="font-semibold">${money(o.paid)}</dd></div><div><dt class="text-ink-500">${t('delivery')}</dt><dd class="font-semibold">${money(o.delivery_fee)}</dd></div><div><dt class="text-ink-500">${t('net')}</dt><dd class="font-semibold text-emerald-700 dark:text-emerald-400">${money(o.net)}</dd></div></dl>
           ${o.sadad.reference ? `<p class="mt-3 truncate text-xs text-ink-500" dir="ltr">SADAD ${esc(o.sadad.reference)} · ${esc(label(o.sadad.status))}</p>` : ''}
         </button>`).join('')}</div>`;
     } else {
-      box.innerHTML = note + `<div class="card overflow-x-auto"><table class="w-full min-w-[1100px] text-sm [&_td]:whitespace-nowrap"><thead class="bg-sand-50 text-xs uppercase tracking-wide text-ink-500 dark:bg-ink-800"><tr>
-        ${['number', 'time', 'customer', 'items', 'subtotal', 'delivery', 'paid', 'sadad_txn', 'sadad_status', 'sadad_fee', 'net', 'status'].map((k, i) => `<th scope="col" class="px-3 py-3 text-start font-medium ${i === 0 ? 'sticky start-0 bg-sand-50 dark:bg-ink-800' : ''}">${t(k)}</th>`).join('')}</tr></thead>
+      box.innerHTML = note + `<div class="card overflow-x-auto"><table class="w-full min-w-[1250px] text-sm [&_td]:whitespace-nowrap"><thead class="bg-sand-50 text-xs uppercase tracking-wide text-ink-500 dark:bg-ink-800"><tr>
+        ${['number', 'time', 'customer', 'kind', 'items', 'subtotal', 'delivery', 'paid', 'sadad_txn', 'sadad_status', 'sadad_fee', 'net', 'status'].map((k, i) => `<th scope="col" class="px-3 py-3 text-start font-medium ${i === 0 ? 'sticky start-0 bg-sand-50 dark:bg-ink-800' : ''}">${t(k)}</th>`).join('')}</tr></thead>
         <tbody class="divide-y divide-sand-100 dark:divide-ink-700">${d.orders.map((o) => `<tr data-order="${o.id}" tabindex="0" role="button" class="cursor-pointer hover:bg-sand-50 focus-visible:bg-sand-50 dark:hover:bg-ink-800">
-          <td class="sticky start-0 bg-white px-3 py-3 font-semibold dark:bg-ink-900">${esc(o.number)}</td><td class="px-3 py-3">${fmtTime(o.placed_at)}</td><td class="px-3 py-3">${esc(o.customer)}</td>
+          <td class="sticky start-0 bg-white px-3 py-3 font-semibold dark:bg-ink-900">${esc(o.number)}</td><td class="px-3 py-3">${fmtTime(o.placed_at)}</td><td class="px-3 py-3">${esc(o.customer)}</td><td class="px-3 py-3">${kindCell(o)}</td>
           <td class="px-3 py-3">${o.item_count}</td><td class="px-3 py-3">${money(o.subtotal)}</td><td class="px-3 py-3">${money(o.delivery_fee)}</td><td class="px-3 py-3 font-medium">${money(o.paid)}</td>
           <td class="px-3 py-3" dir="ltr">${o.sadad.reference ? esc(o.sadad.reference) : t('none')}</td><td class="px-3 py-3">${pill(o.sadad.status)}</td><td class="px-3 py-3">${money(o.sadad.fee)}</td>
           <td class="px-3 py-3 font-semibold text-emerald-700 dark:text-emerald-400">${money(o.net)}</td><td class="px-3 py-3">${pill(o.status)}</td></tr>`).join('')}</tbody></table></div>`;

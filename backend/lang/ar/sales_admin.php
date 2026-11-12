@@ -287,6 +287,8 @@ return [
     'waiting_since' => 'في الانتظار',
     'worth' => 'بقيمة :amount',
     'zone_n' => 'منطقة :n',
+    'quick_kind' => 'تصفية سريعة: الدفع والاستلام',
+    'kind' => 'نوع الطلب',
     'type_delivery' => 'توصيل',
     'type_pickup' => 'استلام من الفرع',
     'cat_transactional' => 'الطلبات والحساب',

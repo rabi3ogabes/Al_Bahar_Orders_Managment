@@ -287,6 +287,8 @@ return [
     'waiting_since' => 'Waiting',
     'worth' => 'Worth :amount',
     'zone_n' => 'Zone :n',
+    'quick_kind' => 'Quick filter: payment and pickup',
+    'kind' => 'Order kind',
     'type_delivery' => 'Delivery',
     'type_pickup' => 'Pickup',
     'cat_transactional' => 'Orders & account',

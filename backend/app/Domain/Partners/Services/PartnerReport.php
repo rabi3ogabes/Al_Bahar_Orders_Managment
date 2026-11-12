@@ -60,7 +60,7 @@ class PartnerReport
             'item_count' => (int) $o->items->sum(fn ($i) => $i->quantity - $i->quantity_cancelled),
             'subtotal' => (string) $o->subtotal, 'discount' => (string) $o->discount_total, 'delivery_fee' => $delivery, 'service_fee' => (string) $o->service_fee_total,
             'tax' => (string) $o->tax_total, 'grand_total' => (string) $o->grand_total, 'paid' => $paid,
-            'payment_method' => $o->payment_method ?? $o->payments->first()?->method,
+            'payment_method' => $o->payment_method ?? $o->payments->first()?->method, 'fulfillment_type' => $o->fulfillment_type,
             'payment_status' => $o->payment_status->value,
             'sadad' => $sadad ? ['reference' => $sadad->provider_reference, 'status' => $sadad->status->value, 'amount' => (string) $sadad->captured_amount, 'fee' => $sadadFee] : ['reference' => null, 'status' => null, 'amount' => null, 'fee' => '0.00'],
             'sadad_fee' => $sadadFee,

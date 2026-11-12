@@ -279,3 +279,25 @@ it('reschedules from the dispatch board onto a slot on slot-enabled branches and
     expect(BusinessTime::local($d->fresh()->scheduled_for)->format('H:i'))->toBe('17:00')
         ->and($f->fresh()->delivery_slot_id)->toBe($slot->id);
 });
+
+it('shows COD / SADAD / pickup on the orders table in both languages, with one-tap filter chips and live counts', function () {
+    $cod = placeDeliveryOrder($this->w);
+    $sadad = placeDeliveryOrder($this->w);
+    $sadad->update(['payment_method' => 'sadad']);
+    $pickup = placeDeliveryOrder($this->w);
+    $pickup->update(['fulfillment_type' => 'pickup', 'payment_method' => 'pay_at_pickup']);
+    $this->actingAs($this->admin);
+
+    $c = Livewire::test(OrderIndex::class)->assertSee('Cash on delivery')->assertSee('الدفع عند الاستلام')->assertSee('SADAD')->assertSee('سداد')->assertSee('Pickup')->assertSee('استلام من الفرع');
+    expect($c->viewData('quickCounts'))->toBe(['cod' => 1, 'sadad' => 1, 'pickup' => 1]);
+
+    $ids = fn ($comp) => $comp->viewData('orders')->pluck('id')->all();
+    expect($ids(Livewire::test(OrderIndex::class)->call('setQuick', 'cod')))->toBe([$cod->id])
+        ->and($ids(Livewire::test(OrderIndex::class)->call('setQuick', 'sadad')))->toBe([$sadad->id])
+        ->and($ids(Livewire::test(OrderIndex::class)->call('setQuick', 'pickup')))->toBe([$pickup->id])
+        ->and(Livewire::test(OrderIndex::class)->call('setQuick', 'cod')->call('setQuick', 'cod')->viewData('orders')->total())->toBe(3) // tapping again clears
+        ->and(Livewire::test(OrderIndex::class)->call('setQuick', 'bogus')->get('quick'))->toBe('');
+    // Arabic dashboard still shows the English line too (and the other way round).
+    app()->setLocale('ar');
+    Livewire::test(OrderIndex::class)->assertSee('Cash on delivery')->assertSee('الدفع عند الاستلام');
+});
