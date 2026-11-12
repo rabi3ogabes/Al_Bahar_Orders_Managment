@@ -4,6 +4,7 @@ use App\Domain\AppUpdates\Models\AppRelease;
 use App\Domain\AppUpdates\Services\AppUpdateService;
 use App\Livewire\Admin\Organization\AppUpdatesPage;
 use App\Support\DomainException;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Livewire;
 
 function release(string $app = 'customer', string $platform = 'android'): AppRelease
@@ -70,4 +71,17 @@ it('lets an admin save, force with a confirmation and stop from the dashboard; b
     $c->call('stop', $id);
     expect(release()->min_build)->toBe(0);
     $this->actingAs(staffWithRole('branch_manager', commerceWorld()->a))->get(route('admin.app-updates.index'))->assertForbidden();
+});
+
+it('survives a real cache store: the rule is cached as plain data, and a second call (served from the cache) still works', function () {
+    // The array store used by most tests keeps objects as they are; the file store serialises like Redis does.
+    config(['cache.default' => 'file']);
+    Cache::store('file')->flush();
+    $staff = staffWithRole('super_admin');
+    app(AppUpdateService::class)->save(release(), ['latest_build' => 20, 'min_build' => 15, 'store_url' => 'https://play.google.com/x'], $staff);
+    $headers = ['X-App' => 'customer', 'X-App-Platform' => 'android', 'X-App-Build' => '16'];
+    $this->getJson('/api/v1/products', $headers)->assertOk();   // fills the cache
+    $this->getJson('/api/v1/products', $headers)->assertOk();   // reads it back
+    $this->getJson('/api/v1/app-update?app=customer&platform=android&build=16')->assertOk()->assertJsonPath('data.status', 'available');
+    Cache::store('file')->flush();
 });

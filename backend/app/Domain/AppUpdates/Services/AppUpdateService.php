@@ -25,25 +25,43 @@ class AppUpdateService
 
     public function release(string $app, string $platform): ?AppRelease
     {
-        return Cache::remember("app_release:$app:$platform", 60, fn () => AppRelease::where('app', $app)->where('platform', $platform)->first()) ?: null;
+        return AppRelease::where('app', $app)->where('platform', $platform)->first();
+    }
+
+    /**
+     * The rule as plain numbers and text, cached for a minute. Never cache the Eloquent model itself: the cache store cannot
+     * bring a model back (it would return an incomplete object and every API call of a store app would fail).
+     *
+     * @return array{latest_version: ?string, latest_build: int, min_build: int, store_url: ?string, message_en: ?string, message_ar: ?string}|null
+     */
+    private function rule(string $app, string $platform): ?array
+    {
+        $rule = Cache::remember("app_release:v2:$app:$platform", 60, function () use ($app, $platform) {
+            $r = $this->release($app, $platform);
+
+            return $r ? ['latest_version' => $r->latest_version, 'latest_build' => (int) $r->latest_build, 'min_build' => (int) $r->min_build,
+                'store_url' => $r->store_url, 'message_en' => $r->message_en, 'message_ar' => $r->message_ar] : [];
+        });
+
+        return $rule === [] ? null : $rule;
     }
 
     /** @return array<string, mixed> */
     public function evaluate(string $app, string $platform, int $build): array
     {
-        $r = $this->release($app, $platform);
+        $r = $this->rule($app, $platform);
         $status = 'ok';
-        if ($r && $r->min_build > 0 && $build < $r->min_build) {
+        if ($r && $r['min_build'] > 0 && $build < $r['min_build']) {
             $status = 'required';
-        } elseif ($r && $r->latest_build > 0 && $build < $r->latest_build) {
+        } elseif ($r && $r['latest_build'] > 0 && $build < $r['latest_build']) {
             $status = 'available';
         }
 
         return [
             'status' => $status,
-            'latest_version' => $r?->latest_version, 'latest_build' => $r?->latest_build ?? 0, 'min_build' => $r?->min_build ?? 0,
-            'store_url' => $r?->store_url,
-            'message' => ['en' => $r?->message_en ?: self::DEFAULT_EN, 'ar' => $r?->message_ar ?: self::DEFAULT_AR],
+            'latest_version' => $r['latest_version'] ?? null, 'latest_build' => $r['latest_build'] ?? 0, 'min_build' => $r['min_build'] ?? 0,
+            'store_url' => $r['store_url'] ?? null,
+            'message' => ['en' => ($r['message_en'] ?? null) ?: self::DEFAULT_EN, 'ar' => ($r['message_ar'] ?? null) ?: self::DEFAULT_AR],
         ];
     }
 
@@ -101,6 +119,6 @@ class AppUpdateService
 
     private function forget(AppRelease $r): void
     {
-        Cache::forget("app_release:{$r->app}:{$r->platform}");
+        Cache::forget("app_release:v2:{$r->app}:{$r->platform}");
     }
 }
