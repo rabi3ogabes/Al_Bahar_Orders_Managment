@@ -1,0 +1,111 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Domain\Partners\Services\PartnerAccess;
+use App\Domain\Partners\Services\PartnerReport;
+use App\Support\BusinessTime;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
+
+/**
+ * Partner statistics page: /partner/{token}. Unknown or disabled links answer 404 (nothing to learn); the password is
+ * checked with a throttle; the data endpoints answer 401 until the session is unlocked.
+ */
+class PartnerController extends Controller
+{
+    private const SESSION_KEY = 'partner_unlocked';
+
+    public function __construct(private readonly PartnerAccess $access, private readonly PartnerReport $report) {}
+
+    public function show(Request $request, string $token): Response
+    {
+        $this->guardToken($token);
+        $unlocked = $this->unlocked($request);
+
+        return response()->view($unlocked ? 'partner.dashboard' : 'partner.lock', ['token' => $token, 'today' => BusinessTime::now()->toDateString()])
+            ->header('X-Robots-Tag', 'noindex, nofollow, noarchive')->header('Cache-Control', 'no-store')->header('Referrer-Policy', 'no-referrer');
+    }
+
+    public function unlock(Request $request, string $token): JsonResponse
+    {
+        $this->guardToken($token);
+        $key = 'partner-unlock:'.$request->ip();
+        if (RateLimiter::tooManyAttempts($key, 6)) {
+            return response()->json(['message' => 'too_many', 'retry_after' => RateLimiter::availableIn($key)], 429);
+        }
+        $data = $request->validate(['password' => 'required|string|max:200']);
+        if (! $this->access->passwordMatches($data['password'])) {
+            RateLimiter::hit($key, 300);
+            $this->access->log('failed', $request->ip(), $request->userAgent());
+
+            return response()->json(['message' => 'wrong_password'], 422);
+        }
+        RateLimiter::clear($key);
+        $request->session()->regenerate();
+        $request->session()->put(self::SESSION_KEY, ['fp' => $this->access->fingerprint(), 'until' => now()->addHours(12)->timestamp]);
+        $this->access->log('unlocked', $request->ip(), $request->userAgent());
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function lock(Request $request, string $token): JsonResponse
+    {
+        $this->guardToken($token);
+        $request->session()->forget(self::SESSION_KEY);
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function day(Request $request, string $token): JsonResponse
+    {
+        $this->guardData($request, $token);
+        $date = $request->validate(['date' => 'nullable|date_format:Y-m-d'])['date'] ?? BusinessTime::now()->toDateString();
+
+        return $this->json($this->report->day($date));
+    }
+
+    public function order(Request $request, string $token, string $id): JsonResponse
+    {
+        $this->guardData($request, $token);
+        abort_unless(Str::isUuid($id), 404);
+        $detail = $this->report->order($id);
+        abort_if($detail === null, 404);
+        $this->access->log('viewed_order', $request->ip(), $request->userAgent());
+
+        return $this->json($detail);
+    }
+
+    public function fleet(Request $request, string $token): JsonResponse
+    {
+        $this->guardData($request, $token);
+
+        return $this->json(['drivers' => $this->report->fleet(), 'at' => now()->toIso8601String()]);
+    }
+
+    private function json(mixed $data): JsonResponse
+    {
+        return response()->json(['data' => $data])->header('Cache-Control', 'no-store')->header('X-Robots-Tag', 'noindex');
+    }
+
+    private function guardToken(string $token): void
+    {
+        abort_unless($this->access->tokenMatches($token), 404);
+    }
+
+    private function guardData(Request $request, string $token): void
+    {
+        $this->guardToken($token);
+        abort_unless($this->unlocked($request), 401);
+    }
+
+    private function unlocked(Request $request): bool
+    {
+        $s = $request->session()->get(self::SESSION_KEY);
+
+        return is_array($s) && hash_equals($this->access->fingerprint(), (string) ($s['fp'] ?? '')) && ($s['until'] ?? 0) > time();
+    }
+}

@@ -100,6 +100,8 @@ class SettingsIndex extends Component
                 'payments.sadad.mode' => ['type' => 'select', 'rules' => ['required', 'in:sandbox,live'], 'options' => ['sandbox', 'live']],
                 'payments.sadad.merchant_id' => ['type' => 'text', 'rules' => ['nullable', 'string', 'max:64'], 'dir' => 'ltr'],
                 'payments.sadad.website' => ['type' => 'text', 'rules' => ['nullable', 'string', 'max:191'], 'dir' => 'ltr'],
+                'payments.sadad.fee_percent' => ['type' => 'percent', 'rules' => ['required', 'numeric', 'min:0', 'max:100']],
+                'payments.sadad.fee_fixed' => ['type' => 'money', 'rules' => $money],
                 'payments.sadad.secret_key' => ['type' => 'secret', 'rules' => ['nullable', 'string', 'min:8', 'max:255']],
             ],
         ];

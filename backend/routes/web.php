@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\SessionController;
+use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\StorefrontController;
 use App\Http\Controllers\Webhooks\PaymentWebhookController;
 use App\Livewire\Admin;
@@ -13,6 +14,16 @@ Route::controller(PaymentWebhookController::class)->withoutMiddleware([VerifyCsr
     Route::post('webhooks/delivery/{provider}', 'delivery')->middleware('throttle:webhooks')->name('webhooks.delivery');
     Route::get('payments/sadad/{payment}/start', 'sadadStart')->name('payments.sadad.start');
     Route::match(['get', 'post'], 'payments/sadad/return', 'sadadReturn')->name('payments.sadad.return');
+});
+
+// ── Partner statistics (secret link + password; see PartnerController) ──────────────────────────────────
+Route::prefix('partner/{token}')->name('partner.')->controller(PartnerController::class)->group(function () {
+    Route::get('/', 'show')->name('show');
+    Route::post('unlock', 'unlock')->name('unlock');
+    Route::post('lock', 'lock')->name('lock');
+    Route::get('data', 'day')->middleware('throttle:60,1')->name('data');
+    Route::get('orders/{id}', 'order')->middleware('throttle:90,1')->name('order');
+    Route::get('fleet', 'fleet')->middleware('throttle:60,1')->name('fleet');
 });
 
 /*
@@ -47,5 +58,5 @@ Route::prefix('admin')->name('admin.')->group(function () {
 | to the storefront shell; the client router renders the page (or its own 404).
 */
 Route::get('/{path?}', [StorefrontController::class, 'show'])
-    ->where('path', '^(?!(?:admin|api|app|broadcasting|webhooks|payments|docs|build|store|mobile-web|storage|up|health)(?:/|$)).*$')
+    ->where('path', '^(?!(?:admin|partner|api|app|broadcasting|webhooks|payments|docs|build|store|mobile-web|storage|up|health)(?:/|$)).*$')
     ->name('storefront');

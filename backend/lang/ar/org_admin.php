@@ -208,12 +208,15 @@ return [
         'payments__sadad__mode' => 'بيئة سداد',
         'payments__sadad__merchant_id' => 'معرّف التاجر في سداد',
         'payments__sadad__website' => 'الموقع المسجّل في سداد',
+        'payments__sadad__fee_percent' => 'رسوم سداد (٪ من الدفعة)',
+        'payments__sadad__fee_fixed' => 'رسوم سداد الثابتة لكل دفعة (ر.ق)',
         'payments__sadad__secret_key' => 'المفتاح السري لسداد',
     ],
     'setting_hint' => [
         'checkout__tax_rate_percent' => 'لا تُطبَّق ضريبة القيمة المضافة في قطر حالياً؛ اتركها 0 ما لم يُطلب غير ذلك.',
         'checkout__reservation_ttl_minutes' => 'يُحرَّر مخزون الطلبات الإلكترونية غير المدفوعة بعد هذه المدة.',
         'auctions__default_extension_window_seconds' => 'المزايدة في هذه المدة قبل النهاية تمدّد المزاد.',
+        'payments__sadad__fee_percent' => 'تُستخدم في إحصائيات الشركاء لحساب الصافي بعد سداد. اسأل مدير حسابك في سداد عن النسبة الدقيقة.',
         'payments__sadad__mode' => 'استخدم بيئة الاختبار حتى تتم الموافقة على حساب التاجر للدفع الفعلي.',
     ],
     'option' => [
