@@ -145,7 +145,7 @@ class CatalogRewriter
             ."HARD RULES\n- The product stays exactly the same product. Keep the brand name, every number and every unit (sizes, pack counts, weights, volumes, model numbers) exactly as given.\n"
             ."- Use only facts present in the input. Never invent materials, certifications, antibacterial/eco/halal or other claims, prices, origins or warranties.\n"
             ."- Calm, clear, specific tone. No exclamation marks, no emojis, no filler, no ALL CAPS.\n\n"
-            ."STYLE\n- name: Title Case, 'Brand Product Type, Size / Pack' (drop nothing that identifies the product), at most 100 characters.\n"
+            ."STYLE\n- name: a NEW name. It must NOT repeat the current wording: re-word it with the clearest, most natural retail product-type term and the setting or use, e.g. 'Kitchen Cling Film Roll', 'Laundry Washing Powder', 'Disposable Aluminium Food Container'. Order: Brand (if any), descriptive product type, then size / pack after a comma. Title Case, at most 100 characters. Keep the brand, model number, every number and unit.\n"
             ."- short: one sentence, at most 150 characters, says what it is and its main use.\n"
             ."- description: two short paragraphs as <p>…</p>: what it is and where it helps; then the pack/size details and a practical note drawn only from the input.\n"
             ."- seo_title: at most 60 characters. seo_description: at most 155 characters.\n"
@@ -195,6 +195,9 @@ class CatalogRewriter
                 return false;
             }
             $old = (string) $p->trans('name', $l);
+            if (mb_strtolower(trim($n['name'])) === mb_strtolower(trim($old))) {
+                return false; // a new name was asked for
+            }
             preg_match_all('/\d+(?:[.,]\d+)?/', $old, $oldNums);
             $newName = mb_strtolower($n['name']);
             foreach ($oldNums[0] as $num) {
