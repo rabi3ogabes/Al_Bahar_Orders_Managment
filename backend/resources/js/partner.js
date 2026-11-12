@@ -96,7 +96,7 @@ if (app) {
           ${o.sadad.reference ? `<p class="mt-3 truncate text-xs text-ink-500" dir="ltr">SADAD ${esc(o.sadad.reference)} · ${esc(label(o.sadad.status))}</p>` : ''}
         </button>`).join('')}</div>`;
     } else {
-      box.innerHTML = note + `<div class="card overflow-x-auto"><table class="w-full min-w-[1100px] text-sm"><thead class="bg-sand-50 text-xs uppercase tracking-wide text-ink-500 dark:bg-ink-800"><tr>
+      box.innerHTML = note + `<div class="card overflow-x-auto"><table class="w-full min-w-[1100px] text-sm [&_td]:whitespace-nowrap"><thead class="bg-sand-50 text-xs uppercase tracking-wide text-ink-500 dark:bg-ink-800"><tr>
         ${['number', 'time', 'customer', 'items', 'subtotal', 'delivery', 'paid', 'sadad_txn', 'sadad_status', 'sadad_fee', 'net', 'status'].map((k, i) => `<th scope="col" class="px-3 py-3 text-start font-medium ${i === 0 ? 'sticky start-0 bg-sand-50 dark:bg-ink-800' : ''}">${t(k)}</th>`).join('')}</tr></thead>
         <tbody class="divide-y divide-sand-100 dark:divide-ink-700">${d.orders.map((o) => `<tr data-order="${o.id}" tabindex="0" role="button" class="cursor-pointer hover:bg-sand-50 focus-visible:bg-sand-50 dark:hover:bg-ink-800">
           <td class="sticky start-0 bg-white px-3 py-3 font-semibold dark:bg-ink-900">${esc(o.number)}</td><td class="px-3 py-3">${fmtTime(o.placed_at)}</td><td class="px-3 py-3">${esc(o.customer)}</td>

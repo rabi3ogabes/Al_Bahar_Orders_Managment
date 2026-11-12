@@ -27,7 +27,7 @@
 
     <section id="kpis" class="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6" aria-live="polite"></section>
 
-    <div class="grid gap-5 xl:grid-cols-[1fr_380px]">
+    <div class="grid gap-5 2xl:grid-cols-[1fr_380px]">
         <section class="min-w-0">
             <div id="orders" class="min-w-0"></div>
         </section>
