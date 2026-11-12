@@ -135,3 +135,17 @@ jobs:
             --repo "${{ github.repository }}" --target "${{ github.sha }}" --prerelease \
             --title "${{ matrix.title }} ${{ steps.v.outputs.name }} · build ${{ steps.v.outputs.build }} · ${{ steps.v.outputs.sha }}" \
             --notes-file "$RUNNER_TEMP/notes.md"
+
+      - name: Mark this build as the latest of its app
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          # Every build keeps its own tag and release (all versions stay downloadable, newest first). The newest build of
+          # each app carries "LATEST" in its title; the previous latest of the same app loses it.
+          APP="${{ matrix.app }}"
+          gh release list --repo "${{ github.repository }}" --limit 200 --json tagName,name \
+            --jq ".[] | select(.tagName | startswith(\"$APP-\")) | select(.tagName != \"${{ steps.v.outputs.tag }}\") | select(.name | startswith(\"LATEST · \")) | .tagName + \"|\" + .name" |
+          while IFS='|' read -r TAG NAME; do
+            [ -n "$TAG" ] && gh release edit "$TAG" --repo "${{ github.repository }}" --title "${NAME#LATEST · }"
+          done
+          gh release edit "${{ steps.v.outputs.tag }}" --repo "${{ github.repository }}" \
+            --title "LATEST · ${{ matrix.title }} ${{ steps.v.outputs.name }} · build ${{ steps.v.outputs.build }} · ${{ steps.v.outputs.sha }}"
