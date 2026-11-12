@@ -65,6 +65,8 @@ return [
     'purchase_over_receipt' => 'الكمية المستلمة تتجاوز الكمية المطلوبة المتبقية.',
     'approval_segregation' => 'يجب أن يعتمد هذا الطلب عضو آخر في الفريق.',
     'quantity_invalid' => 'يرجى إدخال كمية صحيحة.',
+    'issue_order_not_found' => 'لم نجد طلباً بهذا الرقم.',
+    'issue_bad_status' => 'اختر حالة صحيحة.',
     'item_unavailable_simple' => 'هذا المنتج لم يعد متوفراً.',
     'order_awaiting_payment' => 'هذا الطلب بانتظار الدفع الإلكتروني.',
     'order_not_cancellable' => 'لم يعد بالإمكان إلغاء هذا الطلب. يمكنك طلب إرجاع بعد الاستلام.',

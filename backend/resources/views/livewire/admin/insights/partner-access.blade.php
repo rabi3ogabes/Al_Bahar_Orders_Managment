@@ -30,8 +30,8 @@
             <p class="text-sm text-ink-500">{{ __('partner_admin.password_hint') }}</p>
         </div>
         <div class="grid gap-4 sm:grid-cols-2">
-            <x-admin.field :label="__('partner_admin.password')" name="password" :error="$errors->first('password')"><input type="password" wire:model="password" class="input" autocomplete="new-password" minlength="10"></x-admin.field>
-            <x-admin.field :label="__('partner_admin.password_again')" name="password_confirmation"><input type="password" wire:model="password_confirmation" class="input" autocomplete="new-password"></x-admin.field>
+            <x-admin.field :label="__('partner_admin.password')" for="password"><input id="password" type="password" wire:model="password" class="input" autocomplete="new-password" minlength="10"></x-admin.field>
+            <x-admin.field :label="__('partner_admin.password_again')" for="password_confirmation"><input id="password_confirmation" type="password" wire:model="password_confirmation" class="input" autocomplete="new-password"></x-admin.field>
         </div>
         <button class="btn-primary min-h-11" wire:loading.attr="disabled" wire:target="savePassword" @disabled($password === '')>{{ __('partner_admin.save_password') }}</button>
     </form>

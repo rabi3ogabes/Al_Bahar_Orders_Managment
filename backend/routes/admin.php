@@ -84,6 +84,7 @@ Route::get('pages', Admin\Content\PageIndex::class)->middleware('permission:cms.
 Route::get('notification-templates', Admin\Content\NotificationTemplateIndex::class)->middleware('permission:notifications.view')->name('notification-templates.index');
 
 // ── Insights ──────────────────────────────────────────────────────────────────
+Route::get('issues', Admin\Insights\IssueIndex::class)->middleware('permission:orders.view')->name('issues.index');
 Route::get('partners', Admin\Insights\PartnerAccessPage::class)->middleware('permission:settings.view')->name('partners.index');
 Route::get('reports', Admin\Insights\ReportIndex::class)->middleware('permission:reports.view')->name('reports.index');
 Route::get('exports', Admin\Insights\ExportIndex::class)->middleware('permission:reports.export')->name('exports.index');

@@ -65,6 +65,8 @@ return [
     'purchase_over_receipt' => 'Received quantity exceeds the outstanding ordered quantity.',
     'approval_segregation' => 'A different team member must approve this request.',
     'quantity_invalid' => 'Please enter a valid quantity.',
+    'issue_order_not_found' => 'We could not find an order with that number.',
+    'issue_bad_status' => 'Choose a valid status.',
     'item_unavailable_simple' => 'This item is no longer available.',
     'order_awaiting_payment' => 'This order is awaiting online payment.',
     'order_not_cancellable' => 'This order can no longer be cancelled. You can request a return after delivery.',

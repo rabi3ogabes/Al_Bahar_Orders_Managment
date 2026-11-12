@@ -70,6 +70,7 @@ final class AdminNavigation
                 ['label' => 'nav.notification_templates', 'route' => 'admin.notification-templates.index', 'icon' => 'bell', 'permission' => 'notifications.view'],
             ]],
             ['label' => 'nav.insights', 'items' => [
+                ['label' => 'nav.issues', 'route' => 'admin.issues.index', 'icon' => 'alert', 'permission' => 'orders.view'],
                 ['label' => 'nav.partners', 'route' => 'admin.partners.index', 'icon' => 'users', 'permission' => 'settings.view'],
                 ['label' => 'nav.reports', 'route' => 'admin.reports.index', 'icon' => 'chart', 'permission' => 'reports.view'],
                 ['label' => 'nav.exports', 'route' => 'admin.exports.index', 'icon' => 'download', 'permission' => 'reports.export'],
