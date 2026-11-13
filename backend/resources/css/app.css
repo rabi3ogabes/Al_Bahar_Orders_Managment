@@ -85,6 +85,13 @@
 @layer components {
     .card { @apply rounded-[var(--radius-card)] border border-sand-200/70 bg-white shadow-[var(--shadow-card)] dark:border-ink-700 dark:bg-ink-900; }
     .card-pad { @apply p-5 sm:p-6; }
+    /* Side drawer (x-admin.dialog): the form's last action row stays pinned to the bottom edge while the fields scroll. */
+    .drawer-body { padding-block-end: 0; }
+    .drawer-body form > div:last-child:has(> .btn-primary, > .btn-danger, > .btn-brass) {
+        @apply sticky bottom-0 z-10 -mx-5 mt-6 border-t border-sand-200/70 bg-ivory/95 px-5 py-4 backdrop-blur sm:-mx-6 sm:px-6 dark:border-ink-800 dark:bg-ink-900/95;
+        padding-block-end: max(1rem, env(safe-area-inset-bottom));
+    }
+    .drawer-body > :last-child:not(form) { padding-block-end: 1.25rem; }
     .eyebrow { @apply text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-brass-600 dark:text-brass-300; }
     html[lang="ar"] .eyebrow { @apply tracking-normal text-xs; }
 

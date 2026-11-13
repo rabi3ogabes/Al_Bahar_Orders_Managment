@@ -118,7 +118,7 @@
         </div>
     @endif
 
-    <x-admin.dialog wire:model="showReject" :title="__('referrals_admin.reject_title')" :description="__('referrals_admin.reject_body')" max-width="max-w-md">
+    <x-admin.dialog variant="modal" wire:model="showReject" :title="__('referrals_admin.reject_title')" :description="__('referrals_admin.reject_body')" max-width="max-w-md">
         <form wire:submit="reject" class="space-y-4">
             <x-admin.field :label="__('admin.reason')" for="rejectReason" required><textarea id="rejectReason" rows="3" wire:model="rejectReason" class="input" maxlength="250"></textarea></x-admin.field>
             <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" class="btn-secondary" @click="open = false">{{ __('admin.cancel') }}</button><button class="btn-danger" wire:loading.attr="disabled" wire:target="reject">{{ __('referrals_admin.reject') }}</button></div>

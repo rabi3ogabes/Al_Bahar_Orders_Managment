@@ -185,7 +185,7 @@
         </form>
     </x-admin.dialog>
 
-    <x-admin.dialog wire:model="showCancel" :title="__('auction_admin.cancel_auction')" :description="__('auction_admin.cancel_hint')">
+    <x-admin.dialog variant="modal" wire:model="showCancel" :title="__('auction_admin.cancel_auction')" :description="__('auction_admin.cancel_hint')">
         <form wire:submit="cancelAuction" class="space-y-5">
             <x-admin.field :label="__('admin.reason')" for="cancelReason" required><textarea id="cancelReason" wire:model="cancelReason" rows="3" class="input"></textarea></x-admin.field>
             <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">

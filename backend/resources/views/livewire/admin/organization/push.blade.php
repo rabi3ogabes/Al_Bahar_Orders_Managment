@@ -217,7 +217,7 @@
         </div>
     </section>
 
-    <x-admin.dialog wire:model="confirmRemoveKey" :title="__('push_admin.key_remove_q')" max-width="max-w-md">
+    <x-admin.dialog variant="modal" wire:model="confirmRemoveKey" :title="__('push_admin.key_remove_q')" max-width="max-w-md">
         <p class="text-sm text-ink-600 dark:text-ink-300">{{ __('push_admin.key_remove_body') }}</p>
         <div class="mt-6 flex justify-end gap-2">
             <button type="button" class="btn-secondary min-h-11" @click="open = false" x-init="$nextTick(() => $el.focus())">{{ __('admin.cancel') }}</button>

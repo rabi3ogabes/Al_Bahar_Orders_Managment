@@ -50,7 +50,7 @@
         @endforelse
     </section>
 
-    <x-admin.dialog wire:model="confirmRotate" :title="__('partner_admin.rotate_q')" max-width="max-w-md">
+    <x-admin.dialog variant="modal" wire:model="confirmRotate" :title="__('partner_admin.rotate_q')" max-width="max-w-md">
         <p class="text-sm text-ink-600 dark:text-ink-300">{{ __('partner_admin.rotate_body') }}</p>
         <div class="mt-6 flex justify-end gap-2">
             <button type="button" class="btn-secondary min-h-11" @click="open = false" x-init="$nextTick(() => $el.focus())">{{ __('admin.cancel') }}</button>

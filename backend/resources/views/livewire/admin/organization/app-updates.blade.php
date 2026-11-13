@@ -52,7 +52,7 @@
         </section>
     @endforeach
 
-    <x-admin.dialog wire:model="confirmForce" :title="__('app_updates_admin.force_q')" max-width="max-w-md">
+    <x-admin.dialog variant="modal" wire:model="confirmForce" :title="__('app_updates_admin.force_q')" max-width="max-w-md">
         @if ($forcing)
             <p class="text-sm text-ink-600 dark:text-ink-300">{{ __('app_updates_admin.force_body', ['app' => __('app_updates_admin.apps.'.$forcing->app), 'platform' => __('app_updates_admin.platforms.'.$forcing->platform), 'build' => $forcing->latest_build]) }}</p>
         @endif
