@@ -7,6 +7,7 @@ export interface ProductCard {
   id: string; slug: string; sku: string; name: string; short_description: string | null
   brand: { id: string; name: string } | null; image: Img | null; price: Price
   rating: { average: number; count: number }; badges: string[]; in_stock: boolean; purchasable: boolean; has_variants: boolean
+  variant_id?: string | null // the single variant a card can add straight to the bag
 }
 export interface Variant {
   id: string; sku: string; name: string; attribute_value_ids: number[]; price: Price
@@ -23,7 +24,7 @@ export interface ProductDetail extends ProductCard {
   images: Img[]; videos: { url: string; source: string; title: string }[]
   attributes: AttributeDef[]; variants: Variant[]; default_variant_id: string | null
   availability: { branch_id: string | null; purchasable: boolean; reason: string | null }
-  related: ProductCard[]; share_url: string; seo: { title: string | null; description: string | null }
+  related: ProductCard[]; upsell?: ProductCard[]; share_url: string; seo: { title: string | null; description: string | null }
 }
 export interface Category { id: string; slug: string; name: string; description: string | null; image_url: string | null; icon_url: string | null; banner_url: string | null; children: Category[] }
 export interface Brand { id: string; slug: string; name: string; logo_url: string | null }

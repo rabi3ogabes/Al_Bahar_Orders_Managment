@@ -72,6 +72,7 @@ Route::get('auction-lots/{lot}/console', Admin\Auctions\AuctionConsole::class)->
 // ── Marketing ─────────────────────────────────────────────────────────────────
 Route::get('promotions', Admin\Marketing\PromotionIndex::class)->middleware('permission:marketing.view')->name('promotions.index');
 Route::get('journeys', Admin\Marketing\JourneyIndex::class)->middleware('permission:marketing.view')->name('journeys.index');
+Route::get('referrals', Admin\Marketing\ReferralIndex::class)->middleware('permission:marketing.view')->name('referrals.index');
 Route::get('campaigns', Admin\Marketing\CampaignIndex::class)->middleware('permission:marketing.view')->name('campaigns.index');
 Route::get('loyalty', Admin\Marketing\LoyaltyIndex::class)->middleware('permission:loyalty.view')->name('loyalty.index');
 Route::get('reviews', Admin\Marketing\ReviewIndex::class)->middleware('permission:reviews.view')->name('reviews.index');

@@ -6,6 +6,7 @@ import { useI18n } from '../lib/i18n';
 import { useDocTitle } from '../lib/hooks';
 import { Alert, Button, EmptyState, Pic, QtyStepper, Skeleton } from '../components/ui';
 import { useAuthModal } from '../components/AuthModal';
+import { CartSuggestions } from '../components/Upsell';
 
 export default function CartPage() {
   const { t, dir } = useI18n();
@@ -69,6 +70,7 @@ export default function CartPage() {
           </ul>
         </aside>
       </div>
+      <CartSuggestions />
     </div>
   );
 }

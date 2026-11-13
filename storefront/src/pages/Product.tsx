@@ -1,3 +1,4 @@
+import { UpsellStrip } from '../components/Upsell';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -313,6 +314,8 @@ export default function Product() {
       </div>
 
       <section className="mt-16" aria-labelledby="rev"><h2 id="rev" className="mb-6 text-4xl">{t('reviews.title_section')}</h2><Reviews product={p} /></section>
+
+      <UpsellStrip id="set-upsell" title={t('upsell.set')} items={p.upsell ?? []} />
 
       {p.related.length > 0 && (
         <section className="mt-20">

@@ -34,6 +34,7 @@ return [
     'promotions' => 'Promotions & coupons',
     'journeys' => 'Customer journeys',
     'campaigns' => 'Campaigns',
+    'referrals' => 'Referrals',
     'loyalty' => 'Loyalty & referrals',
     'reviews' => 'Reviews & Q&A',
     'support' => 'Support desk',

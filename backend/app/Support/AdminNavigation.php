@@ -59,6 +59,7 @@ final class AdminNavigation
                 ['label' => 'nav.promotions', 'route' => 'admin.promotions.index', 'icon' => 'percent', 'permission' => 'marketing.view'],
                 ['label' => 'nav.campaigns', 'route' => 'admin.campaigns.index', 'icon' => 'megaphone', 'permission' => 'marketing.view'],
                 ['label' => 'nav.journeys', 'route' => 'admin.journeys.index', 'icon' => 'gift', 'permission' => 'marketing.view'],
+                ['label' => 'nav.referrals', 'route' => 'admin.referrals.index', 'icon' => 'users', 'permission' => 'marketing.view'],
                 ['label' => 'nav.loyalty', 'route' => 'admin.loyalty.index', 'icon' => 'gift', 'permission' => 'loyalty.view'],
                 ['label' => 'nav.reviews', 'route' => 'admin.reviews.index', 'icon' => 'star', 'permission' => 'reviews.view'],
                 ['label' => 'nav.support', 'route' => 'admin.support.index', 'icon' => 'life-buoy', 'permission' => 'support.view'],
