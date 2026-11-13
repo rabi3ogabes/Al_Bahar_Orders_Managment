@@ -62,5 +62,6 @@ return [
     'roles' => 'Roles & permissions',
     'delivery_providers' => 'Delivery providers',
     'settings' => 'Settings',
+    'push' => 'Push notifications',
     'driver' => 'My deliveries',
 ];

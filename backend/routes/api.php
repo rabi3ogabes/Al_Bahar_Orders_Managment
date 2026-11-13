@@ -33,7 +33,7 @@ Route::prefix('v1')->name('api.v1.')->middleware('throttle:api')->group(function
         Route::get('/', 'show')->name('show');
         Route::patch('/', 'update')->name('update');
         Route::put('password', 'changePassword')->middleware('throttle:10,60')->name('password');
-        Route::post('devices', 'registerDevice')->name('devices.store');
+        Route::post('devices', 'registerDevice')->middleware('throttle:20,1,devices')->name('devices.store');
         Route::delete('devices', 'unregisterDevice')->name('devices.destroy');
         Route::get('sessions', 'sessions')->name('sessions');
         Route::delete('sessions/{id}', 'revokeSession')->name('sessions.destroy');

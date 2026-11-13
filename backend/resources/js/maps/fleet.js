@@ -28,6 +28,7 @@ const humanise = (s) => String(s ?? '').replace(/_/g, ' ').replace(/^\w/, (c) =>
  * @param {number|null} o.serverTime  server clock (ms) of the payload
  * @param {(job) => string|null} o.orderHref   admin: link to the order
  * @param {(job) => void} o.onViewOrder        partner: open the order drawer
+ * @param {(job) => boolean} o.canViewOrder    partner: whether that order can be opened right now
  * @param {() => Promise<void>} o.refresh      pulls fresh rows (Livewire refresh / fetch)
  * @param {{live: number, down: number}} o.poll  refresh interval in seconds while the socket is up / not up
  * @param {'live'|'reconnecting'|'polling'} o.connection
@@ -99,7 +100,7 @@ export function createFleetMap(o) {
         text,
         onClose: () => select(null),
         onFollow: () => setFollow(followId === null),
-        onZoom: () => { const m = markers.get(selectedId); if (m) flyTo(m.pos); },
+        onZoom: () => { const m = markers.get(selectedId); if (m) flyTo(m.pos, 17, true); },
         onCopy: async () => {
             const d = store.get(selectedId);
             if (!d?.phone) return;
@@ -117,12 +118,13 @@ export function createFleetMap(o) {
     /* ───────────── Toolbar ───────────── */
 
     base.addTool({ name: 'fit', label: text.fit_all, onClick: () => fitAll(true) });
-    const followBtn = base.addTool({ name: 'follow', label: text.follow_pick, onClick: () => setFollow(followId === null), pressed: false });
+    base.addMoreTool();
+    const followBtn = base.addTool({ name: 'follow', label: text.follow_pick, onClick: () => setFollow(followId === null), pressed: false, secondary: true });
     followBtn.disabled = true;
     base.addSeparator();
     const layerBtn = (key, name, label) => {
         const b = base.addTool({
-            name, label, pressed: layers[key], group: 'layer',
+            name, label, pressed: layers[key], group: 'layer', secondary: true,
             onClick: () => {
                 layers[key] = !layers[key];
                 b.setAttribute('aria-pressed', String(layers[key]));
@@ -136,7 +138,7 @@ export function createFleetMap(o) {
     layerBtn('trail', 'trail', text.layer_trail);
     base.addSeparator();
     const legendBtn = base.addTool({
-        name: 'legend', label: text.legend, pressed: false,
+        name: 'legend', label: text.legend, pressed: false, secondary: true,
         onClick: () => {
             legend.hidden = !legend.hidden;
             legendBtn.setAttribute('aria-pressed', String(!legend.hidden));
@@ -351,11 +353,13 @@ export function createFleetMap(o) {
         layout();
         if (selectedId) {
             paintMarker(selectedId);
-            const m = markers.get(selectedId);
-            if (fly && m) flyTo(m.pos, Math.max(map.getZoom(), 15));
             panel.setOpen(false);
         }
         renderCard();
+        if (selectedId && fly) {
+            const m = markers.get(selectedId);
+            if (m) flyTo(m.pos, Math.max(map.getZoom(), 15), true);
+        }
         renderTrail();
         renderList();
         const row = selectedId ? rows.get(selectedId) : null;
@@ -437,7 +441,7 @@ export function createFleetMap(o) {
             setText(row.dd, value || '');
             if (title) row.dd.title = title;
         };
-        setKv('order', d.job ? [orderText(d), jobStatusText(d)].filter(Boolean).join(' · ') : text.card_none);
+        setKv('order', d.job ? (d.job.orderNumber ?? jobStatusText(d)) : text.card_none);
         const parked = d.speed !== null && d.speed < 2;
         setKv('speed', d.speed === null ? '' : parked ? text.card_parked : fmt(text.card_kmh, { n: nf.format(Math.round(d.speed)) }));
         const eta = d.job?.etaMinutes ?? (d.job?.etaAt ? Math.max(0, Math.round((d.job.etaAt - n) / 60000)) : null);
@@ -451,7 +455,7 @@ export function createFleetMap(o) {
         card.open.hidden = !href;
         if (href && card.open.getAttribute('href') !== href) card.open.setAttribute('href', href);
         if (o.navigate && href) card.open.setAttribute('wire:navigate', '');
-        card.viewBtn.hidden = !(mode === 'partner' && d.job?.orderNumber && o.onViewOrder);
+        card.viewBtn.hidden = !(mode === 'partner' && d.job?.orderNumber && o.onViewOrder && (o.canViewOrder ? o.canViewOrder(d.job) : true));
         card.viewBtn.onclick = () => o.onViewOrder?.(d.job);
 
         const tel = mode === 'admin' && o.canCall !== false ? phoneHref(d.phone) : null;
@@ -607,7 +611,8 @@ export function createFleetMap(o) {
 
     /* ───────────── View ───────────── */
 
-    const sheetPad = () => (getComputedStyle(panel.el).position === 'absolute' ? panel.el.offsetHeight : 0);
+    /** Height the bottom sheet takes from the map when closed (0 on wide maps, where the list is a side column). */
+    const sheetPad = () => (getComputedStyle(panel.el).position === 'absolute' ? parseFloat(getComputedStyle(root).getPropertyValue('--abm-peek')) || 64 : 0);
 
     function fitAll(userAction) {
         const pts = visibleDrivers().map((d) => ({ lat: d.lat, lng: d.lng }));
@@ -620,9 +625,24 @@ export function createFleetMap(o) {
         }
     }
 
-    function flyTo(pos, zoom = 16) {
+    /** Where the selected driver should appear so the card does not cover them: beside the card on wide maps, above it on narrow ones. */
+    function cardShift() {
+        if (card.el.hidden) return [0, 0];
+        const rtl = getComputedStyle(root).direction === 'rtl';
+        if (getComputedStyle(panel.el).position === 'absolute') return [0, -(card.el.offsetHeight + sheetPad()) / 2];
+        return [(rtl ? -1 : 1) * (card.el.offsetWidth + 24) / 2, 0];
+    }
+
+    function flyTo(pos, zoom = 16, clearOfCard = false) {
         progUntil = performance.now() + 1500;
-        base.flyTo([pos.lat, pos.lng], zoom);
+        let target = [pos.lat, pos.lng];
+        if (clearOfCard) {
+            const [sx, sy] = cardShift();
+            const p = map.project(target, zoom).subtract([sx, sy]);
+            const c = map.unproject(p, zoom);
+            target = [c.lat, c.lng];
+        }
+        base.flyTo(target, zoom);
     }
 
     function zoomToIds(ids) {
@@ -758,6 +778,7 @@ export function createFleetMap(o) {
         fitAll: () => fitAll(true),
         setConnection,
         setError,
+        refresh: runRefresh,
         setLoading(on) {
             loaded = !on;
             overlays.skeleton.hidden = !on;

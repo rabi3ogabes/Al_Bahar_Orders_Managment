@@ -12,6 +12,7 @@ import { useDocTitle } from '../lib/hooks';
 import { cx } from '../lib/format';
 import type { Address, Auction, Loyalty, Lot, OrderSummary, Paged, Referral, Ticket } from '../lib/types';
 import { AddressForm } from '../components/AddressForm';
+import { PushPrompt, PushSettingsCard } from '../components/PushUI';
 import { useAuthModal } from '../components/AuthModal';
 import { ProductCard, CardGrid } from '../components/ProductCard';
 import { Alert, Badge, Button, Checkbox, EmptyState, Input, LinkButton, Modal, Pic, Select, Skeleton, Spinner, Textarea } from '../components/ui';
@@ -125,6 +126,7 @@ export function Orders() {
   return (
     <section className="rounded-[28px] border border-line bg-paper p-6">
       <div className="mb-2 flex flex-wrap items-center gap-3"><h2 className="text-3xl">{t('account.orders')}</h2><LivePill /></div>
+      <PushPrompt className="mb-4 mt-3" />
       {q.isLoading ? <Skeleton className="mt-4 h-40" /> : q.data?.data.length ? (
         <>
           <OrderList items={q.data.data} />
@@ -217,12 +219,15 @@ export function Notifications() {
   const q = useQuery({ queryKey: ['notifications'], queryFn: async () => get<{ data: { id: string; title: string; body: string; read_at: string | null; created_at: string }[] }>('/me/notifications', { per_page: 30 }) });
   const readAll = useMutation({ mutationFn: () => post('/me/notifications/read-all', {}), onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }) });
   return (
-    <section className="rounded-[28px] border border-line bg-paper p-6">
-      <div className="mb-4 flex items-center justify-between"><h2 className="text-3xl">{t('account.notifications')}</h2>{q.data?.data.some((n) => !n.read_at) && <Button size="sm" variant="ghost" onClick={() => readAll.mutate()}>{t('notifications.read_all')}</Button>}</div>
-      {q.isLoading ? <Skeleton className="h-32" /> : q.data?.data.length ? (
-        <ul className="divide-y divide-line">{q.data.data.map((n) => <li key={n.id} className="flex gap-3 py-4"><span className={cx('mt-2 h-2 w-2 shrink-0 rounded-full', n.read_at ? 'bg-transparent' : 'bg-brass')} /><div><p className="font-medium">{n.title}</p><p className="text-sm text-ink-soft">{n.body}</p><p className="mt-1 text-xs text-muted">{date(n.created_at)}</p></div></li>)}</ul>
-      ) : <EmptyState icon={<Bell size={28} />} title={t('notifications.none')} />}
-    </section>
+    <div className="space-y-6">
+      <PushSettingsCard />
+      <section className="rounded-[28px] border border-line bg-paper p-6">
+        <div className="mb-4 flex items-center justify-between"><h2 className="text-3xl">{t('account.notifications')}</h2>{q.data?.data.some((n) => !n.read_at) && <Button size="sm" variant="ghost" onClick={() => readAll.mutate()}>{t('notifications.read_all')}</Button>}</div>
+        {q.isLoading ? <Skeleton className="h-32" /> : q.data?.data.length ? (
+          <ul className="divide-y divide-line">{q.data.data.map((n) => <li key={n.id} className="flex gap-3 py-4"><span className={cx('mt-2 h-2 w-2 shrink-0 rounded-full', n.read_at ? 'bg-transparent' : 'bg-brass')} /><div><p className="font-medium">{n.title}</p><p className="text-sm text-ink-soft">{n.body}</p><p className="mt-1 text-xs text-muted">{date(n.created_at)}</p></div></li>)}</ul>
+        ) : <EmptyState icon={<Bell size={28} />} title={t('notifications.none')} />}
+      </section>
+    </div>
   );
 }
 

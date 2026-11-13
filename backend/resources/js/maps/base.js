@@ -205,10 +205,11 @@ export function createBaseMap({ host, config, text, lang, kind = 'fleet', cooper
     /* ───────────── Tools (logical side: inline-end) ───────────── */
 
     /** A 44px icon button in the map toolbar. */
-    const addTool = ({ name, label: aria, onClick, pressed, group }) => {
-        const b = h('button', { type: 'button', class: 'abm-tool', 'aria-label': aria, title: aria, on: { click: onClick } }, icon(name, 20));
+    const addTool = ({ name, label: aria, onClick, pressed, group, secondary, className }) => {
+        const b = h('button', { type: 'button', class: `abm-tool${className ? ` ${className}` : ''}`, 'aria-label': aria, title: aria, on: { click: onClick } }, icon(name, 20));
         if (pressed !== undefined) b.setAttribute('aria-pressed', String(pressed));
         if (group) b.dataset.group = group;
+        if (secondary) b.dataset.secondary = '1';
         tools.append(b);
         return b;
     };
@@ -222,6 +223,18 @@ export function createBaseMap({ host, config, text, lang, kind = 'fleet', cooper
         L, map, cfg, text, lang, root, shell, stage, canvas, ui, tools, toast, reduced, touch,
         addTool,
         addSeparator,
+        /** On narrow maps the secondary tools (layers, legend, follow) fold behind one "more" button. */
+        addMoreTool() {
+            const b = addTool({
+                name: 'more', label: text.more_tools, pressed: false, className: 'abm-tool--more',
+                onClick: () => {
+                    const open = tools.dataset.more !== 'true';
+                    tools.dataset.more = String(open);
+                    b.setAttribute('aria-pressed', String(open));
+                },
+            });
+            return b;
+        },
         addFullscreenTool() {
             fsButton = addTool({ name: 'fullscreen', label: text.fullscreen, onClick: toggleFullscreen, pressed: false });
             return fsButton;

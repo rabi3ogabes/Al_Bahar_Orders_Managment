@@ -2497,4 +2497,95 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get pinCenterSemantics => 'موضع الدبوس. حرّك الخريطة لتغييره.';
+
+  @override
+  String get liveOrderStatusPlaced => 'تم تقديم طلبك';
+
+  @override
+  String get liveOrderStatusPreparing => 'نقوم بتحضير طلبك';
+
+  @override
+  String get liveOrderStatusOnTheWay => 'طلبك في الطريق إليك';
+
+  @override
+  String get liveOrderStatusReady => 'طلبك جاهز للاستلام';
+
+  @override
+  String get liveOrderStatusDelivered => 'تم توصيل طلبك';
+
+  @override
+  String get liveOrderStatusCollected => 'شكرًا لاستلام طلبك';
+
+  @override
+  String get liveOrderStatusCancelled => 'تم إلغاء طلبك';
+
+  @override
+  String get liveOrderStatusFailed => 'تعذّر توصيل طلبك';
+
+  @override
+  String liveOrderHeadlineNumber(String number) {
+    return 'الطلب رقم $number';
+  }
+
+  @override
+  String liveOrderHeadlineDelivered(String time) {
+    return 'تم التوصيل الساعة $time';
+  }
+
+  @override
+  String liveOrderHeadlineCollected(String time) {
+    return 'تم الاستلام الساعة $time';
+  }
+
+  @override
+  String get liveOrderHeadlineCancelled => 'تم إلغاء الطلب';
+
+  @override
+  String get liveOrderHeadlineFailed => 'تعذّر التوصيل';
+
+  @override
+  String liveOrderArrivesAt(String time) {
+    return 'الوصول الساعة $time';
+  }
+
+  @override
+  String liveOrderArrivesBetween(String start, String end) {
+    return 'الوصول بين $start و$end';
+  }
+
+  @override
+  String get liveOrderStagePlaced => 'تم الطلب';
+
+  @override
+  String get liveOrderStagePreparing => 'قيد التحضير';
+
+  @override
+  String get liveOrderStageOnTheWay => 'في الطريق';
+
+  @override
+  String get liveOrderStageReady => 'جاهز';
+
+  @override
+  String get liveOrderStageDelivered => 'تم التوصيل';
+
+  @override
+  String get liveOrderStageCollected => 'تم الاستلام';
+
+  @override
+  String get liveOrderPermissionTitle => 'تابع طلبك لحظة بلحظة';
+
+  @override
+  String get liveOrderPermissionBody => 'فعّل الإشعارات لترى حالة طلبك ووقت وصوله مباشرة على شاشة القفل.';
+
+  @override
+  String get liveOrderPermissionAllow => 'السماح بالإشعارات';
+
+  @override
+  String get liveOrderPermissionLater => 'ليس الآن';
+
+  @override
+  String get liveOrderPermissionBlockedTitle => 'الإشعارات متوقفة';
+
+  @override
+  String get liveOrderPermissionBlockedBody => 'فعّلها من الإعدادات لتتابع طلبك مباشرة.';
 }

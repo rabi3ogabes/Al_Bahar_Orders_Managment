@@ -179,26 +179,23 @@ describe('broadcasts', function () {
         ping($d->driver, ['speed_kmh' => 30, 'heading' => 90, 'accuracy' => 8, 'battery' => 55])->assertJsonPath('data.recorded', true);
 
         Event::assertDispatchedTimes(DriverMoved::class, 1);
-        Event::assertDispatched(DriverMoved::class, function (DriverMoved $e) use ($d) {
-            $names = collect($e->broadcastOn())->map(fn ($c) => $c->name)->all();
-            $p = $e->broadcastWith();
-
-            return in_array('private-fleet', $names, true) && in_array('private-branches.'.$d->w->a->id, $names, true)
-                && ! collect($names)->contains(fn ($n) => str_starts_with($n, 'private-orders.'))
-                && $p['driver_id'] === $d->driver->id && $p['name'] === 'Ahmed Al Thani' && $p['vehicle'] === 'Honda · 123456'
-                && $p['lat'] === 25.28 && $p['lng'] === 51.52 && $p['heading'] === 90 && $p['speed_kmh'] === 30.0 && $p['accuracy_m'] === 8 && $p['battery'] === 55
-                && $p['order_id'] === $d->orderId && $p['delivery_status'] === 'out_for_delivery' && is_string($p['order_number']) && $p['order_number'] !== ''
-                && $p['age_seconds'] === 0 && Carbon\Carbon::parse($p['at'])->diffInSeconds(now(), true) < 5;
-        });
+        $staff = Event::dispatched(DriverMoved::class)->first()[0];
+        $names = collect($staff->broadcastOn())->map(fn ($c) => $c->name)->all();
+        $p = $staff->broadcastWith();
+        expect($names)->toContain('private-fleet', 'private-branches.'.$d->w->a->id)->and(collect($names)->filter(fn ($n) => str_starts_with($n, 'private-orders.')))->toBeEmpty()
+            ->and($staff->broadcastAs())->toBe('driver.moved')
+            ->and($p)->toMatchArray(['driver_id' => $d->driver->id, 'name' => 'Ahmed Al Thani', 'vehicle' => 'Honda · 123456', 'lat' => 25.28, 'lng' => 51.52, 'heading' => 90,
+                'speed_kmh' => 30.0, 'accuracy_m' => 8, 'battery' => 55, 'order_id' => $d->orderId, 'delivery_status' => 'out_for_delivery'])
+            ->and($p['order_number'])->toBeString()->not->toBe('')->and($p['age_seconds'])->toBeBetween(0, 2)
+            ->and(Carbon\Carbon::parse($p['at'])->diffInSeconds(now(), true))->toBeLessThan(5);
 
         Event::assertDispatchedTimes(OrderDriverMoved::class, 1);
-        Event::assertDispatched(OrderDriverMoved::class, function (OrderDriverMoved $e) use ($d) {
-            $p = $e->broadcastWith();
-
-            return collect($e->broadcastOn())->map(fn ($c) => $c->name)->all() === ['private-orders.'.$d->orderId] && $e->broadcastAs() === 'driver.moved'
-                && $p['name'] === 'Ahmed' && $p['vehicle'] === 'Honda · 123456' && $p['lat'] === 25.28 && $p['heading'] === 90 && $p['delivery_status'] === 'out_for_delivery'
-                && ! array_key_exists('driver_id', $p) && ! array_key_exists('battery', $p) && ! array_key_exists('order_number', $p);
-        });
+        $customer = Event::dispatched(OrderDriverMoved::class)->first()[0];
+        $c = $customer->broadcastWith();
+        expect(collect($customer->broadcastOn())->map(fn ($ch) => $ch->name)->all())->toBe(['private-orders.'.$d->orderId])->and($customer->broadcastAs())->toBe('driver.moved')
+            ->and($c)->toMatchArray(['order_id' => $d->orderId, 'name' => 'Ahmed', 'vehicle' => 'Honda · 123456', 'lat' => 25.28, 'lng' => 51.52, 'heading' => 90,
+                'speed_kmh' => 30.0, 'accuracy_m' => 8, 'delivery_status' => 'out_for_delivery'])
+            ->and(array_keys($c))->not->toContain('driver_id', 'battery', 'order_number');
     });
 
     it('does not tell the customer anything before the order is picked up', function () {

@@ -3,9 +3,9 @@
 
 import { L, claimHost, createBaseMap } from './base.js';
 import { DriverMarker, dotIcon, pinIcon, paintDriver } from './markers.js';
-import { agoText, clockText, h, icon, numberFormat } from './dom.js';
+import { agoText, clockText, durationText, h, icon, numberFormat } from './dom.js';
 import { fmt } from './text.js';
-import { detectStops, firstName, normaliseDriver, normaliseTrack, simplify, validPoint, num } from './logic.js';
+import { detectStops, firstName, normaliseDriver, normaliseStops, normaliseTrack, simplify, validPoint, num } from './logic.js';
 
 const LINE_COLORS = ['#8a1538', '#3b82b8', '#2f8f6f', '#7c5cbf'];
 
@@ -74,9 +74,9 @@ export function createRouteCard(o) {
                 L.marker([lastP.lat, lastP.lng], { icon: dotIcon('end', { name: 'flag' }), keyboard: false })
                     .bindTooltip(`${text.end} · ${clockText(lastP.t, lang)}`, { direction: 'top', offset: [0, -4], className: 'abm-tip', opacity: 1 }).addTo(layers);
             }
-            detectStops(pts, { radiusM: 40, minMs: 120_000 }).forEach((s, k) => {
+            (r.stops ? normaliseStops(r.stops) : detectStops(pts, { radiusM: 40, minMs: 120_000 })).forEach((s, k) => {
                 L.marker([s.lat, s.lng], { icon: dotIcon('stop', String(k + 1)), keyboard: false })
-                    .bindTooltip(fmt(text.stop_n, { n: nf.format(k + 1) }), { direction: 'top', offset: [0, -4], className: 'abm-tip', opacity: 1 }).addTo(layers);
+                    .bindTooltip(`${fmt(text.stop_n, { n: nf.format(k + 1) })} · ${durationText(s.ms, text, lang)}`, { direction: 'top', offset: [0, -4], className: 'abm-tip', opacity: 1 }).addTo(layers);
             });
             pts.forEach((p) => bounds.push({ lat: p.lat, lng: p.lng }));
         });

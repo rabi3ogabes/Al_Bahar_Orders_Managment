@@ -1,6 +1,9 @@
 // Partner statistics page: password unlock, one business day of orders (table / grid), order drawer with items,
-// fees, SADAD and the recorded route, and a live driver map. Plain DOM code: no framework on this public page.
+// fees, SADAD and the recorded route, and the live driver map with route replay (the shared map kit, loaded on demand).
+// Plain DOM code: no framework on this public page.
 import { createLiveToasts } from './live-toasts.js';
+import { bootMap } from './maps/boot.js';
+import { textFor } from './maps/text.js';
 
 const body = document.body;
 const TOKEN = body.dataset.token;
@@ -18,6 +21,7 @@ const T = {
     toast_new_order: 'New order', toast_status_update: 'Order update', toast_view: 'View', toast_close: 'Close', toast_sound_on: 'Turn chime on', toast_sound_off: 'Turn chime off', toast_mute: 'Mute live notifications', toast_unmute: 'Show live notifications', toast_more: '+:n more', toast_controls: 'Live notifications', toast_by: 'for :name',
     status_pending_payment: 'Awaiting payment', status_confirmed: 'Confirmed', status_processing: 'Processing', status_partially_fulfilled: 'Partially fulfilled', status_ready_for_pickup: 'Ready for pickup', status_out_for_delivery: 'Out for delivery', status_completed: 'Completed', status_cancellation_requested: 'Cancellation requested', status_cancelled: 'Cancelled', status_partially_cancelled: 'Partially cancelled', status_returned: 'Returned',
     net_note: 'Net = paid − SADAD fee − delivery fee', load_error: 'Could not load. Retrying…', copied: 'Copied',
+    map_live: 'Live', map_history: 'History', map_history_title: 'Route history', map_view: 'Map view', map_toggle: 'Show or hide the map', km: 'km', min: 'min', stops: 'stops',
   },
   ar: {
     lock_title: 'إحصائيات الشركاء', lock_hint: 'أدخل كلمة المرور التي تم تزويدك بها.', password: 'كلمة المرور', open: 'فتح الإحصائيات',
@@ -29,6 +33,7 @@ const T = {
     toast_new_order: 'طلب جديد', toast_status_update: 'تحديث الطلب', toast_view: 'عرض', toast_close: 'إغلاق', toast_sound_on: 'تشغيل النغمة', toast_sound_off: 'إيقاف النغمة', toast_mute: 'كتم الإشعارات المباشرة', toast_unmute: 'إظهار الإشعارات المباشرة', toast_more: '+:n أخرى', toast_controls: 'الإشعارات المباشرة', toast_by: 'لـ :name',
     status_pending_payment: 'بانتظار الدفع', status_confirmed: 'مؤكد', status_processing: 'قيد التجهيز', status_partially_fulfilled: 'مكتمل جزئياً', status_ready_for_pickup: 'جاهز للاستلام', status_out_for_delivery: 'خرج للتوصيل', status_completed: 'مكتمل', status_cancellation_requested: 'طلب إلغاء', status_cancelled: 'ملغي', status_partially_cancelled: 'ملغي جزئياً', status_returned: 'مرتجع',
     net_note: 'الصافي = المدفوع − رسوم سداد − رسوم التوصيل', load_error: 'تعذر التحميل. نعيد المحاولة…', copied: 'تم النسخ',
+    map_live: 'مباشر', map_history: 'السجل', map_history_title: 'سجل المسارات', map_view: 'عرض الخريطة', map_toggle: 'إظهار الخريطة أو إخفاؤها', km: 'كم', min: 'دقيقة', stops: 'توقفات',
   },
 };
 let lang = (() => { try { return localStorage.getItem('partner_lang') === 'ar' ? 'ar' : 'en'; } catch { return 'en'; } })();
@@ -48,6 +53,7 @@ const api = async (path, opts = {}) => {
 const applyLang = () => {
   document.documentElement.lang = lang; document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
   document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-label]').forEach((el) => { el.setAttribute('aria-label', t(el.dataset.i18nLabel)); });
   document.querySelectorAll('#lang').forEach((el) => { el.textContent = lang === 'ar' ? 'English' : 'العربية'; });
 };
 const toggleLang = (after) => { lang = lang === 'ar' ? 'en' : 'ar'; try { localStorage.setItem('partner_lang', lang); } catch {} applyLang(); after?.(); };
@@ -135,16 +141,13 @@ if (app) {
     try { const r = await api(`/data?date=${state.date}`); state.day = (await r.json()).data; $('updated').textContent = `${t('updated')} ${new Date().toLocaleTimeString(lang === 'ar' ? 'ar-QA' : 'en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`; renderKpis(); renderOrders(); }
     catch (e) { if (e.message !== 'locked') toast(t('load_error')); } finally { loading = false; }
   };
-  const setDate = (d) => { state.date = d; dateInput.value = d; loadDay(); };
+  const setDate = (d) => { state.date = d; dateInput.value = d; loadDay(); if (mapState.mode === 'history' && mapState.open) loadRoutes(); };
 
   /* Drawer */
   const drawer = $('drawer'); const scrim = $('scrim');
   const MD = window.matchMedia('(min-width: 768px)');
   const closedCls = () => (MD.matches ? ['md:ltr:translate-x-full', 'md:rtl:-translate-x-full'] : ['translate-y-full']);
-  let mapRoute = null; let leaflet = null;
-  const loadLeaflet = async () => (leaflet ??= await Promise.all([import('leaflet'), import('leaflet/dist/leaflet.css')]).then(([m]) => m.default));
-  const tiles = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-  const pin = (L, color, glyph) => L.divIcon({ className: '', iconSize: [30, 30], iconAnchor: [15, 15], html: `<div style="width:30px;height:30px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.35);border:2px solid #fff">${glyph}</div>` });
+  let routeCtl = null;
 
   const row = (k, v, strong = false) => `<div class="flex justify-between gap-4 py-1.5 ${strong ? 'border-t border-sand-200 pt-2.5 font-semibold dark:border-ink-700' : ''}"><dt class="text-ink-500">${k}</dt><dd>${v}</dd></div>`;
   const drawerHtml = (o) => {
@@ -164,18 +167,22 @@ if (app) {
         <section><h3 class="mb-2 font-display text-lg font-semibold">${t('route')}</h3>
           ${del.length ? del.map((d) => `<div class="mb-3 rounded-xl border border-sand-200 p-3 text-sm dark:border-ink-700"><div class="flex flex-wrap items-center justify-between gap-2"><span class="font-medium">${t('driver')}: ${esc(d.driver ?? t('no_driver'))}</span>${pill(d.status)}</div>
             <p class="mt-1 text-xs text-ink-500">${t('assigned')} ${fmtTime(d.assigned_at)} · ${t('picked')} ${fmtTime(d.picked_up_at)} · ${t('delivered')} ${fmtTime(d.delivered_at)}</p></div>`).join('') : `<p class="text-sm text-ink-500">${t('no_driver')}</p>`}
-          <div id="route-map" class="h-64 w-full overflow-hidden rounded-xl bg-sand-100 dark:bg-ink-800"></div><p id="route-empty" class="mt-2 hidden text-sm text-ink-500">${t('no_route')}</p></section>
+          <div id="route-map" class="h-72 w-full overflow-hidden rounded-xl bg-sand-100 dark:bg-ink-800"></div>${routeSummary(del)}</section>
       </div>`;
   };
-  const drawRoute = async (o) => {
-    const L = await loadLeaflet(); const el = $('route-map'); if (!el) return;
-    mapRoute?.remove(); mapRoute = L.map(el).setView([25.2854, 51.531], 12); L.tileLayer(tiles, { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(mapRoute);
-    const bounds = []; let any = false;
-    (o.deliveries ?? []).forEach((d) => { const pts = d.route.map((p) => [p.lat, p.lng]); if (pts.length > 1) { any = true; L.polyline(pts, { color: '#8A1538', weight: 4, opacity: 0.85 }).addTo(mapRoute); L.marker(pts[0], { icon: pin(L, '#B08D57', '▶') }).addTo(mapRoute); L.marker(pts.at(-1), { icon: pin(L, '#2E7D5B', '🛵') }).addTo(mapRoute); bounds.push(...pts); } });
-    if (o.destination) { L.marker([o.destination.lat, o.destination.lng], { icon: pin(L, '#8A1538', '⌂') }).addTo(mapRoute); bounds.push([o.destination.lat, o.destination.lng]); }
-    if (bounds.length) mapRoute.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
-    if (!any) $('route-empty')?.classList.remove('hidden');
-    setTimeout(() => mapRoute?.invalidateSize(), 320);
+  /** "12.4 km · 32 min · 2 stops" for the recorded trips of an order (server totals, not the thinned line). */
+  const routeSummary = (deliveries) => {
+    const m = deliveries.reduce((x, d) => x + (d.distance_m || 0), 0); const secs = deliveries.reduce((x, d) => x + (d.duration_s || 0), 0); const stops = deliveries.reduce((x, d) => x + (d.stops?.length || 0), 0);
+    if (!m) return '';
+    const nf = new Intl.NumberFormat(lang === 'ar' ? 'ar-u-nu-latn' : 'en-GB', { maximumFractionDigits: 1 });
+    return `<p class="mt-2 text-xs text-ink-500">${[`${nf.format(m / 1000)} ${t('km')}`, secs ? `${nf.format(Math.max(1, Math.round(secs / 60)))} ${t('min')}` : '', stops ? `${nf.format(stops)} ${t('stops')}` : ''].filter(Boolean).join(' · ')}</p>`;
+  };
+  const drawRoute = (o) => {
+    const host = $('route-map'); if (!host) return;
+    bootMap(host, (kit) => {
+      if (state.open !== o.id || !host.isConnected) return;
+      routeCtl = kit.createRouteCard({ host, config: mapConfig, text: textFor(lang), lang, routes: (o.deliveries ?? []).map((d) => ({ points: d.route, stops: d.stops })), destination: o.destination, origin: null, driver: null });
+    });
   };
   const openOrder = async (id, fromPop = false) => {
     state.lastFocus = document.activeElement; state.open = id;
@@ -191,7 +198,7 @@ if (app) {
   };
   const closeOrder = (fromPop = false) => {
     if (!state.open) return; state.open = null; closedCls().forEach((c) => drawer.classList.add(c)); scrim.classList.add('hidden'); document.body.style.overflow = '';
-    setTimeout(() => { if (!state.open) { drawer.classList.add('hidden'); drawer.classList.remove('flex'); mapRoute?.remove(); mapRoute = null; } }, 300);
+    setTimeout(() => { if (!state.open) { drawer.classList.add('hidden'); drawer.classList.remove('flex'); routeCtl?.destroy(); routeCtl = null; } }, 300);
     if (!fromPop && history.state?.order) history.back();
     state.lastFocus?.focus?.();
   };
@@ -201,23 +208,57 @@ if (app) {
   $('orders').addEventListener('click', (e) => { const r = e.target.closest('[data-order]'); if (r) openOrder(r.dataset.order); });
   $('orders').addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-order]')) { e.preventDefault(); openOrder(e.target.dataset.order); } });
 
-  /* Live fleet */
-  let fmap = null; const markers = {}; let fitted = false;
-  const loadFleet = async () => {
-    try {
-      const r = await api('/fleet'); const { drivers } = (await r.json()).data; const L = await loadLeaflet();
-      if (!fmap) { fmap = L.map($('fleet-map')).setView([25.2854, 51.531], 11); L.tileLayer(tiles, { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(fmap); }
-      const seen = new Set(); const pts = [];
-      drivers.forEach((d) => { if (d.lat == null) return; seen.add(d.id); pts.push([d.lat, d.lng]);
-        const tip = `<strong>${esc(d.name)}</strong><br>${d.job ? esc(t('job', d.job.order_number)) : t('idle')}`; const icon = pin(L, d.job ? '#B08D57' : '#2E7D5B', '🛵');
-        if (markers[d.id]) markers[d.id].setLatLng([d.lat, d.lng]).setIcon(icon).setTooltipContent(tip); else markers[d.id] = L.marker([d.lat, d.lng], { icon }).addTo(fmap).bindTooltip(tip); });
-      Object.keys(markers).forEach((id) => { if (!seen.has(id)) { fmap.removeLayer(markers[id]); delete markers[id]; } });
-      if (!fitted && pts.length) { fmap.fitBounds(pts, { padding: [40, 40], maxZoom: 15 }); fitted = true; }
-      $('fleet-count').textContent = drivers.length ? `${drivers.length}` : '';
-      $('fleet-list').innerHTML = drivers.length ? drivers.map((d) => `<li><button type="button" data-driver="${d.id}" class="flex min-h-11 w-full items-center gap-3 px-4 py-2.5 text-start hover:bg-sand-50 dark:hover:bg-ink-800"><span class="size-2.5 shrink-0 rounded-full ${d.job ? 'bg-brass-500' : 'bg-emerald-500'}"></span><span class="min-w-0 flex-1"><span class="block truncate text-sm font-medium">${esc(d.name)}</span><span class="block truncate text-xs text-ink-500">${d.job ? esc(t('job', d.job.order_number)) + ' · ' + esc(label(d.job.status)) : t('idle')}</span></span></button></li>`).join('') : `<li class="px-4 py-6 text-center text-sm text-ink-500">${t('no_drivers')}</li>`;
-    } catch { /* retried on the next tick */ }
+  /* Map: live drivers and route replay. One shared map kit; Leaflet loads when the card is first shown. */
+  const mapHost = $('map-host');
+  const readJson = (id, fallback) => { try { return JSON.parse($(id).textContent); } catch { return fallback; } };
+  const mapConfig = readJson('map-config', null);
+  const branchPins = readJson('map-branches', []);
+  const mapState = { mode: 'live', kit: null, ctl: null, open: (() => { try { return localStorage.getItem('partner_map_open') !== '0'; } catch { return true; } })() };
+  const pins = () => branchPins.map((b) => ({ id: b.id, name: lang === 'ar' ? b.name_ar : b.name_en, lat: b.lat, lng: b.lng }));
+  const orderIdByNumber = (n) => state.day?.orders.find((o) => o.number === n)?.id ?? null;
+
+  const pullFleet = async () => {
+    const r = await api('/fleet'); if (!r.ok) throw new Error('fleet');
+    const d = (await r.json()).data;
+    $('fleet-count').textContent = d.drivers.length ? String(d.drivers.length) : '';
+    if (mapState.mode === 'live') mapState.ctl?.update?.(d.drivers, pins(), { serverTime: Date.parse(d.at) || null });
   };
-  $('fleet-list').addEventListener('click', (e) => { const b = e.target.closest('[data-driver]'); const m = b && markers[b.dataset.driver]; if (m) { fmap.setView(m.getLatLng(), 16); m.openTooltip(); } });
+  const toTrack = (x) => ({ id: x.id, label: [x.driver ?? t('driver'), x.order_number].filter(Boolean).join(' · '), sub: x.duration_s ? `${Math.max(1, Math.round(x.duration_s / 60))} ${t('min')}` : '', points: x.route, stops: x.stops });
+  const loadRoutes = async () => {
+    const ctl = mapState.ctl; const date = state.date; if (!ctl?.setTracks) return;
+    ctl.setLoading(true);
+    try {
+      const r = await api(`/routes?date=${date}`); if (!r.ok) throw new Error('routes');
+      const trips = (await r.json()).data.trips;
+      if (mapState.ctl === ctl && state.date === date) ctl.setTracks(trips.map(toTrack));
+    } catch (e) { if (e.message !== 'locked') { ctl.setLoading(false); toast(t('load_error')); } }
+  };
+  const buildMap = (kit) => {
+    mapState.kit = kit; mapState.ctl?.destroy();
+    const common = { host: mapHost, config: mapConfig, text: textFor(lang), lang };
+    if (mapState.mode === 'live') {
+      mapState.ctl = kit.createFleetMap({ ...common, mode: 'partner', branches: pins(), connection: 'polling', poll: { live: 10, down: 10 }, loading: true, refresh: pullFleet,
+        onViewOrder: (job) => { const id = orderIdByNumber(job.orderNumber); if (id) openOrder(id); }, canViewOrder: (job) => Boolean(orderIdByNumber(job.orderNumber)) });
+      mapState.ctl.refresh();
+    } else {
+      mapState.ctl = kit.createPlayback({ ...common, loading: true }); loadRoutes();
+    }
+  };
+  const mountMap = () => (mapState.kit ? buildMap(mapState.kit) : bootMap(mapHost, (kit) => buildMap(kit)));
+  const setMapMode = (m, mount = true) => {
+    mapState.mode = m;
+    [['m-live', 'live'], ['m-history', 'history']].forEach(([id, k]) => { $(id).setAttribute('aria-pressed', String(m === k)); $(id).className = `h-11 px-3.5 text-sm ${m === k ? 'bg-ink-900 text-ivory dark:bg-brass-500 dark:text-ink-950' : 'bg-white dark:bg-ink-800'}`; });
+    const title = $('map-title'); title.dataset.i18n = m === 'live' ? 'drivers_live' : 'map_history_title'; title.textContent = t(title.dataset.i18n);
+    $('fleet-count').hidden = m !== 'live';
+    if (mount && mapState.open) mountMap();
+  };
+  const setMapOpen = (open) => {
+    mapState.open = open; $('map-body').hidden = !open; $('map-toggle').setAttribute('aria-expanded', String(open)); $('map-toggle').firstElementChild.style.transform = open ? '' : 'rotate(180deg)';
+    try { localStorage.setItem('partner_map_open', open ? '1' : '0'); } catch {}
+    if (open) { if (mapState.ctl) { mapState.ctl.resume?.(); mapState.ctl.map.invalidateSize(); } else mountMap(); } else mapState.ctl?.suspend?.();
+  };
+  window.addEventListener('pagehide', () => mapState.ctl?.suspend?.());
+  window.addEventListener('pageshow', (e) => { if (e.persisted && mapState.open) mapState.ctl?.resume?.(); });
 
   /* Wire-up */
   const toast = (m) => { const el = $('toast'); el.innerHTML = `<div class="pointer-events-auto rounded-xl bg-ink-900 px-4 py-2.5 text-sm text-ivory shadow-lg">${esc(m)}</div>`; setTimeout(() => { el.innerHTML = ''; }, 3000); };
@@ -226,7 +267,10 @@ if (app) {
   $('today').addEventListener('click', () => setDate(body.dataset.today));
   dateInput.addEventListener('change', () => dateInput.value && setDate(dateInput.value));
   $('v-table').addEventListener('click', () => setView('table')); $('v-grid').addEventListener('click', () => setView('grid'));
-  document.querySelectorAll('#lang').forEach((b) => b.addEventListener('click', () => toggleLang(() => { renderKpis(); renderOrders(); setView(state.view); loadFleet(); toasts.refresh(); })));
+  document.querySelectorAll('#lang').forEach((b) => b.addEventListener('click', () => toggleLang(() => { renderKpis(); renderOrders(); setView(state.view); setMapMode(mapState.mode); toasts.refresh(); })));
+  $('m-live').addEventListener('click', () => mapState.mode !== 'live' && setMapMode('live'));
+  $('m-history').addEventListener('click', () => mapState.mode !== 'history' && setMapMode('history'));
+  $('map-toggle').addEventListener('click', () => setMapOpen(!mapState.open));
   $('signout').addEventListener('click', async () => { await api('/lock', { method: 'POST' }).catch(() => {}); location.reload(); });
 
   /* Live order toasts: an incremental poll (cursor = server time in ms) of new orders and status changes. */
@@ -247,8 +291,7 @@ if (app) {
     } catch { /* retried on the next tick */ }
   };
 
-  applyLang(); dateInput.value = state.date; setView(state.view); renderKpis(); loadDay(); loadFleet(); pollEvents();
+  applyLang(); dateInput.value = state.date; setView(state.view); renderKpis(); loadDay(); pollEvents(); setMapMode('live', false); setMapOpen(mapState.open);
   setInterval(() => { if (!document.hidden) { if (state.date === body.dataset.today) loadDay(true); } }, 30000);
-  setInterval(() => { if (!document.hidden) loadFleet(); }, 10000);
   setInterval(() => { if (!document.hidden) pollEvents(); }, 8000);
 }

@@ -53,6 +53,8 @@ class OrderPresenter
             'can_return' => $o->fulfillments->contains(fn ($f) => self::returnWindowOpen($f)),
             'can_review' => $o->fulfillments->contains(fn ($f) => in_array($f->status, [FS::Delivered, FS::PickedUp], true)),
             'payment_due_at' => BusinessTime::iso($o->payment_due_at),
+            // The live order card (null for an order with nothing to show); never waits on the routing server.
+            'progress' => app(OrderProgress::class)->forOrder($o, remote: false),
         ];
     }
 

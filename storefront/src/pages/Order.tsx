@@ -13,6 +13,7 @@ import { useDocTitle } from '../lib/hooks';
 import { cx, mapsHref, telHref } from '../lib/format';
 import type { OrderDetail, PaymentAction, TimelineEvent } from '../lib/types';
 import { useAuthModal } from '../components/AuthModal';
+import { PushPrompt } from '../components/PushUI';
 import { Alert, Badge, Button, EmptyState, LinkButton, Modal, Pic, Select, Skeleton, Spinner, Textarea } from '../components/ui';
 
 export const statusTone = (s: string): 'success' | 'danger' | 'warning' | 'brass' | 'sand' => {
@@ -115,6 +116,8 @@ export default function Order() {
           <p className="mt-2 max-w-md text-ink-soft">{failed ? t('order.payment_failed_text') : awaiting ? t('order.confirming_text') : t('order.thanks_text', { n: o.number })}</p>
         </div>
       )}
+
+      {(placed || returning) && !failed && !awaiting && <PushPrompt className="mb-10 -mt-4" />}
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>

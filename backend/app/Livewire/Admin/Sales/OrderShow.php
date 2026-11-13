@@ -3,9 +3,14 @@
 namespace App\Livewire\Admin\Sales;
 
 use App\Domain\Branches\Models\BranchEmployee;
+use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Fulfillment\Models\DeliveryProvider;
+use App\Domain\Fulfillment\Models\DriverProfile;
 use App\Domain\Fulfillment\Services\DeliveryService;
+use App\Domain\Fulfillment\Services\DriverPosition;
+use App\Domain\Fulfillment\Services\Eta\EtaService;
 use App\Domain\Fulfillment\Services\PickupService;
+use App\Domain\Fulfillment\Services\RouteHistory;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Orders\Enums\FulfillmentStatus as FS;
@@ -17,6 +22,8 @@ use App\Domain\Orders\Services\OrderService;
 use App\Domain\Payments\Models\Payment;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use App\Support\BusinessTime;
+use App\Support\Geo;
+use App\Support\MapConfig;
 use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Locked;
@@ -236,6 +243,13 @@ class OrderShow extends Component
             'state' => in_array($h->to_status, ['cancelled', 'failed', 'expired', 'rejected'], true) ? 'failed' : 'done',
         ])->all();
 
+        $routeCards = [];
+        foreach ($o->fulfillments as $f) {
+            if ($actions[$f->id]['delivery'] && ($card = $this->routeCard($actions[$f->id]['delivery'], $o, $f))) {
+                $routeCards[$f->id] = $card;
+            }
+        }
+
         $drivers = $actions && collect($actions)->contains(fn ($a) => collect($a['steps'])->contains('action', 'delivery'))
             ? User::whereIn('id', BranchEmployee::whereIn('branch_id', $o->fulfillments->pluck('branch_id'))->where('is_active', true)->where('is_delivery_driver', true)->select('user_id'))->where('status', 'active')->orderBy('name')->get(['id', 'name'])
             : collect();
@@ -250,11 +264,43 @@ class OrderShow extends Component
             'returns' => ReturnRequest::where('order_id', $o->id)->latest()->get(),
             'timeline' => $timeline,
             'drivers' => $drivers,
+            'routeCards' => $routeCards,
+            'mapConfig' => $routeCards ? MapConfig::payload() : null,
             'providers' => DeliveryProvider::where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'canNote' => $this->canNote($o),
             'canPayments' => $this->can('payments.view'),
             'canCustomer' => $o->user_id && $this->can('customers.view'),
         ])->title($o->number);
+    }
+
+    /**
+     * What the compact route map of a delivery shows: the recorded path with its stops, the branch it left from, the customer's pin, the
+     * driver's last position while the order is on the road and the arrival estimate. Null when nothing was recorded yet.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function routeCard(Delivery $d, Order $o, OrderFulfillment $f): ?array
+    {
+        $route = app(RouteHistory::class)->forDelivery($d->id, 250);
+        $onRoad = in_array($d->status->value, ['picked_up', 'out_for_delivery'], true);
+        $position = $onRoad && $d->driver_id ? DriverPosition::of(DriverProfile::find($d->driver_id)) : null;
+        if ($route['points'] === [] && $position === null) {
+            return null;
+        }
+        $to = $o->address_snapshot ?? [];
+        $destination = Geo::validPoint($to['latitude'] ?? null, $to['longitude'] ?? null) ? ['lat' => (float) $to['latitude'], 'lng' => (float) $to['longitude']] : null;
+        $branch = $f->branch;
+        $eta = $position && $destination ? app(EtaService::class)->between($d->id, $position['lat'], $position['lng'], $destination['lat'], $destination['lng']) : null;
+
+        return [
+            'routes' => [['points' => $route['points'], 'stops' => $route['stops']]],
+            'destination' => $destination,
+            'origin' => $branch && Geo::validPoint($branch->latitude, $branch->longitude) ? ['lat' => (float) $branch->latitude, 'lng' => (float) $branch->longitude, 'name' => $branch->localized('name')] : null,
+            'driver' => $position ? $position + ['name' => DriverPosition::firstName($d->driver?->name)] : null,
+            'eta' => $eta ? ['minutes' => $eta['minutes']] : null,
+            'summary' => $route['distance_m'] > 0 ? ['km' => round($route['distance_m'] / 1000, 1), 'min' => max(1, (int) round(($route['duration_s'] ?? 0) / 60)), 'stops' => count($route['stops'])] : null,
+            'fingerprint' => $d->status->value.'|'.$route['raw_count'].'|'.($position['at'] ?? ''),
+        ];
     }
 
     /** Machine reason codes (placed, payment_received, out_of_stock…) → translated label; free text passes through. */

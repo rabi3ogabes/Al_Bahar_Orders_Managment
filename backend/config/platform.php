@@ -91,6 +91,7 @@ return [
         'keep_after_done_minutes' => 30,    // a finished order stays in the active list and may still be updated this long
         'ttl_seconds' => 14400,             // how long FCM/APNs hold an undelivered update (4 h)
         'max_active' => 10,                 // orders returned by GET /orders/active-progress
+        'max_age_days' => 7,                // an order placed longer ago is never listed there
     ],
 
     'payments' => [

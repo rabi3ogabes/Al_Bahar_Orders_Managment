@@ -327,7 +327,7 @@ class JourneyService
         foreach ($devices as $device) {
             [$title, $body] = $this->text($t, $device->locale ?: $user->preferredLocale(), $vars); // the app language on that phone
             $res = $this->fcm->send($device->push_token, $title, $body, ['event' => 'journey.'.$run->journey->key, 'deep_link' => $this->deepLink($t, $vars),
-                'coupon' => $vars['coupon'], 'delivery_id' => $d->id]);
+                'coupon' => $vars['coupon'], 'delivery_id' => $d->id], $device);
             if ($res['unregistered'] ?? false) {
                 $device->update(['disabled_at' => now()]);
             }
@@ -472,7 +472,7 @@ class JourneyService
         if ($devices->isEmpty() || ! $this->fcm->configured()) {
             return $devices->isEmpty() ? 'no_devices' : 'push_not_configured';
         }
-        $ok = $devices->filter(fn ($dv) => $this->fcm->send($dv->push_token, $title, $body, ['event' => 'journey.test', 'deep_link' => $link])['ok'] ?? false)->count();
+        $ok = $devices->filter(fn ($dv) => $this->fcm->send($dv->push_token, $title, $body, ['event' => 'journey.test', 'deep_link' => $link], $dv)['ok'] ?? false)->count();
 
         return $ok ? 'sent' : 'failed';
     }

@@ -7,6 +7,13 @@
     <meta name="description" content="Al Bahar Home & Living — household essentials delivered across Qatar or ready to collect from a showroom." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
+    <!-- Installable as a Home Screen web app (iPhone and iPad only allow push for an installed app). No offline caching, no extra service worker. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Al Bahar" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>Al Bahar Home &amp; Living</title>
     <script>
       // Theme and language are applied before first paint so a dark or Arabic visitor never sees a light/English flash.

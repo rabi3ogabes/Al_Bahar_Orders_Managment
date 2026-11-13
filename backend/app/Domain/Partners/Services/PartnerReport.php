@@ -3,7 +3,9 @@
 namespace App\Domain\Partners\Services;
 
 use App\Domain\Fulfillment\Models\Delivery;
+use App\Domain\Fulfillment\Models\DriverLocation;
 use App\Domain\Fulfillment\Services\DispatchService;
+use App\Domain\Fulfillment\Services\DriverPosition;
 use App\Domain\Fulfillment\Services\RouteHistory;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Settings\Services\Settings;
@@ -118,7 +120,7 @@ class PartnerReport
         $r = $this->routes->forDelivery($d->id);
 
         return [
-            'id' => $d->id, 'status' => $d->status->value, 'driver' => $d->driver?->name, 'assigned_at' => BusinessTime::iso($d->assigned_at), 'picked_up_at' => BusinessTime::iso($d->picked_up_at),
+            'id' => $d->id, 'status' => $d->status->value, 'driver' => DriverPosition::firstName($d->driver?->name) ?: null, 'assigned_at' => BusinessTime::iso($d->assigned_at), 'picked_up_at' => BusinessTime::iso($d->picked_up_at),
             'delivered_at' => BusinessTime::iso($d->delivered_at), 'route' => $r['points'], 'stops' => $r['stops'], 'distance_m' => $r['distance_m'], 'duration_s' => $r['duration_s'],
             'started_at' => $r['started_at'], 'ended_at' => $r['ended_at'],
         ];
@@ -133,11 +135,36 @@ class PartnerReport
     public function fleet(): Collection
     {
         return $this->dispatch->fleet(null)->map(fn (array $d) => [
-            'id' => $d['id'], 'name' => $d['name'], 'vehicle' => $d['vehicle'], 'on_duty' => $d['on_duty'],
+            'id' => $d['id'], 'name' => DriverPosition::firstName($d['name']), 'vehicle' => $d['vehicle'], 'on_duty' => $d['on_duty'],
             'lat' => $d['lat'], 'lng' => $d['lng'], 'heading' => $d['heading'], 'speed_kmh' => $d['speed_kmh'], 'accuracy_m' => $d['accuracy_m'],
             'at' => $d['at'], 'age_seconds' => $d['age_seconds'], 'stale' => $d['stale'], 'last_seen_at' => $d['last_seen_at'],
             'job' => $d['job'] ? ['order_number' => $d['job']['order_number'], 'status' => $d['job']['status'], 'destination' => $d['job']['destination']] : null,
         ])->values();
+    }
+
+    /**
+     * Every delivery that has driver positions recorded on a business day, for the route replay: each with its simplified path
+     * (at most 120 points) and stops. Drivers appear by first name only. At most 40 trips, oldest first.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function routes(string $date): array
+    {
+        [$from, $to] = BusinessTime::dateRange($date, $date);
+        $ids = DriverLocation::whereNotNull('delivery_id')->whereBetween('recorded_at', [$from, $to])->distinct()->limit(40)->pluck('delivery_id');
+
+        return Delivery::with(['driver:id,name', 'fulfillment.order:id,number'])->whereIn('id', $ids)->get()
+            ->sortBy(fn (Delivery $d) => $d->assigned_at?->getTimestamp() ?? 0)->values()
+            ->map(function (Delivery $d) {
+                $r = $this->routes->forDelivery($d->id, 120);
+
+                return [
+                    'id' => $d->id, 'order_number' => $d->fulfillment?->order?->number, 'status' => $d->status->value,
+                    'driver' => DriverPosition::firstName($d->driver?->name) ?: null,
+                    'route' => $r['points'], 'stops' => $r['stops'], 'distance_m' => $r['distance_m'], 'duration_s' => $r['duration_s'],
+                    'started_at' => $r['started_at'], 'ended_at' => $r['ended_at'],
+                ];
+            })->all();
     }
 
     private function maskPhone(?string $phone): ?string

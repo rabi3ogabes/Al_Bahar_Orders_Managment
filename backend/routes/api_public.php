@@ -19,6 +19,7 @@ Route::post('integrations/n8n/delivery', [V1\Integrations\N8nController::class, 
 Route::get('theme', [V1\Cms\ThemeController::class, 'show'])->name('theme');
 Route::get('realtime-config', [V1\RealtimeConfigController::class, 'show'])->name('realtime-config');
 Route::get('map-config', [V1\MapConfigController::class, 'show'])->name('map-config');
+Route::get('push-config', [V1\PushConfigController::class, 'show'])->name('push-config');
 
 Route::controller(V1\Catalog\CatalogController::class)->group(function () {
     Route::get('categories', 'categories')->name('categories.index');
@@ -55,6 +56,7 @@ Route::middleware(['auth:sanctum', 'customer'])->group(function () {
     });
     Route::controller(V1\Commerce\OrderController::class)->group(function () {
         Route::get('orders', 'index')->name('orders.index');
+        Route::get('orders/active-progress', 'activeProgress')->name('orders.active-progress');
         Route::get('orders/{id}', 'show')->name('orders.show');
         Route::get('orders/{id}/timeline', 'timeline')->name('orders.timeline');
         Route::get('orders/{id}/tracking', 'tracking')->name('orders.tracking');

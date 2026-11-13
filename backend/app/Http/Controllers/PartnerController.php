@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Branches\Models\Branch;
 use App\Domain\Fulfillment\Services\DriverPosition;
 use App\Domain\Orders\Services\LiveOrderFeed;
 use App\Domain\Partners\Services\PartnerAccess;
 use App\Domain\Partners\Services\PartnerReport;
 use App\Support\BusinessTime;
+use App\Support\MapConfig;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -28,7 +30,14 @@ class PartnerController extends Controller
         $this->guardToken($token);
         $unlocked = $this->unlocked($request);
 
-        return response()->view($unlocked ? 'partner.dashboard' : 'partner.lock', ['token' => $token, 'today' => BusinessTime::now()->toDateString()])
+        $view = ['token' => $token, 'today' => BusinessTime::now()->toDateString()];
+        if ($unlocked) {
+            // The maps read the same configuration as every other client; branch pins are public shop locations.
+            $view['mapConfig'] = MapConfig::payload();
+            $view['branchPins'] = $this->branchPins();
+        }
+
+        return response()->view($unlocked ? 'partner.dashboard' : 'partner.lock', $view)
             ->header('X-Robots-Tag', 'noindex, nofollow, noarchive')->header('Cache-Control', 'no-store')->header('Referrer-Policy', 'strict-origin');
     }
 
@@ -88,6 +97,15 @@ class PartnerController extends Controller
         return $this->json(['drivers' => $this->report->fleet(), 'at' => BusinessTime::iso(now()), 'stale_after_seconds' => DriverPosition::staleAfter()]);
     }
 
+    /** The recorded routes of one business day, for the replay on the partner map. */
+    public function routes(Request $request, string $token): JsonResponse
+    {
+        $this->guardData($request, $token);
+        $date = $request->validate(['date' => 'nullable|date_format:Y-m-d'])['date'] ?? BusinessTime::now()->toDateString();
+
+        return $this->json(['date' => $date, 'trips' => $this->report->routes($date)]);
+    }
+
     /** New orders and order status changes since the cursor (Unix ms) for the live toasts; without a cursor it only hands one out. */
     public function events(Request $request, string $token): JsonResponse
     {
@@ -95,6 +113,13 @@ class PartnerController extends Controller
         $since = $request->validate(['since' => 'nullable|integer|min:0|max:99999999999999'])['since'] ?? null;
 
         return $this->json($this->feed->since($since === null ? null : (int) $since));
+    }
+
+    /** @return list<array{id: string, name_en: string, name_ar: string, lat: float, lng: float}> */
+    private function branchPins(): array
+    {
+        return Branch::active()->whereNotNull('latitude')->whereNotNull('longitude')->orderBy('sort_order')->get(['id', 'name_en', 'name_ar', 'latitude', 'longitude'])
+            ->map(fn ($b) => ['id' => $b->id, 'name_en' => $b->name_en, 'name_ar' => $b->name_ar ?: $b->name_en, 'lat' => (float) $b->latitude, 'lng' => (float) $b->longitude])->all();
     }
 
     private function json(mixed $data): JsonResponse

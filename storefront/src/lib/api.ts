@@ -27,6 +27,12 @@ try { const raw = localStorage.getItem(TOKEN_KEY); tokens = raw ? JSON.parse(raw
 const listeners = new Set<() => void>();
 export const getTokens = () => tokens;
 export const onAuthChange = (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; };
+
+/** Work that needs the session while it still exists (for example removing this browser's push token): runs before sign-out. */
+const beforeLogout = new Set<() => Promise<unknown>>();
+export const onBeforeLogout = (fn: () => Promise<unknown>) => { beforeLogout.add(fn); return () => { beforeLogout.delete(fn); }; };
+export const runBeforeLogout = async () => { await Promise.allSettled([...beforeLogout].map((f) => f())); };
+
 export function setTokens(t: Tokens | null) {
   tokens = t;
   try { t ? localStorage.setItem(TOKEN_KEY, JSON.stringify(t)) : localStorage.removeItem(TOKEN_KEY); } catch { /* private mode */ }

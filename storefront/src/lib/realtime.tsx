@@ -4,6 +4,7 @@ import { get, getTokens } from './api';
 import { useAuth } from './auth';
 import { useI18n } from './i18n';
 import { useToast } from './toast';
+import { orderToasts } from './webpush-core';
 
 /**
  * Live order updates. One socket per signed-in customer (Laravel Reverb, Pusher protocol) on their private channel;
@@ -86,7 +87,8 @@ export function LiveOrders() {
             void qc.invalidateQueries({ queryKey: ['orders'] });
             void qc.invalidateQueries({ queryKey: ['order', e.order_id] });
             void qc.invalidateQueries({ queryKey: ['timeline', e.order_id] });
-            toast.push(t('orders.live_update', { n: e.number, s: e.status_label }), 'info');
+            // A push message for the same change may have shown its own toast a moment ago (lib/webpush.tsx): one toast per change.
+            if (orderToasts.claim('socket', e.order_id)) toast.push(t('orders.live_update', { n: e.number, s: e.status_label }), 'info');
             changeSubs.forEach((f) => f(e));
           });
           ch.bind('pusher:subscription_error', async () => {

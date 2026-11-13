@@ -5,7 +5,7 @@ import { L, claimHost, createBaseMap } from './base.js';
 import { DriverMarker, dotIcon, paintDriver } from './markers.js';
 import { clockText, durationText, h, icon, numberFormat } from './dom.js';
 import { fmt } from './text.js';
-import { detectStops, firstName, normaliseTrack, pathLengthM, playbackRate, simplify, trackAt } from './logic.js';
+import { detectStops, firstName, normaliseStops, normaliseTrack, pathLengthM, playbackRate, simplify, trackAt } from './logic.js';
 
 /** Leaflet rebuilds a divIcon element every time a marker is added, so the accessible name is set on each add. */
 const labelOnAdd = (marker, label) => marker.on('add', () => marker.getElement()?.setAttribute('aria-label', label));
@@ -71,8 +71,7 @@ export function createPlayback(o) {
         if (points.length < 1) return null;
         const color = raw.color ?? PALETTE[i % PALETTE.length];
         const line = simplify(points, 4);
-        const stops = (raw.stops ?? detectStops(points)).map((s) => ({ lat: Number(s.lat), lng: Number(s.lng), from: Number(s.from), to: Number(s.to), ms: Number(s.to) - Number(s.from) }))
-            .filter((s) => Number.isFinite(s.lat) && Number.isFinite(s.lng) && s.ms > 0);
+        const stops = raw.stops ? normaliseStops(raw.stops) : detectStops(points);
         const full = L.polyline(line.map((p) => [p.lat, p.lng]), { color, weight: 4, opacity: 0.32, lineCap: 'round', interactive: false });
         const done = L.polyline([], { color, weight: 5.5, opacity: 0.95, lineCap: 'round', interactive: false });
         const first = points[0];
@@ -154,7 +153,7 @@ export function createPlayback(o) {
 
     function fit() {
         const pts = tracks.filter((t) => t.visible).flatMap((t) => t.points.map((p) => ({ lat: p.lat, lng: p.lng })));
-        base.fit(pts.length > 300 ? pts.filter((_, i) => i % Math.ceil(pts.length / 300) === 0) : pts, { maxZoom: 16, padding: [48, 48], paddingBottomRight: [48, 150] });
+        base.fit(pts.length > 300 ? pts.filter((_, i) => i % Math.ceil(pts.length / 300) === 0) : pts, { maxZoom: 16, padding: [48, 48], paddingBottomRight: [48, 200] });
     }
 
     /* ───────────── Timeline ───────────── */

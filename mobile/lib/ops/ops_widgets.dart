@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:albahar_customer/core/map/map_geo.dart';
+import 'package:albahar_customer/core/map/map_nav.dart';
 import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
@@ -52,12 +54,19 @@ Future<void> dial(BuildContext context, String? phone) async {
   await _launch(context, Uri(scheme: 'tel', path: phone), LaunchMode.platformDefault);
 }
 
-/// Opens the phone's maps app on the coordinates, or on the address text when there are none.
+/// Starts navigation to the coordinates in the phone's navigation app (Google Maps, Apple Maps or Waze: a chooser when
+/// more than one is installed), or opens a maps search for the address text when there is no pin.
 Future<void> openMaps(BuildContext context, {double? lat, double? lng, required String query}) async {
-  final uri = lat != null && lng != null
-      ? Uri.https('www.google.com', '/maps/dir/', {'api': '1', 'destination': '$lat,$lng'})
-      : Uri.https('www.google.com', '/maps/search/', {'api': '1', 'query': query});
-  await _launch(context, uri, LaunchMode.externalApplication);
+  if (MapGeo.isFinitePair(lat, lng)) {
+    final ok = await startNavigation(context, lat: lat!, lng: lng!);
+    if (!ok && context.mounted) showInfoSnack(context, OpsStrings.of(context).couldNotOpen);
+    return;
+  }
+  await _launch(
+    context,
+    Uri.https('www.google.com', '/maps/search/', {'api': '1', 'query': query}),
+    LaunchMode.externalApplication,
+  );
 }
 
 Future<void> _launch(BuildContext context, Uri uri, LaunchMode mode) async {

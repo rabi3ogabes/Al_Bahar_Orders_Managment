@@ -104,6 +104,7 @@ Create/update body: same fields (`delivery_zone_id` instead of the object). `rec
 | | `/branches/{id}/delivery-slots?date=YYYY-MM-DD` | same shape; 404 when the branch does not deliver |
 | | `/branches/{id}/{pickup,delivery}-slots?from=YYYY-MM-DD&to=YYYY-MM-DD[&only_available=1]` | **a span in one call**: `{data:[{date, available, slots:[slot…]}], meta:{from,to}}`, one entry per date that has slots; `only_available=1` drops dates with no free place. Dates run today … +29 days, span ≤ 30 days, `date` and `from/to` can't be combined (422) |
 | | `/delivery-zones` | `[{id, name, zone_numbers[]}]` |
+| | `/map-config` | `{provider, tiles{light_url,dark_url,attribution,attribution_text,subdomains,max_zoom,retina}, center{lat,lng}, zoom, stale_after_seconds}`: the map provider chosen in Settings; cacheable 5 min (see [MAPS.md](../guides/MAPS.md)) |
 
 Branch:
 ```json
@@ -226,8 +227,10 @@ For SADAD the app opens `redirect_url` in a secure in-app browser (Custom Tabs /
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/orders?status=` | OrderSummary[] |
+| GET | `/orders/active-progress` | The live order card (`OrderProgress`) of each of my orders in progress or finished < 30 min ago, newest first, max 10: `{data: [OrderProgress]}`. Same object as the `order_progress` push; see [LIVE_ORDER_NOTIFICATION.md](../guides/LIVE_ORDER_NOTIFICATION.md) |
 | GET | `/orders/{id}` | Order |
 | GET | `/orders/{id}/timeline` | `[{kind: order\|fulfillment\|payment\|delivery, status, label, at, fulfillment_id?}]` |
+| GET | `/orders/{id}/tracking` | Live driver, destination, branch and arrival estimate for the customer's own order (see [MAPS.md](../guides/MAPS.md)) |
 | POST | `/orders/{id}/cancel` | `{reason_code, reason?}` → `{status: approved\|requested}` |
 | POST | `/orders/{id}/reorder` | Adds still-available items to cart → Cart + `skipped:[…]` |
 | GET | `/orders/{id}/invoice` | `application/pdf` |
@@ -245,7 +248,8 @@ Order:
   "fulfillments":[{"id","number":"AB100123-1","branch":{"id","name","phone","latitude","longitude"},"type":"pickup","status":"pickup_ready","status_label":"Ready for pickup",
                    "slot":{"date","starts_at","ends_at"}|null,"delivery":{"tracking_number","status","provider","driver_name","driver_phone","eta"}|null,
                    "pickup":{"status","token_expires_at"}|null}],
-  "can_cancel": false, "can_pay": false, "can_return": true, "can_review": true }
+  "can_cancel": false, "can_pay": false, "can_return": true, "can_review": true,
+  "progress": OrderProgress|null }
 ```
 Order statuses: `pending_payment, confirmed, processing, partially_fulfilled, ready_for_pickup, out_for_delivery, completed, cancellation_requested, cancelled, partially_cancelled, returned`.
 Fulfillment statuses: `pending, accepted, preparing, ready, dispatched, out_for_delivery, delivered, pickup_ready, picked_up, failed, cancelled, returned`.
@@ -301,3 +305,4 @@ Section order and content are entirely server-driven; unknown `type`s must be ig
 Deep links: `albahar://products/{id}`, `albahar://orders/{id}`, `albahar://auctions/{id}`, `albahar://auctions/lots/{lotId}`, `albahar://categories/{id}`, `albahar://payments/{id}/return`, `albahar://support/{ticketId}`. HTTPS universal-link equivalents: `https://albahar.qa/app/...`.
 
 Push payload (FCM `data`): `{ "event": "order.ready_for_pickup", "deep_link": "albahar://orders/…", "notification_id": "uuid" }`.
+The customer's live order card is a separate data-only push, `{ "kind": "order_progress", "order_id", "step", "total", "title", "body", "eta_from", "eta_to", "seq", … }` (all values strings): see [LIVE_ORDER_NOTIFICATION.md](../guides/LIVE_ORDER_NOTIFICATION.md).

@@ -52,7 +52,7 @@ const ICONS = {
     refresh: 'M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5',
     users: 'M16 21v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM22 21v-1a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8',
     flag: 'M5 21V4M5 4h12l-2 4 2 4H5',
-    wifi: 'M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01',
+    more: 'M5 12h.01M12 12h.01M19 12h.01',
 };
 const FILLED = new Set(['play', 'pause']);
 

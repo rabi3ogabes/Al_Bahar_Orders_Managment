@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api\V1\Customer;
 
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Identity\Models\AccountDeletionRequest;
-use App\Domain\Identity\Models\UserDevice;
 use App\Domain\Identity\Models\UserSession;
+use App\Domain\Identity\Services\DeviceRegistry;
 use App\Domain\Identity\Services\TokenService;
 use App\Http\Controllers\Api\V1\ApiController;
 use App\Http\Resources\V1\UserResource;
@@ -70,31 +70,31 @@ class ProfileController extends ApiController
         return response()->json(['data' => ['updated' => true]]);
     }
 
-    public function registerDevice(Request $request): JsonResponse
+    /**
+     * Registers (or refreshes) a push token of the phone app or of a browser. Idempotent: the same token again just refreshes the
+     * row, and a token that was registered by someone else moves to the person calling now. For platform "web" the browser family
+     * is read from the user agent; `app` says which web app asked (the store or the web version of the mobile app).
+     */
+    public function registerDevice(Request $request, DeviceRegistry $devices): JsonResponse
     {
         $data = $request->validate([
             'platform' => ['required', 'in:android,ios,web'],
             'push_token' => ['required', 'string', 'max:512'],
+            'locale' => ['nullable', 'in:en,ar'],
+            'app' => ['nullable', 'in:store,mobile-web'],
             'device_id' => ['nullable', 'string', 'max:191'],
             'app_version' => ['nullable', 'string', 'max:32'],
         ]);
-        // A push token belongs to exactly one user/device: re-registering moves it.
-        $device = UserDevice::updateOrCreate(['push_token' => $data['push_token']], [
-            ...$data,
-            'user_id' => $this->user()->id,
-            'locale' => app()->getLocale(),
-            'last_seen_at' => now(),
-            'disabled_at' => null,
-        ]);
+        $device = $devices->register($this->user(), $data, $request->userAgent());
 
         return response()->json(['data' => ['id' => $device->id, 'registered' => true]], 201);
     }
 
-    public function unregisterDevice(Request $request): JsonResponse
+    /** Turns off one of the caller's own tokens (sign-out on that phone or browser). A token of another person is ignored. */
+    public function unregisterDevice(Request $request, DeviceRegistry $devices): JsonResponse
     {
         $request->validate(['push_token' => ['required', 'string', 'max:512']]);
-        UserDevice::where('user_id', $this->user()->id)->where('push_token', $request->input('push_token'))
-            ->update(['disabled_at' => now()]);
+        $devices->disable($this->user(), $request->input('push_token'));
 
         return response()->json(['data' => ['unregistered' => true]]);
     }

@@ -273,8 +273,7 @@ class OpsStrings {
   String get jobMap => _t('Map', 'الخريطة');
   String jobEta(int minutes) => _t('About $minutes min', 'حوالي $minutes د');
   String jobToGo(String distance) => _t('$distance to go', 'تبقى $distance');
-  String get jobEstimateNote =>
-      _t('Estimated from the straight-line distance.', 'تقدير بناءً على المسافة المباشرة.');
+  String get jobEstimateNote => _t('Estimated from the straight-line distance.', 'تقدير بناءً على المسافة المباشرة.');
   String get jobNoPin => _t(
     'This delivery has no map pin. Use the address text to find it.',
     'لا يوجد دبوس خريطة لهذا التوصيل. استخدم نص العنوان للوصول.',

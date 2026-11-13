@@ -276,49 +276,53 @@ class _AlBaharMapState extends ConsumerState<AlBaharMap> with SingleTickerProvid
             ? null
             : (camera, gesture) => widget.onPositionChanged!(camera, gesture),
       ),
-      children: [tileLayer, ...widget.children],
+      children: [
+        tileLayer,
+        // The map itself is one big touch surface for the screen reader: this label is what it announces. (It lives
+        // inside the map so it merges into that surface; markers and buttons keep their own labels.)
+        IgnorePointer(
+          child: Semantics(label: widget.semanticsLabel ?? l10n.mapSemantics, child: const SizedBox.shrink()),
+        ),
+        ...widget.children,
+      ],
     );
 
     final inset = widget.bottomInset;
-    return Semantics(
-      container: true,
-      label: widget.semanticsLabel ?? l10n.mapSemantics,
-      child: ClipRect(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            map,
-            if (_note)
-              PositionedDirectional(
-                top: widget.topInset + AppSpace.xs,
-                start: AppSpace.md,
-                end: AppSpace.md,
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: _TilesNote(text: l10n.mapTilesUnavailable),
-                ),
+    return ClipRect(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          map,
+          if (_note)
+            PositionedDirectional(
+              top: widget.topInset + AppSpace.xs,
+              start: AppSpace.md,
+              end: AppSpace.md,
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: _TilesNote(text: l10n.mapTilesUnavailable),
               ),
-            ...widget.overlays,
-            if (widget.showAttribution)
-              PositionedDirectional(
-                start: AppSpace.xs,
-                bottom: inset,
-                child: MapAttributionChip(attribution: tiles.attribution),
+            ),
+          ...widget.overlays,
+          if (widget.showAttribution)
+            PositionedDirectional(
+              start: AppSpace.xs,
+              bottom: inset,
+              child: MapAttributionChip(attribution: tiles.attribution),
+            ),
+          if (widget.controls.any)
+            PositionedDirectional(
+              end: AppSpace.sm,
+              bottom: inset + AppSpace.sm,
+              child: MapControls(
+                controller: _c,
+                config: widget.controls,
+                onMyLocation: widget.onMyLocation,
+                locating: widget.locating,
+                extras: widget.extraControls,
               ),
-            if (widget.controls.any)
-              PositionedDirectional(
-                end: AppSpace.sm,
-                bottom: inset + AppSpace.sm,
-                child: MapControls(
-                  controller: _c,
-                  config: widget.controls,
-                  onMyLocation: widget.onMyLocation,
-                  locating: widget.locating,
-                  extras: widget.extraControls,
-                ),
-              ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }

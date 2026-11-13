@@ -108,6 +108,19 @@
                             @if ($this->can('deliveries.view', $f->branch_id))<a href="{{ route('admin.deliveries.index', ['search' => $d->tracking_number]) }}" wire:navigate class="ms-auto text-xs font-medium text-brass-600 hover:underline">{{ __('sales_admin.open_dispatch') }}</a>@endif
                         </div>
                     @endif
+                    @if (isset($routeCards[$f->id]))
+                        @php $rc = $routeCards[$f->id]; @endphp
+                        <div class="border-t border-sand-100 dark:border-ink-800">
+                            <div class="flex flex-wrap items-center justify-between gap-2 px-5 py-3 sm:px-6">
+                                <h3 class="flex items-center gap-2 text-sm font-semibold"><x-icon name="map-pin" class="size-4 text-brass-500" />{{ __('maps.route_title') }}</h3>
+                                @if ($rc['summary'])<p class="text-xs text-ink-500 tabular-nums">{{ __('maps.route_summary', ['km' => $rc['summary']['km'], 'min' => $rc['summary']['min']]) }}@if ($rc['summary']['stops']) · {{ trans_choice('maps.route_stops', $rc['summary']['stops'], ['n' => $rc['summary']['stops']]) }}@endif</p>@endif
+                            </div>
+                            {{-- The element is keyed by the delivery's state, so a changed route replaces it (and its map) instead of morphing a stale one. --}}
+                            <div wire:key="rc-{{ $d->id }}-{{ md5($rc['fingerprint']) }}" wire:ignore data-route="{{ json_encode($rc + ['config' => $mapConfig]) }}"
+                                 x-data="{ ctl: null, destroy() { this.ctl?.destroy(); } }" x-init="ctl = await window.mountRouteCard($el, JSON.parse($el.dataset.route))"
+                                 class="h-64 w-full bg-sand-100 dark:bg-ink-800 sm:h-72"></div>
+                        </div>
+                    @endif
                     @if ($f->type === 'pickup' && $f->pickup && in_array($f->pickup->status, ['ready', 'partially_collected'], true))
                         <div class="flex flex-wrap items-center gap-3 border-t border-sand-100 bg-sky-soft/5 px-5 py-3 text-sm sm:px-6 dark:border-ink-800">
                             <x-icon name="qr" class="size-4 text-sky-soft" />

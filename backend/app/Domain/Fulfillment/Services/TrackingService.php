@@ -7,6 +7,7 @@ use App\Domain\Fulfillment\Models\DriverLocation;
 use App\Domain\Fulfillment\Models\DriverProfile;
 use App\Domain\Fulfillment\Services\Eta\EtaService;
 use App\Domain\Orders\Models\Order;
+use App\Support\BusinessTime;
 use App\Support\Geo;
 
 /**
@@ -24,7 +25,7 @@ class TrackingService
 
     /**
      * @return array{
-     *     order_id: string, number: string, status: string, tracking: bool, live: bool, delivery_status: string|null,
+     *     order_id: string, number: string, status: string, tracking: bool, live: bool, delivery_status: string|null, delivered_at: string|null,
      *     driver: array<string, mixed>|null, destination: array{lat: float, lng: float}|null,
      *     branch: array{name: string, lat: float|null, lng: float|null}|null,
      *     eta: array{minutes: int, distance_m: int, updated_at: string, source: string}|null, stale_after_seconds: int
@@ -53,6 +54,7 @@ class TrackingService
         return [
             'order_id' => $order->id, 'number' => $order->number, 'status' => $order->status->value,
             'tracking' => $showDriver && $position !== null, 'live' => $live, 'delivery_status' => $delivery?->status->value,
+            'delivered_at' => $delivery?->status->value === 'delivered' ? BusinessTime::iso($delivery->delivered_at) : null,
             'driver' => $showDriver ? ['name' => DriverPosition::firstName($delivery->driver?->name), 'vehicle' => $profile?->vehicle, 'status' => $delivery->status->value]
                 + ($position ?? ['lat' => null, 'lng' => null, 'heading' => null, 'speed_kmh' => null, 'accuracy_m' => null, 'at' => null, 'age_seconds' => null, 'stale' => true]) : null,
             'destination' => $destination,

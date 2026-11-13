@@ -9,6 +9,7 @@ use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\ReturnRequest;
 use App\Domain\Orders\Services\InvoiceService;
 use App\Domain\Orders\Services\OrderPresenter;
+use App\Domain\Orders\Services\OrderProgress;
 use App\Domain\Orders\Services\OrderService;
 use App\Domain\Payments\Models\Payment;
 use App\Domain\Payments\Services\PaymentService;
@@ -41,6 +42,16 @@ class OrderController extends ApiController
     public function show(string $id): JsonResponse
     {
         return response()->json(['data' => $this->presenter->detail($this->own($id))]);
+    }
+
+    /**
+     * The live order card for each of the caller's own orders that is in progress or finished in the last 30 minutes
+     * (newest first, at most 10): the same object the "order_progress" push carries, in the caller's language. The app
+     * calls it on start and resume to rebuild the notifications it may have missed.
+     */
+    public function activeProgress(OrderProgress $progress): JsonResponse
+    {
+        return response()->json(['data' => $progress->activeFor($this->user()->id, app()->getLocale())]);
     }
 
     /**

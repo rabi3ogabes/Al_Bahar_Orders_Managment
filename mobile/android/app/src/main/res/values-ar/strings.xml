@@ -1,4 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">البحر</string>
+
+    <!-- إشعار الطلب المباشر (qa.albahar.customer.liveorder). يطابق نصوص Dart في lib/l10n/app_*.arb. -->
+    <string name="live_order_channel_name">تتبع الطلب المباشر</string>
+    <string name="live_order_channel_description">حالة طلبك ووقت وصوله لحظة بلحظة</string>
+    <string name="live_order_headline_number">الطلب رقم %1$s</string>
+    <string name="live_order_status_placed">تم تقديم طلبك</string>
+    <string name="live_order_status_preparing">نقوم بتحضير طلبك</string>
+    <string name="live_order_status_on_the_way">طلبك في الطريق إليك</string>
+    <string name="live_order_status_ready">طلبك جاهز للاستلام</string>
+    <string name="live_order_status_delivered">تم توصيل طلبك</string>
+    <string name="live_order_status_collected">شكرًا لاستلام طلبك</string>
+    <string name="live_order_status_cancelled">تم إلغاء طلبك</string>
+    <string name="live_order_status_failed">تعذّر توصيل طلبك</string>
+    <string name="live_order_headline_delivered">تم التوصيل الساعة %1$s</string>
+    <string name="live_order_headline_collected">تم الاستلام الساعة %1$s</string>
+    <string name="live_order_headline_cancelled">تم إلغاء الطلب</string>
+    <string name="live_order_headline_failed">تعذّر التوصيل</string>
+    <string name="live_order_arrives_at">الوصول الساعة %1$s</string>
+    <string name="live_order_arrives_between">الوصول بين %1$s و%2$s</string>
+    <string name="live_order_stage_placed">تم الطلب</string>
+    <string name="live_order_stage_preparing">قيد التحضير</string>
+    <string name="live_order_stage_on_the_way">في الطريق</string>
+    <string name="live_order_stage_delivered">تم التوصيل</string>
+    <string name="live_order_stage_ready">جاهز</string>
+    <string name="live_order_stage_collected">تم الاستلام</string>
+    <string name="live_order_progress_description">تقدم الطلب: %1$s، الخطوة %2$d من %3$d</string>
+    <string name="live_order_progress_description_stopped">توقف الطلب: %1$s</string>
+    <string name="live_order_driver">السائق: %1$s</string>
+    <string name="live_order_driver_vehicle">السائق: %1$s · %2$s</string>
+    <string name="live_order_action_track">تتبع الطلب</string>
+    <string name="live_order_action_view">عرض الطلب</string>
+    <string name="live_order_action_call_driver">اتصال بالسائق</string>
+    <plurals name="live_order_group_summary">
+        <item quantity="zero">لا طلبات قيد التنفيذ</item>
+        <item quantity="one">طلب واحد قيد التنفيذ</item>
+        <item quantity="two">طلبان قيد التنفيذ</item>
+        <item quantity="few">%d طلبات قيد التنفيذ</item>
+        <item quantity="many">%d طلبًا قيد التنفيذ</item>
+        <item quantity="other">%d طلب قيد التنفيذ</item>
+    </plurals>
 </resources>

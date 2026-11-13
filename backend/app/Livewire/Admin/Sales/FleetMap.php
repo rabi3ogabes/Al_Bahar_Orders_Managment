@@ -4,7 +4,6 @@ namespace App\Livewire\Admin\Sales;
 
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Fulfillment\Services\DispatchService;
-use App\Domain\Orders\Models\Order;
 use App\Livewire\Admin\Concerns\WithAdminTable;
 use App\Support\MapConfig;
 use Illuminate\Support\Collection;
@@ -23,7 +22,7 @@ class FleetMap extends Component
     {
         $scope = $this->branchScope('deliveries.view');
         $orders = $this->branchScope('orders.view');
-        $fleet = $this->withOrderIds($dispatch->fleet($scope->all ? null : $scope->branchIds));
+        $fleet = $dispatch->fleet($scope->all ? null : $scope->branchIds);
         $branches = Branch::whereIn('id', $this->scopedBranches('deliveries.view')->pluck('id'))->orderBy('sort_order')->get(['id', 'code', 'name_en', 'name_ar', 'latitude', 'longitude']);
 
         $live = [
@@ -47,29 +46,6 @@ class FleetMap extends Component
             'liveText' => $this->liveText(),
             'branches' => $branches,
         ])->title(__('nav.fleet'));
-    }
-
-    /**
-     * The "Open order" link needs the order id, which the dispatch rows only carry as a number.
-     *
-     * @param  Collection<int, array<string, mixed>>  $fleet
-     * @return Collection<int, array<string, mixed>>
-     */
-    private function withOrderIds(Collection $fleet): Collection
-    {
-        $numbers = $fleet->map(fn (array $d) => $d['job']['order_number'] ?? null)->filter()->unique()->values();
-        if ($numbers->isEmpty()) {
-            return $fleet;
-        }
-        $ids = Order::whereIn('number', $numbers)->pluck('id', 'number');
-
-        return $fleet->map(function (array $d) use ($ids) {
-            if (is_array($d['job'] ?? null) && empty($d['job']['order_id'])) {
-                $d['job']['order_id'] = $ids[$d['job']['order_number'] ?? ''] ?? null;
-            }
-
-            return $d;
-        });
     }
 
     /** @return list<array{id: string, name: string, lat: float, lng: float}> branches that have a position, named in the staff member's language */

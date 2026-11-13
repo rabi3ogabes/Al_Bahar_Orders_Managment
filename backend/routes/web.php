@@ -1,12 +1,19 @@
 <?php
 
 use App\Http\Controllers\Admin\SessionController;
+use App\Http\Controllers\FirebaseWorkerController;
 use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\StorefrontController;
 use App\Http\Controllers\Webhooks\PaymentWebhookController;
+use App\Http\Middleware\SetAdminLocale;
 use App\Livewire\Admin;
+use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
+use Illuminate\Cookie\Middleware\EncryptCookies;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
+use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 // ── Payment & delivery provider endpoints (no session/CSRF; authenticity verified per provider) ──────────
 Route::controller(PaymentWebhookController::class)->withoutMiddleware([VerifyCsrfToken::class])->group(function () {
@@ -14,6 +21,14 @@ Route::controller(PaymentWebhookController::class)->withoutMiddleware([VerifyCsr
     Route::post('webhooks/delivery/{provider}', 'delivery')->middleware('throttle:webhooks')->name('webhooks.delivery');
     Route::get('payments/sadad/{payment}/start', 'sadadStart')->name('payments.sadad.start');
     Route::match(['get', 'post'], 'payments/sadad/return', 'sadadReturn')->name('payments.sadad.return');
+});
+
+// ── Firebase web push service worker (served by Laravel so it carries the public Firebase settings saved in the dashboard) ──
+// Two URLs, one script: the store and the Firebase SDK's default ask for the root path, the Flutter web app (base /mobile-web/) for its own.
+// Plain script responses: no session, no cookies, so a visitor never gets a session cookie just because the browser checked for a new worker.
+Route::withoutMiddleware([EncryptCookies::class, AddQueuedCookiesToResponse::class, StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class, SetAdminLocale::class])->group(function () {
+    Route::get('firebase-messaging-sw.js', [FirebaseWorkerController::class, 'show'])->name('push.worker');
+    Route::get('mobile-web/firebase-messaging-sw.js', [FirebaseWorkerController::class, 'show'])->name('push.worker.mobile');
 });
 
 // ── Partner statistics (secret link + password; see PartnerController) ──────────────────────────────────
@@ -25,6 +40,7 @@ Route::prefix('partner/{token}')->name('partner.')->controller(PartnerController
     Route::get('data', 'day')->middleware('throttle:60,1,partner-day')->name('data');
     Route::get('orders/{id}', 'order')->middleware('throttle:90,1,partner-order')->name('order');
     Route::get('fleet', 'fleet')->middleware('throttle:60,1,partner-fleet')->name('fleet');
+    Route::get('routes', 'routes')->middleware('throttle:30,1,partner-routes')->name('routes');
     Route::get('events', 'events')->middleware('throttle:40,1,partner-events')->name('events');
 });
 

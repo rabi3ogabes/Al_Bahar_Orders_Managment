@@ -2,6 +2,7 @@
 
 use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Fulfillment\Models\DriverLocation;
+use App\Domain\Fulfillment\Models\DriverProfile;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Partners\Services\PartnerAccess;
 use App\Domain\Partners\Services\PartnerReport;
@@ -86,7 +87,7 @@ it('gives an order its items, transactions and the recorded route', function () 
     $o = app(PartnerReport::class)->order($f->order_id);
     expect($o['items'])->not->toBeEmpty()->and($o['items'][0])->toHaveKeys(['name', 'quantity', 'unit_price', 'line_total'])
         ->and($o['deliveries'][0]['route'])->toHaveCount(3)->and($o['deliveries'][0]['route'][0]['lat'])->toBe(25.28)
-        ->and($o['deliveries'][0]['driver'])->toBe($driver->name);
+        ->and($o['deliveries'][0]['driver'])->toBe(explode(' ', $driver->name)[0]);
 });
 
 it('keeps order routes for a year but drops stray pings after a week', function () {
@@ -99,4 +100,43 @@ it('keeps order routes for a year but drops stray pings after a week', function 
     DriverLocation::create(['driver_id' => $driver->id, 'delivery_id' => null, 'lat' => 25.2, 'lng' => 51.2, 'recorded_at' => now()->subDays(30)]);
     $this->artisan('drivers:prune-locations')->assertSuccessful();
     expect(DriverLocation::count())->toBe(1)->and(DriverLocation::first()->delivery_id)->toBe($d->id);
+});
+
+it('lists the routes of a day with first names only, and keeps the endpoint behind the password', function () {
+    $token = partnerOn();
+    $day = now(config('platform.business_timezone'))->toDateString();
+    $this->getJson("/partner/{$token}/routes?date={$day}")->assertStatus(401);
+
+    $w = commerceWorld();
+    $driver = driverFor($w->a);
+    [$f] = readyOrder($w);
+    $this->postJson("/api/v1/admin/dispatch/fulfillments/{$f->id}/assign", ['driver_id' => $driver->id])->assertOk();
+    $delivery = Delivery::first();
+    foreach (range(0, 11) as $i) {
+        DriverLocation::create(['driver_id' => $driver->id, 'delivery_id' => $delivery->id, 'lat' => 25.28 + $i * 0.001, 'lng' => 51.52, 'recorded_at' => now()->addSeconds($i * 20)]);
+    }
+    // Fixes without a delivery, and fixes of another day, never show up.
+    DriverLocation::create(['driver_id' => $driver->id, 'delivery_id' => null, 'lat' => 25.1, 'lng' => 51.1, 'recorded_at' => now()]);
+
+    $this->postJson("/partner/{$token}/unlock", ['password' => 'Correct-Horse-9'])->assertOk();
+    $trips = $this->getJson("/partner/{$token}/routes?date={$day}")->assertOk()->assertHeader('Cache-Control', 'no-store, private')->json('data.trips');
+    expect($trips)->toHaveCount(1)
+        ->and($trips[0]['driver'])->toBe(explode(' ', $driver->name)[0])
+        ->and($trips[0]['route'])->not->toBeEmpty()->and($trips[0]['route'][0])->toHaveKeys(['lat', 'lng', 'at'])
+        ->and($trips[0]['order_number'])->not->toBeNull()
+        ->and(json_encode($trips))->not->toContain($driver->name);
+    $this->getJson("/partner/{$token}/routes?date=2001-01-01")->assertOk()->assertJsonPath('data.trips', []);
+    $this->getJson("/partner/{$token}/routes?date=nope")->assertStatus(422);
+});
+
+it('hands the unlocked page the map configuration and the shop pins, and the fleet only first names', function () {
+    $token = partnerOn();
+    $w = commerceWorld();
+    $w->a->update(['latitude' => 25.3221, 'longitude' => 51.5291]);
+    $driver = driverFor($w->a);
+    DriverProfile::where('user_id', $driver->id)->update(['last_lat' => 25.3, 'last_lng' => 51.5, 'last_seen_at' => now()]);
+    $this->postJson("/partner/{$token}/unlock", ['password' => 'Correct-Horse-9'])->assertOk();
+    $this->get("/partner/{$token}")->assertOk()->assertSee('id="map-config"', false)->assertSee('tile.openstreetmap.org', false)->assertSee($w->a->name_en, false);
+    $fleet = $this->getJson("/partner/{$token}/fleet")->assertOk()->json('data.drivers');
+    expect($fleet)->toHaveCount(1)->and($fleet[0]['name'])->toBe(explode(' ', $driver->name)[0])->and($fleet[0])->not->toHaveKeys(['phone', 'branches']);
 });

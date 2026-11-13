@@ -30,7 +30,7 @@ export function buildPanel({ text, onQuery, onStatus, onToggleSheet, onListKey }
         return h('div', { class: `abm-stat abm-stat--${k}` }, n, h('span', { class: 'abm-stat__l' }, text[{ onDuty: 'stat_on_duty', moving: 'stat_moving', idle: 'stat_idle', stale: 'stat_stale' }[k]]));
     });
 
-    const search = h('input', { type: 'search', class: 'abm-input abm-input--search', placeholder: text.search_ph, 'aria-label': text.search_ph, autocomplete: 'off', spellcheck: 'false', enterkeyhint: 'search' });
+    const search = h('input', { type: 'search', class: 'abm-input abm-input--search', placeholder: text.search_ph, 'aria-label': text.search_label, autocomplete: 'off', spellcheck: 'false', enterkeyhint: 'search' });
     search.addEventListener('input', () => onQuery(search.value));
     const select = h('select', { class: 'abm-input abm-input--select', 'aria-label': text.status_filter },
         STATUSES.map((s) => h('option', { value: s }, text[`filter_${s}`])));
@@ -113,8 +113,8 @@ export function buildCard({ text, onClose, onFollow, onZoom, onCopy }) {
     const callNote = h('p', { class: 'abm-card__note' }, text.card_call_note);
     callRow.append(callNote);
 
-    const follow = h('button', { type: 'button', class: 'abm-btn', 'aria-pressed': 'false', on: { click: onFollow } }, icon('follow', 16), h('span', { class: 'abm-btn__t' }, text.follow_on));
-    const zoom = h('button', { type: 'button', class: 'abm-btn', on: { click: onZoom } }, icon('fit', 16), h('span', { class: 'abm-btn__t' }, text.card_zoom));
+    const follow = h('button', { type: 'button', class: 'abm-btn', 'aria-pressed': 'false', on: { click: onFollow } }, icon('follow', 16), h('span', { class: 'abm-btn__t' }, text.short_follow));
+    const zoom = h('button', { type: 'button', class: 'abm-btn abm-btn--icon', 'aria-label': text.card_zoom, title: text.card_zoom, on: { click: onZoom } }, icon('fit', 18));
     const actions = h('div', { class: 'abm-card__actions' }, open, viewBtn, follow, zoom);
 
     const el = h('section', { class: 'abm-card', role: 'group', tabindex: '-1', hidden: true }, head, grid, actions, callRow);
@@ -123,7 +123,10 @@ export function buildCard({ text, onClose, onFollow, onZoom, onCopy }) {
         setFollow(on, canFollow) {
             follow.setAttribute('aria-pressed', String(on));
             follow.disabled = !canFollow;
-            setText(follow.querySelector('.abm-btn__t'), on ? text.follow_off : canFollow ? text.follow_on : text.follow_pick);
+            const name = on ? text.follow_off : canFollow ? text.follow_on : text.follow_pick;
+            follow.setAttribute('aria-label', name);
+            follow.title = name;
+            setText(follow.querySelector('.abm-btn__t'), on ? text.short_following : text.short_follow);
         },
     };
 }

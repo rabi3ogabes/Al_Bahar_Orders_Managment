@@ -46,12 +46,12 @@ it('gives partners the drivers on duty with positions and their order, without p
     $data = $r->json('data');
     expect($data['stale_after_seconds'])->toBe(120)->and($data['at'])->toBeString()->and($data['drivers'])->toHaveCount(1);
     $row = $data['drivers'][0];
-    expect($row)->toMatchArray(['id' => $d->driver->id, 'name' => 'Ahmed Al Thani', 'vehicle' => 'Motorbike', 'on_duty' => true, 'lat' => 25.28, 'lng' => 51.52,
+    expect($row)->toMatchArray(['id' => $d->driver->id, 'name' => 'Ahmed', 'vehicle' => 'Motorbike', 'on_duty' => true, 'lat' => 25.28, 'lng' => 51.52,
         'heading' => 45, 'speed_kmh' => 28.5, 'accuracy_m' => 10, 'stale' => false])
         ->and($row['age_seconds'])->toBeBetween(15, 20)->and($row['at'])->toBeString()
         ->and($row['job'])->toMatchArray(['status' => 'out_for_delivery', 'destination' => ['lat' => 25.3, 'lng' => 51.5]])
         ->and(array_keys($row))->not->toContain('phone', 'battery', 'branches', 'open_jobs');
-    expect(json_encode($data))->not->toContain('+97455001122');
+    expect(json_encode($data))->not->toContain('+97455001122')->not->toContain('Al Thani');   // partners see the driver's first name only
 });
 
 it('gives partners an order’s route as a simplified polyline with stops, and the destination', function () {

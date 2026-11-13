@@ -32,6 +32,9 @@ window.mountRouteCard = (host, data) => bootMapWhenVisible(host, (kit) => {
 // Lazy-load the live order toasts only on pages that show live events (fleet map).
 window.loadLiveToasts = () => import('./live-toasts.js');
 
+// Lazy-load web push (Firebase SDK in its own chunk) only on the Push notifications page.
+window.loadPushAdmin = () => import('./push-admin.js');
+
 // Themed confirmation for every wire:confirm button: the message is the question, the buttons are Cancel and the action's own verb
 // (instead of the browser's OK/Cancel box). Livewire's directive then runs as usual once window.confirm is told "yes".
 document.addEventListener('click', (e) => {

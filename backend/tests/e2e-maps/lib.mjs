@@ -2,7 +2,7 @@
 // Usage: BASE=http://127.0.0.1:8083 SHOTS=/some/dir node tests/e2e-maps/fleet.mjs
 // The sandbox has no internet, so every tile request is answered with a generated grid tile.
 import { deflateSync } from 'node:zlib';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
@@ -68,3 +68,6 @@ export async function login(page, email = 'maps@albahar.test', password = 'MapsQ
 }
 
 export const shot = (page, name, opts = {}) => page.screenshot({ path: `${SHOTS}/${name}.png`, ...opts });
+
+/** Optional JSON with { partner_token, partner_password, orders: [{ id, number }] } from the seeding script (STATE=/path/state.json). */
+export const state = (() => { try { return JSON.parse(readFileSync(process.env.STATE, 'utf8')); } catch { return {}; } })();

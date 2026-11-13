@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
     STALE_MS, Tween, ageParts, applyFull, applyMove, bearing, counts, detectStops, easeInOut, filterDrivers, glideDuration, gridCluster, haversine,
-    indexAt, interpolate, isMoving, isStale, lerpAngle, normAngle, normaliseConfig, normaliseDriver, normaliseMove, normaliseTrack, phoneHref,
+    indexAt, interpolate, isMoving, normaliseStops, isStale, lerpAngle, normAngle, normaliseConfig, normaliseDriver, normaliseMove, normaliseTrack, phoneHref,
     playbackRate, pushTrail, safeAttribution, safeTileUrl, shortestDelta, simplify, sortDrivers, statusOf, thin, trackAt, firstName, initials, toMs, num,
 } from '../../resources/js/maps/logic.js';
 
@@ -427,4 +427,26 @@ test('names: first name for partners, initials for avatars', () => {
     assert.equal(initials('Ravi Kumar'), 'RK');
     assert.equal(initials('Joseph'), 'J');
     assert.equal(initials(''), '?');
+});
+
+test('a live frame carries the order number, vehicle and age like the REST rows (one parser for push and poll)', () => {
+    const m = normaliseMove({ driver_id: 'd1', lat: 25.31, lng: 51.51, at: new Date(NOW).toISOString(), age_seconds: 4, order_id: 'o1', order_number: 'AB-9', vehicle: 'Van · 12', delivery_status: 'picked_up', accuracy_m: 7 }, { now: NOW });
+    assert.equal(NOW - m.seenAt, 4000);
+    assert.deepEqual([m.orderNumber, m.vehicle, m.accuracy], ['AB-9', 'Van · 12', 7]);
+    const next = applyMove(drv({ fixMs: NOW - 9000 }), m);
+    assert.deepEqual([next.job.orderNumber, next.job.status, next.vehicle], ['AB-9', 'picked_up', 'Van · 12']);
+});
+
+test('normaliseStops reads the server stops (ISO times, duration) and drops broken ones', () => {
+    const s = normaliseStops([
+        { lat: 25.3, lng: 51.5, from: '2026-01-01T10:00:00Z', to: '2026-01-01T10:04:00Z', duration_s: 240 },
+        { lat: 25.31, lng: 51.51, to: '2026-01-01T11:00:00Z', duration_s: 180 },
+        { lat: 0, lng: 0, from: '2026-01-01T10:00:00Z', to: '2026-01-01T10:04:00Z' },
+        { lat: 25.3, lng: 51.5, from: '2026-01-01T10:05:00Z', to: '2026-01-01T10:04:00Z' },
+        null,
+    ]);
+    assert.equal(s.length, 2);
+    assert.equal(s[0].ms, 240_000);
+    assert.equal(s[1].from, Date.parse('2026-01-01T11:00:00Z') - 180_000);
+    assert.deepEqual(normaliseStops(undefined), []);
 });

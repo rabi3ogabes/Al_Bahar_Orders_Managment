@@ -2464,4 +2464,96 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pinCenterSemantics => 'Pin position. Move the map to change it.';
+
+  @override
+  String get liveOrderStatusPlaced => 'Your order has been placed';
+
+  @override
+  String get liveOrderStatusPreparing => 'We are preparing your order';
+
+  @override
+  String get liveOrderStatusOnTheWay => 'Your order is on the way';
+
+  @override
+  String get liveOrderStatusReady => 'Your order is ready for pickup';
+
+  @override
+  String get liveOrderStatusDelivered => 'Your order has been delivered';
+
+  @override
+  String get liveOrderStatusCollected => 'Thanks for picking up your order';
+
+  @override
+  String get liveOrderStatusCancelled => 'Your order was cancelled';
+
+  @override
+  String get liveOrderStatusFailed => 'We could not deliver your order';
+
+  @override
+  String liveOrderHeadlineNumber(String number) {
+    return 'Order #$number';
+  }
+
+  @override
+  String liveOrderHeadlineDelivered(String time) {
+    return 'Delivered at $time';
+  }
+
+  @override
+  String liveOrderHeadlineCollected(String time) {
+    return 'Collected at $time';
+  }
+
+  @override
+  String get liveOrderHeadlineCancelled => 'Order cancelled';
+
+  @override
+  String get liveOrderHeadlineFailed => 'Delivery failed';
+
+  @override
+  String liveOrderArrivesAt(String time) {
+    return 'Arrives at $time';
+  }
+
+  @override
+  String liveOrderArrivesBetween(String start, String end) {
+    return 'Arrives at $start – $end';
+  }
+
+  @override
+  String get liveOrderStagePlaced => 'Placed';
+
+  @override
+  String get liveOrderStagePreparing => 'Preparing';
+
+  @override
+  String get liveOrderStageOnTheWay => 'On the way';
+
+  @override
+  String get liveOrderStageReady => 'Ready';
+
+  @override
+  String get liveOrderStageDelivered => 'Delivered';
+
+  @override
+  String get liveOrderStageCollected => 'Collected';
+
+  @override
+  String get liveOrderPermissionTitle => 'Follow your order live';
+
+  @override
+  String get liveOrderPermissionBody =>
+      'Turn on notifications to see your order status and arrival time right on your lock screen.';
+
+  @override
+  String get liveOrderPermissionAllow => 'Allow notifications';
+
+  @override
+  String get liveOrderPermissionLater => 'Not now';
+
+  @override
+  String get liveOrderPermissionBlockedTitle => 'Notifications are off';
+
+  @override
+  String get liveOrderPermissionBlockedBody => 'Turn them on in settings to follow your order live.';
 }

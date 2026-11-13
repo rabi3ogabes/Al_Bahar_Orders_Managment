@@ -34,7 +34,7 @@ describe('customer tracking', function () {
 
         $t = trackingOf($d)->assertOk()->json('data');
         $road = Geo::distanceM(25.28, 51.52, 25.30, 51.50) * 1.35;
-        expect($t)->toHaveKeys(['order_id', 'number', 'status', 'tracking', 'live', 'delivery_status', 'driver', 'destination', 'branch', 'eta', 'stale_after_seconds'])
+        expect($t)->toHaveKeys(['order_id', 'number', 'status', 'tracking', 'live', 'delivery_status', 'delivered_at', 'driver', 'destination', 'branch', 'eta', 'stale_after_seconds'])
             ->and($t['order_id'])->toBe($d->orderId)->and($t['tracking'])->toBeTrue()->and($t['live'])->toBeTrue()->and($t['delivery_status'])->toBe('out_for_delivery')
             ->and($t['stale_after_seconds'])->toBe(120)
             ->and($t['driver'])->toMatchArray(['name' => 'Ahmed', 'vehicle' => 'Honda · 123456', 'status' => 'out_for_delivery', 'lat' => 25.28, 'lng' => 51.52,
@@ -90,6 +90,7 @@ describe('customer tracking', function () {
 
         $t = trackingOf($d)->assertOk()->json('data');
         expect($t['tracking'])->toBeTrue()->and($t['live'])->toBeFalse()->and($t['delivery_status'])->toBe('delivered')->and($t['eta'])->toBeNull()
+            ->and(Carbon\Carbon::parse($t['delivered_at'])->diffInMinutes(now(), true))->toBeBetween(2, 4)
             ->and($t['driver']['lat'])->toBe(25.2999)->and($t['driver']['lng'])->toBe(51.5001)->and($t['driver']['status'])->toBe('delivered');
 
         Delivery::whereKey($d->delivery->id)->update(['delivered_at' => now()->subMinutes(11)]);

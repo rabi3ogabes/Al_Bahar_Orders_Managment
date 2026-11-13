@@ -69,6 +69,20 @@
             </intent-filter>
         </activity>
 
+        <!-- Live order notification: draws "order_progress" pushes natively (app open, in the background or closed) and
+             remembers which cards the customer swiped away. See docs/qa/LIVE_ORDER_NOTIFICATION.md. -->
+        <receiver
+            android:name=".liveorder.LiveOrderFcmReceiver"
+            android:exported="true"
+            android:permission="com.google.android.c2dm.permission.SEND">
+            <intent-filter>
+                <action android:name="com.google.android.c2dm.intent.RECEIVE" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".liveorder.LiveOrderDismissReceiver"
+            android:exported="false" />
+
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="@string/default_notification_channel_id" />
@@ -93,6 +107,15 @@
         <intent>
             <action android:name="android.intent.action.DIAL" />
             <data android:scheme="tel" />
+        </intent>
+        <!-- Driver app: which navigation apps are installed (Google Maps, Waze) before offering them. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="google.navigation" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="waze" />
         </intent>
         <intent>
             <action android:name="android.support.customtabs.action.CustomTabsService" />

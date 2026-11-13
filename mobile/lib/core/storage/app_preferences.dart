@@ -20,6 +20,8 @@ class AppPreferences {
   static const _kPushPrefs = 'push_category_prefs';
   static const _kInstallId = 'install_id';
   static const _kPushToken = 'registered_push_token';
+  static const _kLiveOrders = 'live_order_active';
+  static const _kLivePermissionPrompt = 'live_order_permission_prompt';
 
   String? get localeCode => _prefs.getString(_kLocale);
   Future<void> setLocaleCode(String code) => _prefs.setString(_kLocale, code);
@@ -74,4 +76,34 @@ class AppPreferences {
   String? get registeredPushToken => _prefs.getString(_kPushToken);
   Future<void> setRegisteredPushToken(String? token) =>
       token == null ? _prefs.remove(_kPushToken) : _prefs.setString(_kPushToken, token);
+
+  /// Orders with a live notification right now (`{orderId: seq}`), so a restart picks them up again.
+  Map<String, int> get liveOrders {
+    final raw = _prefs.getString(_kLiveOrders);
+    if (raw == null) return const {};
+    try {
+      return asMap(jsonDecode(raw)).map((k, v) => MapEntry(k, asInt(v)));
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  Future<void> setLiveOrders(Map<String, int> orders) =>
+      orders.isEmpty ? _prefs.remove(_kLiveOrders) : _prefs.setString(_kLiveOrders, jsonEncode(orders));
+
+  /// When the notification permission sheet was last shown and how often (`{at: epoch ms, count: n}`).
+  ({DateTime? at, int count}) get livePermissionPrompt {
+    final raw = _prefs.getString(_kLivePermissionPrompt);
+    if (raw == null) return (at: null, count: 0);
+    try {
+      final m = asMap(jsonDecode(raw));
+      final ms = asIntOrNull(m['at']);
+      return (at: ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms), count: asInt(m['count']));
+    } catch (_) {
+      return (at: null, count: 0);
+    }
+  }
+
+  Future<void> setLivePermissionPrompt(DateTime at, int count) =>
+      _prefs.setString(_kLivePermissionPrompt, jsonEncode({'at': at.millisecondsSinceEpoch, 'count': count}));
 }

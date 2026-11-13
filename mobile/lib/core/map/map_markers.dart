@@ -284,6 +284,7 @@ class _DriverMarkerViewState extends State<DriverMarkerView> with SingleTickerPr
     final pillBg = (dark ? const Color(0xFF221A1E) : Colors.white).withValues(alpha: 0.94);
     final pillFg = dark ? const Color(0xFFF1ECE3) : const Color(0xFF2A1A20);
     return Semantics(
+      container: true,
       label: widget.semanticsLabel,
       button: widget.onTap != null,
       selected: widget.selected,
@@ -402,6 +403,7 @@ class MapPin extends StatelessWidget {
     const scale = 1.0;
     final lift = selected ? 1.12 : scale;
     return Semantics(
+      container: true,
       label: semanticsLabel,
       button: onTap != null,
       selected: selected,
@@ -481,6 +483,7 @@ class MyLocationDot extends StatelessWidget {
   Widget build(BuildContext context) {
     final blue = Theme.of(context).brightness == Brightness.dark ? const Color(0xFF6FA8FF) : const Color(0xFF1A73E8);
     return Semantics(
+      container: true,
       label: semanticsLabel,
       excludeSemantics: true,
       child: SizedBox(
@@ -540,6 +543,7 @@ class ClusterBadge extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final dark = Theme.of(context).brightness == Brightness.dark;
     return Semantics(
+      container: true,
       label: semanticsLabel,
       button: onTap != null,
       excludeSemantics: true,

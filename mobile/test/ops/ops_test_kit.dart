@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/providers.dart';
+import 'package:albahar_customer/core/realtime/pusher_client.dart';
 import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
 import 'package:albahar_customer/l10n/generated/app_localizations.dart';
@@ -12,6 +13,7 @@ import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_repository.dart';
 import 'package:albahar_customer/ops/ops_session.dart';
 import 'package:albahar_customer/ops/ops_widgets.dart';
+import 'package:albahar_customer/ops/staff/fleet_map_tab.dart';
 import 'package:albahar_customer/ops/staff/staff_home.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -21,6 +23,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../helpers/fakes.dart' show testConfig;
+import '../helpers/map_fakes.dart';
 
 /// A programmable stand-in for [OpsRepository]: every call is recorded, every failure can be switched on.
 class FakeOps implements OpsRepository {
@@ -74,6 +77,8 @@ class FakeOps implements OpsRepository {
   Object? driversError;
   List<FleetDriver> fleetList = [];
   String? fleetBranch;
+  int fleetLoads = 0;
+  Object? fleetError;
   bool ai = true;
   List<ShopCategory> cats = const [ShopCategory(id: 'c1', name: 'Living › Sofas')];
   ProductDraftText draft = const ProductDraftText(
@@ -166,11 +171,18 @@ class FakeOps implements OpsRepository {
   @override
   Future<void> returnToBranch(String id) async => calls.add('return:$id');
 
-  final beats = <({double lat, double lng})>[];
+  final beats = <({double lat, double lng, double? speedKmh, int? heading, int? accuracy, DateTime? recordedAt})>[];
 
   @override
-  Future<void> heartbeat(double lat, double lng, {double? speedKmh, int? heading, int? accuracy}) async {
-    beats.add((lat: lat, lng: lng));
+  Future<void> heartbeat(
+    double lat,
+    double lng, {
+    double? speedKmh,
+    int? heading,
+    int? accuracy,
+    DateTime? recordedAt,
+  }) async {
+    beats.add((lat: lat, lng: lng, speedKmh: speedKmh, heading: heading, accuracy: accuracy, recordedAt: recordedAt));
     if (beatError != null) throw beatError!;
   }
 
@@ -201,6 +213,8 @@ class FakeOps implements OpsRepository {
   @override
   Future<List<FleetDriver>> fleet({String? branchId}) async {
     fleetBranch = branchId;
+    fleetLoads++;
+    if (fleetError != null) throw fleetError!;
     return fleetList;
   }
 
@@ -289,7 +303,12 @@ class FakeTracker extends DriverTracker {
   bool get running => isRunning;
 
   @override
-  Future<void> start({required String title, required String body, void Function(Object error)? onError}) async {
+  Future<void> start({
+    required String title,
+    required String body,
+    String? channelName,
+    void Function(Object error)? onError,
+  }) async {
     isRunning = true;
     starts++;
   }
@@ -392,6 +411,8 @@ Widget opsHost(
     driverEventsProvider.overrideWith((ref) => const Stream.empty()),
     staffEventsProvider.overrideWith((ref) => const Stream.empty()),
     staffMovesProvider.overrideWith((ref) => const Stream<Map<String, dynamic>>.empty()),
+    staffConnectionProvider.overrideWith((ref) => const Stream<RealtimeState>.empty()),
+    ...mapTestOverrides(),
     ...overrides,
   ],
   child: MaterialApp(

@@ -17,7 +17,7 @@ Branch employees can also change the driver in automatic mode.
 
 - A branch can have **several employees** (roles such as *Order Manager* or *Branch Manager*) and **several drivers**.
 - A driver can work for **several branches**: add the person to each branch in **Branches > Employees** with *delivery driver* ticked (role *Delivery Employee*).
-- Drivers switch **On duty / Off duty** in the app; only on-duty drivers receive automatic assignments. While on duty the app reports its position about once a minute.
+- Drivers switch **On duty / Off duty** in the app; only on-duty drivers receive automatic assignments. While on duty the app reports its position every few seconds; nothing is stored once the driver is off duty with no order on the road.
 - Sign-in for both apps is the staff **email + password** (`POST /api/v1/admin/auth/login`).
 
 ## API (prefix `/api/v1/admin`, staff token)
@@ -26,7 +26,9 @@ Branch employees can also change the driver in automatic mode.
 |---|---|
 | Driver | `GET dispatch/driver`, `PUT dispatch/driver/duty`, `POST dispatch/driver/location`, `GET dispatch/driver/jobs?scope=active\|history` |
 | Driver steps | `POST deliveries/{id}/accept\|pickup\|out-for-delivery\|deliver\|fail` (deliver takes a proof photo and the cash collected) |
-| Staff | `GET dispatch/overview`, `GET dispatch/queue?stage=new\|preparing\|ready\|out`, `GET dispatch/drivers`, `POST dispatch/fulfillments/{id}/assign` |
+| Staff | `GET dispatch/overview`, `GET dispatch/queue?stage=new\|preparing\|ready\|out`, `GET dispatch/drivers`, `GET dispatch/fleet`, `GET deliveries/{id}/route`, `POST dispatch/fulfillments/{id}/assign` |
 | Staff order steps | `POST fulfillments/{id}/transition` (`accepted`, `preparing`, `ready`) |
+
+Positions, the fleet map, customer tracking, route history and the map provider settings are specified in [MAPS.md](../guides/MAPS.md).
 
 Code: `app/Domain/Fulfillment/Services/DispatchService.php`, `app/Http/Controllers/Api/V1/Admin/DispatchController.php`, tests in `tests/Feature/Commerce/DispatchTest.php`.

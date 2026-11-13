@@ -4507,6 +4507,168 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Pin position. Move the map to change it.'**
   String get pinCenterSemantics;
+
+  /// No description provided for @liveOrderStatusPlaced.
+  ///
+  /// In en, this message translates to:
+  /// **'Your order has been placed'**
+  String get liveOrderStatusPlaced;
+
+  /// No description provided for @liveOrderStatusPreparing.
+  ///
+  /// In en, this message translates to:
+  /// **'We are preparing your order'**
+  String get liveOrderStatusPreparing;
+
+  /// No description provided for @liveOrderStatusOnTheWay.
+  ///
+  /// In en, this message translates to:
+  /// **'Your order is on the way'**
+  String get liveOrderStatusOnTheWay;
+
+  /// No description provided for @liveOrderStatusReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Your order is ready for pickup'**
+  String get liveOrderStatusReady;
+
+  /// No description provided for @liveOrderStatusDelivered.
+  ///
+  /// In en, this message translates to:
+  /// **'Your order has been delivered'**
+  String get liveOrderStatusDelivered;
+
+  /// No description provided for @liveOrderStatusCollected.
+  ///
+  /// In en, this message translates to:
+  /// **'Thanks for picking up your order'**
+  String get liveOrderStatusCollected;
+
+  /// No description provided for @liveOrderStatusCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Your order was cancelled'**
+  String get liveOrderStatusCancelled;
+
+  /// No description provided for @liveOrderStatusFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'We could not deliver your order'**
+  String get liveOrderStatusFailed;
+
+  /// No description provided for @liveOrderHeadlineNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Order #{number}'**
+  String liveOrderHeadlineNumber(String number);
+
+  /// No description provided for @liveOrderHeadlineDelivered.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivered at {time}'**
+  String liveOrderHeadlineDelivered(String time);
+
+  /// No description provided for @liveOrderHeadlineCollected.
+  ///
+  /// In en, this message translates to:
+  /// **'Collected at {time}'**
+  String liveOrderHeadlineCollected(String time);
+
+  /// No description provided for @liveOrderHeadlineCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Order cancelled'**
+  String get liveOrderHeadlineCancelled;
+
+  /// No description provided for @liveOrderHeadlineFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery failed'**
+  String get liveOrderHeadlineFailed;
+
+  /// No description provided for @liveOrderArrivesAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Arrives at {time}'**
+  String liveOrderArrivesAt(String time);
+
+  /// No description provided for @liveOrderArrivesBetween.
+  ///
+  /// In en, this message translates to:
+  /// **'Arrives at {start} – {end}'**
+  String liveOrderArrivesBetween(String start, String end);
+
+  /// No description provided for @liveOrderStagePlaced.
+  ///
+  /// In en, this message translates to:
+  /// **'Placed'**
+  String get liveOrderStagePlaced;
+
+  /// No description provided for @liveOrderStagePreparing.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing'**
+  String get liveOrderStagePreparing;
+
+  /// No description provided for @liveOrderStageOnTheWay.
+  ///
+  /// In en, this message translates to:
+  /// **'On the way'**
+  String get liveOrderStageOnTheWay;
+
+  /// No description provided for @liveOrderStageReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready'**
+  String get liveOrderStageReady;
+
+  /// No description provided for @liveOrderStageDelivered.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivered'**
+  String get liveOrderStageDelivered;
+
+  /// No description provided for @liveOrderStageCollected.
+  ///
+  /// In en, this message translates to:
+  /// **'Collected'**
+  String get liveOrderStageCollected;
+
+  /// No description provided for @liveOrderPermissionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow your order live'**
+  String get liveOrderPermissionTitle;
+
+  /// No description provided for @liveOrderPermissionBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on notifications to see your order status and arrival time right on your lock screen.'**
+  String get liveOrderPermissionBody;
+
+  /// No description provided for @liveOrderPermissionAllow.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow notifications'**
+  String get liveOrderPermissionAllow;
+
+  /// No description provided for @liveOrderPermissionLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get liveOrderPermissionLater;
+
+  /// No description provided for @liveOrderPermissionBlockedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are off'**
+  String get liveOrderPermissionBlockedTitle;
+
+  /// No description provided for @liveOrderPermissionBlockedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn them on in settings to follow your order live.'**
+  String get liveOrderPermissionBlockedBody;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

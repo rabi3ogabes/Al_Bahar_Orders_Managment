@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:albahar_customer/core/map/map_markers.dart';
 import 'package:albahar_customer/core/providers.dart';
+import 'package:albahar_customer/core/realtime/pusher_client.dart';
 import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:albahar_customer/l10n/generated/app_localizations.dart';
 import 'package:albahar_customer/ops/driver/driver_home.dart';
@@ -17,6 +19,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../helpers/fakes.dart' show testConfig;
+import '../helpers/map_fakes.dart';
 
 class _FakeOps implements OpsRepository {
   final calls = <String>[];
@@ -252,7 +255,12 @@ void main() {
       addTearDown(events.close);
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [opsRepositoryProvider.overrideWithValue(repo), appConfigProvider.overrideWithValue(testConfig)],
+          overrides: [
+            opsRepositoryProvider.overrideWithValue(repo),
+            appConfigProvider.overrideWithValue(testConfig),
+            staffConnectionProvider.overrideWith((ref) => const Stream<RealtimeState>.empty()),
+            ...mapTestOverrides(),
+          ],
           child: MaterialApp(
             locale: const Locale('en'),
             supportedLocales: const [Locale('en'), Locale('ar')],
@@ -273,7 +281,7 @@ void main() {
       expect(find.text('Omar'), findsWidgets);
       expect(find.textContaining('Order AB100008 · On the way'), findsOneWidget);
       expect(find.textContaining('No location yet'), findsOneWidget); // Salem has not shared a position
-      final pins = find.descendant(of: find.byType(MarkerLayer), matching: find.byIcon(Icons.two_wheeler_rounded));
+      final pins = find.descendant(of: find.byType(MarkerLayer), matching: find.byType(DriverMarkerView));
       expect(pins, findsOneWidget); // Omar is pinned; Salem is listed but has no position
 
       // A live position for Salem pins him without a refresh.

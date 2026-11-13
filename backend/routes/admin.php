@@ -3,6 +3,7 @@
 // Admin dashboard module routes (prefix /admin, name admin., middleware auth + staff).
 
 use App\Http\Controllers\Admin\DocumentController;
+use App\Http\Controllers\Admin\PushDeviceController;
 use App\Http\Controllers\Api\V1\Admin\DeliveryRouteController;
 use App\Livewire\Admin;
 use Illuminate\Support\Facades\Route;
@@ -19,6 +20,8 @@ Route::get('roles', Admin\Organization\RoleIndex::class)->middleware('permission
 Route::get('roles/create', Admin\Organization\RoleEditor::class)->middleware('permission:roles.create')->name('roles.create');
 Route::get('roles/{role}', Admin\Organization\RoleEditor::class)->middleware('permission:roles.view')->name('roles.edit');
 Route::get('settings', Admin\Organization\SettingsIndex::class)->middleware('permission:settings.view')->name('settings.index');
+Route::get('push', Admin\Organization\PushNotificationsPage::class)->middleware('permission:settings.view')->name('push.index');
+Route::post('push/devices', [PushDeviceController::class, 'store'])->middleware(['permission:settings.view', 'throttle:20,1,push-devices'])->name('push.devices.store');
 
 // ── Insights ──────────────────────────────────────────────────────────────────
 Route::get('audit', Admin\Organization\AuditIndex::class)->middleware('permission:audit.view')->name('audit.index');

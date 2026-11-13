@@ -24,7 +24,7 @@ class OsrmEta implements EtaEstimator
         }
         $path = sprintf('%s/route/v1/driving/%s,%s;%s,%s', $base, $this->n($fromLng), $this->n($fromLat), $this->n($toLng), $this->n($toLat));
         try {
-            $response = Http::timeout((int) config('platform.tracking.eta_timeout_seconds', 3))->connectTimeout(2)->acceptJson()
+            $response = Http::timeout((int) config('platform.tracking.eta_timeout_seconds', 3))->connectTimeout(2)->withoutRedirecting()->acceptJson()
                 ->get($path, ['overview' => 'false', 'alternatives' => 'false', 'steps' => 'false']);
             $route = $response->json('routes.0');
             if ($response->successful() && $response->json('code') === 'Ok' && is_array($route) && is_numeric($route['duration'] ?? null) && is_numeric($route['distance'] ?? null)) {

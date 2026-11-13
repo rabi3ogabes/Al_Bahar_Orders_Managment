@@ -52,12 +52,7 @@ List<FleetEntry> classifyFleet(
         return FleetEntry(driver: d, fix: fix, activity: activity);
       }(),
   ];
-  const order = {
-    DriverActivity.moving: 0,
-    DriverActivity.idle: 1,
-    DriverActivity.stale: 2,
-    DriverActivity.noSignal: 3,
-  };
+  const order = {DriverActivity.moving: 0, DriverActivity.idle: 1, DriverActivity.stale: 2, DriverActivity.noSignal: 3};
   out.sort((a, b) {
     final c = order[a.activity]!.compareTo(order[b.activity]!);
     return c != 0 ? c : a.driver.name.toLowerCase().compareTo(b.driver.name.toLowerCase());

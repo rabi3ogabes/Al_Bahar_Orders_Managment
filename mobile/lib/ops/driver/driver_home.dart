@@ -10,6 +10,7 @@ import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/auctions/data/auction_repository.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
+import 'package:albahar_customer/ops/driver/driver_job_map.dart';
 import 'package:albahar_customer/ops/driver/driver_tracker.dart';
 import 'package:albahar_customer/ops/ops_app.dart';
 import 'package:albahar_customer/ops/ops_input.dart';
@@ -35,7 +36,11 @@ final driverJobsProvider = FutureProvider.autoDispose.family<List<DriverJob>, bo
 );
 
 /// Builds the location tracker (replaced in tests so no GPS or network is touched).
-final driverTrackerProvider = Provider<DriverTracker>((ref) => DriverTracker(ref.watch(opsRepositoryProvider)));
+final driverTrackerProvider = Provider<DriverTracker>((ref) {
+  final tracker = DriverTracker(ref.watch(opsRepositoryProvider));
+  ref.onDispose(() => unawaited(tracker.dispose()));
+  return tracker;
+});
 
 /// Driver app home: duty switch, my deliveries and history. Jobs arrive here on their own (auto dispatch) or when a
 /// branch employee assigns them.
@@ -92,6 +97,7 @@ class _DriverHomeState extends ConsumerState<DriverHome> with OpsPolling {
     await _tracker.start(
       title: t.trackingTitle,
       body: t.trackingBody,
+      channelName: t.trackingChannel,
       onError: (_) {
         // The location stream broke (permission taken away or GPS off): say so instead of silently going dark.
         unawaited(_tracker.stop());
@@ -275,9 +281,12 @@ class _JobList extends ConsumerWidget {
 }
 
 class _JobCard extends ConsumerStatefulWidget {
-  const _JobCard({super.key, required this.job, required this.readOnly});
+  const _JobCard({super.key, required this.job, required this.readOnly, this.embedded = false});
   final DriverJob job;
   final bool readOnly;
+
+  /// Shown inside the delivery map: the map and Navigate buttons are the screen's own, so the card leaves them out.
+  final bool embedded;
 
   @override
   ConsumerState<_JobCard> createState() => _JobCardState();
@@ -384,6 +393,17 @@ class _JobCardState extends ConsumerState<_JobCard> {
     return ok ?? false;
   }
 
+  void _openMap() {
+    final tracker = ref.read(driverTrackerProvider);
+    unawaited(
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => _JobMapRoute(job: widget.job, tracker: tracker),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = OpsStrings.of(context);
@@ -420,6 +440,8 @@ class _JobCardState extends ConsumerState<_JobCard> {
               Icon(Icons.place_outlined, size: 18, color: context.palette.muted),
               const Gap(AppSpace.xxs),
               Expanded(child: Text(t.address(job.address), style: context.text.bodyMedium)),
+              if (!widget.readOnly && !widget.embedded)
+                IconButton(tooltip: t.jobMap, icon: const Icon(Icons.map_outlined), onPressed: _openMap),
             ],
           ),
           if (job.address.notes != null)
@@ -458,15 +480,17 @@ class _JobCardState extends ConsumerState<_JobCard> {
                     label: Text(t.call, maxLines: 1, overflow: TextOverflow.ellipsis),
                   ),
                 ),
-                const Gap(AppSpace.xs),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () =>
-                        openMaps(context, lat: job.address.lat, lng: job.address.lng, query: job.address.line),
-                    icon: const Icon(Icons.navigation_rounded, size: 18),
-                    label: Text(t.navigate, maxLines: 1, overflow: TextOverflow.ellipsis),
+                if (!widget.embedded) ...[
+                  const Gap(AppSpace.xs),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () =>
+                          openMaps(context, lat: job.address.lat, lng: job.address.lng, query: job.address.line),
+                      icon: const Icon(Icons.navigation_rounded, size: 18),
+                      label: Text(t.navigate, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
             if (label != null) ...[
@@ -510,6 +534,34 @@ class _JobCardState extends ConsumerState<_JobCard> {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// The delivery map route: keeps the job fresh from the job list (a step taken on this screen moves the card on) and
+/// closes itself when the delivery has left the active list (delivered, reassigned or cancelled).
+class _JobMapRoute extends ConsumerWidget {
+  const _JobMapRoute({required this.job, required this.tracker});
+  final DriverJob job;
+  final DriverTracker tracker;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final jobs = ref.watch(driverJobsProvider(false));
+    final live = jobs.value?.where((j) => j.id == job.id).firstOrNull;
+    if (jobs.hasValue && live == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) unawaited(Navigator.of(context).maybePop());
+      });
+    }
+    final current = live ?? job;
+    return DriverJobMapScreen(
+      job: current,
+      fixes: tracker.fixes,
+      initialFix: tracker.lastFix,
+      onNavigate: () =>
+          unawaited(openMaps(context, lat: current.address.lat, lng: current.address.lng, query: current.address.line)),
+      card: _JobCard(key: ValueKey('map-${current.id}'), job: current, readOnly: false, embedded: true),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:albahar_customer/core/l10n/l10n.dart';
+import 'package:albahar_customer/core/live_order/live_order_controller.dart';
 import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/push/push_service.dart';
 import 'package:albahar_customer/core/router/app_footer.dart';
@@ -77,6 +78,7 @@ class _AlBaharAppState extends ConsumerState<AlBaharApp> with WidgetsBindingObse
       unawaited(ref.read(unreadCountProvider.notifier).refresh());
       ref.read(pusherClientProvider).reconnectNow();
       unawaited(ref.read(brandThemeProvider.notifier).refresh());
+      ref.read(liveOrderControllerProvider).onResumed();
     }
   }
 
@@ -95,6 +97,8 @@ class _AlBaharAppState extends ConsumerState<AlBaharApp> with WidgetsBindingObse
     final themeMode = ref.watch(themeModeProvider);
     final config = ref.watch(appConfigProvider);
     final brand = ref.watch(brandThemeProvider);
+    // The live order notification follows sign-in, the realtime channel, the network and the language.
+    ref.watch(liveOrderBootProvider);
 
     // Register push on sign-in; surface session expiry.
     ref.listen(sessionControllerProvider, (prev, next) {

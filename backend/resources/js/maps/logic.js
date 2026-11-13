@@ -181,8 +181,10 @@ export function normaliseMove(raw, { now = Date.now() } = {}) {
         speed: num(raw.speed_kmh ?? raw.speed),
         accuracy: num(raw.accuracy_m ?? raw.accuracy),
         fixMs: toMs(raw.at) ?? now,
-        seenAt: now,
+        seenAt: now - Math.max(0, (num(raw.age_seconds) ?? 0) * 1000),
+        vehicle: raw.vehicle ? String(raw.vehicle).slice(0, 60) : null,
         orderId: raw.order_id ?? null,
+        orderNumber: raw.order_number ? String(raw.order_number) : null,
         deliveryStatus: raw.delivery_status ? String(raw.delivery_status) : null,
     };
 }
@@ -209,11 +211,17 @@ export function applyMove(prev, move) {
     const hasMoved = moved(prev, move);
     const heading = move.heading ?? (hasMoved ? bearing(prev, move) : prev.heading);
     const job = prev.job || move.deliveryStatus || move.orderId
-        ? { ...(prev.job ?? { deliveryId: null, orderId: null, orderNumber: null, status: null, destination: null, etaMinutes: null, etaAt: null }), status: move.deliveryStatus ?? prev.job?.status ?? null, orderId: move.orderId ?? prev.job?.orderId ?? null }
+        ? {
+            ...(prev.job ?? { deliveryId: null, orderId: null, orderNumber: null, status: null, destination: null, etaMinutes: null, etaAt: null }),
+            status: move.deliveryStatus ?? prev.job?.status ?? null,
+            orderId: move.orderId ?? prev.job?.orderId ?? null,
+            orderNumber: move.orderNumber ?? prev.job?.orderNumber ?? null,
+        }
         : prev.job;
     return {
         ...prev,
         name: prev.name || move.name || '',
+        vehicle: move.vehicle ?? prev.vehicle,
         lat: move.lat,
         lng: move.lng,
         heading,
@@ -425,6 +433,22 @@ export function detectStops(points, { radiusM = 35, minMs = 120_000 } = {}) {
         }
     }
     return stops;
+}
+
+/** Stops from the server ({lat, lng, from, to, duration_s}, times as ISO strings) in the shape detectStops() returns. */
+export function normaliseStops(raw) {
+    if (!Array.isArray(raw)) return [];
+    const out = [];
+    for (const s of raw) {
+        const lat = num(s?.lat);
+        const lng = num(s?.lng);
+        const to = toMs(s?.to);
+        const secs = num(s?.duration_s);
+        const from = toMs(s?.from) ?? (to !== null && secs !== null ? to - secs * 1000 : null);
+        if (!validPoint(lat, lng) || from === null || to === null || to <= from) continue;
+        out.push({ lat, lng, from, to, ms: to - from });
+    }
+    return out;
 }
 
 /** Reads a route payload ([{lat, lng, at|t, speed}], oldest first) into timed points; unusable points are dropped. */

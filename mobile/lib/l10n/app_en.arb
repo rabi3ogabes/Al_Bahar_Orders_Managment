@@ -1978,5 +1978,92 @@
   "pinInvalid": "Choose a valid spot on the map.",
   "@pinInvalid": {},
   "pinCenterSemantics": "Pin position. Move the map to change it.",
-  "@pinCenterSemantics": {}
+  "@pinCenterSemantics": {},
+  "liveOrderStatusPlaced": "Your order has been placed",
+  "@liveOrderStatusPlaced": {},
+  "liveOrderStatusPreparing": "We are preparing your order",
+  "@liveOrderStatusPreparing": {},
+  "liveOrderStatusOnTheWay": "Your order is on the way",
+  "@liveOrderStatusOnTheWay": {},
+  "liveOrderStatusReady": "Your order is ready for pickup",
+  "@liveOrderStatusReady": {},
+  "liveOrderStatusDelivered": "Your order has been delivered",
+  "@liveOrderStatusDelivered": {},
+  "liveOrderStatusCollected": "Thanks for picking up your order",
+  "@liveOrderStatusCollected": {},
+  "liveOrderStatusCancelled": "Your order was cancelled",
+  "@liveOrderStatusCancelled": {},
+  "liveOrderStatusFailed": "We could not deliver your order",
+  "@liveOrderStatusFailed": {},
+  "liveOrderHeadlineNumber": "Order #{number}",
+  "@liveOrderHeadlineNumber": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "liveOrderHeadlineDelivered": "Delivered at {time}",
+  "@liveOrderHeadlineDelivered": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "liveOrderHeadlineCollected": "Collected at {time}",
+  "@liveOrderHeadlineCollected": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "liveOrderHeadlineCancelled": "Order cancelled",
+  "@liveOrderHeadlineCancelled": {},
+  "liveOrderHeadlineFailed": "Delivery failed",
+  "@liveOrderHeadlineFailed": {},
+  "liveOrderArrivesAt": "Arrives at {time}",
+  "@liveOrderArrivesAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "liveOrderArrivesBetween": "Arrives at {start} – {end}",
+  "@liveOrderArrivesBetween": {
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
+  "liveOrderStagePlaced": "Placed",
+  "@liveOrderStagePlaced": {},
+  "liveOrderStagePreparing": "Preparing",
+  "@liveOrderStagePreparing": {},
+  "liveOrderStageOnTheWay": "On the way",
+  "@liveOrderStageOnTheWay": {},
+  "liveOrderStageReady": "Ready",
+  "@liveOrderStageReady": {},
+  "liveOrderStageDelivered": "Delivered",
+  "@liveOrderStageDelivered": {},
+  "liveOrderStageCollected": "Collected",
+  "@liveOrderStageCollected": {},
+  "liveOrderPermissionTitle": "Follow your order live",
+  "@liveOrderPermissionTitle": {},
+  "liveOrderPermissionBody": "Turn on notifications to see your order status and arrival time right on your lock screen.",
+  "@liveOrderPermissionBody": {},
+  "liveOrderPermissionAllow": "Allow notifications",
+  "@liveOrderPermissionAllow": {},
+  "liveOrderPermissionLater": "Not now",
+  "@liveOrderPermissionLater": {},
+  "liveOrderPermissionBlockedTitle": "Notifications are off",
+  "@liveOrderPermissionBlockedTitle": {},
+  "liveOrderPermissionBlockedBody": "Turn them on in settings to follow your order live.",
+  "@liveOrderPermissionBlockedBody": {}
 }

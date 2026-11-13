@@ -122,7 +122,7 @@ Route::controller(V1\Admin\DispatchController::class)->prefix('dispatch')->name(
 
 // Push token of the staff / driver apps (same handler as the customer's /me/devices).
 Route::controller(V1\Customer\ProfileController::class)->prefix('devices')->name('devices.')->group(function () {
-    Route::post('/', 'registerDevice')->name('store');
+    Route::post('/', 'registerDevice')->middleware('throttle:20,1,devices')->name('store');
     Route::delete('/', 'unregisterDevice')->name('destroy');
 });
 

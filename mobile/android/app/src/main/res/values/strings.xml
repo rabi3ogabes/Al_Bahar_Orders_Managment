@@ -2,4 +2,40 @@
 <resources>
     <string name="app_name">Al Bahar</string>
     <string name="default_notification_channel_id">albahar_default</string>
+
+    <!-- Live order notification (qa.albahar.customer.liveorder). Mirrors the Dart strings in lib/l10n/app_*.arb. -->
+    <string name="live_order_channel_name">Live order tracking</string>
+    <string name="live_order_channel_description">Status and arrival time of your order, updated in real time</string>
+    <string name="live_order_headline_number">Order #%1$s</string>
+    <string name="live_order_status_placed">Your order has been placed</string>
+    <string name="live_order_status_preparing">We are preparing your order</string>
+    <string name="live_order_status_on_the_way">Your order is on the way</string>
+    <string name="live_order_status_ready">Your order is ready for pickup</string>
+    <string name="live_order_status_delivered">Your order has been delivered</string>
+    <string name="live_order_status_collected">Thanks for picking up your order</string>
+    <string name="live_order_status_cancelled">Your order was cancelled</string>
+    <string name="live_order_status_failed">We could not deliver your order</string>
+    <string name="live_order_headline_delivered">Delivered at %1$s</string>
+    <string name="live_order_headline_collected">Collected at %1$s</string>
+    <string name="live_order_headline_cancelled">Order cancelled</string>
+    <string name="live_order_headline_failed">Delivery failed</string>
+    <string name="live_order_arrives_at">Arrives at %1$s</string>
+    <string name="live_order_arrives_between">Arrives at %1$s – %2$s</string>
+    <string name="live_order_stage_placed">Placed</string>
+    <string name="live_order_stage_preparing">Preparing</string>
+    <string name="live_order_stage_on_the_way">On the way</string>
+    <string name="live_order_stage_delivered">Delivered</string>
+    <string name="live_order_stage_ready">Ready</string>
+    <string name="live_order_stage_collected">Collected</string>
+    <string name="live_order_progress_description">Order progress: %1$s, step %2$d of %3$d</string>
+    <string name="live_order_progress_description_stopped">Order stopped: %1$s</string>
+    <string name="live_order_driver">Driver: %1$s</string>
+    <string name="live_order_driver_vehicle">Driver: %1$s · %2$s</string>
+    <string name="live_order_action_track">Track order</string>
+    <string name="live_order_action_view">View order</string>
+    <string name="live_order_action_call_driver">Call driver</string>
+    <plurals name="live_order_group_summary">
+        <item quantity="one">%d order in progress</item>
+        <item quantity="other">%d orders in progress</item>
+    </plurals>
 </resources>

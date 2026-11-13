@@ -310,6 +310,8 @@ void main() {
       await pumpMap(tester, repo, events.stream);
       events.add({'driver_id': 'u1', 'lat': 25.4, 'lng': 51.6});
       await tester.pump();
+      // The pin glides to the new spot over about a second instead of jumping.
+      await tester.pump(const Duration(seconds: 2));
       LatLng pin() => tester.widget<MarkerLayer>(find.byType(MarkerLayer)).markers.single.point;
       expect(pin().latitude, 25.4);
 
@@ -321,6 +323,7 @@ void main() {
       container.invalidate(staffFleetProvider);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(seconds: 2));
       expect(pin().latitude, 25.31);
     });
 

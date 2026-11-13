@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api\V1\Auth;
 
 use App\Domain\Identity\Enums\OtpPurpose;
 use App\Domain\Identity\Models\User;
+use App\Domain\Identity\Models\UserDevice;
 use App\Domain\Identity\Services\AuthService;
+use App\Domain\Identity\Services\DeviceRegistry;
 use App\Domain\Identity\Services\OtpService;
 use App\Domain\Identity\Services\TokenService;
 use App\Http\Controllers\Api\V1\ApiController;
@@ -97,8 +99,13 @@ class AuthController extends ApiController
         return response()->json(['data' => ['tokens' => $this->tokens->refresh($request->string('refresh_token'), $request->ip(), $request->userAgent())]]);
     }
 
-    public function logout(Request $request): JsonResponse
+    /** Signs out this session. A client may also send its push token so this phone or browser stops getting notifications at once. */
+    public function logout(Request $request, DeviceRegistry $devices): JsonResponse
     {
+        $request->validate(['push_token' => ['nullable', 'string', 'max:512']]);
+        if (is_string($request->input('push_token')) && $request->input('push_token') !== '') {
+            $devices->disable($request->user(), $request->input('push_token'));
+        }
         $this->tokens->revokeByAccessToken($request->user()->currentAccessToken());
 
         return response()->json(['data' => ['logged_out' => true], 'message' => __('auth.logged_out')]);
@@ -106,6 +113,7 @@ class AuthController extends ApiController
 
     public function logoutAll(Request $request): JsonResponse
     {
+        UserDevice::where('user_id', $request->user()->id)->whereNull('disabled_at')->update(['disabled_at' => now()]); // signed out everywhere → no more pushes anywhere
         $this->tokens->revokeAll($request->user());
 
         return response()->json(['data' => ['logged_out' => true], 'message' => __('auth.logged_out')]);

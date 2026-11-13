@@ -1,8 +1,9 @@
-<div>
+<div class="pb-20">
     <x-admin.page-header :title="__('nav.fleet')" :eyebrow="__('nav.sales')" :description="__('fleet.hint')" />
 
-    <section class="card overflow-hidden"
-             x-data="fleetMap(@js($boot), @js(['channels' => $liveChannels, 'text' => $liveText, 'orderUrl' => route('admin.orders.show', '__ID__')]))">
+    {{-- x-data is static on purpose: its value would change on every render, and Livewire would then rebuild the component (and the map). The start-up data
+         rides on the wire:ignore element below, which Livewire never touches; later data arrives through the "fleet-updated" event. --}}
+    <section class="card overflow-hidden" x-data="fleetMap">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-sand-200 px-4 py-3 dark:border-ink-800">
             <select wire:model.live="branch" class="input max-w-56" aria-label="{{ __('fleet.all_branches') }}">
                 <option value="">{{ __('fleet.all_branches') }}</option>
@@ -10,16 +11,18 @@
             </select>
         </div>
         {{-- The map owns everything inside this element (wire:ignore): Livewire never morphs it, and the kit replaces any earlier map on it. --}}
-        <div wire:ignore x-ref="map" class="h-[72dvh] min-h-[480px] w-full bg-sand-100 lg:h-[calc(100dvh-17rem)] dark:bg-ink-800"></div>
+        <div wire:ignore x-ref="map" data-boot="{{ json_encode(['fleet' => $boot, 'live' => ['channels' => $liveChannels, 'text' => $liveText, 'orderUrl' => route('admin.orders.show', '__ID__')]]) }}" class="h-[72dvh] min-h-[480px] w-full bg-sand-100 lg:h-[calc(100dvh-20rem)] dark:bg-ink-800"></div>
     </section>
 </div>
 
 @script
 <script>
-    Alpine.data('fleetMap', (boot, liveOrders) => ({
-        mount: null, toasts: null,
+    Alpine.data('fleetMap', () => ({
+        mount: null, toasts: null, liveOrders: { channels: [], text: {}, orderUrl: '' },
         async init() {
-            this.mount = await window.mountFleet(this.$refs.map, boot, $wire);
+            const { fleet, live } = JSON.parse(this.$refs.map.dataset.boot);
+            this.liveOrders = live;
+            this.mount = await window.mountFleet(this.$refs.map, fleet, $wire);
             this.startLiveToasts();
         },
         destroy() {
@@ -30,6 +33,7 @@
         },
         /** New orders and status changes from the staff live-orders channels, shown as toasts (de-duplicated across channels). */
         async startLiveToasts() {
+            const liveOrders = this.liveOrders;
             const e = window.echo && window.echo();
             if (!e || !liveOrders.channels.length) return;
             const { createLiveToasts } = await window.loadLiveToasts();

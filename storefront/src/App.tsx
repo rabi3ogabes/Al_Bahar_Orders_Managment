@@ -11,6 +11,7 @@ import { BrandProvider } from './lib/brand';
 import { ToastProvider } from './lib/toast';
 import { WishlistProvider } from './lib/wishlist';
 import { LiveOrders } from './lib/realtime';
+import { WebPush } from './lib/webpush';
 import { AuthModalProvider, captureReferral, useAuthModal } from './components/AuthModal';
 import { Layout } from './components/Layout';
 import { Spinner } from './components/ui';
@@ -60,6 +61,7 @@ export default function App() {
                   <CartProvider>
                     <Wishes>
                       <LiveOrders />
+                      <WebPush />
                       <BrowserRouter>
                         <Suspense fallback={Fallback}>
                           <Routes>

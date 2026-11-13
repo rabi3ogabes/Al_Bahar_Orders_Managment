@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { api, get, getTokens, onAuthChange, post, setTokens, patch } from './api';
+import { api, get, getTokens, onAuthChange, post, runBeforeLogout, setTokens, patch } from './api';
 import type { AuthResult, User } from './types';
 
 interface Auth {
@@ -56,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await finish({ user: res.user!, tokens: res.tokens });
     },
     logout: async () => {
+      await runBeforeLogout();
       try { await api('/auth/logout', { method: 'POST', body: {} }); } catch { /* token may already be gone */ }
       setTokens(null);
     },

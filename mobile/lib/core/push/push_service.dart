@@ -42,8 +42,9 @@ abstract class PushMessaging {
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Notification messages are displayed by the OS; data handling happens
   // when the user taps (onMessageOpenedApp / getInitialMessage).
-  // Order progress arrives data-only: draw it here so it updates with the app closed.
-  if (!isOrderProgress(message.data)) return;
+  // Order progress arrives data-only. On Android the Kotlin LiveOrderFcmReceiver draws it (this isolate cannot reach the
+  // native renderer's method channel, and a second card on top of the native one would be wrong).
+  if (!isOrderProgress(message.data) || defaultTargetPlatform == TargetPlatform.android) return;
   final plugin = FlutterLocalNotificationsPlugin();
   await plugin.initialize(
     settings: const InitializationSettings(android: AndroidInitializationSettings('ic_stat_notify')),
@@ -208,8 +209,12 @@ class PushService {
     required this.api,
     required this.prefs,
     required this.enabled,
-    this.devicesPath = '/me/devices',
+    this.devicesPath = customerDevicesPath,
+    this.askPermissionOnRegister = true,
   });
+
+  /// Where the customer app registers its push token.
+  static const customerDevicesPath = '/me/devices';
 
   final PushMessaging messaging;
   final LocalNotifier local;
@@ -219,6 +224,14 @@ class PushService {
 
   /// Where the push token is registered: `/me/devices` (customers) or `/admin/devices` (driver and staff apps).
   final String devicesPath;
+
+  /// Whether [register] shows the system notification dialog on Android. The customer app turns it off: it asks in
+  /// context, with a rationale, when the first order is placed (see core/live_order/notification_permission.dart).
+  final bool askPermissionOnRegister;
+
+  /// Receives `order_progress` pushes that reach the app while it is open (the live order notification); without it
+  /// they are drawn as a plain progress notification.
+  void Function(Map<String, dynamic> data)? onOrderProgress;
 
   /// Navigation callback, set by the app once the router exists.
   void Function(String location)? onNavigate;
@@ -257,8 +270,11 @@ class PushService {
   Future<void> register() async {
     await start();
     if (!_available) return;
-    final granted = await messaging.requestPermission();
-    if (!granted) return;
+    // A token can be registered without the permission; data messages then arrive and show once it is granted.
+    if (askPermissionOnRegister || platformCode() != 'android') {
+      final granted = await messaging.requestPermission();
+      if (!granted) return;
+    }
     final token = await messaging.getToken();
     if (token != null) await _send(token);
     await _tokenRefreshSub?.cancel();
@@ -295,7 +311,12 @@ class PushService {
 
   void _handleForeground(PushMessage message) {
     if (isOrderProgress(message.data)) {
-      unawaited(local.showProgress(message.data));
+      final handler = onOrderProgress;
+      if (handler != null) {
+        handler(message.data);
+      } else {
+        unawaited(local.showProgress(message.data));
+      }
       return;
     }
     final category = notificationCategory(message.data['event']?.toString());
@@ -359,6 +380,7 @@ final pushServiceProvider = Provider<PushService>((ref) {
     prefs: ref.watch(appPreferencesProvider),
     enabled: ref.watch(appConfigProvider).pushEnabled,
     devicesPath: ref.watch(pushDevicesPathProvider),
+    askPermissionOnRegister: ref.watch(pushDevicesPathProvider) != PushService.customerDevicesPath,
   );
   ref.onDispose(service.dispose);
   return service;

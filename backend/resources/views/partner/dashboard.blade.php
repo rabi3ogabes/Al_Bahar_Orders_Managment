@@ -27,22 +27,33 @@
 
     <section id="kpis" class="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6" aria-live="polite"></section>
 
-    <div class="grid gap-5 2xl:grid-cols-[1fr_380px]">
-        <section class="min-w-0">
-            <div id="orders" class="min-w-0"></div>
-        </section>
-        <aside class="space-y-5">
-            <section class="card overflow-hidden">
-                <div class="flex items-center justify-between border-b border-sand-200 px-4 py-3 dark:border-ink-700">
-                    <h2 class="font-display text-lg font-semibold" data-i18n="drivers_live">Drivers, live</h2>
-                    <span id="fleet-count" class="text-xs text-ink-500"></span>
+    {{-- Live drivers and the route replay: one map, two modes. The map kit (Leaflet) loads only when this card is first shown. --}}
+    <section id="map-card" class="card mb-5 overflow-hidden" aria-labelledby="map-title">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-sand-200 px-4 py-2.5 dark:border-ink-700">
+            <h2 id="map-title" class="font-display text-lg font-semibold" data-i18n="drivers_live">Drivers, live</h2>
+            <span id="fleet-count" class="text-xs text-ink-500"></span>
+            <div class="ms-auto flex items-center gap-2">
+                <div class="flex overflow-hidden rounded-xl border border-sand-300 dark:border-ink-600" role="group" data-i18n-label="map_view" aria-label="Map view">
+                    <button id="m-live" type="button" class="h-11 px-3.5 text-sm" aria-pressed="true" data-i18n="map_live">Live</button>
+                    <button id="m-history" type="button" class="h-11 px-3.5 text-sm" aria-pressed="false" data-i18n="map_history">History</button>
                 </div>
-                <div id="fleet-map" class="h-72 w-full bg-sand-100 dark:bg-ink-800" role="application" aria-label="Live driver map"></div>
-                <ul id="fleet-list" class="divide-y divide-sand-100 dark:divide-ink-700"></ul>
-            </section>
-        </aside>
-    </div>
+                <button id="map-toggle" type="button" class="btn-ghost h-11 w-11 !p-0" aria-expanded="true" aria-controls="map-body" data-i18n-label="map_toggle" aria-label="Show or hide the map">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="transition-transform"><path d="M6 15l6-6 6 6"/></svg>
+                </button>
+            </div>
+        </div>
+        <div id="map-body">
+            <div id="map-host" class="h-[min(78dvh,640px)] min-h-[460px] w-full bg-sand-100 dark:bg-ink-800"></div>
+        </div>
+    </section>
+
+    <section class="min-w-0">
+        <div id="orders" class="min-w-0"></div>
+    </section>
 </div>
+
+<script type="application/json" id="map-config">@json($mapConfig)</script>
+<script type="application/json" id="map-branches">@json($branchPins)</script>
 
 <div id="scrim" class="fixed inset-0 z-30 hidden bg-black/40"></div>
 <aside id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title" tabindex="-1"
