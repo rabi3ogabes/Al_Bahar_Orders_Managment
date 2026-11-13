@@ -249,6 +249,7 @@ class ProductDetail {
     required this.defaultVariantId,
     required this.availability,
     required this.related,
+    this.upsell = const [],
     required this.shareUrl,
     this.deliveryAvailable,
     this.pickupAvailable,
@@ -279,6 +280,7 @@ class ProductDetail {
           ? PurchaseAvailability.fromJson(asMap(json['availability']))
           : const PurchaseAvailability(purchasable: true),
       related: mapList(json['related'], ProductSummary.fromJson),
+      upsell: mapList(json['upsell'], ProductSummary.fromJson),
       shareUrl: asStringOrNull(json['share_url']),
       // Optional fulfilment hints (see API_ASSUMPTIONS.md); null = unknown.
       deliveryAvailable: asBoolOrNull(asMapOrNull(json['fulfillment'])?['delivery']),
@@ -305,6 +307,9 @@ class ProductDetail {
   final String? defaultVariantId;
   final PurchaseAvailability availability;
   final List<ProductSummary> related;
+
+  /// Admin-chosen "complete the set" products (published, in stock at the shopper's branch).
+  final List<ProductSummary> upsell;
   final String? shareUrl;
   final bool? deliveryAvailable;
   final bool? pickupAvailable;

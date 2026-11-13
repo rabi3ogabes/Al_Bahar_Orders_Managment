@@ -24,6 +24,7 @@ import 'package:albahar_customer/features/catalog/presentation/product_list_scre
 import 'package:albahar_customer/features/catalog/presentation/state/catalog_providers.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/catalog_widgets.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/review_widgets.dart';
+import 'package:albahar_customer/features/catalog/presentation/widgets/upsell_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -207,6 +208,14 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               ),
             ),
           ),
+          if (product.upsell.isNotEmpty)
+            SliverToBoxAdapter(
+              child: UpsellSection(
+                title: l10n.completeYourSet,
+                products: product.upsell,
+                scope: 'upsell-${product.id}',
+              ),
+            ),
           if (product.related.isNotEmpty) ...[
             SliverToBoxAdapter(child: SectionHeader(title: l10n.relatedProducts)),
             SliverToBoxAdapter(

@@ -608,6 +608,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get relatedProducts => 'You may also like';
 
   @override
+  String get completeYourSet => 'Complete your set';
+
+  @override
+  String get youMayAlsoNeed => 'You may also need';
+
+  @override
   String get availability => 'Availability';
 
   @override

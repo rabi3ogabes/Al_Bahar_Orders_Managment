@@ -181,6 +181,8 @@
   "writeReview": "اكتب تقييمًا",
   "noReviews": "كن أول من يشارك رأيه.",
   "relatedProducts": "قد يعجبك أيضًا",
+  "completeYourSet": "أكمل طقمك",
+  "youMayAlsoNeed": "قد تحتاج أيضًا",
   "availability": "التوفّر",
   "availableAt": "متوفر في {branch}",
   "notInBranch": "غير متاح في {branch}",

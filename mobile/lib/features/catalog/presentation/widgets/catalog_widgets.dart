@@ -73,9 +73,12 @@ class ProductTile extends StatelessWidget {
 
 /// Horizontal carousel of product cards.
 class ProductCarousel extends StatelessWidget {
-  const ProductCarousel({super.key, required this.products, required this.scope});
+  const ProductCarousel({super.key, required this.products, required this.scope, this.padding});
   final List<ProductSummary> products;
   final String scope;
+
+  /// Edge padding of the row (defaults to the page gutter).
+  final EdgeInsetsGeometry? padding;
 
   @override
   Widget build(BuildContext context) {
@@ -88,7 +91,7 @@ class ProductCarousel extends StatelessWidget {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         clipBehavior: Clip.none,
-        padding: const EdgeInsetsDirectional.fromSTEB(AppSpace.gutter, 4, AppSpace.gutter, 24),
+        padding: padding ?? const EdgeInsetsDirectional.fromSTEB(AppSpace.gutter, 4, AppSpace.gutter, 24),
         itemCount: products.length,
         separatorBuilder: (_, _) => const Gap(AppSpace.md),
         itemBuilder: (_, i) => ProductTile(product: products[i], heroScope: scope, width: cardWidth),
@@ -99,7 +102,10 @@ class ProductCarousel extends StatelessWidget {
 
 /// Loading row for carousels.
 class ProductCarouselSkeleton extends StatelessWidget {
-  const ProductCarouselSkeleton({super.key});
+  const ProductCarouselSkeleton({super.key, this.flush = false});
+
+  /// No page gutter, for rows inside an already padded list.
+  final bool flush;
 
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -107,7 +113,9 @@ class ProductCarouselSkeleton extends StatelessWidget {
     child: ListView.separated(
       scrollDirection: Axis.horizontal,
       physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsetsDirectional.fromSTEB(AppSpace.gutter, 4, AppSpace.gutter, 24),
+      padding: flush
+          ? const EdgeInsetsDirectional.fromSTEB(0, 4, 0, 16)
+          : const EdgeInsetsDirectional.fromSTEB(AppSpace.gutter, 4, AppSpace.gutter, 24),
       itemCount: 4,
       separatorBuilder: (_, _) => const Gap(AppSpace.md),
       itemBuilder: (_, _) => const SizedBox(width: 164, child: ProductCardSkeleton()),

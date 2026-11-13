@@ -107,6 +107,7 @@ it('redeems loyalty points within the cap, earns on completion and reverses on c
 });
 
 it('rewards referrals only after the referee completes a first order, and blocks self/shared-device referrals', function () {
+    app(\App\Domain\Settings\Services\Settings::class)->set('referrals.enabled', true);
     $referrer = User::factory()->create(['referral_code' => 'ABREFER1']);
     $svc = app(ReferralService::class);
     expect($svc->attach($referrer, 'ABREFER1'))->toBeNull(); // self
@@ -114,6 +115,7 @@ it('rewards referrals only after the referee completes a first order, and blocks
     expect($ref->status)->toBe('pending');
 
     $order = Order::find(quoteAndPlace($this->opts)->json('data.order.id'));
+    $order->forceFill(['status' => 'completed'])->save();
     $svc->qualify($order);
     expect($ref->fresh()->status)->toBe('rewarded')
         ->and(app(LoyaltyService::class)->account($referrer)->fresh()->balance)->toBe(500)

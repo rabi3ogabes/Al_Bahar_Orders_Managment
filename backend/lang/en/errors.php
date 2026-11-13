@@ -85,6 +85,8 @@ return [
     'order_awaiting_payment' => 'This order is awaiting online payment.',
     'order_not_cancellable' => 'This order can no longer be cancelled. You can request a return after delivery.',
     'cancellation_pending' => 'A cancellation request is already being reviewed.',
+    'referral_not_pending' => 'Only a referral that is still waiting can be rejected.',
+    'referral_reward_unavailable' => 'The coupon promotion for this referral reward is not active.',
     'loyalty_insufficient' => 'You don\'t have enough points.',
     'payment_retry_not_allowed' => 'This order can\'t be paid again.',
     'payment_already_settled' => 'This payment is already settled.',

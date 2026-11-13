@@ -43,7 +43,7 @@ it('renders the catalog screens for a super admin', function (string $route, boo
 
 it('renders every product editor tab', function (string $tab) {
     $this->actingAs($this->admin)->get(route('admin.products.edit', ['product' => $this->product, 'tab' => $tab]))->assertOk();
-})->with(['content', 'pricing', 'variants', 'media', 'specs', 'history']);
+})->with(['content', 'pricing', 'variants', 'media', 'upsell', 'specs', 'history']);
 
 it('forbids catalog screens without catalog permissions', function (string $route) {
     $this->actingAs(staffWithRole('delivery_employee', $this->wb))->get(route($route))->assertForbidden();

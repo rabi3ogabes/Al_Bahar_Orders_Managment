@@ -85,6 +85,8 @@ return [
     'order_awaiting_payment' => 'هذا الطلب بانتظار الدفع الإلكتروني.',
     'order_not_cancellable' => 'لم يعد بالإمكان إلغاء هذا الطلب. يمكنك طلب إرجاع بعد الاستلام.',
     'cancellation_pending' => 'طلب الإلغاء قيد المراجعة بالفعل.',
+    'referral_not_pending' => 'لا يمكن رفض إلا الإحالة التي ما زالت بانتظار أول طلب.',
+    'referral_reward_unavailable' => 'عرض الكوبون الخاص بمكافأة الإحالة غير مفعّل.',
     'loyalty_insufficient' => 'لا تملك نقاطاً كافية.',
     'payment_retry_not_allowed' => 'لا يمكن دفع هذا الطلب مرة أخرى.',
     'payment_already_settled' => 'تمت تسوية هذه الدفعة بالفعل.',

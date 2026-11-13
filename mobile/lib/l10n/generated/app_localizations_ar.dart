@@ -622,6 +622,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get relatedProducts => 'قد يعجبك أيضًا';
 
   @override
+  String get completeYourSet => 'أكمل طقمك';
+
+  @override
+  String get youMayAlsoNeed => 'قد تحتاج أيضًا';
+
+  @override
   String get availability => 'التوفّر';
 
   @override

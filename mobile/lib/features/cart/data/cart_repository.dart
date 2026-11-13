@@ -2,6 +2,7 @@ import 'package:albahar_customer/core/network/api_client.dart';
 import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/utils/json.dart';
 import 'package:albahar_customer/features/cart/domain/cart_models.dart';
+import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
 import 'package:albahar_customer/features/checkout/domain/checkout_models.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -13,6 +14,9 @@ class CartRepository {
 
   Future<Cart> fetch({String? branchId}) async =>
       Cart.fromJson(asMap(await _api.get('/cart', query: {'branch_id': branchId})));
+
+  /// Products the shop suggests for what is in the bag (never what is already in it).
+  Future<List<ProductSummary>> suggestions() => _api.getList('/cart/suggestions', ProductSummary.fromJson);
 
   Future<Cart?> addItem(String variantId, int quantity) async =>
       _cartOrNull(await _api.post('/cart/items', data: {'variant_id': variantId, 'quantity': quantity}));

@@ -14,6 +14,7 @@ import 'package:albahar_customer/features/auth/presentation/state/session_contro
 import 'package:albahar_customer/features/cart/domain/cart_models.dart';
 import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/catalog_widgets.dart';
+import 'package:albahar_customer/features/catalog/presentation/widgets/upsell_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -74,6 +75,7 @@ class CartScreen extends ConsumerWidget {
                           const Gap(AppSpace.md),
                           if (c.warnings.isNotEmpty || c.hasIssues) _WarningsBanner(cart: c),
                           for (final item in c.items) CartLine(item: item),
+                          const CartSuggestionsStrip(),
                           const Gap(AppSpace.xs),
                           _CouponField(code: c.couponCode),
                           const Gap(AppSpace.md),

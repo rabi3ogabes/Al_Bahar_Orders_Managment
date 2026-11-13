@@ -1178,6 +1178,18 @@ abstract class AppLocalizations {
   /// **'You may also like'**
   String get relatedProducts;
 
+  /// No description provided for @completeYourSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete your set'**
+  String get completeYourSet;
+
+  /// No description provided for @youMayAlsoNeed.
+  ///
+  /// In en, this message translates to:
+  /// **'You may also need'**
+  String get youMayAlsoNeed;
+
   /// No description provided for @availability.
   ///
   /// In en, this message translates to:
