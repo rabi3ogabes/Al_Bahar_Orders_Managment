@@ -1,16 +1,13 @@
 import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
-import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/utils/qatar_time.dart';
-import 'package:albahar_customer/core/widgets/app_button.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/profile/presentation/state/profile_providers.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:go_router/go_router.dart';
 
 class LoyaltyScreen extends ConsumerWidget {
   const LoyaltyScreen({super.key});
@@ -119,61 +116,30 @@ class LoyaltyScreen extends ConsumerWidget {
                   ),
                   const Gap(AppSpace.xl),
                   referral.when(
-                    loading: () => const Skeleton(height: 140, radius: AppRadius.card),
+                    loading: () => const Skeleton(height: 96, radius: AppRadius.card),
                     error: (e, _) =>
                         ErrorState(error: e, compact: true, onRetry: () => ref.invalidate(referralProvider)),
-                    data: (r) => SurfaceCard(
-                      color: context.palette.brassTint,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(l10n.referralTitle, style: context.text.headlineSmall),
-                          const Gap(AppSpace.xxs),
-                          Text(l10n.referralBody, style: context.text.bodyMedium),
-                          const Gap(AppSpace.md),
-                          Text(l10n.yourCode, style: context.text.labelMedium),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: SelectableText(
-                                  r.code,
-                                  style: context.text.headlineMedium?.copyWith(letterSpacing: 3),
-                                  textDirection: TextDirection.ltr,
+                    data: (r) => !r.enabled
+                        ? const SizedBox.shrink()
+                        : SurfaceCard(
+                            color: context.palette.brassTint,
+                            onTap: () => context.push('/invite'),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(l10n.referralTitle, style: context.text.headlineSmall),
+                                      const Gap(AppSpace.xxs),
+                                      Text(r.referrerRewardText ?? l10n.inviteCardBody, style: context.text.bodyMedium),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              IconButton(
-                                tooltip: l10n.copy,
-                                icon: const Icon(Icons.copy_rounded),
-                                onPressed: () async {
-                                  await Clipboard.setData(ClipboardData(text: r.code));
-                                  Haptics.tap();
-                                  if (context.mounted) showInfoSnack(context, l10n.copied);
-                                },
-                              ),
-                            ],
-                          ),
-                          const Gap(AppSpace.sm),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _Stat(label: l10n.referredCount, value: r.referredCount),
-                              ),
-                              Expanded(
-                                child: _Stat(label: l10n.rewardedCount, value: r.rewardedCount),
-                              ),
-                            ],
-                          ),
-                          const Gap(AppSpace.md),
-                          AppButton(
-                            label: l10n.shareReferral,
-                            icon: Icons.ios_share_rounded,
-                            onPressed: () => SharePlus.instance.share(
-                              ShareParams(text: l10n.referralShareText(r.code, r.shareUrl ?? 'https://albahar.qa')),
+                                const Icon(Icons.chevron_right_rounded),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
                   ),
                 ],
               ),
@@ -183,19 +149,4 @@ class LoyaltyScreen extends ConsumerWidget {
       ),
     );
   }
-}
-
-class _Stat extends StatelessWidget {
-  const _Stat({required this.label, required this.value});
-  final String label;
-  final int value;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text('$value', style: context.text.headlineSmall),
-      Text(label, style: context.text.bodySmall),
-    ],
-  );
 }

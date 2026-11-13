@@ -111,7 +111,7 @@ class CustomerShow extends Component
             'ledger' => $this->tab === 'loyalty' ? LoyaltyTransaction::where('loyalty_account_id', $account->id)->orderByDesc('id')->paginate(15, pageName: 'lp') : null,
             'stats' => $stats,
             'prefs' => collect($notifications->preferences($c))->groupBy('category'),
-            'referral' => $referrals->summary($c),
+            'referral' => $referrals->staffSummary($c),
             'canAdjust' => $this->canGlobally('loyalty.edit'),
             'canEdit' => $this->canGlobally('customers.edit'),
             'pointValue' => $loyalty->pointValue(),

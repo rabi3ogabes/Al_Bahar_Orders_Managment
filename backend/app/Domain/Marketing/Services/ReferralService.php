@@ -258,6 +258,12 @@ class ReferralService
         return trim(preg_replace('/[ \t]{2,}/', ' ', (string) $out));
     }
 
+    /** Counts for the staff customer page; independent of whether the programme is on. */
+    public function staffSummary(User $user): array
+    {
+        return ['code' => $user->referral_code, 'referred_count' => Referral::where('referrer_id', $user->id)->count(), 'rewarded_count' => Referral::where('referrer_id', $user->id)->where('status', 'rewarded')->count()];
+    }
+
     /** Customer API payload. Hidden entirely while the programme is off. */
     public function summary(User $user): array
     {

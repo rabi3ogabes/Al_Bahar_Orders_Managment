@@ -72,7 +72,7 @@ final Map<String, FooterDestination> footerDestinations = {
     FooterDestination(
       key: 'account',
       path: '/account',
-      prefixes: ['/account', '/profile', '/addresses', '/preferences', '/loyalty', '/settings'],
+      prefixes: ['/account', '/profile', '/addresses', '/preferences', '/loyalty', '/invite', '/settings'],
       icon: Icons.person_outline_rounded,
       iconOn: Icons.person_rounded,
       label: (l) => l.navAccount,

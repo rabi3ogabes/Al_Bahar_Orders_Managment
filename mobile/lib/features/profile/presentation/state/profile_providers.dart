@@ -86,6 +86,11 @@ final loyaltyProvider = FutureProvider.autoDispose<LoyaltySummary>((ref) {
   return ref.watch(profileRepositoryProvider).loyalty();
 });
 
+/// Public flag (works before sign-in): is the referral programme on?
+final referralEnabledProvider = FutureProvider.autoDispose<bool>(
+  (ref) => ref.watch(profileRepositoryProvider).referralEnabled(),
+);
+
 final referralProvider = FutureProvider.autoDispose<ReferralInfo>((ref) {
   ref.watch(isAuthenticatedProvider);
   return ref.watch(profileRepositoryProvider).referral();

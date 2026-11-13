@@ -212,19 +212,64 @@ class LoyaltySummary {
   final List<LoyaltyTransaction> transactions;
 }
 
+/// One invited friend: first name and progress only (no personal data).
+@immutable
+class ReferralFriend {
+  const ReferralFriend({required this.name, required this.status});
+  factory ReferralFriend.fromJson(JsonMap json) =>
+      ReferralFriend(name: asString(json['name']), status: asString(json['status'], 'pending'));
+  final String name;
+
+  /// `pending` | `rewarded` | `closed`.
+  final String status;
+}
+
 @immutable
 class ReferralInfo {
-  const ReferralInfo({required this.code, this.shareUrl, this.referredCount = 0, this.rewardedCount = 0});
-  factory ReferralInfo.fromJson(JsonMap json) => ReferralInfo(
-    code: asString(json['code']),
-    shareUrl: asStringOrNull(json['share_url']),
-    referredCount: asInt(json['referred_count']),
-    rewardedCount: asInt(json['rewarded_count']),
-  );
+  const ReferralInfo({
+    this.enabled = true,
+    this.code = '',
+    this.shareUrl,
+    this.shareMessage,
+    this.referrerRewardText,
+    this.friendRewardText,
+    this.referredCount = 0,
+    this.pendingCount = 0,
+    this.rewardedCount = 0,
+    this.earnedTotal,
+    this.pendingTotal,
+    this.friends = const [],
+  });
+  factory ReferralInfo.fromJson(JsonMap json) {
+    if (json['enabled'] == false) return const ReferralInfo(enabled: false);
+    final referrer = json['referrer_reward'] is Map ? asMap(json['referrer_reward']) : const <String, dynamic>{};
+    final friend = json['friend_reward'] is Map ? asMap(json['friend_reward']) : const <String, dynamic>{};
+    return ReferralInfo(
+      code: asString(json['code']),
+      shareUrl: asStringOrNull(json['share_url']),
+      shareMessage: asStringOrNull(json['share_message']),
+      referrerRewardText: asStringOrNull(referrer['text']),
+      friendRewardText: asStringOrNull(friend['text']),
+      referredCount: asInt(json['referred_count']),
+      pendingCount: asInt(json['pending_count']),
+      rewardedCount: asInt(json['rewarded_count']),
+      earnedTotal: Money.maybe(json['earned_total']),
+      pendingTotal: Money.maybe(json['pending_total']),
+      friends: mapList(json['friends'], ReferralFriend.fromJson),
+    );
+  }
+  final bool enabled;
   final String code;
   final String? shareUrl;
+  final String? shareMessage;
+  final String? referrerRewardText;
+  final String? friendRewardText;
   final int referredCount;
+  final int pendingCount;
   final int rewardedCount;
+  final Money? earnedTotal;
+  final Money? pendingTotal;
+  final List<ReferralFriend> friends;
 }
 
 @immutable

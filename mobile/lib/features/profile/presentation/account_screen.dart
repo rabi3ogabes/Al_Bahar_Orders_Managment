@@ -48,6 +48,8 @@ class AccountScreen extends ConsumerWidget {
         ),
         row(Icons.location_on_outlined, l10n.myAddresses, '/addresses'),
         row(Icons.workspace_premium_outlined, l10n.loyaltyAndReferral, '/loyalty'),
+        if (ref.watch(referralEnabledProvider).value ?? false)
+          row(Icons.card_giftcard_rounded, l10n.inviteOpen, '/invite'),
         row(Icons.support_agent_outlined, l10n.support, '/support'),
       ],
       row(

@@ -31,6 +31,7 @@ import 'package:albahar_customer/features/profile/presentation/account_screen.da
 import 'package:albahar_customer/features/profile/presentation/address_form_screen.dart';
 import 'package:albahar_customer/features/profile/presentation/addresses_screen.dart';
 import 'package:albahar_customer/features/profile/presentation/edit_profile_screen.dart';
+import 'package:albahar_customer/features/profile/presentation/invite_friends_screen.dart';
 import 'package:albahar_customer/features/profile/presentation/loyalty_screen.dart';
 import 'package:albahar_customer/features/profile/presentation/notification_prefs_screen.dart';
 import 'package:albahar_customer/features/reviews/presentation/write_review_screen.dart';
@@ -70,6 +71,7 @@ const protectedPrefixes = <String>[
   '/addresses',
   '/preferences',
   '/loyalty',
+  '/invite',
   '/support',
   '/my-auctions',
   '/payments',
@@ -315,6 +317,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/preferences/notifications', builder: (_, _) => const NotificationPrefsScreen()),
       GoRoute(path: '/loyalty', builder: (_, _) => const LoyaltyScreen()),
+      GoRoute(path: '/invite', builder: (_, _) => const InviteFriendsScreen()),
       GoRoute(
         path: '/support',
         builder: (_, _) => const SupportScreen(),

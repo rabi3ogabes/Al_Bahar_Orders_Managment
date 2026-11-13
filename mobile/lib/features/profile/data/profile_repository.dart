@@ -33,6 +33,7 @@ class ProfileRepository {
 
   // Loyalty & referral
   Future<LoyaltySummary> loyalty() => _api.getObject('/me/loyalty', LoyaltySummary.fromJson);
+  Future<bool> referralEnabled() async => asMap(await _api.get('/referrals/status'))['enabled'] == true;
   Future<ReferralInfo> referral() => _api.getObject('/me/referral', ReferralInfo.fromJson);
 
   // Account deletion

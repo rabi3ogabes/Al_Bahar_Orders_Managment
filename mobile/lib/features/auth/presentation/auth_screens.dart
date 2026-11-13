@@ -13,6 +13,7 @@ import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/auth/data/auth_repository.dart';
 import 'package:albahar_customer/features/auth/domain/auth_models.dart';
 import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
+import 'package:albahar_customer/features/profile/presentation/state/profile_providers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -449,14 +450,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 validator: (v) => (v != null && v.isNotEmpty && v.length < 8) ? l10n.passwordTooShort : null,
               ),
               const Gap(AppSpace.md),
-              AppTextField(
-                controller: _referral,
-                label: '${l10n.referralCodeLabel} (${l10n.optional})',
-                forceLtr: true,
-                textCapitalization: TextCapitalization.characters,
-                errorText: _error?.fieldError('referral_code'),
-              ),
-              const Gap(AppSpace.sm),
+              if (ref.watch(referralEnabledProvider).value ?? false) ...[
+                AppTextField(
+                  controller: _referral,
+                  label: '${l10n.referralCodeLabel} (${l10n.optional})',
+                  forceLtr: true,
+                  textCapitalization: TextCapitalization.characters,
+                  errorText: _error?.fieldError('referral_code'),
+                ),
+                const Gap(AppSpace.sm),
+              ],
               CheckboxListTile(
                 value: _marketing,
                 onChanged: (v) => setState(() => _marketing = v ?? false),
