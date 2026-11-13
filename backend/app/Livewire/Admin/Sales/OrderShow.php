@@ -35,10 +35,16 @@ use Livewire\Component;
  */
 class OrderShow extends Component
 {
-    use InteractsWithAdmin;
+    use InteractsWithAdmin {
+        attempt as private runAttempt;
+    }
 
     #[Locked]
     public string $orderId;
+
+    /** Compact mode inside a side window (list → record view): same data and actions, no page chrome, no route map. */
+    #[Locked]
+    public bool $drawer = false;
 
     public string $note = '';
 
@@ -55,11 +61,30 @@ class OrderShow extends Component
     /** Steps a staff member may take directly from this screen; other transitions belong to pickup/delivery flows. */
     private const DIRECT = [FS::Accepted, FS::Preparing, FS::Ready];
 
-    public function mount(Order $order): void
+    public function mount(Order $order, bool $drawer = false): void
+    {
+        abort_unless(self::viewableBy(auth()->user(), $order), 403);
+        $this->orderId = $order->id;
+        $this->drawer = $drawer;
+    }
+
+    /** The page's own gate, shared with the side windows: orders.view at any branch the order touches. */
+    public static function viewableBy(?User $user, Order $order): bool
     {
         $acl = app(AccessControl::class);
-        abort_unless(collect($order->branchIds())->contains(fn ($b) => $acl->allows(auth()->user(), 'orders.view', $b)), 403);
-        $this->orderId = $order->id;
+
+        return $user !== null && collect($order->branchIds())->contains(fn ($b) => $acl->allows($user, 'orders.view', $b));
+    }
+
+    /** A successful action inside a side window tells the list behind it to refresh its row. */
+    protected function attempt(callable $action, ?string $success = null): mixed
+    {
+        $result = $this->runAttempt($action, $success);
+        if ($result !== null && $this->drawer) {
+            $this->dispatch('record-changed');
+        }
+
+        return $result;
     }
 
     private function order(): Order
@@ -244,7 +269,7 @@ class OrderShow extends Component
         ])->all();
 
         $routeCards = [];
-        foreach ($o->fulfillments as $f) {
+        foreach ($this->drawer ? [] : $o->fulfillments as $f) {
             if ($actions[$f->id]['delivery'] && ($card = $this->routeCard($actions[$f->id]['delivery'], $o, $f))) {
                 $routeCards[$f->id] = $card;
             }

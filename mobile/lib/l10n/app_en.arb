@@ -2065,5 +2065,19 @@
   "liveOrderPermissionBlockedTitle": "Notifications are off",
   "@liveOrderPermissionBlockedTitle": {},
   "liveOrderPermissionBlockedBody": "Turn them on in settings to follow your order live.",
-  "@liveOrderPermissionBlockedBody": {}
+  "@liveOrderPermissionBlockedBody": {},
+  "quickView": "Quick view",
+  "@quickView": {},
+  "quickViewOf": "Quick view: {name}",
+  "@quickViewOf": {
+    "placeholders": {"name": {"type": "String"}}
+  },
+  "viewFullDetails": "View full details",
+  "@viewFullDetails": {},
+  "openFullPage": "Open full page",
+  "@openFullPage": {},
+  "showResultsCount": "{count, plural, =1{Show 1 result} other{Show {count} results}}",
+  "@showResultsCount": {
+    "placeholders": {"count": {"type": "int"}}
+  }
 }

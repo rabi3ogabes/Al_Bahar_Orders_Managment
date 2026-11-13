@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { ApiError, patch, post } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n';
@@ -7,7 +7,8 @@ import { latinDigits } from '../lib/format';
 import { normalizePhone } from './AuthModal';
 import { Alert, Button, Checkbox, Input, Textarea } from './ui';
 
-export function AddressForm({ initial, onSaved, onCancel }: { initial?: Address; onSaved: (a: Address) => void; onCancel?: () => void }) {
+/** `pinned`: the Save button row sticks to the bottom of the side window that holds the form. `onDirty` reports unsaved input. */
+export function AddressForm({ initial, onSaved, onCancel, pinned, onDirty }: { initial?: Address; onSaved: (a: Address) => void; onCancel?: () => void; pinned?: boolean; onDirty?: (dirty: boolean) => void }) {
   const { t } = useI18n();
   const { user } = useAuth();
   const [v, setV] = useState({
@@ -15,6 +16,8 @@ export function AddressForm({ initial, onSaved, onCancel }: { initial?: Address;
     zone_number: initial?.zone_number ?? '', street_number: initial?.street_number ?? '', building_number: initial?.building_number ?? '', unit_number: initial?.unit_number ?? '',
     area: initial?.area ?? '', landmark: initial?.landmark ?? '', instructions: initial?.instructions ?? '', is_default: initial?.is_default ?? false,
   });
+  const [base] = useState(() => JSON.stringify(v));
+  useEffect(() => { onDirty?.(JSON.stringify(v) !== base); }, [v, base, onDirty]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<ApiError | null>(null);
   const set = (k: keyof typeof v) => (e: { target: { value: string } }) => setV({ ...v, [k]: e.target.value });
@@ -53,9 +56,9 @@ export function AddressForm({ initial, onSaved, onCancel }: { initial?: Address;
       <Input label={t('address.landmark')} maxLength={255} autoComplete="off" value={v.landmark} onChange={set('landmark')} error={f('landmark')} />
       <Textarea label={t('address.instructions')} maxLength={500} value={v.instructions} onChange={set('instructions')} className="[&_textarea]:min-h-20" error={f('instructions')} />
       <Checkbox checked={v.is_default} onChange={(c) => setV({ ...v, is_default: c })}>{t('address.make_default')}</Checkbox>
-      <div className="flex gap-3 pt-1">
-        <Button type="submit" loading={busy}>{t('action.save')}</Button>
-        {onCancel && <Button type="button" variant="ghost" onClick={onCancel}>{t('action.cancel')}</Button>}
+      <div className={pinned ? 'sticky bottom-0 z-10 -mx-6 -mb-6 flex gap-3 border-t border-line bg-paper px-6 pt-4 pb-[max(16px,env(safe-area-inset-bottom))]' : 'flex gap-3 pt-1'}>
+        <Button type="submit" loading={busy} block={pinned}>{pinned ? t('address.save') : t('action.save')}</Button>
+        {onCancel && !pinned && <Button type="button" variant="ghost" onClick={onCancel}>{t('action.cancel')}</Button>}
       </div>
     </form>
   );

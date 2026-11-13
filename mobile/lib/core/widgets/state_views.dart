@@ -6,6 +6,7 @@ import '../network/api_exception.dart';
 import '../providers.dart';
 import '../theme/tokens.dart';
 import 'app_button.dart';
+import 'side_panel.dart';
 
 /// Calm, centred empty state with an optional action.
 class EmptyState extends StatelessWidget {
@@ -175,12 +176,23 @@ class AsyncValueView<T> extends StatelessWidget {
 
 /// Shows a snackbar for an error using the localised description.
 void showErrorSnack(BuildContext context, Object error) {
+  final panel = PanelToastScope.maybeOf(context);
+  if (panel != null) {
+    panel.show(describeError(context.l10n, error));
+    return;
+  }
   final messenger = ScaffoldMessenger.maybeOf(context);
   messenger?.hideCurrentSnackBar();
   messenger?.showSnackBar(SnackBar(content: Text(describeError(context.l10n, error))));
 }
 
 void showInfoSnack(BuildContext context, String message, {SnackBarAction? action}) {
+  // Inside a side panel a snackbar would sit behind the panel: show the message in the panel instead.
+  final panel = PanelToastScope.maybeOf(context);
+  if (panel != null) {
+    panel.show(message, action: action);
+    return;
+  }
   final messenger = ScaffoldMessenger.maybeOf(context);
   messenger?.hideCurrentSnackBar();
   messenger?.showSnackBar(SnackBar(content: Text(message), action: action));

@@ -54,7 +54,8 @@ Future<bool> confirmDiscard(BuildContext context) async {
       title: Text(l10n.discardChangesTitle),
       content: Text(l10n.discardChangesMessage),
       actions: [
-        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(l10n.keepEditing)),
+        // Focus starts on the safe choice, so Enter can never throw typed text away by accident.
+        TextButton(autofocus: true, onPressed: () => Navigator.of(ctx).pop(false), child: Text(l10n.keepEditing)),
         FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text(l10n.discard)),
       ],
     ),

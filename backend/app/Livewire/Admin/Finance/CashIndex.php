@@ -7,6 +7,7 @@ use App\Domain\Payments\Models\CashCollection;
 use App\Domain\Payments\Models\CashHandover;
 use App\Domain\Payments\Services\CashDrawerService;
 use App\Livewire\Admin\Concerns\WithAdminTable;
+use App\Livewire\Admin\Sales\Concerns\PeeksAtOrder;
 use App\Support\BusinessTime;
 use App\Support\Money;
 use Livewire\Attributes\Locked;
@@ -19,7 +20,7 @@ use Livewire\Component;
  */
 class CashIndex extends Component
 {
-    use WithAdminTable;
+    use PeeksAtOrder, WithAdminTable;
 
     public const TABS = ['collections', 'outstanding', 'handovers'];
 

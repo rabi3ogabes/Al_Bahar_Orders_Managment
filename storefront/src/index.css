@@ -137,6 +137,20 @@ img { max-width: 100%; display: block; }
 .fade { animation: fade 0.25s ease both; }
 @keyframes slide-in { from { transform: translateX(var(--from, 100%)); } to { transform: none; } }
 .drawer-panel { animation: slide-in 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+/* Side windows (components/SideDrawer.tsx, Dialogs.tsx): slide from the end edge (mirrors in Arabic), calm in, quicker out. */
+.ov-panel { --from: 100%; }
+:root[dir='rtl'] .ov-panel { --from: -100%; }
+.ov-panel[data-side='start'] { --from: -100%; }
+:root[dir='rtl'] .ov-panel[data-side='start'] { --from: 100%; }
+@keyframes ov-slide-in { from { transform: translateX(var(--from)); } }
+@keyframes ov-slide-out { to { transform: translateX(var(--from)); } }
+@keyframes ov-fade-out { to { opacity: 0; } }
+.ov-panel[data-state='open'] { animation: ov-slide-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.ov-panel[data-state='closed'] { animation: ov-slide-out 0.22s cubic-bezier(0.4, 0, 1, 1) both; }
+.ov-scrim[data-state='open'] { animation: fade 0.25s ease both; }
+.ov-scrim[data-state='closed'] { animation: ov-fade-out 0.2s ease both; }
+.ov-modal[data-state='open'] { animation: rise 0.22s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.ov-modal[data-state='closed'] { animation: ov-fade-out 0.15s ease both; }
 @keyframes live-flash { 0% { background-color: color-mix(in srgb, var(--brass) 30%, transparent); } 100% { background-color: transparent; } }
 .live-flash { animation: live-flash 2.2s ease-out both; border-radius: 16px; }
 @keyframes live-dot { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 55%, transparent); } 50% { box-shadow: 0 0 0 5px transparent; } }

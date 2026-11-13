@@ -39,7 +39,7 @@
                         <li class="flex flex-col gap-3 p-4 md:flex-row md:items-center sm:px-6" wire:key="fd-{{ $row->id }}">
                             <div class="min-w-0 flex-1">
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <a href="{{ route('admin.orders.show', $o) }}" wire:navigate class="font-mono font-medium hover:text-brass-600" dir="ltr">{{ $o->number }}</a>
+                                    <x-admin.order-peek-link :id="$o->id" :number="$o->number" :can="$this->can('orders.view', $row->branch_id)" class="font-medium" />
                                     <x-admin.status :value="$row->status->value" />
                                     <span class="badge-neutral font-mono" dir="ltr">{{ $row->branch->code }}</span>
                                     @if ($o->payment_method === 'cod' && ! $o->payment_status->isSettled())<span class="badge-warning"><x-icon name="cash" class="size-3" />{{ __('sales_admin.cod_amount', ['amount' => \App\Support\Money::of($o->grand_total)->format()]) }}</span>@endif
@@ -48,7 +48,7 @@
                                 @if ($row->slot_date)<p class="text-xs text-ink-500 tabular-nums"><x-icon name="calendar" class="me-1 inline size-3.5" />{{ \App\Support\BusinessTime::display($row->slot_date, 'D d M') }}@if ($row->slot) · {{ substr($row->slot->starts_at, 0, 5) }}–{{ substr($row->slot->ends_at, 0, 5) }}@endif</p>@endif
                             </div>
                             @if ($row->status->value === 'ready' && $this->can('deliveries.create', $row->branch_id))
-                                <button type="button" wire:click="open('create', '{{ $row->id }}')" class="btn-primary btn-sm self-start md:self-auto"><x-icon name="truck" class="size-4" />{{ __('sales_admin.act_arrange_delivery') }}</button>
+                                <button type="button" wire:click="open('create', '{{ $row->id }}')" class="btn-primary btn-sm max-md:min-h-11 self-start md:self-auto"><x-icon name="truck" class="size-4" />{{ __('sales_admin.act_arrange_delivery') }}</button>
                             @elseif ($row->status->value !== 'ready')
                                 <span class="text-xs text-ink-500">{{ __('sales_admin.still_preparing') }}</span>
                             @endif
@@ -63,7 +63,7 @@
                                 <div class="flex flex-wrap items-center gap-2">
                                     <span class="font-mono text-sm font-medium" dir="ltr">{{ $d->tracking_number }}</span>
                                     <x-admin.status :value="$st" />
-                                    <a href="{{ route('admin.orders.show', $o) }}" wire:navigate class="font-mono text-xs text-ink-500 hover:text-brass-600" dir="ltr">{{ $o->number }}</a>
+                                    <x-admin.order-peek-link :id="$o->id" :number="$o->number" :can="$this->can('orders.view', $d->branch_id)" class="text-xs text-ink-500" />
                                     <span class="badge-neutral font-mono" dir="ltr">{{ $d->branch->code }}</span>
                                     @if ((float) $d->cod_amount > 0 && ! $o->payment_status->isSettled())<span class="badge-warning"><x-icon name="cash" class="size-3" /><x-admin.money :value="$d->cod_amount" /></span>@endif
                                 </div>
@@ -79,28 +79,28 @@
                             @if ($lane !== 'done')
                                 <div class="flex flex-wrap items-center gap-2">
                                     @if ($canAssign && in_array($st, ['pending', 'assigned', 'accepted', 'rescheduled'], true) && $d->mode === 'internal')
-                                        <button type="button" wire:click="open('assign', '{{ $d->id }}')" class="btn-secondary btn-sm"><x-icon name="user" class="size-4" />{{ $d->driver_id ? __('sales_admin.reassign') : __('sales_admin.assign_driver') }}</button>
+                                        <button type="button" wire:click="open('assign', '{{ $d->id }}')" class="btn-secondary btn-sm max-md:min-h-11"><x-icon name="user" class="size-4" />{{ $d->driver_id ? __('sales_admin.reassign') : __('sales_admin.assign_driver') }}</button>
                                     @endif
                                     @if ($canEdit && $d->mode === 'provider' && $d->last_error && $st === 'pending')
-                                        <button type="button" wire:click="act('{{ $d->id }}', 'retry')" class="btn-secondary btn-sm"><x-icon name="refresh" class="size-4" />{{ __('sales_admin.retry_booking') }}</button>
+                                        <button type="button" wire:click="act('{{ $d->id }}', 'retry')" class="btn-secondary btn-sm max-md:min-h-11"><x-icon name="refresh" class="size-4" />{{ __('sales_admin.retry_booking') }}</button>
                                     @endif
                                     @if ($canAssign && in_array($st, ['pending', 'assigned', 'accepted'], true))
-                                        <button type="button" wire:click="act('{{ $d->id }}', 'pickup')" wire:confirm="{{ __('sales_admin.confirm_pickup') }}" class="btn-secondary btn-sm"><x-icon name="package" class="size-4" />{{ __('sales_admin.act_picked_up') }}</button>
+                                        <button type="button" wire:click="act('{{ $d->id }}', 'pickup')" wire:confirm="{{ __('sales_admin.confirm_pickup') }}" class="btn-secondary btn-sm max-md:min-h-11"><x-icon name="package" class="size-4" />{{ __('sales_admin.act_picked_up') }}</button>
                                     @endif
                                     @if ($canAssign && in_array($st, ['picked_up', 'rescheduled', 'failed'], true))
-                                        <button type="button" wire:click="act('{{ $d->id }}', 'out')" class="btn-secondary btn-sm"><x-icon name="truck" class="size-4" />{{ __('sales_admin.act_out') }}</button>
+                                        <button type="button" wire:click="act('{{ $d->id }}', 'out')" class="btn-secondary btn-sm max-md:min-h-11"><x-icon name="truck" class="size-4" />{{ __('sales_admin.act_out') }}</button>
                                     @endif
                                     @if ($canAssign && in_array($st, ['failed', 'rescheduled'], true))
-                                        <button type="button" wire:click="open('reschedule', '{{ $d->id }}')" class="btn-secondary btn-sm"><x-icon name="calendar" class="size-4" />{{ __('sales_admin.reschedule') }}</button>
+                                        <button type="button" wire:click="open('reschedule', '{{ $d->id }}')" class="btn-secondary btn-sm max-md:min-h-11"><x-icon name="calendar" class="size-4" />{{ __('sales_admin.reschedule') }}</button>
                                     @endif
                                     @if ($canAssign && in_array($st, ['picked_up', 'out_for_delivery'], true))
-                                        <button type="button" wire:click="open('fail', '{{ $d->id }}')" class="btn-ghost btn-sm text-ruby-soft"><x-icon name="alert" class="size-4" />{{ __('sales_admin.mark_failed') }}</button>
+                                        <button type="button" wire:click="open('fail', '{{ $d->id }}')" class="btn-ghost btn-sm max-md:min-h-11 text-ruby-soft"><x-icon name="alert" class="size-4" />{{ __('sales_admin.mark_failed') }}</button>
                                     @endif
                                     @if ($canEdit && in_array($st, ['failed', 'rescheduled', 'returning'], true))
-                                        <button type="button" wire:click="act('{{ $d->id }}', 'return')" wire:confirm="{{ __('sales_admin.confirm_return') }}" class="btn-secondary btn-sm"><x-icon name="refund" class="size-4" />{{ __('sales_admin.return_to_branch') }}</button>
+                                        <button type="button" wire:click="act('{{ $d->id }}', 'return')" wire:confirm="{{ __('sales_admin.confirm_return') }}" class="btn-secondary btn-sm max-md:min-h-11"><x-icon name="refund" class="size-4" />{{ __('sales_admin.return_to_branch') }}</button>
                                     @endif
                                     @if ($canEdit && in_array($st, ['pending', 'assigned', 'accepted'], true))
-                                        <button type="button" wire:click="open('cancel', '{{ $d->id }}')" class="btn-ghost btn-sm text-ruby-soft" aria-label="{{ __('sales_admin.cancel_delivery') }}" title="{{ __('sales_admin.cancel_delivery') }}"><x-icon name="x" class="size-4" /></button>
+                                        <button type="button" wire:click="open('cancel', '{{ $d->id }}')" class="btn-ghost btn-sm max-md:min-h-11 text-ruby-soft" aria-label="{{ __('sales_admin.cancel_delivery') }}" title="{{ __('sales_admin.cancel_delivery') }}"><x-icon name="x" class="size-4" /></button>
                                     @endif
                                 </div>
                             @endif
@@ -112,7 +112,10 @@
         @endif
     </div>
 
-    <x-admin.dialog wire:model="showDialog" :title="match ($dialog) { 'create' => __('sales_admin.act_arrange_delivery'), 'assign' => __('sales_admin.assign_driver'), 'reschedule' => __('sales_admin.reschedule'), 'fail' => __('sales_admin.mark_failed'), 'cancel' => __('sales_admin.cancel_delivery'), default => '' }">
+    @include('livewire.admin.sales.partials.order-peek')
+
+    {{-- "Mark failed" and "Cancel delivery" are decisions (centred modal); creating, assigning and rescheduling are forms (side window). --}}
+    <x-admin.dialog wire:model="showDialog" :variant="in_array($dialog, ['fail', 'cancel'], true) ? 'modal' : 'drawer'" :title="match ($dialog) { 'create' => __('sales_admin.act_arrange_delivery'), 'assign' => __('sales_admin.assign_driver'), 'reschedule' => __('sales_admin.reschedule'), 'fail' => __('drawer_sales.q_fail_delivery'), 'cancel' => __('drawer_sales.q_cancel_delivery'), default => '' }">
         <form wire:submit="confirmDialog" class="space-y-5">
             @if ($dialog === 'create')
                 <div class="grid grid-cols-2 gap-2">
@@ -167,8 +170,8 @@
                 <x-admin.field :label="__('admin.reason')" for="form.reason" required><textarea id="form.reason" wire:model="form.reason" rows="2" class="input"></textarea></x-admin.field>
             @endif
             <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">
-                <button type="button" class="btn-secondary" @click="open = false">{{ __('admin.back') }}</button>
-                <button class="{{ in_array($dialog, ['fail', 'cancel'], true) ? 'btn-danger' : 'btn-primary' }}" wire:loading.attr="disabled" wire:target="confirmDialog">{{ __('admin.confirm') }}</button>
+                <button type="button" class="btn-secondary min-h-11" @click="open = false">{{ __('admin.back') }}</button>
+                <button class="{{ in_array($dialog, ['fail', 'cancel'], true) ? 'btn-danger' : 'btn-primary' }} min-h-11" wire:loading.attr="disabled" wire:target="confirmDialog">{{ match ($dialog) { 'create' => __('sales_admin.act_arrange_delivery'), 'assign' => __('sales_admin.assign_driver'), 'reschedule' => __('sales_admin.reschedule'), 'fail' => __('sales_admin.mark_failed'), 'cancel' => __('sales_admin.cancel_delivery'), default => __('admin.confirm') } }}</button>
             </div>
         </form>
     </x-admin.dialog>

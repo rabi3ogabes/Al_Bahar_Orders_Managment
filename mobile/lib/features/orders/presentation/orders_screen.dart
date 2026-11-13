@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/qatar_time.dart';
@@ -7,6 +9,7 @@ import 'package:albahar_customer/core/widgets/paged.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/orders/domain/order_models.dart';
+import 'package:albahar_customer/features/orders/presentation/order_detail_screen.dart';
 import 'package:albahar_customer/features/orders/presentation/state/order_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -149,7 +152,7 @@ class OrderCard extends StatelessWidget {
     final l10n = context.l10n;
     return ContentWidth(
       child: SurfaceCard(
-        onTap: () => context.push('/orders/${order.id}'),
+        onTap: () => unawaited(showOrderPanel(context, order.id, number: order.number)),
         padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

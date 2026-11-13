@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
@@ -7,7 +9,7 @@ import 'package:albahar_customer/features/auth/presentation/require_auth.dart';
 import 'package:albahar_customer/features/cart/domain/cart_models.dart';
 import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
-import 'package:albahar_customer/features/catalog/presentation/widgets/catalog_widgets.dart';
+import 'package:albahar_customer/features/catalog/presentation/widgets/quick_view_panel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -50,7 +52,8 @@ class _QuickAddStepperState extends ConsumerState<QuickAddStepper> {
   void _add() {
     final p = widget.product;
     if (p.variantId == null || p.hasVariants) {
-      openProduct(context, p);
+      // A choice (colour, size) is needed first: pick it in the quick view, right where the person is.
+      unawaited(showQuickView(context, p));
       return;
     }
     if (!requireAuth(context, ref)) return;

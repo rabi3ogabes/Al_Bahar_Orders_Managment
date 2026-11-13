@@ -11,6 +11,7 @@ import 'package:albahar_customer/features/auth/presentation/require_auth.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/quick_add_stepper.dart';
+import 'package:albahar_customer/features/catalog/presentation/widgets/quick_view_panel.dart';
 import 'package:albahar_customer/features/wishlist/presentation/state/wishlist_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -53,6 +54,20 @@ class WishlistHeart extends ConsumerWidget {
   }
 }
 
+/// The small eye on a product card: opens the quick view without leaving the list.
+class QuickViewButton extends StatelessWidget {
+  const QuickViewButton({super.key, required this.product});
+  final ProductSummary product;
+
+  @override
+  Widget build(BuildContext context) => RoundIconButton(
+    icon: Icons.visibility_outlined,
+    size: 36,
+    tooltip: context.l10n.quickViewOf(product.name),
+    onPressed: () => unawaited(showQuickView(context, product)),
+  );
+}
+
 /// Product card wired to navigation and wishlist.
 class ProductTile extends StatelessWidget {
   const ProductTile({super.key, required this.product, this.heroScope = '', this.width});
@@ -66,8 +81,10 @@ class ProductTile extends StatelessWidget {
     heroScope: heroScope,
     width: width,
     onTap: () => openProduct(context, product, heroScope: heroScope),
+    onLongPress: () => unawaited(showQuickView(context, product)),
     topAction: WishlistHeart(product: product),
     bottomAction: QuickAddStepper(product: product),
+    bottomStartAction: QuickViewButton(product: product),
   );
 }
 

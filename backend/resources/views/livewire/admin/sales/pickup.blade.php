@@ -34,14 +34,14 @@
                     <li class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:px-6" wire:key="pf-{{ $f->id }}">
                         <div class="min-w-0 flex-1">
                             <div class="flex flex-wrap items-center gap-2">
-                                <a href="{{ route('admin.orders.show', $f->order_id) }}" wire:navigate class="font-mono font-medium hover:text-brass-600" dir="ltr">{{ $f->order->number }}</a>
+                                <x-admin.order-peek-link :id="$f->order_id" :number="$f->order->number" :can="$this->can('orders.view', $f->branch_id)" class="font-medium" />
                                 <x-admin.status :value="$f->status->value" />
                                 <span class="badge-neutral font-mono" dir="ltr">{{ $f->branch->code }}</span>
                             </div>
                             <p class="mt-1 truncate text-sm text-ink-500">{{ $f->order->customer_name }} · {{ trans_choice('sales_admin.units', (int) $f->units, ['count' => (int) $f->units]) }}@if ($f->slot_date) · {{ \App\Support\BusinessTime::display($f->slot_date, 'D d M') }}@endif</p>
                         </div>
                         @if ($this->can('pickup.edit', $f->branch_id))
-                            <button type="button" wire:click="markReady('{{ $f->id }}')" wire:loading.attr="disabled" wire:target="markReady('{{ $f->id }}')" class="btn-secondary btn-sm self-start sm:self-auto"><x-icon name="qr" class="size-4" />{{ __('sales_admin.act_pickup_ready') }}</button>
+                            <button type="button" wire:click="markReady('{{ $f->id }}')" wire:loading.attr="disabled" wire:target="markReady('{{ $f->id }}')" class="btn-secondary btn-sm max-md:min-h-11 self-start sm:self-auto"><x-icon name="qr" class="size-4" />{{ __('sales_admin.act_pickup_ready') }}</button>
                         @endif
                     </li>
                 @endforeach
@@ -58,7 +58,7 @@
                     <li class="min-w-0 rounded-2xl border border-sand-200/70 bg-white p-5 transition hover:border-brass-300 dark:border-ink-700 dark:bg-ink-900" wire:key="pr-{{ $r->id }}">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
-                                <a href="{{ route('admin.orders.show', $o) }}" wire:navigate class="font-mono font-medium hover:text-brass-600" dir="ltr">{{ $o->number }}</a>
+                                <x-admin.order-peek-link :id="$o->id" :number="$o->number" :can="$this->can('orders.view', $r->branch_id)" class="font-medium" />
                                 <p class="truncate text-sm text-ink-600 dark:text-sand-200">{{ $o->customer_name }}</p>
                             </div>
                             <x-admin.status :value="$r->status" />
@@ -78,4 +78,6 @@
         @endif
         @if ($rows->hasPages())<div class="border-t border-sand-100 p-4 dark:border-ink-800">{{ $rows->links('components.admin.pagination') }}</div>@endif
     </div>
+
+    @include('livewire.admin.sales.partials.order-peek')
 </div>

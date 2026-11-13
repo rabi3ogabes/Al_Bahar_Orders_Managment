@@ -24,7 +24,13 @@ interface Ctx {
   add: (product: Pick<ProductCard, 'id' | 'slug' | 'name' | 'brand'> & { image?: string | null }, variant: Variant, qty?: number) => Promise<void>
   setQty: (line: Line, qty: number) => Promise<void>
   remove: (line: Line) => Promise<void>
+  /** Undo for `remove`: puts the same line (variant and quantity) back. */
+  restore: (line: Line) => Promise<void>
+  /** One tap from a card: the product's single variant, one piece. */
+  quickAdd: (p: ProductCard) => Promise<void>
   drawer: boolean; openDrawer: () => void; closeDrawer: () => void
+  /** Variant that was just added: the mini-cart highlights its line for a moment. */
+  lastAdded: string | null
   adding: boolean
 }
 const C = createContext<Ctx>(null as unknown as Ctx);
@@ -37,6 +43,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   const [guest, setGuest] = useState<GuestRow[]>(readGuest);
   const [drawer, setDrawer] = useState(false);
+  const [lastAdded, setLastAdded] = useState<string | null>(null);
+  const flash = useCallback((variantId: string) => {
+    setLastAdded(variantId);
+    window.setTimeout(() => setLastAdded((v) => (v === variantId ? null : v)), 2600);
+  }, []);
 
   const server = useQuery({ queryKey: ['cart', user?.id], enabled: !!user, queryFn: async () => (await get<{ data: Cart }>('/cart')).data });
 
@@ -81,9 +92,31 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const fail = useCallback((e: unknown) => { toast.push(e instanceof ApiError ? e.message : t('error.generic'), 'error'); }, [toast, t]);
 
+  const addGuestRow = (row: GuestRow, qty: number) => {
+    const rows = [...guest]; const i = rows.findIndex((r) => r.variant_id === row.variant_id);
+    if (i >= 0) rows[i] = { ...rows[i], qty: Math.min(MAX_QTY, rows[i].qty + qty) }; else rows.push({ ...row, qty });
+    setGuest(rows); writeGuest(rows);
+  };
+
   const value: Ctx = {
-    lines, count, subtotal, loading: !!user && server.isLoading, cart: server.data ?? null, drawer, adding: addM.isPending,
+    lines, count, subtotal, loading: !!user && server.isLoading, cart: server.data ?? null, drawer, adding: addM.isPending, lastAdded,
     openDrawer: () => setDrawer(true), closeDrawer: () => setDrawer(false),
+    restore: async (line) => {
+      try {
+        if (user) await addM.mutateAsync({ variantId: line.variantId, qty: line.qty });
+        else addGuestRow({ variant_id: line.variantId, qty: line.qty, product_id: line.productId, slug: line.slug, name: line.name, variant_name: line.variantName, image: line.image, brand: line.brand, unit: line.unit }, line.qty);
+        flash(line.variantId);
+      } catch (e) { fail(e); }
+    },
+    quickAdd: async (p) => {
+      if (!p.variant_id) return;
+      try {
+        if (user) await addM.mutateAsync({ variantId: p.variant_id, qty: 1 });
+        else addGuestRow({ variant_id: p.variant_id, qty: 1, product_id: p.id, slug: p.slug, name: p.name, variant_name: null, image: p.image?.thumb_url ?? null, brand: p.brand?.name ?? null, unit: p.price.final }, 1);
+        flash(p.variant_id);
+        setDrawer(true);
+      } catch (e) { fail(e); throw e; }
+    },
     add: async (product, variant, qty = 1) => {
       try {
         if (user) { await addM.mutateAsync({ variantId: variant.id, qty }); }
@@ -93,6 +126,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           else rows.push({ variant_id: variant.id, qty, product_id: product.id, slug: product.slug, name: product.name, variant_name: variant.name || null, image: product.image ?? variant.image_url, brand: product.brand?.name ?? null, unit: variant.price.final });
           setGuest(rows); writeGuest(rows);
         }
+        flash(variant.id);
         setDrawer(true);
       } catch (e) { fail(e); throw e; }
     },

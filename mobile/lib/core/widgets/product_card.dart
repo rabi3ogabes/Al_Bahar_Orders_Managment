@@ -15,8 +15,10 @@ class ProductCardView extends StatelessWidget {
     super.key,
     required this.product,
     this.onTap,
+    this.onLongPress,
     this.topAction,
     this.bottomAction,
+    this.bottomStartAction,
     this.heroScope = '',
     this.width,
   });
@@ -24,11 +26,17 @@ class ProductCardView extends StatelessWidget {
   final ProductSummary product;
   final VoidCallback? onTap;
 
+  /// Long-press shortcut (opens the quick view).
+  final VoidCallback? onLongPress;
+
   /// Usually a wishlist heart; placed at the top-end corner.
   final Widget? topAction;
 
   /// Quick add to bag (a + that becomes − 1 +), placed at the bottom-end corner of the picture.
   final Widget? bottomAction;
+
+  /// Placed at the bottom-start corner of the picture (the quick-view button).
+  final Widget? bottomStartAction;
   final String heroScope;
   final double? width;
 
@@ -52,6 +60,7 @@ class ProductCardView extends StatelessWidget {
             type: MaterialType.transparency,
             child: InkWell(
               onTap: onTap,
+              onLongPress: onLongPress,
               borderRadius: context.design.cardBorderRadius,
               child: Padding(
                 padding: const EdgeInsets.all(10),
@@ -146,6 +155,7 @@ class ProductCardView extends StatelessWidget {
         ),
       if (topAction != null) PositionedDirectional(top: 0, end: 0, child: topAction!),
       if (bottomAction != null) PositionedDirectional(bottom: 2, end: 2, child: bottomAction!),
+      if (bottomStartAction != null) PositionedDirectional(bottom: 0, start: 0, child: bottomStartAction!),
     ],
   );
 

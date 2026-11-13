@@ -6,6 +6,7 @@ import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/utils/qatar_time.dart';
+import 'package:albahar_customer/core/widgets/side_panel.dart';
 import 'package:albahar_customer/core/widgets/app_button.dart';
 import 'package:albahar_customer/core/widgets/app_text_field.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
@@ -386,7 +387,7 @@ class _PickupSectionState extends ConsumerState<_PickupSection> {
         SurfaceCard(
           onTap: () async {
             final list = branches.value ?? const <Branch>[];
-            final chosen = await showAppBottomSheet<Branch>(
+            final chosen = await showSidePanel<Branch>(
               context: context,
               title: l10n.pickupBranch,
               builder: (ctx) => RadioGroup<String>(

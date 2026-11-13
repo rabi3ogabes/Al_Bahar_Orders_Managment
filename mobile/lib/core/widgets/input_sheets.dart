@@ -7,6 +7,7 @@ import '../utils/validators.dart';
 import 'app_button.dart';
 import 'app_text_field.dart';
 import 'common.dart';
+import 'dirty_form_guard.dart';
 
 /// Bottom sheet with one text field. Resolves to the trimmed text, or null
 /// when dismissed. The sheet owns its controller, so nothing is disposed while
@@ -32,6 +33,7 @@ Future<String?> showTextSheet(
   return showAppBottomSheet<String>(
     context: context,
     title: title,
+    isForm: true,
     builder: (_) => _TextSheet(
       label: label,
       actionLabel: actionLabel,
@@ -109,7 +111,10 @@ class _TextSheetState extends State<_TextSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return DirtyFormGuard(
+      controllers: [_controller],
+      isDirty: () => _controller.text.trim().isNotEmpty,
+      child: Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -134,7 +139,7 @@ class _TextSheetState extends State<_TextSheet> {
         const Gap(AppSpace.md),
         AppButton(label: widget.actionLabel, onPressed: _submit),
       ],
-    );
+    ));
   }
 }
 
@@ -147,6 +152,7 @@ Future<PasswordChange?> showPasswordSheet(BuildContext context, {required bool a
   return showAppBottomSheet<PasswordChange>(
     context: context,
     title: askCurrent ? l10n.changePassword : l10n.setPassword,
+    isForm: true,
     builder: (_) => _PasswordSheet(askCurrent: askCurrent),
   );
 }
@@ -189,7 +195,10 @@ class _PasswordSheetState extends State<_PasswordSheet> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return Column(
+    return DirtyFormGuard(
+      controllers: [_current, _next],
+      isDirty: () => _current.text.isNotEmpty || _next.text.isNotEmpty,
+      child: Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -219,6 +228,6 @@ class _PasswordSheetState extends State<_PasswordSheet> {
         const Gap(AppSpace.lg),
         AppButton(label: l10n.save, onPressed: _submit),
       ],
-    );
+    ));
   }
 }

@@ -1,47 +1,25 @@
 import 'dart:async';
-import 'dart:io';
 
-import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/map/map_nav.dart';
-import 'package:albahar_customer/core/realtime/pusher_client.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/utils/qatar_time.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
-import 'package:albahar_customer/features/auctions/data/auction_repository.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
 import 'package:albahar_customer/ops/driver/driver_job_map.dart';
+import 'package:albahar_customer/ops/driver/driver_job_panels.dart';
+import 'package:albahar_customer/ops/driver/driver_providers.dart';
 import 'package:albahar_customer/ops/driver/driver_tracker.dart';
 import 'package:albahar_customer/ops/ops_app.dart';
-import 'package:albahar_customer/ops/ops_input.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_repository.dart';
 import 'package:albahar_customer/ops/ops_strings.dart';
 import 'package:albahar_customer/ops/ops_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 
-final driverMeProvider = FutureProvider.autoDispose<DriverMe>((ref) => ref.watch(opsRepositoryProvider).driver());
-
-/// Real-time pings for this driver (`private-drivers.{id}`): a job was assigned or changed.
-final driverEventsProvider = StreamProvider.autoDispose<PusherEvent>((ref) {
-  final id = ref.watch(driverMeProvider.select((m) => m.value?.id));
-  if (id == null || id.isEmpty) return const Stream.empty();
-  return ref.watch(pusherClientProvider).channel('private-drivers.$id');
-});
-
-final driverJobsProvider = FutureProvider.autoDispose.family<List<DriverJob>, bool>(
-  (ref, history) => ref.watch(opsRepositoryProvider).jobs(history: history),
-);
-
-/// Builds the location tracker (replaced in tests so no GPS or network is touched).
-final driverTrackerProvider = Provider<DriverTracker>((ref) {
-  final tracker = DriverTracker(ref.watch(opsRepositoryProvider));
-  ref.onDispose(() => unawaited(tracker.dispose()));
-  return tracker;
-});
+export 'package:albahar_customer/ops/driver/driver_providers.dart';
 
 /// Driver app home: duty switch, my deliveries and history. Jobs arrive here on their own (auto dispatch) or when a
 /// branch employee assigns them.
@@ -286,7 +264,8 @@ class _JobCard extends ConsumerStatefulWidget {
   final DriverJob job;
   final bool readOnly;
 
-  /// Shown inside the delivery map: the map and Navigate buttons are the screen's own, so the card leaves them out.
+  /// Shown inside the delivery map: the map and Navigate buttons are the screen's own, and the card is not opened in a
+  /// window (the map is already the delivery's own screen).
   final bool embedded;
 
   @override
@@ -294,106 +273,6 @@ class _JobCard extends ConsumerStatefulWidget {
 }
 
 class _JobCardState extends ConsumerState<_JobCard> {
-  bool _busy = false;
-
-  void _refresh() {
-    ref
-      ..invalidate(driverJobsProvider(false))
-      ..invalidate(driverJobsProvider(true))
-      ..invalidate(driverMeProvider);
-  }
-
-  /// One action at a time. The list is reloaded whether it worked or not: a refused step (the job was reassigned or
-  /// already moved) leaves the card showing the truth instead of a stale button.
-  Future<void> _run(Future<void> Function() action) async {
-    if (_busy) return;
-    setState(() => _busy = true);
-    await guarded(context, action);
-    if (!mounted) return;
-    _refresh();
-    setState(() => _busy = false);
-  }
-
-  Future<void> _step(String action) async {
-    if (_busy) return;
-    final location = ref.read(locationServiceProvider);
-    await _run(() async {
-      final pos = action == 'out-for-delivery'
-          ? await location.currentPosition().timeout(const Duration(seconds: 4), onTimeout: () => null)
-          : null;
-      await ref.read(opsRepositoryProvider).jobStep(widget.job.id, action, lat: pos?.lat, lng: pos?.lng);
-    });
-  }
-
-  Future<void> _deliver() async {
-    final done = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      isDismissible: false,
-      enableDrag: false,
-      builder: (_) => _DeliverSheet(job: widget.job),
-    );
-    if (done == true && mounted) _refresh();
-  }
-
-  Future<void> _fail() async {
-    final t = OpsStrings.of(context);
-    final reason = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      useSafeArea: true,
-      isScrollControlled: true,
-      builder: (ctx) => SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(AppSpace.md),
-              child: Text(t.reason, style: Theme.of(ctx).textTheme.titleMedium),
-            ),
-            for (final r in const [
-              'customer_unreachable',
-              'customer_absent',
-              'wrong_address',
-              'refused',
-              'access_denied',
-              'other',
-            ])
-              ListTile(minTileHeight: 52, title: Text(t.reasonLabel(r)), onTap: () => Navigator.pop(ctx, r)),
-          ],
-        ),
-      ),
-    );
-    if (reason == null || !mounted) return;
-    final sure = await _confirm(t.confirmFailQ, t.confirmFailBody(t.reasonLabel(reason)), t.confirm);
-    if (!sure || !mounted) return;
-    await _run(() => ref.read(opsRepositoryProvider).fail(widget.job.id, reason));
-  }
-
-  Future<void> _returnToBranch() async {
-    final t = OpsStrings.of(context);
-    if (!await _confirm(t.confirmReturnQ, t.confirmReturnBody, t.confirm) || !mounted) return;
-    await _run(() => ref.read(opsRepositoryProvider).returnToBranch(widget.job.id));
-  }
-
-  Future<bool> _confirm(String title, String body, String yes) async {
-    final t = OpsStrings.of(context);
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(title),
-        content: Text(body),
-        actions: [
-          TextButton(autofocus: true, onPressed: () => Navigator.pop(c, false), child: Text(t.cancel)),
-          TextButton(onPressed: () => Navigator.pop(c, true), child: Text(yes)),
-        ],
-      ),
-    );
-    return ok ?? false;
-  }
-
   void _openMap() {
     final tracker = ref.read(driverTrackerProvider);
     unawaited(
@@ -405,23 +284,22 @@ class _JobCardState extends ConsumerState<_JobCard> {
     );
   }
 
+  /// The whole card opens the delivery in a window beside the list; the list keeps its place and Back closes only the
+  /// window. The map is a full screen of its own, so the window hands over to it.
+  Future<void> _openDetails() async {
+    final result = await showJobPanel(context, job: widget.job, readOnly: widget.readOnly);
+    if (result == JobPanelResult.openMap && mounted) _openMap();
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = OpsStrings.of(context);
     final job = widget.job;
-    final next = widget.readOnly ? null : job.nextAction;
-    final retry = job.status == 'failed' || job.status == 'rescheduled';
-    final label = switch (next) {
-      'accept' => t.accept,
-      'pickup' => t.pickedUp,
-      'out-for-delivery' => retry ? t.retryDelivery : t.onTheWay,
-      'deliver' => t.delivered,
-      _ => null,
-    };
     final when = job.scheduledFor == null
         ? null
         : QatarTime.dateTime(job.scheduledFor, Localizations.localeOf(context).languageCode);
     return SurfaceCard(
+      onTap: widget.embedded ? null : _openDetails,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -499,44 +377,7 @@ class _JobCardState extends ConsumerState<_JobCard> {
                 ],
               ],
             ),
-            if (label != null) ...[
-              const Gap(AppSpace.sm),
-              Row(
-                children: [
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: _busy ? null : () => next == 'deliver' ? _deliver() : _step(next!),
-                      child: _busy
-                          ? SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.2,
-                                color: Theme.of(context).colorScheme.onPrimary,
-                              ),
-                            )
-                          : Text(label, textAlign: TextAlign.center),
-                    ),
-                  ),
-                  if (job.canFail) ...[
-                    const Gap(AppSpace.xs),
-                    IconButton.outlined(
-                      tooltip: t.failed,
-                      onPressed: _busy ? null : _fail,
-                      icon: const Icon(Icons.report_gmailerrorred_rounded),
-                    ),
-                  ],
-                ],
-              ),
-            ],
-            if (job.canReturn) ...[
-              const Gap(AppSpace.xs),
-              OutlinedButton.icon(
-                onPressed: _busy ? null : _returnToBranch,
-                icon: const Icon(Icons.assignment_return_rounded, size: 18),
-                label: Text(t.returnToBranch),
-              ),
-            ],
+            JobActionButtons(key: ValueKey('steps-${job.id}'), job: job),
           ],
         ],
       ),
@@ -575,222 +416,6 @@ class _JobMapRoute extends ConsumerWidget {
         ),
       ),
       card: _JobCard(key: ValueKey('map-${current.id}'), job: current, readOnly: false, embedded: true),
-    );
-  }
-}
-
-/// Proof of delivery: who received it, the cash (cash-on-delivery) and a photo. The upload happens inside the sheet, so a
-/// network failure keeps the photo and the typed text for another try instead of losing them.
-class _DeliverSheet extends ConsumerStatefulWidget {
-  const _DeliverSheet({required this.job});
-  final DriverJob job;
-
-  @override
-  ConsumerState<_DeliverSheet> createState() => _DeliverSheetState();
-}
-
-class _DeliverSheetState extends ConsumerState<_DeliverSheet> {
-  final _recipient = TextEditingController();
-  late final _cash = TextEditingController(text: widget.job.codAmount.toStringAsFixed(2));
-  File? _photo;
-  String? _error;
-  bool _busy = false;
-
-  bool get _dirty => _photo != null || _recipient.text.trim().isNotEmpty;
-
-  @override
-  void dispose() {
-    _recipient.dispose();
-    _cash.dispose();
-    super.dispose();
-  }
-
-  Future<void> _shoot() async {
-    final t = OpsStrings.of(context);
-    try {
-      final shot = await ref
-          .read(opsImagePickerProvider)
-          .pickImage(source: ImageSource.camera, maxWidth: 1600, imageQuality: 80);
-      if (shot != null && mounted) {
-        setState(() {
-          _photo = File(shot.path);
-          _error = null;
-        });
-      }
-    } catch (_) {
-      // Camera permission refused or no camera: say what to do instead of failing silently.
-      if (mounted) setState(() => _error = t.photoFailed);
-    }
-  }
-
-  Future<void> _submit() async {
-    if (_busy) return;
-    final t = OpsStrings.of(context);
-    final job = widget.job;
-    if (job.requiresProof && _photo == null) {
-      setState(() => _error = t.photoRequired);
-      return;
-    }
-    double? cod;
-    if (job.isCod) {
-      final text = _cash.text.trim();
-      cod = parseAmount(text);
-      if (text.isEmpty) {
-        setState(() => _error = t.cashRequired);
-        return;
-      }
-      if (cod == null) {
-        setState(() => _error = t.cashInvalid);
-        return;
-      }
-      if (cod > job.codAmount + 0.004) {
-        setState(() => _error = t.cashTooMuch(job.codAmount.toStringAsFixed(2)));
-        return;
-      }
-    }
-    FocusScope.of(context).unfocus();
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      await ref
-          .read(opsRepositoryProvider)
-          .deliver(job.id, recipient: _recipient.text.trim(), proof: _photo, codAmount: cod);
-      if (mounted) Navigator.pop(context, true);
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _busy = false;
-          _error = describeError(context.l10n, e);
-        });
-      }
-    }
-  }
-
-  Future<void> _close() async {
-    if (_busy) return;
-    final t = OpsStrings.of(context);
-    if (_dirty) {
-      final leave = await showDialog<bool>(
-        context: context,
-        builder: (c) => AlertDialog(
-          title: Text(t.leaveQ),
-          content: Text(t.leaveBody),
-          actions: [
-            TextButton(autofocus: true, onPressed: () => Navigator.pop(c, false), child: Text(t.stay)),
-            TextButton(onPressed: () => Navigator.pop(c, true), child: Text(t.leave)),
-          ],
-        ),
-      );
-      if (leave != true || !mounted) return;
-    }
-    Navigator.pop(context, false);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = OpsStrings.of(context);
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) unawaited(_close());
-      },
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          AppSpace.gutter,
-          0,
-          AppSpace.gutter,
-          MediaQuery.viewInsetsOf(context).bottom + AppSpace.md,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Expanded(child: Text(t.delivered, style: Theme.of(context).textTheme.titleLarge)),
-                  IconButton(tooltip: t.close, icon: const Icon(Icons.close_rounded), onPressed: _busy ? null : _close),
-                ],
-              ),
-              const Gap(AppSpace.xs),
-              TextField(
-                controller: _recipient,
-                enabled: !_busy,
-                maxLength: 80,
-                textCapitalization: TextCapitalization.words,
-                textInputAction: widget.job.isCod ? TextInputAction.next : TextInputAction.done,
-                autofillHints: const [AutofillHints.name],
-                onChanged: (_) => setState(() {}),
-                decoration: InputDecoration(labelText: t.receivedBy),
-              ),
-              if (widget.job.isCod) ...[
-                const Gap(AppSpace.sm),
-                TextField(
-                  controller: _cash,
-                  enabled: !_busy,
-                  maxLength: 12,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  inputFormatters: const [AmountInputFormatter()],
-                  textInputAction: TextInputAction.done,
-                  decoration: InputDecoration(labelText: '${t.cashCollected} (${t.currency})'),
-                ),
-              ],
-              const Gap(AppSpace.sm),
-              OutlinedButton.icon(
-                onPressed: _busy ? null : _shoot,
-                icon: Icon(_photo == null ? Icons.photo_camera_outlined : Icons.check_circle_rounded),
-                label: Text(_photo == null ? t.takePhoto : t.photoTaken),
-              ),
-              if (_photo != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: AppSpace.xs),
-                  child: Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(AppRadius.input),
-                      child: Image.file(
-                        _photo!,
-                        width: 96,
-                        height: 96,
-                        fit: BoxFit.cover,
-                        cacheWidth: 288,
-                        errorBuilder: (_, _, _) => SizedBox(
-                          width: 96,
-                          height: 96,
-                          child: Center(child: Text(t.photoBroken, textAlign: TextAlign.center)),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Semantics(
-                    liveRegion: true,
-                    child: Text(_error!, style: TextStyle(color: context.palette.danger)),
-                  ),
-                ),
-              const Gap(AppSpace.md),
-              FilledButton(
-                onPressed: _busy ? null : _submit,
-                child: _busy
-                    ? SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.4,
-                          color: Theme.of(context).colorScheme.onPrimary,
-                        ),
-                      )
-                    : Text(t.confirm),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

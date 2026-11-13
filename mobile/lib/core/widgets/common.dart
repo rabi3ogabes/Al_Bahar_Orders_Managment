@@ -6,6 +6,7 @@ import '../theme/app_theme.dart';
 import '../theme/design_tokens.dart';
 import '../theme/tokens.dart';
 import '../utils/haptics.dart';
+import 'side_panel.dart';
 import 'skeleton.dart';
 
 /// Cached network image with skeleton placeholder and graceful fallback.
@@ -353,41 +354,21 @@ class QuantityStepper extends StatelessWidget {
   }
 }
 
-/// Consistent modal bottom sheet.
+/// The older name of [showSidePanel], kept so existing call sites open the same window (a sheet on phones, an end-side
+/// panel on wide screens). New code calls [showSidePanel] directly.
 Future<T?> showAppBottomSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
   String? title,
   bool scrollable = true,
-}) {
-  return showModalBottomSheet<T>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    constraints: const BoxConstraints(maxWidth: 640),
-    builder: (sheetContext) {
-      final content = Padding(
-        padding: EdgeInsetsDirectional.only(
-          start: AppSpace.gutter,
-          end: AppSpace.gutter,
-          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom + AppSpace.lg,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (title != null) ...[
-              Semantics(header: true, child: Text(title, style: sheetContext.text.headlineSmall)),
-              const Gap(AppSpace.md),
-            ],
-            Flexible(child: builder(sheetContext)),
-          ],
-        ),
-      );
-      return scrollable ? SingleChildScrollView(child: content) : content;
-    },
-  );
-}
+  bool isForm = false,
+}) => showSidePanel<T>(
+  context: context,
+  title: title ?? '',
+  builder: builder,
+  scrollable: scrollable,
+  isForm: isForm,
+);
 
 /// Confirmation dialog for destructive or important actions.
 Future<bool> confirmAction(
@@ -404,7 +385,7 @@ Future<bool> confirmAction(
       title: Text(title),
       content: message == null ? null : Text(message),
       actions: [
-        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(l10n.cancel)),
+        TextButton(autofocus: true, onPressed: () => Navigator.of(ctx).pop(false), child: Text(l10n.cancel)),
         FilledButton(
           style: destructive ? FilledButton.styleFrom(backgroundColor: ctx.palette.danger) : null,
           onPressed: () {

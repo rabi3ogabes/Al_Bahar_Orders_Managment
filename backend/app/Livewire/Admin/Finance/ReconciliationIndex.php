@@ -6,8 +6,11 @@ use App\Domain\Payments\Models\Payment;
 use App\Domain\Payments\Services\PaymentService;
 use App\Domain\Reports\Services\ReportService;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
+use App\Livewire\Admin\Sales\Concerns\HasRecordWindow;
+use App\Livewire\Admin\Sales\Concerns\PeeksAtOrder;
 use App\Support\BusinessTime;
 use App\Support\DomainException;
+use Illuminate\Database\Eloquent\Model;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -15,7 +18,12 @@ use Livewire\Component;
 /** SADAD reconciliation: provider vs ledger check per payment (ReportService) with re-check and resolution actions. */
 class ReconciliationIndex extends Component
 {
-    use InteractsWithAdmin;
+    use HasRecordWindow, InteractsWithAdmin, PeeksAtOrder;
+
+    /** The payment shown in the side window (`?view=`). */
+    #[Locked]
+    #[Url(as: 'view', except: '')]
+    public string $viewId = '';
 
     #[Url(except: '')]
     public string $from = '';
@@ -38,6 +46,16 @@ class ReconciliationIndex extends Component
         abort_unless($this->can('reconciliation.view'), 403);
         $this->from = $this->from ?: BusinessTime::now()->subDays(6)->toDateString();
         $this->to = $this->to ?: BusinessTime::now()->toDateString();
+        if ($this->viewId !== '') {
+            $this->openView($this->viewId, quiet: true);
+        }
+    }
+
+    protected function findViewable(string $id): ?Model
+    {
+        $payment = Payment::find($id);
+
+        return $payment && PaymentShow::viewableBy(auth()->user(), $payment) ? $payment : null;
     }
 
     public function recheck(string $paymentId, PaymentService $svc): void

@@ -139,7 +139,7 @@
                 <tbody>@foreach ($rows as $c)
                     <tr wire:key="cc-{{ $c->id }}">
                         <td class="text-xs text-ink-500 tabular-nums">{{ \App\Support\BusinessTime::display($c->collected_at) }}</td>
-                        <td>@if ($c->payment?->order)<a href="{{ route('admin.orders.show', $c->payment->order_id) }}" wire:navigate class="font-mono text-sm hover:text-brass-600" dir="ltr">{{ $c->payment->order->number }}</a>@endif<span class="block font-mono text-xs text-ink-500" dir="ltr">{{ $c->branch?->code }}@if ($c->receipt_reference) · {{ $c->receipt_reference }}@endif</span></td>
+                        <td>@if ($c->payment?->order)<x-admin.order-peek-link :id="$c->payment->order_id" :number="$c->payment->order->number" :can="$this->can('orders.view', $c->branch_id)" class="text-sm" />@endif<span class="block font-mono text-xs text-ink-500" dir="ltr">{{ $c->branch?->code }}@if ($c->receipt_reference) · {{ $c->receipt_reference }}@endif</span></td>
                         <td class="text-sm">{{ $c->collector?->name }}</td>
                         <td><span class="text-sm">{{ __('status.'.$c->context) }}</span><span class="block text-xs text-ink-500">{{ __('sales_admin.tender_'.($c->tender === 'card_terminal' ? 'card' : 'cash')) }}</span></td>
                         <td class="text-end"><x-admin.money :value="$c->amount_due" /></td>
@@ -153,6 +153,8 @@
         @endif
     </div>
     @endif
+
+    @include('livewire.admin.sales.partials.order-peek')
 
     <x-admin.dialog wire:model="showDialog" :title="match ($dialog) { 'handin' => __('finance_admin.receive_cash'), 'resolve' => __('finance_admin.review_variance'), 'deposit' => __('finance_admin.make_deposit'), default => '' }"
                     :description="match ($dialog) { 'handin' => __('finance_admin.handin_hint'), 'resolve' => __('finance_admin.resolve_hint'), 'deposit' => __('finance_admin.deposit_hint'), default => null }">
@@ -185,8 +187,8 @@
                 <x-admin.field :label="__('finance_admin.bank_reference')" for="form.reference" required :hint="__('finance_admin.bank_reference_hint')"><input id="form.reference" wire:model="form.reference" class="input" dir="ltr" autofocus></x-admin.field>
             @endif
             <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">
-                <button type="button" class="btn-secondary" @click="open = false">{{ __('admin.back') }}</button>
-                <button class="btn-primary" wire:loading.attr="disabled" wire:target="confirmDialog">{{ __('admin.confirm') }}</button>
+                <button type="button" class="btn-secondary min-h-11" @click="open = false">{{ __('admin.back') }}</button>
+                <button class="btn-primary min-h-11" wire:loading.attr="disabled" wire:target="confirmDialog">{{ match ($dialog) { 'handin' => __('finance_admin.receive_cash'), 'resolve' => __('finance_admin.review_variance'), 'deposit' => __('finance_admin.make_deposit'), default => __('admin.confirm') } }}</button>
             </div>
         </form>
     </x-admin.dialog>

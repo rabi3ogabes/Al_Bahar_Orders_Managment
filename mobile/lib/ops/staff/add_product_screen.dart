@@ -4,6 +4,8 @@ import 'dart:math';
 
 import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
+import 'package:albahar_customer/core/widgets/dirty_form_guard.dart';
+import 'package:albahar_customer/core/widgets/side_panel.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/ops/ops_input.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
@@ -122,12 +124,11 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
 
   Future<void> _chooseCategory(List<ShopCategory> all) async {
     final t = OpsStrings.of(context);
-    final picked = await showModalBottomSheet<ShopCategory>(
+    final picked = await showSidePanel<ShopCategory>(
       context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      useSafeArea: true,
-      builder: (c) => _CategorySheet(all: all, title: t.chooseCategory, hint: t.searchCategory, none: t.noCategory),
+      title: t.chooseCategory,
+      scrollable: false,
+      builder: (_) => _CategoryList(all: all, hint: t.searchCategory, none: t.noCategory),
     );
     if (picked != null && mounted) setState(() => _category = picked.id.isEmpty ? null : picked);
   }
@@ -161,20 +162,9 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     }
   }
 
-  Future<bool> _confirmReplace() async {
+  Future<bool> _confirmReplace() {
     final t = OpsStrings.of(context);
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(t.replaceTextQ),
-        content: Text(t.replaceTextBody),
-        actions: [
-          TextButton(autofocus: true, onPressed: () => Navigator.pop(c, false), child: Text(t.cancel)),
-          TextButton(onPressed: () => Navigator.pop(c, true), child: Text(t.replace)),
-        ],
-      ),
-    );
-    return ok ?? false;
+    return opsConfirm(context, title: t.replaceTextQ, body: t.replaceTextBody, verb: t.replace);
   }
 
   /// A unique SKU the staff never has to type: time plus a random tail (two employees saving in the same millisecond differ).
@@ -249,23 +239,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
       return false;
     }
     if (!_dirty) return true;
-    final leave = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(t.leaveQ),
-        content: Text(t.leaveBody),
-        actions: [
-          // Initial focus on the safe choice: Enter never throws work away by accident.
-          TextButton(autofocus: true, onPressed: () => Navigator.pop(c, false), child: Text(t.stay)),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: Theme.of(c).colorScheme.error),
-            onPressed: () => Navigator.pop(c, true),
-            child: Text(t.leave),
-          ),
-        ],
-      ),
-    );
-    return leave ?? false;
+    return confirmDiscard(context);
   }
 
   @override
@@ -554,54 +528,48 @@ class _PhotoTile extends StatelessWidget {
   );
 }
 
-/// Searchable category list (many options → a combobox-style sheet).
-class _CategorySheet extends StatefulWidget {
-  const _CategorySheet({required this.all, required this.title, required this.hint, required this.none});
+/// Searchable category list (many options → a combobox-style list in a side window).
+class _CategoryList extends StatefulWidget {
+  const _CategoryList({required this.all, required this.hint, required this.none});
   final List<ShopCategory> all;
-  final String title;
   final String hint;
   final String none;
 
   @override
-  State<_CategorySheet> createState() => _CategorySheetState();
+  State<_CategoryList> createState() => _CategoryListState();
 }
 
-class _CategorySheetState extends State<_CategorySheet> {
+class _CategoryListState extends State<_CategoryList> {
   String _q = '';
 
   @override
   Widget build(BuildContext context) {
     final rows = widget.all.where((c) => c.name.toLowerCase().contains(_q.toLowerCase())).toList();
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * 0.7,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpace.gutter, 0, AppSpace.gutter, AppSpace.xs),
-              child: TextField(
-                autofocus: true,
-                decoration: InputDecoration(prefixIcon: const Icon(Icons.search_rounded), hintText: widget.hint),
-                onChanged: (v) => setState(() => _q = v),
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                children: [
-                  ListTile(
-                    minTileHeight: 52,
-                    title: Text(widget.none),
-                    onTap: () => Navigator.pop(context, const ShopCategory(id: '', name: '')),
-                  ),
-                  for (final c in rows)
-                    ListTile(minTileHeight: 52, title: Text(c.name), onTap: () => Navigator.pop(context, c)),
-                ],
-              ),
-            ),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpace.gutter, AppSpace.sm, AppSpace.gutter, AppSpace.xs),
+          child: TextField(
+            autofocus: true,
+            decoration: InputDecoration(prefixIcon: const Icon(Icons.search_rounded), hintText: widget.hint),
+            onChanged: (v) => setState(() => _q = v),
+          ),
         ),
-      ),
+        Expanded(
+          child: ListView(
+            children: [
+              ListTile(
+                minTileHeight: 52,
+                title: Text(widget.none),
+                onTap: () => Navigator.pop(context, const ShopCategory(id: '', name: '')),
+              ),
+              for (final c in rows)
+                ListTile(minTileHeight: 52, title: Text(c.name), onTap: () => Navigator.pop(context, c)),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

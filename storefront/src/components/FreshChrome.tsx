@@ -9,8 +9,8 @@ import { useTheme } from '../lib/theme';
 import { useDesign } from '../lib/brand';
 import { cx, telHref } from '../lib/format';
 import { useAuthModal } from './AuthModal';
-import { Drawer } from './ui';
-import { BranchPicker, CartDrawer, Logo, SearchOverlay, SeasonBanner, useCategories } from './shell';
+import { BranchPicker, CartDrawer, Logo, MenuDrawer, SearchOverlay, SeasonBanner, prefetchHeaderChunks, preload, useCategories } from './shell';
+import { DrawerLink } from './drawerLink';
 
 /** Round icon button that takes its colours from the bar it sits on. */
 function Ico({ label, brand, className, children, ...p }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string; brand: boolean; children: ReactNode }) {
@@ -38,6 +38,7 @@ export function FreshHeader() {
   const centre = tokens.nav === 'center_action';
 
   useEffect(() => { setMenu(false); setSearch(false); setPick(false); }, [loc.pathname, loc.search]);
+  useEffect(() => { prefetchHeaderChunks(); }, []);
   useEffect(() => { cart.closeDrawer(); }, [loc.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
   const links = useMemo(() => [
     { to: '/', label: t('fresh.nav_home'), on: loc.pathname === '/' },
@@ -55,7 +56,7 @@ export function FreshHeader() {
       <SeasonBanner />
       <header className={cx('sticky top-0 z-50 transition-shadow', brand ? 'bg-band text-on-band shadow-[0_6px_24px_-16px_rgb(0_0_0/0.55)]' : 'border-b border-line bg-bg/95 text-ink backdrop-blur')}>
         <div className="wrap flex h-[68px] items-center gap-3 lg:h-[76px] lg:gap-6">
-          <Ico brand={brand} label={t('nav.menu')} className="lg:hidden" onClick={() => setMenu(true)}><Menu size={22} /></Ico>
+          <Ico brand={brand} label={t('nav.menu')} className="lg:hidden" onClick={() => setMenu(true)} onPointerEnter={preload.menu} onFocus={preload.menu} onTouchStart={preload.menu}><Menu size={22} /></Ico>
           <Logo band={brand} />
           <nav aria-label={t('nav.main')} className={cx('hidden min-w-0 flex-1 items-center gap-1 lg:flex xl:gap-3', centre ? 'justify-center' : 'ms-4 justify-start')}>
             {links.map((l) => (
@@ -64,14 +65,14 @@ export function FreshHeader() {
             ))}
           </nav>
           <div className="ms-auto flex items-center gap-1 lg:ms-0">
-            <button onClick={() => setSearch(true)} aria-label={t('search.title')}
+            <button onClick={() => setSearch(true)} aria-label={t('search.title')} onPointerEnter={preload.search} onFocus={preload.search}
               className={cx('hidden h-11 w-[200px] items-center gap-2 rounded-full px-4 text-[14px] transition-colors xl:flex 2xl:w-[260px]', brand ? 'bg-white/12 text-on-band/80 hover:bg-white/20' : 'border border-line bg-paper text-muted hover:border-primary')}>
               <Search size={17} className="shrink-0" /><span className="truncate">{t('fresh.search_ph')}</span>
             </button>
-            <Ico brand={brand} label={t('search.title')} className="xl:hidden" onClick={() => setSearch(true)}><Search size={20} /></Ico>
+            <Ico brand={brand} label={t('search.title')} className="xl:hidden" onClick={() => setSearch(true)} onPointerEnter={preload.search} onFocus={preload.search} onTouchStart={preload.search}><Search size={20} /></Ico>
             <Ico brand={brand} label={t('wishlist.title')} className="hidden sm:inline-flex" onClick={() => (user ? nav('/account/wishlist') : authModal.open({ reason: t('auth.reason_wishlist') }))}><Heart size={20} /></Ico>
             <Ico brand={brand} label={user ? t('account.title') : t('auth.sign_in')} onClick={() => (user ? nav('/account') : authModal.open())}><UserIcon size={20} /></Ico>
-            <Ico brand={brand} label={`${t('cart.title')} (${cart.count})`} onClick={cart.openDrawer}>
+            <Ico brand={brand} label={`${t('cart.title')} (${cart.count})`} onClick={cart.openDrawer} onPointerEnter={preload.cart} onFocus={preload.cart} onTouchStart={preload.cart}>
               <ShoppingBag size={20} />
               {cart.count > 0 && <span className="absolute -end-0.5 -top-0.5 flex h-[19px] min-w-[19px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-on-accent">{cart.count}</span>}
             </Ico>
@@ -84,23 +85,23 @@ export function FreshHeader() {
         </div>
       </header>
 
-      <Drawer open={menu} onClose={() => setMenu(false)} side="start" title={t('nav.menu')}>
+      <MenuDrawer open={menu} onClose={() => setMenu(false)}>
         <nav className="px-6 py-4">
           <ul className="divide-y divide-line text-[18px] font-semibold">
-            {links.map((l) => <li key={l.to}><Link className={cx('flex items-center justify-between py-3.5', l.on && 'text-brass-deep')} to={l.to}>{l.label}</Link></li>)}
+            {links.map((l) => <li key={l.to}><DrawerLink className={cx('flex items-center justify-between py-3.5', l.on && 'text-brass-deep')} to={l.to}>{l.label}</DrawerLink></li>)}
           </ul>
           {topCats.length > 0 && (
             <div className="mt-5 flex flex-wrap gap-2">
-              {topCats.map((c) => <Link key={c.id} to={`/shop?category=${c.slug}`} className="rounded-full border border-line bg-paper px-3.5 py-1.5 text-sm hover:border-primary">{c.name}</Link>)}
+              {topCats.map((c) => <DrawerLink key={c.id} to={`/shop?category=${c.slug}`} className="rounded-full border border-line bg-paper px-3.5 py-1.5 text-sm hover:border-primary">{c.name}</DrawerLink>)}
             </div>
           )}
           <div className="mt-6 grid gap-2 text-sm">
-            {branches.length > 1 && <button onClick={() => { setMenu(false); setPick(true); }} className="flex items-center gap-3 rounded-2xl border border-line bg-paper p-4"><MapPin size={18} className="text-brass" />{branch ? branch.name : t('branch.all')}</button>}
+            {branches.length > 1 && <button onClick={() => { setMenu(false); setPick(true); preload.branch(); }} className="flex items-center gap-3 rounded-2xl border border-line bg-paper p-4"><MapPin size={18} className="text-brass" />{branch ? branch.name : t('branch.all')}</button>}
             <button onClick={() => setLocale(locale === 'en' ? 'ar' : 'en')} className="flex items-center gap-3 rounded-2xl border border-line bg-paper p-4"><Languages size={18} className="text-brass" />{locale === 'en' ? 'العربية' : 'English'}</button>
             <button onClick={toggle} className="flex items-center gap-3 rounded-2xl border border-line bg-paper p-4">{theme === 'dark' ? <Sun size={18} className="text-brass" /> : <Moon size={18} className="text-brass" />}{theme === 'dark' ? t('theme.light') : t('theme.dark')}</button>
           </div>
         </nav>
-      </Drawer>
+      </MenuDrawer>
       <SearchOverlay open={search} onClose={() => setSearch(false)} />
       <BranchPicker open={pick} onClose={() => setPick(false)} />
       <CartDrawer />

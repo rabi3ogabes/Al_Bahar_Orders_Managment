@@ -5,14 +5,25 @@ namespace App\Livewire\Admin\Finance;
 use App\Domain\Payments\Models\Payment;
 use App\Livewire\Admin\Concerns\WithAdminTable;
 use App\Livewire\Admin\Finance\Concerns\ScopesPayments;
+use App\Livewire\Admin\Sales\Concerns\HasRecordWindow;
+use App\Livewire\Admin\Sales\Concerns\PeeksAtOrder;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
-/** All payment attempts (SADAD, COD, pay-at-pickup) with status/method filters and finance review flags. */
+/**
+ * All payment attempts (SADAD, COD, pay-at-pickup) with status/method filters and finance review flags.
+ * A row opens the payment in a side window (`?view=<payment id>`); its order opens in a second window on top.
+ */
 class PaymentIndex extends Component
 {
-    use ScopesPayments, WithAdminTable;
+    use HasRecordWindow, PeeksAtOrder, ScopesPayments, WithAdminTable;
+
+    #[Locked]
+    #[Url(as: 'view', except: '')]
+    public string $viewId = '';
 
     #[Url(except: '')]
     public string $filterStatus = '';
@@ -27,6 +38,16 @@ class PaymentIndex extends Component
     public function mount(): void
     {
         abort_unless($this->can('payments.view'), 403);
+        if ($this->viewId !== '') {
+            $this->openView($this->viewId, quiet: true);
+        }
+    }
+
+    protected function findViewable(string $id): ?Model
+    {
+        $payment = Payment::find($id);
+
+        return $payment && PaymentShow::viewableBy(auth()->user(), $payment) ? $payment : null;
     }
 
     public static function applyFlag(Builder $q, string $flag): Builder

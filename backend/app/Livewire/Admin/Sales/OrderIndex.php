@@ -5,14 +5,22 @@ namespace App\Livewire\Admin\Sales;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderFulfillment;
 use App\Livewire\Admin\Concerns\WithAdminTable;
+use App\Livewire\Admin\Sales\Concerns\PeeksAtOrder;
 use App\Support\BusinessTime;
 use Illuminate\Database\Eloquent\Builder;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
-/** Order queue: quick tabs, filters (status, branch, payment, fulfillment, dates) and number/phone search, branch-scoped. */
+/**
+ * Order queue: quick tabs, filters (status, branch, payment, fulfillment, dates) and number/phone search, branch-scoped.
+ * A row opens the order in a side window (`?view=<order id>`), so the list keeps its filters, search, page and scroll.
+ */
 class OrderIndex extends Component
 {
+    use PeeksAtOrder {
+        peekOrder as private openPeek;
+    }
     use WithAdminTable;
 
     public const TABS = ['all', 'needs_action', 'pending_payment', 'ready', 'out_for_delivery'];
@@ -38,12 +46,33 @@ class OrderIndex extends Component
     #[Url(except: '')]
     public string $filterTo = '';
 
+    /** The order shown in the side window; mirrors the window state so reload, sharing and Back work. */
+    #[Locked]
+    #[Url(as: 'view', except: '')]
+    public string $viewId = '';
+
     public function mount(): void
     {
         abort_unless($this->can('orders.view'), 403);
         if (! in_array($this->tab, self::TABS, true)) {
             $this->tab = 'all';
         }
+        if ($this->viewId !== '') {
+            $this->peekOrder($this->viewId, quiet: true);
+        }
+    }
+
+    /** Opens the window and mirrors it in the address bar (`?view=`). */
+    public function peekOrder(string $id, bool $quiet = false): void
+    {
+        $this->openPeek($id, $quiet);
+        $this->viewId = $this->showOrder ? $this->orderPeekId : '';
+    }
+
+    public function closeOrderPeek(): void
+    {
+        $this->showOrder = false;
+        $this->viewId = '';
     }
 
     public function updatedTab(): void

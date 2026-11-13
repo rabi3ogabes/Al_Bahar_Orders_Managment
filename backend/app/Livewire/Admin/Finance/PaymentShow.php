@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin\Finance;
 
+use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Payments\Models\Payment;
 use App\Domain\Payments\Services\PaymentService;
@@ -15,10 +16,16 @@ use Livewire\Component;
 /** Payment detail: provider transactions ledger, refunds and collections, plus re-check / resolve / request-refund. */
 class PaymentShow extends Component
 {
-    use InteractsWithAdmin;
+    use InteractsWithAdmin {
+        attempt as private runAttempt;
+    }
 
     #[Locked]
     public string $paymentId;
+
+    /** Compact mode inside a side window (list → record view): same data and actions, no page chrome. */
+    #[Locked]
+    public bool $drawer = false;
 
     public bool $showRefund = false;
 
@@ -29,18 +36,34 @@ class PaymentShow extends Component
     #[Locked]
     public string $refundKey = '';
 
-    public function mount(Payment $payment): void
+    public function mount(Payment $payment, bool $drawer = false): void
     {
-        abort_unless($this->visible($payment), 403);
+        abort_unless(self::viewableBy(auth()->user(), $payment), 403);
         $this->paymentId = $payment->id;
+        $this->drawer = $drawer;
     }
 
-    private function visible(Payment $p): bool
+    /** The page's own gate, shared with the side window: payments.view at a branch of the order (or company-wide for order-less payments). */
+    public static function viewableBy(?User $user, Payment $p): bool
     {
+        if (! $user) {
+            return false;
+        }
         $acl = app(AccessControl::class);
         $branches = $p->order?->branchIds() ?? [];
 
-        return $branches ? collect($branches)->contains(fn ($b) => $acl->allows(auth()->user(), 'payments.view', $b)) : $acl->allowsGlobally(auth()->user(), 'payments.view');
+        return $branches ? collect($branches)->contains(fn ($b) => $acl->allows($user, 'payments.view', $b)) : $acl->allowsGlobally($user, 'payments.view');
+    }
+
+    /** A successful action inside a side window tells the list behind it to refresh its row. */
+    protected function attempt(callable $action, ?string $success = null): mixed
+    {
+        $result = $this->runAttempt($action, $success);
+        if ($result !== null && $this->drawer) {
+            $this->dispatch('record-changed');
+        }
+
+        return $result;
     }
 
     private function payment(): Payment

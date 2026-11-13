@@ -29,8 +29,8 @@
                 <thead><tr><th>{{ __('finance_admin.payment') }}</th><th>{{ __('finance_admin.d_reference') }}</th><th class="!text-end">{{ __('finance_admin.amount') }}</th><th class="!text-end">{{ __('finance_admin.captured') }}</th><th>{{ __('admin.status') }}</th><th>{{ __('finance_admin.check') }}</th><th class="!text-end">{{ __('admin.actions') }}</th></tr></thead>
                 <tbody>@foreach ($rows as $row)
                     @php $p = $payments[$row['id']] ?? null; $res = $p?->metadata['review_resolution'] ?? null; @endphp
-                    <tr wire:key="rc-{{ $row['id'] }}">
-                        <td>@if ($p)<a href="{{ route('admin.payments.show', $p) }}" wire:navigate class="font-mono text-sm font-medium hover:text-brass-600" dir="ltr">{{ $p->order?->number ?? \Illuminate\Support\Str::limit($row['id'], 8, '') }}</a><span class="block text-xs text-ink-500 tabular-nums">{{ \App\Support\BusinessTime::display($p->created_at) }}</span>@endif</td>
+                    <tr wire:key="rc-{{ $row['id'] }}" @if ($p) wire:click="openView('{{ $p->id }}')" tabindex="-1" class="cursor-pointer focus:outline-none" @endif>
+                        <td>@if ($p)<a href="{{ route('admin.reconciliation.index', ['view' => $p->id]) }}" wire:click.prevent.stop="openView('{{ $p->id }}')" class="font-mono text-sm font-medium hover:text-brass-600" dir="ltr">{{ $p->order?->number ?? \Illuminate\Support\Str::limit($row['id'], 8, '') }}</a><span class="block text-xs text-ink-500 tabular-nums">{{ \App\Support\BusinessTime::display($p->created_at) }}</span>@endif</td>
                         <td class="max-w-[10rem] truncate font-mono text-xs" dir="ltr">{{ $row['provider_reference'] ?? '—' }}</td>
                         <td class="text-end"><x-admin.money :value="$row['amount']" /></td>
                         <td class="text-end"><x-admin.money :value="$row['captured_amount']" /></td>
@@ -38,7 +38,7 @@
                         <td>@if ($row['check'] === 'ok')<span class="badge-success">{{ __('finance_admin.check_ok') }}</span>@else<span class="badge-danger">{{ __('finance_admin.check_'.$row['check']) }}</span>@endif
                             @if ($res)<span class="mt-1 block max-w-[14rem] truncate text-xs text-emerald-soft" title="{{ $res['note'] }}"><x-icon name="check" class="me-0.5 inline size-3" />{{ $res['note'] }}</span>@endif</td>
                         <td class="text-end">
-                            <div class="flex justify-end gap-1">
+                            <div class="flex justify-end gap-1" @click.stop>
                                 @if ($canRecheck && in_array($row['status'], ['pending', 'processing'], true))<button type="button" wire:click="recheck('{{ $row['id'] }}')" class="btn-ghost btn-sm" title="{{ __('finance_admin.recheck_provider') }}"><x-icon name="refresh" class="size-4" /></button>@endif
                                 @if ($canResolve && $row['check'] !== 'ok' && ! $res)<button type="button" wire:click="askResolve('{{ $row['id'] }}')" class="btn-secondary btn-sm">{{ __('finance_admin.resolve') }}</button>@endif
                             </div>
@@ -49,12 +49,14 @@
         @endif
     </div>
 
+    @include('livewire.admin.finance.partials.payment-window')
+
     <x-admin.dialog wire:model="showResolve" :title="__('finance_admin.resolve_exception')" :description="__('finance_admin.resolve_exception_hint')">
         <form wire:submit="resolve" class="space-y-5">
             <x-admin.field :label="__('finance_admin.resolution')" for="note" required><textarea id="note" wire:model="note" rows="3" class="input" placeholder="{{ __('finance_admin.resolution_ph') }}"></textarea></x-admin.field>
             <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">
-                <button type="button" class="btn-secondary" @click="open = false">{{ __('admin.cancel') }}</button>
-                <button class="btn-primary">{{ __('finance_admin.mark_resolved') }}</button>
+                <button type="button" class="btn-secondary min-h-11" @click="open = false">{{ __('admin.cancel') }}</button>
+                <button class="btn-primary min-h-11">{{ __('finance_admin.mark_resolved') }}</button>
             </div>
         </form>
     </x-admin.dialog>

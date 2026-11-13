@@ -7,17 +7,25 @@ use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderFulfillment;
 use App\Livewire\Admin\Concerns\WithAdminTable;
+use App\Livewire\Admin\Sales\Concerns\HasRecordWindow;
+use App\Livewire\Admin\Sales\Concerns\PeeksAtOrder;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
  * Customer directory. Branch-scoped staff only see customers who ordered from their branches; personal data
- * (phone, email) is masked unless the viewer holds customers.edit.
+ * (phone, email) is masked unless the viewer holds customers.edit. A row opens the customer in a side window (`?view=<customer id>`).
  */
 class CustomerIndex extends Component
 {
-    use WithAdminTable;
+    use HasRecordWindow, PeeksAtOrder, WithAdminTable;
+
+    #[Locked]
+    #[Url(as: 'view', except: '')]
+    public string $viewId = '';
 
     #[Url(except: '')]
     public string $filterStatus = '';
@@ -28,6 +36,16 @@ class CustomerIndex extends Component
     public function mount(): void
     {
         abort_unless($this->can('customers.view'), 403);
+        if ($this->viewId !== '') {
+            $this->openView($this->viewId, quiet: true);
+        }
+    }
+
+    protected function findViewable(string $id): ?Model
+    {
+        $customer = User::where('type', 'customer')->find($id);
+
+        return $customer && CustomerShow::viewableBy(auth()->user(), $customer) ? $customer : null;
     }
 
     /** Customers visible to the viewer (global: all; branch-scoped: ordered from one of their branches). */

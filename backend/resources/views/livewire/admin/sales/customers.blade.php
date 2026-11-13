@@ -31,12 +31,12 @@
                     </tr></thead>
                     <tbody>
                     @foreach ($customers as $c)
-                        <tr wire:key="c-{{ $c->id }}">
+                        <tr wire:key="c-{{ $c->id }}" wire:click="openView('{{ $c->id }}')" tabindex="-1" class="cursor-pointer focus:outline-none">
                             <td>
                                 <div class="flex items-center gap-3">
                                     <span class="grid size-9 shrink-0 place-items-center rounded-full bg-sand-100 text-sm font-semibold text-ink-700 dark:bg-ink-800 dark:text-sand-100">{{ mb_substr($c->name, 0, 1) }}</span>
                                     <div class="min-w-0">
-                                        <a href="{{ route('admin.customers.show', $c) }}" wire:navigate class="block truncate font-medium text-ink-900 hover:text-brass-600 dark:text-ivory">{{ $c->name }}</a>
+                                        <a href="{{ route('admin.customers.index', ['view' => $c->id]) }}" wire:click.prevent.stop="openView('{{ $c->id }}')" class="block truncate font-medium text-ink-900 hover:text-brass-600 dark:text-ivory">{{ $c->name }}</a>
                                         <span class="text-xs text-ink-500">{{ __('sales_admin.joined', ['date' => \App\Support\BusinessTime::display($c->created_at, 'M Y')]) }}</span>
                                     </div>
                                 </div>
@@ -49,7 +49,7 @@
                             <td class="text-end"><x-admin.money :value="$c->spend ?? '0'" /></td>
                             <td class="text-end tabular-nums">{{ number_format($c->loyaltyAccount?->balance ?? 0) }}@if ($c->loyaltyAccount && $c->loyaltyAccount->tier !== 'classic')<span class="badge-brass ms-1.5">{{ __('sales_admin.tier_'.$c->loyaltyAccount->tier) }}</span>@endif</td>
                             <td><x-admin.status :value="$c->status->value" /></td>
-                            <td><a href="{{ route('admin.customers.show', $c) }}" wire:navigate class="btn-ghost btn-sm" aria-label="{{ __('admin.details') }}"><x-icon name="chevron-right" class="size-4 rtl-flip" /></a></td>
+                            <td><span class="btn-ghost btn-sm pointer-events-none" aria-hidden="true"><x-icon name="chevron-right" class="size-4 rtl-flip" /></span></td>
                         </tr>
                     @endforeach
                     </tbody>
@@ -58,4 +58,15 @@
             @if ($customers->hasPages())<div class="border-t border-sand-100 p-4 dark:border-ink-800">{{ $customers->links('components.admin.pagination') }}</div>@endif
         @endif
     </div>
+
+    @php $viewed = $this->viewed; @endphp
+    <x-admin.dialog wire:model="showView" :title="$viewed?->name" max-width="max-w-3xl">
+        @if ($viewed)
+            <x-admin.drawer-bar :url="route('admin.customers.show', $viewed)" />
+            @livewire(\App\Livewire\Admin\Sales\CustomerShow::class, ['customer' => $viewed, 'drawer' => true], key('customer-view-'.$viewed->id.'-'.$viewSeq))
+        @endif
+    </x-admin.dialog>
+
+    {{-- Declared after the customer window so an order opened from it lands on top. --}}
+    @include('livewire.admin.sales.partials.order-peek')
 </div>

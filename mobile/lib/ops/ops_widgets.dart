@@ -4,6 +4,7 @@ import 'package:albahar_customer/core/map/map_geo.dart';
 import 'package:albahar_customer/core/map/map_nav.dart';
 import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
+import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
@@ -11,6 +12,7 @@ import 'package:albahar_customer/ops/ops_repository.dart';
 import 'package:albahar_customer/ops/ops_session.dart';
 import 'package:albahar_customer/ops/ops_strings.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -102,22 +104,56 @@ StatusTone toneForOpsStatus(String s) => switch (s) {
   _ => StatusTone.accent,
 };
 
+/// A decision, in a centred dialog: a question as the title, what happens as the body, a focused Cancel (Enter never
+/// does the risky thing) and one button named after the action. A [destructive] decision is red and cannot be closed by
+/// tapping outside it. Resolves to true only when the person chose the action.
+Future<bool> opsConfirm(
+  BuildContext context, {
+  required String title,
+  required String verb,
+  String? body,
+  String? cancel,
+  bool destructive = false,
+}) async {
+  final t = OpsStrings.of(context);
+  final ok = await showDialog<bool>(
+    context: context,
+    barrierDismissible: !destructive,
+    builder: (c) {
+      final scheme = Theme.of(c).colorScheme;
+      return AlertDialog(
+        title: Text(title),
+        content: body == null ? null : Text(body),
+        actions: [
+          TextButton(autofocus: true, onPressed: () => Navigator.pop(c, false), child: Text(cancel ?? t.cancel)),
+          FilledButton(
+            style: destructive
+                ? FilledButton.styleFrom(backgroundColor: scheme.error, foregroundColor: scheme.onError)
+                : null,
+            onPressed: () {
+              if (destructive) Haptics.heavy();
+              Navigator.pop(c, true);
+            },
+            child: Text(verb),
+          ),
+        ],
+      );
+    },
+  );
+  return ok ?? false;
+}
+
 /// Asks, then (for a driver) goes off duty and signs out. Going off duty is best effort: offline must not trap the user.
 Future<void> confirmSignOut(BuildContext context, WidgetRef ref) async {
   final t = OpsStrings.of(context);
   final driver = ref.read(opsRoleProvider) == OpsRole.driver;
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (c) => AlertDialog(
-      title: Text(driver ? t.signOutDriverQ : t.signOutQ),
-      content: driver ? Text(t.signOutDriverBody) : null,
-      actions: [
-        TextButton(autofocus: true, onPressed: () => Navigator.pop(c, false), child: Text(t.cancel)),
-        TextButton(onPressed: () => Navigator.pop(c, true), child: Text(t.signOut)),
-      ],
-    ),
+  final ok = await opsConfirm(
+    context,
+    title: driver ? t.signOutDriverQ : t.signOutQ,
+    body: driver ? t.signOutDriverBody : null,
+    verb: t.signOut,
   );
-  if (ok != true) return;
+  if (!ok) return;
   if (driver) {
     try {
       await ref.read(opsRepositoryProvider).setDuty(false);
@@ -288,6 +324,84 @@ class CountTile extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// A titled group inside a side window: a small heading and a soft box holding the details.
+class PanelSection extends StatelessWidget {
+  const PanelSection({super.key, required this.title, required this.children});
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpace.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: 2, bottom: AppSpace.xs),
+            child: Semantics(
+              header: true,
+              child: Text(title, style: context.text.labelLarge?.copyWith(color: p.muted)),
+            ),
+          ),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpace.md),
+            decoration: BoxDecoration(color: p.surfaceMuted, borderRadius: BorderRadius.circular(AppRadius.input)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Copies [text] to the clipboard and says so on the button itself ("Copied"): the feedback sits where the finger is.
+class CopyTextButton extends StatefulWidget {
+  const CopyTextButton({super.key, required this.text, required this.label});
+  final String text;
+  final String label;
+
+  @override
+  State<CopyTextButton> createState() => _CopyTextButtonState();
+}
+
+class _CopyTextButtonState extends State<CopyTextButton> {
+  Timer? _reset;
+  bool _copied = false;
+
+  @override
+  void dispose() {
+    _reset?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _copy() async {
+    await Clipboard.setData(ClipboardData(text: widget.text));
+    Haptics.tap();
+    if (!mounted) return;
+    setState(() => _copied = true);
+    _reset?.cancel();
+    _reset = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = OpsStrings.of(context);
+    return Semantics(
+      liveRegion: true,
+      child: OutlinedButton.icon(
+        onPressed: _copy,
+        icon: Icon(_copied ? Icons.check_rounded : Icons.copy_rounded, size: 18),
+        label: Text(_copied ? t.copied : widget.label, maxLines: 1, overflow: TextOverflow.ellipsis),
       ),
     );
   }

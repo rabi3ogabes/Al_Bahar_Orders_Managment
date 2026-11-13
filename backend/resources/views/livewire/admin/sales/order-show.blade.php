@@ -6,7 +6,8 @@
         'ready' => ['boxes', __('sales_admin.act_ready')],
     ];
 @endphp
-<div class="mx-auto max-w-7xl">
+<div @class(['mx-auto max-w-7xl' => ! $drawer])>
+    @if (! $drawer)
     <a href="{{ route('admin.orders.index') }}" wire:navigate class="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-brass-600"><x-icon name="chevron-left" class="size-4 rtl-flip" />{{ __('nav.orders') }}</a>
 
     <div class="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -30,6 +31,20 @@
             @endif
         </div>
     </div>
+    @else
+    {{-- Side window: the order number is the window title and the status badges sit in the window's top bar (partials/order-peek); this strip carries the two order-level actions. --}}
+    <div class="mb-5 space-y-3">
+        @if ($o->placed_by_staff_id)
+            <p class="inline-flex items-center gap-1.5 text-sm text-ink-600 dark:text-sand-200"><x-icon name="user" class="size-4 text-brass-600" />{{ __('neworder_admin.placed_by', ['staff' => $o->placedBy?->name ?? '—']) }}</p>
+        @endif
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{{ route('admin.orders.invoice', $o) }}" class="btn-secondary min-h-11" target="_blank" rel="noopener"><x-icon name="printer" class="size-4" />{{ __('sales_admin.invoice_pdf') }}</a>
+            @if ($cancellable)
+                <button type="button" wire:click="open('cancel_order')" class="btn-ghost min-h-11 text-ruby-soft"><x-icon name="ban" class="size-4" />{{ __('sales_admin.cancel_order') }}</button>
+            @endif
+        </div>
+    </div>
+    @endif
 
     <x-admin.journey-touches :order="$o" :touches="collect()" />
 
@@ -45,8 +60,8 @@
                         <div class="mt-4 flex flex-col gap-2 sm:flex-row">
                             <input wire:model="form.note" class="input flex-1" placeholder="{{ __('sales_admin.decision_note_ph') }}" aria-label="{{ __('admin.notes') }}">
                             <div class="flex gap-2">
-                                <button type="button" wire:click="decideCancellation('{{ $pendingCancellation->id }}', false)" class="btn-secondary">{{ __('sales_admin.keep_order') }}</button>
-                                <button type="button" wire:click="decideCancellation('{{ $pendingCancellation->id }}', true)" wire:confirm="{{ __('sales_admin.confirm_approve_cancellation') }}" class="btn-danger">{{ __('sales_admin.approve_cancellation') }}</button>
+                                <button type="button" wire:click="decideCancellation('{{ $pendingCancellation->id }}', false)" class="btn-secondary min-h-11">{{ __('sales_admin.keep_order') }}</button>
+                                <button type="button" wire:click="decideCancellation('{{ $pendingCancellation->id }}', true)" wire:confirm="{{ __('sales_admin.confirm_approve_cancellation') }}" class="btn-danger min-h-11">{{ __('sales_admin.approve_cancellation') }}</button>
                             </div>
                         </div>
                     @else
@@ -57,12 +72,13 @@
         </div>
     @endif
 
-    <div class="grid gap-6 lg:grid-cols-3 [&>*]:min-w-0">
-        <div class="min-w-0 space-y-6 lg:col-span-2">
+    {{-- Page: two columns. Side window: one column in reading order (display: contents + order-*), because lg: follows the screen, not the window. --}}
+    <div @class(['grid gap-6 lg:grid-cols-3 [&>*]:min-w-0' => ! $drawer, 'flex flex-col gap-5 [&>*]:min-w-0' => $drawer])>
+        <div @class(['min-w-0 space-y-6 lg:col-span-2' => ! $drawer, 'contents' => $drawer])>
             {{-- Fulfillments --}}
             @foreach ($o->fulfillments as $f)
                 @php $act = $actions[$f->id]; $d = $act['delivery']; @endphp
-                <section class="card overflow-hidden" wire:key="f-{{ $f->id }}">
+                <section class="card overflow-hidden {{ $drawer ? 'order-1' : '' }}" wire:key="f-{{ $f->id }}">
                     <div class="flex flex-col gap-3 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
                         <div class="min-w-0">
                             <div class="flex flex-wrap items-center gap-2">
@@ -75,6 +91,24 @@
                         </div>
                         <x-admin.status :value="$f->status->value" class="self-start" />
                     </div>
+                    @if ($drawer)
+                        {{-- Narrow window: one readable row per line instead of a five-column table. --}}
+                        <ul class="divide-y divide-sand-100 border-t border-sand-100 dark:divide-ink-800 dark:border-ink-800">
+                            @foreach ($f->items as $it)
+                                <li class="flex items-start gap-3 px-5 py-3.5" wire:key="it-{{ $it->id }}">
+                                    <div class="min-w-0 flex-1">
+                                        <span class="block font-medium text-ink-900 dark:text-ivory">{{ $it->name() }}</span>
+                                        <span class="flex flex-wrap items-center gap-x-2 text-xs text-ink-500"><span class="font-mono" dir="ltr">{{ $it->sku }}</span>@if ($it->variantName())<span>· {{ $it->variantName() }}</span>@endif
+                                            @if ($it->quantity_cancelled)<span class="text-ruby-soft">· {{ __('sales_admin.n_cancelled', ['n' => $it->quantity_cancelled]) }}</span>@endif
+                                            @if ($it->quantity_returned)<span class="text-amber-soft">· {{ __('sales_admin.n_returned', ['n' => $it->quantity_returned]) }}</span>@endif
+                                        </span>
+                                        <span class="mt-0.5 block text-xs text-ink-500 tabular-nums"><span dir="ltr">{{ $it->quantity }} ×</span> <x-admin.money :value="$it->unit_final_price" />@if ($it->quantity_handed_over)<span class="text-emerald-soft"> · {{ __('sales_admin.handed_over') }} {{ $it->quantity_handed_over }}</span>@endif</span>
+                                    </div>
+                                    <x-admin.money :value="$it->line_total" class="shrink-0 font-medium" />
+                                </li>
+                            @endforeach
+                        </ul>
+                    @else
                     <div class="table-wrap border-t border-sand-100 dark:border-ink-800">
                         <table class="table">
                             <thead><tr><th>{{ __('sales_admin.item') }}</th><th class="!text-end">{{ __('admin.quantity') }}</th><th class="!text-end">{{ __('sales_admin.handed_over') }}</th><th class="!text-end">{{ __('sales_admin.unit_price') }}</th><th class="!text-end">{{ __('admin.total') }}</th></tr></thead>
@@ -97,6 +131,7 @@
                             </tbody>
                         </table>
                     </div>
+                    @endif
 
                     @if ($d)
                         <div class="flex flex-wrap items-center gap-3 border-t border-sand-100 bg-sand-50/50 px-5 py-3 text-sm sm:px-6 dark:border-ink-800 dark:bg-ink-800/30">
@@ -131,15 +166,15 @@
 
                     @if ($act['steps'] || $act['cancel'] || $act['return'])
                         <div class="flex flex-col gap-2 border-t border-sand-100 p-4 sm:flex-row sm:flex-wrap sm:items-center sm:px-6 dark:border-ink-800">
-                            @if ($act['cancel'])<button type="button" wire:click="open('cancel_fulfillment', '{{ $f->id }}')" class="btn-ghost text-ruby-soft sm:me-auto"><x-icon name="x" class="size-4" />{{ __('sales_admin.cancel_branch_part') }}</button>@endif
-                            @if ($act['return'])<button type="button" wire:click="open('return_fulfillment', '{{ $f->id }}')" class="btn-ghost sm:me-auto"><x-icon name="refund" class="size-4" />{{ __('sales_admin.mark_returned') }}</button>@endif
+                            @if ($act['cancel'])<button type="button" wire:click="open('cancel_fulfillment', '{{ $f->id }}')" class="btn-ghost min-h-11 text-ruby-soft sm:me-auto"><x-icon name="x" class="size-4" />{{ __('sales_admin.cancel_branch_part') }}</button>@endif
+                            @if ($act['return'])<button type="button" wire:click="open('return_fulfillment', '{{ $f->id }}')" class="btn-ghost min-h-11 sm:me-auto"><x-icon name="refund" class="size-4" />{{ __('sales_admin.mark_returned') }}</button>@endif
                             @foreach ($act['steps'] as $s)
                                 @if ($s['action'] === 'transition')
-                                    <button type="button" wire:click="advance('{{ $f->id }}', '{{ $s['to'] }}')" wire:loading.attr="disabled" wire:target="advance" class="{{ $loop->last ? 'btn-primary' : 'btn-secondary' }}"><x-icon :name="$stepMeta[$s['to']][0]" class="size-4" />{{ $stepMeta[$s['to']][1] }}</button>
+                                    <button type="button" wire:click="advance('{{ $f->id }}', '{{ $s['to'] }}')" wire:loading.attr="disabled" wire:target="advance" class="{{ $loop->last ? 'btn-primary' : 'btn-secondary' }} min-h-11"><x-icon :name="$stepMeta[$s['to']][0]" class="size-4" />{{ $stepMeta[$s['to']][1] }}</button>
                                 @elseif ($s['action'] === 'pickup_ready')
-                                    <button type="button" wire:click="markPickupReady('{{ $f->id }}')" wire:loading.attr="disabled" wire:target="markPickupReady" class="btn-primary"><x-icon name="qr" class="size-4" />{{ __('sales_admin.act_pickup_ready') }}</button>
+                                    <button type="button" wire:click="markPickupReady('{{ $f->id }}')" wire:loading.attr="disabled" wire:target="markPickupReady" class="btn-primary min-h-11"><x-icon name="qr" class="size-4" />{{ __('sales_admin.act_pickup_ready') }}</button>
                                 @elseif ($s['action'] === 'delivery')
-                                    <button type="button" wire:click="open('delivery', '{{ $f->id }}')" class="btn-primary"><x-icon name="truck" class="size-4" />{{ __('sales_admin.act_arrange_delivery') }}</button>
+                                    <button type="button" wire:click="open('delivery', '{{ $f->id }}')" class="btn-primary min-h-11"><x-icon name="truck" class="size-4" />{{ __('sales_admin.act_arrange_delivery') }}</button>
                                 @endif
                             @endforeach
                         </div>
@@ -150,7 +185,7 @@
             @endforeach
 
             {{-- Payments --}}
-            <section class="card overflow-hidden">
+            <section class="card overflow-hidden {{ $drawer ? 'order-4' : '' }}">
                 <div class="flex items-center justify-between p-5 sm:p-6">
                     <h2 class="font-display text-xl font-semibold">{{ __('nav.payments') }}</h2>
                 </div>
@@ -185,7 +220,7 @@
 
             {{-- Returns --}}
             @if ($returns->isNotEmpty())
-                <section class="card overflow-hidden">
+                <section class="card overflow-hidden {{ $drawer ? 'order-5' : '' }}">
                     <div class="p-5 sm:p-6"><h2 class="font-display text-xl font-semibold">{{ __('nav.returns') }}</h2></div>
                     <ul class="divide-y divide-sand-100 border-t border-sand-100 dark:divide-ink-800 dark:border-ink-800">
                         @foreach ($returns as $rr)
@@ -201,7 +236,7 @@
             @endif
 
             {{-- Internal notes --}}
-            <section class="card card-pad">
+            <section class="card card-pad {{ $drawer ? 'order-7' : '' }}">
                 <h2 class="mb-4 font-display text-xl font-semibold">{{ __('sales_admin.internal_notes') }}</h2>
                 @if ($canNote)
                 <form wire:submit="addNote" class="flex flex-col gap-2 sm:flex-row sm:items-start">
@@ -209,7 +244,7 @@
                         <textarea wire:model="note" rows="2" class="input" placeholder="{{ __('sales_admin.note_ph') }}" aria-label="{{ __('sales_admin.internal_notes') }}"></textarea>
                         @error('note')<p class="field-error">{{ $message }}</p>@enderror
                     </div>
-                    <button class="btn-primary" wire:loading.attr="disabled" wire:target="addNote"><x-icon name="message" class="size-4" />{{ __('sales_admin.add_note') }}</button>
+                    <button class="btn-primary min-h-11" wire:loading.attr="disabled" wire:target="addNote"><x-icon name="message" class="size-4" />{{ __('sales_admin.add_note') }}</button>
                 </form>
                 @endif
                 @if ($o->notes->isNotEmpty())
@@ -225,8 +260,8 @@
             </section>
         </div>
 
-        <aside class="min-w-0 space-y-6">
-            <section class="card card-pad">
+        <aside @class(['min-w-0 space-y-6' => ! $drawer, 'contents' => $drawer])>
+            <section class="card card-pad {{ $drawer ? 'order-2' : '' }}">
                 <div class="mb-4 flex items-center justify-between gap-2">
                     <h2 class="font-display text-xl font-semibold">{{ __('admin.customer') }}</h2>
                     @if ($canCustomer)<a href="{{ route('admin.customers.show', $o->user_id) }}" wire:navigate class="text-xs font-medium text-brass-600 hover:underline">{{ __('sales_admin.view_profile') }}</a>@endif
@@ -243,7 +278,7 @@
                 @if ($o->customer_notes)<p class="mt-4 rounded-xl bg-brass-50 p-3 text-sm text-brass-700 dark:bg-brass-500/10 dark:text-brass-300"><x-icon name="message" class="me-1 inline size-3.5" />{{ $o->customer_notes }}</p>@endif
             </section>
 
-            <section class="card card-pad">
+            <section class="card card-pad {{ $drawer ? 'order-3' : '' }}">
                 <h2 class="mb-4 font-display text-xl font-semibold">{{ __('sales_admin.summary') }}</h2>
                 <dl class="space-y-2 text-sm">
                     @foreach ([['subtotal', 'subtotal'], ['discount', 'discount_total'], ['delivery_fee', 'delivery_fee_total'], ['service_fee', 'service_fee_total'], ['loyalty', 'loyalty_discount'], ['tax', 'tax_total']] as [$k, $field])
@@ -258,7 +293,7 @@
                 </dl>
             </section>
 
-            <section class="card card-pad">
+            <section class="card card-pad {{ $drawer ? 'order-6' : '' }}">
                 <h2 class="mb-5 font-display text-xl font-semibold">{{ __('sales_admin.timeline') }}</h2>
                 @if ($timeline)
                     <ol class="relative space-y-4">
@@ -281,7 +316,8 @@
         </aside>
     </div>
 
-    <x-admin.dialog wire:model="showDialog" :title="match ($dialog) { 'cancel_order' => __('sales_admin.cancel_order'), 'cancel_fulfillment' => __('sales_admin.cancel_branch_part'), 'return_fulfillment' => __('sales_admin.mark_returned'), 'delivery' => __('sales_admin.act_arrange_delivery'), default => '' }"
+    {{-- Decisions (cancel, return) are centred modals; the delivery form is a side window on the page and a modal when it opens over an order window. --}}
+    <x-admin.dialog wire:model="showDialog" :variant="$drawer || $dialog !== 'delivery' ? 'modal' : 'drawer'" max-width="max-w-lg" :title="match ($dialog) { 'cancel_order' => __('drawer_sales.q_cancel_order'), 'cancel_fulfillment' => __('drawer_sales.q_cancel_part'), 'return_fulfillment' => __('drawer_sales.q_return_part'), 'delivery' => __('sales_admin.act_arrange_delivery'), default => '' }"
                     :description="match ($dialog) { 'cancel_order' => __('sales_admin.cancel_order_hint'), 'cancel_fulfillment' => __('sales_admin.cancel_branch_hint'), 'return_fulfillment' => __('sales_admin.return_fulfillment_hint'), 'delivery' => __('sales_admin.arrange_delivery_hint'), default => null }">
         <form wire:submit="confirmDialog" class="space-y-5">
             @if ($dialog === 'delivery')
@@ -309,12 +345,12 @@
                         @foreach (['customer_request', 'out_of_stock', 'payment_issue', 'fraud_suspected', 'duplicate_order', 'damaged', 'other'] as $rc)<option value="{{ $rc }}">{{ __('sales_admin.rc_'.$rc) }}</option>@endforeach
                     </select>
                 </x-admin.field>
-                <x-admin.field :label="__('admin.reason')" for="form.reason" required><textarea id="form.reason" wire:model="form.reason" rows="3" class="input" placeholder="{{ __('sales_admin.reason_ph') }}"></textarea></x-admin.field>
+                <x-admin.field :label="__('admin.reason')" for="form.reason" required><textarea id="form.reason" wire:model="form.reason" rows="3" class="input" placeholder="{{ __('sales_admin.reason_ph') }}" autofocus></textarea></x-admin.field>
                 @if ($dialog === 'cancel_order' && $o->payment_status->isSettled())<p class="rounded-xl bg-sky-soft/5 p-3 text-xs text-sky-soft dark:text-sky-300"><x-icon name="info" class="me-1 inline size-3.5" />{{ __('sales_admin.cancel_refund_notice') }}</p>@endif
             @endif
             <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">
-                <button type="button" class="btn-secondary" @click="open = false">{{ __('admin.back') }}</button>
-                <button class="{{ in_array($dialog, ['cancel_order', 'cancel_fulfillment'], true) ? 'btn-danger' : 'btn-primary' }}" wire:loading.attr="disabled" wire:target="confirmDialog">{{ __('admin.confirm') }}</button>
+                <button type="button" class="btn-secondary min-h-11" @click="open = false">{{ __('admin.back') }}</button>
+                <button class="{{ in_array($dialog, ['cancel_order', 'cancel_fulfillment'], true) ? 'btn-danger' : 'btn-primary' }} min-h-11" wire:loading.attr="disabled" wire:target="confirmDialog">{{ match ($dialog) { 'cancel_order' => __('sales_admin.cancel_order'), 'cancel_fulfillment' => __('sales_admin.cancel_branch_part'), 'return_fulfillment' => __('sales_admin.mark_returned'), 'delivery' => __('sales_admin.act_arrange_delivery'), default => __('admin.confirm') } }}</button>
             </div>
         </form>
     </x-admin.dialog>

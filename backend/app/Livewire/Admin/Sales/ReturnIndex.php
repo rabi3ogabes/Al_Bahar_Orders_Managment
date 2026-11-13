@@ -7,15 +7,20 @@ use App\Domain\Orders\Models\ReturnRequest;
 use App\Domain\Orders\Services\ReturnService;
 use App\Domain\Payments\Models\Refund;
 use App\Livewire\Admin\Concerns\WithAdminTable;
+use App\Livewire\Admin\Sales\Concerns\PeeksAtOrder;
 use App\Support\Money;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
-/** Return requests queue and decision flow: approve/reject → receive (restock) → raise refund → close. */
+/**
+ * Return requests queue and decision flow: approve/reject → receive (restock) → raise refund → close.
+ * A row opens the return in a side window (`?view=<return id>`); its order opens in a second window on top.
+ */
 class ReturnIndex extends Component
 {
-    use WithAdminTable;
+    use PeeksAtOrder, WithAdminTable;
 
     #[Url(except: 'open')]
     public string $filterStatus = 'open';
@@ -24,6 +29,11 @@ class ReturnIndex extends Component
     public ?string $selectedId = null;
 
     public bool $showDetail = false;
+
+    /** Mirrors the open window in the address bar so reload, sharing and Back work. */
+    #[Locked]
+    #[Url(as: 'view', except: '')]
+    public string $viewId = '';
 
     public string $note = '';
 
@@ -36,12 +46,23 @@ class ReturnIndex extends Component
     public function mount(): void
     {
         abort_unless($this->can('orders.view'), 403);
+        if ($this->viewId !== '') {
+            $this->select($this->viewId, quiet: true);
+        }
     }
 
-    public function select(string $id): void
+    /** @param bool $quiet true for a deep link on page load: a return the viewer may not see simply does not open. */
+    public function select(string $id, bool $quiet = false): void
     {
-        $rr = ReturnRequest::findOrFail($id);
+        $rr = Str::isUuid($id) ? ReturnRequest::find($id) : null;
+        if ($quiet && (! $rr || ! $this->can('orders.view', $rr->branch_id))) {
+            $this->viewId = '';
+
+            return;
+        }
+        $rr ??= ReturnRequest::findOrFail($id);
         $this->authorizeBranch('orders.view', $rr->branch_id);
+        $this->viewId = $rr->id;
         $this->selectedId = $rr->id;
         $this->reset('note');
         $this->restock = true;
@@ -49,6 +70,12 @@ class ReturnIndex extends Component
         $this->refundMethod = 'original';
         $this->resetValidation();
         $this->showDetail = true;
+    }
+
+    public function closeDetail(): void
+    {
+        $this->showDetail = false;
+        $this->viewId = '';
     }
 
     private function suggestedRefund(ReturnRequest $rr): Money
@@ -100,7 +127,7 @@ class ReturnIndex extends Component
         $rr = $this->selected();
         $this->authorizeBranch('orders.approve', $rr->branch_id);
         if ($this->attempt(fn () => $svc->close($rr, auth()->user()), __('sales_admin.return_closed'))) {
-            $this->showDetail = false;
+            $this->closeDetail();
         }
     }
 

@@ -824,5 +824,10 @@
   "liveOrderPermissionAllow": "السماح بالإشعارات",
   "liveOrderPermissionLater": "ليس الآن",
   "liveOrderPermissionBlockedTitle": "الإشعارات متوقفة",
-  "liveOrderPermissionBlockedBody": "فعّلها من الإعدادات لتتابع طلبك مباشرة."
+  "liveOrderPermissionBlockedBody": "فعّلها من الإعدادات لتتابع طلبك مباشرة.",
+  "quickView": "نظرة سريعة",
+  "quickViewOf": "نظرة سريعة: {name}",
+  "viewFullDetails": "عرض التفاصيل الكاملة",
+  "openFullPage": "فتح الصفحة كاملة",
+  "showResultsCount": "{count, plural, =1{عرض نتيجة واحدة} =2{عرض نتيجتين} few{عرض {count} نتائج} many{عرض {count} نتيجة} other{عرض {count} نتيجة}}"
 }

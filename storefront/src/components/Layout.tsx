@@ -9,9 +9,11 @@ import { useTheme } from '../lib/theme';
 import { useDesign } from '../lib/brand';
 import { cx, telHref } from '../lib/format';
 import { useAuthModal } from './AuthModal';
-import { Drawer, IconButton } from './ui';
+import { stripOverlayParams } from '../lib/overlay';
+import { IconButton } from './ui';
 import { useToast } from '../lib/toast';
-import { BranchPicker, CartDrawer, Logo, SearchOverlay, SeasonBanner, useCategories } from './shell';
+import { BranchPicker, CartDrawer, Logo, MenuDrawer, SearchOverlay, SeasonBanner, prefetchHeaderChunks, preload, useCategories } from './shell';
+import { DrawerLink } from './drawerLink';
 import { FreshFooter, FreshHeader } from './FreshChrome';
 
 export { Logo, LogoMark } from './shell';
@@ -36,6 +38,7 @@ export function Header() {
   const activeCat = new URLSearchParams(loc.search).get('category');
   // A page change (including the browser's back button) leaves no overlay behind.
   useEffect(() => { setMenu(false); setSearch(false); setPick(false); cart.closeDrawer(); }, [loc.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { prefetchHeaderChunks(); }, []);
   useEffect(() => { const f = () => setStuck(window.scrollY > 8); f(); window.addEventListener('scroll', f, { passive: true }); return () => window.removeEventListener('scroll', f); }, []);
   const top = useMemo(() => (cats.data ?? []).slice(0, 6), [cats.data]);
   const link = ({ isActive }: { isActive: boolean }) => cx('relative whitespace-nowrap py-2 text-[13px] font-medium uppercase tracking-[0.14em] transition-colors hover:text-brass-deep after:absolute after:inset-x-0 after:-bottom-0.5 after:h-px after:origin-center after:scale-x-0 after:bg-brass after:transition-transform hover:after:scale-x-100', isActive ? 'text-brass-deep after:scale-x-100' : 'text-ink-soft');
@@ -57,7 +60,7 @@ export function Header() {
       <header className={cx('sticky top-0 z-50 border-b transition-all duration-300', stuck ? 'border-line bg-bg/92 shadow-[0_6px_24px_-18px_rgb(0_0_0/0.4)] backdrop-blur-xl' : 'border-transparent bg-bg')}>
         <div className="wrap grid h-[68px] grid-cols-[1fr_auto_1fr] items-center gap-2 lg:h-[84px]">
           <div className="flex items-center gap-1">
-            <IconButton label={t('nav.menu')} className="lg:hidden" onClick={() => setMenu(true)}><Menu size={22} /></IconButton>
+            <IconButton label={t('nav.menu')} className="lg:hidden" onClick={() => setMenu(true)} onPointerEnter={preload.menu} onFocus={preload.menu} onTouchStart={preload.menu}><Menu size={22} /></IconButton>
             <nav aria-label={t('nav.main')} className="hidden items-center gap-7 lg:flex">
               <Link to="/shop" aria-current={onShop && !activeCat ? 'page' : undefined} className={link({ isActive: onShop && !activeCat })}>{t('nav.shop')}</Link>
               {top.slice(0, 3).map((c) => { const on = onShop && activeCat === c.slug; return <Link key={c.id} to={`/shop?category=${c.slug}`} aria-current={on ? 'page' : undefined} className={link({ isActive: on })}>{c.name}</Link>; })}
@@ -69,10 +72,10 @@ export function Header() {
               <NavLink to="/auctions" className={link}>{t('nav.auctions')}</NavLink>
               <NavLink to="/showrooms" className={link}>{t('nav.showrooms')}</NavLink>
             </nav>
-            <IconButton label={t('search.title')} onClick={() => setSearch(true)}><Search size={20} /></IconButton>
+            <IconButton label={t('search.title')} onClick={() => setSearch(true)} onPointerEnter={preload.search} onFocus={preload.search} onTouchStart={preload.search}><Search size={20} /></IconButton>
             <span className="hidden sm:inline-flex"><IconButton label={t('wishlist.title')} onClick={() => (user ? nav('/account/wishlist') : authModal.open({ reason: t('auth.reason_wishlist') }))}><Heart size={20} /></IconButton></span>
             <IconButton label={user ? t('account.title') : t('auth.sign_in')} onClick={() => (user ? nav('/account') : authModal.open())}><UserIcon size={20} /></IconButton>
-            <IconButton label={`${t('cart.title')} (${cart.count})`} onClick={cart.openDrawer}>
+            <IconButton label={`${t('cart.title')} (${cart.count})`} onClick={cart.openDrawer} onPointerEnter={preload.cart} onFocus={preload.cart} onTouchStart={preload.cart}>
               <ShoppingBag size={20} />
               {cart.count > 0 && <span className="absolute end-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-brass px-1 text-[10px] font-bold text-on-brass">{cart.count}</span>}
             </IconButton>
@@ -94,21 +97,21 @@ export function Header() {
       </header>
 
       {/* Mobile menu */}
-      <Drawer open={menu} onClose={() => setMenu(false)} side="start" title={t('nav.menu')}>
+      <MenuDrawer open={menu} onClose={() => setMenu(false)}>
         <nav className="px-6 py-4">
           <ul className="divide-y divide-line font-display text-[26px]">
-            <li><Link className="flex items-center justify-between py-4" to="/shop">{t('nav.shop')}</Link></li>
-            {top.map((c) => <li key={c.id}><Link className="block py-4" to={`/shop?category=${c.slug}`}>{c.name}</Link></li>)}
-            <li><Link className="flex items-center gap-2 py-4" to="/auctions"><Gavel size={20} className="text-brass" />{t('nav.auctions')}</Link></li>
-            <li><Link className="block py-4" to="/showrooms">{t('nav.showrooms')}</Link></li>
+            <li><DrawerLink className="flex items-center justify-between py-4" to="/shop">{t('nav.shop')}</DrawerLink></li>
+            {top.map((c) => <li key={c.id}><DrawerLink className="block py-4" to={`/shop?category=${c.slug}`}>{c.name}</DrawerLink></li>)}
+            <li><DrawerLink className="flex items-center gap-2 py-4" to="/auctions"><Gavel size={20} className="text-brass" />{t('nav.auctions')}</DrawerLink></li>
+            <li><DrawerLink className="block py-4" to="/showrooms">{t('nav.showrooms')}</DrawerLink></li>
           </ul>
           <div className="mt-6 grid gap-2 text-sm">
-            {branches.length > 1 && <button onClick={() => { setMenu(false); setPick(true); }} className="flex items-center gap-3 rounded-2xl border border-line bg-paper p-4"><MapPin size={18} className="text-brass" />{branch ? branch.name : t('branch.all')}</button>}
+            {branches.length > 1 && <button onClick={() => { setMenu(false); setPick(true); preload.branch(); }} className="flex items-center gap-3 rounded-2xl border border-line bg-paper p-4"><MapPin size={18} className="text-brass" />{branch ? branch.name : t('branch.all')}</button>}
             <button onClick={() => setLocale(locale === 'en' ? 'ar' : 'en')} className="flex items-center gap-3 rounded-2xl border border-line bg-paper p-4"><Languages size={18} className="text-brass" />{locale === 'en' ? 'العربية' : 'English'}</button>
             <button onClick={toggle} className="flex items-center gap-3 rounded-2xl border border-line bg-paper p-4">{theme === 'dark' ? <Sun size={18} className="text-brass" /> : <Moon size={18} className="text-brass" />}{theme === 'dark' ? t('theme.light') : t('theme.dark')}</button>
           </div>
         </nav>
-      </Drawer>
+      </MenuDrawer>
       <SearchOverlay open={search} onClose={() => setSearch(false)} />
       <BranchPicker open={pick} onClose={() => setPick(false)} />
       <CartDrawer />
@@ -190,7 +193,9 @@ function PreviewBar() {
 export function Layout() {
   const loc = useLocation();
   const { layout, ready } = useDesign();
-  useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }); }, [loc.pathname, loc.search]);
+  // Page or filter changes start at the top; opening a side window (?order=, ?quick=) keeps the page where it was.
+  const pageSearch = stripOverlayParams(loc.search);
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }); }, [loc.pathname, pageSearch]);
   const fresh = layout === 'fresh';
   if (!ready) return <div className="min-h-dvh" aria-busy="true" />;
   return (

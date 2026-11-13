@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
+import 'package:albahar_customer/core/utils/debouncer.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/widgets/app_button.dart';
 import 'package:albahar_customer/core/widgets/app_text_field.dart';
-import 'package:albahar_customer/core/widgets/common.dart';
+import 'package:albahar_customer/core/widgets/dirty_form_guard.dart';
 import 'package:albahar_customer/core/widgets/paged.dart';
+import 'package:albahar_customer/core/widgets/side_panel.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
@@ -159,11 +161,7 @@ class _Toolbar extends StatelessWidget {
           Flexible(
             child: TextButton.icon(
               onPressed: () async {
-                final next = await showAppBottomSheet<ProductQuery>(
-                  context: context,
-                  title: l10n.filters,
-                  builder: (_) => FilterSheet(query: query, filters: filters),
-                );
+                final next = await showFilterPanel(context, query: query, filters: filters);
                 if (next != null) onChanged(next);
               },
               icon: Badge(
@@ -223,29 +221,80 @@ String sortLabel(AppLocalizations l10n, ProductSort s) => switch (s) {
   ProductSort.popularity => l10n.sortPopularity,
 };
 
-/// Filters bottom sheet: price range, stock / sale, brands, attributes.
-class FilterSheet extends ConsumerStatefulWidget {
-  const FilterSheet({super.key, required this.query, required this.filters});
+/// Opens filters and sort in a side window. Resolves to the new query when the person taps "Show N results".
+Future<ProductQuery?> showFilterPanel(
+  BuildContext context, {
+  required ProductQuery query,
+  required List<AttributeFilter> filters,
+}) => showSidePanel<ProductQuery>(
+  context: context,
+  title: context.l10n.filters,
+  scrollable: false,
+  isForm: true,
+  builder: (_) => FilterPanelBody(query: query, filters: filters),
+);
+
+/// Filters and sort, with a live count: every change asks the shop how many products match, and the pinned button says
+/// so ("Show 24 results"). Nothing is applied to the list until that button is pressed.
+class FilterPanelBody extends ConsumerStatefulWidget {
+  const FilterPanelBody({super.key, required this.query, required this.filters});
   final ProductQuery query;
   final List<AttributeFilter> filters;
 
   @override
-  ConsumerState<FilterSheet> createState() => _FilterSheetState();
+  ConsumerState<FilterPanelBody> createState() => _FilterPanelBodyState();
 }
 
-class _FilterSheetState extends ConsumerState<FilterSheet> {
+class _FilterPanelBodyState extends ConsumerState<FilterPanelBody> {
+  final _debouncer = Debouncer(delay: const Duration(milliseconds: 300));
   late final _min = TextEditingController(text: widget.query.priceMin ?? '');
   late final _max = TextEditingController(text: widget.query.priceMax ?? '');
   late bool _inStock = widget.query.inStock;
   late bool _onSale = widget.query.onSale;
   late Set<String> _brands = {...widget.query.brandIds};
   late Set<String> _values = {...widget.query.attributeValueIds};
+  late ProductSort _sort = widget.query.sort;
+
+  /// The query the live count is asked for; follows the draft after a short pause.
+  late ProductQuery _counted = widget.query;
 
   @override
   void dispose() {
+    _debouncer.dispose();
     _min.dispose();
     _max.dispose();
     super.dispose();
+  }
+
+  String? _clean(String s) => s.trim().isEmpty ? null : s.trim();
+
+  ProductQuery get _draft => widget.query.copyWith(
+    priceMin: () => _clean(_min.text),
+    priceMax: () => _clean(_max.text),
+    inStock: _inStock,
+    onSale: _onSale,
+    brandIds: _brands,
+    attributeValueIds: _values,
+    sort: _sort,
+  );
+
+  /// Something changed: update the draft now, the count after a pause.
+  void _changed([VoidCallback? change]) {
+    setState(() => change?.call());
+    _debouncer(() {
+      if (mounted) setState(() => _counted = _draft);
+    });
+  }
+
+  void _clearAll() {
+    _min.clear();
+    _max.clear();
+    _changed(() {
+      _inStock = false;
+      _onSale = false;
+      _brands = {};
+      _values = {};
+    });
   }
 
   @override
@@ -253,115 +302,132 @@ class _FilterSheetState extends ConsumerState<FilterSheet> {
     final l10n = context.l10n;
     final brands = ref.watch(brandsProvider).value ?? const <Brand>[];
     final digits = [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))];
+    final count = ref.watch(productListProvider(_counted));
+    final total = count.value?.total;
+    final pending = _counted != _draft || (count.isLoading && total == null);
 
     Widget heading(String t) => Padding(
       padding: const EdgeInsets.only(top: AppSpace.lg, bottom: AppSpace.xs),
       child: Text(t, style: context.text.titleMedium),
     );
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        heading(l10n.priceRange),
-        Row(
+    final dirty = _draft != widget.query;
+    return DirtyFormGuard(
+      controllers: [_min, _max],
+      isDirty: () => _draft != widget.query,
+      child: SidePanelLayout(
+        footer: Row(
           children: [
             Expanded(
-              child: AppTextField(
-                controller: _min,
-                label: l10n.minPrice,
-                keyboardType: TextInputType.number,
-                inputFormatters: digits,
-                forceLtr: true,
-              ),
-            ),
-            const Gap(AppSpace.sm),
-            Expanded(
-              child: AppTextField(
-                controller: _max,
-                label: l10n.maxPrice,
-                keyboardType: TextInputType.number,
-                inputFormatters: digits,
-                forceLtr: true,
-              ),
-            ),
-          ],
-        ),
-        const Gap(AppSpace.sm),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          value: _inStock,
-          onChanged: (v) => setState(() => _inStock = v),
-          title: Text(l10n.inStockOnly),
-        ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          value: _onSale,
-          onChanged: (v) => setState(() => _onSale = v),
-          title: Text(l10n.onSaleOnly),
-        ),
-        for (final f in widget.filters) ...[
-          heading(f.attribute.name),
-          Wrap(
-            spacing: AppSpace.xs,
-            runSpacing: AppSpace.xs,
-            children: [
-              for (final v in f.values)
-                FilterChip(
-                  selected: _values.contains(v.id),
-                  onSelected: (s) => setState(() => _values = s ? {..._values, v.id} : ({..._values}..remove(v.id))),
-                  avatar: v.colorHex != null ? CircleAvatar(backgroundColor: _hex(v.colorHex!), radius: 8) : null,
-                  label: Text(v.name),
-                ),
-            ],
-          ),
-        ],
-        if (brands.isNotEmpty) ...[
-          heading(l10n.brandFilter),
-          Wrap(
-            spacing: AppSpace.xs,
-            runSpacing: AppSpace.xs,
-            children: [
-              for (final b in brands)
-                FilterChip(
-                  selected: _brands.contains(b.id),
-                  onSelected: (s) => setState(() => _brands = s ? {..._brands, b.id} : ({..._brands}..remove(b.id))),
-                  label: Text(b.name),
-                ),
-            ],
-          ),
-        ],
-        const Gap(AppSpace.xl),
-        Row(
-          children: [
-            Expanded(
+              flex: 2,
               child: AppButton.secondary(
                 label: l10n.clearAll,
-                onPressed: () => Navigator.of(context).pop(widget.query.clearFilters()),
+                onPressed: _draft.activeFilterCount == 0 ? null : _clearAll,
               ),
             ),
             const Gap(AppSpace.sm),
             Expanded(
-              child: AppButton(
-                label: l10n.showResults,
-                onPressed: () {
-                  String? clean(String s) => s.trim().isEmpty ? null : s.trim();
-                  Navigator.of(context).pop(
-                    widget.query.copyWith(
-                      priceMin: () => clean(_min.text),
-                      priceMax: () => clean(_max.text),
-                      inStock: _inStock,
-                      onSale: _onSale,
-                      brandIds: _brands,
-                      attributeValueIds: _values,
-                    ),
-                  );
-                },
+              flex: 3,
+              child: Semantics(
+                liveRegion: true,
+                child: AppButton(
+                  label: total == null || pending ? l10n.showResults : l10n.showResultsCount(total),
+                  loading: pending && dirty,
+                  onPressed: total == 0 && !pending ? null : () => Navigator.of(context).pop(_draft),
+                ),
               ),
             ),
           ],
         ),
-      ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DropdownButtonFormField<ProductSort>(
+              initialValue: _sort,
+              isExpanded: true,
+              decoration: InputDecoration(labelText: l10n.sortBy),
+              items: [for (final s in ProductSort.values) DropdownMenuItem(value: s, child: Text(sortLabel(l10n, s)))],
+              onChanged: (v) => _changed(() => _sort = v ?? _sort),
+            ),
+            heading(l10n.priceRange),
+            Row(
+              children: [
+                Expanded(
+                  child: AppTextField(
+                    controller: _min,
+                    label: l10n.minPrice,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: digits,
+                    forceLtr: true,
+                    onChanged: (_) => _changed(),
+                  ),
+                ),
+                const Gap(AppSpace.sm),
+                Expanded(
+                  child: AppTextField(
+                    controller: _max,
+                    label: l10n.maxPrice,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: digits,
+                    forceLtr: true,
+                    onChanged: (_) => _changed(),
+                  ),
+                ),
+              ],
+            ),
+            const Gap(AppSpace.sm),
+            // These two apply together with everything else on "Show results", so they are choices (checkboxes), not
+            // switches: a switch would suggest the list changes the moment it is flipped.
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              value: _inStock,
+              onChanged: (v) => _changed(() => _inStock = v ?? false),
+              title: Text(l10n.inStockOnly),
+            ),
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              value: _onSale,
+              onChanged: (v) => _changed(() => _onSale = v ?? false),
+              title: Text(l10n.onSaleOnly),
+            ),
+            for (final f in widget.filters) ...[
+              heading(f.attribute.name),
+              Wrap(
+                spacing: AppSpace.xs,
+                runSpacing: AppSpace.xs,
+                children: [
+                  for (final v in f.values)
+                    FilterChip(
+                      selected: _values.contains(v.id),
+                      onSelected: (s) =>
+                          _changed(() => _values = s ? {..._values, v.id} : ({..._values}..remove(v.id))),
+                      avatar: v.colorHex != null ? CircleAvatar(backgroundColor: _hex(v.colorHex!), radius: 8) : null,
+                      label: Text(v.name),
+                    ),
+                ],
+              ),
+            ],
+            if (brands.isNotEmpty) ...[
+              heading(l10n.brandFilter),
+              Wrap(
+                spacing: AppSpace.xs,
+                runSpacing: AppSpace.xs,
+                children: [
+                  for (final b in brands)
+                    FilterChip(
+                      selected: _brands.contains(b.id),
+                      onSelected: (s) =>
+                          _changed(() => _brands = s ? {..._brands, b.id} : ({..._brands}..remove(b.id))),
+                      label: Text(b.name),
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

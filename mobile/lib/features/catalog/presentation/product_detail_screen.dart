@@ -12,17 +12,19 @@ import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/html_content.dart';
 import 'package:albahar_customer/core/widgets/price_tag.dart';
 import 'package:albahar_customer/core/widgets/rating.dart';
+import 'package:albahar_customer/core/widgets/side_panel.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/auth/presentation/require_auth.dart';
 import 'package:albahar_customer/features/branches/domain/branch_models.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
+import 'package:albahar_customer/features/cart/presentation/bag_panel.dart';
 import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
 import 'package:albahar_customer/features/catalog/data/catalog_repository.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
-import 'package:albahar_customer/features/catalog/presentation/product_list_screen.dart';
 import 'package:albahar_customer/features/catalog/presentation/state/catalog_providers.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/catalog_widgets.dart';
+import 'package:albahar_customer/features/catalog/presentation/widgets/product_options.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/review_widgets.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/upsell_widgets.dart';
 import 'package:flutter/material.dart';
@@ -71,7 +73,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final branch = ref.watch(preferredBranchProvider);
     final colourAttr = product.colourAttribute;
     final multi = colourAttr != null;
-    final rows = multi ? _colourRows(product, colourAttr) : const <_ColourRow>[];
+    final rows = multi ? colourRowsFor(product, colourAttr, _selection!) : const <ColourRow>[];
     final pickedCount = rows.fold<int>(0, (n, r) => n + (_colourQty[r.variant.id] ?? 0));
     final purchasable = variant != null && variant.purchasable && product.availability.purchasable;
 
@@ -165,7 +167,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         ],
                         if (multi) ...[
                           const Gap(AppSpace.lg),
-                          _ColourQuantities(
+                          ColourQuantities(
                             title: colourAttr.name.isEmpty ? l10n.coloursTitle : colourAttr.name,
                             rows: rows,
                             quantities: _colourQty,
@@ -174,7 +176,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         ],
                         for (final attr in product.attributes.where((a) => a != colourAttr)) ...[
                           const Gap(AppSpace.lg),
-                          _AttributeSelector(
+                          ProductAttributeSelector(
                             attribute: attr,
                             selectedId: _selection![attr.code],
                             isSelectable: (valueId) => product.isValueSelectable(_selection!, attr.code, valueId),
@@ -247,17 +249,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   Future<void> _addToCart(ProductVariant variant) async {
     if (!requireAuth(context, ref)) return;
-    final l10n = context.l10n;
     setState(() => _adding = true);
     try {
       await ref.read(cartControllerProvider.notifier).addItem(variant.id, quantity: _quantity);
       Haptics.success();
       if (!mounted) return;
-      showInfoSnack(
-        context,
-        l10n.addedToCart,
-        action: SnackBarAction(label: l10n.viewCart, onPressed: () => context.go('/cart')),
-      );
+      // The cart opens beside the page: the person keeps their place and one Back closes it.
+      unawaited(showBagPanel(context, addedVariantIds: {variant.id}));
     } on ApiException catch (e) {
       if (mounted) showErrorSnack(context, e);
     } finally {
@@ -265,18 +263,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     }
   }
 
-  /// One row per colour (for the current choice of the other attributes).
-  List<_ColourRow> _colourRows(ProductDetail product, ProductAttribute colour) {
-    final others = {..._selection!}..remove(colour.code);
-    final rows = <_ColourRow>[];
-    for (final v in colour.values) {
-      final variant = product.resolveVariant({...others, colour.code: v.id});
-      if (variant != null && variant.attributeValueIds.contains(v.id)) rows.add(_ColourRow(v, variant));
-    }
-    return rows;
-  }
-
-  Future<void> _addColours(List<_ColourRow> rows) async {
+  Future<void> _addColours(List<ColourRow> rows) async {
     if (!requireAuth(context, ref)) return;
     final l10n = context.l10n;
     final picked = [
@@ -295,11 +282,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       Haptics.success();
       if (!mounted) return;
       setState(_colourQty.clear);
-      showInfoSnack(
-        context,
-        l10n.addedToCart,
-        action: SnackBarAction(label: l10n.viewCart, onPressed: () => context.go('/cart')),
-      );
+      unawaited(showBagPanel(context, addedVariantIds: {for (final (id, _) in picked) id}));
     } on ApiException catch (e) {
       if (mounted) showErrorSnack(context, e);
     } finally {
@@ -506,187 +489,6 @@ class _ZoomViewerState extends State<_ZoomViewer> {
   }
 }
 
-class _ColourRow {
-  const _ColourRow(this.value, this.variant);
-  final AttributeValue value;
-  final ProductVariant variant;
-}
-
-/// "Colours": every colour on its own row with a − / + stepper, so several colours can go in the bag at once.
-class _ColourQuantities extends StatelessWidget {
-  const _ColourQuantities({required this.title, required this.rows, required this.quantities, required this.onChanged});
-  final String title;
-  final List<_ColourRow> rows;
-  final Map<String, int> quantities;
-  final void Function(String variantId, int quantity) onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Semantics(header: true, child: Text(title, style: context.text.titleMedium)),
-        const Gap(2),
-        Text(l10n.coloursHint, style: context.text.bodySmall),
-        const Gap(AppSpace.sm),
-        for (final r in rows)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSpace.xs),
-            child: SurfaceCard(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: AppSpace.xs),
-              child: Row(
-                children: [
-                  Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: r.value.colorHex != null ? colorFromHex(r.value.colorHex!) : context.palette.surfaceMuted,
-                      border: Border.all(color: context.palette.line, width: 1.5),
-                    ),
-                  ),
-                  const Gap(AppSpace.sm),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(r.value.name, style: context.text.titleSmall),
-                        if (r.variant.price != null)
-                          Text(
-                            r.variant.price!.finalPrice.formatted,
-                            style: context.text.bodySmall?.copyWith(
-                              color: context.colors.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  if (r.variant.purchasable)
-                    QuantityStepper(
-                      value: quantities[r.variant.id] ?? 0,
-                      min: 0,
-                      max: 10,
-                      compact: true,
-                      onChanged: (q) {
-                        Haptics.tap();
-                        onChanged(r.variant.id, q);
-                      },
-                    )
-                  else
-                    StatusChip(label: l10n.colourOutOfStock, tone: StatusTone.danger),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _AttributeSelector extends StatelessWidget {
-  const _AttributeSelector({
-    required this.attribute,
-    required this.selectedId,
-    required this.isSelectable,
-    required this.onSelected,
-  });
-
-  final ProductAttribute attribute;
-  final String? selectedId;
-  final bool Function(String valueId) isSelectable;
-  final ValueChanged<String> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final selected = attribute.values.where((v) => v.id == selectedId).firstOrNull;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text.rich(
-          TextSpan(
-            children: [
-              TextSpan(text: '${attribute.name}: ', style: context.text.titleSmall),
-              TextSpan(
-                text: selected?.name ?? context.l10n.selectOption(attribute.name),
-                style: context.text.bodyMedium,
-              ),
-            ],
-          ),
-        ),
-        const Gap(AppSpace.sm),
-        Wrap(
-          spacing: AppSpace.xs,
-          runSpacing: AppSpace.xs,
-          children: [
-            for (final v in attribute.values)
-              if (attribute.isColor || v.colorHex != null)
-                _Swatch(
-                  value: v,
-                  selected: v.id == selectedId,
-                  enabled: isSelectable(v.id),
-                  onTap: () => onSelected(v.id),
-                )
-              else
-                ChoiceChip(
-                  label: Text(v.name),
-                  selected: v.id == selectedId,
-                  onSelected: isSelectable(v.id) ? (_) => onSelected(v.id) : null,
-                ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _Swatch extends StatelessWidget {
-  const _Swatch({required this.value, required this.selected, required this.enabled, required this.onTap});
-  final AttributeValue value;
-  final bool selected;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    selected: selected,
-    enabled: enabled,
-    label: value.name,
-    excludeSemantics: true,
-    child: Tooltip(
-      message: value.name,
-      child: InkResponse(
-        onTap: enabled ? onTap : null,
-        radius: 26,
-        child: AnimatedContainer(
-          duration: AppDurations.fast,
-          width: kMinTouchTarget,
-          height: kMinTouchTarget,
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: selected ? context.colors.onSurface : context.palette.line,
-              width: selected ? 2 : 1,
-            ),
-          ),
-          child: Opacity(
-            opacity: enabled ? 1 : 0.3,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: value.colorHex != null ? colorFromHex(value.colorHex!) : context.palette.surfaceMuted,
-              ),
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
 class _AvailabilityCard extends ConsumerWidget {
   const _AvailabilityCard({required this.product, required this.variant, required this.branchName});
   final ProductDetail product;
@@ -761,10 +563,10 @@ class _AvailabilityCard extends ConsumerWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               TextButton.icon(
-                onPressed: () => showAppBottomSheet<void>(
+                onPressed: () => showSidePanel<void>(
                   context: context,
                   title: l10n.branchAvailabilityTitle,
-                  builder: (_) => _BranchStockSheet(productId: product.id, variantId: variant?.id),
+                  builder: (_) => _BranchStockSheet(productId: product.id, variantId: variant?.id, host: context),
                 ),
                 icon: const Icon(Icons.store_mall_directory_outlined, size: 18),
                 label: Text(l10n.checkOtherBranches),
@@ -779,9 +581,12 @@ class _AvailabilityCard extends ConsumerWidget {
 }
 
 class _BranchStockSheet extends ConsumerWidget {
-  const _BranchStockSheet({required this.productId, required this.variantId});
+  const _BranchStockSheet({required this.productId, required this.variantId, required this.host});
   final String productId;
   final String? variantId;
+
+  /// The page behind the window: the confirmation is shown there after the window closes.
+  final BuildContext host;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -817,7 +622,7 @@ class _BranchStockSheet extends ConsumerWidget {
                         .select(BranchRef(id: b.branch.id, name: b.branch.name));
                     if (context.mounted) {
                       Navigator.of(context).pop();
-                      showInfoSnack(context, l10n.branchSelectedToast(b.branch.name));
+                      if (host.mounted) showInfoSnack(host, l10n.branchSelectedToast(b.branch.name));
                     }
                   },
                 );

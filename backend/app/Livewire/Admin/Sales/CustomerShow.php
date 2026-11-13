@@ -22,13 +22,23 @@ use Livewire\WithPagination;
 /** Customer profile: orders (branch-scoped), addresses, loyalty balance/ledger with reasoned adjustments, status and consents. */
 class CustomerShow extends Component
 {
-    use InteractsWithAdmin, WithPagination;
+    use InteractsWithAdmin {
+        attempt as private runAttempt;
+    }
+    use WithPagination;
 
     #[Locked]
     public string $customerId;
 
+    /** Compact mode inside a side window: no page chrome, short lists instead of pages, tabs kept out of the address bar. */
+    #[Locked]
+    public bool $drawer = false;
+
     #[Url(except: 'orders')]
     public string $tab = 'orders';
+
+    /** The open tab while in a side window (the page keeps it in `?tab=`). */
+    public string $pane = 'orders';
 
     public array $adjust = ['direction' => 'credit', 'points' => '', 'reason' => ''];
 
@@ -38,11 +48,29 @@ class CustomerShow extends Component
 
     public string $newStatus = '';
 
-    public function mount(User $customer): void
+    public function mount(User $customer, bool $drawer = false): void
     {
-        abort_unless($this->can('customers.view') && $customer->isCustomer(), 403);
-        abort_unless(CustomerIndex::visibleTo(auth()->user())->whereKey($customer->id)->exists(), 403);
+        abort_unless(self::viewableBy(auth()->user(), $customer), 403);
         $this->customerId = $customer->id;
+        $this->drawer = $drawer;
+    }
+
+    /** The page's own gate, shared with the side window: customers.view, and (branch-scoped staff) a customer who ordered from their branches. */
+    public static function viewableBy(?User $viewer, User $customer): bool
+    {
+        return $viewer !== null && $customer->isCustomer() && app(AccessControl::class)->allows($viewer, 'customers.view')
+            && CustomerIndex::visibleTo($viewer)->whereKey($customer->id)->exists();
+    }
+
+    /** A successful change inside a side window tells the list behind it to refresh its row. */
+    protected function attempt(callable $action, ?string $success = null): mixed
+    {
+        $result = $this->runAttempt($action, $success);
+        if ($result !== null && $this->drawer) {
+            $this->dispatch('record-changed');
+        }
+
+        return $result;
     }
 
     public function updatedTab(): void
@@ -91,6 +119,9 @@ class CustomerShow extends Component
         $audit->log('customer.status_changed', $c, ['status' => $old], ['status' => $this->newStatus], ['reason' => trim($this->statusReason)]);
         $this->showStatus = false;
         $this->toast(__('sales_admin.status_updated'));
+        if ($this->drawer) {
+            $this->dispatch('record-changed');
+        }
     }
 
     public function render(LoyaltyService $loyalty, NotificationService $notifications, ReferralService $referrals)
@@ -102,13 +133,18 @@ class CustomerShow extends Component
         $account = $loyalty->account($c);
         $stats = Order::where('user_id', $c->id)->whereNotIn('status', ['pending_payment', 'cancelled'])->selectRaw('count(*) as n, coalesce(sum(grand_total),0) as spend, max(placed_at) as last_at')->first();
         $reveal = $this->can('customers.edit');
+        $current = $this->drawer ? $this->pane : $this->tab;
+        $ledger = LoyaltyTransaction::where('loyalty_account_id', $account->id)->orderByDesc('id');
 
         return view('livewire.admin.sales.customer-show', [
             'c' => $c,
             'reveal' => $reveal,
-            'orders' => $this->tab === 'orders' && $this->can('orders.view') ? $orders->paginate(10, pageName: 'op') : null,
+            'current' => $current,
+            'tabModel' => $this->drawer ? 'pane' : 'tab',
+            // A side window shows the latest few; the full pages live on the customer's own page.
+            'orders' => $current === 'orders' && $this->can('orders.view') ? ($this->drawer ? $orders->limit(8)->get() : $orders->paginate(10, pageName: 'op')) : null,
             'account' => $account,
-            'ledger' => $this->tab === 'loyalty' ? LoyaltyTransaction::where('loyalty_account_id', $account->id)->orderByDesc('id')->paginate(15, pageName: 'lp') : null,
+            'ledger' => $current === 'loyalty' ? ($this->drawer ? $ledger->limit(10)->get() : $ledger->paginate(15, pageName: 'lp')) : null,
             'stats' => $stats,
             'prefs' => collect($notifications->preferences($c))->groupBy('category'),
             'referral' => $referrals->staffSummary($c),

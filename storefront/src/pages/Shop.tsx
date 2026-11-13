@@ -6,12 +6,12 @@ import { get } from '../lib/api';
 import { useBranch } from '../lib/branch';
 import { useI18n } from '../lib/i18n';
 import { useDocTitle } from '../lib/hooks';
-import { cx } from '../lib/format';
 import type { Brand, Category, Paged, ProductCard as P } from '../lib/types';
 import { CardGrid, CardSkeletons, ProductCard } from '../components/ProductCard';
-import { Breadcrumbs, Button, Checkbox, Drawer, EmptyState, ErrorState, Select } from '../components/ui';
-
-const flat = (cs: Category[]): Category[] => cs.flatMap((c) => [c, ...flat(c.children ?? [])]);
+import { Breadcrumbs, Button, EmptyState, ErrorState, Select } from '../components/ui';
+import { FilterPanel } from '../components/ShopFilters';
+import { FilterWindow } from '../components/windows';
+import { patched, productParams, readFilters } from '../lib/shopQuery';
 
 export default function Shop() {
   const { t, num } = useI18n();
@@ -19,21 +19,13 @@ export default function Shop() {
   const [sp, setSp] = useSearchParams();
   const [sheet, setSheet] = useState(false);
 
-  const q = sp.get('q') ?? '';
   const catSlug = sp.get('category') ?? '';
   const brandSlug = sp.get('brand') ?? '';
-  const sort = sp.get('sort') ?? (q ? 'relevance' : '-popularity');
-  const pmin = sp.get('min') ?? '';
-  const pmax = sp.get('max') ?? '';
-  const inStock = sp.get('stock') === '1';
-  const onSale = sp.get('sale') === '1';
-  const isNew = sp.get('new') === '1';
 
   const cats = useQuery({ queryKey: ['categories'], queryFn: async () => (await get<{ data: Category[] }>('/categories')).data, staleTime: 10 * 60_000 });
   const brands = useQuery({ queryKey: ['brands'], queryFn: async () => (await get<{ data: Brand[] }>('/brands')).data, staleTime: 10 * 60_000 });
-  const all = useMemo(() => flat(cats.data ?? []), [cats.data]);
-  const cat = all.find((c) => c.slug === catSlug || c.id === catSlug);
-  const brand = (brands.data ?? []).find((b) => b.slug === brandSlug || b.id === brandSlug);
+  const f = useMemo(() => readFilters(sp, cats.data ?? [], brands.data ?? []), [sp, cats.data, brands.data]);
+  const { cat, brand, q, sort, min: pmin, max: pmax, inStock, onSale, isNew } = f;
   useDocTitle(cat?.name ?? (q ? `“${q}”` : t('nav.shop')));
 
   // A category/brand slug in the URL must resolve before we query, otherwise we would flash the unfiltered catalogue.
@@ -44,21 +36,13 @@ export default function Shop() {
     queryKey: ['products', { q, cat: cat?.id, brand: brand?.id, sort, pmin, pmax, inStock, onSale, isNew, branchId }],
     enabled: !waiting && !unknownFilter,
     initialPageParam: 1,
-    queryFn: async ({ pageParam }) => get<Paged<P>>('/products', {
-      q: q || undefined, category_id: cat?.id, brand_id: brand ? [brand.id] : undefined, sort: sort === 'relevance' && !q ? undefined : sort,
-      price_min: pmin || undefined, price_max: pmax || undefined, in_stock: inStock || undefined, on_sale: onSale || undefined, new_arrival: isNew || undefined,
-      branch_id: branchId, page: pageParam, per_page: 24,
-    }),
+    queryFn: async ({ pageParam }) => get<Paged<P>>('/products', productParams(f, branchId, pageParam, 24)),
     getNextPageParam: (last) => (last.meta.current_page < last.meta.last_page ? last.meta.current_page + 1 : undefined),
   });
   const items = list.data?.pages.flatMap((p) => p.data) ?? [];
   const total = list.data?.pages[0]?.meta.total ?? 0;
 
-  const set = (patch: Record<string, string | null>) => {
-    const n = new URLSearchParams(sp);
-    for (const [k, v] of Object.entries(patch)) (v === null || v === '') ? n.delete(k) : n.set(k, v);
-    setSp(n, { replace: true });
-  };
+  const set = (patch: Record<string, string | null>) => setSp(patched(sp, patch), { replace: true });
   const chips: { label: string; clear: () => void }[] = [
     ...(cat ? [{ label: cat.name, clear: () => set({ category: null }) }] : []),
     ...(brand ? [{ label: brand.name, clear: () => set({ brand: null }) }] : []),
@@ -68,47 +52,6 @@ export default function Shop() {
     ...(onSale ? [{ label: t('filter.on_sale'), clear: () => set({ sale: null }) }] : []),
     ...(isNew ? [{ label: t('filter.new'), clear: () => set({ new: null }) }] : []),
   ];
-
-  const Filters = (
-    <div className="space-y-8">
-      <div>
-        <h3 className="eyebrow mb-3">{t('filter.category')}</h3>
-        <ul className="space-y-1">
-          <li><button onClick={() => set({ category: null })} className={cx('w-full rounded-xl px-3 py-2 text-start text-sm hover:bg-sand', !cat && 'bg-sand font-semibold')}>{t('filter.all')}</button></li>
-          {(cats.data ?? []).map((c) => (
-            <li key={c.id}>
-              <button onClick={() => set({ category: c.slug })} className={cx('w-full rounded-xl px-3 py-2 text-start text-sm hover:bg-sand', cat?.id === c.id && 'bg-sand font-semibold')}>{c.name}</button>
-              {c.children?.length > 0 && (cat?.id === c.id || c.children.some((x) => x.id === cat?.id)) && (
-                <ul className="ms-3 border-s border-line ps-2">{c.children.map((x) => <li key={x.id}><button onClick={() => set({ category: x.slug })} className={cx('w-full rounded-lg px-3 py-1.5 text-start text-[13px] hover:bg-sand', cat?.id === x.id && 'font-semibold text-brass-deep')}>{x.name}</button></li>)}</ul>
-              )}
-            </li>
-          ))}
-        </ul>
-      </div>
-      {(brands.data?.length ?? 0) > 0 && (
-        <div>
-          <h3 className="eyebrow mb-3">{t('filter.brand')}</h3>
-          <ul className="flex flex-wrap gap-2">
-            {brands.data!.map((b) => <li key={b.id}><button aria-pressed={brand?.id === b.id} onClick={() => set({ brand: brand?.id === b.id ? null : b.slug })} className={cx('rounded-full border px-3.5 py-1.5 text-[13px] transition-colors', brand?.id === b.id ? 'border-primary bg-primary text-bg' : 'border-line bg-paper hover:border-brass')}>{b.name}</button></li>)}
-          </ul>
-        </div>
-      )}
-      <div>
-        <h3 className="eyebrow mb-3">{t('filter.price')} (QAR)</h3>
-        <form key={`${pmin}-${pmax}`} className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); const f = new FormData(e.currentTarget); let lo = String(f.get('min') || '').trim(), hi = String(f.get('max') || '').trim(); if (lo && hi && Number(lo) > Number(hi)) [lo, hi] = [hi, lo]; set({ min: lo, max: hi }); }}>
-          <input name="min" type="number" min={0} inputMode="numeric" defaultValue={pmin} placeholder={t('filter.min')} aria-label={t('filter.min')} className="h-11 w-full rounded-xl border border-line bg-paper px-3 text-sm" />
-          <span className="text-muted">–</span>
-          <input name="max" type="number" min={0} inputMode="numeric" defaultValue={pmax} placeholder={t('filter.max')} aria-label={t('filter.max')} className="h-11 w-full rounded-xl border border-line bg-paper px-3 text-sm" />
-          <Button size="sm" variant="outline" type="submit" className="shrink-0">{t('action.apply')}</Button>
-        </form>
-      </div>
-      <div className="space-y-3">
-        <Checkbox checked={inStock} onChange={(v) => set({ stock: v ? '1' : null })}>{t('filter.in_stock')}</Checkbox>
-        <Checkbox checked={onSale} onChange={(v) => set({ sale: v ? '1' : null })}>{t('filter.on_sale')}</Checkbox>
-        <Checkbox checked={isNew} onChange={(v) => set({ new: v ? '1' : null })}>{t('filter.new')}</Checkbox>
-      </div>
-    </div>
-  );
 
   return (
     <div className="wrap pb-6 pt-6 md:pt-10">
@@ -126,7 +69,7 @@ export default function Shop() {
       )}
 
       <div className="grid gap-10 lg:grid-cols-[250px_minmax(0,1fr)]">
-        <aside className="hidden lg:block" aria-label={t('filter.title')}><div className="sticky top-32">{Filters}</div></aside>
+        <aside className="hidden lg:block" aria-label={t('filter.title')}><div className="sticky top-32"><FilterPanel cats={cats.data ?? []} brands={brands.data ?? []} f={f} set={set} /></div></aside>
         <section aria-live="polite">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
             <div className="flex items-center gap-3">
@@ -165,9 +108,7 @@ export default function Shop() {
         </section>
       </div>
 
-      <Drawer open={sheet} onClose={() => setSheet(false)} title={t('filter.title')} side="start" footer={<Button size="lg" block onClick={() => setSheet(false)}>{t('filter.show', { n: num(total) })}</Button>}>
-        <div className="p-6">{Filters}</div>
-      </Drawer>
+      <FilterWindow open={sheet} onClose={() => setSheet(false)} sp={sp} cats={cats.data ?? []} brands={brands.data ?? []} onApply={(next) => setSp(next, { replace: true })} />
     </div>
   );
 }

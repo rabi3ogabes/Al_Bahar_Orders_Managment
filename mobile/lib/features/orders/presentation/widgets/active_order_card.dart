@@ -5,6 +5,7 @@ import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/features/auctions/presentation/state/auction_providers.dart';
 import 'package:albahar_customer/features/orders/domain/order_models.dart';
+import 'package:albahar_customer/features/orders/presentation/order_detail_screen.dart';
 import 'package:albahar_customer/features/orders/presentation/state/order_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -98,7 +99,7 @@ class _Card extends StatelessWidget {
       label: '${l10n.orderNumberLabel(order.number)}: $headline',
       child: SurfaceCard(
         padding: const EdgeInsets.all(AppSpace.md),
-        onTap: () => context.push('/orders/${order.id}'),
+        onTap: () => unawaited(showOrderPanel(context, order.id, number: order.number)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

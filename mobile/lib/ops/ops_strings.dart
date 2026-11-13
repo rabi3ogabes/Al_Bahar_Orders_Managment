@@ -154,10 +154,6 @@ class OpsStrings {
     'تظهر نسخة معدّلة في لوحة التحكم للموافقة. لا ينشر شيء تلقائياً.',
   );
   String get productSaved => _t('Product saved.', 'تم حفظ المنتج.');
-  String get leaveQ => _t('Leave without saving?', 'المغادرة دون حفظ؟');
-  String get leaveBody => _t('The photos and text you entered will be lost.', 'ستفقد الصور والنصوص التي أدخلتها.');
-  String get leave => _t('Leave', 'مغادرة');
-  String get stay => _t('Keep editing', 'متابعة التعديل');
   String get fieldRequired => _t('Required', 'مطلوب');
   String get priceInvalid => _t('Enter a price like 120 or 120.50', 'أدخل سعراً مثل 120 أو 120.50');
   String get close => _t('Close', 'إغلاق');
@@ -280,6 +276,52 @@ class OpsStrings {
   );
   String get jobFindingYou => _t('Finding your position…', 'جارٍ تحديد موقعك…');
   String get trackingChannel => _t('Live location', 'الموقع المباشر');
+
+  // Side windows: delivery and order details, proof of delivery, reasons, driver details
+  String jobTitle(String number) => _t('Delivery #$number', 'توصيل #$number');
+  String orderTitle(String number) => _t('Order #$number', 'الطلب #$number');
+  String forOrder(String number) => _t('For order #$number', 'للطلب #$number');
+  String get customer => _t('Customer', 'العميل');
+  String get orderSection => _t('Order', 'الطلب');
+  String get itemsLabel => _t('Items', 'القطع');
+  String get total => _t('Total', 'الإجمالي');
+  String get deliveryTitle => _t('Delivery', 'التوصيل');
+  String get deliveryAddress => _t('Delivery address', 'عنوان التوصيل');
+  String get copyAddress => _t('Copy address', 'نسخ العنوان');
+  String get copied => _t('Copied', 'تم النسخ');
+  String pickupFrom(String branch) => _t('Pick up from $branch', 'الاستلام من $branch');
+  String get payment => _t('Payment', 'الدفع');
+  String get paymentCash => _t('Cash on delivery', 'الدفع عند الاستلام');
+  String get paymentOnline => _t('Online payment', 'دفع إلكتروني');
+  String get collectCashHint => _t('Collect this amount in cash at the door.', 'حصّل هذا المبلغ نقداً عند الباب.');
+  String get nothingToCollect => _t('Nothing to collect at the door.', 'لا يوجد مبلغ للتحصيل عند الباب.');
+  String get proofNeeded => _t('A photo of the delivery is required.', 'صورة التسليم مطلوبة.');
+  String get openJobMap => _t('Open delivery map', 'فتح خريطة التوصيل');
+  String get jobGone => _t('This delivery is no longer in your list.', 'لم يعد هذا التوصيل في قائمتك.');
+  String get orderGone => _t('This order is no longer in the branch queue.', 'لم يعد هذا الطلب في قائمة الفرع.');
+  String get driverGone => _t('This driver is no longer in the branch list.', 'لم يعد هذا السائق في قائمة الفرع.');
+  String get deliveryRecorded => _t('Delivery recorded.', 'تم تسجيل التسليم.');
+  String get markDelivered => _t('Mark delivered', 'تسجيل التسليم');
+  String get confirmDelivery => _t('Confirm delivery', 'تأكيد التسليم');
+  String get proofTitle => _t('Proof of delivery', 'إثبات التسليم');
+  String get chooseReason => _t('Choose the reason', 'اختر السبب');
+  String get confirmReturn => _t('Confirm return', 'تأكيد الإعادة');
+  String get reportVerb => _t('Report', 'إبلاغ');
+  String get noDriverYet => _t('No driver assigned yet', 'لم يُسند سائق بعد');
+  String get currentDelivery => _t('Current delivery', 'التوصيل الحالي');
+  String get lastSeen => _t('Last seen', 'آخر ظهور');
+  String get vehicle => _t('Vehicle', 'المركبة');
+  String batteryLevel(int percent) => _t('Battery $percent%', 'البطارية $percent%');
+
+  /// The stage tab an order status belongs to (new, preparing, ready, on the way, failed).
+  String orderStage(String status) => switch (status) {
+    'pending' => stageNew,
+    'accepted' || 'preparing' => stagePreparing,
+    'ready' => stageReady,
+    'dispatched' || 'out_for_delivery' => stageOut,
+    'failed' => stageFailed,
+    _ => status,
+  };
 
   String get language => _t('العربية', 'English');
 }

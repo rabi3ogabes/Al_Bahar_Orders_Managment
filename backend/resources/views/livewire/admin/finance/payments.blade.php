@@ -40,9 +40,9 @@
             <div class="table-wrap"><table class="table">
                 <thead><tr><th>{{ __('admin.order') }}</th><th>{{ __('finance_admin.method') }}</th><th class="!text-end">{{ __('finance_admin.amount') }}</th><th class="!text-end">{{ __('finance_admin.captured') }}</th><th class="!text-end">{{ __('finance_admin.refunded') }}</th><th>{{ __('admin.status') }}</th><th class="w-12"></th></tr></thead>
                 <tbody>@foreach ($payments as $p)
-                    <tr wire:key="p-{{ $p->id }}">
+                    <tr wire:key="p-{{ $p->id }}" wire:click="openView('{{ $p->id }}')" tabindex="-1" class="cursor-pointer focus:outline-none">
                         <td>
-                            @if ($p->order)<a href="{{ route('admin.payments.show', $p) }}" wire:navigate class="font-mono font-medium hover:text-brass-600" dir="ltr">{{ $p->order->number }}</a>@else<a href="{{ route('admin.payments.show', $p) }}" wire:navigate class="font-medium hover:text-brass-600">{{ __('finance_admin.payable_'.$p->payable_type) }}</a>@endif
+                            <a href="{{ route('admin.payments.index', ['view' => $p->id]) }}" wire:click.prevent.stop="openView('{{ $p->id }}')" @class(['font-medium text-ink-900 hover:text-brass-600 dark:text-ivory', 'font-mono' => $p->order]) @if ($p->order) dir="ltr" @endif>{{ $p->order ? $p->order->number : __('finance_admin.payable_'.$p->payable_type) }}</a>
                             <span class="block text-xs text-ink-500 tabular-nums">{{ \App\Support\BusinessTime::display($p->created_at) }} · #{{ $p->attempt }}</span>
                         </td>
                         <td><span class="text-sm">{{ __('status.'.$p->method) }}</span>@if ($p->provider_reference)<span class="block max-w-[10rem] truncate font-mono text-xs text-ink-500" dir="ltr" title="{{ $p->provider_reference }}">{{ $p->provider_reference }}</span>@endif</td>
@@ -56,11 +56,13 @@
                                 @if (! empty($p->metadata['review_resolution']))<span class="badge-success" title="{{ $p->metadata['review_resolution']['note'] ?? '' }}">{{ __('finance_admin.resolved') }}</span>@endif
                             </div>
                         </td>
-                        <td><a href="{{ route('admin.payments.show', $p) }}" wire:navigate class="btn-ghost btn-sm" aria-label="{{ __('admin.details') }}"><x-icon name="chevron-right" class="size-4 rtl-flip" /></a></td>
+                        <td><span class="btn-ghost btn-sm pointer-events-none" aria-hidden="true"><x-icon name="chevron-right" class="size-4 rtl-flip" /></span></td>
                     </tr>
                 @endforeach</tbody>
             </table></div>
             @if ($payments->hasPages())<div class="border-t border-sand-100 p-4 dark:border-ink-800">{{ $payments->links('components.admin.pagination') }}</div>@endif
         @endif
     </div>
+
+    @include('livewire.admin.finance.partials.payment-window')
 </div>

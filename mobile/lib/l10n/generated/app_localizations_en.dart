@@ -2556,4 +2556,29 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get liveOrderPermissionBlockedBody => 'Turn them on in settings to follow your order live.';
+
+  @override
+  String get quickView => 'Quick view';
+
+  @override
+  String quickViewOf(String name) {
+    return 'Quick view: $name';
+  }
+
+  @override
+  String get viewFullDetails => 'View full details';
+
+  @override
+  String get openFullPage => 'Open full page';
+
+  @override
+  String showResultsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Show $count results',
+      one: 'Show 1 result',
+    );
+    return '$_temp0';
+  }
 }

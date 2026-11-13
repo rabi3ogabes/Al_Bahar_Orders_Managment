@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/qatar_time.dart';
+import 'package:albahar_customer/core/widgets/side_panel.dart';
 import 'package:albahar_customer/core/widgets/app_button.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/input_sheets.dart';
@@ -82,14 +83,11 @@ class ReviewsPreview extends ConsumerWidget {
                 if (state.items.length > 3 || state.hasMore)
                   AppButton.secondary(
                     label: l10n.seeAll,
-                    onPressed: () => showAppBottomSheet<void>(
+                    onPressed: () => showSidePanel<void>(
                       context: context,
                       title: l10n.reviews,
                       scrollable: false,
-                      builder: (_) => SizedBox(
-                        height: MediaQuery.sizeOf(context).height * 0.75,
-                        child: _AllReviews(productId: productId),
-                      ),
+                      builder: (_) => _AllReviews(productId: productId),
                     ),
                   ),
               ],

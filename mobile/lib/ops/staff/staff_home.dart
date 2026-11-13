@@ -1,65 +1,23 @@
-import 'package:albahar_customer/core/realtime/pusher_client.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/debouncer.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
-import 'package:albahar_customer/features/auctions/data/auction_repository.dart';
 import 'package:albahar_customer/ops/ops_app.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
-import 'package:albahar_customer/ops/ops_repository.dart';
 import 'package:albahar_customer/ops/ops_strings.dart';
 import 'package:albahar_customer/ops/ops_widgets.dart';
 import 'package:albahar_customer/ops/staff/add_product_screen.dart';
 import 'package:albahar_customer/ops/staff/fleet_map_tab.dart';
+import 'package:albahar_customer/ops/staff/staff_panels.dart';
+import 'package:albahar_customer/ops/staff/staff_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final staffOverviewProvider = FutureProvider.autoDispose<StaffOverview>(
-  (ref) => ref.watch(opsRepositoryProvider).overview(),
-);
-
-final staffQueueProvider = FutureProvider.autoDispose.family<List<QueueOrder>, String>(
-  (ref, stage) => ref.watch(opsRepositoryProvider).queue(stage),
-);
-
-final staffDriversProvider = FutureProvider.autoDispose<List<BranchDriver>>(
-  (ref) => ref.watch(opsRepositoryProvider).drivers(),
-);
-
-/// Real-time pings for the branch (`private-branches.{id}`): an order or delivery moved.
-final staffEventsProvider = StreamProvider.autoDispose<PusherEvent>((ref) {
-  final id = ref.watch(staffOverviewProvider.select((o) => o.value?.branchId));
-  if (id == null || id.isEmpty) return const Stream.empty();
-  return ref.watch(pusherClientProvider).channel('private-branches.$id');
-});
-
-/// `driver.moved` payloads from the branch channel, for the live map.
-final staffMovesProvider = Provider.autoDispose<Stream<Map<String, dynamic>>>((ref) {
-  final id = ref.watch(staffOverviewProvider.select((o) => o.value?.branchId));
-  if (id == null || id.isEmpty) return const Stream.empty();
-  return ref
-      .watch(pusherClientProvider)
-      .channel('private-branches.$id')
-      .where((e) => e.event == 'driver.moved')
-      .map((e) => e.data);
-});
-
-const _stages = ['new', 'preparing', 'ready', 'out', 'failed'];
+export 'package:albahar_customer/ops/staff/staff_providers.dart';
 
 /// Branch staff app: the day's delivery orders by stage, one-tap order steps, and (when the branch is on manual
 /// dispatch) assigning a driver to a ready order. Several employees can use it at once; every screen reloads often.
-final staffPermissionsProvider = FutureProvider.autoDispose<List<String>>(
-  (ref) => ref.watch(opsRepositoryProvider).permissions(),
-);
-
-/// Whether the signed-in employee holds [key] (the API checks it again; this only hides buttons that would be refused).
-bool hasPermission(List<String> perms, String key) {
-  if (perms.contains('*') || perms.contains(key)) return true;
-  final dot = key.indexOf('.');
-  return dot > 0 && perms.contains('${key.substring(0, dot)}.*');
-}
-
 class StaffHome extends ConsumerStatefulWidget {
   const StaffHome({super.key});
 
@@ -85,7 +43,7 @@ class _StaffHomeState extends ConsumerState<StaffHome> with OpsPolling {
 
   void _reload() {
     ref.invalidate(staffOverviewProvider);
-    for (final s in _stages) {
+    for (final s in kStaffStages) {
       ref.invalidate(staffQueueProvider(s));
     }
     ref.invalidate(staffDriversProvider);
@@ -155,7 +113,7 @@ class _StaffHomeState extends ConsumerState<StaffHome> with OpsPolling {
                   Expanded(
                     child: TabBarView(
                       children: [
-                        for (final s in _stages)
+                        for (final s in kStaffStages)
                           _OrderList(
                             stage: s,
                             autoDispatch: o?.autoDispatch ?? false,
@@ -255,7 +213,7 @@ class _OrderList extends ConsumerWidget {
   }
 }
 
-class _OrderCard extends ConsumerStatefulWidget {
+class _OrderCard extends ConsumerWidget {
   const _OrderCard({
     super.key,
     required this.order,
@@ -271,86 +229,20 @@ class _OrderCard extends ConsumerStatefulWidget {
   final bool canReturn;
 
   @override
-  ConsumerState<_OrderCard> createState() => _OrderCardState();
-}
-
-class _OrderCardState extends ConsumerState<_OrderCard> {
-  bool _busy = false;
-
-  void _refreshAll() {
-    ref.invalidate(staffOverviewProvider);
-    for (final s in _stages) {
-      ref.invalidate(staffQueueProvider(s));
-    }
-    ref.invalidate(staffDriversProvider);
-  }
-
-  /// One action at a time. Lists reload whether it worked or not: when a colleague already moved the order (409) the card
-  /// shows the real state instead of a stale button.
-  Future<void> _run(Future<void> Function() action) async {
-    if (_busy) return;
-    setState(() => _busy = true);
-    await guarded(context, action);
-    if (!mounted) return;
-    _refreshAll();
-    setState(() => _busy = false);
-  }
-
-  Future<void> _advance(String status) =>
-      _run(() => ref.read(opsRepositoryProvider).advance(widget.order.fulfillmentId, status));
-
-  /// A failed delivery brought back to the branch: stock goes back and the order closes as returned.
-  Future<void> _returnToBranch() async {
-    final id = widget.order.deliveryId;
-    if (id == null || _busy) return;
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = OpsStrings.of(context);
-    final sure = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(t.confirmReturnQ),
-        content: Text(t.confirmReturnBody),
-        actions: [
-          TextButton(autofocus: true, onPressed: () => Navigator.pop(c, false), child: Text(t.cancel)),
-          TextButton(onPressed: () => Navigator.pop(c, true), child: Text(t.confirm)),
-        ],
-      ),
-    );
-    if (sure != true || !mounted) return;
-    await _run(() => ref.read(opsRepositoryProvider).returnToBranch(id));
-  }
-
-  Future<void> _assign() async {
-    if (_busy) return;
-    final driver = await showModalBottomSheet<BranchDriver>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (_) => const _DriverPicker(),
-    );
-    if (driver == null || !mounted) return;
-    await _run(() => ref.read(opsRepositoryProvider).assign(widget.order.fulfillmentId, driver.id));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = OpsStrings.of(context);
-    final o = widget.order;
-    final step = widget.canEdit ? o.nextStep : null;
-    final stepLabel = switch (step) {
-      'accepted' => t.acceptOrder,
-      'preparing' => t.startPreparing,
-      'ready' => t.markReady,
-      _ => null,
-    };
+    final o = order;
     final hasDriver = o.driverName != null;
-    final showReturn = widget.canReturn && o.status == 'failed' && o.deliveryId != null;
-    final showAssign =
-        widget.canAssign &&
-        o.status == 'ready' &&
-        o.deliveryStatus != 'picked_up' &&
-        o.deliveryStatus != 'out_for_delivery';
     return SurfaceCard(
+      // The whole card opens the order in a window beside the queue: the tab and the scroll position stay.
+      onTap: () => showOrderPanel(
+        context,
+        order: o,
+        autoDispatch: autoDispatch,
+        canEdit: canEdit,
+        canAssign: canAssign,
+        canReturn: canReturn,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -389,116 +281,16 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                 icon: Icons.report_gmailerrorred_rounded,
               ),
             ),
-          if (showReturn) ...[
-            const Gap(AppSpace.sm),
-            OutlinedButton.icon(
-              onPressed: _busy ? null : _returnToBranch,
-              icon: const Icon(Icons.assignment_return_rounded, size: 18),
-              label: Text(t.returnToBranch),
-            ),
-          ],
-          if (stepLabel != null || showAssign) ...[
-            const Gap(AppSpace.sm),
-            Row(
-              children: [
-                if (stepLabel != null)
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: _busy ? null : () => _advance(step!),
-                      child: _busy
-                          ? SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.2,
-                                color: Theme.of(context).colorScheme.onPrimary,
-                              ),
-                            )
-                          : Text(stepLabel, textAlign: TextAlign.center),
-                    ),
-                  ),
-                if (showAssign)
-                  Expanded(
-                    child: (hasDriver || widget.autoDispatch ? OutlinedButton.new : FilledButton.new)(
-                      onPressed: _busy ? null : _assign,
-                      child: Text(hasDriver ? t.changeDriver : t.assignDriver, textAlign: TextAlign.center),
-                    ),
-                  ),
-              ],
-            ),
-          ],
+          OrderActionButtons(
+            key: ValueKey('steps-${o.fulfillmentId}-${o.status}-${o.driverId}'),
+            order: o,
+            autoDispatch: autoDispatch,
+            canEdit: canEdit,
+            canAssign: canAssign,
+            canReturn: canReturn,
+          ),
         ],
       ),
-    );
-  }
-}
-
-class _DriverPicker extends ConsumerWidget {
-  const _DriverPicker();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = OpsStrings.of(context);
-    final drivers = ref.watch(staffDriversProvider);
-    return SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.7),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(AppSpace.md),
-              child: Text(t.chooseDriver, style: Theme.of(context).textTheme.titleMedium),
-            ),
-            Flexible(
-              child: drivers.when(
-                loading: () => const Padding(padding: EdgeInsets.all(AppSpace.xl), child: CircularProgressIndicator()),
-                error: (e, _) => ErrorState(error: e, onRetry: () => ref.invalidate(staffDriversProvider)),
-                data: (list) => list.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.all(AppSpace.lg),
-                        child: Text(t.noDrivers, textAlign: TextAlign.center),
-                      )
-                    : ListView(
-                        shrinkWrap: true,
-                        children: [
-                          for (final d in list) _DriverTile(driver: d, onTap: () => Navigator.pop(context, d)),
-                        ],
-                      ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DriverTile extends StatelessWidget {
-  const _DriverTile({required this.driver, this.onTap});
-  final BranchDriver driver;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = OpsStrings.of(context);
-    final p = context.palette;
-    return ListTile(
-      minTileHeight: 60,
-      onTap: onTap,
-      leading: CircleAvatar(
-        backgroundColor: (driver.onDuty ? p.success : p.muted).withValues(alpha: 0.16),
-        child: Icon(Icons.two_wheeler_rounded, color: driver.onDuty ? p.success : p.muted),
-      ),
-      title: Text(driver.name),
-      subtitle: Text(driver.onDuty ? t.openJobs(driver.openJobs) : t.offDutyTag),
-      trailing: driver.phone == null
-          ? null
-          : IconButton(
-              tooltip: '${t.call} ${driver.name}',
-              icon: const Icon(Icons.call_rounded),
-              onPressed: () => dial(context, driver.phone),
-            ),
     );
   }
 }
@@ -528,7 +320,13 @@ class _DriverList extends ConsumerWidget {
             : ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
-                children: [for (final d in list) _DriverTile(driver: d)],
+                children: [
+                  for (final d in list)
+                    DriverTile(
+                      driver: d,
+                      onTap: () => showDriverPanel(context, driver: d),
+                    ),
+                ],
               ),
       ),
     );

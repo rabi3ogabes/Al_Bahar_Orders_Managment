@@ -4669,6 +4669,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Turn them on in settings to follow your order live.'**
   String get liveOrderPermissionBlockedBody;
+
+  /// No description provided for @quickView.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick view'**
+  String get quickView;
+
+  /// No description provided for @quickViewOf.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick view: {name}'**
+  String quickViewOf(String name);
+
+  /// No description provided for @viewFullDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'View full details'**
+  String get viewFullDetails;
+
+  /// No description provided for @openFullPage.
+  ///
+  /// In en, this message translates to:
+  /// **'Open full page'**
+  String get openFullPage;
+
+  /// No description provided for @showResultsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Show 1 result} other{Show {count} results}}'**
+  String showResultsCount(int count);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

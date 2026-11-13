@@ -1,39 +1,76 @@
 import 'dart:async';
 
 import 'package:albahar_customer/core/l10n/l10n.dart';
-import 'package:albahar_customer/core/models/money.dart';
 import 'package:albahar_customer/core/network/interceptors.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
-import 'package:albahar_customer/core/utils/json.dart';
-import 'package:albahar_customer/core/utils/qatar_time.dart';
 import 'package:albahar_customer/core/widgets/app_button.dart';
 import 'package:albahar_customer/core/widgets/app_text_field.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
+import 'package:albahar_customer/core/widgets/dirty_form_guard.dart';
 import 'package:albahar_customer/core/widgets/fresh.dart';
+import 'package:albahar_customer/core/widgets/side_panel.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
+import 'package:albahar_customer/features/auctions/presentation/state/auction_providers.dart';
+import 'package:albahar_customer/features/cart/presentation/bag_panel.dart';
 import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
 import 'package:albahar_customer/features/checkout/data/checkout_repository.dart';
 import 'package:albahar_customer/features/checkout/presentation/payment_flow.dart';
 import 'package:albahar_customer/features/orders/data/order_repository.dart';
 import 'package:albahar_customer/features/orders/domain/order_models.dart';
+import 'package:albahar_customer/features/orders/presentation/order_sections.dart';
 import 'package:albahar_customer/features/orders/presentation/state/order_providers.dart';
+import 'package:albahar_customer/features/reviews/presentation/write_review_screen.dart';
+import 'package:albahar_customer/features/support/presentation/support_screens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-class OrderDetailScreen extends ConsumerWidget {
+/// Opens an order in a side window: status, live timeline, items, totals and the next action pinned at the bottom.
+/// The full page (`/orders/:id`) stays for links, notifications and "Open full page".
+Future<void> showOrderPanel(BuildContext context, String orderId, {String? number}) {
+  final l10n = context.l10n;
+  final host = context;
+  return showSidePanel<void>(
+    context: context,
+    title: number != null ? l10n.orderNumber(number) : l10n.ordersTitle,
+    scrollable: false,
+    actions: [
+      Builder(
+        builder: (panelContext) => IconButton(
+          tooltip: l10n.openFullPage,
+          constraints: const BoxConstraints(minWidth: kMinTouchTarget, minHeight: kMinTouchTarget),
+          icon: const Icon(Icons.open_in_full_rounded),
+          onPressed: () {
+            final router = GoRouter.of(panelContext);
+            Navigator.of(panelContext).pop();
+            unawaited(router.push('/orders/$orderId'));
+          },
+        ),
+      ),
+    ],
+    builder: (_) => OrderPanelBody(orderId: orderId, host: host),
+  );
+}
+
+class OrderDetailScreen extends ConsumerStatefulWidget {
   const OrderDetailScreen({super.key, required this.orderId, this.justPlaced = false});
   final String orderId;
   final bool justPlaced;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<OrderDetailScreen> createState() => _OrderDetailScreenState();
+}
+
+class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> with OrderActionsMixin<OrderDetailScreen> {
+  @override
+  Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final orderId = widget.orderId;
+    final justPlaced = widget.justPlaced;
     final order = ref.watch(orderDetailProvider(orderId));
     final title = order.value != null ? l10n.orderNumber(order.value!.number) : l10n.ordersTitle;
     return FreshScaffold(
@@ -73,29 +110,7 @@ class OrderDetailScreen extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(AppSpace.gutter, AppSpace.sm, AppSpace.gutter, AppSpace.xxl),
             children: [
               ContentWidth(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (justPlaced) _PlacedBanner(number: o.number),
-                    _Header(order: o),
-                    const Gap(AppSpace.lg),
-                    for (final f in o.fulfillments) ...[
-                      _FulfillmentCard(order: o, fulfillment: f),
-                      const Gap(AppSpace.sm),
-                    ],
-                    const Gap(AppSpace.md),
-                    _Timeline(orderId: o.id),
-                    const Gap(AppSpace.lg),
-                    if (o.fulfillments.isEmpty) ...[
-                      Text(l10n.orderItems, style: context.text.titleLarge),
-                      for (final i in o.items) _ItemRow(item: i),
-                    ],
-                    if (o.address != null) ...[_AddressBlock(address: o.address!), const Gap(AppSpace.lg)],
-                    if (o.totals != null) _Totals(order: o),
-                    const Gap(AppSpace.lg),
-                    _Actions(order: o),
-                  ],
-                ),
+                child: OrderSections(order: o, justPlaced: justPlaced, actions: buildActions(o)),
               ),
             ],
           ),
@@ -105,411 +120,109 @@ class OrderDetailScreen extends ConsumerWidget {
   }
 }
 
-class _PlacedBanner extends StatelessWidget {
-  const _PlacedBanner({required this.number});
-  final String number;
-
-  @override
-  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
-    tween: Tween(begin: 0.92, end: 1),
-    duration: AppDurations.slow,
-    curve: Curves.easeOutBack,
-    builder: (_, v, child) => Transform.scale(scale: v, child: child),
-    child: Container(
-      margin: const EdgeInsets.only(bottom: AppSpace.lg),
-      padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg, vertical: AppSpace.xl),
-      decoration: BoxDecoration(color: context.palette.brassTint, borderRadius: AppRadius.cardAll),
-      child: Column(
-        children: [
-          // Check in a navy disc with two soft halo rings.
-          Container(
-            width: 112,
-            height: 112,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: context.colors.primary.withValues(alpha: 0.06)),
-            child: Container(
-              width: 82,
-              height: 82,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: context.colors.primary.withValues(alpha: 0.09)),
-              child: Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: context.colors.primary),
-                child: const Icon(Icons.check_rounded, size: 32, color: Colors.white),
-              ),
-            ),
-          ),
-          const Gap(AppSpace.sm),
-          Text(context.l10n.orderPlaced, style: context.text.headlineMedium),
-          const Gap(AppSpace.xxs),
-          Text(
-            context.l10n.orderPlacedMessage(number),
-            textAlign: TextAlign.center,
-            style: context.text.bodyMedium?.copyWith(color: context.palette.muted),
-          ),
-        ],
-      ),
-    ),
-  );
+/// Runs a step inside the order window (swapping its content), or in a window of its own on the full page.
+abstract interface class OrderStepRunner {
+  Future<T?> runStep<T>(String title, Widget Function(void Function(T?) done) build);
 }
 
-class _Header extends StatelessWidget {
-  const _Header({required this.order});
-  final Order order;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: AppSpace.xs,
-          runSpacing: AppSpace.xxs,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            StatusChip(label: order.statusLabel ?? order.status, tone: toneForStatus(order.status)),
-            if (order.paymentStatus != null)
-              StatusChip(
-                label: _paymentLabel(l10n, order.paymentStatus!),
-                tone: toneForStatus(order.paymentStatus),
-                dense: true,
-              ),
-          ],
-        ),
-        const Gap(AppSpace.xs),
-        Text(l10n.placedOn(QatarTime.dateTime(order.placedAt, context.localeCode)), style: context.text.bodySmall),
-      ],
-    );
-  }
-}
-
-String _paymentLabel(AppLocalizations l10n, String status) => switch (status) {
-  'paid' || 'authorized' => l10n.paymentStatusPaid,
-  'failed' || 'expired' || 'cancelled' => l10n.paymentStatusFailed,
-  'refunded' || 'partially_refunded' => l10n.paymentStatusRefunded,
-  _ => l10n.paymentStatusPending,
-};
-
-class _FulfillmentCard extends StatelessWidget {
-  const _FulfillmentCard({required this.order, required this.fulfillment});
-  final Order order;
-  final Fulfillment fulfillment;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final f = fulfillment;
-    final locale = context.localeCode;
-    final items = order.itemsFor(f);
-    final shown = items.isEmpty && order.fulfillments.length == 1 ? order.items : items;
-    final slot = f.slot;
-    return SurfaceCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Icon(
-                f.type == 'pickup' ? Icons.storefront_outlined : Icons.local_shipping_outlined,
-                color: context.palette.brass,
-              ),
-              const Gap(AppSpace.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(l10n.shipment(f.number), style: context.text.titleSmall),
-                    Text(l10n.fulfilledFrom(f.branch.name), style: context.text.bodySmall),
-                  ],
-                ),
-              ),
-              const Gap(AppSpace.xs),
-              Flexible(
-                child: StatusChip(label: f.statusLabel ?? f.status, tone: toneForStatus(f.status), dense: true),
-              ),
-            ],
-          ),
-          if (slot != null && slot['date'] != null)
-            Padding(
-              padding: const EdgeInsets.only(top: AppSpace.xs),
-              child: Text(
-                f.type == 'delivery'
-                    ? l10n.deliverySlotSummary(
-                        QatarTime.slotDay(asString(slot['date']), locale),
-                        QatarTime.clock(asStringOrNull(slot['starts_at']), locale),
-                        QatarTime.clock(asStringOrNull(slot['ends_at']), locale),
-                      )
-                    : l10n.slotLabel(
-                        QatarTime.slotDay(asString(slot['date']), locale),
-                        QatarTime.clock(asStringOrNull(slot['starts_at']), locale),
-                        QatarTime.clock(asStringOrNull(slot['ends_at']), locale),
-                      ),
-                style: context.text.bodySmall,
-              ),
-            ),
-          for (final i in shown) _ItemRow(item: i),
-          if (f.delivery != null) _DeliveryTracking(info: f.delivery!),
-          if (f.isPickupReady) ...[
-            const Gap(AppSpace.sm),
-            AppButton.accent(
-              label: l10n.pickupPass,
-              icon: Icons.qr_code_2_rounded,
-              onPressed: () => context.push('/orders/${order.id}/pickup/${f.id}'),
-            ),
-          ],
-          if (f.type == 'pickup' && f.branch.latitude != null)
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: TextButton.icon(
-                icon: const Icon(Icons.directions_outlined, size: 18),
-                label: Text(l10n.directions),
-                onPressed: () => launchUrl(
-                  Uri.parse(
-                    'https://www.google.com/maps/dir/?api=1&destination=${f.branch.latitude},${f.branch.longitude}',
-                  ),
-                  mode: LaunchMode.externalApplication,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DeliveryTracking extends StatelessWidget {
-  const _DeliveryTracking({required this.info});
-  final DeliveryInfo info;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final locale = context.localeCode;
-    return Container(
-      margin: const EdgeInsets.only(top: AppSpace.sm),
-      padding: const EdgeInsets.all(AppSpace.sm),
-      decoration: BoxDecoration(color: context.palette.surfaceMuted, borderRadius: BorderRadius.circular(12)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(l10n.trackDelivery, style: context.text.titleSmall),
-          if (info.eta != null) SummaryRow(label: l10n.eta, value: QatarTime.dateTime(info.eta, locale)),
-          if (info.provider != null) SummaryRow(label: l10n.deliveryProvider, value: info.provider!),
-          if (info.trackingNumber != null) SummaryRow(label: l10n.trackingNumber, value: info.trackingNumber!),
-          if (info.driverName != null)
-            Row(
-              children: [
-                Expanded(
-                  child: SummaryRow(label: l10n.driver, value: info.driverName!),
-                ),
-                if (info.driverPhone != null)
-                  IconButton(
-                    tooltip: l10n.call,
-                    icon: const Icon(Icons.call_outlined),
-                    onPressed: () => launchUrl(Uri(scheme: 'tel', path: info.driverPhone)),
-                  ),
-              ],
-            ),
-          if (info.trackingUrl != null)
-            TextButton(
-              onPressed: () => launchUrl(Uri.parse(info.trackingUrl!), mode: LaunchMode.inAppBrowserView),
-              child: Text(l10n.trackDelivery),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ItemRow extends StatelessWidget {
-  const _ItemRow({required this.item});
-  final OrderItem item;
-
-  @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: item.productId == null ? null : () => context.push('/products/${item.productId}'),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
-      child: Row(
-        children: [
-          AppNetworkImage(url: item.imageUrl, width: 52, height: 60, borderRadius: BorderRadius.circular(8)),
-          const Gap(AppSpace.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: context.text.bodyMedium),
-                Text(
-                  [if (item.variantName != null) item.variantName!, '× ${item.quantity}'].join(' · '),
-                  style: context.text.bodySmall,
-                ),
-              ],
-            ),
-          ),
-          if (item.lineTotal != null) Text(item.lineTotal!.formatted, style: context.text.titleSmall),
-        ],
-      ),
-    ),
-  );
-}
-
-class _Timeline extends ConsumerWidget {
-  const _Timeline({required this.orderId});
+/// Body of [showOrderPanel]: the order with its realtime updates, the actions, and the cancel / return steps.
+class OrderPanelBody extends ConsumerStatefulWidget {
+  const OrderPanelBody({super.key, required this.orderId, required this.host});
   final String orderId;
 
+  /// The page that opened the window: follow-up windows (cart, review, support) open on it after this one closes.
+  final BuildContext host;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = context.l10n;
-    final timeline = ref.watch(orderTimelineProvider(orderId));
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(l10n.orderTimeline, style: context.text.titleLarge),
-        const Gap(AppSpace.sm),
-        timeline.when(
-          loading: () => const Skeleton(height: 120, radius: AppRadius.card),
-          error: (e, _) =>
-              ErrorState(error: e, compact: true, onRetry: () => ref.invalidate(orderTimelineProvider(orderId))),
-          data: (entries) => Column(
-            children: [
-              for (var i = 0; i < entries.length; i++)
-                _TimelineRow(entry: entries[i], first: i == 0, last: i == entries.length - 1),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
+  ConsumerState<OrderPanelBody> createState() => _OrderPanelBodyState();
 }
 
-/// One step of the vertical tracker: done steps are filled navy with a tick, the current (last) step carries a
-/// soft halo and a tinted row, a failure/cancel step is red.
-class _TimelineRow extends StatelessWidget {
-  const _TimelineRow({required this.entry, required this.first, required this.last});
-  final TimelineEntry entry;
-  final bool first;
-  final bool last;
+class _OrderPanelBodyState extends ConsumerState<OrderPanelBody>
+    with OrderActionsMixin<OrderPanelBody>
+    implements OrderStepRunner {
+  Widget? _step;
+  Completer<Object?>? _stepDone;
+
+  @override
+  bool get inPanel => true;
+
+  @override
+  BuildContext get host => widget.host;
+
+  @override
+  Future<T?> runStep<T>(String title, Widget Function(void Function(T?) done) build) {
+    final completer = Completer<Object?>();
+    _stepDone = completer;
+    void done(T? value) {
+      if (!completer.isCompleted) completer.complete(value);
+      if (mounted) setState(() => _step = null);
+    }
+
+    setState(() => _step = PanelStep(title: title, onBack: () => done(null), child: build(done)));
+    return completer.future.then((v) => v as T?);
+  }
+
+  @override
+  void dispose() {
+    final pending = _stepDone;
+    if (pending != null && !pending.isCompleted) pending.complete(null);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final tone = toneForStatus(entry.status);
-    final failed = tone == StatusTone.danger;
-    final fill = failed ? context.palette.danger : context.colors.primary;
-    final onFill = failed ? Colors.white : context.colors.onPrimary;
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            width: 32,
-            child: Column(
-              children: [
-                Expanded(child: Container(width: 2, color: first ? Colors.transparent : fill)),
-                Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: fill,
-                    shape: BoxShape.circle,
-                    boxShadow: last ? [BoxShadow(color: fill.withValues(alpha: 0.18), spreadRadius: 5)] : null,
-                  ),
-                  child: Icon(failed ? Icons.close_rounded : Icons.check_rounded, size: 14, color: onFill),
-                ),
-                Expanded(child: Container(width: 2, color: last ? Colors.transparent : fill)),
-              ],
-            ),
+    final id = widget.orderId;
+    // The server pings when an order moves: the window shows the new status and timeline without a pull-to-refresh.
+    ref.listen(userAuctionEventsProvider, (_, next) {
+      final e = next.value;
+      if (e != null && e.event == 'order.updated' && e.data['order_id']?.toString() == id) {
+        ref
+          ..invalidate(orderDetailProvider(id))
+          ..invalidate(orderTimelineProvider(id));
+      }
+    });
+    final async = ref.watch(orderDetailProvider(id));
+    return async.when(
+      skipLoadingOnRefresh: true,
+      skipLoadingOnReload: true,
+      loading: () => const SizedBox(height: 320, child: ListSkeleton(count: 3, leading: false)),
+      error: (e, _) => ErrorState(error: e, compact: true, onRetry: () => ref.invalidate(orderDetailProvider(id))),
+      data: (o) {
+        if (_step != null) return _step!;
+        final primary = primaryFor(o);
+        return SidePanelLayout(
+          footer: buildPrimary(o, primary),
+          child: OrderSections(
+            order: o,
+            actions: buildActions(o, hide: primary),
           ),
-          const Gap(AppSpace.xs),
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 2),
-              padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: AppSpace.xs),
-              decoration: BoxDecoration(
-                color: last ? context.palette.tint : Colors.transparent,
-                borderRadius: AppRadius.imageAll,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(entry.label, style: context.text.titleSmall),
-                  Text(QatarTime.dateTime(entry.at, context.localeCode), style: context.text.bodySmall),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
 
-class _AddressBlock extends StatelessWidget {
-  const _AddressBlock({required this.address});
-  final JsonMap address;
+enum OrderPrimary { pay, track, pickup, reorder }
 
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final parts = [
-      if (address['zone_number'] != null) '${l10n.zoneNumber} ${address['zone_number']}',
-      if (address['street_number'] != null) '${l10n.streetNumber} ${address['street_number']}',
-      if (address['building_number'] != null) '${l10n.buildingNumber} ${address['building_number']}',
-      if (address['unit_number'] != null) '${l10n.unitNumber} ${address['unit_number']}',
-    ].join(', ');
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(l10n.shippingTo, style: context.text.titleLarge),
-        const Gap(AppSpace.xs),
-        Text(asString(address['recipient_name']), style: context.text.titleSmall),
-        if (parts.isNotEmpty) Text(parts, style: context.text.bodyMedium),
-        if (address['area'] != null) Text(asString(address['area']), style: context.text.bodySmall),
-      ],
-    );
-  }
+/// The one action an order window pins at the bottom: what the customer most likely wants next.
+OrderPrimary primaryFor(Order o) {
+  if (o.canPay) return OrderPrimary.pay;
+  if (o.status == 'out_for_delivery') return OrderPrimary.track;
+  if (o.fulfillments.any((f) => f.isPickupReady)) return OrderPrimary.pickup;
+  return OrderPrimary.reorder;
 }
 
-class _Totals extends StatelessWidget {
-  const _Totals({required this.order});
-  final Order order;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final t = order.totals!;
-    Widget? row(String label, Money? m, {bool negative = false}) =>
-        (m == null || m.isZero) ? null : SummaryRow(label: label, value: negative ? '− ${m.formatted}' : m.formatted);
-    return SurfaceCard(
-      child: Column(
-        children: [
-          SummaryRow(label: l10n.subtotal, value: t.subtotal.formatted),
-          ?row(l10n.discount, t.discount, negative: true),
-          ?row(l10n.deliveryFee, t.deliveryFee),
-          ?row(l10n.serviceFee, t.serviceFee),
-          ?row(l10n.codFee, t.codFee),
-          ?row(l10n.tax, t.tax),
-          ?row(l10n.loyaltyDiscount, t.loyaltyDiscount, negative: true),
-          Divider(color: context.palette.line),
-          SummaryRow(label: l10n.grandTotal, value: t.grandTotal.formatted, emphasize: true),
-        ],
-      ),
-    );
-  }
-}
-
-class _Actions extends ConsumerStatefulWidget {
-  const _Actions({required this.order});
-  final Order order;
-
-  @override
-  ConsumerState<_Actions> createState() => _ActionsState();
-}
-
-class _ActionsState extends ConsumerState<_Actions> {
+/// The order actions, shared by the full page and the side window. The page is a screen state, the window is a panel
+/// state; both only differ in where follow-up windows open ([then]) and how a form step is shown ([askStep]).
+mixin OrderActionsMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   String? _busy;
   String? _payKey;
+
+  /// True inside the order window.
+  bool get inPanel => false;
+
+  /// The page behind the window (the window's opener); on the full page, the page itself.
+  BuildContext get host => context;
 
   Future<void> _run(String key, Future<void> Function() action) async {
     setState(() => _busy = key);
@@ -522,49 +235,67 @@ class _ActionsState extends ConsumerState<_Actions> {
     }
   }
 
-  void _refresh() {
-    ref.invalidate(orderDetailProvider(widget.order.id));
-    ref.invalidate(orderTimelineProvider(widget.order.id));
+  void _refresh(String orderId) {
+    ref.invalidate(orderDetailProvider(orderId));
+    ref.invalidate(orderTimelineProvider(orderId));
   }
 
-  Future<void> _cancel() async {
-    final l10n = context.l10n;
-    final result = await showAppBottomSheet<({String code, String? reason})>(
+  /// Opens [open] on the page behind: closes the order window first when inside one.
+  void _then(void Function(BuildContext page) open) {
+    if (!inPanel) {
+      open(context);
+      return;
+    }
+    final page = host;
+    Navigator.of(context).pop();
+    if (page.mounted) open(page);
+  }
+
+  Future<R?> _askStep<R>(String title, Widget Function(void Function(R?) done) build) {
+    if (this is OrderStepRunner) return (this as OrderStepRunner).runStep<R>(title, build);
+    return showSidePanel<R>(
       context: context,
-      title: l10n.cancelOrderTitle,
-      builder: (_) => const _CancelSheet(),
+      title: title,
+      scrollable: false,
+      isForm: true,
+      builder: (ctx) => build((v) => Navigator.of(ctx).pop(v)),
+    );
+  }
+
+  Future<void> _cancel(Order o) async {
+    final l10n = context.l10n;
+    final result = await _askStep<({String code, String? reason})>(
+      l10n.cancelOrderTitle,
+      (done) => _CancelForm(onDone: done),
     );
     if (result == null) return;
     await _run('cancel', () async {
       final status = await ref
           .read(orderRepositoryProvider)
-          .cancel(widget.order.id, reasonCode: result.code, reason: result.reason);
+          .cancel(o.id, reasonCode: result.code, reason: result.reason);
       if (!mounted) return;
       Haptics.success();
       showInfoSnack(context, status == 'approved' ? l10n.cancelApproved : l10n.cancelRequested);
-      _refresh();
+      _refresh(o.id);
     });
   }
 
-  Future<void> _reorder() => _run('reorder', () async {
+  Future<void> _reorder(Order o) => _run('reorder', () async {
     final l10n = context.l10n;
-    final result = await ref.read(orderRepositoryProvider).reorder(widget.order.id);
+    final result = await ref.read(orderRepositoryProvider).reorder(o.id);
     ref.read(cartControllerProvider.notifier).replace(result.cart);
     if (!mounted) return;
     Haptics.success();
-    final msg = result.skipped.isEmpty
+    final notice = result.skipped.isEmpty
         ? l10n.reorderDone
         : '${l10n.reorderDone} ${l10n.reorderSkipped(result.skipped.length)}';
-    showInfoSnack(
-      context,
-      msg,
-      action: SnackBarAction(label: l10n.viewCart, onPressed: () => context.go('/cart')),
-    );
+    // The cart opens beside the order: check it, then check out.
+    _then((page) => unawaited(showBagPanel(page, notice: notice)));
   });
 
-  Future<void> _invoice() => _run('invoice', () async {
-    final bytes = await ref.read(orderRepositoryProvider).invoice(widget.order.id);
-    final name = 'AlBahar-${widget.order.number}.pdf';
+  Future<void> _invoice(Order o) => _run('invoice', () async {
+    final bytes = await ref.read(orderRepositoryProvider).invoice(o.id);
+    final name = 'AlBahar-${o.number}.pdf';
     await SharePlus.instance.share(
       ShareParams(
         files: [XFile.fromData(bytes, mimeType: 'application/pdf', name: name)],
@@ -573,64 +304,97 @@ class _ActionsState extends ConsumerState<_Actions> {
     );
   });
 
-  Future<void> _pay() => _run('pay', () async {
+  Future<void> _pay(Order o) => _run('pay', () async {
     _payKey ??= Idempotency.newKey();
-    final action = await ref.read(checkoutRepositoryProvider).retryPayment(widget.order.id, idempotencyKey: _payKey!);
+    final action = await ref.read(checkoutRepositoryProvider).retryPayment(o.id, idempotencyKey: _payKey!);
     _payKey = null;
     if (action.requiresRedirect) await openSecurePayment(action);
     if (!mounted) return;
-    unawaited(
-      context.push('/payments/${action.paymentId}/return?order_id=${widget.order.id}&number=${widget.order.number}'),
+    _then(
+      (page) =>
+          unawaited(GoRouter.of(page).push('/payments/${action.paymentId}/return?order_id=${o.id}&number=${o.number}')),
     );
   });
 
-  Future<void> _return() async {
+  Future<void> _return(Order o) async {
     final l10n = context.l10n;
-    final result = await showAppBottomSheet<({List<({String orderItemId, int quantity})> items, String code})>(
-      context: context,
-      title: l10n.requestReturn,
-      builder: (_) => _ReturnSheet(order: widget.order),
+    final result = await _askStep<({List<({String orderItemId, int quantity})> items, String code})>(
+      l10n.requestReturn,
+      (done) => _ReturnForm(order: o, onDone: done),
     );
     if (result == null || result.items.isEmpty) return;
     await _run('return', () async {
-      await ref
-          .read(orderRepositoryProvider)
-          .requestReturn(widget.order.id, items: result.items, reasonCode: result.code);
+      await ref.read(orderRepositoryProvider).requestReturn(o.id, items: result.items, reasonCode: result.code);
       if (!mounted) return;
       showInfoSnack(context, l10n.returnRequested);
-      _refresh();
+      _refresh(o.id);
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
+  /// The pinned primary action of the order window.
+  Widget buildPrimary(Order o, OrderPrimary primary) {
     final l10n = context.l10n;
-    final o = widget.order;
+    switch (primary) {
+      case OrderPrimary.pay:
+        return AppButton.accent(
+          label: l10n.payNow,
+          icon: Icons.credit_card_rounded,
+          loading: _busy == 'pay',
+          onPressed: () => _pay(o),
+        );
+      case OrderPrimary.track:
+        return AppButton(
+          label: l10n.trackOrder,
+          icon: Icons.location_on_rounded,
+          onPressed: () => _then((page) => unawaited(GoRouter.of(page).push('/orders/${o.id}/track'))),
+        );
+      case OrderPrimary.pickup:
+        final f = o.fulfillments.firstWhere((f) => f.isPickupReady);
+        return AppButton.accent(
+          label: l10n.pickupPass,
+          icon: Icons.qr_code_2_rounded,
+          onPressed: () => _then((page) => unawaited(GoRouter.of(page).push('/orders/${o.id}/pickup/${f.id}'))),
+        );
+      case OrderPrimary.reorder:
+        return AppButton(
+          label: l10n.reorder,
+          icon: Icons.replay_rounded,
+          loading: _busy == 'reorder',
+          onPressed: () => _reorder(o),
+        );
+    }
+  }
+
+  /// Every other action, as buttons; [hide] leaves out the one the window pins as its primary action.
+  Widget buildActions(Order o, {OrderPrimary? hide}) {
+    final l10n = context.l10n;
     final firstProduct = o.items.where((i) => i.productId != null).firstOrNull;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (o.canPay) ...[
+        if (o.canPay && hide != OrderPrimary.pay) ...[
           AppButton.accent(
             label: l10n.payNow,
             icon: Icons.credit_card_rounded,
             loading: _busy == 'pay',
-            onPressed: _pay,
+            onPressed: () => _pay(o),
+          ),
+          const Gap(AppSpace.sm),
+        ],
+        if (hide != OrderPrimary.reorder) ...[
+          AppButton.secondary(
+            label: l10n.reorder,
+            icon: Icons.replay_rounded,
+            loading: _busy == 'reorder',
+            onPressed: () => _reorder(o),
           ),
           const Gap(AppSpace.sm),
         ],
         AppButton.secondary(
-          label: l10n.reorder,
-          icon: Icons.replay_rounded,
-          loading: _busy == 'reorder',
-          onPressed: _reorder,
-        ),
-        const Gap(AppSpace.sm),
-        AppButton.secondary(
           label: l10n.downloadInvoice,
           icon: Icons.picture_as_pdf_outlined,
           loading: _busy == 'invoice',
-          onPressed: _invoice,
+          onPressed: () => _invoice(o),
         ),
         if (o.canReturn) ...[
           const Gap(AppSpace.sm),
@@ -638,7 +402,7 @@ class _ActionsState extends ConsumerState<_Actions> {
             label: l10n.requestReturn,
             icon: Icons.assignment_return_outlined,
             loading: _busy == 'return',
-            onPressed: _return,
+            onPressed: () => _return(o),
           ),
         ],
         if (o.canReview && firstProduct != null) ...[
@@ -646,8 +410,9 @@ class _ActionsState extends ConsumerState<_Actions> {
           AppButton.secondary(
             label: l10n.writeReview,
             icon: Icons.rate_review_outlined,
-            onPressed: () => context.push(
-              '/products/${firstProduct.productId}/reviews/new?name=${Uri.encodeComponent(firstProduct.name)}',
+            onPressed: () => _then(
+              (page) =>
+                  unawaited(showReviewPanel(page, productId: firstProduct.productId!, productName: firstProduct.name)),
             ),
           ),
         ],
@@ -656,13 +421,13 @@ class _ActionsState extends ConsumerState<_Actions> {
           label: l10n.contactSupport,
           icon: Icons.support_agent_outlined,
           expand: true,
-          onPressed: () => context.push('/support/new?order_id=${o.id}'),
+          onPressed: () => _then((page) => unawaited(showNewTicketPanel(page, orderId: o.id))),
         ),
         if (o.canCancel) ...[
           const Gap(AppSpace.sm),
           TextButton(
             style: TextButton.styleFrom(foregroundColor: context.palette.danger),
-            onPressed: _busy == null ? _cancel : null,
+            onPressed: _busy == null ? () => _cancel(o) : null,
             child: Text(l10n.cancelOrder),
           ),
         ],
@@ -671,13 +436,16 @@ class _ActionsState extends ConsumerState<_Actions> {
   }
 }
 
-class _CancelSheet extends StatefulWidget {
-  const _CancelSheet();
+/// Why the customer cancels. Closes with the answer, or with null when they keep the order.
+class _CancelForm extends StatefulWidget {
+  const _CancelForm({required this.onDone});
+  final void Function(({String code, String? reason})?) onDone;
+
   @override
-  State<_CancelSheet> createState() => _CancelSheetState();
+  State<_CancelForm> createState() => _CancelFormState();
 }
 
-class _CancelSheetState extends State<_CancelSheet> {
+class _CancelFormState extends State<_CancelForm> {
   String _code = cancelReasonCodes.first;
   final _details = TextEditingController();
 
@@ -697,50 +465,63 @@ class _CancelSheetState extends State<_CancelSheet> {
       'found_better_price' => l10n.cancelReasonPrice,
       _ => l10n.cancelReasonOther,
     };
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        RadioGroup<String>(
-          groupValue: _code,
-          onChanged: (v) => setState(() => _code = v ?? _code),
-          child: Column(
-            children: [
-              for (final c in cancelReasonCodes)
-                RadioListTile<String>(value: c, title: Text(label(c)), contentPadding: EdgeInsets.zero),
-            ],
-          ),
+    return DirtyFormGuard(
+      controllers: [_details],
+      isDirty: () => _details.text.trim().isNotEmpty,
+      child: SidePanelLayout(
+        footer: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppButton(
+              label: l10n.cancelOrder,
+              variant: AppButtonVariant.destructive,
+              onPressed: () => widget.onDone((code: _code, reason: _details.text.trim())),
+            ),
+            const Gap(AppSpace.xs),
+            AppButton.ghost(label: l10n.keepOrder, expand: true, onPressed: () => widget.onDone(null)),
+          ],
         ),
-        AppTextField(
-          controller: _details,
-          label: l10n.cancelDetails,
-          maxLines: 3,
-          minLines: 1,
-          keyboardType: TextInputType.multiline,
-          textCapitalization: TextCapitalization.sentences,
-          inputFormatters: [LengthLimitingTextInputFormatter(500)],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            RadioGroup<String>(
+              groupValue: _code,
+              onChanged: (v) => setState(() => _code = v ?? _code),
+              child: Column(
+                children: [
+                  for (final c in cancelReasonCodes)
+                    RadioListTile<String>(value: c, title: Text(label(c)), contentPadding: EdgeInsets.zero),
+                ],
+              ),
+            ),
+            AppTextField(
+              controller: _details,
+              label: l10n.cancelDetails,
+              maxLines: 3,
+              minLines: 1,
+              keyboardType: TextInputType.multiline,
+              textCapitalization: TextCapitalization.sentences,
+              inputFormatters: [LengthLimitingTextInputFormatter(500)],
+            ),
+          ],
         ),
-        const Gap(AppSpace.lg),
-        AppButton(
-          label: l10n.cancelOrder,
-          variant: AppButtonVariant.destructive,
-          onPressed: () => Navigator.of(context).pop((code: _code, reason: _details.text.trim())),
-        ),
-        const Gap(AppSpace.xs),
-        AppButton.ghost(label: l10n.keepOrder, expand: true, onPressed: () => Navigator.of(context).pop()),
-      ],
+      ),
     );
   }
 }
 
-class _ReturnSheet extends StatefulWidget {
-  const _ReturnSheet({required this.order});
+/// Which items come back and why. Closes with the answer, or with null when the customer backs out.
+class _ReturnForm extends StatefulWidget {
+  const _ReturnForm({required this.order, required this.onDone});
   final Order order;
+  final void Function(({List<({String orderItemId, int quantity})> items, String code})?) onDone;
+
   @override
-  State<_ReturnSheet> createState() => _ReturnSheetState();
+  State<_ReturnForm> createState() => _ReturnFormState();
 }
 
-class _ReturnSheetState extends State<_ReturnSheet> {
+class _ReturnFormState extends State<_ReturnForm> {
   final _selected = <String, int>{};
   String _code = returnReasonCodes.first;
 
@@ -754,38 +535,42 @@ class _ReturnSheetState extends State<_ReturnSheet> {
       'changed_mind' => l10n.cancelReasonChangedMind,
       _ => l10n.cancelReasonOther,
     };
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(l10n.selectItemsToReturn, style: context.text.titleSmall),
-        for (final i in widget.order.items)
-          CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            value: _selected.containsKey(i.id),
-            onChanged: (v) => setState(() => v == true ? _selected[i.id] = i.quantity : _selected.remove(i.id)),
-            title: Text(i.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-            subtitle: Text('× ${i.quantity}'),
-          ),
-        const Gap(AppSpace.sm),
-        DropdownButtonFormField<String>(
-          initialValue: _code,
-          isExpanded: true,
-          decoration: InputDecoration(labelText: l10n.cancelReason),
-          items: [for (final c in returnReasonCodes) DropdownMenuItem(value: c, child: Text(label(c)))],
-          onChanged: (v) => setState(() => _code = v ?? _code),
-        ),
-        const Gap(AppSpace.lg),
-        AppButton(
+    return DirtyFormGuard(
+      controllers: const [],
+      isDirty: () => _selected.isNotEmpty,
+      child: SidePanelLayout(
+        footer: AppButton(
           label: l10n.requestReturn,
           onPressed: _selected.isEmpty
               ? null
-              : () => Navigator.of(context).pop((
+              : () => widget.onDone((
                   items: [for (final e in _selected.entries) (orderItemId: e.key, quantity: e.value)],
                   code: _code,
                 )),
         ),
-      ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(l10n.selectItemsToReturn, style: context.text.titleSmall),
+            for (final i in widget.order.items)
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _selected.containsKey(i.id),
+                onChanged: (v) => setState(() => v == true ? _selected[i.id] = i.quantity : _selected.remove(i.id)),
+                title: Text(i.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                subtitle: Text('× ${i.quantity}'),
+              ),
+            const Gap(AppSpace.sm),
+            DropdownButtonFormField<String>(
+              initialValue: _code,
+              isExpanded: true,
+              decoration: InputDecoration(labelText: l10n.cancelReason),
+              items: [for (final c in returnReasonCodes) DropdownMenuItem(value: c, child: Text(label(c)))],
+              onChanged: (v) => setState(() => _code = v ?? _code),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -2588,4 +2588,32 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get liveOrderPermissionBlockedBody => 'فعّلها من الإعدادات لتتابع طلبك مباشرة.';
+
+  @override
+  String get quickView => 'نظرة سريعة';
+
+  @override
+  String quickViewOf(String name) {
+    return 'نظرة سريعة: $name';
+  }
+
+  @override
+  String get viewFullDetails => 'عرض التفاصيل الكاملة';
+
+  @override
+  String get openFullPage => 'فتح الصفحة كاملة';
+
+  @override
+  String showResultsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'عرض $count نتيجة',
+      many: 'عرض $count نتيجة',
+      few: 'عرض $count نتائج',
+      two: 'عرض نتيجتين',
+      one: 'عرض نتيجة واحدة',
+    );
+    return '$_temp0';
+  }
 }

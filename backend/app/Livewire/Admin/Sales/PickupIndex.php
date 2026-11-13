@@ -6,13 +6,14 @@ use App\Domain\Fulfillment\Models\PickupReservation;
 use App\Domain\Fulfillment\Services\PickupService;
 use App\Domain\Orders\Models\OrderFulfillment;
 use App\Livewire\Admin\Concerns\WithAdminTable;
+use App\Livewire\Admin\Sales\Concerns\PeeksAtOrder;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
-/** Per-branch pickup counter: passes ready for collection, orders still being prepared, and today's handovers. */
+/** Per-branch pickup counter: passes ready for collection, orders still being prepared, and today's handovers. An order opens in a side window. */
 class PickupIndex extends Component
 {
-    use WithAdminTable;
+    use PeeksAtOrder, WithAdminTable;
 
     #[Url(except: 'ready')]
     public string $tab = 'ready';

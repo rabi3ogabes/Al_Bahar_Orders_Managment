@@ -80,7 +80,7 @@ export interface OrderSummary {
   id: string; number: string; status: string; status_label: string; payment_status: string; payment_method: string; fulfillment_type: string
   items_count: number; grand_total: Money; placed_at: string; thumbnail_url: string | null
 }
-export interface OrderItem { id: string; product_id: string; variant_id: string; sku: string; name: string; variant_name: string | null; image_url: string | null; quantity: number; unit_price: Money; line_total: Money }
+export interface OrderItem { id: string; product_id: string; variant_id: string; sku: string; name: string; variant_name: string | null; image_url: string | null; quantity: number; quantity_cancelled?: number; quantity_returned?: number; fulfillment_id?: string | null; unit_price: Money; line_total: Money }
 export interface OrderDetail extends OrderSummary {
   totals: Record<string, Money>; discounts: unknown[]; address: Record<string, string | null> | null; customer_notes: string | null
   items: OrderItem[]

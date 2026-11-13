@@ -11,15 +11,19 @@ use App\Domain\Fulfillment\Services\DeliveryService;
 use App\Domain\Identity\Models\User;
 use App\Domain\Orders\Models\OrderFulfillment;
 use App\Livewire\Admin\Concerns\WithAdminTable;
+use App\Livewire\Admin\Sales\Concerns\PeeksAtOrder;
 use App\Support\BusinessTime;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
-/** Dispatch board: fulfillments to dispatch, active deliveries and exceptions, with assign/provider/reschedule/fail/return actions. */
+/**
+ * Dispatch board: fulfillments to dispatch, active deliveries and exceptions, with assign/provider/reschedule/fail/return actions.
+ * An order number opens the order in a side window, so dispatchers never leave the board.
+ */
 class DeliveryIndex extends Component
 {
-    use WithAdminTable;
+    use PeeksAtOrder, WithAdminTable;
 
     public const LANES = ['to_dispatch', 'scheduled', 'on_road', 'exceptions', 'done'];
 

@@ -81,9 +81,10 @@
                     </tr></thead>
                     <tbody>
                     @foreach ($orders as $o)
-                        <tr wire:key="o-{{ $o->id }}">
+                        <tr wire:key="o-{{ $o->id }}" wire:click="peekOrder('{{ $o->id }}')" tabindex="-1" class="cursor-pointer focus:outline-none">
                             <td>
-                                <a href="{{ route('admin.orders.show', $o) }}" wire:navigate class="font-mono font-medium text-ink-900 hover:text-brass-600 dark:text-ivory" dir="ltr">{{ $o->number }}</a>
+                                {{-- A real link (middle-click and copy-link open the list with the window), and the whole row opens it on click. --}}
+                                <a href="{{ route('admin.orders.index', ['view' => $o->id]) }}" wire:click.prevent.stop="peekOrder('{{ $o->id }}')" class="font-mono font-medium text-ink-900 hover:text-brass-600 dark:text-ivory" dir="ltr">{{ $o->number }}</a>
                                 <span class="block text-xs text-ink-500 tabular-nums">{{ \App\Support\BusinessTime::display($o->placed_at) }}</span>
                             </td>
                             <td class="max-w-[14rem]">
@@ -105,7 +106,7 @@
                             <td><x-admin.status :value="$o->payment_status->value" bi /></td>
                             <td class="text-end font-medium"><x-admin.money :value="$o->grand_total" /></td>
                             <td><x-admin.status :value="$o->status->value" bi /></td>
-                            <td><a href="{{ route('admin.orders.show', $o) }}" wire:navigate class="btn-ghost btn-sm" aria-label="{{ __('admin.details') }}"><x-icon name="chevron-right" class="size-4 rtl-flip" /></a></td>
+                            <td><span class="btn-ghost btn-sm pointer-events-none" aria-hidden="true"><x-icon name="chevron-right" class="size-4 rtl-flip" /></span></td>
                         </tr>
                     @endforeach
                     </tbody>
@@ -114,4 +115,6 @@
             @if ($orders->hasPages())<div class="border-t border-sand-100 p-4 dark:border-ink-800">{{ $orders->links('components.admin.pagination') }}</div>@endif
         @endif
     </div>
+
+    @include('livewire.admin.sales.partials.order-peek')
 </div>

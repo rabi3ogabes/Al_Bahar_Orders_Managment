@@ -2,6 +2,7 @@ import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/utils/qatar_time.dart';
+import 'package:albahar_customer/core/widgets/side_panel.dart';
 import 'package:albahar_customer/core/widgets/app_button.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/countdown.dart';
@@ -196,7 +197,7 @@ class _RegistrationCardState extends ConsumerState<_RegistrationCard> {
             const Gap(AppSpace.xs),
             if (a.termsHtml != null)
               TextButton(
-                onPressed: () => showAppBottomSheet<void>(
+                onPressed: () => showSidePanel<void>(
                   context: context,
                   title: l10n.auctionTerms,
                   builder: (_) => HtmlContent(a.termsHtml!),

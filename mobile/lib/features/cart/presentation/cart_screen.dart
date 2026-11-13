@@ -78,7 +78,7 @@ class CartScreen extends ConsumerWidget {
                         children: [
                           CheckoutSteps(current: 0, labels: [l10n.cartTitle, l10n.delivery, l10n.paymentMethod]),
                           const Gap(AppSpace.md),
-                          if (c.warnings.isNotEmpty || c.hasIssues) _WarningsBanner(cart: c),
+                          if (c.warnings.isNotEmpty || c.hasIssues) CartWarningsBanner(cart: c),
                           for (final item in c.items) CartLine(item: item),
                           const CartSuggestionsStrip(),
                           const Gap(AppSpace.xs),
@@ -109,8 +109,8 @@ class CartScreen extends ConsumerWidget {
   }
 }
 
-class _WarningsBanner extends StatelessWidget {
-  const _WarningsBanner({required this.cart});
+class CartWarningsBanner extends StatelessWidget {
+  const CartWarningsBanner({super.key, required this.cart});
   final Cart cart;
 
   @override
@@ -146,8 +146,14 @@ class _WarningsBanner extends StatelessWidget {
 }
 
 class CartLine extends ConsumerWidget {
-  const CartLine({super.key, required this.item});
+  const CartLine({super.key, required this.item, this.highlight = false, this.onOpenProduct});
   final CartItem item;
+
+  /// Tints the line (the one just added in the cart window).
+  final bool highlight;
+
+  /// Replaces opening the product page; the cart window uses it to close itself first.
+  final VoidCallback? onOpenProduct;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -188,6 +194,7 @@ class CartLine extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(vertical: 5),
         child: SurfaceCard(
           padding: const EdgeInsets.all(10),
+          color: highlight ? palette.brassTint : null,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -196,7 +203,7 @@ class CartLine extends ConsumerWidget {
                 label: item.product.name,
                 excludeSemantics: true,
                 child: GestureDetector(
-                  onTap: () => openProduct(context, item.product, heroScope: 'cart'),
+                  onTap: onOpenProduct ?? () => openProduct(context, item.product, heroScope: 'cart'),
                   child: SizedBox(
                     width: 80,
                     height: 80,

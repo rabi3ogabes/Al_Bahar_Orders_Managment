@@ -1,7 +1,7 @@
 import { UpsellStrip } from '../components/Upsell';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Bell, Check, ChevronDown, Heart, MapPin, PackageCheck, Ruler, Share2, ShieldCheck, Truck, Wrench } from 'lucide-react';
 import { ApiError, get, post } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -13,11 +13,13 @@ import { useWishlist } from '../lib/wishlist';
 import { useDocTitle } from '../lib/hooks';
 import { sanitizeHtml } from '../lib/sanitize';
 import { cx } from '../lib/format';
-import type { Paged, ProductDetail, Review, Variant } from '../lib/types';
+import type { Paged, ProductDetail, Review } from '../lib/types';
 import { useAuthModal } from '../components/AuthModal';
 import { Rail } from '../components/Rail';
 import { ProductCard } from '../components/ProductCard';
-import { Badge, Breadcrumbs, Button, EmptyState, Pic, PriceTag, QtyStepper, Rating, Skeleton, Textarea, Input } from '../components/ui';
+import { Badge, Breadcrumbs, Button, EmptyState, Input, Pic, PriceTag, QtyStepper, Rating, Skeleton } from '../components/ui';
+import { AttributePicker, useVariantPicker } from '../components/AttributePicker';
+import { ReviewWindow } from '../components/windows';
 
 function Accordion({ title, children, open: o = false }: { title: string; children: React.ReactNode; open?: boolean }) {
   const [open, setOpen] = useState(o);
@@ -33,18 +35,8 @@ function Reviews({ product }: { product: ProductDetail }) {
   const { t, date, num } = useI18n();
   const { user } = useAuth();
   const authModal = useAuthModal();
-  const toast = useToast();
-  const qc = useQueryClient();
   const [writing, setWriting] = useState(false);
-  const [rating, setRating] = useState(5);
-  const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
   const list = useQuery({ queryKey: ['reviews', product.id], queryFn: async () => get<Paged<Review>>(`/products/${product.id}/reviews`, { per_page: 20 }) });
-  const submit = useMutation({
-    mutationFn: () => post(`/products/${product.id}/reviews`, { rating, title: title || undefined, body: body || undefined }),
-    onSuccess: () => { toast.push(t('reviews.thanks')); setWriting(false); setTitle(''); setBody(''); void qc.invalidateQueries({ queryKey: ['reviews', product.id] }); },
-    onError: (e) => toast.push(e instanceof ApiError ? e.message : t('error.generic'), 'error'),
-  });
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
@@ -52,18 +44,9 @@ function Reviews({ product }: { product: ProductDetail }) {
           <span className="font-display text-6xl leading-none">{product.rating.count ? product.rating.average.toFixed(1) : '—'}</span>
           <div><Rating value={product.rating.average} size={18} /><p className="mt-1 text-sm text-muted">{t('reviews.count', { n: num(product.rating.count) })}</p></div>
         </div>
-        <Button variant="outline" onClick={() => (user ? setWriting(!writing) : authModal.open({ reason: t('auth.reason_review') }))}>{t('reviews.write')}</Button>
+        <Button variant="outline" onClick={() => (user ? setWriting(true) : authModal.open({ reason: t('auth.reason_review') }))}>{t('reviews.write')}</Button>
       </div>
-      {writing && (
-        <form onSubmit={(e) => { e.preventDefault(); submit.mutate(); }} className="rise mb-8 space-y-4 rounded-3xl border border-line bg-paper p-5">
-          <div role="radiogroup" aria-label={t('reviews.rating')} className="flex gap-1">
-            {[1, 2, 3, 4, 5].map((n) => <button key={n} type="button" role="radio" aria-checked={rating === n} aria-label={`${n}`} onClick={() => setRating(n)} className="p-1"><svg width="30" height="30" viewBox="0 0 24 24" className={n <= rating ? 'fill-brass text-brass' : 'fill-transparent text-line'} stroke="currentColor" strokeWidth="1.5"><path d="m12 2 3 6.9 7.5.7-5.7 5 1.7 7.4L12 18l-6.5 4 1.7-7.4-5.7-5L9 8.9z" /></svg></button>)}
-          </div>
-          <Input label={t('reviews.title')} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} />
-          <Textarea label={t('reviews.body')} value={body} onChange={(e) => setBody(e.target.value)} maxLength={3000} />
-          <Button type="submit" loading={submit.isPending}>{t('reviews.submit')}</Button>
-        </form>
-      )}
+      <ReviewWindow open={writing} onClose={() => setWriting(false)} productId={product.id} productName={product.name} />
       {list.isLoading && <Skeleton className="h-24" />}
       {list.data?.data.length === 0 && <p className="rounded-2xl bg-sand/60 p-5 text-center text-muted">{t('reviews.none')}</p>}
       <ul className="divide-y divide-line">
@@ -121,33 +104,12 @@ export default function Product() {
   const p = q.data;
   useDocTitle(p?.seo.title ?? p?.name);
 
-  const [sel, setSel] = useState<Record<string, number>>({});
+  const picker = useVariantPicker(p);
+  const { variant } = picker;
   const [qty, setQty] = useState(1);
   const [img, setImg] = useState(0);
   const [adding, setAdding] = useState(false);
-
-  // Start on the default variant's options.
-  useEffect(() => {
-    if (!p) return;
-    const v = p.variants.find((x) => x.id === p.default_variant_id) ?? p.variants[0];
-    const s: Record<string, number> = {};
-    if (v) p.attributes.forEach((a) => { const hit = a.values.find((x) => v.attribute_value_ids.includes(x.id)); if (hit) s[a.code] = hit.id; });
-    setSel(s); setQty(1); setImg(0);
-  }, [p?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const variant: Variant | undefined = useMemo(() => {
-    if (!p) return undefined;
-    if (!p.attributes.length) return p.variants.find((x) => x.id === p.default_variant_id) ?? p.variants[0];
-    const ids = Object.values(sel);
-    return p.variants.find((v) => ids.length === p.attributes.length && ids.every((i) => v.attribute_value_ids.includes(i)));
-  }, [p, sel]);
-
-  const optionState = (code: string, valueId: number) => {
-    if (!p) return { exists: false, inStock: false };
-    const others = Object.entries(sel).filter(([c]) => c !== code).map(([, v]) => v);
-    const vs = p.variants.filter((v) => v.attribute_value_ids.includes(valueId) && others.every((o) => v.attribute_value_ids.includes(o)));
-    return { exists: vs.length > 0, inStock: vs.some((v) => v.in_stock && v.available_in_branch) };
-  };
+  useEffect(() => { setQty(1); setImg(0); }, [p?.id]);
 
   const avail = useQuery({ queryKey: ['availability', p?.id], enabled: !!p, queryFn: async () => (await get<{ data: { branches: { branch: { id: string; name: string; pickup_enabled: boolean; delivery_enabled: boolean }; variants: { variant_id: string; available_in_branch: boolean; in_stock: boolean; available: number }[] }[] } }>(`/products/${p!.id}/availability`)).data.branches });
 
@@ -222,26 +184,7 @@ export default function Product() {
           <div className="mt-5"><PriceTag price={price} size="lg" /></div>
           {p.short_description && <p className="mt-5 text-[16px] leading-relaxed text-ink-soft">{p.short_description}</p>}
 
-          {p.attributes.map((a) => (
-            <fieldset key={a.code} className="mt-7">
-              <legend className="mb-2.5 text-sm"><span className="font-semibold">{a.name}</span><span className="text-muted"> · {a.values.find((v) => v.id === sel[a.code])?.name ?? t('product.choose')}</span></legend>
-              <div className="flex flex-wrap gap-2.5">
-                {a.values.map((v) => {
-                  const st = optionState(a.code, v.id);
-                  const on = sel[a.code] === v.id;
-                  return a.type === 'color' && v.color_hex ? (
-                    <button key={v.id} type="button" disabled={!st.exists} aria-label={v.name} aria-pressed={on} title={v.name} onClick={() => setSel({ ...sel, [a.code]: v.id })}
-                      className={cx('relative h-11 w-11 rounded-full ring-offset-2 ring-offset-bg transition-all disabled:opacity-30', on ? 'ring-2 ring-ink' : 'ring-1 ring-line hover:ring-brass')} style={{ background: v.color_hex }}>
-                      {!st.inStock && st.exists && <span className="absolute inset-0 rounded-full bg-[linear-gradient(135deg,transparent_47%,var(--bg)_47%,var(--bg)_53%,transparent_53%)]" />}
-                    </button>
-                  ) : (
-                    <button key={v.id} type="button" disabled={!st.exists} aria-pressed={on} onClick={() => setSel({ ...sel, [a.code]: v.id })}
-                      className={cx('h-11 rounded-full border px-5 text-sm transition-colors disabled:opacity-30', on ? 'border-primary bg-primary text-bg' : 'border-line bg-paper hover:border-brass', st.exists && !st.inStock && !on && 'text-muted line-through')}>{v.name}</button>
-                  );
-                })}
-              </div>
-            </fieldset>
-          ))}
+          <AttributePicker p={p} picker={picker} />
 
           <div className="mt-7 min-h-6 text-sm" aria-live="polite">
             {!variant ? <span className="text-muted">{t('product.choose_options')}</span>

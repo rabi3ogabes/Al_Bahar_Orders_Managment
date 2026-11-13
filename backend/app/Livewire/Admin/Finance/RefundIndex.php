@@ -7,6 +7,7 @@ use App\Domain\Payments\Models\Refund;
 use App\Domain\Payments\Services\RefundService;
 use App\Livewire\Admin\Concerns\WithAdminTable;
 use App\Livewire\Admin\Finance\Concerns\ScopesPayments;
+use App\Livewire\Admin\Sales\Concerns\PeeksAtOrder;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -17,7 +18,7 @@ use Livewire\Component;
  */
 class RefundIndex extends Component
 {
-    use ScopesPayments, WithAdminTable;
+    use PeeksAtOrder, ScopesPayments, WithAdminTable;
 
     public const TABS = ['requested', 'to_process', 'processed', 'closed'];
 

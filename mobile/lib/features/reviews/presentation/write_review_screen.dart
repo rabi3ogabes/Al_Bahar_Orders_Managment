@@ -9,6 +9,7 @@ import 'package:albahar_customer/core/widgets/app_text_field.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/dirty_form_guard.dart';
 import 'package:albahar_customer/core/widgets/rating.dart';
+import 'package:albahar_customer/core/widgets/side_panel.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/catalog/data/catalog_repository.dart';
 import 'package:albahar_customer/features/catalog/presentation/state/catalog_providers.dart';
@@ -18,12 +19,29 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+/// Opens the review form in a side window. Resolves to true once the review was sent (and confirms it on [context]).
+Future<bool> showReviewPanel(BuildContext context, {required String productId, String? productName}) async {
+  final l10n = context.l10n;
+  final sent = await showSidePanel<bool>(
+    context: context,
+    title: l10n.writeReviewTitle,
+    scrollable: false,
+    isForm: true,
+    builder: (_) => WriteReviewScreen(productId: productId, productName: productName, embedded: true),
+  );
+  if (sent == true && context.mounted) showInfoSnack(context, l10n.reviewSubmitted);
+  return sent ?? false;
+}
+
 /// Review form: 1–5 stars, headline, body and up to 4 photos (multipart).
 /// Reviews are moderated; the verified-purchase flag is set server-side.
 class WriteReviewScreen extends ConsumerStatefulWidget {
-  const WriteReviewScreen({super.key, required this.productId, this.productName});
+  const WriteReviewScreen({super.key, required this.productId, this.productName, this.embedded = false});
   final String productId;
   final String? productName;
+
+  /// True inside a side window ([showReviewPanel]): no app bar, closes with `true` once the review is sent.
+  final bool embedded;
 
   @override
   ConsumerState<WriteReviewScreen> createState() => _WriteReviewScreenState();
@@ -92,8 +110,13 @@ class _WriteReviewScreenState extends ConsumerState<WriteReviewScreen> {
       if (!mounted) return;
       Haptics.success();
       setState(() => _done = true);
-      showInfoSnack(context, l10n.reviewSubmitted);
-      context.pop();
+      if (widget.embedded) {
+        // The window closes; its opener confirms on the page behind.
+        Navigator.of(context).pop(true);
+      } else {
+        showInfoSnack(context, l10n.reviewSubmitted);
+        context.pop();
+      }
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e);
     } finally {
@@ -108,101 +131,104 @@ class _WriteReviewScreenState extends ConsumerState<WriteReviewScreen> {
       controllers: [_title, _body],
       enabled: !_busy && !_done,
       isDirty: () => _rating > 0 || _photos.isNotEmpty || _title.text.trim().isNotEmpty || _body.text.trim().isNotEmpty,
-      child: Scaffold(
-        appBar: AppBar(title: Text(l10n.writeReviewTitle)),
-        body: ListView(
-          padding: const EdgeInsets.all(AppSpace.gutter),
-          children: [
-            ContentWidth(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: _frame(
+        context,
+        SidePanelLayout(
+          padding: widget.embedded ? const EdgeInsets.fromLTRB(20, 16, 20, 20) : const EdgeInsets.all(AppSpace.gutter),
+          footer: AppButton(label: l10n.submitReview, loading: _busy, onPressed: _submit),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (widget.productName != null) Text(widget.productName!, style: context.text.headlineSmall),
+              const Gap(AppSpace.lg),
+              Text(l10n.yourRating, style: context.text.titleMedium),
+              const Gap(AppSpace.xs),
+              RatingInput(value: _rating, onChanged: (v) => setState(() => _rating = v)),
+              if (_ratingError != null || _error?.fieldError('rating') != null)
+                Text(
+                  _ratingError ?? _error!.fieldError('rating')!,
+                  style: context.text.bodySmall?.copyWith(color: context.palette.danger),
+                ),
+              const Gap(AppSpace.lg),
+              AppTextField(
+                controller: _title,
+                label: '${l10n.reviewTitleLabel} (${l10n.optional})',
+                maxLength: 120,
+                textInputAction: TextInputAction.next,
+                textCapitalization: TextCapitalization.sentences,
+                errorText: _error?.fieldError('title'),
+              ),
+              const Gap(AppSpace.sm),
+              AppTextField(
+                controller: _body,
+                label: l10n.reviewBodyLabel,
+                maxLines: 6,
+                minLines: 4,
+                maxLength: 2000,
+                keyboardType: TextInputType.multiline,
+                textCapitalization: TextCapitalization.sentences,
+                errorText: _error?.fieldError('body'),
+              ),
+              const Gap(AppSpace.md),
+              Text('${l10n.addPhotos} · ${l10n.maxPhotos(maxPhotos)}', style: context.text.titleSmall),
+              const Gap(AppSpace.xs),
+              Wrap(
+                spacing: AppSpace.xs,
+                runSpacing: AppSpace.xs,
                 children: [
-                  if (widget.productName != null) Text(widget.productName!, style: context.text.headlineSmall),
-                  const Gap(AppSpace.lg),
-                  Text(l10n.yourRating, style: context.text.titleMedium),
-                  const Gap(AppSpace.xs),
-                  RatingInput(value: _rating, onChanged: (v) => setState(() => _rating = v)),
-                  if (_ratingError != null || _error?.fieldError('rating') != null)
-                    Text(
-                      _ratingError ?? _error!.fieldError('rating')!,
-                      style: context.text.bodySmall?.copyWith(color: context.palette.danger),
-                    ),
-                  const Gap(AppSpace.lg),
-                  AppTextField(
-                    controller: _title,
-                    label: '${l10n.reviewTitleLabel} (${l10n.optional})',
-                    maxLength: 120,
-                    textInputAction: TextInputAction.next,
-                    textCapitalization: TextCapitalization.sentences,
-                    errorText: _error?.fieldError('title'),
-                  ),
-                  const Gap(AppSpace.sm),
-                  AppTextField(
-                    controller: _body,
-                    label: l10n.reviewBodyLabel,
-                    maxLines: 6,
-                    minLines: 4,
-                    maxLength: 2000,
-                    keyboardType: TextInputType.multiline,
-                    textCapitalization: TextCapitalization.sentences,
-                    errorText: _error?.fieldError('body'),
-                  ),
-                  const Gap(AppSpace.md),
-                  Text('${l10n.addPhotos} · ${l10n.maxPhotos(maxPhotos)}', style: context.text.titleSmall),
-                  const Gap(AppSpace.xs),
-                  Wrap(
-                    spacing: AppSpace.xs,
-                    runSpacing: AppSpace.xs,
-                    children: [
-                      for (var i = 0; i < _photos.length; i++)
-                        Stack(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(AppRadius.sm),
-                              child: Image.memory(_photos[i].bytes, width: 84, height: 84, fit: BoxFit.cover),
-                            ),
-                            PositionedDirectional(
-                              top: -6,
-                              end: -6,
-                              child: IconButton(
-                                tooltip: l10n.removePhoto,
-                                icon: const Icon(Icons.cancel_rounded, size: 20),
-                                onPressed: () => setState(() => _photos.removeAt(i)),
-                              ),
-                            ),
-                          ],
+                  for (var i = 0; i < _photos.length; i++)
+                    Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                          child: Image.memory(_photos[i].bytes, width: 84, height: 84, fit: BoxFit.cover),
                         ),
-                      if (_photos.length < maxPhotos) ...[
-                        _AddPhotoButton(
-                          icon: Icons.photo_camera_outlined,
-                          label: l10n.fromCamera,
-                          onTap: () => _pick(ImageSource.camera),
-                        ),
-                        _AddPhotoButton(
-                          icon: Icons.photo_library_outlined,
-                          label: l10n.fromGallery,
-                          onTap: () => _pick(ImageSource.gallery),
+                        PositionedDirectional(
+                          top: -6,
+                          end: -6,
+                          child: IconButton(
+                            tooltip: l10n.removePhoto,
+                            icon: const Icon(Icons.cancel_rounded, size: 20),
+                            onPressed: () => setState(() => _photos.removeAt(i)),
+                          ),
                         ),
                       ],
-                    ],
-                  ),
-                  if (_error != null && _error!.errors.isEmpty) ...[
-                    const Gap(AppSpace.md),
-                    Text(
-                      describeError(l10n, _error),
-                      style: context.text.bodySmall?.copyWith(color: context.palette.danger),
+                    ),
+                  if (_photos.length < maxPhotos) ...[
+                    _AddPhotoButton(
+                      icon: Icons.photo_camera_outlined,
+                      label: l10n.fromCamera,
+                      onTap: () => _pick(ImageSource.camera),
+                    ),
+                    _AddPhotoButton(
+                      icon: Icons.photo_library_outlined,
+                      label: l10n.fromGallery,
+                      onTap: () => _pick(ImageSource.gallery),
                     ),
                   ],
-                  const Gap(AppSpace.xl),
-                  AppButton(label: l10n.submitReview, loading: _busy, onPressed: _submit),
                 ],
               ),
-            ),
-          ],
+              if (_error != null && _error!.errors.isEmpty) ...[
+                const Gap(AppSpace.md),
+                Text(
+                  describeError(l10n, _error),
+                  style: context.text.bodySmall?.copyWith(color: context.palette.danger),
+                ),
+              ],
+              const Gap(AppSpace.xl),
+            ],
+          ),
         ),
       ),
     );
   }
+
+  Widget _frame(BuildContext context, Widget layout) => widget.embedded
+      ? layout
+      : Scaffold(
+          appBar: AppBar(title: Text(context.l10n.writeReviewTitle)),
+          body: ContentWidth(child: layout),
+        );
 }
 
 class _AddPhotoButton extends StatelessWidget {
