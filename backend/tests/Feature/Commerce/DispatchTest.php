@@ -87,6 +87,28 @@ it('keeps a failed delivery in the branch queue so staff can bring it back', fun
     expect($this->getJson('/api/v1/admin/dispatch/queue?stage=failed&branch_id='.$w->a->id)->json('data'))->toBe([]);
 });
 
+it('tells the driver and the branch staff what is in the parcel, without prices', function () {
+    $w = commerceWorld();
+    $driver = driverFor($w->a);
+    [$f, $mgr] = readyOrder($w);
+    $line = $f->items()->firstOrFail();
+
+    $row = $this->getJson('/api/v1/admin/dispatch/queue?stage=ready&branch_id='.$w->a->id)->assertOk()->json('data.0');
+    expect($row['items'])->toHaveCount($f->items()->count())
+        ->and($row['items'][0])->toHaveKeys(['id', 'name', 'variant_name', 'sku', 'quantity'])->not->toHaveKeys(['unit_price', 'line_total'])
+        ->and($row['items_count'])->toBe(array_sum(array_column($row['items'], 'quantity')));
+
+    $this->postJson("/api/v1/admin/dispatch/fulfillments/{$f->id}/assign", ['driver_id' => $driver->id])->assertOk();
+    actingAsStaff($driver);
+    $job = $this->getJson('/api/v1/admin/dispatch/driver/jobs')->assertOk()->json('data.0');
+    expect($job['items'])->toHaveCount(count($row['items']))->and($job['items'][0]['name'])->toBe($row['items'][0]['name']);
+
+    // A cancelled unit is no longer part of the parcel.
+    $line->forceFill(['quantity_cancelled' => $line->quantity])->save();
+    $again = $this->getJson('/api/v1/admin/dispatch/driver/jobs')->assertOk()->json('data.0.items');
+    expect(collect($again)->pluck('id'))->not->toContain($line->id);
+});
+
 it('rejects assigning someone who is not a driver of that branch', function () {
     $w = commerceWorld();
     $otherBranchDriver = driverFor($w->b);

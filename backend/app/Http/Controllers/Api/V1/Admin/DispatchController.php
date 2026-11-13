@@ -8,6 +8,7 @@ use App\Domain\Fulfillment\Services\DispatchService;
 use App\Domain\Fulfillment\Services\DriverPosition;
 use App\Domain\Identity\Models\User;
 use App\Domain\Orders\Models\OrderFulfillment;
+use App\Domain\Orders\Models\OrderItem;
 use App\Http\Controllers\Api\V1\ApiController;
 use App\Support\BusinessTime;
 use App\Support\DomainException;
@@ -15,6 +16,7 @@ use App\Support\Geo;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 /**
  * Mobile dispatch surface for the two staff apps (prefix /api/v1/admin/dispatch):
@@ -83,7 +85,7 @@ class DispatchController extends ApiController
         $u = $this->user();
         $this->assertDriver($u);
         $history = $request->query('scope') === 'history';
-        $rows = Delivery::with(['fulfillment.order', 'fulfillment.branch'])->withCount([])
+        $rows = Delivery::with(['fulfillment.order', 'fulfillment.branch', 'fulfillment.items'])
             ->where('driver_id', $u->id)
             ->when($history, fn ($q) => $q->whereIn('status', ['delivered', 'returned', 'cancelled'])->orderByDesc('updated_at')->limit(30),
                 fn ($q) => $q->whereNotIn('status', ['delivered', 'returned', 'cancelled'])->orderBy('scheduled_for')->orderBy('assigned_at'))
@@ -139,7 +141,7 @@ class DispatchController extends ApiController
             return [
                 'fulfillment_id' => $f->id, 'status' => $f->status->value, 'number' => $f->order->number, 'placed_at' => BusinessTime::iso($f->order->placed_at),
                 'customer_name' => $f->order->customer_name, 'customer_phone' => $f->order->customer_phone, 'address' => $f->order->address_snapshot,
-                'items_count' => (int) $f->items->sum('quantity'), 'payment_method' => $f->order->payment_method, 'grand_total' => $f->order->grand_total,
+                'items_count' => (int) $f->items->sum('quantity'), 'items' => $this->itemRows($f->items), 'payment_method' => $f->order->payment_method, 'grand_total' => $f->order->grand_total,
                 'scheduled_for' => BusinessTime::iso($f->slot_date ?? null),
                 'delivery' => $d ? ['id' => $d->id, 'status' => $d->status->value, 'driver' => $d->driver ? ['id' => $d->driver->id, 'name' => $d->driver->name] : null] : null,
             ];
@@ -220,6 +222,20 @@ class DispatchController extends ApiController
             'payment_method' => $o->payment_method, 'cod_amount' => $d->cod_amount, 'requires_proof' => $d->requires_proof,
             'branch' => ['id' => $d->branch_id, 'name' => $d->fulfillment->branch?->localized('name')],
             'scheduled_for' => BusinessTime::iso($d->scheduled_for), 'assigned_at' => BusinessTime::iso($d->assigned_at),
+            'items' => $this->itemRows($d->fulfillment->loadMissing('items')->items),
         ];
+    }
+
+    /**
+     * What is in the parcel, for the driver's and the branch staff's order windows: name, variant, SKU and the quantity still to deliver
+     * (cancelled units left out). No prices: they are not the driver's business.
+     *
+     * @param  Collection<int, OrderItem>  $items
+     * @return list<array{id: string, name: string, variant_name: ?string, sku: ?string, quantity: int}>
+     */
+    private function itemRows($items): array
+    {
+        return $items->map(fn ($i) => ['id' => $i->id, 'name' => $i->name(), 'variant_name' => $i->variantName(), 'sku' => $i->sku,
+            'quantity' => max(0, (int) $i->quantity - (int) $i->quantity_cancelled)])->filter(fn (array $r) => $r['quantity'] > 0)->values()->all();
     }
 }
