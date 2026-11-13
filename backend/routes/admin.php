@@ -45,6 +45,7 @@ Route::get('suppliers', Admin\Inventory\SupplierIndex::class)->middleware('permi
 
 // ── Sales ─────────────────────────────────────────────────────────────────────
 Route::get('orders', Admin\Sales\OrderIndex::class)->middleware('permission:orders.view')->name('orders.index');
+Route::get('orders/create', Admin\Sales\OrderCreate::class)->middleware('permission:orders.create')->name('orders.create');
 Route::get('orders/{order}', Admin\Sales\OrderShow::class)->middleware('permission:orders.view')->name('orders.show');
 Route::get('orders/{order}/invoice', [DocumentController::class, 'invoice'])->middleware('permission:orders.view')->name('orders.invoice');
 Route::get('pickup', Admin\Sales\PickupIndex::class)->middleware('permission:pickup.view')->name('pickup.index');

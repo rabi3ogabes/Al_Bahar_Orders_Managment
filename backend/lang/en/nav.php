@@ -4,6 +4,7 @@ return [
     'overview' => 'Overview',
     'dashboard' => 'Dashboard',
     'sales' => 'Sales',
+    'new_order' => 'New order',
     'orders' => 'Orders',
     'pickup' => 'Store pickup',
     'deliveries' => 'Deliveries',

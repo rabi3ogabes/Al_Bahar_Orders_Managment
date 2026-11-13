@@ -67,7 +67,7 @@
                         @if ($canEdit)<th class="w-10"><input type="checkbox" class="checkbox" aria-label="{{ __('catalog_admin.select_page') }}"
                             x-on:change="$wire.set('selected', $event.target.checked ? @js($products->pluck('id')) : [])" @checked(count($selected) && count($selected) >= $products->count())></th>@endif
                         <th>{{ __('catalog_admin.product') }}</th><th>{{ __('catalog_admin.category') }}</th><th class="!text-end">{{ __('catalog_admin.price') }}</th>
-                        <th class="!text-end">{{ __('catalog_admin.variants') }}</th><th>{{ __('admin.status') }}</th><th>{{ __('admin.updated') }}</th><th class="w-24"></th>
+                        <th class="!text-end">{{ __('catalog_admin.variants') }}</th><th>{{ __('admin.status') }}</th><th>{{ __('admin.updated') }}</th><th class="w-32"></th>
                     </tr></thead>
                     <tbody>
                     @foreach ($products as $p)
@@ -104,6 +104,7 @@
                             <td class="whitespace-nowrap text-xs text-ink-500 tabular-nums">{{ \App\Support\BusinessTime::display($p->updated_at, 'd M Y') }}</td>
                             <td>
                                 <div class="flex justify-end gap-0.5">
+                                    @if ($canOrder && $p->status === 'active')<button type="button" wire:click="addToOrder('{{ $p->id }}')" wire:loading.attr="disabled" wire:target="addToOrder('{{ $p->id }}')" class="btn-ghost btn-sm px-2 text-brass-600" aria-label="{{ __('neworder_admin.add_to_order') }}" title="{{ __('neworder_admin.add_to_order') }}"><x-icon name="cart" class="size-4" /></button>@endif
                                     <a href="{{ route('admin.products.edit', $p) }}" wire:navigate class="btn-ghost btn-sm px-2" aria-label="{{ __('admin.edit') }}"><x-icon name="edit" class="size-4" /></a>
                                     @if ($canCreate)<button type="button" wire:click="duplicate('{{ $p->id }}')" wire:confirm="{{ __('catalog_admin.confirm_duplicate') }}" class="btn-ghost btn-sm px-2" aria-label="{{ __('catalog_admin.duplicate') }}" title="{{ __('catalog_admin.duplicate') }}"><x-icon name="copy" class="size-4" /></button>@endif
                                     @if ($canDelete && $p->status !== 'archived')<button type="button" wire:click="archive('{{ $p->id }}')" wire:confirm="{{ __('catalog_admin.confirm_archive') }}" class="btn-ghost btn-sm px-2 text-ruby-soft" aria-label="{{ __('catalog_admin.archive') }}" title="{{ __('catalog_admin.archive') }}"><x-icon name="ban" class="size-4" /></button>@endif

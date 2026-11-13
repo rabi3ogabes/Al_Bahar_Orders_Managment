@@ -20,7 +20,7 @@
         </section>
     </div>
 @else
-    <div data-docked-cart class="flex max-h-[inherit] min-h-0 flex-col">
+    <div data-docked-cart class="flex min-h-0 flex-1 flex-col">
         @include('livewire.admin.sales.order-cart-body')
     </div>
 @endif

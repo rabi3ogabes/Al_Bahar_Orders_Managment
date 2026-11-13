@@ -4,6 +4,7 @@ return [
     'overview' => 'نظرة عامة',
     'dashboard' => 'لوحة التحكم',
     'sales' => 'المبيعات',
+    'new_order' => 'طلب جديد',
     'orders' => 'الطلبات',
     'pickup' => 'الاستلام من الفرع',
     'deliveries' => 'التوصيل',

@@ -183,7 +183,7 @@ class OrderShow extends Component
 
     public function render()
     {
-        $o = Order::with(['items', 'fulfillments.branch', 'fulfillments.items', 'fulfillments.pickup', 'fulfillments.deliveries.driver:id,name', 'fulfillments.deliveries.provider:id,name',
+        $o = Order::with(['placedBy:id,name', 'items', 'fulfillments.branch', 'fulfillments.items', 'fulfillments.pickup', 'fulfillments.deliveries.driver:id,name', 'fulfillments.deliveries.provider:id,name',
             'notes.author:id,name', 'cancellations.requester:id,name', 'coupons', 'user:id,name,phone,email,status'])->findOrFail($this->orderId);
         $u = auth()->user();
         $acl = app(AccessControl::class);
@@ -224,7 +224,7 @@ class OrderShow extends Component
             'label' => $this->historyLabel($h->kind, $h->to_status, $o->fulfillments->firstWhere('id', $h->order_fulfillment_id)?->branch?->code),
             'at' => BusinessTime::display($h->created_at),
             'by' => $h->actor_id ? ($people[$h->actor_id] ?? null) : ($h->actor_type === 'system' ? __('sales_admin.system') : null),
-            'reason' => $h->reason ? self::reasonLabel($h->reason) : null,
+            'reason' => isset($h->metadata['on_behalf_of']) ? __('neworder_admin.on_behalf') : ($h->reason ? self::reasonLabel($h->reason) : null),
             'internal' => ! $h->is_customer_visible,
             'state' => in_array($h->to_status, ['cancelled', 'failed', 'expired', 'rejected'], true) ? 'failed' : 'done',
         ])->all();

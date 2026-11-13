@@ -19,6 +19,9 @@
                 <span class="badge-neutral">{{ __('status.'.$o->payment_method) }}</span>
                 <span class="tabular-nums">{{ __('sales_admin.placed_at', ['at' => \App\Support\BusinessTime::display($o->placed_at)]) }}</span>
             </div>
+            @if ($o->placed_by_staff_id)
+                <p class="mt-2 inline-flex items-center gap-1.5 text-sm text-ink-600 dark:text-sand-200"><x-icon name="user" class="size-4 text-brass-600" />{{ __('neworder_admin.placed_by', ['staff' => $o->placedBy?->name ?? '—']) }}</p>
+            @endif
         </div>
         <div class="flex flex-wrap items-center gap-2">
             <a href="{{ route('admin.orders.invoice', $o) }}" class="btn-secondary" target="_blank" rel="noopener"><x-icon name="printer" class="size-4" />{{ __('sales_admin.invoice_pdf') }}</a>

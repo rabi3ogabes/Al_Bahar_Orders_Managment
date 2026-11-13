@@ -7,6 +7,7 @@ use App\Domain\Catalog\Models\Brand;
 use App\Domain\Catalog\Models\Category;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Catalog\Services\ProductService;
+use App\Domain\Checkout\Services\StaffOrderService;
 use App\Livewire\Admin\Concerns\WithAdminTable;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -89,6 +90,29 @@ class ProductIndex extends Component
         $this->attempt(fn () => $products->archive(Product::findOrFail($id)), __('catalog_admin.archived'));
     }
 
+    /** One-tap "Add to order": 1 unit of a single-variant product to the staff member's current order draft. */
+    public function addToOrder(string $id, StaffOrderService $orders)
+    {
+        $user = auth()->user();
+        abort_unless($orders->canCreate($user), 403);
+        $variants = Product::findOrFail($id)->variants()->where('status', 'active')->get();
+        if ($variants->count() !== 1) {
+            return $this->redirectRoute('admin.orders.create', ['search' => Product::findOrFail($id)->sku], navigate: true); // several options: choose on the New order page
+        }
+        $draft = $this->attempt(fn () => $orders->ensureCurrent($user));
+        if (! $draft || ! $this->attempt(fn () => $orders->add($user, $draft, $variants->first()->id, 1))) {
+            return null;
+        }
+        $this->dispatch('order-cart-updated');
+        $this->dispatch('toast', type: 'success', message: __('neworder_admin.added'), undoLabel: __('neworder_admin.undo'), undoEvent: 'order-cart-unadd',
+            undoParams: ['variantId' => $variants->first()->id, 'quantity' => 1]);
+        if (! $draft->user_id) {
+            $this->dispatch('open-order-cart'); // no customer yet: the panel asks for one
+        }
+
+        return null;
+    }
+
     public function render(ProductSearch $search)
     {
         $q = Product::query()->with(['translations', 'brand:id,name_en,name_ar', 'category.translations', 'images' => fn ($i) => $i->whereNull('product_variant_id')])
@@ -118,6 +142,7 @@ class ProductIndex extends Component
             'canCreate' => $this->canGlobally('catalog.create'),
             'canEdit' => $this->canGlobally('catalog.edit'),
             'canDelete' => $this->canGlobally('catalog.delete'),
+            'canOrder' => app(StaffOrderService::class)->canCreate(auth()->user()),
             'hasFilters' => (bool) ($this->search || $this->filterStatus || $this->filterCategory || $this->filterBrand || $this->filterFlag),
         ])->title(__('nav.products'));
     }

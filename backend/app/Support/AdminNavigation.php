@@ -22,6 +22,7 @@ final class AdminNavigation
                 ['label' => 'nav.dashboard', 'route' => 'admin.dashboard', 'icon' => 'dashboard', 'permission' => 'dashboard.view'],
             ]],
             ['label' => 'nav.sales', 'items' => [
+                ['label' => 'nav.new_order', 'route' => 'admin.orders.create', 'icon' => 'plus', 'permission' => 'orders.create'],
                 ['label' => 'nav.orders', 'route' => 'admin.orders.index', 'icon' => 'bag', 'permission' => 'orders.view'],
                 ['label' => 'nav.pickup', 'route' => 'admin.pickup.index', 'icon' => 'qr', 'permission' => 'pickup.view'],
                 ['label' => 'nav.deliveries', 'route' => 'admin.deliveries.index', 'icon' => 'truck', 'permission' => 'deliveries.view'],
