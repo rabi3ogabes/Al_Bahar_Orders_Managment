@@ -7,6 +7,7 @@ import { ApiError, api, get, post, uuid } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useCart } from '../lib/cart';
 import { useI18n } from '../lib/i18n';
+import { useLivePoll } from '../lib/realtime';
 import { useToast } from '../lib/toast';
 import { useDocTitle } from '../lib/hooks';
 import { cx, mapsHref, telHref } from '../lib/format';
@@ -53,11 +54,13 @@ export default function Order() {
   const [reason, setReason] = useState('changed_mind');
   const [note, setNote] = useState('');
   const polls = useRef(0);
+  const poll = useLivePoll();
 
   // After SADAD redirects back, the callback may still be in flight: poll for up to ~90 s.
   const order = useQuery({
     queryKey: ['order', id], enabled: !!user, queryFn: async () => (await get<{ data: OrderDetail }>(`/orders/${id}`)).data,
-    refetchInterval: (q) => (returning && q.state.data?.payment_status === 'pending' && polls.current++ < 30 ? 3000 : false),
+    // Payment callback in flight: poll fast. Otherwise updates arrive live; poll only while the socket is down and the order is still open.
+    refetchInterval: (q) => (returning && q.state.data?.payment_status === 'pending' && polls.current++ < 30 ? 3000 : (['completed', 'cancelled'].includes(q.state.data?.status ?? '') ? false : poll)),
   });
   const timeline = useQuery({ queryKey: ['timeline', id], enabled: !!user, queryFn: async () => (await get<{ data: TimelineEvent[] }>(`/orders/${id}/timeline`)).data, refetchInterval: 60_000 });
   const o = order.data;

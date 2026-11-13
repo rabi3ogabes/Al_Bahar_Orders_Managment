@@ -5,6 +5,7 @@ import { Bell, Gift, Heart, LogOut, MapPin, MessageCircle, Package, Pencil, Plus
 import { ApiError, del, get, post, put } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n';
+import { LivePill, useFlashingOrders, useLivePoll } from '../lib/realtime';
 import { useToast } from '../lib/toast';
 import { useWishlist } from '../lib/wishlist';
 import { useDocTitle } from '../lib/hooks';
@@ -53,7 +54,8 @@ export function AccountLayout() {
 export function Overview() {
   const { t, num } = useI18n();
   const { user } = useAuth();
-  const orders = useQuery({ queryKey: ['orders', 1], queryFn: async () => get<Paged<OrderSummary>>('/orders', { per_page: 3 }) });
+  const poll = useLivePoll();
+  const orders = useQuery({ queryKey: ['orders', 1], queryFn: async () => get<Paged<OrderSummary>>('/orders', { per_page: 3 }), refetchInterval: poll });
   const loy = useQuery({ queryKey: ['loyalty'], queryFn: async () => (await get<{ data: Loyalty }>('/me/loyalty')).data });
   return (
     <div className="space-y-6">
@@ -100,10 +102,11 @@ function ReferralCard() {
 /* ───────────── Orders ───────────── */
 function OrderList({ items }: { items: OrderSummary[] }) {
   const { t, date } = useI18n();
+  const flashing = useFlashingOrders();
   return (
     <ul className="divide-y divide-line">
       {items.map((o) => (
-        <li key={o.id}>
+        <li key={o.id} className={flashing.has(o.id) ? 'live-flash' : undefined}>
           <Link to={`/orders/${o.id}`} className="flex items-center gap-4 py-4 transition-colors hover:bg-sand/40 sm:px-2">
             <div className="w-16 shrink-0"><Pic src={o.thumbnail_url} alt={o.number} ratio="1/1" className="rounded-2xl" /></div>
             <div className="min-w-0 flex-1"><p className="font-display text-2xl leading-none">{o.number}</p><p className="mt-1 text-sm text-muted">{date(o.placed_at, { dateStyle: 'medium' })} · {t('orders.items', { n: o.items_count })}</p></div>
@@ -117,10 +120,11 @@ function OrderList({ items }: { items: OrderSummary[] }) {
 export function Orders() {
   const { t } = useI18n();
   const [page, setPage] = useState(1);
-  const q = useQuery({ queryKey: ['orders', page], queryFn: async () => get<Paged<OrderSummary>>('/orders', { page, per_page: 10 }), placeholderData: (p) => p });
+  const poll = useLivePoll();
+  const q = useQuery({ queryKey: ['orders', page], queryFn: async () => get<Paged<OrderSummary>>('/orders', { page, per_page: 10 }), placeholderData: (p) => p, refetchInterval: poll });
   return (
     <section className="rounded-[28px] border border-line bg-paper p-6">
-      <h2 className="mb-2 text-3xl">{t('account.orders')}</h2>
+      <div className="mb-2 flex flex-wrap items-center gap-3"><h2 className="text-3xl">{t('account.orders')}</h2><LivePill /></div>
       {q.isLoading ? <Skeleton className="mt-4 h-40" /> : q.data?.data.length ? (
         <>
           <OrderList items={q.data.data} />

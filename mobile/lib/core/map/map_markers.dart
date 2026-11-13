@@ -353,7 +353,8 @@ class MapPin extends StatelessWidget {
       PinKind.destination => Icons.home_rounded,
       PinKind.picked => Icons.circle,
     };
-    final scale = selected ? 1.12 : 1.0;
+    const scale = 1.0;
+    final lift = selected ? 1.12 : scale;
     return Semantics(
       label: semanticsLabel,
       button: onTap != null,
@@ -367,7 +368,7 @@ class MapPin extends StatelessWidget {
           width: width,
           height: height,
           child: Transform.scale(
-            scale: scale,
+            scale: lift,
             alignment: Alignment.bottomCenter,
             child: Stack(
               alignment: Alignment.topCenter,
@@ -399,7 +400,7 @@ class PinPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final cx = size.width / 2;
     const r = 17.0;
-    final cy = r + 3;
+    const cy = r + 3;
     final tip = size.height - 1;
     final path = Path()
       ..moveTo(cx, tip)

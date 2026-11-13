@@ -3,7 +3,6 @@ import 'dart:math' as math;
 
 import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/map/map_attribution.dart';
-import 'package:albahar_customer/core/map/map_config.dart';
 import 'package:albahar_customer/core/map/map_controller.dart';
 import 'package:albahar_customer/core/map/map_controls.dart';
 import 'package:albahar_customer/core/map/map_geo.dart';

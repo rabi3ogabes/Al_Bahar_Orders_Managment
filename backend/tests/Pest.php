@@ -8,8 +8,8 @@ use App\Domain\Branches\Models\BranchDeliveryZone;
 use App\Domain\Branches\Models\BranchEmployee;
 use App\Domain\Branches\Models\DeliveryZone;
 use App\Domain\Branches\Services\BranchService;
-use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Catalog\Models\Product;
+use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Fulfillment\Models\DriverProfile;
 use App\Domain\Identity\Models\Role;
 use App\Domain\Identity\Models\User;
@@ -169,7 +169,7 @@ function deliveryAt(string $status = 'out_for_delivery', array $pin = ['latitude
     [$f, $mgr] = readyOrder($w);
     test()->postJson("/api/v1/admin/dispatch/fulfillments/{$f->id}/assign", ['driver_id' => $driver->id])->assertOk();
     $w->address->update($pin);
-    Order::whereKey($f->order_id)->update(['address_snapshot' => json_encode($w->address->fresh()->snapshot())]);
+    Order::find($f->order_id)->update(['address_snapshot' => $w->address->fresh()->snapshot()]);
     $delivery = Delivery::where('order_fulfillment_id', $f->id)->firstOrFail();
     actingAsStaff($driver);
     foreach (['assigned' => [], 'accepted' => ['accept'], 'picked_up' => ['accept', 'pickup'], 'out_for_delivery' => ['accept', 'pickup', 'out-for-delivery']][$status] as $step) {

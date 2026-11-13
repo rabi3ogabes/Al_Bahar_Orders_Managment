@@ -1,5 +1,6 @@
 import './bootstrap';
 import Chart from 'chart.js/auto';
+import { bootMap, bootMapWhenVisible } from './maps/boot.js';
 
 window.Chart = Chart;
 
@@ -19,8 +20,14 @@ window.toggleTheme = () => {
 // Lazy-load the QR scanner only on pages that need it (pickup verification).
 window.loadQrScanner = () => import('html5-qrcode').then((m) => m.Html5Qrcode);
 
-// Lazy-load Leaflet (fleet map) only on pages that need it.
-window.loadLeaflet = () => Promise.all([import('leaflet'), import('leaflet/dist/leaflet.css')]).then(([m]) => m.default);
+// Maps: Leaflet and the map kit are one lazy chunk, fetched only by pages that show a map (live fleet, order route card).
+// Each call hands a host element to the kit; calling it again on the same element replaces the old map, so wire:navigate and
+// Livewire re-renders can never initialise a container twice.
+window.mountFleet = (host, boot, wire) => bootMap(host, (kit) => kit.mountAdminFleet(host, boot, wire));
+window.mountRouteCard = (host, data) => bootMapWhenVisible(host, (kit) => {
+    const lang = kit.pageLang();
+    return kit.createRouteCard({ ...data, host, text: kit.textFor(lang), lang });
+});
 
 // Lazy-load the live order toasts only on pages that show live events (fleet map).
 window.loadLiveToasts = () => import('./live-toasts.js');

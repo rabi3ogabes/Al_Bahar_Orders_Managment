@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:ui' show Brightness;
 
 import 'package:albahar_customer/core/map/map_geo.dart';
 import 'package:flutter/foundation.dart';
@@ -96,7 +95,13 @@ class MapTiles {
 /// The server's map settings: tiles, the default centre and zoom, and the provider name (informational).
 @immutable
 class MapSettings {
-  const MapSettings({required this.tiles, this.center = MapGeo.doha, this.zoom = 11, this.provider = 'osm'});
+  const MapSettings({
+    required this.tiles,
+    this.center = MapGeo.doha,
+    this.zoom = 11,
+    this.provider = 'osm',
+    this.staleAfter = MapGeo.staleAfter,
+  });
 
   /// OpenStreetMap and Doha: used until the server has answered once and whenever it cannot be reached.
   factory MapSettings.fallback({String? tileUrl}) => MapSettings(
@@ -112,11 +117,13 @@ class MapSettings {
     final lat = c is Map && c['lat'] is num ? (c['lat'] as num).toDouble() : null;
     final lng = c is Map && c['lng'] is num ? (c['lng'] as num).toDouble() : null;
     final zoom = raw['zoom'];
+    final stale = raw['stale_after_seconds'];
     return MapSettings(
       tiles: tiles,
       center: MapGeo.isFinitePair(lat, lng) ? LatLng(lat!, lng!) : MapGeo.doha,
       zoom: zoom is num && zoom >= 2 && zoom <= 20 ? zoom.toDouble() : 11,
       provider: '${raw['provider'] ?? 'osm'}',
+      staleAfter: stale is num && stale >= 15 && stale <= 3600 ? Duration(seconds: stale.round()) : MapGeo.staleAfter,
     );
   }
 
@@ -135,6 +142,7 @@ class MapSettings {
     'center': {'lat': center.latitude, 'lng': center.longitude},
     'zoom': zoom,
     'provider': provider,
+    'stale_after_seconds': staleAfter.inSeconds,
   });
 
   final MapTiles tiles;
@@ -142,14 +150,18 @@ class MapSettings {
   final double zoom;
   final String provider;
 
+  /// How old a driver position may get before it is shown as "last seen" (the server's `stale_after_seconds`).
+  final Duration staleAfter;
+
   @override
   bool operator ==(Object other) =>
       other is MapSettings &&
       other.tiles == tiles &&
       other.center == center &&
       other.zoom == zoom &&
-      other.provider == provider;
+      other.provider == provider &&
+      other.staleAfter == staleAfter;
 
   @override
-  int get hashCode => Object.hash(tiles, center, zoom, provider);
+  int get hashCode => Object.hash(tiles, center, zoom, provider, staleAfter);
 }

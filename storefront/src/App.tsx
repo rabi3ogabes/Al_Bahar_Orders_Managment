@@ -10,6 +10,7 @@ import { ThemeProvider } from './lib/theme';
 import { BrandProvider } from './lib/brand';
 import { ToastProvider } from './lib/toast';
 import { WishlistProvider } from './lib/wishlist';
+import { LiveOrders } from './lib/realtime';
 import { AuthModalProvider, captureReferral, useAuthModal } from './components/AuthModal';
 import { Layout } from './components/Layout';
 import { Spinner } from './components/ui';
@@ -58,6 +59,7 @@ export default function App() {
                 <AuthModalProvider>
                   <CartProvider>
                     <Wishes>
+                      <LiveOrders />
                       <BrowserRouter>
                         <Suspense fallback={Fallback}>
                           <Routes>

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:albahar_customer/core/l10n/l10n.dart';
+import 'package:albahar_customer/core/map/map_geo.dart';
 import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
@@ -15,14 +16,13 @@ import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
 import 'package:albahar_customer/features/branches/domain/branch_models.dart';
-import 'package:albahar_customer/features/branches/presentation/branch_widgets.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
 import 'package:albahar_customer/features/profile/data/profile_repository.dart';
 import 'package:albahar_customer/features/profile/domain/profile_models.dart';
+import 'package:albahar_customer/features/profile/presentation/map_pin_picker.dart';
 import 'package:albahar_customer/features/profile/presentation/state/profile_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
@@ -156,6 +156,12 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
       longitude: _pin?.longitude,
       isDefault: _default,
     );
+    if (_pin != null && !MapGeo.isInQatar(_pin!.latitude, _pin!.longitude)) {
+      // A pin left over from before (or typed in by an old client) outside Qatar: say so before the server has to.
+      setState(() => _localError = l10n.pinOutsideQatar);
+      Haptics.warning();
+      return;
+    }
     if (!input.isLocatable) {
       setState(() => _localError = l10n.addressRequirement);
       Haptics.warning();
@@ -201,6 +207,8 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
       'unit_number',
       'area',
       'delivery_zone_id',
+      'latitude',
+      'longitude',
       'landmark',
       'instructions',
     };
@@ -408,16 +416,7 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
                         if (_pin != null)
                           SizedBox(
                             height: 140,
-                            child: IgnorePointer(
-                              child: BranchMap(
-                                branches: [
-                                  Branch(id: 'pin', name: '', latitude: _pin!.latitude, longitude: _pin!.longitude),
-                                ],
-                                selectedId: 'pin',
-                                onSelect: (_) {},
-                                interactive: false,
-                              ),
-                            ),
+                            child: IgnorePointer(child: PinPreview(pin: _pin!, label: l10n.pinSet)),
                           ),
                         ListTile(
                           leading: Icon(
@@ -425,11 +424,20 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
                             color: context.palette.brass,
                           ),
                           title: Text(_pin != null ? l10n.pinSet : l10n.pinOnMap),
+                          subtitle: _pin != null ? Text(l10n.pinTapToChange) : null,
                           trailing: const Icon(Icons.chevron_right_rounded),
                         ),
                       ],
                     ),
                   ),
+                  if (err('latitude') != null || err('longitude') != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: AppSpace.xs),
+                      child: Text(
+                        err('latitude') ?? err('longitude') ?? l10n.pinInvalid,
+                        style: context.text.bodySmall?.copyWith(color: context.palette.danger),
+                      ),
+                    ),
                   const Gap(AppSpace.sm),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
@@ -449,110 +457,6 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// Full-screen map with a centred pin; "use current location" when allowed.
-class MapPinPicker extends ConsumerStatefulWidget {
-  const MapPinPicker({super.key, this.initial});
-  final LatLng? initial;
-
-  @override
-  ConsumerState<MapPinPicker> createState() => _MapPinPickerState();
-}
-
-class _MapPinPickerState extends ConsumerState<MapPinPicker> {
-  final _map = MapController();
-  late LatLng _center = widget.initial ?? dohaCenter;
-  bool _locating = false;
-
-  @override
-  void dispose() {
-    _map.dispose();
-    super.dispose();
-  }
-
-  Future<void> _locate() async {
-    setState(() => _locating = true);
-    final location = ref.read(locationServiceProvider);
-    final access = await location.ensurePermission();
-    if (access == LocationAccess.granted) {
-      final p = await location.currentPosition();
-      if (p != null && mounted) {
-        _center = LatLng(p.lat, p.lng);
-        _map.move(_center, 17);
-      }
-    } else if (mounted) {
-      showInfoSnack(context, context.l10n.locationDeniedMessage);
-    }
-    if (mounted) setState(() => _locating = false);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final tiles = ref.watch(appConfigProvider).mapTileUrlTemplate;
-    return Scaffold(
-      appBar: AppBar(title: Text(l10n.pinOnMap)),
-      body: Stack(
-        children: [
-          FlutterMap(
-            mapController: _map,
-            options: MapOptions(
-              initialCenter: _center,
-              initialZoom: widget.initial != null ? 17 : 12,
-              onPositionChanged: (camera, _) => _center = camera.center,
-              interactionOptions: const InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate),
-            ),
-            children: [
-              TileLayer(urlTemplate: tiles, userAgentPackageName: 'qa.albahar.customer'),
-              RichAttributionWidget(attributions: [TextSourceAttribution(l10n.mapAttribution)]),
-            ],
-          ),
-          IgnorePointer(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 44),
-                child: Icon(Icons.location_on_rounded, size: 48, color: context.palette.brass),
-              ),
-            ),
-          ),
-          PositionedDirectional(
-            top: AppSpace.md,
-            start: AppSpace.md,
-            end: AppSpace.md,
-            child: Material(
-              color: context.colors.surface,
-              borderRadius: AppRadius.inputAll,
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpace.sm),
-                child: Text(l10n.moveMapToPin, textAlign: TextAlign.center, style: context.text.bodySmall),
-              ),
-            ),
-          ),
-          PositionedDirectional(
-            end: AppSpace.md,
-            bottom: 110,
-            child: FloatingActionButton.small(
-              heroTag: 'locate',
-              tooltip: l10n.useCurrentLocation,
-              onPressed: _locating ? null : _locate,
-              child: _locating
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.my_location_rounded),
-            ),
-          ),
-          PositionedDirectional(
-            start: AppSpace.gutter,
-            end: AppSpace.gutter,
-            bottom: AppSpace.lg,
-            child: SafeArea(
-              child: AppButton(label: l10n.confirmLocation, onPressed: () => Navigator.of(context).pop(_center)),
-            ),
-          ),
-        ],
       ),
     );
   }

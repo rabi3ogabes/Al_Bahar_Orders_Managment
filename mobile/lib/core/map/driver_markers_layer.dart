@@ -46,6 +46,7 @@ class DriverMarkersLayer extends StatefulWidget {
     this.now = DateTime.now,
     this.duration = const Duration(milliseconds: 1000),
     this.clusterAbove = 40,
+    this.staleAfter = MapGeo.staleAfter,
   });
 
   final List<DriverMarkerData> drivers;
@@ -58,6 +59,9 @@ class DriverMarkersLayer extends StatefulWidget {
   final DateTime Function() now;
   final Duration duration;
   final int clusterAbove;
+
+  /// A position older than this is grey with "Last seen" (the server's setting, 90 s by default).
+  final Duration staleAfter;
 
   @override
   State<DriverMarkersLayer> createState() => _DriverMarkersLayerState();
@@ -189,7 +193,7 @@ class _DriverMarkersLayerState extends State<DriverMarkersLayer> with SingleTick
         for (final i in singles) {
           final d = i.track.data;
           final fix = i.track.fix;
-          final activity = fix.activity(now);
+          final activity = fix.activity(now, staleAfter: widget.staleAfter);
           final stale = activity == DriverActivity.stale;
           final age = fix.age(now);
           final lastSeen = stale && age != null ? MapFormat.lastSeen(l10n, age) : null;

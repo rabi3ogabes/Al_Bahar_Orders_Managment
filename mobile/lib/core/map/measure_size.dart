@@ -1,6 +1,6 @@
 import 'package:flutter/rendering.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/widgets.dart';
 
 /// Reports the laid-out size of [child] after each frame in which it changed, so a map can keep its markers clear of a
 /// bottom panel whose height depends on its text and the user's font size.
@@ -12,7 +12,7 @@ class MeasureSize extends SingleChildRenderObjectWidget {
   RenderObject createRenderObject(BuildContext context) => _RenderMeasureSize(onChange);
 
   @override
-  void updateRenderObject(BuildContext context, _RenderMeasureSize renderObject) => renderObject.onChange = onChange;
+  void updateRenderObject(BuildContext context, covariant RenderProxyBox renderObject) => (renderObject as _RenderMeasureSize).onChange = onChange;
 }
 
 class _RenderMeasureSize extends RenderProxyBox {

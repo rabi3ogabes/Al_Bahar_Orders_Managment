@@ -2285,4 +2285,216 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get enterValidAmount => 'أدخل مبلغاً صحيحاً.';
+
+  @override
+  String get mapSemantics => 'خريطة';
+
+  @override
+  String get mapRecenter => 'عرض الكل';
+
+  @override
+  String get mapFollow => 'تتبع الموقع المباشر';
+
+  @override
+  String get mapCompass => 'إعادة الخريطة إلى الشمال';
+
+  @override
+  String get mapZoomIn => 'تكبير';
+
+  @override
+  String get mapZoomOut => 'تصغير';
+
+  @override
+  String get mapMyLocation => 'موقعي';
+
+  @override
+  String get mapYouAreHere => 'أنت هنا';
+
+  @override
+  String get mapTilesUnavailable => 'تعذّر تحميل الخريطة';
+
+  @override
+  String get mapAttributionTitle => 'بيانات الخريطة';
+
+  @override
+  String mapOpenLink(String label) {
+    return 'فتح $label';
+  }
+
+  @override
+  String mapDistanceM(int count) {
+    return '$count م';
+  }
+
+  @override
+  String mapDistanceKm(String value) {
+    return '$value كم';
+  }
+
+  @override
+  String get mapJustNow => 'الآن';
+
+  @override
+  String mapMinutesAgo(int count) {
+    return 'قبل $count د';
+  }
+
+  @override
+  String mapHoursAgo(int count) {
+    return 'قبل $count س';
+  }
+
+  @override
+  String mapLastSeen(String ago) {
+    return 'آخر ظهور $ago';
+  }
+
+  @override
+  String mapCluster(int count) {
+    return '$count سائقين متقاربين. اضغط للتقريب.';
+  }
+
+  @override
+  String get mapStatusMoving => 'في حركة';
+
+  @override
+  String get mapStatusIdle => 'متوقف';
+
+  @override
+  String get mapStatusOffline => 'غير متصل';
+
+  @override
+  String mapDriverSemantics(String name, String status) {
+    return '$name، $status';
+  }
+
+  @override
+  String get mapNavigateWith => 'الملاحة عبر';
+
+  @override
+  String get trackMapSemantics => 'خريطة مباشرة لتوصيل طلبك';
+
+  @override
+  String trackDriverNamed(String name) {
+    return '$name في الطريق إليك';
+  }
+
+  @override
+  String trackEta(int minutes) {
+    return 'الوصول خلال ~$minutes د';
+  }
+
+  @override
+  String get trackEtaSoon => 'يصل في أي لحظة';
+
+  @override
+  String trackAway(String distance) {
+    return 'يبعد $distance';
+  }
+
+  @override
+  String get trackCall => 'اتصال بالسائق';
+
+  @override
+  String get trackNumberCopied => 'تم نسخ رقم الهاتف';
+
+  @override
+  String get trackPickupTitle => 'السائق يستلم طلبك';
+
+  @override
+  String trackPickupBody(String branch) {
+    return 'يستلمه من $branch.';
+  }
+
+  @override
+  String get trackPickupBodyPlain => 'يستلمه من الفرع.';
+
+  @override
+  String get trackNotAssignedTitle => 'نجهّز طلبك';
+
+  @override
+  String get trackDeliveredTitle => 'تم التسليم';
+
+  @override
+  String trackDeliveredAt(String time) {
+    return 'تم التسليم الساعة $time';
+  }
+
+  @override
+  String get trackDeliveredBody => 'شكراً لتسوقك من البحار. تم إيقاف الخريطة.';
+
+  @override
+  String get trackClosedTitle => 'لا يوجد ما يمكن تتبعه';
+
+  @override
+  String get trackClosedBody => 'لم يعد هذا الطلب قيد التوصيل.';
+
+  @override
+  String get trackLocating => 'بانتظار موقع السائق…';
+
+  @override
+  String get trackOffline => 'لا يوجد اتصال بالإنترنت. يُعرض آخر موقع معروف.';
+
+  @override
+  String get trackLive => 'مباشر';
+
+  @override
+  String get trackReconnecting => 'جارٍ إعادة الاتصال…';
+
+  @override
+  String get trackOfflineShort => 'غير متصل';
+
+  @override
+  String get trackStepsShow => 'حالة الطلب';
+
+  @override
+  String get trackStepsHide => 'إخفاء حالة الطلب';
+
+  @override
+  String get trackStepConfirmed => 'تم تأكيد الطلب';
+
+  @override
+  String get trackStepPreparing => 'قيد التجهيز';
+
+  @override
+  String get trackStepOnTheWay => 'في الطريق';
+
+  @override
+  String get trackStepDelivered => 'تم التسليم';
+
+  @override
+  String get trackStepDone => 'تم';
+
+  @override
+  String get trackStepCurrent => 'الخطوة الحالية';
+
+  @override
+  String get trackStepPending => 'لاحقاً';
+
+  @override
+  String get trackUnavailableTitle => 'التتبع المباشر غير متاح';
+
+  @override
+  String get trackUnavailableBody => 'لا يمكننا عرض السائق الآن. سنُشعرك عند وصول طلبك.';
+
+  @override
+  String get pinOutsideQatar => 'هذا الموقع خارج قطر. حرّك الخريطة إلى عنوانك.';
+
+  @override
+  String get pinLocateForever => 'تم إيقاف الوصول إلى الموقع لهذا التطبيق. افتح الإعدادات للسماح به.';
+
+  @override
+  String get pinLocateServiceOff => 'فعّل خدمة الموقع في هاتفك لاستخدامها هنا.';
+
+  @override
+  String get pinLocateFailed => 'تعذّر تحديد موقعك. حرّك الخريطة إلى عنوانك.';
+
+  @override
+  String get pinTapToChange => 'اضغط لتحريك الدبوس';
+
+  @override
+  String get pinInvalid => 'اختر موقعاً صحيحاً على الخريطة.';
+
+  @override
+  String get pinCenterSemantics => 'موضع الدبوس. حرّك الخريطة لتغييره.';
 }

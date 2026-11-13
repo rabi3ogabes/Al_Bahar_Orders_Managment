@@ -4135,6 +4135,378 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Enter a valid amount.'**
   String get enterValidAmount;
+
+  /// No description provided for @mapSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Map'**
+  String get mapSemantics;
+
+  /// No description provided for @mapRecenter.
+  ///
+  /// In en, this message translates to:
+  /// **'Show everything'**
+  String get mapRecenter;
+
+  /// No description provided for @mapFollow.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow live position'**
+  String get mapFollow;
+
+  /// No description provided for @mapCompass.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn the map back to north'**
+  String get mapCompass;
+
+  /// No description provided for @mapZoomIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom in'**
+  String get mapZoomIn;
+
+  /// No description provided for @mapZoomOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom out'**
+  String get mapZoomOut;
+
+  /// No description provided for @mapMyLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'My location'**
+  String get mapMyLocation;
+
+  /// No description provided for @mapYouAreHere.
+  ///
+  /// In en, this message translates to:
+  /// **'You are here'**
+  String get mapYouAreHere;
+
+  /// No description provided for @mapTilesUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Map tiles unavailable'**
+  String get mapTilesUnavailable;
+
+  /// No description provided for @mapAttributionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Map data'**
+  String get mapAttributionTitle;
+
+  /// No description provided for @mapOpenLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Open {label}'**
+  String mapOpenLink(String label);
+
+  /// No description provided for @mapDistanceM.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} m'**
+  String mapDistanceM(int count);
+
+  /// No description provided for @mapDistanceKm.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} km'**
+  String mapDistanceKm(String value);
+
+  /// No description provided for @mapJustNow.
+  ///
+  /// In en, this message translates to:
+  /// **'just now'**
+  String get mapJustNow;
+
+  /// No description provided for @mapMinutesAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} min ago'**
+  String mapMinutesAgo(int count);
+
+  /// No description provided for @mapHoursAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} h ago'**
+  String mapHoursAgo(int count);
+
+  /// No description provided for @mapLastSeen.
+  ///
+  /// In en, this message translates to:
+  /// **'Last seen {ago}'**
+  String mapLastSeen(String ago);
+
+  /// No description provided for @mapCluster.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} drivers close together. Tap to zoom in.'**
+  String mapCluster(int count);
+
+  /// No description provided for @mapStatusMoving.
+  ///
+  /// In en, this message translates to:
+  /// **'Moving'**
+  String get mapStatusMoving;
+
+  /// No description provided for @mapStatusIdle.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting'**
+  String get mapStatusIdle;
+
+  /// No description provided for @mapStatusOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline'**
+  String get mapStatusOffline;
+
+  /// No description provided for @mapDriverSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, {status}'**
+  String mapDriverSemantics(String name, String status);
+
+  /// No description provided for @mapNavigateWith.
+  ///
+  /// In en, this message translates to:
+  /// **'Navigate with'**
+  String get mapNavigateWith;
+
+  /// No description provided for @trackMapSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Live map of your delivery'**
+  String get trackMapSemantics;
+
+  /// No description provided for @trackDriverNamed.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is on the way'**
+  String trackDriverNamed(String name);
+
+  /// No description provided for @trackEta.
+  ///
+  /// In en, this message translates to:
+  /// **'Arriving in ~{minutes} min'**
+  String trackEta(int minutes);
+
+  /// No description provided for @trackEtaSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Arriving any moment'**
+  String get trackEtaSoon;
+
+  /// No description provided for @trackAway.
+  ///
+  /// In en, this message translates to:
+  /// **'{distance} away'**
+  String trackAway(String distance);
+
+  /// No description provided for @trackCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Call driver'**
+  String get trackCall;
+
+  /// No description provided for @trackNumberCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone number copied'**
+  String get trackNumberCopied;
+
+  /// No description provided for @trackPickupTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your driver is collecting your order'**
+  String get trackPickupTitle;
+
+  /// No description provided for @trackPickupBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Picking it up from {branch}.'**
+  String trackPickupBody(String branch);
+
+  /// No description provided for @trackPickupBodyPlain.
+  ///
+  /// In en, this message translates to:
+  /// **'Picking it up from the branch.'**
+  String get trackPickupBodyPlain;
+
+  /// No description provided for @trackNotAssignedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'We are getting your order ready'**
+  String get trackNotAssignedTitle;
+
+  /// No description provided for @trackDeliveredTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivered'**
+  String get trackDeliveredTitle;
+
+  /// No description provided for @trackDeliveredAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivered at {time}'**
+  String trackDeliveredAt(String time);
+
+  /// No description provided for @trackDeliveredBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Thank you for shopping with Al Bahar. The map is paused.'**
+  String get trackDeliveredBody;
+
+  /// No description provided for @trackClosedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing to follow'**
+  String get trackClosedTitle;
+
+  /// No description provided for @trackClosedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This order is no longer being delivered.'**
+  String get trackClosedBody;
+
+  /// No description provided for @trackLocating.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for your driver\'s location…'**
+  String get trackLocating;
+
+  /// No description provided for @trackOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'You are offline. Showing the last known position.'**
+  String get trackOffline;
+
+  /// No description provided for @trackLive.
+  ///
+  /// In en, this message translates to:
+  /// **'Live'**
+  String get trackLive;
+
+  /// No description provided for @trackReconnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnecting…'**
+  String get trackReconnecting;
+
+  /// No description provided for @trackOfflineShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline'**
+  String get trackOfflineShort;
+
+  /// No description provided for @trackStepsShow.
+  ///
+  /// In en, this message translates to:
+  /// **'Order status'**
+  String get trackStepsShow;
+
+  /// No description provided for @trackStepsHide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide order status'**
+  String get trackStepsHide;
+
+  /// No description provided for @trackStepConfirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'Order confirmed'**
+  String get trackStepConfirmed;
+
+  /// No description provided for @trackStepPreparing.
+  ///
+  /// In en, this message translates to:
+  /// **'Being prepared'**
+  String get trackStepPreparing;
+
+  /// No description provided for @trackStepOnTheWay.
+  ///
+  /// In en, this message translates to:
+  /// **'On the way'**
+  String get trackStepOnTheWay;
+
+  /// No description provided for @trackStepDelivered.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivered'**
+  String get trackStepDelivered;
+
+  /// No description provided for @trackStepDone.
+  ///
+  /// In en, this message translates to:
+  /// **'done'**
+  String get trackStepDone;
+
+  /// No description provided for @trackStepCurrent.
+  ///
+  /// In en, this message translates to:
+  /// **'current step'**
+  String get trackStepCurrent;
+
+  /// No description provided for @trackStepPending.
+  ///
+  /// In en, this message translates to:
+  /// **'not yet'**
+  String get trackStepPending;
+
+  /// No description provided for @trackUnavailableTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Live tracking is unavailable'**
+  String get trackUnavailableTitle;
+
+  /// No description provided for @trackUnavailableBody.
+  ///
+  /// In en, this message translates to:
+  /// **'We cannot show your driver right now. You will still be notified when your order arrives.'**
+  String get trackUnavailableBody;
+
+  /// No description provided for @pinOutsideQatar.
+  ///
+  /// In en, this message translates to:
+  /// **'This spot is outside Qatar. Move the map to your address.'**
+  String get pinOutsideQatar;
+
+  /// No description provided for @pinLocateForever.
+  ///
+  /// In en, this message translates to:
+  /// **'Location access is turned off for this app. Open settings to allow it.'**
+  String get pinLocateForever;
+
+  /// No description provided for @pinLocateServiceOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on location (GPS) on your phone to use it here.'**
+  String get pinLocateServiceOff;
+
+  /// No description provided for @pinLocateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'We could not find your location. Move the map to your address instead.'**
+  String get pinLocateFailed;
+
+  /// No description provided for @pinTapToChange.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to move the pin'**
+  String get pinTapToChange;
+
+  /// No description provided for @pinInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a valid spot on the map.'**
+  String get pinInvalid;
+
+  /// No description provided for @pinCenterSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Pin position. Move the map to change it.'**
+  String get pinCenterSemantics;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

@@ -2251,4 +2251,217 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get enterValidAmount => 'Enter a valid amount.';
+
+  @override
+  String get mapSemantics => 'Map';
+
+  @override
+  String get mapRecenter => 'Show everything';
+
+  @override
+  String get mapFollow => 'Follow live position';
+
+  @override
+  String get mapCompass => 'Turn the map back to north';
+
+  @override
+  String get mapZoomIn => 'Zoom in';
+
+  @override
+  String get mapZoomOut => 'Zoom out';
+
+  @override
+  String get mapMyLocation => 'My location';
+
+  @override
+  String get mapYouAreHere => 'You are here';
+
+  @override
+  String get mapTilesUnavailable => 'Map tiles unavailable';
+
+  @override
+  String get mapAttributionTitle => 'Map data';
+
+  @override
+  String mapOpenLink(String label) {
+    return 'Open $label';
+  }
+
+  @override
+  String mapDistanceM(int count) {
+    return '$count m';
+  }
+
+  @override
+  String mapDistanceKm(String value) {
+    return '$value km';
+  }
+
+  @override
+  String get mapJustNow => 'just now';
+
+  @override
+  String mapMinutesAgo(int count) {
+    return '$count min ago';
+  }
+
+  @override
+  String mapHoursAgo(int count) {
+    return '$count h ago';
+  }
+
+  @override
+  String mapLastSeen(String ago) {
+    return 'Last seen $ago';
+  }
+
+  @override
+  String mapCluster(int count) {
+    return '$count drivers close together. Tap to zoom in.';
+  }
+
+  @override
+  String get mapStatusMoving => 'Moving';
+
+  @override
+  String get mapStatusIdle => 'Waiting';
+
+  @override
+  String get mapStatusOffline => 'Offline';
+
+  @override
+  String mapDriverSemantics(String name, String status) {
+    return '$name, $status';
+  }
+
+  @override
+  String get mapNavigateWith => 'Navigate with';
+
+  @override
+  String get trackMapSemantics => 'Live map of your delivery';
+
+  @override
+  String trackDriverNamed(String name) {
+    return '$name is on the way';
+  }
+
+  @override
+  String trackEta(int minutes) {
+    return 'Arriving in ~$minutes min';
+  }
+
+  @override
+  String get trackEtaSoon => 'Arriving any moment';
+
+  @override
+  String trackAway(String distance) {
+    return '$distance away';
+  }
+
+  @override
+  String get trackCall => 'Call driver';
+
+  @override
+  String get trackNumberCopied => 'Phone number copied';
+
+  @override
+  String get trackPickupTitle => 'Your driver is collecting your order';
+
+  @override
+  String trackPickupBody(String branch) {
+    return 'Picking it up from $branch.';
+  }
+
+  @override
+  String get trackPickupBodyPlain => 'Picking it up from the branch.';
+
+  @override
+  String get trackNotAssignedTitle => 'We are getting your order ready';
+
+  @override
+  String get trackDeliveredTitle => 'Delivered';
+
+  @override
+  String trackDeliveredAt(String time) {
+    return 'Delivered at $time';
+  }
+
+  @override
+  String get trackDeliveredBody => 'Thank you for shopping with Al Bahar. The map is paused.';
+
+  @override
+  String get trackClosedTitle => 'Nothing to follow';
+
+  @override
+  String get trackClosedBody => 'This order is no longer being delivered.';
+
+  @override
+  String get trackLocating => 'Waiting for your driver\'s location…';
+
+  @override
+  String get trackOffline => 'You are offline. Showing the last known position.';
+
+  @override
+  String get trackLive => 'Live';
+
+  @override
+  String get trackReconnecting => 'Reconnecting…';
+
+  @override
+  String get trackOfflineShort => 'Offline';
+
+  @override
+  String get trackStepsShow => 'Order status';
+
+  @override
+  String get trackStepsHide => 'Hide order status';
+
+  @override
+  String get trackStepConfirmed => 'Order confirmed';
+
+  @override
+  String get trackStepPreparing => 'Being prepared';
+
+  @override
+  String get trackStepOnTheWay => 'On the way';
+
+  @override
+  String get trackStepDelivered => 'Delivered';
+
+  @override
+  String get trackStepDone => 'done';
+
+  @override
+  String get trackStepCurrent => 'current step';
+
+  @override
+  String get trackStepPending => 'not yet';
+
+  @override
+  String get trackUnavailableTitle => 'Live tracking is unavailable';
+
+  @override
+  String get trackUnavailableBody =>
+      'We cannot show your driver right now. You will still be notified when your order arrives.';
+
+  @override
+  String get pinOutsideQatar => 'This spot is outside Qatar. Move the map to your address.';
+
+  @override
+  String get pinLocateForever => 'Location access is turned off for this app. Open settings to allow it.';
+
+  @override
+  String get pinLocateServiceOff => 'Turn on location (GPS) on your phone to use it here.';
+
+  @override
+  String get pinLocateFailed => 'We could not find your location. Move the map to your address instead.';
+
+  @override
+  String get pinTapToChange => 'Tap to move the pin';
+
+  @override
+  String get pinInvalid => 'Choose a valid spot on the map.';
+
+  @override
+  String get pinCenterSemantics => 'Pin position. Move the map to change it.';
 }

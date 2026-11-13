@@ -17,6 +17,7 @@ Route::controller(V1\Branches\BranchController::class)->group(function () {
 
 Route::post('integrations/n8n/delivery', [V1\Integrations\N8nController::class, 'delivery'])->middleware('throttle:webhooks')->name('integrations.n8n.delivery');
 Route::get('theme', [V1\Cms\ThemeController::class, 'show'])->name('theme');
+Route::get('realtime-config', [V1\RealtimeConfigController::class, 'show'])->name('realtime-config');
 Route::get('map-config', [V1\MapConfigController::class, 'show'])->name('map-config');
 
 Route::controller(V1\Catalog\CatalogController::class)->group(function () {

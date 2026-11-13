@@ -57,7 +57,7 @@ List<Widget> routeLayers(
             color: scheme.primary,
             borderStrokeWidth: 3,
             borderColor: casing,
-            pattern: const StrokePattern.dashed(segments: [10, 9]),
+            pattern: StrokePattern.dashed(segments: const [10, 9]),
             strokeCap: StrokeCap.round,
             strokeJoin: StrokeJoin.round,
           ),

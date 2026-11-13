@@ -20,6 +20,7 @@ use App\Support\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /** @tags Orders */
 class OrderController extends ApiController
@@ -151,6 +152,8 @@ class OrderController extends ApiController
 
     private function own(string $id): Order
     {
+        abort_unless(Str::isUuid($id), 404); // a malformed id is "not found", not a database error
+
         return Order::where('user_id', $this->user()->id)->findOrFail($id);
     }
 }

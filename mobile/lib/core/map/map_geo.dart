@@ -156,8 +156,8 @@ class GeoFix {
     return a != null && a > threshold;
   }
 
-  DriverActivity activity(DateTime now) {
-    if (isStale(now)) return DriverActivity.stale;
+  DriverActivity activity(DateTime now, {Duration staleAfter = MapGeo.staleAfter}) {
+    if (isStale(now, threshold: staleAfter)) return DriverActivity.stale;
     return (speedKmh ?? 0) >= MapGeo.movingKmh ? DriverActivity.moving : DriverActivity.idle;
   }
 
