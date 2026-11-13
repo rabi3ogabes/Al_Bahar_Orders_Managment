@@ -24,3 +24,14 @@ what became a window and why: `docs/qa/SIDE_WINDOWS_STORE.md`.
 - `lib/useCloseOnBack.ts` gives one history entry per open window; `lib/useUrlOverlay.ts` keeps `?order=<id>` and `?quick=<slug>` in the URL
   (reload, share and notification links open the window). The pure logic is in `lib/overlay.ts` (tested in `tests/overlay.test.mjs`).
 - Pages that push notifications and emails link to (`/orders/:id`, `/products/:slug`, `/cart`) keep working as full pages.
+
+## Tests
+
+```bash
+npm test                                   # fast unit tests (node --test): overlay history/URL logic, shop filters, cart maths, web push
+STORE_URL=http://127.0.0.1:4173 node tests/e2e/cart-panel.e2e.mjs   # browser check of the cart panel (needs the built store + API, and Playwright)
+```
+
+`tests/e2e/cart-panel.e2e.mjs` runs at 375 and 1280 px in English and Arabic: Add to cart opens the panel without navigating, the badge moves at once,
+adding the same item again makes quantity 2 (one line), Keep shopping keeps the scroll position and focus, outside click / Esc / Back close it, Checkout goes on.
+Set `E2E_PHONE` and `E2E_PASSWORD` to run it signed in as well (server cart).
