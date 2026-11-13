@@ -415,7 +415,9 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
                         if (_pin != null)
                           SizedBox(
                             height: 140,
-                            child: IgnorePointer(child: PinPreview(pin: _pin!, label: l10n.pinSet)),
+                            child: IgnorePointer(
+                              child: PinPreview(pin: _pin!, label: l10n.pinSet),
+                            ),
                           ),
                         ListTile(
                           leading: Icon(

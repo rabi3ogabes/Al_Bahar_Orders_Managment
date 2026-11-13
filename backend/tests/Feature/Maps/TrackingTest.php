@@ -9,6 +9,8 @@ use App\Support\Geo;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 
 /** Puts the driver somewhere, as if the phone had reported a fix $secondsAgo seconds ago. */
@@ -17,7 +19,7 @@ function driverIsAt(object $d, float $lat, float $lng, int $secondsAgo = 0, arra
     DriverProfile::where('user_id', $d->driver->id)->update(['last_lat' => $lat, 'last_lng' => $lng, 'last_fix_at' => now()->subSeconds($secondsAgo), 'last_seen_at' => now()] + $extra);
 }
 
-function trackingOf(object $d, ?User $as = null): Illuminate\Testing\TestResponse
+function trackingOf(object $d, ?User $as = null): TestResponse
 {
     Sanctum::actingAs($as ?? $d->customer, ['customer']);
 
@@ -101,7 +103,7 @@ describe('customer tracking', function () {
         $stranger = User::factory()->create();
         trackingOf($d, $stranger)->assertNotFound();
         // A made-up id, and a malformed one, are not found either (not a 500).
-        $this->getJson('/api/v1/orders/'.Illuminate\Support\Str::uuid().'/tracking')->assertNotFound();
+        $this->getJson('/api/v1/orders/'.Str::uuid().'/tracking')->assertNotFound();
         $this->getJson('/api/v1/orders/not-a-uuid/tracking')->assertNotFound();
         // The driver and branch staff use their own endpoints: a staff token is not a customer.
         Sanctum::actingAs($d->driver, ['staff']);
@@ -346,7 +348,7 @@ describe('delivery route history', function () {
         $this->app['auth']->forgetGuards();
         $this->getJson($url)->assertUnauthorized();
         actingAsStaff($d->mgr);
-        $this->getJson('/api/v1/admin/deliveries/'.Illuminate\Support\Str::uuid().'/route')->assertNotFound();
+        $this->getJson('/api/v1/admin/deliveries/'.Str::uuid().'/route')->assertNotFound();
         $this->getJson('/api/v1/admin/deliveries/nope/route')->assertNotFound();
     });
 

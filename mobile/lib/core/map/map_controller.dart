@@ -33,6 +33,10 @@ class AlBaharMapController extends ChangeNotifier {
   List<LatLng> _fitPoints = const [];
   double _fitMaxZoom = 17;
 
+  /// When set, "show everything" frames what this returns now (a fleet that moved since the last fit) instead of the
+  /// points of the last fit.
+  List<LatLng> Function()? pointsProvider;
+
   bool get ready => _ready;
   bool get following => _following;
 
@@ -115,6 +119,13 @@ class AlBaharMapController extends ChangeNotifier {
   void recenter() {
     _following = false;
     notifyListeners();
+    final fresh = pointsProvider?.call();
+    if (fresh != null) {
+      _fitPoints = [
+        for (final p in fresh)
+          if (MapGeo.isFinitePair(p.latitude, p.longitude)) p,
+      ];
+    }
     if (_fitPoints.isNotEmpty) {
       _userMoved = false;
       _applyFit(animate: true);
@@ -180,4 +191,3 @@ class AlBaharMapController extends ChangeNotifier {
     super.dispose();
   }
 }
-

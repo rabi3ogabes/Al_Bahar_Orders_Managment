@@ -20,7 +20,11 @@ class MapAttribution {
   /// (`&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors`).
   factory MapAttribution.parse(String raw) {
     final links = <AttributionLink>[];
-    for (final m in RegExp(r'''<a\s[^>]*href=["']([^"']+)["'][^>]*>(.*?)</a>''', caseSensitive: false, dotAll: true).allMatches(raw)) {
+    for (final m in RegExp(
+      r'''<a\s[^>]*href=["']([^"']+)["'][^>]*>(.*?)</a>''',
+      caseSensitive: false,
+      dotAll: true,
+    ).allMatches(raw)) {
       final uri = Uri.tryParse(m[1]!.trim());
       final label = _plain(m[2]!);
       if (uri != null && uri.scheme == 'https' && uri.host.isNotEmpty && label.isNotEmpty) {

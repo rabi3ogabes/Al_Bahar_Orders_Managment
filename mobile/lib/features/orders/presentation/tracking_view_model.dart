@@ -81,7 +81,9 @@ TrackingPanelModel buildTrackingPanel(
     TrackingStage.onTheWay || TrackingStage.waitingPickup =>
       offline
           ? TrackingLink.offline
-          : (socket == RealtimeState.connected || (fix != null && !stale) ? TrackingLink.live : TrackingLink.reconnecting),
+          : (socket == RealtimeState.connected || (fix != null && !stale)
+                ? TrackingLink.live
+                : TrackingLink.reconnecting),
     _ => TrackingLink.idle,
   };
   final age = fix?.age(now);
@@ -101,7 +103,9 @@ TrackingPanelModel buildTrackingPanel(
             ? null
             : (minutes <= 1 ? l10n.trackEtaSoon : l10n.trackEta(minutes)),
         distanceText: fix == null || metres == null ? null : l10n.trackAway(MapFormat.distance(l10n, metres)),
-        note: offlineNote ?? (fix == null ? l10n.trackLocating : (stale && age != null ? MapFormat.lastSeen(l10n, age) : null)),
+        note:
+            offlineNote ??
+            (fix == null ? l10n.trackLocating : (stale && age != null ? MapFormat.lastSeen(l10n, age) : null)),
         initial: _initial(first),
         canCall: hasPhone,
         link: link,

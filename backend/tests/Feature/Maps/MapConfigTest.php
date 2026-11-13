@@ -5,6 +5,7 @@ use App\Domain\Settings\Models\SystemSetting;
 use App\Domain\Settings\Services\Settings;
 use App\Livewire\Admin\Organization\SettingsIndex;
 use App\Support\MapConfig;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
@@ -238,7 +239,7 @@ describe('settings screen', function () {
     });
 
     it('reports an unreachable provider', function () {
-        Http::fake(fn () => throw new Illuminate\Http\Client\ConnectionException('timeout'));
+        Http::fake(fn () => throw new ConnectionException('timeout'));
         Livewire::test(SettingsIndex::class)->call('testTiles')->assertDispatched('toast', type: 'error', message: __('org_admin.map_test.unreachable'));
     });
 });

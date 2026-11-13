@@ -35,7 +35,10 @@ class MapTiles {
       darkUrl: dark,
       attribution: attribution.isEmpty ? kFallbackAttribution : attribution,
       subdomains: sub is List
-          ? [for (final s in sub) if ('$s'.trim().isNotEmpty) '$s'.trim()]
+          ? [
+              for (final s in sub)
+                if ('$s'.trim().isNotEmpty) '$s'.trim(),
+            ]
           : (sub is String && sub.trim().isNotEmpty ? sub.trim().split('') : const []),
       maxZoom: maxZoom is num && maxZoom >= 3 && maxZoom <= 22 ? maxZoom.round() : 19,
       retina: raw['retina'] == true,
@@ -104,9 +107,8 @@ class MapSettings {
   });
 
   /// OpenStreetMap and Doha: used until the server has answered once and whenever it cannot be reached.
-  factory MapSettings.fallback({String? tileUrl}) => MapSettings(
-    tiles: MapTiles(lightUrl: MapTiles._template(tileUrl) ?? kFallbackTileUrl),
-  );
+  factory MapSettings.fallback({String? tileUrl}) =>
+      MapSettings(tiles: MapTiles(lightUrl: MapTiles._template(tileUrl) ?? kFallbackTileUrl));
 
   /// Reads the `GET /map-config` data. Null when there is no usable tile URL.
   static MapSettings? tryParse(Object? raw) {

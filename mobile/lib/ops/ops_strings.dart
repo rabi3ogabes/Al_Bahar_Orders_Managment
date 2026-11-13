@@ -257,5 +257,30 @@ class OpsStrings {
   String get saveBlocked => _t('Please wait, saving…', 'يرجى الانتظار، جارٍ الحفظ…');
   String get photoBroken => _t('Photo unreadable', 'تعذّر عرض الصورة');
 
+  // Maps: fleet filters, delivery map, navigation
+  String get fleetFilterAll => _t('All', 'الكل');
+  String get fleetFilterMoving => _t('Moving', 'في حركة');
+  String get fleetFilterIdle => _t('Waiting', 'متوقف');
+  String get fleetFilterStale => _t('Not live', 'غير مباشر');
+  String get fleetNoMatch => _t('No drivers match this filter.', 'لا يوجد سائقون بهذا التصنيف.');
+  String fleetListTitle(int n) => _t('Drivers · $n', 'السائقون · $n');
+  String get fleetLinkConnecting => _t('Connecting…', 'جارٍ الاتصال…');
+  String get fleetLinkReconnecting => _t('Reconnecting…', 'جارٍ إعادة الاتصال…');
+  String get fleetLinkOffline => _t('Offline', 'غير متصل');
+  String fleetSpeed(int kmh) => _t('$kmh km/h', '$kmh كم/س');
+  String showOnMap(String name) => _t('Show $name on the map', 'عرض $name على الخريطة');
+  String get jobMapTitle => _t('Delivery map', 'خريطة التوصيل');
+  String get jobMap => _t('Map', 'الخريطة');
+  String jobEta(int minutes) => _t('About $minutes min', 'حوالي $minutes د');
+  String jobToGo(String distance) => _t('$distance to go', 'تبقى $distance');
+  String get jobEstimateNote =>
+      _t('Estimated from the straight-line distance.', 'تقدير بناءً على المسافة المباشرة.');
+  String get jobNoPin => _t(
+    'This delivery has no map pin. Use the address text to find it.',
+    'لا يوجد دبوس خريطة لهذا التوصيل. استخدم نص العنوان للوصول.',
+  );
+  String get jobFindingYou => _t('Finding your position…', 'جارٍ تحديد موقعك…');
+  String get trackingChannel => _t('Live location', 'الموقع المباشر');
+
   String get language => _t('العربية', 'English');
 }

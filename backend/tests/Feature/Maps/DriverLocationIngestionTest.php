@@ -8,12 +8,13 @@ use App\Domain\Fulfillment\Models\DriverProfile;
 use App\Domain\Identity\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 
 const LOCATION_URL = '/api/v1/admin/dispatch/driver/location';
 
 /** Posts a GPS ping as the signed-in driver; the 3-second broadcast gate is reset so each call stands alone. */
-function ping(User $driver, array $body = []): Illuminate\Testing\TestResponse
+function ping(User $driver, array $body = []): TestResponse
 {
     Cache::forget('driver:beat:'.$driver->id);
 

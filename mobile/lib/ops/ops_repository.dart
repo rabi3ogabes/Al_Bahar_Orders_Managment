@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:albahar_customer/core/network/api_client.dart';
+import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/network/interceptors.dart';
 import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/storage/token_storage.dart';
@@ -52,11 +53,37 @@ class OpsRepository {
     return asBool(data['on_duty']);
   }
 
-  Future<void> heartbeat(double lat, double lng, {double? speedKmh, int? heading, int? accuracy}) async {
-    await _api.post(
-      '/admin/dispatch/driver/location',
-      data: {'latitude': lat, 'longitude': lng, 'speed_kmh': ?speedKmh, 'heading': ?heading, 'accuracy': ?accuracy},
-    );
+  /// Reports the phone's position. [recordedAt] is when the phone took the fix: the server shows it as the age of the
+  /// position, so a fix that waited in a poor connection is not shown as live. If the phone's clock runs ahead of the
+  /// server's (`location_in_future`) the report is sent again without the time, so a wrong clock never silences tracking.
+  Future<void> heartbeat(
+    double lat,
+    double lng, {
+    double? speedKmh,
+    int? heading,
+    int? accuracy,
+    DateTime? recordedAt,
+  }) async {
+    Future<void> post({required bool withTime}) async {
+      await _api.post(
+        '/admin/dispatch/driver/location',
+        data: {
+          'latitude': lat,
+          'longitude': lng,
+          'speed_kmh': ?speedKmh,
+          'heading': ?heading,
+          'accuracy': ?accuracy,
+          if (withTime && recordedAt != null) 'recorded_at': recordedAt.toUtc().toIso8601String(),
+        },
+      );
+    }
+
+    try {
+      await post(withTime: true);
+    } on ApiException catch (e) {
+      if (recordedAt == null || e.code != 'location_in_future') rethrow;
+      await post(withTime: false);
+    }
   }
 
   Future<List<DriverJob>> jobs({bool history = false}) =>

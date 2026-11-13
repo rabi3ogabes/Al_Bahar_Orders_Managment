@@ -1,5 +1,7 @@
+import 'package:albahar_customer/core/map/map_geo.dart';
 import 'package:albahar_customer/core/utils/json.dart';
 import 'package:flutter/foundation.dart';
+import 'package:latlong2/latlong.dart';
 
 /// Which of the two staff apps this build is.
 enum OpsRole { driver, staff }
@@ -330,6 +332,10 @@ class ProductDraftText {
 }
 
 /// One driver on the live map (`GET /admin/dispatch/fleet`): last position, duty, and the job in hand.
+///
+/// The server now sends the whole position (`heading`, `speed_kmh`, `accuracy_m`, `at`, `age_seconds`), the vehicle and
+/// the job's destination; an older server sends only `lat`, `lng` and `last_seen_at`, which still works.
+@immutable
 class FleetDriver {
   const FleetDriver({
     required this.id,
@@ -342,21 +348,34 @@ class FleetDriver {
     required this.openJobs,
     this.orderNumber,
     this.jobStatus,
+    this.vehicle,
+    this.fix,
+    this.destination,
+    this.battery,
   });
 
   factory FleetDriver.fromJson(JsonMap j) {
     final job = j['job'] is Map ? asMap(j['job']) : const <String, dynamic>{};
+    final dest = job['destination'];
+    final lat = j['lat'] == null ? null : asDouble(j['lat']);
+    final lng = j['lng'] == null ? null : asDouble(j['lng']);
+    final destLat = dest is Map && dest['lat'] is num ? (dest['lat'] as num).toDouble() : null;
+    final destLng = dest is Map && dest['lng'] is num ? (dest['lng'] as num).toDouble() : null;
     return FleetDriver(
       id: asString(j['id']),
       name: asString(j['name']),
       phone: asStringOrNull(j['phone']),
       onDuty: asBool(j['on_duty']),
-      lat: j['lat'] == null ? null : asDouble(j['lat']),
-      lng: j['lng'] == null ? null : asDouble(j['lng']),
+      lat: lat,
+      lng: lng,
       lastSeen: DateTime.tryParse(asString(j['last_seen_at'])),
       openJobs: asInt(j['open_jobs']),
       orderNumber: asStringOrNull(job['order_number']),
       jobStatus: asStringOrNull(job['status']),
+      vehicle: asStringOrNull(j['vehicle']),
+      fix: GeoFix.tryParse(j),
+      destination: MapGeo.isFinitePair(destLat, destLng) ? LatLng(destLat!, destLng!) : null,
+      battery: j['battery'] is num ? (j['battery'] as num).round() : null,
     );
   }
 
@@ -370,6 +389,14 @@ class FleetDriver {
   final int openJobs;
   final String? orderNumber;
   final String? jobStatus;
+  final String? vehicle;
+
+  /// The last position with its heading, speed, accuracy and age; null when the driver has not reported one.
+  final GeoFix? fix;
+
+  /// Where the job in hand is going.
+  final LatLng? destination;
+  final int? battery;
 
   bool get hasPosition => lat != null && lng != null;
 }

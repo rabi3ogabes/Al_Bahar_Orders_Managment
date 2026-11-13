@@ -42,7 +42,12 @@ abstract final class MapNavigation {
             : Uri.parse('google.navigation:q=$ll&mode=d'),
         web: Uri.https('www.google.com', '/maps/dir/', {'api': '1', 'destination': ll, 'travelmode': 'driving'}),
       ),
-      if (ios) NavChoice(app: NavApp.appleMaps, native: null, web: Uri.https('maps.apple.com', '/', {'daddr': ll, 'dirflg': 'd'})),
+      if (ios)
+        NavChoice(
+          app: NavApp.appleMaps,
+          native: null,
+          web: Uri.https('maps.apple.com', '/', {'daddr': ll, 'dirflg': 'd'}),
+        ),
       NavChoice(
         app: NavApp.waze,
         native: Uri.parse('waze://?ll=$ll&navigate=yes'),

@@ -187,11 +187,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> with 
   List<LatLng> _points(OrderTracking t) {
     final stage = trackingStageOf(t);
     final showDriver = (stage == TrackingStage.onTheWay || stage == TrackingStage.waitingPickup) && _fix != null;
-    return [
-      if (showDriver) _fix!.point,
-      ?t.destination,
-      ?t.branch,
-    ];
+    return [if (showDriver) _fix!.point, ?t.destination, ?t.branch];
   }
 
   void _fitAll() {

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:albahar_customer/core/l10n/l10n.dart';
+import 'package:albahar_customer/core/map/measure_size.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/debouncer.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
@@ -207,6 +208,9 @@ class _MapTab extends ConsumerStatefulWidget {
 class _MapTabState extends ConsumerState<_MapTab> {
   Branch? _focused;
 
+  /// Height of the branch card laid over the bottom of the map; the map keeps its controls and pins clear of it.
+  double _card = 0;
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -220,6 +224,7 @@ class _MapTabState extends ConsumerState<_MapTab> {
             child: BranchMap(
               branches: list,
               selectedId: _focused?.id ?? widget.selectedId,
+              bottomInset: _focused == null ? 0 : _card + AppSpace.md,
               onSelect: (b) {
                 Haptics.tap();
                 setState(() => _focused = b);
@@ -232,23 +237,28 @@ class _MapTabState extends ConsumerState<_MapTab> {
               end: AppSpace.md,
               bottom: AppSpace.md,
               child: SafeArea(
-                child: Material(
-                  color: Colors.transparent,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      BranchTile(
-                        branch: _focused!,
-                        selected: _focused!.id == widget.selectedId,
-                        onTap: () => context.push('/branches/${_focused!.id}'),
-                      ),
-                      const Gap(AppSpace.xs),
-                      AppButton(
-                        label: l10n.selectThisBranch,
-                        onPressed: () => unawaited(Future(() => widget.onSelect(_focused!))),
-                      ),
-                    ],
+                child: MeasureSize(
+                  onChange: (size) {
+                    if (mounted && (size.height - _card).abs() > 0.5) setState(() => _card = size.height);
+                  },
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        BranchTile(
+                          branch: _focused!,
+                          selected: _focused!.id == widget.selectedId,
+                          onTap: () => context.push('/branches/${_focused!.id}'),
+                        ),
+                        const Gap(AppSpace.xs),
+                        AppButton(
+                          label: l10n.selectThisBranch,
+                          onPressed: () => unawaited(Future(() => widget.onSelect(_focused!))),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

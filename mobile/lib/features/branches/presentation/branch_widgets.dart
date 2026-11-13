@@ -137,7 +137,9 @@ class _BranchMapState extends ConsumerState<BranchMap> {
     if (widget.interactive && widget.selectedId != old.selectedId) {
       final b = _located.where((b) => b.id == widget.selectedId).firstOrNull;
       if (b != null) _map.flyTo(LatLng(b.latitude!, b.longitude!), zoom: 15);
-    } else if (!listEquals(_points(), [for (final b in old.branches.where((b) => b.hasLocation)) LatLng(b.latitude!, b.longitude!)])) {
+    } else if (!listEquals(_points(), [
+      for (final b in old.branches.where((b) => b.hasLocation)) LatLng(b.latitude!, b.longitude!),
+    ])) {
       _map.fit(_points(), maxZoom: 15);
     }
   }

@@ -151,9 +151,8 @@ class _DriverMarkersLayerState extends State<DriverMarkersLayer> with SingleTick
       animation: _ctrl,
       builder: (context, _) {
         final t = _t;
-        final items = <_Item>[
-          for (final track in _tracks.values) _Item(track, track.at(t)),
-        ]..sort((a, b) => (a.track.data.selected ? 1 : 0).compareTo(b.track.data.selected ? 1 : 0));
+        final items = <_Item>[for (final track in _tracks.values) _Item(track, track.at(t))]
+          ..sort((a, b) => (a.track.data.selected ? 1 : 0).compareTo(b.track.data.selected ? 1 : 0));
         final l10n = context.l10n;
         final markers = <Marker>[];
         final crowded = items.length > widget.clusterAbove && camera != null;
@@ -161,11 +160,7 @@ class _DriverMarkersLayerState extends State<DriverMarkersLayer> with SingleTick
         if (crowded) {
           final selected = items.where((i) => i.track.data.selected).toList();
           final others = items.where((i) => !i.track.data.selected).toList();
-          final groups = clusterPoints<_Item>(
-            others,
-            (i) => i.pose.point,
-            cell: clusterCellDegrees(camera.zoom),
-          );
+          final groups = clusterPoints<_Item>(others, (i) => i.pose.point, cell: clusterCellDegrees(camera.zoom));
           for (final g in groups) {
             if (g.isSingle) {
               singles.add(g.members.first);

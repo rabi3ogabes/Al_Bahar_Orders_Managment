@@ -76,6 +76,23 @@ return [
         'alternate_collector_enabled' => true,
     ],
 
+    // Arrival estimates shown in the live order notification when an order has no booked time slot and no driver position yet.
+    // Editable in Settings → Checkout (orders.* keys); these are the fallbacks.
+    'orders' => [
+        'default_prep_minutes' => 25,       // from order accepted until it is ready for the driver
+        'default_delivery_minutes' => 20,   // typical drive from the branch to the customer
+    ],
+
+    // The customer's live order notification (see docs/guides/LIVE_ORDER_NOTIFICATION.md).
+    'live_order' => [
+        'window_half_minutes' => 7,         // estimate ± this many minutes, rounded to 5
+        'shift_minutes' => 5,               // push again when the arrival window end moves by at least this much
+        'tick_seconds' => 120,              // driver position ticks re-check the estimate at most this often per order
+        'keep_after_done_minutes' => 30,    // a finished order stays in the active list and may still be updated this long
+        'ttl_seconds' => 14400,             // how long FCM/APNs hold an undelivered update (4 h)
+        'max_active' => 10,                 // orders returned by GET /orders/active-progress
+    ],
+
     'payments' => [
         'online_payment_window_minutes' => 30,
         'sadad' => [

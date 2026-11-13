@@ -116,12 +116,7 @@ class _AlBaharMapState extends ConsumerState<AlBaharMap> with SingleTickerProvid
   bool _note = false;
 
   @override
-  EdgeInsets get fitPadding => EdgeInsets.fromLTRB(
-    48,
-    48 + widget.topInset,
-    48,
-    48 + widget.bottomInset,
-  );
+  EdgeInsets get fitPadding => EdgeInsets.fromLTRB(48, 48 + widget.topInset, 48, 48 + widget.bottomInset);
 
   @override
   void initState() {
@@ -162,8 +157,7 @@ class _AlBaharMapState extends ConsumerState<AlBaharMap> with SingleTickerProvid
   @override
   void animateCamera(LatLng center, double zoom) {
     final cam = _c.raw.camera;
-    if (MediaQuery.disableAnimationsOf(context) ||
-        (cam.center == center && cam.zoom == zoom)) {
+    if (MediaQuery.disableAnimationsOf(context) || (cam.center == center && cam.zoom == zoom)) {
       stopCameraAnimation();
       _c.raw.move(center, zoom);
       return;
@@ -278,7 +272,9 @@ class _AlBaharMapState extends ConsumerState<AlBaharMap> with SingleTickerProvid
         },
         onMapEvent: _onMapEvent,
         onTap: widget.onTap == null ? null : (_, point) => widget.onTap!(point),
-        onPositionChanged: widget.onPositionChanged == null ? null : (camera, gesture) => widget.onPositionChanged!(camera, gesture),
+        onPositionChanged: widget.onPositionChanged == null
+            ? null
+            : (camera, gesture) => widget.onPositionChanged!(camera, gesture),
       ),
       children: [tileLayer, ...widget.children],
     );

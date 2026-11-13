@@ -17,14 +17,15 @@ Route::controller(PaymentWebhookController::class)->withoutMiddleware([VerifyCsr
 });
 
 // ── Partner statistics (secret link + password; see PartnerController) ──────────────────────────────────
+// Each data route has its own rate-limit bucket (the prefix), so the fast live-map polling of one browser tab cannot lock out the others.
 Route::prefix('partner/{token}')->name('partner.')->controller(PartnerController::class)->group(function () {
     Route::get('/', 'show')->name('show');
     Route::post('unlock', 'unlock')->name('unlock');
     Route::post('lock', 'lock')->name('lock');
-    Route::get('data', 'day')->middleware('throttle:60,1')->name('data');
-    Route::get('orders/{id}', 'order')->middleware('throttle:90,1')->name('order');
-    Route::get('fleet', 'fleet')->middleware('throttle:60,1')->name('fleet');
-    Route::get('events', 'events')->middleware('throttle:40,1')->name('events');
+    Route::get('data', 'day')->middleware('throttle:60,1,partner-day')->name('data');
+    Route::get('orders/{id}', 'order')->middleware('throttle:90,1,partner-order')->name('order');
+    Route::get('fleet', 'fleet')->middleware('throttle:60,1,partner-fleet')->name('fleet');
+    Route::get('events', 'events')->middleware('throttle:40,1,partner-events')->name('events');
 });
 
 /*

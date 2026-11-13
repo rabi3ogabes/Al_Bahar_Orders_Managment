@@ -124,9 +124,7 @@ class _MapPinPickerState extends ConsumerState<MapPinPicker> {
                   onMyLocation: _locate,
                   locating: _locating,
                   semanticsLabel: l10n.pinCenterSemantics,
-                  children: [
-                    if (_me != null) ...myLocationLayers(context, at: _me!, label: l10n.mapYouAreHere),
-                  ],
+                  children: [if (_me != null) ...myLocationLayers(context, at: _me!, label: l10n.mapYouAreHere)],
                 ),
                 Positioned.fill(
                   child: IgnorePointer(
@@ -238,7 +236,9 @@ class _CentrePin extends StatelessWidget {
           child: AnimatedContainer(
             duration: duration,
             transform: Matrix4.translationValues(0, -(MapPin.height / 2) - (lifted ? 10 : 0), 0),
-            child: ExcludeSemantics(child: MapPin(kind: PinKind.destination, semanticsLabel: label)),
+            child: ExcludeSemantics(
+              child: MapPin(kind: PinKind.destination, semanticsLabel: label),
+            ),
           ),
         ),
       ],
@@ -260,7 +260,9 @@ class PinPreview extends StatelessWidget {
     controls: MapControlsConfig.none,
     semanticsLabel: label,
     children: [
-      MarkerLayer(markers: [pinMarker(pin, kind: PinKind.destination, label: label)]),
+      MarkerLayer(
+        markers: [pinMarker(pin, kind: PinKind.destination, label: label)],
+      ),
     ],
   );
 }

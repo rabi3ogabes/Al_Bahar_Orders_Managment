@@ -99,9 +99,15 @@ class _TrackingPanelState extends State<TrackingPanel> {
                   const Gap(AppSpace.xs),
                   Row(
                     children: [
-                      Icon(m.link == TrackingLink.offline ? Icons.cloud_off_rounded : Icons.schedule_rounded, size: 16, color: palette.muted),
+                      Icon(
+                        m.link == TrackingLink.offline ? Icons.cloud_off_rounded : Icons.schedule_rounded,
+                        size: 16,
+                        color: palette.muted,
+                      ),
                       const Gap(6),
-                      Expanded(child: Text(m.note!, style: context.text.bodySmall?.copyWith(color: palette.muted))),
+                      Expanded(
+                        child: Text(m.note!, style: context.text.bodySmall?.copyWith(color: palette.muted)),
+                      ),
                     ],
                   ),
                 ],
@@ -120,7 +126,9 @@ class _TrackingPanelState extends State<TrackingPanel> {
                 AnimatedSize(
                   duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : AppDurations.medium,
                   alignment: Alignment.topCenter,
-                  child: _steps ? TrackingSteps(current: m.step, closed: m.stage == TrackingStage.closed) : const SizedBox(width: double.infinity),
+                  child: _steps
+                      ? TrackingSteps(current: m.step, closed: m.stage == TrackingStage.closed)
+                      : const SizedBox(width: double.infinity),
                 ),
               ],
             ),
@@ -151,7 +159,10 @@ class _Avatar extends StatelessWidget {
         radius: 24,
         backgroundColor: bg,
         child: model.initial != null && model.stage == TrackingStage.onTheWay
-            ? Text(model.initial!, style: context.text.titleMedium?.copyWith(color: fg, fontWeight: FontWeight.w700))
+            ? Text(
+                model.initial!,
+                style: context.text.titleMedium?.copyWith(color: fg, fontWeight: FontWeight.w700),
+              )
             : Icon(icon, color: fg),
       ),
     );
@@ -181,7 +192,10 @@ class _EtaChip extends StatelessWidget {
             Flexible(
               child: Text(
                 text,
-                style: context.text.titleSmall?.copyWith(color: dim ? context.palette.muted : scheme.onPrimary, fontWeight: FontWeight.w700),
+                style: context.text.titleSmall?.copyWith(
+                  color: dim ? context.palette.muted : scheme.onPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],
@@ -210,9 +224,16 @@ class _LinkPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
           const Gap(6),
-          Text(text, style: context.text.labelMedium?.copyWith(color: color, fontWeight: FontWeight.w600)),
+          Text(
+            text,
+            style: context.text.labelMedium?.copyWith(color: color, fontWeight: FontWeight.w600),
+          ),
         ],
       ),
     );
@@ -244,11 +265,14 @@ class TrackingSteps extends StatelessWidget {
           for (final step in TrackingStep.values)
             Builder(
               builder: (context) {
-                final done = !closed && step.index < current.index || (!closed && current == TrackingStep.delivered && step == current);
+                final done =
+                    !closed && step.index < current.index ||
+                    (!closed && current == TrackingStep.delivered && step == current);
                 final active = !closed && step == current && current != TrackingStep.delivered;
                 final reached = done || active;
                 return Semantics(
-                  label: '${labels[step]}, ${done ? l10n.trackStepDone : (active ? l10n.trackStepCurrent : l10n.trackStepPending)}',
+                  label:
+                      '${labels[step]}, ${done ? l10n.trackStepDone : (active ? l10n.trackStepCurrent : l10n.trackStepPending)}',
                   excludeSemantics: true,
                   child: SizedBox(
                     height: 40,
@@ -259,12 +283,22 @@ class TrackingSteps extends StatelessWidget {
                           height: 24,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: done ? scheme.primary : (active ? scheme.primary.withValues(alpha: 0.14) : Colors.transparent),
+                            color: done
+                                ? scheme.primary
+                                : (active ? scheme.primary.withValues(alpha: 0.14) : Colors.transparent),
                             border: Border.all(color: reached ? scheme.primary : palette.line, width: 2),
                           ),
                           child: done
                               ? Icon(Icons.check_rounded, size: 16, color: scheme.onPrimary)
-                              : (active ? Center(child: Container(width: 8, height: 8, decoration: BoxDecoration(color: scheme.primary, shape: BoxShape.circle))) : null),
+                              : (active
+                                    ? Center(
+                                        child: Container(
+                                          width: 8,
+                                          height: 8,
+                                          decoration: BoxDecoration(color: scheme.primary, shape: BoxShape.circle),
+                                        ),
+                                      )
+                                    : null),
                         ),
                         const Gap(AppSpace.sm),
                         Expanded(

@@ -163,7 +163,9 @@ class MapControlButton extends StatelessWidget {
       excludeSemantics: true,
       onTap: onPressed,
       // A Tooltip needs an Overlay above it; a map shown outside a Navigator simply has no tooltip.
-      child: Overlay.maybeOf(context) == null ? button : Tooltip(message: label, excludeFromSemantics: true, child: button),
+      child: Overlay.maybeOf(context) == null
+          ? button
+          : Tooltip(message: label, excludeFromSemantics: true, child: button),
     );
   }
 }

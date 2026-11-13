@@ -25,11 +25,7 @@ Marker pinMarker(
 /// * [trail] is the last few real positions, a solid thinner line behind the driver.
 ///
 /// Spread the result into `AlBaharMap.children`.
-List<Widget> routeLayers(
-  BuildContext context, {
-  List<LatLng> remaining = const [],
-  List<LatLng> trail = const [],
-}) {
+List<Widget> routeLayers(BuildContext context, {List<LatLng> remaining = const [], List<LatLng> trail = const []}) {
   final scheme = Theme.of(context).colorScheme;
   final dark = Theme.of(context).brightness == Brightness.dark;
   final casing = (dark ? const Color(0xFF181115) : Colors.white).withValues(alpha: 0.85);

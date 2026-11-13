@@ -167,7 +167,7 @@ return [
     ],
     'settings_tab_hint' => [
         'general' => 'How the brand appears to customers, and how they can reach you.',
-        'checkout' => 'Fees, tax and how long stock is held for unpaid orders.',
+        'checkout' => 'Fees, tax, how long stock is held for unpaid orders, and typical preparation and delivery times.',
         'loyalty' => 'How customers earn and redeem points.',
         'auctions' => 'Defaults applied to new auctions.',
         'notifications' => 'Limits that keep customer messaging respectful.',
@@ -187,6 +187,8 @@ return [
         'checkout__cart_ttl_days' => 'Cart lifetime',
         'payments__online_payment_window_minutes' => 'Online payment window',
         'pickup__token_ttl_hours' => 'Pickup code validity',
+        'orders__default_prep_minutes' => 'Typical preparation time',
+        'orders__default_delivery_minutes' => 'Typical delivery time',
         'loyalty__enabled' => 'Loyalty programme',
         'loyalty__points_per_qar' => 'Points earned per QAR',
         'loyalty__redeem_value_per_point' => 'Value of one point (QAR)',
@@ -229,6 +231,8 @@ return [
     'setting_hint' => [
         'checkout__tax_rate_percent' => 'Qatar currently has no VAT; leave at 0 unless advised otherwise.',
         'checkout__reservation_ttl_minutes' => 'Unpaid online orders release their stock after this time.',
+        'orders__default_prep_minutes' => 'Used for the arrival time in the live order notification until a driver is on the road: from the branch accepting an order to it being ready.',
+        'orders__default_delivery_minutes' => 'Typical drive from the branch to the customer. Added to the preparation time to estimate the arrival window.',
         'auctions__default_extension_window_seconds' => 'A bid placed this close to the end extends the auction.',
         'payments__sadad__fee_percent' => 'Used by the partner statistics to work out the net after SADAD. Ask your SADAD account manager for the exact rate.',
         'n8n__enabled' => 'When on, customer WhatsApp messages (cart reminders, offers, birthdays) are handed to your n8n workflow instead of being sent directly.',

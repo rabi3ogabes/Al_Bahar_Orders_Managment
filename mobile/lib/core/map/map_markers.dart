@@ -65,11 +65,7 @@ class DriverMarkerPainter extends CustomPainter {
     final r = selected ? radius + 2 : radius;
     final p = pulse;
     if (p != null) {
-      canvas.drawCircle(
-        c,
-        r + 4 + 14 * p,
-        Paint()..color = colors.fill.withValues(alpha: 0.30 * (1 - p)),
-      );
+      canvas.drawCircle(c, r + 4 + 14 * p, Paint()..color = colors.fill.withValues(alpha: 0.30 * (1 - p)));
     }
     canvas.drawCircle(
       c.translate(0, 2),
@@ -114,7 +110,13 @@ class DriverMarkerPainter extends CustomPainter {
     final cut = Paint()..color = colors.fill;
     switch (vehicle) {
       case VehicleKind.bike:
-        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: const Offset(0, 1), width: 5, height: 14), const Radius.circular(2.5)), fill);
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(center: const Offset(0, 1), width: 5, height: 14),
+            const Radius.circular(2.5),
+          ),
+          fill,
+        );
         canvas.drawLine(
           const Offset(-6.5, -4),
           const Offset(6.5, -4),
@@ -123,15 +125,57 @@ class DriverMarkerPainter extends CustomPainter {
             ..strokeWidth = 2
             ..strokeCap = StrokeCap.round,
         );
-        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: const Offset(0, -8.5), width: 3, height: 5), const Radius.circular(1.5)), fill);
-        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: const Offset(0, 9), width: 3.6, height: 5), const Radius.circular(1.5)), fill);
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(center: const Offset(0, -8.5), width: 3, height: 5),
+            const Radius.circular(1.5),
+          ),
+          fill,
+        );
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(center: const Offset(0, 9), width: 3.6, height: 5),
+            const Radius.circular(1.5),
+          ),
+          fill,
+        );
       case VehicleKind.car:
-        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: 11, height: 19), const Radius.circular(4.5)), fill);
-        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: const Offset(0, -3.6), width: 7.4, height: 3.6), const Radius.circular(1.6)), cut);
-        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: const Offset(0, 6), width: 7, height: 2.6), const Radius.circular(1.2)), cut);
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(center: Offset.zero, width: 11, height: 19),
+            const Radius.circular(4.5),
+          ),
+          fill,
+        );
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(center: const Offset(0, -3.6), width: 7.4, height: 3.6),
+            const Radius.circular(1.6),
+          ),
+          cut,
+        );
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(center: const Offset(0, 6), width: 7, height: 2.6),
+            const Radius.circular(1.2),
+          ),
+          cut,
+        );
       case VehicleKind.van:
-        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: 12, height: 21), const Radius.circular(3)), fill);
-        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: const Offset(0, -6), width: 8, height: 3.6), const Radius.circular(1.4)), cut);
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(center: Offset.zero, width: 12, height: 21),
+            const Radius.circular(3),
+          ),
+          fill,
+        );
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(center: const Offset(0, -6), width: 8, height: 3.6),
+            const Radius.circular(1.4),
+          ),
+          cut,
+        );
         canvas.drawLine(
           const Offset(-5, -2.4),
           const Offset(5, -2.4),
@@ -196,10 +240,12 @@ class DriverMarkerView extends StatefulWidget {
 }
 
 class _DriverMarkerViewState extends State<DriverMarkerView> with SingleTickerProviderStateMixin {
-  late final AnimationController _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1600));
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1600),
+  );
 
-  bool _shouldPulse(BuildContext context) =>
-      widget.moving && !widget.stale && !MediaQuery.disableAnimationsOf(context);
+  bool _shouldPulse(BuildContext context) => widget.moving && !widget.stale && !MediaQuery.disableAnimationsOf(context);
 
   void _sync() {
     if (_shouldPulse(context)) {
@@ -516,10 +562,8 @@ class ClusterBadge extends StatelessWidget {
                 maxScaleFactor: 1.1,
                 child: Text(
                   '$count',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: scheme.onPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: Theme.of(context).textTheme.titleSmall
+                      ?.copyWith(color: scheme.onPrimary, fontWeight: FontWeight.w700),
                 ),
               ),
             ),
