@@ -96,18 +96,18 @@ class DispatchController extends ApiController
         return response()->json(['data' => [
             'branch' => ['id' => $branch->id, 'name' => $branch->localized('name'), 'dispatch_mode' => $branch->dispatch_mode],
             'new' => $count(['pending']), 'preparing' => $count(['accepted', 'preparing']), 'ready' => $count(['ready']),
-            'out_for_delivery' => $count(['dispatched', 'out_for_delivery']),
+            'out_for_delivery' => $count(['dispatched', 'out_for_delivery']), 'failed' => $count(['failed']),
             'waiting_for_driver' => Delivery::where('branch_id', $branch->id)->where('status', 'pending')->count()
                 + (clone $f)->where('status', 'ready')->whereDoesntHave('deliveries', fn ($q) => $q->whereNotIn('status', ['cancelled', 'failed', 'returned']))->count(),
             'drivers_on_duty' => $drivers->where('on_duty', true)->count(), 'drivers_total' => $drivers->count(),
         ]]);
     }
 
-    /** Delivery orders of the branch by stage (new | preparing | ready | out | all). */
+    /** Delivery orders of the branch by stage (new | preparing | ready | out | failed | all). A failed delivery stays visible so staff can bring it back. */
     public function queue(Request $request): JsonResponse
     {
         $branch = $this->branchFor($request, 'orders.view');
-        $stages = ['new' => ['pending'], 'preparing' => ['accepted', 'preparing'], 'ready' => ['ready'], 'out' => ['dispatched', 'out_for_delivery']];
+        $stages = ['new' => ['pending'], 'preparing' => ['accepted', 'preparing'], 'ready' => ['ready'], 'out' => ['dispatched', 'out_for_delivery'], 'failed' => ['failed']];
         $stage = (string) $request->query('stage', 'all');
         $rows = OrderFulfillment::with(['order', 'deliveries.driver:id,name', 'items'])->where('branch_id', $branch->id)->where('type', 'delivery')
             ->whereIn('status', $stages[$stage] ?? array_merge(...array_values($stages)))->orderBy('created_at')->limit(100)->get();

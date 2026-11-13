@@ -2,10 +2,10 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:albahar_customer/core/network/api_client.dart';
-import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/push/push_service.dart';
 import 'package:albahar_customer/core/storage/token_storage.dart';
+import 'package:albahar_customer/core/update/app_update.dart';
 import 'package:albahar_customer/ops/driver/driver_home.dart';
 import 'package:albahar_customer/ops/ops_app.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
@@ -16,7 +16,9 @@ import 'package:albahar_customer/ops/staff/staff_home.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../helpers/fakes.dart';
 import 'ops_test_kit.dart';
@@ -38,7 +40,11 @@ FakeHandler _api({
       if (loginDelay != null) await Future<void>.delayed(loginDelay);
       return login?.call(r) ?? ok(_loginOk());
     case 'GET /admin/me':
-      return ok({'is_super_admin': false, 'permissions': permissions, 'user': {'id': 'u1'}});
+      return ok({
+        'is_super_admin': false,
+        'permissions': permissions,
+        'user': {'id': 'u1'},
+      });
     case 'GET /admin/dispatch/driver':
       return driver
           ? ok({'id': 'u1', 'name': 'Omar', 'on_duty': false, 'open_jobs': 0, 'branches': []})
@@ -71,7 +77,13 @@ FakeHandler _api({
   return error(404, 'not_found');
 };
 
-Future<TestHarness> _harness(WidgetTester tester, OpsRole role, FakeHandler handler, {AuthTokens? signedIn}) async {
+Future<TestHarness> _harness(
+  WidgetTester tester,
+  OpsRole role,
+  FakeHandler handler, {
+  AuthTokens? signedIn,
+  List<Override> extra = const [],
+}) async {
   final h = await TestHarness.create(
     handler: handler,
     tokens: signedIn,
@@ -82,6 +94,7 @@ Future<TestHarness> _harness(WidgetTester tester, OpsRole role, FakeHandler hand
       staffEventsProvider.overrideWith((ref) => const Stream.empty()),
       staffMovesProvider.overrideWith((ref) => const Stream<Map<String, dynamic>>.empty()),
       driverTrackerProvider.overrideWithValue(FakeTracker(OpsRepository(ApiClient(Dio())))),
+      ...extra,
     ],
   );
   tester.view.physicalSize = const Size(390, 844);
@@ -92,7 +105,11 @@ Future<TestHarness> _harness(WidgetTester tester, OpsRole role, FakeHandler hand
   return h;
 }
 
-Future<void> _fillAndSubmit(WidgetTester tester, {String email = '  omar@albahar.qa ', String password = 'secret123'}) async {
+Future<void> _fillAndSubmit(
+  WidgetTester tester, {
+  String email = '  omar@albahar.qa ',
+  String password = 'secret123',
+}) async {
   await tester.enterText(find.widgetWithText(TextField, 'Email'), email);
   await tester.enterText(find.widgetWithText(TextField, 'Password'), password);
   await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
@@ -164,7 +181,9 @@ void main() {
             422,
             'validation_failed',
             message: 'The given data was invalid.',
-            errors: {'email': ['The email field must be a valid email address.']},
+            errors: {
+              'email': ['The email field must be a valid email address.'],
+            },
           ),
         ),
       );
@@ -288,7 +307,9 @@ void main() {
       expect(find.text('Your session ended. Please sign in again.'), findsNothing);
     });
 
-    testWidgets('sign out (driver) goes off duty first, so no deliveries are sent to a signed-out phone', (tester) async {
+    testWidgets('sign out (driver) goes off duty first, so no deliveries are sent to a signed-out phone', (
+      tester,
+    ) async {
       final h = await _harness(tester, OpsRole.driver, _api(driver: true), signedIn: signedIn);
       await tester.tap(find.byTooltip('Menu'));
       await settle(tester);
@@ -312,6 +333,59 @@ void main() {
       await settle(tester);
       expect(h.tokenStore.cached, isNotNull);
       expect(find.byType(StaffHome), findsOneWidget);
+    });
+
+    testWidgets('a saved session registers the push token on every launch, not only after a sign-in', (tester) async {
+      PackageInfo.setMockInitialValues(
+        appName: 'Al Bahar Driver',
+        packageName: 'qa.albahar.driver',
+        version: '1.0.0',
+        buildNumber: '7',
+        buildSignature: '',
+      );
+      final messaging = _SlowMessaging()..ready.complete();
+      final h = await _harness(
+        tester,
+        OpsRole.staff,
+        _api(),
+        signedIn: signedIn,
+        extra: [
+          pushServiceProvider.overrideWith(
+            (ref) => PushService(
+              messaging: messaging,
+              local: FakeLocalNotifier(),
+              api: ref.watch(apiClientProvider),
+              prefs: ref.watch(appPreferencesProvider),
+              enabled: true,
+              devicesPath: '/admin/devices',
+            ),
+          ),
+        ],
+      );
+      // Registration talks to platform storage (real async): give it real time.
+      for (var i = 0; i < 6; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+        await tester.pump();
+      }
+      expect(h.adapter.where('POST', '/admin/devices').single.body['push_token'], 'tok-1');
+    });
+
+    testWidgets('426 from any call raises the update screen (the apps stop working until updated)', (tester) async {
+      addTearDown(() => updateRequired.value = null);
+      final base = _api();
+      await _harness(
+        tester,
+        OpsRole.staff,
+        (r) => r.path == '/admin/dispatch/overview'
+            ? const FakeReply(426, {
+                'code': 'update_required',
+                'message': 'Update the app',
+                'update': {'latest_version': '2.0.0', 'store_url': 'https://play.test'},
+              })
+            : base(r),
+        signedIn: signedIn,
+      );
+      expect(updateRequired.value?.required, isTrue);
     });
 
     testWidgets('the language switch is in the menu once signed in', (tester) async {
@@ -340,7 +414,10 @@ void main() {
       await r.deliver('d1', recipient: 'Noura', proof: photo, codAmount: 303);
       final req = adapter.where('POST', '/admin/deliveries/d1/deliver').single;
       final form = req.body as FormData;
-      expect(form.fields.map((f) => '${f.key}=${f.value}'), containsAll(['recipient_name=Noura', 'cod[tender]=cash', 'cod[amount]=303.00']));
+      expect(
+        form.fields.map((f) => '${f.key}=${f.value}'),
+        containsAll(['recipient_name=Noura', 'cod[tender]=cash', 'cod[amount]=303.00']),
+      );
       expect(form.files.single.key, 'proof');
       // A photo upload gets longer than a normal call (mobile networks), and is never retried by the client.
       expect(req.options.sendTimeout, const Duration(seconds: 120));
@@ -372,7 +449,15 @@ void main() {
 
     test('fail sends one of the reason codes the server accepts', () async {
       final (r, adapter, _) = await repo((_) => ok({}));
-      const accepted = ['customer_unreachable', 'customer_absent', 'wrong_address', 'refused', 'damaged', 'access_denied', 'other'];
+      const accepted = [
+        'customer_unreachable',
+        'customer_absent',
+        'wrong_address',
+        'refused',
+        'damaged',
+        'access_denied',
+        'other',
+      ];
       await r.fail('d1', 'wrong_address');
       expect(accepted, contains(adapter.requests.single.body['reason_code']));
     });
@@ -388,30 +473,44 @@ void main() {
       expect(adapter.requests.first.body, {'latitude': 25.3, 'longitude': 51.5});
     });
 
-    test('create product: server field names, status, translations; photos go one by one with their own timeout', () async {
-      final (r, adapter, _) = await repo((req) => ok({'id': req.path.contains('images') ? 'img1' : 'p1'}));
-      final id = await r.createProduct(
-        sku: 'AB-1',
-        price: '120.5',
-        titleEn: 'Throw',
-        titleAr: 'غطاء',
-        text: const ProductDraftText(shortEn: 's', descriptionEn: '<p>d</p>', shortAr: 'ق', descriptionAr: '<p>و</p>'),
-        categoryId: 'c1',
-        publish: true,
-      );
-      expect(id, 'p1');
-      final body = adapter.requests.single.body as Map<String, dynamic>;
-      expect(body['status'], 'active');
-      expect(body['price'], '120.5');
-      expect(body['category_id'], 'c1');
-      expect(body['translations']['ar']['name'], 'غطاء');
-      final photo = File('${tmp.path}/p.jpg')..writeAsBytesSync([1]);
-      expect(await r.uploadProductImage('p1', photo), 'img1');
-      expect(adapter.requests.last.options.sendTimeout, const Duration(seconds: 120));
-    });
+    test(
+      'create product: server field names, status, translations; photos go one by one with their own timeout',
+      () async {
+        final (r, adapter, _) = await repo((req) => ok({'id': req.path.contains('images') ? 'img1' : 'p1'}));
+        final id = await r.createProduct(
+          sku: 'AB-1',
+          price: '120.5',
+          titleEn: 'Throw',
+          titleAr: 'غطاء',
+          text: const ProductDraftText(
+            shortEn: 's',
+            descriptionEn: '<p>d</p>',
+            shortAr: 'ق',
+            descriptionAr: '<p>و</p>',
+          ),
+          categoryId: 'c1',
+          publish: true,
+        );
+        expect(id, 'p1');
+        final body = adapter.requests.single.body as Map<String, dynamic>;
+        expect(body['status'], 'active');
+        expect(body['price'], '120.5');
+        expect(body['category_id'], 'c1');
+        expect(body['translations']['ar']['name'], 'غطاء');
+        final photo = File('${tmp.path}/p.jpg')..writeAsBytesSync([1]);
+        expect(await r.uploadProductImage('p1', photo), 'img1');
+        expect(adapter.requests.last.options.sendTimeout, const Duration(seconds: 120));
+      },
+    );
 
     test('the AI writer may take longer than a normal call (the server asks Claude up to twice)', () async {
-      final (r, adapter, _) = await repo((_) => ok({'name': {'en': 'a', 'ar': 'ب'}, 'en': {}, 'ar': {}}));
+      final (r, adapter, _) = await repo(
+        (_) => ok({
+          'name': {'en': 'a', 'ar': 'ب'},
+          'en': {},
+          'ar': {},
+        }),
+      );
       await r.describe(titleEn: 'Throw');
       expect(adapter.requests.single.options.receiveTimeout, greaterThan(const Duration(seconds: 120)));
     });

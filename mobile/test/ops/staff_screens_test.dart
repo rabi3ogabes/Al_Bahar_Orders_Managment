@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
-import 'package:albahar_customer/ops/ops_session.dart';
 import 'package:albahar_customer/ops/staff/fleet_map_tab.dart';
 import 'package:albahar_customer/ops/staff/staff_home.dart';
 import 'package:flutter/material.dart';
@@ -120,7 +119,8 @@ void main() {
     });
 
     testWidgets('403 shows the server message', (tester) async {
-      final repo = FakeOps()..advanceError = apiError(ApiErrorKind.forbidden, 403, message: 'Not allowed at this branch');
+      final repo = FakeOps()
+        ..advanceError = apiError(ApiErrorKind.forbidden, 403, message: 'Not allowed at this branch');
       await _pump(tester, repo);
       await tester.tap(find.text('Accept order'));
       await settle(tester);
@@ -163,8 +163,40 @@ void main() {
       expect(repo.calls.single, 'assign:f1:u2');
     });
 
+    testWidgets('a failed delivery stays visible and can be brought back to the branch (with a confirmation)', (
+      tester,
+    ) async {
+      final repo = FakeOps()..perms = const ['orders.view', 'deliveries.edit'];
+      await _pump(tester, repo);
+      expect(find.textContaining('Failed · 1'), findsOneWidget);
+      await _openTab(tester, 4);
+      expect(find.text('#AB100010'), findsOneWidget);
+      expect(find.text('Delivery failed'), findsOneWidget);
+      await tester.tap(find.text('Return to branch'));
+      await settle(tester);
+      await tester.tap(find.text('Cancel'));
+      await settle(tester);
+      expect(repo.calls, isEmpty);
+      await tester.tap(find.text('Return to branch'));
+      await settle(tester);
+      await tester.tap(find.widgetWithText(TextButton, 'Confirm'));
+      await settle(tester);
+      expect(repo.calls, ['return:dl-f2']);
+    });
+
+    testWidgets('without deliveries.edit there is no way to return a delivery', (tester) async {
+      final repo = FakeOps()..perms = const ['orders.view'];
+      await _pump(tester, repo);
+      await _openTab(tester, 4);
+      expect(find.text('#AB100010'), findsOneWidget);
+      expect(find.text('Return to branch'), findsNothing);
+    });
+
     testWidgets('a ready order with a driver offers Change driver, not a second assign', (tester) async {
-      final repo = FakeOps()..queues = {'ready': [FakeOps.order(driver: 'Omar')]};
+      final repo = FakeOps()
+        ..queues = {
+          'ready': [FakeOps.order(driver: 'Omar')],
+        };
       await _pump(tester, repo);
       await _openReady(tester, variants.first);
       expect(find.text('Driver: Omar'), findsOneWidget);
@@ -207,14 +239,14 @@ void main() {
     testWidgets('drivers tab: list with call buttons named after the driver; empty state', (tester) async {
       final repo = FakeOps();
       await _pump(tester, repo);
-      await _openTab(tester, 4);
+      await _openTab(tester, 5);
       expect(find.byTooltip('Call Omar'), findsOneWidget);
       expect(find.byTooltip('Call Salem'), findsNothing); // no phone number on file
 
       final empty = FakeOps()..branchDrivers = const [];
       await tester.pumpWidget(const SizedBox.shrink());
       await _pump(tester, empty);
-      await _openTab(tester, 4);
+      await _openTab(tester, 5);
       expect(find.textContaining('No drivers in this branch'), findsOneWidget);
     });
   });
@@ -272,7 +304,9 @@ void main() {
       final events = StreamController<Map<String, dynamic>>.broadcast();
       addTearDown(events.close);
       final repo = FakeOps()
-        ..fleetList = [driver('u1', 'Omar', lat: 25.28, lng: 51.52, seen: DateTime.now().subtract(const Duration(hours: 1)))];
+        ..fleetList = [
+          driver('u1', 'Omar', lat: 25.28, lng: 51.52, seen: DateTime.now().subtract(const Duration(hours: 1))),
+        ];
       await pumpMap(tester, repo, events.stream);
       events.add({'driver_id': 'u1', 'lat': 25.4, 'lng': 51.6});
       await tester.pump();
@@ -280,7 +314,9 @@ void main() {
       expect(pin().latitude, 25.4);
 
       // The server now reports a position heard from after the live ping.
-      repo.fleetList = [driver('u1', 'Omar', lat: 25.31, lng: 51.55, seen: DateTime.now().add(const Duration(minutes: 5)))];
+      repo.fleetList = [
+        driver('u1', 'Omar', lat: 25.31, lng: 51.55, seen: DateTime.now().add(const Duration(minutes: 5))),
+      ];
       final container = ProviderScope.containerOf(tester.element(find.byType(FleetMapTab)));
       container.invalidate(staffFleetProvider);
       await tester.pump();
@@ -293,7 +329,7 @@ void main() {
       useVariant(tester, const Variant('default', Size(390, 844), kEn));
       await tester.pumpWidget(opsHost(const StaffHome(), repo, role: OpsRole.staff));
       await settle(tester);
-      await _openTab(tester, 5);
+      await _openTab(tester, 6);
       expect(repo.fleetBranch, 'b1');
     });
   });

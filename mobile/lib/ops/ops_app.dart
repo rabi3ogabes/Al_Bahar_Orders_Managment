@@ -268,7 +268,9 @@ class _OpsLoginScreenState extends ConsumerState<OpsLoginScreen> {
                         liveRegion: true,
                         child: Text(
                           message,
-                          style: TextStyle(color: _error == null && expired ? context.palette.muted : context.palette.danger),
+                          style: TextStyle(
+                            color: _error == null && expired ? context.palette.muted : context.palette.danger,
+                          ),
                           textAlign: TextAlign.center,
                         ),
                       ),

@@ -55,6 +55,7 @@ class FakeOps implements OpsRepository {
     'preparing': 0,
     'ready': 1,
     'out_for_delivery': 0,
+    'failed': 1,
     'waiting_for_driver': 1,
     'drivers_on_duty': 1,
     'drivers_total': 2,
@@ -62,6 +63,7 @@ class FakeOps implements OpsRepository {
   Map<String, List<QueueOrder>> queues = {
     'new': [order(id: 'f0', status: 'pending', number: 'AB100001')],
     'ready': [order(id: 'f1', status: 'ready', number: 'AB100009')],
+    'failed': [order(id: 'f2', status: 'failed', number: 'AB100010', driver: 'Omar')],
   };
   Object? queueError;
   Object? overviewError;
@@ -91,7 +93,13 @@ class FakeOps implements OpsRepository {
         'order_number': 'AB100008',
         'customer_name': 'Noura',
         'customer_phone': '+97455123456',
-        'address': {'zone_number': '24', 'street_number': '817', 'building_number': '12', 'latitude': 25.3, 'longitude': 51.5},
+        'address': {
+          'zone_number': '24',
+          'street_number': '817',
+          'building_number': '12',
+          'latitude': 25.3,
+          'longitude': 51.5,
+        },
         'payment_method': 'cod',
         'cod_amount': cod,
         'requires_proof': proof,
@@ -109,7 +117,13 @@ class FakeOps implements OpsRepository {
         'payment_method': 'cod',
         'grand_total': '120.00',
         'address': {'zone_number': '24', 'street_number': '9'},
-        'delivery': driver == null ? null : {'status': 'assigned', 'driver': {'id': 'u1', 'name': driver}},
+        'delivery': driver == null
+            ? null
+            : {
+                'id': 'dl-$id',
+                'status': status == 'failed' ? 'failed' : 'assigned',
+                'driver': {'id': 'u1', 'name': driver},
+              },
       });
 
   @override
@@ -420,14 +434,8 @@ ApiException apiError(
   String? message,
   Map<String, List<String>> errors = const {},
   Duration? retryAfter,
-}) => ApiException(
-  kind: kind,
-  statusCode: status,
-  code: code,
-  message: message,
-  errors: errors,
-  retryAfter: retryAfter,
-);
+}) =>
+    ApiException(kind: kind, statusCode: status, code: code, message: message, errors: errors, retryAfter: retryAfter);
 
 ApiException conflict([String message = 'Already moved']) =>
     apiError(ApiErrorKind.conflict, 409, code: 'invalid_state_transition', message: message);

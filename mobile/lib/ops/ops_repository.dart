@@ -68,7 +68,10 @@ class OpsRepository {
   }
 
   /// A photo upload on a mobile connection needs more time than a normal call; never retried automatically.
-  static final _upload = Options(sendTimeout: const Duration(seconds: 120), receiveTimeout: const Duration(seconds: 120));
+  static final _upload = Options(
+    sendTimeout: const Duration(seconds: 120),
+    receiveTimeout: const Duration(seconds: 120),
+  );
 
   Future<void> deliver(String id, {String? recipient, File? proof, double? codAmount}) async {
     final form = FormData.fromMap({

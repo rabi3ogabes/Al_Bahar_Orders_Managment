@@ -543,7 +543,9 @@ class _DeliverSheetState extends ConsumerState<_DeliverSheet> {
   Future<void> _shoot() async {
     final t = OpsStrings.of(context);
     try {
-      final shot = await ref.read(opsImagePickerProvider).pickImage(source: ImageSource.camera, maxWidth: 1600, imageQuality: 80);
+      final shot = await ref
+          .read(opsImagePickerProvider)
+          .pickImage(source: ImageSource.camera, maxWidth: 1600, imageQuality: 80);
       if (shot != null && mounted) {
         setState(() {
           _photo = File(shot.path);

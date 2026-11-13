@@ -45,7 +45,7 @@ final staffMovesProvider = Provider.autoDispose<Stream<Map<String, dynamic>>>((r
       .map((e) => e.data);
 });
 
-const _stages = ['new', 'preparing', 'ready', 'out'];
+const _stages = ['new', 'preparing', 'ready', 'out', 'failed'];
 
 /// Branch staff app: the day's delivery orders by stage, one-tap order steps, and (when the branch is on manual
 /// dispatch) assigning a driver to a ready order. Several employees can use it at once; every screen reloads often.
@@ -103,6 +103,7 @@ class _StaffHomeState extends ConsumerState<StaffHome> with OpsPolling {
     final canSeeDrivers = hasPermission(perms, 'deliveries.view');
     final canEdit = hasPermission(perms, 'orders.edit');
     final canAssign = hasPermission(perms, 'deliveries.assign');
+    final canReturn = hasPermission(perms, 'deliveries.edit');
     ref.listen(staffEventsProvider, (_, next) {
       final e = next.value;
       if (e == null || e.event != 'dispatch.updated') return;
@@ -117,6 +118,7 @@ class _StaffHomeState extends ConsumerState<StaffHome> with OpsPolling {
       Tab(text: '${t.stagePreparing}${o == null ? '' : ' · ${o.preparing}'}'),
       Tab(text: '${t.stageReady}${o == null ? '' : ' · ${o.ready}'}'),
       Tab(text: '${t.stageOut}${o == null ? '' : ' · ${o.out}'}'),
+      Tab(text: '${t.stageFailed}${o == null ? '' : ' · ${o.failed}'}'),
       if (canSeeDrivers) Tab(text: t.drivers),
       if (canSeeDrivers) Tab(text: t.mapTab),
     ];
@@ -154,7 +156,13 @@ class _StaffHomeState extends ConsumerState<StaffHome> with OpsPolling {
                     child: TabBarView(
                       children: [
                         for (final s in _stages)
-                          _OrderList(stage: s, autoDispatch: o?.autoDispatch ?? false, canEdit: canEdit, canAssign: canAssign),
+                          _OrderList(
+                            stage: s,
+                            autoDispatch: o?.autoDispatch ?? false,
+                            canEdit: canEdit,
+                            canAssign: canAssign,
+                            canReturn: canReturn,
+                          ),
                         if (canSeeDrivers) const _DriverList(),
                         if (canSeeDrivers) FleetMapTab(events: ref.watch(staffMovesProvider)),
                       ],
@@ -209,11 +217,18 @@ class _OverviewBar extends StatelessWidget {
 }
 
 class _OrderList extends ConsumerWidget {
-  const _OrderList({required this.stage, required this.autoDispatch, required this.canEdit, required this.canAssign});
+  const _OrderList({
+    required this.stage,
+    required this.autoDispatch,
+    required this.canEdit,
+    required this.canAssign,
+    required this.canReturn,
+  });
   final String stage;
   final bool autoDispatch;
   final bool canEdit;
   final bool canAssign;
+  final bool canReturn;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -234,6 +249,7 @@ class _OrderList extends ConsumerWidget {
         autoDispatch: autoDispatch,
         canEdit: canEdit,
         canAssign: canAssign,
+        canReturn: canReturn,
       ),
     );
   }
@@ -246,11 +262,13 @@ class _OrderCard extends ConsumerStatefulWidget {
     required this.autoDispatch,
     required this.canEdit,
     required this.canAssign,
+    required this.canReturn,
   });
   final QueueOrder order;
   final bool autoDispatch;
   final bool canEdit;
   final bool canAssign;
+  final bool canReturn;
 
   @override
   ConsumerState<_OrderCard> createState() => _OrderCardState();
@@ -281,6 +299,26 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
   Future<void> _advance(String status) =>
       _run(() => ref.read(opsRepositoryProvider).advance(widget.order.fulfillmentId, status));
 
+  /// A failed delivery brought back to the branch: stock goes back and the order closes as returned.
+  Future<void> _returnToBranch() async {
+    final id = widget.order.deliveryId;
+    if (id == null || _busy) return;
+    final t = OpsStrings.of(context);
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(t.confirmReturnQ),
+        content: Text(t.confirmReturnBody),
+        actions: [
+          TextButton(autofocus: true, onPressed: () => Navigator.pop(c, false), child: Text(t.cancel)),
+          TextButton(onPressed: () => Navigator.pop(c, true), child: Text(t.confirm)),
+        ],
+      ),
+    );
+    if (sure != true || !mounted) return;
+    await _run(() => ref.read(opsRepositoryProvider).returnToBranch(id));
+  }
+
   Future<void> _assign() async {
     if (_busy) return;
     final driver = await showModalBottomSheet<BranchDriver>(
@@ -306,8 +344,12 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
       _ => null,
     };
     final hasDriver = o.driverName != null;
+    final showReturn = widget.canReturn && o.status == 'failed' && o.deliveryId != null;
     final showAssign =
-        widget.canAssign && o.status == 'ready' && o.deliveryStatus != 'picked_up' && o.deliveryStatus != 'out_for_delivery';
+        widget.canAssign &&
+        o.status == 'ready' &&
+        o.deliveryStatus != 'picked_up' &&
+        o.deliveryStatus != 'out_for_delivery';
     return SurfaceCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -338,6 +380,23 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
               padding: const EdgeInsets.only(top: AppSpace.xs),
               child: StatusChip(label: t.waitingForDriver, tone: StatusTone.warning, icon: Icons.hourglass_top_rounded),
             ),
+          if (o.status == 'failed')
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpace.xs),
+              child: StatusChip(
+                label: t.deliveryFailedTag,
+                tone: StatusTone.danger,
+                icon: Icons.report_gmailerrorred_rounded,
+              ),
+            ),
+          if (showReturn) ...[
+            const Gap(AppSpace.sm),
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _returnToBranch,
+              icon: const Icon(Icons.assignment_return_rounded, size: 18),
+              label: Text(t.returnToBranch),
+            ),
+          ],
           if (stepLabel != null || showAssign) ...[
             const Gap(AppSpace.sm),
             Row(

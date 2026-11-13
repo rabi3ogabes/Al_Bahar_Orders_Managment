@@ -456,8 +456,12 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
 }
 
 /// Hides Flutter's "0/255" counter on fields where the limit is only a safety net.
-Widget? _noCounter(BuildContext context, {required int currentLength, required bool isFocused, required int? maxLength}) =>
-    null;
+Widget? _noCounter(
+  BuildContext context, {
+  required int currentLength,
+  required bool isFocused,
+  required int? maxLength,
+}) => null;
 
 class _AddTile extends StatelessWidget {
   const _AddTile({required this.label, required this.onTap});

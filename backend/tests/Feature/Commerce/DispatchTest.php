@@ -66,6 +66,27 @@ it('manual mode leaves assignment to a branch employee, who sees the drivers and
     $this->postJson("/api/v1/admin/deliveries/{$job['id']}/pickup")->assertOk()->assertJsonPath('data.status', 'picked_up');
 });
 
+it('keeps a failed delivery in the branch queue so staff can bring it back', function () {
+    $w = commerceWorld();
+    $driver = driverFor($w->a);
+    [$f, $mgr] = readyOrder($w);
+    $this->postJson("/api/v1/admin/dispatch/fulfillments/{$f->id}/assign", ['driver_id' => $driver->id])->assertOk();
+    $delivery = Delivery::first();
+    actingAsStaff($driver);
+    foreach (['accept', 'pickup', 'out-for-delivery'] as $step) {
+        $this->postJson("/api/v1/admin/deliveries/{$delivery->id}/{$step}")->assertOk();
+    }
+    $this->postJson("/api/v1/admin/deliveries/{$delivery->id}/fail", ['reason_code' => 'customer_absent'])->assertOk();
+
+    actingAsStaff($mgr);
+    $this->getJson('/api/v1/admin/dispatch/overview?branch_id='.$w->a->id)->assertOk()->assertJsonPath('data.failed', 1)->assertJsonPath('data.out_for_delivery', 0);
+    $row = $this->getJson('/api/v1/admin/dispatch/queue?stage=failed&branch_id='.$w->a->id)->assertOk()->json('data.0');
+    expect($row['fulfillment_id'])->toBe($f->id)->and($row['status'])->toBe('failed')->and($row['delivery']['id'])->toBe($delivery->id)->and($row['delivery']['status'])->toBe('failed');
+    expect($this->getJson('/api/v1/admin/dispatch/queue?stage=out&branch_id='.$w->a->id)->json('data'))->toBe([]);
+    $this->postJson("/api/v1/admin/deliveries/{$delivery->id}/return")->assertOk()->assertJsonPath('data.status', 'returned');
+    expect($this->getJson('/api/v1/admin/dispatch/queue?stage=failed&branch_id='.$w->a->id)->json('data'))->toBe([]);
+});
+
 it('rejects assigning someone who is not a driver of that branch', function () {
     $w = commerceWorld();
     $otherBranchDriver = driverFor($w->b);

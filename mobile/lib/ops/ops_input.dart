@@ -33,6 +33,9 @@ class AmountInputFormatter extends TextInputFormatter {
     final text = normalizeDigits(newValue.text).replaceAll(RegExp(r'[^0-9.]'), '');
     if (!RegExp(r'^\d*\.?\d{0,2}$').hasMatch(text)) return oldValue;
     if (text == newValue.text) return newValue;
-    return TextEditingValue(text: text, selection: TextSelection.collapsed(offset: text.length));
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
   }
 }

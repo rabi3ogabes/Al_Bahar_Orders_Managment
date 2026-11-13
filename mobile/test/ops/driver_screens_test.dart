@@ -269,7 +269,12 @@ void main() {
   group('proof of delivery', () {
     Future<void> openSheet(WidgetTester tester, FakeOps repo, {FakePicker? picker, Variant? variant}) async {
       await _pump(tester, repo, picker: picker, variant: variant ?? const Variant('default', Size(390, 844), kEn));
-      await tester.tap(find.widgetWithText(FilledButton, (variant ?? const Variant('d', Size(1, 1), kEn)).rtl ? 'تم التسليم' : 'Delivered'));
+      await tester.tap(
+        find.widgetWithText(
+          FilledButton,
+          (variant ?? const Variant('d', Size(1, 1), kEn)).rtl ? 'تم التسليم' : 'Delivered',
+        ),
+      );
       await settle(tester);
     }
 
@@ -332,10 +337,7 @@ void main() {
     testWidgets('no cash field for a prepaid order, and a missing photo is fine when proof is not required', (
       tester,
     ) async {
-      final repo = FakeOps()
-        ..jobList = [
-          FakeOps.job(status: 'out_for_delivery', cod: '0', proof: false),
-        ];
+      final repo = FakeOps()..jobList = [FakeOps.job(status: 'out_for_delivery', cod: '0', proof: false)];
       await openSheet(tester, repo);
       expect(find.widgetWithText(TextField, 'Cash collected (QAR)'), findsNothing);
       await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
@@ -367,7 +369,11 @@ void main() {
 
     testWidgets('422 from the server (amount changed) shows its message in the sheet', (tester) async {
       final repo = outForDelivery()
-        ..deliverError = apiError(ApiErrorKind.validation, 422, message: 'Collected amount must equal the amount due (QAR 303.00).');
+        ..deliverError = apiError(
+          ApiErrorKind.validation,
+          422,
+          message: 'Collected amount must equal the amount due (QAR 303.00).',
+        );
       await openSheet(tester, repo);
       await tester.tap(find.text('Take proof photo'));
       await settle(tester);

@@ -15,15 +15,16 @@ class DriverTracker {
     this.minGap = const Duration(seconds: 8),
     this.keepAlive = const Duration(seconds: 60),
     Stream<Position> Function(LocationSettings settings)? positions,
-    DateTime Function() now = DateTime.now,
-  }) : _now = now,
-       _positions = positions ?? ((s) => Geolocator.getPositionStream(locationSettings: s));
+    this.now = DateTime.now,
+  }) : _positions = positions ?? ((s) => Geolocator.getPositionStream(locationSettings: s));
 
   final OpsRepository _repo;
   final Duration minGap;
   final Duration keepAlive;
   final Stream<Position> Function(LocationSettings settings) _positions;
-  final DateTime Function() _now;
+
+  /// The clock (replaced in tests).
+  final DateTime Function() now;
   StreamSubscription<Position>? _sub;
   Timer? _keepAliveTimer;
   Position? _last;
@@ -60,9 +61,11 @@ class DriverTracker {
     _sub = _positions(settings).listen(_onPosition, onError: (Object e) => onError?.call(e));
     _keepAliveTimer = Timer.periodic(keepAlive, (_) {
       final p = _last;
-      final now = _now();
+      final at = now();
       // Repeat only a recent fix: after a long GPS blackout the old position must not look fresh.
-      if (p != null && now.difference(_lastSent) >= keepAlive && now.difference(p.timestamp) < const Duration(minutes: 10)) {
+      if (p != null &&
+          at.difference(_lastSent) >= keepAlive &&
+          at.difference(p.timestamp) < const Duration(minutes: 10)) {
         unawaited(_send(p));
       }
     });
@@ -70,12 +73,12 @@ class DriverTracker {
 
   Future<void> _onPosition(Position p) async {
     _last = p;
-    if (_now().difference(_lastSent) < minGap) return;
+    if (now().difference(_lastSent) < minGap) return;
     await _send(p);
   }
 
   Future<void> _send(Position p) async {
-    _lastSent = _now();
+    _lastSent = now();
     try {
       await _repo.heartbeat(
         p.latitude,
@@ -93,7 +96,9 @@ class DriverTracker {
     _keepAliveTimer?.cancel();
     _keepAliveTimer = null;
     _last = null;
-    await _sub?.cancel();
+    // `running` turns false at once; the stream may take a moment to confirm the cancel.
+    final cancelled = _sub?.cancel();
     _sub = null;
+    await cancelled;
   }
 }

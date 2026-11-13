@@ -156,6 +156,7 @@ class StaffOverview {
     required this.preparing,
     required this.ready,
     required this.out,
+    required this.failed,
     required this.waitingForDriver,
     required this.driversOnDuty,
     required this.driversTotal,
@@ -171,6 +172,7 @@ class StaffOverview {
       preparing: asInt(j['preparing']),
       ready: asInt(j['ready']),
       out: asInt(j['out_for_delivery']),
+      failed: asInt(j['failed']),
       waitingForDriver: asInt(j['waiting_for_driver']),
       driversOnDuty: asInt(j['drivers_on_duty']),
       driversTotal: asInt(j['drivers_total']),
@@ -184,6 +186,7 @@ class StaffOverview {
   final int preparing;
   final int ready;
   final int out;
+  final int failed;
   final int waitingForDriver;
   final int driversOnDuty;
   final int driversTotal;
@@ -203,6 +206,7 @@ class QueueOrder {
     required this.paymentMethod,
     required this.total,
     required this.deliveryStatus,
+    required this.deliveryId,
     required this.driverName,
     required this.driverId,
   });
@@ -221,6 +225,7 @@ class QueueOrder {
       paymentMethod: asString(j['payment_method']),
       total: asString(j['grand_total'], '0'),
       deliveryStatus: asStringOrNull(d?['status']),
+      deliveryId: asStringOrNull(d?['id']),
       driverName: asStringOrNull(driver?['name']),
       driverId: asStringOrNull(driver?['id']),
     );
@@ -236,6 +241,7 @@ class QueueOrder {
   final String paymentMethod;
   final String total;
   final String? deliveryStatus;
+  final String? deliveryId;
   final String? driverName;
   final String? driverId;
 

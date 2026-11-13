@@ -122,9 +122,8 @@ void main() {
 
     testWidgets('keyboard types and actions are right for each field', (tester) async {
       await _open(tester, FakeOps());
-      TextField inner(String label) => tester.widget<TextField>(
-        find.descendant(of: _field(label), matching: find.byType(TextField)),
-      );
+      TextField inner(String label) =>
+          tester.widget<TextField>(find.descendant(of: _field(label), matching: find.byType(TextField)));
       expect(inner('Price (QAR)').keyboardType, const TextInputType.numberWithOptions(decimal: true));
       expect(inner('Price (QAR)').textInputAction, TextInputAction.next);
       expect(inner('Title (English)').textCapitalization, TextCapitalization.words);

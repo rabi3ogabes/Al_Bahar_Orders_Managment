@@ -6,6 +6,7 @@ import 'package:albahar_customer/ops/driver/driver_tracker.dart';
 import 'package:albahar_customer/ops/ops_input.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_strings.dart';
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
@@ -29,10 +30,10 @@ void main() {
   group('texts', () {
     final source = File('lib/ops/ops_strings.dart').readAsStringSync();
     // Every `_t('English', 'Arabic')` pair, single- or multi-line.
-    final pairs = RegExp(r"_t\(\s*'((?:[^'\\]|\\.)*)',\s*'((?:[^'\\]|\\.)*)',?\s*\)", dotAll: true)
-        .allMatches(source)
-        .map((m) => (en: m[1]!, ar: m[2]!))
-        .toList();
+    final pairs = RegExp(
+      r"_t\(\s*'((?:[^'\\]|\\.)*)',\s*'((?:[^'\\]|\\.)*)',?\s*\)",
+      dotAll: true,
+    ).allMatches(source).map((m) => (en: m[1]!, ar: m[2]!)).toList();
 
     test('every text has an English and an Arabic version', () {
       expect(pairs.length, greaterThan(150));
@@ -63,7 +64,12 @@ void main() {
     });
 
     test('address, money and time-ago follow the language', () {
-      final a = OpsAddress.fromJson({'zone_number': '24', 'street_number': '817', 'building_number': '12', 'unit_number': '3'});
+      final a = OpsAddress.fromJson({
+        'zone_number': '24',
+        'street_number': '817',
+        'building_number': '12',
+        'unit_number': '3',
+      });
       expect(const OpsStrings('en').address(a), 'Zone 24 · Street 817 · Bldg 12 · Unit 3');
       expect(const OpsStrings('ar').address(a), 'المنطقة 24 · الشارع 817 · المبنى 12 · الوحدة 3');
       expect(OpsAddress.fromJson({'label': 'Home'}).line, 'Home');
@@ -75,10 +81,29 @@ void main() {
     test('every reason and status the app can show has a label in both languages', () {
       for (final code in const ['en', 'ar']) {
         final t = OpsStrings(code);
-        for (final r in ['customer_unreachable', 'customer_absent', 'wrong_address', 'refused', 'damaged', 'access_denied', 'other']) {
+        for (final r in [
+          'customer_unreachable',
+          'customer_absent',
+          'wrong_address',
+          'refused',
+          'damaged',
+          'access_denied',
+          'other',
+        ]) {
           expect(t.reasonLabel(r), isNotEmpty);
         }
-        for (final s in ['assigned', 'accepted', 'picked_up', 'out_for_delivery', 'delivered', 'failed', 'rescheduled', 'returned', 'cancelled', 'pending']) {
+        for (final s in [
+          'assigned',
+          'accepted',
+          'picked_up',
+          'out_for_delivery',
+          'delivered',
+          'failed',
+          'rescheduled',
+          'returned',
+          'cancelled',
+          'pending',
+        ]) {
           expect(t.statusLabel(s), isNot(s), reason: '$code has no label for $s');
         }
       }
@@ -106,7 +131,10 @@ void main() {
       const f = AmountInputFormatter();
       TextEditingValue run(String old, String typed) => f.formatEditUpdate(
         TextEditingValue(text: old),
-        TextEditingValue(text: typed, selection: TextSelection.collapsed(offset: typed.length)),
+        TextEditingValue(
+          text: typed,
+          selection: TextSelection.collapsed(offset: typed.length),
+        ),
       );
       expect(run('', 'a1b2').text, '12');
       expect(run('12.5', '12.55').text, '12.55');
@@ -117,81 +145,97 @@ void main() {
   });
 
   group('location tracker', () {
-    // The tracker reads time through an injected clock, so the tests move time by hand.
+    // `fakeAsync` moves time by hand: no real waiting, no flakiness.
     var clock = DateTime(2026, 11, 13, 12);
     DateTime now() => clock;
-    Future<void> tick(WidgetTester tester, Duration d) async {
-      clock = clock.add(d);
-      await tester.pump(d);
+
+    void run(String name, void Function(FakeAsync async) body) {
+      test(name, () {
+        clock = DateTime(2026, 11, 13, 12);
+        fakeAsync(body);
+      });
     }
 
-    setUp(() => clock = DateTime(2026, 11, 13, 12));
+    void tick(FakeAsync async, Duration d) {
+      clock = clock.add(d);
+      async.elapse(d);
+    }
 
-    testWidgets('sends a fix at most every 8 s, repeats a standing driver every minute, and stops cleanly', (tester) async {
+    run('sends a fix at most every 8 s, repeats a standing driver every minute, and stops cleanly', (async) {
       final repo = FakeOps();
       final fixes = StreamController<Position>();
-      addTearDown(() => unawaited(fixes.close()));
       final tracker = DriverTracker(repo, positions: (_) => fixes.stream, now: now);
-      await tracker.start(title: 't', body: 'b');
+      tracker.start(title: 't', body: 'b');
+      async.flushMicrotasks();
       expect(tracker.running, isTrue);
 
       fixes.add(_fix(25.28, 51.52, at: clock));
-      await tester.pump();
+      async.flushMicrotasks();
       expect(repo.beats, hasLength(1));
-      await tick(tester, const Duration(seconds: 2));
+      tick(async, const Duration(seconds: 2));
       fixes.add(_fix(25.281, 51.521, at: clock)); // two seconds later: held back by the gap
-      await tester.pump();
+      async.flushMicrotasks();
       expect(repo.beats, hasLength(1));
-      await tick(tester, const Duration(seconds: 7));
+      tick(async, const Duration(seconds: 7));
       fixes.add(_fix(25.282, 51.522, at: clock));
-      await tester.pump();
+      async.flushMicrotasks();
       expect(repo.beats, hasLength(2));
 
       // The driver stands still: nothing arrives, but dispatch must keep hearing from the phone.
-      await tick(tester, const Duration(seconds: 61));
+      tick(async, const Duration(seconds: 61));
       expect(repo.beats.length, 3);
       expect(repo.beats.last.lat, 25.282);
 
-      await tracker.stop();
+      // A single-subscription stream answers `cancel` only once it is closed.
+      fixes.close();
+      tracker.stop();
+      async.flushMicrotasks();
       expect(tracker.running, isFalse);
       final before = repo.beats.length;
-      await tick(tester, const Duration(seconds: 130));
+      tick(async, const Duration(minutes: 5));
       expect(repo.beats.length, before, reason: 'no timer left running after stop');
     });
 
-    testWidgets('an offline heartbeat is dropped quietly; a broken stream is reported', (tester) async {
+    run('an offline heartbeat is dropped quietly; a broken stream is reported', (async) {
       final repo = FakeOps()..beatError = apiError(ApiErrorKind.offline, 0);
       final fixes = StreamController<Position>();
-      addTearDown(() => unawaited(fixes.close()));
       Object? broken;
       final tracker = DriverTracker(repo, positions: (_) => fixes.stream, now: now);
-      await tracker.start(title: 't', body: 'b', onError: (e) => broken = e);
+      tracker.start(title: 't', body: 'b', onError: (e) => broken = e);
+      async.flushMicrotasks();
       fixes.add(_fix(25.28, 51.52, at: clock));
-      await tester.pump();
+      async.flushMicrotasks();
       expect(repo.beats, hasLength(1));
-      expect(tester.takeException(), isNull);
       fixes.addError(const PermissionDeniedException('revoked'));
-      await tester.pump();
+      async.flushMicrotasks();
       expect(broken, isA<PermissionDeniedException>());
-      await tracker.stop();
+      // A single-subscription stream answers `cancel` only once it is closed.
+      fixes.close();
+      tracker.stop();
+      async.flushMicrotasks();
     });
 
-    testWidgets('an old fix is not repeated as if it were fresh', (tester) async {
+    run('an old fix is not repeated as if it were fresh', (async) {
       final repo = FakeOps();
       final fixes = StreamController<Position>();
-      addTearDown(() => unawaited(fixes.close()));
       final tracker = DriverTracker(repo, positions: (_) => fixes.stream, now: now);
-      await tracker.start(title: 't', body: 'b');
+      tracker.start(title: 't', body: 'b');
+      async.flushMicrotasks();
       fixes.add(_fix(25.28, 51.52, at: clock));
-      await tester.pump();
+      async.flushMicrotasks();
       repo.beats.clear();
-      await tick(tester, const Duration(seconds: 130));
+      tick(async, const Duration(minutes: 3));
       expect(repo.beats, isNotEmpty); // a recent fix is repeated while standing still
       repo.beats.clear();
-      await tick(tester, const Duration(seconds: 700)); // past the 10 minute limit
-      await tick(tester, const Duration(seconds: 130));
+      tick(async, const Duration(minutes: 20));
+      expect(repo.beats.length, lessThanOrEqualTo(5), reason: 'repeats stop once the fix is over 10 minutes old');
+      repo.beats.clear();
+      tick(async, const Duration(minutes: 5));
       expect(repo.beats, isEmpty, reason: 'after a long GPS blackout the old position must not look fresh');
-      await tracker.stop();
+      // A single-subscription stream answers `cancel` only once it is closed.
+      fixes.close();
+      tracker.stop();
+      async.flushMicrotasks();
     });
   });
 }
