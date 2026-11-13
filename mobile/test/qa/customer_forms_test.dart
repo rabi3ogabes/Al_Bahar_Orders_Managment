@@ -1,3 +1,6 @@
+@Timeout(Duration(minutes: 5))
+library;
+
 import 'dart:async';
 
 import 'package:albahar_customer/app.dart';

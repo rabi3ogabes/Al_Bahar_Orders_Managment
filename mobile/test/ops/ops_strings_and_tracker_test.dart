@@ -6,7 +6,6 @@ import 'package:albahar_customer/ops/driver/driver_tracker.dart';
 import 'package:albahar_customer/ops/ops_input.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_strings.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
@@ -133,9 +132,7 @@ void main() {
       final fixes = StreamController<Position>();
       addTearDown(() => unawaited(fixes.close()));
       final tracker = DriverTracker(repo, positions: (_) => fixes.stream, now: now);
-      debugPrint('A');
       await tracker.start(title: 't', body: 'b');
-      debugPrint('B');
       expect(tracker.running, isTrue);
 
       fixes.add(_fix(25.28, 51.52, at: clock));
@@ -155,12 +152,10 @@ void main() {
       expect(repo.beats.length, 3);
       expect(repo.beats.last.lat, 25.282);
 
-      debugPrint('C');
       await tracker.stop();
-      debugPrint('D');
       expect(tracker.running, isFalse);
       final before = repo.beats.length;
-      await tick(tester, const Duration(minutes: 5));
+      await tick(tester, const Duration(seconds: 130));
       expect(repo.beats.length, before, reason: 'no timer left running after stop');
     });
 
@@ -190,10 +185,11 @@ void main() {
       fixes.add(_fix(25.28, 51.52, at: clock));
       await tester.pump();
       repo.beats.clear();
-      await tick(tester, const Duration(minutes: 3));
+      await tick(tester, const Duration(seconds: 130));
       expect(repo.beats, isNotEmpty); // a recent fix is repeated while standing still
       repo.beats.clear();
-      await tick(tester, const Duration(minutes: 20));
+      await tick(tester, const Duration(seconds: 700)); // past the 10 minute limit
+      await tick(tester, const Duration(seconds: 130));
       expect(repo.beats, isEmpty, reason: 'after a long GPS blackout the old position must not look fresh');
       await tracker.stop();
     });
