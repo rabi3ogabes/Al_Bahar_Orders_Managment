@@ -5,8 +5,12 @@ import 'dart:async';
 
 import 'package:albahar_customer/app.dart';
 import 'package:albahar_customer/core/realtime/pusher_client.dart';
+import 'package:albahar_customer/core/router/app_footer.dart';
 import 'package:albahar_customer/core/router/app_router.dart';
+import 'package:albahar_customer/core/widgets/app_button.dart';
+import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/features/auctions/presentation/state/auction_providers.dart';
+import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
 import 'package:albahar_customer/features/profile/presentation/map_pin_picker.dart';
 import 'package:albahar_customer/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -30,6 +34,7 @@ Future<TestHarness> boot(
   double height = 844,
   String locale = 'en',
   bool signedIn = true,
+  bool dark = false,
   List<Override> overrides = const [],
 }) async {
   t.view.physicalSize = Size(width, height);
@@ -37,7 +42,7 @@ Future<TestHarness> boot(
   addTearDown(t.view.reset);
   final h = await TestHarness.create(
     tokens: signedIn ? signedInTokens : null,
-    prefs: {'locale': locale, 'onboarding_done': true},
+    prefs: {'locale': locale, 'onboarding_done': true, if (dark) 'theme_mode': 'dark'},
     handler: handler,
     overrides: [...mapTestOverrides(), ...overrides],
   );
@@ -83,7 +88,7 @@ Future<void> teardown(WidgetTester t) async {
 
 /// The backend of the screen matrix plus the endpoints the windows call.
 FakeHandler backend({
-  FakeReply? Function(RecordedRequest r)? extra,
+  FutureOr<FakeReply?> Function(RecordedRequest r)? extra,
   String Function()? orderStatus,
   bool Function(RecordedRequest r)? inStockOnly,
   bool stress = false,
@@ -91,7 +96,7 @@ FakeHandler backend({
 }) {
   final base = customerBackend(ApiMode.data, stress: stress, arabic: arabic);
   return (r) async {
-    final custom = extra?.call(r);
+    final custom = await extra?.call(r);
     if (custom != null) return custom;
     if (r.method == 'GET' && r.path == '/orders/o1' && orderStatus != null) {
       return ok(orderDetail('o1', status: orderStatus()));
@@ -128,6 +133,62 @@ Future<void> openOrderPanel(WidgetTester t, TestHarness h) async {
 /// The rectangle of the window that holds [text].
 Rect windowRect(WidgetTester t, String text) =>
     t.getRect(find.ancestor(of: find.text(text), matching: find.byType(Material)).first);
+
+/// A cart on a pretend server: adding a variant that is already there raises its quantity (one line, as the real
+/// server does), changes are answered with the whole cart, and a test can hold or refuse the next add.
+class FakeCartServer {
+  FakeCartServer({Map<String, int>? lines}) : lines = {...?lines};
+
+  final Map<String, int> lines;
+  final adds = <({String variantId, int quantity})>[];
+  final patches = <String>[];
+  Completer<void>? hold;
+  bool failAdd = false;
+
+  Map<String, dynamic> json() {
+    final items = [
+      for (final e in lines.entries)
+        {
+          'id': 'i-${e.key}',
+          'variant_id': e.key,
+          'product': {...productCard('p1'), 'variant_id': e.key},
+          'quantity': e.value,
+          'unit_price': price('100.00'),
+          'line_total': money('${e.value * 100}.00'),
+        },
+    ];
+    final count = lines.values.fold<int>(0, (a, b) => a + b);
+    return {
+      'id': 'c1',
+      'branch_id': 'br1',
+      'items': items,
+      'items_count': count,
+      'subtotal': money('${count * 100}.00'),
+      'warnings': <String>[],
+    };
+  }
+
+  Future<FakeReply?> handle(RecordedRequest r) async {
+    if (r.path == '/cart' && r.method == 'GET') return ok(json());
+    if (r.path == '/cart/suggestions') return ok(const []);
+    if (r.path == '/cart/items' && r.method == 'POST') {
+      final variant = '${r.body['variant_id']}';
+      final qty = (r.body['quantity'] as num?)?.toInt() ?? 1;
+      adds.add((variantId: variant, quantity: qty));
+      if (hold != null) await hold!.future;
+      if (failAdd) return error(422, 'item_unavailable_simple', message: 'This item is not available right now.');
+      lines[variant] = (lines[variant] ?? 0) + qty;
+      return ok(json());
+    }
+    if (r.path.startsWith('/cart/items/') && r.method == 'PATCH') {
+      final variant = r.path.substring('/cart/items/i-'.length);
+      patches.add('$variant:${r.body['quantity']}');
+      lines[variant] = (r.body['quantity'] as num).toInt();
+      return ok(json());
+    }
+    return null;
+  }
+}
 
 void main() {
   setUpAll(loadAppFonts);
@@ -280,63 +341,317 @@ void main() {
     });
   });
 
-  group('Cart opens beside the product page', () {
-    testWidgets('Add to cart opens "Added to your cart" with the line, the totals and two pinned actions', (t) async {
-      final h = await boot(t, backend());
+  group('Add to cart opens the cart window over the screen', () {
+    /// The window's own buttons: exactly two, pinned at the bottom.
+    Finder windowButtons() => find.descendant(of: find.byType(BottomSheet), matching: find.byType(AppButton));
+
+    Finder windowSteppers() => find.descendant(of: find.byType(BottomSheet), matching: find.byType(QuantityStepper));
+
+    Finder footerBadge() => find.descendant(of: find.byType(AppFooter), matching: find.byType(Badge));
+
+    int badge(WidgetTester t) {
+      final f = footerBadge();
+      return f.evaluate().isEmpty ? 0 : int.parse((t.widget<Badge>(f.first).label as Text).data!);
+    }
+
+    testWidgets('phone: a sheet over the product page; the page does not navigate; two buttons; confirmation', (
+      t,
+    ) async {
+      final cart = FakeCartServer();
+      final h = await boot(t, backend(extra: cart.handle));
       await go(t, h, '/products/p1');
       await tapText(t, en.addToCart);
-      expect(h.adapter.where('POST', '/cart/items'), hasLength(1));
+      expect(cart.adds, hasLength(1));
       expect(find.byType(BottomSheet), findsOneWidget);
-      expect(find.text(en.addedToCart), findsOneWidget);
+      expect(find.text(en.cartTitle), findsOneWidget);
+      expect(find.text(en.addedToCart), findsOneWidget, reason: '"Added to cart" confirmation');
+      expect(find.text('Product p1'), findsWidgets, reason: 'the added item');
+      expect(windowSteppers(), findsOneWidget);
+      expect(windowButtons(), findsNWidgets(2));
+      expect(find.widgetWithText(AppButton, en.checkoutTitle), findsOneWidget);
+      expect(find.widgetWithText(AppButton, en.keepShopping), findsOneWidget);
+      expect(find.textContaining('100.00'), findsWidgets, reason: 'price and subtotal');
+      expect(path(h), '/products/p1', reason: 'adding to the cart never navigates');
+      await teardown(t);
+    });
+
+    testWidgets('tablet: an end-side panel on the right; the page stays visible', (t) async {
+      final h = await boot(t, backend(extra: FakeCartServer().handle), width: 1024, height: 768);
+      await go(t, h, '/products/p1');
+      await tapText(t, en.addToCart);
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(windowRect(t, en.addedToCart).right, 1024);
+      expect(path(h), '/products/p1');
+      await teardown(t);
+    });
+
+    testWidgets('Arabic: the panel is on the left and the labels are Arabic', (t) async {
+      final h = await boot(t, backend(extra: FakeCartServer().handle), width: 1024, height: 768, locale: 'ar');
+      await go(t, h, '/products/p1');
+      await tapText(t, ar.addToCart);
+      expect(windowRect(t, ar.addedToCart).left, 0);
+      expect(find.text(ar.keepShopping), findsOneWidget);
+      expect(find.text(ar.checkoutTitle), findsOneWidget);
+      await teardown(t);
+    });
+
+    testWidgets('the badge and the window change at once, before the server answers', (t) async {
+      final cart = FakeCartServer()..hold = Completer<void>();
+      final h = await boot(t, backend(extra: cart.handle));
+      await go(t, h, '/products/p1');
+      expect(badge(t), 0);
+      await t.tap(find.text(en.addToCart).first);
+      await t.pump(const Duration(milliseconds: 50));
+      // The server has not answered yet.
+      expect(cart.lines, isEmpty);
+      expect(h.read(cartCountProvider), 1, reason: 'optimistic');
+      await settle(t);
+      expect(badge(t), 1, reason: 'the footer badge shows it at once');
+      expect(find.byType(BottomSheet), findsOneWidget, reason: 'and so does the window');
       expect(find.text('Product p1'), findsWidgets);
-      expect(find.widgetWithText(FilledButton, en.proceedToCheckout), findsOneWidget);
-      expect(find.widgetWithText(OutlinedButton, en.viewCart), findsOneWidget);
-      expect(path(h), '/products/p1', reason: 'the product page is still the page');
+      cart.hold!.complete();
+      await settle(t);
+      expect(cart.lines, {'v1': 1});
+      expect(h.read(cartCountProvider), 1);
+      await teardown(t);
+    });
+
+    testWidgets('if the server refuses: the cart goes back, the window closes and a message says why', (t) async {
+      final cart = FakeCartServer()..failAdd = true;
+      final h = await boot(t, backend(extra: cart.handle));
+      await go(t, h, '/products/p1');
+      await tapText(t, en.addToCart);
+      expect(h.read(cartCountProvider), 0, reason: 'rolled back');
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.text('This item is not available right now.'), findsOneWidget);
+      expect(path(h), '/products/p1');
+      await teardown(t);
+    });
+
+    testWidgets('adding the same item again raises the quantity: one line, quantity 2', (t) async {
+      final cart = FakeCartServer();
+      final h = await boot(t, backend(extra: cart.handle));
+      await go(t, h, '/products/p1');
+      await tapText(t, en.addToCart);
+      await tapText(t, en.keepShopping);
+      await tapText(t, en.addToCart);
+      expect(cart.adds, hasLength(2));
+      expect(cart.lines, {'v1': 2}, reason: 'the server merged them into one line');
+      final lines = h.read(cartControllerProvider).requireValue.items;
+      expect(lines, hasLength(1));
+      expect(lines.single.quantity, 2);
+      expect(h.read(cartCountProvider), 2);
+      expect(windowSteppers(), findsOneWidget, reason: 'one line in the window');
+      expect(find.descendant(of: windowSteppers(), matching: find.text('2')), findsOneWidget);
+      await teardown(t);
+    });
+
+    testWidgets('two quick taps do not flicker the quantity or make a second line', (t) async {
+      final cart = FakeCartServer()..hold = Completer<void>();
+      final h = await boot(t, backend(extra: cart.handle));
+      await go(t, h, '/products/p1');
+      final quantities = <int>[];
+      h.container.listen(cartCountProvider, (_, next) => quantities.add(next));
+      await t.tap(find.text(en.addToCart).first);
+      await t.pump(const Duration(milliseconds: 20));
+      // A second add straight away (the window is open, so use the controller as the second tap would).
+      unawaited(h.read(cartControllerProvider.notifier).addItem('v1'));
+      await t.pump(const Duration(milliseconds: 20));
+      cart.hold!.complete();
+      await settle(t);
+      expect(h.read(cartControllerProvider).requireValue.items, hasLength(1));
+      expect(h.read(cartCountProvider), 2);
+      expect(quantities, isNot(contains(0)), reason: 'it never dropped back while the answers came in');
+      await teardown(t);
+    });
+
+    testWidgets('the window\'s quantity control changes the line; the subtotal follows the server; minus stops at 1', (
+      t,
+    ) async {
+      final cart = FakeCartServer();
+      final h = await boot(t, backend(extra: cart.handle));
+      await go(t, h, '/products/p1');
+      await tapText(t, en.addToCart);
+      expect(find.textContaining('100.00'), findsWidgets);
+      // Minus at 1 does nothing: no request, the line stays.
+      await t.tap(find.bySemanticsLabel(en.decreaseQuantity).last);
+      await settle(t);
+      expect(cart.patches, isEmpty);
+      await t.tap(find.bySemanticsLabel(en.increaseQuantity).last);
+      await settle(t);
+      expect(cart.patches, ['v1:2']);
+      expect(find.textContaining('200.00'), findsWidgets, reason: 'the subtotal moved');
+      expect(h.read(cartCountProvider), 2);
+      await teardown(t);
+    });
+
+    testWidgets('from a product card in a list: the window opens, "Keep shopping" leaves the scroll offset alone', (
+      t,
+    ) async {
+      final cart = FakeCartServer();
+      final h = await boot(
+        t,
+        backend(
+          extra: (r) => r.method == 'GET' && r.path == '/products'
+              ? page([
+                  for (var i = 1; i <= 12; i++) {...productCard('$i'), 'variant_id': 'v$i'},
+                ])
+              : cart.handle(r),
+        ),
+      );
+      await go(t, h, '/products');
+      final scrollable = find.byType(Scrollable).first;
+      await t.drag(scrollable, const Offset(0, -420));
+      await settle(t);
+      double offset() => t.state<ScrollableState>(scrollable).position.pixels;
+      final before = offset();
+      expect(before, greaterThan(100));
+      await t.tap(find.bySemanticsLabel(en.addToCart).first);
+      await settle(t);
+      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(path(h), '/products', reason: 'no navigation');
+      expect(offset(), before, reason: 'the list did not move while the window is open');
+      await tapText(t, en.keepShopping);
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(path(h), '/products');
+      expect(offset(), before, reason: 'Keep shopping returns to the same place on the same list');
+      await teardown(t);
+    });
+
+    testWidgets('the system Back button closes only the window', (t) async {
+      final h = await boot(t, backend(extra: FakeCartServer().handle));
+      await go(t, h, '/products/p1');
+      await tapText(t, en.addToCart);
       await back(t);
       expect(find.byType(BottomSheet), findsNothing);
       expect(path(h), '/products/p1');
       await teardown(t);
     });
 
-    testWidgets('"View cart" goes to the cart tab; Checkout goes to checkout; both close the window first', (t) async {
-      final h = await boot(t, backend());
+    testWidgets('a tap outside and a swipe down close the sheet on a phone', (t) async {
+      final h = await boot(t, backend(extra: FakeCartServer().handle));
       await go(t, h, '/products/p1');
       await tapText(t, en.addToCart);
-      await t.tap(find.widgetWithText(OutlinedButton, en.viewCart));
+      await t.tapAt(const Offset(195, 30));
       await settle(t);
-      expect(find.byType(BottomSheet), findsNothing);
-      expect(path(h), '/cart');
+      expect(find.byType(BottomSheet), findsNothing, reason: 'scrim tap');
+      await tapText(t, en.addToCart);
+      expect(find.byType(BottomSheet), findsOneWidget);
+      await t.fling(find.text(en.cartTitle), const Offset(0, 500), 1500);
+      await settle(t);
+      expect(find.byType(BottomSheet), findsNothing, reason: 'swipe down');
+      expect(path(h), '/products/p1');
+      await teardown(t);
+    });
 
+    testWidgets('a tap outside closes the panel on a tablet', (t) async {
+      final h = await boot(t, backend(extra: FakeCartServer().handle), width: 1024, height: 768);
       await go(t, h, '/products/p1');
       await tapText(t, en.addToCart);
-      await t.tap(find.widgetWithText(FilledButton, en.proceedToCheckout));
+      await t.tapAt(const Offset(40, 300));
+      await settle(t);
+      expect(find.text(en.addedToCart), findsNothing);
+      expect(path(h), '/products/p1');
+      await teardown(t);
+    });
+
+    testWidgets('it never closes by itself (30 seconds)', (t) async {
+      final h = await boot(t, backend(extra: FakeCartServer().handle));
+      await go(t, h, '/products/p1');
+      await tapText(t, en.addToCart);
+      for (var i = 0; i < 30; i++) {
+        await t.pump(const Duration(seconds: 1));
+      }
+      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(find.text(en.addedToCart), findsOneWidget);
+      await teardown(t);
+    });
+
+    testWidgets('Checkout closes the window and opens checkout with the same guards as the cart tab', (t) async {
+      final cart = FakeCartServer();
+      final h = await boot(t, backend(extra: cart.handle));
+      await go(t, h, '/products/p1');
+      await tapText(t, en.addToCart);
+      await t.tap(find.widgetWithText(AppButton, en.checkoutTitle));
       await settle(t);
       expect(find.byType(BottomSheet), findsNothing);
       expect(path(h), '/checkout');
+      // Prices and stock were re-checked first, like the Checkout button on the cart tab.
+      expect(h.adapter.requests.where((r) => r.method == 'GET' && r.path == '/cart'), isNotEmpty);
+      await back(t);
+      expect(path(h), '/products/p1', reason: 'Back from checkout returns to where the person was');
       await teardown(t);
     });
 
-    testWidgets('tablet: the cart is a panel at the end edge; Arabic puts it on the left', (t) async {
-      final h = await boot(t, backend(), width: 1024, height: 768);
+    testWidgets('Checkout is refused (and the window stays) when the cart has a problem', (t) async {
+      final cart = FakeCartServer();
+      final h = await boot(
+        t,
+        backend(
+          extra: (r) async {
+            final reply = await cart.handle(r);
+            if (reply != null && r.path == '/cart' && r.method == 'GET' && cart.adds.length > 1) {
+              final body = cart.json();
+              (body['items'] as List).first['issue'] = 'insufficient_stock';
+              (body['items'] as List).first['available_quantity'] = 1;
+              return ok(body);
+            }
+            return reply;
+          },
+        ),
+      );
       await go(t, h, '/products/p1');
       await tapText(t, en.addToCart);
-      expect(windowRect(t, en.addedToCart).right, 1024);
-      await teardown(t);
-
-      final a = await boot(t, backend(), width: 1024, height: 768, locale: 'ar');
-      await go(t, a, '/products/p1');
-      await tapText(t, ar.addToCart);
-      expect(windowRect(t, ar.addedToCart).left, 0);
-      await teardown(t);
-    });
-
-    testWidgets('the quantity stepper in the window changes the cart line', (t) async {
-      final h = await boot(t, backend());
-      await go(t, h, '/products/p1');
+      await tapText(t, en.keepShopping);
       await tapText(t, en.addToCart);
-      await t.tap(find.bySemanticsLabel(en.increaseQuantity).last);
       await settle(t);
-      expect(h.adapter.where('PATCH', '/cart/items/i1'), hasLength(1));
+      expect(path(h), '/products/p1');
+      expect(find.byType(BottomSheet), findsOneWidget);
+      await teardown(t);
+    });
+
+    testWidgets('dark mode, text x1.3 and a small phone: no overflow, 48 dp targets', (t) async {
+      t.platformDispatcher.textScaleFactorTestValue = 1.3;
+      addTearDown(t.platformDispatcher.clearAllTestValues);
+      final h = await boot(t, backend(extra: FakeCartServer().handle), width: 320, height: 640, dark: true);
+      await go(t, h, '/products/p1');
+      await tapText(t, en.addToCart);
+      expect(t.takeException(), isNull);
+      for (final label in [en.checkoutTitle, en.keepShopping]) {
+        expect(t.getSize(find.widgetWithText(AppButton, label)).height, greaterThanOrEqualTo(48), reason: label);
+      }
+      for (final finder in [find.bySemanticsLabel(en.increaseQuantity), find.bySemanticsLabel(en.decreaseQuantity)]) {
+        expect(t.getSize(finder.last).height, greaterThanOrEqualTo(48));
+      }
+      expect(t.getSize(find.byTooltip(en.close)).height, greaterThanOrEqualTo(48));
+      await teardown(t);
+    });
+
+    testWidgets('reduced motion: the panel appears without sliding', (t) async {
+      t.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(t.platformDispatcher.clearAllTestValues);
+      final h = await boot(t, backend(extra: FakeCartServer().handle), width: 1024, height: 768);
+      await go(t, h, '/products/p1');
+      await t.tap(find.text(en.addToCart).first);
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 40));
+      final panel = windowRect(t, en.addedToCart);
+      expect(panel.right, lessThanOrEqualTo(1024), reason: 'already in place, not mid-slide');
+      await teardown(t);
+    });
+
+    testWidgets('quick view: adding hands over to the cart window, no navigation', (t) async {
+      final cart = FakeCartServer();
+      final h = await boot(t, backend(extra: cart.handle));
+      await go(t, h, '/products');
+      await t.tap(find.byTooltip(en.quickViewOf('Product 1')));
+      await settle(t);
+      await t.tap(find.widgetWithText(AppButton, en.addToCart));
+      await settle(t);
+      expect(cart.adds.single.variantId, 'v1');
+      expect(find.text(en.addedToCart), findsOneWidget);
+      expect(find.text(en.quickView), findsNothing);
+      expect(path(h), '/products');
       await teardown(t);
     });
   });

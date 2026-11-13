@@ -1,3 +1,4 @@
+import 'package:albahar_customer/core/models/money.dart';
 import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:albahar_customer/features/branches/domain/branch_models.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
@@ -46,7 +47,13 @@ class _FakeCart extends CartController {
   );
 
   @override
-  Future<Cart> addItem(String variantId, {int quantity = 1}) async {
+  Future<Cart> addItem(
+    String variantId, {
+    int quantity = 1,
+    ProductSummary? product,
+    EffectivePrice? unitPrice,
+    String? variantName,
+  }) async {
     calls.add('add:$variantId:$quantity');
     return state.requireValue;
   }

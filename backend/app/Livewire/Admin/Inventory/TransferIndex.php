@@ -8,13 +8,15 @@ use App\Domain\Inventory\Models\BranchInventory;
 use App\Domain\Inventory\Models\StockTransfer;
 use App\Domain\Inventory\Services\TransferService;
 use App\Livewire\Admin\Concerns\WithAdminTable;
+use App\Livewire\Admin\Concerns\WithRecordView;
 use App\Livewire\Admin\Concerns\WithVariantPicker;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
 class TransferIndex extends Component
 {
-    use WithAdminTable, WithVariantPicker;
+    use WithAdminTable, WithRecordView, WithVariantPicker;
 
     #[Url(except: '')]
     public string $filterStatus = '';
@@ -32,6 +34,18 @@ class TransferIndex extends Component
     {
         abort_unless($this->can('transfers.view'), 403);
     }
+
+    /** Same rule as the transfer page: transfers.view at the source or the destination branch. */
+    protected function viewable(string $id): bool
+    {
+        $t = StockTransfer::find($id, ['id', 'source_branch_id', 'destination_branch_id']);
+
+        return $t !== null && ($this->can('transfers.view', $t->source_branch_id) || $this->can('transfers.view', $t->destination_branch_id));
+    }
+
+    /** The side window changed a transfer (approve, dispatch, receive…): re-render so the list row is current. */
+    #[On('inventory-doc-changed')]
+    public function refreshAfterChange(): void {}
 
     public function create(): void
     {
@@ -80,9 +94,9 @@ class TransferIndex extends Component
             return $f['submit'] ? $svc->submit(auth()->user(), $t) : $t;
         });
         if ($transfer instanceof StockTransfer) {
-            session()->flash('toast', ['type' => 'success', 'message' => __('inventory_admin.transfer_created')]);
-
-            return $this->redirectRoute('admin.transfers.show', $transfer, navigate: true);
+            $this->showEditor = false;
+            $this->toast(__('inventory_admin.transfer_created'));
+            $this->openView($transfer->id); // the new transfer opens beside the list
         }
     }
 
@@ -115,6 +129,7 @@ class TransferIndex extends Component
             'available' => $available,
             'matches' => $this->variantMatches(),
             'scopeAll' => $scope->all,
+            'viewTransfer' => ($id = $this->viewing()) ? StockTransfer::with(['source:id,code,name_en,name_ar', 'destination:id,code,name_en,name_ar'])->find($id) : null,
         ])->title(__('nav.transfers'));
     }
 }

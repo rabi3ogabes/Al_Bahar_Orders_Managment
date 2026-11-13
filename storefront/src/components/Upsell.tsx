@@ -1,12 +1,10 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, Plus } from 'lucide-react';
-import { get, post } from '../lib/api';
+import { get } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useCart } from '../lib/cart';
 import { useI18n } from '../lib/i18n';
-import { useToast } from '../lib/toast';
 import type { ProductCard } from '../lib/types';
 import { Rail } from './Rail';
 import { Pic, PriceTag, Skeleton } from './ui';
@@ -16,9 +14,6 @@ export function UpsellStrip({ title, items, loading = false, id }: { title: stri
   const { t, dir } = useI18n();
   const { user } = useAuth();
   const cart = useCart();
-  const qc = useQueryClient();
-  const toast = useToast();
-  const [busy, setBusy] = useState<string | null>(null);
 
   if (loading) {
     return (
@@ -30,14 +25,7 @@ export function UpsellStrip({ title, items, loading = false, id }: { title: stri
   }
   if (items.length === 0) return null;
 
-  const add = async (p: ProductCard) => {
-    setBusy(p.id);
-    try {
-      await post('/cart/items', { variant_id: p.variant_id, quantity: 1 });
-      await qc.invalidateQueries({ queryKey: ['cart'] });
-      cart.openDrawer();
-    } catch { toast.push(t('error.generic'), 'error'); } finally { setBusy(null); }
-  };
+  const add = (p: ProductCard) => { void cart.quickAdd(p).catch(() => undefined); };
 
   return (
     <section className="mt-12" aria-labelledby={id}>
@@ -54,7 +42,7 @@ export function UpsellStrip({ title, items, loading = false, id }: { title: stri
               <div className="mt-1 flex items-center justify-between gap-2">
                 <PriceTag price={p.price} size="sm" />
                 {quick ? (
-                  <button type="button" onClick={() => add(p)} disabled={busy === p.id} aria-label={`${t('product.add_to_bag')}: ${p.name}`} title={t('product.add_to_bag')}
+                  <button type="button" onClick={() => add(p)} aria-label={`${t('product.add_to_cart')}: ${p.name}`} title={t('product.add_to_cart')}
                     className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-bg transition-colors hover:bg-primary-soft disabled:opacity-40"><Plus size={18} /></button>
                 ) : (
                   <Link to={`/products/${p.slug}`} aria-label={`${t('upsell.view')}: ${p.name}`} title={t('upsell.view')}

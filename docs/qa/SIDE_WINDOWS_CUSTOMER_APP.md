@@ -19,10 +19,10 @@ Arabic**). Both are routes, so the system Back button closes only the top window
 
 | Flow | Before | After | Why |
 |---|---|---|---|
-| Product page → Add to cart | snackbar "View cart" → tab | **"Added to your cart" window**: the line(s) just added highlighted, quantity steppers, remove, "You may also need", subtotal, pinned **Proceed to checkout** + **View cart** | keep your place; check out in two taps; the Cart tab stays a tab |
+| Add to cart — product page, product cards (+), quick view, upsell / suggestions, buy again, search results, wishlist | snackbar "View cart" or an inline change only | **Cart window over the current screen** (see "Add to cart" below): no navigation, no timer | owner requirement: confirm, adjust, then keep shopping or check out, in place |
 | Product cards: "+" for products with colours/sizes | pushed the product page | **Quick view window** (picture, price, options, quantity, pinned **Add to cart**, "View full details") | choose and add without leaving the list |
 | Product cards (list, search, home, wishlist, related) | tap = page only | + visible **eye** button and **long-press** = quick view; tap still opens the page | discoverable, keyboard/screen-reader reachable (tooltip "Quick view: name") |
-| Buy again / reorder "View cart" | snackbar → cart tab | opens the cart window | same as above |
+| Reorder (order window) | snackbar → cart tab | the cart window with a note ("…2 items could not be added"), all lines | same window |
 | Orders list → an order | pushed `/orders/:id` | **Order window**: status, live timeline, shipments with items, address, totals, pinned next action (Pay now / Track order / Pickup pass / Order again), header **Open full page** | read and act, then Back lands on the list |
 | Order window: live updates | pull to refresh | `order.updated` ping refreshes the open window (status, timeline, pinned action) | realtime kept |
 | Order window: Cancel order, Request return | bottom sheet | **a step in the same window** (back arrow, reason, pinned destructive / primary button, "Discard changes?" when text or items were entered) | one window at a time |
@@ -40,6 +40,29 @@ Arabic**). Both are routes, so the system Back button closes only the top window
 | Notifications (home bell, account row) | pushed page | **Notifications window**; an item about an order/ticket opens that record's window in its place; an item with no destination shows its **full text** as a step (before: it re-opened the same page) | detail, not a loop |
 | Wishlist, Loyalty & referral (account hub) | pushed pages | windows | read/act and stay on the hub |
 | Terms, FAQ, Returns, Contact, Auction terms (login, settings, support, auctions, home banners) | pushed pages | **Content window** | reading terms never costs a half-filled sign-in form |
+
+## Add to cart (owner requirement)
+
+Tapping **Add** anywhere (`addToCartAndShow`, `lib/features/cart/presentation/cart_panel.dart`) never navigates. It opens the cart window with `showSidePanel`
+over the current screen: a bottom sheet under 720 px, an end-side panel from 720 px (left in Arabic).
+
+- Content: a green "**Added to your cart**" confirmation (announced to screen readers), the added item's **photo, name, variant, price** and a quantity **− / +**,
+  the cart **subtotal** and item count, and exactly two pinned buttons: **Checkout** and **Keep shopping**.
+- **Minus stops at 1** (disabled), everywhere, the same way; removing a line is done in the cart (swipe / ✕). No Undo snackbar is needed.
+- Stays open until dismissed: **no timer**. Closes by **Keep shopping**, scrim tap, swipe down (phone), Esc, and system Back (Back closes only the window).
+- **Keep shopping** only pops the window: the page behind is not rebuilt and its scroll offset is unchanged (tested on a scrolled list).
+- **Checkout** has the same guards as the cart tab's button: prices and stock are re-checked (`GET /cart`), a cart with problems stays in the window with
+  "Some items need your attention", otherwise the window closes and `/checkout` opens; Back from checkout returns to the page the person was on.
+- **Optimistic**: `CartController.addItem` changes the cart and the footer badge **before** the server answers (a variant already in the cart gets a higher
+  quantity, a new one a line built from the product). If the server refuses, the cart is put back exactly as it was, the window closes itself and the reason is
+  shown as a snackbar on the page behind. A quantity change moves the badge at once too.
+- **No duplicate lines**: the client merges by variant while the add is in flight, and the answer of the **last** in-flight add is the one shown (two quick taps never
+  flicker the quantity). **Server verified, nothing to report**: `CartService::addTo` (`backend/app/Domain/Checkout/Services/CartService.php`) locks the row for the
+  variant and raises its quantity (`min(max, quantity + added)`), so a repeated add never creates a second line.
+- The subtotal is the server's (the app does no money arithmetic): while a change is on its way it is dimmed with a small spinner, then shows the new amount.
+- Product cards: the first **+** opens the window; once the item is in the cart the card shows the inline **− 1 +** stepper as before (it moves the line quietly).
+  Products that need a choice (colour, size) open the quick view instead.
+- AR/EN (RTL), dark mode, reduced motion (the panel fades instead of sliding), 48 dp targets and text ×1.3 on a 320 px phone are covered by tests.
 
 ## Stays a screen (on purpose) — each has a visible exit
 
@@ -67,8 +90,9 @@ Arabic**). Both are routes, so the system Back button closes only the top window
 
 ## Tests
 
+- `test/features/cart_optimistic_test.dart` — the cart controller: change before the answer, merge by variant, rollback, quantity moves the badge.
 - `test/widgets/side_panel_test.dart` — helper: sheet on 390, end panel on 1024, left in Arabic, pinned footer, Back closes only the top one, scrim / Esc / ✕, toast inside the window, keyboard, dirty-form guard (focused safe button), swipe lock, steps.
-- `test/qa/side_windows_test.dart` — the real app on a fake backend, phone and tablet, English and Arabic: orders (sheet / panel / left in Arabic / deep link / Open full page / live update / cancel and return steps / dirty note / Home card), cart window (added, View cart, Checkout, steppers, tablet, Arabic), quick view (eye, long-press, add, guest, full details), filters (live count, apply, dirty guard, tablet), address window (dirty guard, Save, confirmation), map pin picker (✕, confirm returns to the window), profile (+ password step), notification preferences, support (new ticket → thread, thread), review, branch picker, wishlist, loyalty, notifications (text step, order hand-over), checkout stays a page.
+- `test/qa/side_windows_test.dart` — the real app on a fake backend, phone and tablet, English and Arabic: orders (sheet / panel / left in Arabic / deep link / Open full page / live update / cancel and return steps / dirty note / Home card), cart window (see "Add to cart": phone sheet, tablet panel, Arabic left, badge at once, refusal rollback, same item twice, scroll offset kept, scrim / swipe / Back, 30 s with no auto-close, Checkout guards, dark + text ×1.3, reduced motion), quick view (eye, long-press, add, guest, full details), filters (live count, apply, dirty guard, tablet), address window (dirty guard, Save, confirmation), map pin picker (✕, confirm returns to the window), profile (+ password step), notification preferences, support (new ticket → thread, thread), review, branch picker, wishlist, loyalty, notifications (text step, order hand-over), checkout stays a page.
 
 ## Not verified here
 

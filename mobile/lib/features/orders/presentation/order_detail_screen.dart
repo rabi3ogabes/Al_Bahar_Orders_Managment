@@ -13,7 +13,7 @@ import 'package:albahar_customer/core/widgets/side_panel.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/auctions/presentation/state/auction_providers.dart';
-import 'package:albahar_customer/features/cart/presentation/bag_panel.dart';
+import 'package:albahar_customer/features/cart/presentation/cart_panel.dart';
 import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
 import 'package:albahar_customer/features/checkout/data/checkout_repository.dart';
 import 'package:albahar_customer/features/checkout/presentation/payment_flow.dart';
@@ -290,7 +290,7 @@ mixin OrderActionsMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
         ? l10n.reorderDone
         : '${l10n.reorderDone} ${l10n.reorderSkipped(result.skipped.length)}';
     // The cart opens beside the order: check it, then check out.
-    _then((page) => unawaited(showBagPanel(page, notice: notice)));
+    _then((page) => unawaited(showCartPanel(page, notice: notice)));
   });
 
   Future<void> _invoice(Order o) => _run('invoice', () async {

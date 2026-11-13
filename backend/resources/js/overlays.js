@@ -63,15 +63,16 @@ function trim() {
 /** The browser went back (or forward): overlays whose entry is gone are closed, top first. */
 function sync() {
     const depth = actual();
-    while (hist.length && hist[hist.length - 1].depth > depth) {
-        const entry = hist.pop();
-        if (entry.open) {
-            entry.open = false;
-            const i = stack.indexOf(entry);
-            if (i > -1) stack.splice(i, 1);
-            entry.close(false);
-        }
-    }
+    // Take the vanished entries out first: closing one may open a new entry (a dirty window re-claims its place), and that one must stay.
+    const gone = [];
+    while (hist.length && hist[hist.length - 1].depth > depth) gone.push(hist.pop());
+    gone.forEach((entry) => {
+        if (!entry.open) return;
+        entry.open = false;
+        const i = stack.indexOf(entry);
+        if (i > -1) stack.splice(i, 1);
+        entry.close(false);
+    });
     announce();
     trim();
 }

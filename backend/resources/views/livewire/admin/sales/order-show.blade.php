@@ -352,21 +352,11 @@
                 $verb = match ($dialog) { 'cancel_order' => __('sales_admin.cancel_order'), 'cancel_fulfillment' => __('sales_admin.cancel_branch_part'), 'return_fulfillment' => __('sales_admin.mark_returned'), 'delivery' => __('sales_admin.act_arrange_delivery'), default => __('admin.confirm') };
                 $verbClass = in_array($dialog, ['cancel_order', 'cancel_fulfillment'], true) ? 'btn-danger' : 'btn-primary';
             @endphp
-            @if ($drawer || $dialog !== 'delivery')
-                {{-- A decision sits in a centred modal, possibly inside a side window's .drawer-body: the buttons are wrapped once more so the window's pinned-row rule never matches them. --}}
-                <div class="border-t border-sand-100 pt-5 dark:border-ink-800">
-                    <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                        <button type="button" class="btn-secondary min-h-11" @click="open = false">{{ __('admin.back') }}</button>
-                        <button class="{{ $verbClass }} min-h-11" wire:loading.attr="disabled" wire:target="confirmDialog">{{ $verb }}</button>
-                    </div>
-                </div>
-            @else
-                {{-- The arrange-delivery form is a side window: its last row is pinned to the bottom. --}}
-                <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                    <button type="button" class="btn-secondary min-h-11" @click="open = false">{{ __('admin.back') }}</button>
-                    <button class="{{ $verbClass }} min-h-11" wire:loading.attr="disabled" wire:target="confirmDialog">{{ $verb }}</button>
-                </div>
-            @endif
+            {{-- The last row of the arrange-delivery form (a side window) is pinned to the bottom; a decision modal's row is not (resources/css/app.css excludes [role=alertdialog]). --}}
+            <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button type="button" class="btn-secondary min-h-11" @click="open = false">{{ __('admin.back') }}</button>
+                <button class="{{ $verbClass }} min-h-11" wire:loading.attr="disabled" wire:target="confirmDialog">{{ $verb }}</button>
+            </div>
         </form>
     </x-admin.dialog>
 </div>

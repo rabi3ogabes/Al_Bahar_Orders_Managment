@@ -1,13 +1,9 @@
 import 'dart:async';
 
 import 'package:albahar_customer/core/l10n/l10n.dart';
-import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
-import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
-import 'package:albahar_customer/core/widgets/state_views.dart';
-import 'package:albahar_customer/features/cart/presentation/bag_panel.dart';
-import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
+import 'package:albahar_customer/features/cart/presentation/cart_panel.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
 import 'package:albahar_customer/features/catalog/presentation/state/catalog_providers.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/catalog_widgets.dart';
@@ -52,32 +48,19 @@ class _BuyAgainCard extends ConsumerStatefulWidget {
 }
 
 class _BuyAgainCardState extends ConsumerState<_BuyAgainCard> {
-  bool _adding = false;
-
-  Future<void> _add() async {
-    final l10n = context.l10n;
-    setState(() => _adding = true);
-    try {
-      await ref
-          .read(cartControllerProvider.notifier)
-          .addItem(widget.item.variantId, quantity: widget.item.lastQuantity);
-      Haptics.success();
-      if (!mounted) return;
-      showInfoSnack(
-        context,
-        l10n.addedToCart,
-        action: SnackBarAction(
-          label: l10n.viewCart,
-          onPressed: () {
-            if (context.mounted) unawaited(showBagPanel(context));
-          },
+  /// The cart opens over Home (no navigation); the badge changes at once.
+  void _add() {
+    final item = widget.item;
+    unawaited(
+      addToCartAndShow(context, ref, [
+        CartAddition(
+          variantId: item.variantId,
+          product: item.product,
+          quantity: item.lastQuantity,
+          unitPrice: item.product.price,
         ),
-      );
-    } on ApiException catch (e) {
-      if (mounted) showErrorSnack(context, e);
-    } finally {
-      if (mounted) setState(() => _adding = false);
-    }
+      ]),
+    );
   }
 
   @override
@@ -125,16 +108,11 @@ class _BuyAgainCardState extends ConsumerState<_BuyAgainCard> {
                     shape: const CircleBorder(),
                     child: InkWell(
                       customBorder: const CircleBorder(),
-                      onTap: _adding || !p.inStock ? null : _add,
+                      onTap: p.inStock ? _add : null,
                       child: SizedBox(
                         width: kMinTouchTarget,
                         height: kMinTouchTarget,
-                        child: _adding
-                            ? const Padding(
-                                padding: EdgeInsets.all(10),
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                              )
-                            : Icon(Icons.add_rounded, size: 20, color: context.colors.onPrimary),
+                        child: Icon(Icons.add_rounded, size: 20, color: context.colors.onPrimary),
                       ),
                     ),
                   ),

@@ -26,14 +26,14 @@
                 <thead><tr><th>{{ __('inventory_admin.po') }}</th><th>{{ __('inventory_admin.supplier') }}</th><th>{{ __('admin.branch') }}</th><th class="!text-end">{{ __('inventory_admin.lines') }}</th><th class="!text-end">{{ __('admin.total') }}</th><th>{{ __('inventory_admin.expected_on') }}</th><th>{{ __('admin.status') }}</th><th class="w-12"></th></tr></thead>
                 <tbody>@foreach ($orders as $po)
                     <tr wire:key="po-{{ $po->id }}">
-                        <td><a href="{{ route('admin.purchase-orders.show', $po) }}" wire:navigate class="font-mono font-medium hover:text-brass-600" dir="ltr">{{ $po->number }}</a>@if ($po->supplier_reference)<span class="block font-mono text-xs text-ink-500" dir="ltr">{{ $po->supplier_reference }}</span>@endif</td>
+                        <td><a href="{{ route('admin.purchase-orders.index', ['view' => $po->id]) }}" wire:click.prevent="openView('{{ $po->id }}')" class="font-mono font-medium hover:text-brass-600" dir="ltr">{{ $po->number }}</a>@if ($po->supplier_reference)<span class="block font-mono text-xs text-ink-500" dir="ltr">{{ $po->supplier_reference }}</span>@endif</td>
                         <td>{{ $po->supplier->name }}</td>
                         <td><span class="badge-neutral font-mono" dir="ltr">{{ $po->branch->code }}</span></td>
                         <td class="text-end tabular-nums">{{ $po->items_count }}</td>
                         <td class="whitespace-nowrap text-end font-medium tabular-nums">{{ \App\Support\Money::of((string) $po->subtotal)->format() }}</td>
                         <td class="text-xs text-ink-500 tabular-nums">{{ $po->expected_at ? \App\Support\BusinessTime::display($po->expected_at, 'd M Y') : '—' }}</td>
                         <td><x-admin.status :value="$po->status" /></td>
-                        <td><a href="{{ route('admin.purchase-orders.show', $po) }}" wire:navigate class="btn-ghost btn-sm" aria-label="{{ __('admin.details') }}"><x-icon name="chevron-right" class="size-4 rtl-flip" /></a></td>
+                        <td><a href="{{ route('admin.purchase-orders.index', ['view' => $po->id]) }}" wire:click.prevent="openView('{{ $po->id }}')" class="btn-ghost btn-sm" aria-label="{{ __('admin.details') }}"><x-icon name="chevron-right" class="size-4 rtl-flip" /></a></td>
                     </tr>
                 @endforeach</tbody>
             </table></div>
@@ -78,6 +78,13 @@
                 <button class="btn-primary" wire:loading.attr="disabled" wire:target="save"><x-icon name="check" class="size-4" />{{ __('inventory_admin.create_po') }}</button>
             </div>
         </form>
+        @endif
+    </x-admin.dialog>
+    {{-- Purchase order window: the same component as the full page (embedded), so actions, scoping and audit are identical. --}}
+    <x-admin.dialog wire:model.live="showView" :title="$viewPo?->number ?? ''" :description="$viewPo?->supplier?->name" max-width="max-w-4xl">
+        @if ($viewPo)
+            <x-admin.drawer-bar :url="route('admin.purchase-orders.show', $viewPo)" />
+            <livewire:admin.inventory.purchase-order-show :po="$viewPo" :embedded="true" :key="'po-'.$viewPo->id" />
         @endif
     </x-admin.dialog>
 </div>

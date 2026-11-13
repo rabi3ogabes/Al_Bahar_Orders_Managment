@@ -8,6 +8,7 @@ use App\Domain\Orders\Models\Order;
 use App\Domain\Support\Models\SupportTicket;
 use App\Domain\Support\Services\SupportService;
 use App\Livewire\Admin\Concerns\WithAdminTable;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
@@ -28,6 +29,9 @@ class SupportIndex extends Component
     #[Url(as: 'ticket', except: '')]
     public string $selected = '';
 
+    /** The ticket window (x-admin.dialog, wire:model.live): the queue stays in view; `?ticket=<id>` keeps it reloadable and Back-friendly. */
+    public bool $showThread = false;
+
     public string $reply = '';
 
     public bool $internal = false;
@@ -37,9 +41,10 @@ class SupportIndex extends Component
     public function mount(): void
     {
         abort_unless($this->can('support.view'), 403);
-        if ($this->selected && ! $this->visible()->whereKey($this->selected)->exists()) {
+        if ($this->selected && (! Str::isUuid($this->selected) || ! $this->visible()->whereKey($this->selected)->exists())) {
             $this->selected = '';
         }
+        $this->showThread = $this->selected !== '';
     }
 
     private function visible()
@@ -57,13 +62,23 @@ class SupportIndex extends Component
     public function open(string $id): void
     {
         $this->selected = $this->visible()->findOrFail($id)->id;
+        $this->showThread = true;
         $this->reset('reply', 'internal', 'replyStatus');
         $this->resetValidation();
     }
 
     public function closeThread(): void
     {
+        $this->showThread = false;
         $this->selected = '';
+    }
+
+    /** ✕, Esc, scrim and Back all end up here (wire:model.live): drop the id so the URL is clean again. */
+    public function updatedShowThread(bool $open): void
+    {
+        if (! $open) {
+            $this->selected = '';
+        }
     }
 
     public function send(SupportService $svc): void
@@ -107,7 +122,7 @@ class SupportIndex extends Component
             ->when($this->mine, fn ($q) => $q->where('assigned_to', auth()->id()))
             ->when($s, fn ($q) => $q->where(fn ($w) => $w->where('number', 'ilike', "%{$s}%")->orWhere('subject', 'ilike', "%{$s}%")))
             ->orderByRaw("CASE priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END")->orderByRaw("CASE status WHEN 'pending_staff' THEN 0 WHEN 'open' THEN 1 ELSE 2 END")->latest('updated_at');
-        $t = $this->selected ? $this->visible()->with(['user:id,name,phone', 'assignee:id,name', 'messages' => fn ($m) => $m->with('author:id,name')->orderBy('created_at')])->find($this->selected) : null;
+        $t = $this->showThread && $this->selected !== '' && Str::isUuid($this->selected) ? $this->visible()->with(['user:id,name,phone', 'assignee:id,name', 'messages' => fn ($m) => $m->with('author:id,name')->orderBy('created_at')])->find($this->selected) : null;
         $acl = app(AccessControl::class);
         $agents = $t ? User::where('type', 'staff')->where('status', 'active')->orderBy('name')->get(['id', 'name'])->filter(fn ($u) => $acl->allows($u, 'support.edit', $t->branch_id))->values() : collect();
 

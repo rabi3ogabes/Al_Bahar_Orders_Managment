@@ -8,6 +8,7 @@ use App\Domain\Inventory\Models\StockTransfer;
 use App\Domain\Inventory\Services\TransferService;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use App\Support\BusinessTime;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /** Transfer workspace: approve (with quantity edits), dispatch, receive (partial, damaged, notes), complete, cancel. */
@@ -16,6 +17,10 @@ class TransferShow extends Component
     use InteractsWithAdmin;
 
     public StockTransfer $transfer;
+
+    /** True when shown inside the transfers list's side window (no page chrome; the list refreshes after each change). */
+    #[Locked]
+    public bool $embedded = false;
 
     /** item id => qty (approve / dispatch) */
     public array $qty = [];
@@ -27,8 +32,9 @@ class TransferShow extends Component
 
     public ?string $confirming = null; // reject | cancel
 
-    public function mount(StockTransfer $transfer): void
+    public function mount(StockTransfer $transfer, bool $embedded = false): void
     {
+        $this->embedded = $embedded;
         $acl = app(AccessControl::class);
         abort_unless($acl->allows(auth()->user(), 'transfers.view', $transfer->source_branch_id) || $acl->allows(auth()->user(), 'transfers.view', $transfer->destination_branch_id), 403);
         $this->transfer = $transfer;
@@ -55,6 +61,7 @@ class TransferShow extends Component
             $this->transfer->refresh();
             $this->reset('reason', 'confirming');
             $this->prefill();
+            $this->dispatch('inventory-doc-changed');
         }
     }
 

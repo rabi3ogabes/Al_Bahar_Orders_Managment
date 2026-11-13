@@ -23,9 +23,9 @@ export function OverlayHosts() {
   const lastOrder = useLastValue(orderId);
   const lastSlug = useLastValue(slug);
 
-  // "Add to bag" in the quick view: close it first, then show the bag with the new line (never a window opened from a window).
+  // "Add to bag" in the quick view: close it first, then show the bag with the new line (never a window opened from a window); the cart panel keeps the "Added to cart" confirmation.
   const wantBag = useRef(false);
-  useEffect(() => { if (!slug && wantBag.current) { wantBag.current = false; cart.openDrawer(); } }, [slug]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!slug && wantBag.current) { wantBag.current = false; cart.reveal(); } }, [slug]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>

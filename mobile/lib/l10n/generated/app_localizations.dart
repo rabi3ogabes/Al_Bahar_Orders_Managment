@@ -4705,6 +4705,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Saved'**
   String get savedToast;
+
+  /// No description provided for @keepShopping.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep shopping'**
+  String get keepShopping;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

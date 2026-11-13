@@ -2619,4 +2619,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get savedToast => 'تم الحفظ';
+
+  @override
+  String get keepShopping => 'واصل التسوّق';
 }

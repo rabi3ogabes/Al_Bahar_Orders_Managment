@@ -4,7 +4,7 @@ library;
 import 'dart:async';
 
 import 'package:albahar_customer/features/branches/presentation/branches_screen.dart';
-import 'package:albahar_customer/features/cart/presentation/bag_panel.dart';
+import 'package:albahar_customer/features/cart/presentation/cart_panel.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
 import 'package:albahar_customer/features/catalog/presentation/product_list_screen.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/quick_view_panel.dart';
@@ -34,7 +34,7 @@ void main() {
 
   final openers = <String, Future<void> Function(BuildContext)>{
     'order': (c) => showOrderPanel(c, 'o1', number: 'AB26o1'),
-    'cart': (c) => showBagPanel(c, addedVariantIds: {'v1'}, notice: 'Order again: 2 items could not be added'),
+    'cart': (c) => showCartPanel(c, addedVariantIds: {'v1'}, notice: 'Order again: 2 items could not be added'),
     'quick view': (c) => showQuickView(c, ProductSummary.fromJson(productCard('p1'))),
     'filters': (c) => showFilterPanel(c, query: const ProductQuery(), filters: const []),
     'address': (c) => showAddressPanel(c),

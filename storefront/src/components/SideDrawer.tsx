@@ -35,19 +35,21 @@ export interface SideDrawerProps {
   dirty?: boolean
   /** The open state lives in the URL (`?order=`): Back already closes it, so no history entry is added here. */
   urlBacked?: boolean
+  /** Where focus goes on close, if not the element that had it on open (the Add button of the cart panel). */
+  returnFocus?: () => HTMLElement | null
   className?: string
 }
 
 // Narrower than the screen on phones too, so a strip of the page (the scrim) stays tappable.
 const WIDTH = { sm: 'sm:w-[400px]', md: 'sm:w-[460px]', lg: 'sm:w-[560px]' } as const;
 
-export function SideDrawer({ open, onClose, title, description, children, footer, headerAction, size = 'md', side = 'end', phone = 'sheet', dirty = false, urlBacked = false, className }: SideDrawerProps) {
+export function SideDrawer({ open, onClose, title, description, children, footer, headerAction, size = 'md', side = 'end', phone = 'sheet', dirty = false, urlBacked = false, returnFocus, className }: SideDrawerProps) {
   const { t } = useI18n();
   const isPhone = useMedia('(max-width: 767px)') && phone === 'sheet';
   const [ask, setAsk] = useState(false);
   const [rearm, setRearm] = useState(0);
   const panel = useRef<HTMLDivElement>(null);
-  const opener = useOpener();
+  const opener = useOpener(returnFocus);
 
   const request = useCallback(() => { if (dirty) setAsk(true); else onClose(); }, [dirty, onClose]);
   // Back with unsaved input: stay open, ask, and put the history entry back for the next Back.

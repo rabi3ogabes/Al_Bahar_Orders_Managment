@@ -2584,4 +2584,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get savedToast => 'Saved';
+
+  @override
+  String get keepShopping => 'Keep shopping';
 }

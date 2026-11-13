@@ -7,14 +7,16 @@ use App\Domain\Inventory\Models\PurchaseOrder;
 use App\Domain\Inventory\Models\Supplier;
 use App\Domain\Inventory\Services\PurchasingService;
 use App\Livewire\Admin\Concerns\WithAdminTable;
+use App\Livewire\Admin\Concerns\WithRecordView;
 use App\Livewire\Admin\Concerns\WithVariantPicker;
 use App\Support\Money;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
 class PurchaseOrderIndex extends Component
 {
-    use WithAdminTable, WithVariantPicker;
+    use WithAdminTable, WithRecordView, WithVariantPicker;
 
     #[Url(except: '')]
     public string $filterStatus = '';
@@ -32,6 +34,18 @@ class PurchaseOrderIndex extends Component
     {
         abort_unless($this->can('purchasing.view'), 403);
     }
+
+    /** Same rule as the purchase order page: the viewer must hold purchasing.view at the order's receiving branch. */
+    protected function viewable(string $id): bool
+    {
+        $po = PurchaseOrder::find($id, ['id', 'branch_id']);
+
+        return $po !== null && $this->can('purchasing.view', $po->branch_id);
+    }
+
+    /** The side window changed an order (submit, approve, receive…): re-render so the list row is current. */
+    #[On('inventory-doc-changed')]
+    public function refreshAfterChange(): void {}
 
     public function create(): void
     {
@@ -82,9 +96,9 @@ class PurchaseOrderIndex extends Component
             array_map(fn ($l) => ['variant_id' => $l['variant_id'], 'quantity' => (int) $l['quantity'], 'unit_cost' => (string) $l['unit_cost']], $d['lines']),
             ['expected_at' => $f['expected_at'] ?: null, 'notes' => $f['notes'] ?: null, 'supplier_reference' => $f['supplier_reference'] ?: null]));
         if ($po instanceof PurchaseOrder) {
-            session()->flash('toast', ['type' => 'success', 'message' => __('inventory_admin.po_created')]);
-
-            return $this->redirectRoute('admin.purchase-orders.show', $po, navigate: true);
+            $this->showEditor = false;
+            $this->toast(__('inventory_admin.po_created'));
+            $this->openView($po->id); // the new order opens beside the list, ready to submit
         }
     }
 
@@ -110,6 +124,7 @@ class PurchaseOrderIndex extends Component
             'lineVariants' => $this->variantsFor(array_column($this->lines, 'variant_id')),
             'matches' => $this->variantMatches(),
             'draftTotal' => $total,
+            'viewPo' => ($id = $this->viewing()) ? PurchaseOrder::with('supplier:id,name,code')->find($id) : null,
         ])->title(__('nav.purchase_orders'));
     }
 }

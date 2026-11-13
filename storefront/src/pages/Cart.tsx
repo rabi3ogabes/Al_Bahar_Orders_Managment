@@ -22,7 +22,7 @@ export default function CartPage() {
     return <div className="wrap py-16"><EmptyState icon={<ShoppingBag size={30} />} title={t('cart.empty')} text={t('cart.empty_text')} action={<Button size="lg" onClick={() => nav('/shop')}>{t('cart.continue')}</Button>} /></div>;
   }
   const blocked = cart.lines.some((l) => !l.available);
-  const go = () => (user ? nav('/checkout') : authModal.open({ reason: t('auth.reason_checkout'), onDone: () => nav('/checkout') }));
+  const go = async () => { await cart.flush(); if (user) nav('/checkout'); else authModal.open({ reason: t('auth.reason_checkout'), onDone: () => nav('/checkout') }); };
 
   return (
     <div className="wrap py-8 md:py-12">
@@ -62,7 +62,7 @@ export default function CartPage() {
             <div className="flex justify-between"><dt className="text-muted">{t('cart.subtotal')}</dt><dd className="font-semibold tabular-nums">{cart.subtotal.formatted}</dd></div>
             <div className="flex justify-between"><dt className="text-muted">{t('checkout.delivery_fee')}</dt><dd className="text-muted">{t('cart.at_checkout')}</dd></div>
           </dl>
-          <Button size="lg" block className="mt-6" disabled={blocked} onClick={go}>{t('cart.checkout')}<Arrow size={18} /></Button>
+          <Button size="lg" block className="mt-6" disabled={blocked} onClick={() => void go()}>{t('cart.checkout')}<Arrow size={18} /></Button>
           {blocked && <p className="mt-2 text-center text-xs text-danger">{t('cart.fix_items')}</p>}
           <ul className="mt-6 space-y-2 text-[13px] text-muted">
             <li className="flex gap-2"><ShieldCheck size={16} className="shrink-0 text-brass" />{t('checkout.secure')}</li>

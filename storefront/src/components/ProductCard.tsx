@@ -34,8 +34,11 @@ export function ProductCard({ p, priority }: { p: P; priority?: boolean }) {
     </button>
   );
 
+  /** One tap: the cart panel opens and the badge updates at once. Cards that did not carry their variant fetch it first. */
   const quickAdd = async (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    if (p.variant_id) { void cart.quickAdd(p).catch(() => undefined); return; }
     if (busy) return;
     setBusy(true);
     let v: ProductDetail['variants'][number] | undefined;
@@ -73,7 +76,7 @@ export function ProductCard({ p, priority }: { p: P; priority?: boolean }) {
                 {sale && <p className="mt-1 text-[12px] text-muted line-through tabular-nums">{moneyShort(p.price.regular, locale)}</p>}
               </div>
               {canAdd && (
-                <button onClick={quickAdd} disabled={busy} aria-label={t('product.add_to_bag')}
+                <button onClick={quickAdd} aria-busy={busy} aria-label={t('product.add_to_cart')}
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary transition-transform hover:scale-105 hover:bg-primary-soft disabled:opacity-60">
                   <ShoppingBag size={18} className={busy ? 'animate-pulse' : ''} />
                 </button>
@@ -100,7 +103,7 @@ export function ProductCard({ p, priority }: { p: P; priority?: boolean }) {
           {!p.in_stock && <div className="absolute inset-0 flex items-end bg-bg/55 p-3"><Badge tone="sand">{t('product.out_of_stock')}</Badge></div>}
           {quickBtn('bottom-3 start-3 md:translate-y-2 md:opacity-0 md:focus-visible:translate-y-0 md:focus-visible:opacity-100 md:group-hover:translate-y-0 md:group-hover:opacity-100')}
           {p.purchasable && !p.has_variants && p.in_stock && (
-            <button onClick={quickAdd} disabled={busy} aria-label={t('product.add_to_bag')}
+            <button onClick={quickAdd} aria-busy={busy} aria-label={t('product.add_to_cart')}
               className="absolute bottom-3 end-3 flex h-11 w-11 translate-y-2 items-center justify-center rounded-full bg-primary text-bg opacity-0 shadow-soft transition-all duration-300 hover:bg-brass-deep focus-visible:translate-y-0 focus-visible:opacity-100 group-hover:translate-y-0 group-hover:opacity-100 max-md:translate-y-0 max-md:opacity-100">
               <ShoppingBag size={18} className={busy ? 'animate-pulse' : ''} />
             </button>

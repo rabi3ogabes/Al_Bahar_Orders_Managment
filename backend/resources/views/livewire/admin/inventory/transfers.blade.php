@@ -31,7 +31,7 @@
                     <tbody>
                     @foreach ($transfers as $t)
                         <tr wire:key="t-{{ $t->id }}">
-                            <td><a href="{{ route('admin.transfers.show', $t) }}" wire:navigate class="font-mono font-medium hover:text-brass-600" dir="ltr">{{ $t->number }}</a><span class="block text-xs text-ink-500 tabular-nums">{{ \App\Support\BusinessTime::display($t->created_at) }}</span></td>
+                            <td><a href="{{ route('admin.transfers.index', ['view' => $t->id]) }}" wire:click.prevent="openView('{{ $t->id }}')" class="font-mono font-medium hover:text-brass-600" dir="ltr">{{ $t->number }}</a><span class="block text-xs text-ink-500 tabular-nums">{{ \App\Support\BusinessTime::display($t->created_at) }}</span></td>
                             <td>
                                 <span class="inline-flex items-center gap-2 text-sm">
                                     <span class="badge-neutral font-mono" dir="ltr" title="{{ $t->source->localized('name') }}">{{ $t->source->code }}</span>
@@ -42,7 +42,7 @@
                             <td class="text-end tabular-nums">{{ $t->items_count }}</td>
                             <td class="text-end tabular-nums">{{ number_format((int) $t->units) }}</td>
                             <td><x-admin.status :value="$t->status" /></td>
-                            <td><a href="{{ route('admin.transfers.show', $t) }}" wire:navigate class="btn-ghost btn-sm" aria-label="{{ __('admin.details') }}"><x-icon name="chevron-right" class="size-4 rtl-flip" /></a></td>
+                            <td><a href="{{ route('admin.transfers.index', ['view' => $t->id]) }}" wire:click.prevent="openView('{{ $t->id }}')" class="btn-ghost btn-sm" aria-label="{{ __('admin.details') }}"><x-icon name="chevron-right" class="size-4 rtl-flip" /></a></td>
                         </tr>
                     @endforeach
                     </tbody>
@@ -86,5 +86,12 @@
                 <button class="btn-primary" wire:loading.attr="disabled" wire:target="save"><x-icon name="check" class="size-4" />{{ __('inventory_admin.create_transfer') }}</button>
             </div>
         </form>
+    </x-admin.dialog>
+    {{-- Transfer window: the same component as the full page (embedded), so actions, scoping and audit are identical. --}}
+    <x-admin.dialog wire:model.live="showView" :title="$viewTransfer?->number ?? ''" :description="$viewTransfer ? __('inventory_admin.transfer') : null" max-width="max-w-4xl">
+        @if ($viewTransfer)
+            <x-admin.drawer-bar :url="route('admin.transfers.show', $viewTransfer)" />
+            <livewire:admin.inventory.transfer-show :transfer="$viewTransfer" :embedded="true" :key="'tr-'.$viewTransfer->id" />
+        @endif
     </x-admin.dialog>
 </div>

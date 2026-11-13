@@ -42,3 +42,15 @@ An optional `<x-slot:footer>` is pinned too. Nested decisions use `variant="moda
 
 `lib/core/widgets/side_panel.dart` — `showSidePanel<T>(context:, title:, builder:, footer:, …)` is a bottom sheet on phones and an
 end-side panel from 720 px wide (tablets, web, landscape), RTL-aware. Both are routes, so Back works. Do not build new ad-hoc sheets.
+
+Extras in `showSidePanel`: `isForm: true` switches off swipe/scrim dismissal and asks "Discard changes?" before closing (use it for any window
+with input); `SidePanelLayout` and `PanelStep` give a window several steps (a password change, a cancel/return) with Back stepping inside it first;
+the keyboard lifts the pinned footer; `showInfoSnack` / `showErrorSnack` called inside a window show a toast inside it (a snackbar would hide
+behind it); a page change underneath (a footer tab) closes open windows.
+
+**Add to cart** (customer app: `addToCartAndShow` in `lib/features/cart/presentation/cart_panel.dart`; store: the same behaviour in the cart drawer):
+tapping "Add to cart" never navigates. It opens a cart window that stays open until the person closes it (no timer) with "Added to your cart",
+the item's photo, name, price and a −/+ quantity, the subtotal (the server's figure), and exactly two buttons: **Checkout** and **Keep shopping**
+(closes, same screen, same scroll position). Scrim tap, swipe down, Esc and Back close it. The cart badge changes before the server answers
+and rolls back on failure. Adding the same variant again raises the existing line (the server adds to the row's quantity), never a second line.
+

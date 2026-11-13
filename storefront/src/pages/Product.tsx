@@ -142,8 +142,9 @@ export default function Product() {
     if (!variant) { toast.push(t('product.choose_options'), 'error'); return; }
     setAdding(true);
     try {
-      await cart.add({ id: p.id, slug: p.slug, name: p.name, brand: p.brand, image: images[0]?.thumb_url ?? p.image?.thumb_url }, variant, qty);
-      if (buyNow) { cart.closeDrawer(); nav('/checkout'); }
+      // "Add to cart" opens the cart panel over this page; "Buy now" skips it and goes to checkout once the server has the item.
+      await cart.add({ id: p.id, slug: p.slug, name: p.name, brand: p.brand, image: images[0]?.thumb_url ?? p.image?.thumb_url }, variant, qty, { open: !buyNow });
+      if (buyNow) { await cart.flush(); nav('/checkout'); }
     } catch { /* toast shown by cart */ } finally { setAdding(false); }
   };
   const share = async () => {
@@ -194,7 +195,7 @@ export default function Product() {
 
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <QtyStepper value={qty} onChange={setQty} max={stockMax} />
-            <Button size="lg" className="min-w-0 flex-1" disabled={!canBuy} loading={adding} onClick={() => add(false)}>{t('product.add_to_bag')}</Button>
+            <Button size="lg" className="min-w-0 flex-1" disabled={!canBuy} loading={adding} onClick={() => add(false)}>{t('product.add_to_cart')}</Button>
             <button onClick={() => wl.toggle(p.id)} aria-pressed={liked} aria-label={liked ? t('wishlist.remove') : t('wishlist.add')} className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-line bg-paper hover:border-primary"><Heart size={20} className={liked ? 'fill-danger text-danger' : ''} /></button>
           </div>
           <div className="mt-3 flex gap-3">
@@ -275,7 +276,7 @@ export default function Product() {
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-bg/95 px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))] backdrop-blur lg:hidden">
         <div className="flex items-center gap-3">
           <div className="min-w-0"><p className="truncate text-[13px] text-muted">{p.name}</p><PriceTag price={price} size="sm" /></div>
-          <Button className="ms-auto shrink-0" disabled={!canBuy} loading={adding} onClick={() => add(false)}>{t('product.add_to_bag')}</Button>
+          <Button className="ms-auto shrink-0" disabled={!canBuy} loading={adding} onClick={() => add(false)}>{t('product.add_to_cart')}</Button>
         </div>
       </div>
     </div>

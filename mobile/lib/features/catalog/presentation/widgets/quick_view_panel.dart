@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:albahar_customer/core/l10n/l10n.dart';
-import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/widgets/app_button.dart';
@@ -13,8 +12,7 @@ import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/auth/presentation/require_auth.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
-import 'package:albahar_customer/features/cart/presentation/bag_panel.dart';
-import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
+import 'package:albahar_customer/features/cart/presentation/cart_panel.dart';
 import 'package:albahar_customer/features/catalog/data/catalog_repository.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
 import 'package:albahar_customer/features/catalog/presentation/state/catalog_providers.dart';
@@ -49,7 +47,6 @@ class _QuickViewBodyState extends ConsumerState<QuickViewBody> {
   Map<String, String>? _selection;
   int _quantity = 1;
   final Map<String, int> _colourQty = {};
-  bool _busy = false;
   int _image = 0;
 
   void _openFullPage() {
@@ -59,28 +56,13 @@ class _QuickViewBodyState extends ConsumerState<QuickViewBody> {
     unawaited(router.push('/products/${p.id}', extra: p));
   }
 
-  /// Closes the window, then shows what is in the cart on the page behind.
-  void _showCart(Set<String> added) {
+  /// Closes this window, then the cart window opens on the page behind it (the cart and its badge change at once).
+  void _add(ProductDetail product, List<CartAddition> additions) {
+    if (additions.isEmpty) return;
+    if (!requireAuth(context, ref, beforeLeaving: () => Navigator.of(context).pop())) return;
     final host = widget.host;
     Navigator.of(context).pop();
-    if (host.mounted) unawaited(showBagPanel(host, addedVariantIds: added));
-  }
-
-  Future<void> _add(Map<String, int> lines) async {
-    if (_busy || lines.isEmpty) return;
-    if (!requireAuth(context, ref, beforeLeaving: () => Navigator.of(context).pop())) return;
-    setState(() => _busy = true);
-    try {
-      for (final e in lines.entries) {
-        await ref.read(cartControllerProvider.notifier).addItem(e.key, quantity: e.value);
-      }
-      Haptics.success();
-      if (mounted) _showCart(lines.keys.toSet());
-    } on ApiException catch (e) {
-      if (mounted) showErrorSnack(context, e);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+    if (host.mounted) unawaited(addToCartAndShow(host, ref, additions));
   }
 
   Future<void> _notify(ProductVariant variant) async {
@@ -143,6 +125,17 @@ class _QuickViewBodyState extends ConsumerState<QuickViewBody> {
         final branch = ref.watch(preferredBranchProvider);
         final canBuy = multi ? rows.any((r) => r.variant.purchasable) : purchasable;
 
+        List<CartAddition> additions(Map<String, int> lines) => [
+          for (final e in lines.entries)
+            CartAddition(
+              variantId: e.key,
+              product: product.summary,
+              quantity: e.value,
+              unitPrice: product.variants.where((v) => v.id == e.key).firstOrNull?.price,
+              variantName: product.variants.where((v) => v.id == e.key).firstOrNull?.name,
+            ),
+        ];
+
         Widget footer() {
           if (!canBuy) {
             return Column(
@@ -166,8 +159,7 @@ class _QuickViewBodyState extends ConsumerState<QuickViewBody> {
                 AppButton(
                   label: pickedCount > 0 ? l10n.addItemsToBag(pickedCount) : l10n.addToCart,
                   icon: Icons.shopping_bag_outlined,
-                  loading: _busy,
-                  onPressed: pickedCount > 0 ? () => _add(picked) : null,
+                  onPressed: pickedCount > 0 ? () => _add(product, additions(picked)) : null,
                 )
               else
                 Row(
@@ -183,8 +175,7 @@ class _QuickViewBodyState extends ConsumerState<QuickViewBody> {
                       child: AppButton(
                         label: l10n.addToCart,
                         icon: Icons.shopping_bag_outlined,
-                        loading: _busy,
-                        onPressed: variant == null ? null : () => _add({variant.id: _quantity}),
+                        onPressed: variant == null ? null : () => _add(product, additions({variant.id: _quantity})),
                       ),
                     ),
                   ],

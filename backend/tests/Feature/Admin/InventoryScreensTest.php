@@ -100,7 +100,7 @@ it('rejects adjustments with a reason and blocks creating at other branches', fu
 it('runs a full transfer lifecycle through the UI', function () {
     $this->actingAs($this->wbClerk);
     Livewire::test(TransferIndex::class)->call('create')->set('form.source_branch_id', $this->wb->id)->set('form.destination_branch_id', $this->prl->id)
-        ->call('pickVariant', $this->variant->id)->set('lines.0.quantity', 5)->call('save')->assertHasNoErrors()->assertRedirect();
+        ->call('pickVariant', $this->variant->id)->set('lines.0.quantity', 5)->call('save')->assertHasNoErrors()->assertNoRedirect()->assertSet('showView', true); // the new transfer opens beside the list
     $t = StockTransfer::firstOrFail();
     expect($t->status)->toBe('pending_approval');
     $item = $t->items()->first();
@@ -157,7 +157,7 @@ it('creates, approves and receives a purchase order with partial and rejected qu
     $supplier = Supplier::factory()->create();
     $this->actingAs($this->wbClerk);
     Livewire::test(PurchaseOrderIndex::class)->call('create')->set('form.supplier_id', $supplier->id)->set('form.branch_id', $this->wb->id)
-        ->call('pickVariant', $this->variant->id)->set('lines.0.quantity', 6)->set('lines.0.unit_cost', '500')->call('save')->assertHasNoErrors()->assertRedirect();
+        ->call('pickVariant', $this->variant->id)->set('lines.0.quantity', 6)->set('lines.0.unit_cost', '500')->call('save')->assertHasNoErrors()->assertNoRedirect()->assertSet('showView', true); // the new order opens beside the list
     $po = PurchaseOrder::firstOrFail();
     expect($po->subtotal)->toBe('3000.00');
     Livewire::test(PurchaseOrderShow::class, ['po' => $po])->call('submit')->call('approve')->assertDispatched('toast', type: 'error');

@@ -68,7 +68,7 @@ export default function QuickView({ slug, open, onClose, onAdded }: { slug: stri
   const total = price ? money(parseFloat(price.final.amount) * qty, price.final.currency, locale) : '';
   const footer = p ? (
     <Button size="lg" block disabled={!canBuy} loading={adding} onClick={() => void add()}>
-      {!variant ? t('product.choose_options') : canBuy ? <>{t('product.add_to_bag')} · <span className="tabular-nums" lang={locale}>{total}</span></> : t('product.out_of_stock')}
+      {!variant ? t('product.choose_options') : canBuy ? <>{t('product.add_to_cart')} · <span className="tabular-nums" lang={locale}>{total}</span></> : t('product.out_of_stock')}
     </Button>
   ) : null;
   const notFound = q.isError && q.error instanceof ApiError && q.error.status === 404;

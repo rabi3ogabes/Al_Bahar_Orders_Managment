@@ -5,6 +5,8 @@ return [
     'discard_q' => 'Discard your changes?',
     'discard' => 'Discard',
     'keep_editing' => 'Keep editing',
+    'continue_count' => 'Continue counting',
+    'open_count_screen' => 'Open count screen',
     'open_full_page' => 'Open full page',
     'open_full_editor' => 'Open full editor',
     'quick_view' => 'Quick view',

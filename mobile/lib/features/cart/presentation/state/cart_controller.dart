@@ -1,9 +1,11 @@
+import 'package:albahar_customer/core/models/money.dart';
 import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
 import 'package:albahar_customer/features/cart/data/cart_repository.dart';
 import 'package:albahar_customer/features/cart/domain/cart_models.dart';
+import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
 import 'package:albahar_customer/features/checkout/domain/checkout_models.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -34,7 +36,72 @@ class CartController extends AsyncNotifier<Cart> {
     return cart;
   }
 
-  Future<Cart> addItem(String variantId, {int quantity = 1}) async => _apply(await _repo.addItem(variantId, quantity));
+  /// Adds are in flight; the server's cart is only shown once the last one has answered, so a quick second tap never
+  /// flickers the quantity back to what the first answer said.
+  int _adding = 0;
+
+  /// Puts [quantity] of a variant in the cart. The cart (and the badge) change at once, before the server answers:
+  /// a variant that is already in the cart gets its quantity raised (never a second line), a new one gets a line built
+  /// from [product]. If the server refuses, the cart goes back to what it was and the error is thrown.
+  Future<Cart> addItem(
+    String variantId, {
+    int quantity = 1,
+    ProductSummary? product,
+    EffectivePrice? unitPrice,
+    String? variantName,
+  }) async {
+    final previous = state.value ?? Cart.empty;
+    final existing = previous.items.where((i) => i.variantId == variantId).firstOrNull;
+    final pendingId = existing?.id ?? (product == null ? null : 'pending-$variantId');
+    final busy = ref.read(cartBusyItemsProvider.notifier);
+    if (pendingId != null) {
+      busy.add(pendingId);
+      state = AsyncData(
+        _copy(
+          previous,
+          items: existing != null
+              ? [for (final i in previous.items) i.variantId == variantId ? i.withQuantity(i.quantity + quantity) : i]
+              : [
+                  ...previous.items,
+                  CartItem(
+                    id: pendingId,
+                    variantId: variantId,
+                    product: product!,
+                    quantity: quantity,
+                    variantName: variantName,
+                    unitPrice: unitPrice ?? product.price,
+                  ),
+                ],
+          itemsCount: previous.itemsCount + quantity,
+        ),
+      );
+    }
+    _adding++;
+    try {
+      final server = await _repo.addItem(variantId, quantity);
+      _adding--;
+      if (_adding > 0) return state.value ?? server ?? previous;
+      return await _apply(server);
+    } catch (_) {
+      _adding--;
+      if (pendingId != null && ref.mounted && _adding == 0) state = AsyncData(previous);
+      rethrow;
+    } finally {
+      if (pendingId != null) busy.remove(pendingId);
+    }
+  }
+
+  Cart _copy(Cart c, {required List<CartItem> items, required int itemsCount}) => Cart(
+    id: c.id,
+    branchId: c.branchId,
+    fulfillmentType: c.fulfillmentType,
+    addressId: c.addressId,
+    couponCode: c.couponCode,
+    items: items,
+    itemsCount: itemsCount,
+    subtotal: c.subtotal,
+    warnings: c.warnings,
+  );
 
   Future<void> updateQuantity(String itemId, int quantity) async {
     if (quantity <= 0) return removeItem(itemId);
@@ -42,17 +109,12 @@ class CartController extends AsyncNotifier<Cart> {
     final busy = ref.read(cartBusyItemsProvider.notifier);
     busy.add(itemId);
     if (previous != null) {
+      final old = previous.items.where((i) => i.id == itemId).firstOrNull?.quantity ?? quantity;
       state = AsyncData(
-        Cart(
-          id: previous.id,
-          branchId: previous.branchId,
-          fulfillmentType: previous.fulfillmentType,
-          addressId: previous.addressId,
-          couponCode: previous.couponCode,
+        _copy(
+          previous,
           items: [for (final i in previous.items) i.id == itemId ? i.withQuantity(quantity) : i],
-          itemsCount: previous.itemsCount,
-          subtotal: previous.subtotal,
-          warnings: previous.warnings,
+          itemsCount: previous.itemsCount + (quantity - old),
         ),
       );
     }

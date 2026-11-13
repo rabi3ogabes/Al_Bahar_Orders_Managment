@@ -5,8 +5,8 @@ import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
-import 'package:albahar_customer/features/auth/presentation/require_auth.dart';
 import 'package:albahar_customer/features/cart/domain/cart_models.dart';
+import 'package:albahar_customer/features/cart/presentation/cart_panel.dart';
 import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/quick_view_panel.dart';
@@ -56,8 +56,8 @@ class _QuickAddStepperState extends ConsumerState<QuickAddStepper> {
       unawaited(showQuickView(context, p));
       return;
     }
-    if (!requireAuth(context, ref)) return;
-    _run(() => ref.read(cartControllerProvider.notifier).addItem(p.variantId!));
+    // The cart opens over this list (no navigation, the scroll position stays); the badge changes at once.
+    unawaited(addToCartAndShow(context, ref, [CartAddition(variantId: p.variantId!, product: p, unitPrice: p.price)]));
   }
 
   @override

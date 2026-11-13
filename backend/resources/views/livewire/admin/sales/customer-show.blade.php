@@ -199,12 +199,9 @@
     <x-admin.dialog variant="modal" wire:model="showStatus" max-width="max-w-lg" :title="$newStatus === 'suspended' ? __('drawer_sales.q_suspend') : __('drawer_sales.q_reactivate')" :description="$newStatus === 'suspended' ? __('sales_admin.suspend_hint') : null">
         <form wire:submit="changeStatus" class="space-y-5">
             <x-admin.field :label="__('admin.reason')" for="statusReason" required><textarea id="statusReason" wire:model="statusReason" rows="3" class="input" autofocus></textarea></x-admin.field>
-            {{-- Wrapped once more: this modal can sit inside a side window's .drawer-body, whose pinned-row rule must not match it. --}}
-            <div class="border-t border-sand-100 pt-5 dark:border-ink-800">
-                <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                    <button type="button" class="btn-secondary min-h-11" @click="open = false">{{ __('admin.back') }}</button>
-                    <button class="{{ $newStatus === 'suspended' ? 'btn-danger' : 'btn-primary' }} min-h-11">{{ $newStatus === 'suspended' ? __('sales_admin.suspend') : __('sales_admin.reactivate') }}</button>
-                </div>
+            <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button type="button" class="btn-secondary min-h-11" @click="open = false">{{ __('admin.back') }}</button>
+                <button class="{{ $newStatus === 'suspended' ? 'btn-danger' : 'btn-primary' }} min-h-11">{{ $newStatus === 'suspended' ? __('sales_admin.suspend') : __('sales_admin.reactivate') }}</button>
             </div>
         </form>
     </x-admin.dialog>

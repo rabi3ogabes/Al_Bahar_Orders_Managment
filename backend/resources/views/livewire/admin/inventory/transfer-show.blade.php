@@ -3,7 +3,15 @@
     $editQty = $can['approve'] || $can['dispatch'];
     $qtyLabel = $can['approve'] ? __('inventory_admin.approve_qty') : __('inventory_admin.dispatch_qty');
 @endphp
-<div class="mx-auto max-w-7xl">
+<div class="{{ $embedded ? '' : 'mx-auto max-w-7xl' }}">
+    @if ($embedded)
+        <div class="mb-5 flex flex-wrap items-center gap-2 text-sm">
+            <x-admin.status :value="$s" />
+            <span class="font-medium">{{ $t->source->localized('name') }}</span>
+            <x-icon name="arrow-right" class="size-4 text-brass-500 rtl-flip" />
+            <span class="font-medium">{{ $t->destination->localized('name') }}</span>
+        </div>
+    @else
     <a href="{{ route('admin.transfers.index') }}" wire:navigate class="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-brass-600"><x-icon name="chevron-left" class="size-4 rtl-flip" />{{ __('nav.transfers') }}</a>
     <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div class="min-w-0">
@@ -18,8 +26,10 @@
         <div><x-admin.status :value="$s" /></div>
     </div>
 
-    <div class="grid gap-6 [&>*]:min-w-0 lg:grid-cols-3">
-        <div class="min-w-0 space-y-6 lg:col-span-2">
+    @endif
+
+    <div class="grid gap-6 [&>*]:min-w-0 {{ $embedded ? '' : 'lg:grid-cols-3' }}">
+        <div class="min-w-0 space-y-6 {{ $embedded ? '' : 'lg:col-span-2' }}">
             <div class="card overflow-hidden">
                 <div class="flex items-center justify-between p-5 sm:p-6">
                     <h2 class="font-display text-xl font-semibold">{{ __('inventory_admin.lines') }}</h2>

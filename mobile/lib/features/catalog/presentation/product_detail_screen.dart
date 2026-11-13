@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/models/money.dart';
-import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/router/deep_links.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
@@ -19,8 +18,7 @@ import 'package:albahar_customer/features/auth/presentation/require_auth.dart';
 import 'package:albahar_customer/features/branches/domain/branch_models.dart';
 import 'package:albahar_customer/features/branches/presentation/branches_screen.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
-import 'package:albahar_customer/features/cart/presentation/bag_panel.dart';
-import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
+import 'package:albahar_customer/features/cart/presentation/cart_panel.dart';
 import 'package:albahar_customer/features/catalog/data/catalog_repository.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
 import 'package:albahar_customer/features/catalog/presentation/state/catalog_providers.dart';
@@ -48,7 +46,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   Map<String, String>? _selection;
   int _quantity = 1;
   final Map<String, int> _colourQty = {};
-  bool _adding = false;
 
   @override
   Widget build(BuildContext context) {
@@ -229,14 +226,14 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       ),
       bottomNavigationBar: _BuyBar(
         multiCount: multi ? pickedCount : null,
-        onAddMany: multi ? () => _addColours(rows) : null,
+        onAddMany: multi ? () => _addColours(product, rows) : null,
         purchasable: multi ? rows.any((r) => r.variant.purchasable) : purchasable,
         price: price?.finalPrice,
         quantity: _quantity,
         maxQuantity: 10,
-        adding: _adding,
+        adding: false,
         onQuantity: (q) => setState(() => _quantity = q),
-        onAdd: variant == null ? null : () => _addToCart(variant),
+        onAdd: variant == null ? null : () => _addToCart(product, variant),
         onNotify: variant == null ? null : () => _notify(variant),
       ),
     );
@@ -247,47 +244,43 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     await SharePlus.instance.share(ShareParams(text: '${product.name}\n$url', subject: product.name));
   }
 
-  Future<void> _addToCart(ProductVariant variant) async {
-    if (!requireAuth(context, ref)) return;
-    setState(() => _adding = true);
-    try {
-      await ref.read(cartControllerProvider.notifier).addItem(variant.id, quantity: _quantity);
-      Haptics.success();
-      if (!mounted) return;
-      // The cart opens beside the page: the person keeps their place and one Back closes it.
-      unawaited(showBagPanel(context, addedVariantIds: {variant.id}));
-    } on ApiException catch (e) {
-      if (mounted) showErrorSnack(context, e);
-    } finally {
-      if (mounted) setState(() => _adding = false);
-    }
+  /// The cart opens over this page (no navigation, the page keeps its place); the badge changes at once.
+  void _addToCart(ProductDetail product, ProductVariant variant) {
+    unawaited(
+      addToCartAndShow(context, ref, [
+        CartAddition(
+          variantId: variant.id,
+          product: product.summary,
+          quantity: _quantity,
+          unitPrice: variant.price,
+          variantName: variant.name.isEmpty ? null : variant.name,
+        ),
+      ]),
+    );
   }
 
-  Future<void> _addColours(List<ColourRow> rows) async {
-    if (!requireAuth(context, ref)) return;
-    final l10n = context.l10n;
+  void _addColours(ProductDetail product, List<ColourRow> rows) {
     final picked = [
       for (final r in rows)
-        if ((_colourQty[r.variant.id] ?? 0) > 0) (r.variant.id, _colourQty[r.variant.id]!),
+        if ((_colourQty[r.variant.id] ?? 0) > 0) (r.variant, _colourQty[r.variant.id]!),
     ];
     if (picked.isEmpty) {
-      showInfoSnack(context, l10n.pickAtLeastOne);
+      showInfoSnack(context, context.l10n.pickAtLeastOne);
       return;
     }
-    setState(() => _adding = true);
-    try {
-      for (final (id, qty) in picked) {
-        await ref.read(cartControllerProvider.notifier).addItem(id, quantity: qty);
-      }
-      Haptics.success();
-      if (!mounted) return;
-      setState(_colourQty.clear);
-      unawaited(showBagPanel(context, addedVariantIds: {for (final (id, _) in picked) id}));
-    } on ApiException catch (e) {
-      if (mounted) showErrorSnack(context, e);
-    } finally {
-      if (mounted) setState(() => _adding = false);
-    }
+    unawaited(
+      addToCartAndShow(context, ref, [
+        for (final (v, qty) in picked)
+          CartAddition(
+            variantId: v.id,
+            product: product.summary,
+            quantity: qty,
+            unitPrice: v.price,
+            variantName: v.name.isEmpty ? null : v.name,
+          ),
+      ]),
+    );
+    setState(_colourQty.clear);
   }
 
   Future<void> _notify(ProductVariant variant) async {

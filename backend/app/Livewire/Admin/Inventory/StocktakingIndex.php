@@ -3,16 +3,18 @@
 namespace App\Livewire\Admin\Inventory;
 
 use App\Domain\Identity\Models\User;
+use App\Domain\Inventory\Models\StocktakingItem;
 use App\Domain\Inventory\Models\StocktakingSession;
 use App\Domain\Inventory\Services\StocktakingService;
 use App\Livewire\Admin\Catalog\CategoryIndex;
 use App\Livewire\Admin\Concerns\WithAdminTable;
+use App\Livewire\Admin\Concerns\WithRecordView;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
 class StocktakingIndex extends Component
 {
-    use WithAdminTable;
+    use WithAdminTable, WithRecordView;
 
     #[Url(except: '')]
     public string $filterStatus = '';
@@ -24,6 +26,14 @@ class StocktakingIndex extends Component
     public function mount(): void
     {
         abort_unless($this->can('stocktaking.view'), 403);
+    }
+
+    /** Same rule as the count screen: stocktaking.view at the session's branch. The window is a summary; counting stays on its own screen. */
+    protected function viewable(string $id): bool
+    {
+        $session = StocktakingSession::find($id, ['id', 'branch_id']);
+
+        return $session !== null && $this->can('stocktaking.view', $session->branch_id);
     }
 
     public function create(): void
@@ -65,12 +75,19 @@ class StocktakingIndex extends Component
             ->latest();
         $this->branchScope('stocktaking.view')->apply($q->getQuery());
         $sessions = $q->paginate($this->perPage);
+        $viewSession = ($id = $this->viewing()) ? StocktakingSession::with('branch:id,code,name_en,name_ar')->find($id) : null;
+        $viewStats = $viewSession ? StocktakingItem::where('stocktaking_session_id', $viewSession->id)->selectRaw('count(*) as lines, count(counted_quantity) as counted,
+            coalesce(sum(case when counted_quantity is not null then counted_quantity - expected_quantity else 0 end), 0) as net,
+            sum(case when counted_quantity is not null and counted_quantity <> expected_quantity then 1 else 0 end) as variances')->first() : null;
 
         return view('livewire.admin.inventory.stocktaking', [
             'sessions' => $sessions,
             'people' => User::whereIn('id', $sessions->pluck('started_by')->filter()->unique())->pluck('name', 'id'),
             'branches' => $this->scopedBranches('stocktaking.create'),
             'categories' => $this->showEditor ? CategoryIndex::treeOptions() : collect(),
+            'viewSession' => $viewSession,
+            'viewStats' => $viewStats,
+            'viewCanCount' => $viewSession && $viewSession->status === 'counting' && $this->can('stocktaking.edit', $viewSession->branch_id),
         ])->title(__('nav.stocktaking'));
     }
 }

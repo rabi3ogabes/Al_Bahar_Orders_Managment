@@ -5,6 +5,8 @@ return [
     'discard_q' => 'تجاهل التغييرات غير المحفوظة؟',
     'discard' => 'تجاهل',
     'keep_editing' => 'متابعة التعديل',
+    'continue_count' => 'متابعة الجرد',
+    'open_count_screen' => 'فتح شاشة الجرد',
     'open_full_page' => 'فتح الصفحة كاملة',
     'open_full_editor' => 'فتح المحرر الكامل',
     'quick_view' => 'عرض سريع',

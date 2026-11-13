@@ -146,14 +146,8 @@ class CartWarningsBanner extends StatelessWidget {
 }
 
 class CartLine extends ConsumerWidget {
-  const CartLine({super.key, required this.item, this.highlight = false, this.onOpenProduct});
+  const CartLine({super.key, required this.item});
   final CartItem item;
-
-  /// Tints the line (the one just added in the cart window).
-  final bool highlight;
-
-  /// Replaces opening the product page; the cart window uses it to close itself first.
-  final VoidCallback? onOpenProduct;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -194,7 +188,6 @@ class CartLine extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(vertical: 5),
         child: SurfaceCard(
           padding: const EdgeInsets.all(10),
-          color: highlight ? palette.brassTint : null,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -203,7 +196,7 @@ class CartLine extends ConsumerWidget {
                 label: item.product.name,
                 excludeSemantics: true,
                 child: GestureDetector(
-                  onTap: onOpenProduct ?? () => openProduct(context, item.product, heroScope: 'cart'),
+                  onTap: () => openProduct(context, item.product, heroScope: 'cart'),
                   child: SizedBox(
                     width: 80,
                     height: 80,

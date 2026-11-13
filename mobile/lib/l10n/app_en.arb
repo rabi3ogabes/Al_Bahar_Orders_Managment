@@ -2081,5 +2081,7 @@
     "placeholders": {"count": {"type": "int"}}
   },
   "savedToast": "Saved",
-  "@savedToast": {}
+  "@savedToast": {},
+  "keepShopping": "Keep shopping",
+  "@keepShopping": {}
 }
