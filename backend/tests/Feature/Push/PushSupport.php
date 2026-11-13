@@ -1,6 +1,11 @@
 <?php
 
+use App\Domain\Identity\Models\Permission;
+use App\Domain\Identity\Models\Role;
+use App\Domain\Identity\Models\User;
+use App\Domain\Identity\Models\UserRole;
 use App\Domain\Settings\Services\Settings;
+use Illuminate\Support\Str;
 
 /** A real (throwaway) RSA key, made once per run: the code under test signs with it. */
 function throwawayPrivateKey(): string
@@ -55,12 +60,12 @@ function configureFirebase(bool $enabled = true, bool $withKey = true): void
 }
 
 /** A company-wide staff member who holds exactly these permission keys (for "can look but not change" checks). */
-function staffWithPermissions(array $keys): App\Domain\Identity\Models\User
+function staffWithPermissions(array $keys): User
 {
-    $user = App\Domain\Identity\Models\User::factory()->staff()->create();
-    $role = App\Domain\Identity\Models\Role::create(['key' => 'push_'.Illuminate\Support\Str::random(6), 'name_en' => 'Push tester', 'name_ar' => 'مختبر', 'scope' => 'global']);
-    $role->permissions()->sync(App\Domain\Identity\Models\Permission::whereIn('key', $keys)->pluck('id'));
-    App\Domain\Identity\Models\UserRole::create(['user_id' => $user->id, 'role_id' => $role->id, 'branch_id' => null]);
+    $user = User::factory()->staff()->create();
+    $role = Role::create(['key' => 'push_'.Str::random(6), 'name_en' => 'Push tester', 'name_ar' => 'مختبر', 'scope' => 'global']);
+    $role->permissions()->sync(Permission::whereIn('key', $keys)->pluck('id'));
+    UserRole::create(['user_id' => $user->id, 'role_id' => $role->id, 'branch_id' => null]);
 
     return $user;
 }

@@ -1,9 +1,12 @@
 <?php
 
+use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Models\UserDevice;
+use App\Domain\Notifications\Jobs\SendNotificationJob;
 use App\Domain\Notifications\Models\NotificationLog;
 use App\Domain\Notifications\Services\FcmClient;
 use App\Domain\Settings\Services\Settings;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 
@@ -133,7 +136,7 @@ it('reports a dead token as unregistered but not a wrong project or a bad payloa
 ]);
 
 it('switches off a browser FCM no longer knows and keeps the one it accepts (queued notification)', function () {
-    $user = App\Domain\Identity\Models\User::factory()->create();
+    $user = User::factory()->create();
     $dead = UserDevice::create(['user_id' => $user->id, 'platform' => 'web', 'app' => 'store', 'push_token' => 'dead-web']);
     $live = UserDevice::create(['user_id' => $user->id, 'platform' => 'web', 'app' => 'store', 'push_token' => 'live-web']);
     Http::fake([
@@ -144,18 +147,18 @@ it('switches off a browser FCM no longer knows and keeps the one it accepts (que
     ]);
     $log = NotificationLog::create(['user_id' => $user->id, 'event' => 'order.confirmed', 'channel' => 'push', 'status' => 'queued']);
 
-    App\Domain\Notifications\Jobs\SendNotificationJob::dispatchSync($log->id, 'T', 'B');
+    SendNotificationJob::dispatchSync($log->id, 'T', 'B');
 
     expect($dead->fresh()->disabled_at)->not->toBeNull()->and($live->fresh()->disabled_at)->toBeNull()->and($log->fresh()->status)->toBe('sent');
 });
 
 it('sends a scheduled notification to a browser through the queued job', function () {
     fakeGoogle();
-    $user = App\Domain\Identity\Models\User::factory()->create();
+    $user = User::factory()->create();
     UserDevice::create(['user_id' => $user->id, 'platform' => 'web', 'app' => 'store', 'push_token' => 'job-web']);
     $log = NotificationLog::create(['user_id' => $user->id, 'event' => 'order.confirmed', 'channel' => 'push', 'status' => 'queued']);
 
-    App\Domain\Notifications\Jobs\SendNotificationJob::dispatchSync($log->id, 'Confirmed', 'Your order is confirmed', 'albahar://orders/1');
+    SendNotificationJob::dispatchSync($log->id, 'Confirmed', 'Your order is confirmed', 'albahar://orders/1');
 
     expect($log->fresh()->status)->toBe('sent');
     expect(sentMessage())->toHaveKey('webpush')->and(sentMessage()['webpush']['notification']['title'])->toBe('Confirmed');
@@ -166,10 +169,10 @@ it('does not send anything while push is switched off', function () {
     Http::fake();
 
     expect(app(FcmClient::class)->configured())->toBeFalse();
-    $user = App\Domain\Identity\Models\User::factory()->create();
+    $user = User::factory()->create();
     UserDevice::create(['user_id' => $user->id, 'platform' => 'web', 'push_token' => 'off-web']);
     $log = NotificationLog::create(['user_id' => $user->id, 'event' => 'order.confirmed', 'channel' => 'push', 'status' => 'queued']);
-    App\Domain\Notifications\Jobs\SendNotificationJob::dispatchSync($log->id, 'T', 'B');
+    SendNotificationJob::dispatchSync($log->id, 'T', 'B');
 
     expect($log->fresh()->status)->toBe('skipped');
     Http::assertNothingSent();
@@ -202,7 +205,7 @@ it('tests the connection with validate_only and maps every failure to a plain co
     'rate limited' => [fn () => fakeGoogle(['error' => ['status' => 'RESOURCE_EXHAUSTED']], 429), 'rate_limited', false],
     'fcm down' => [fn () => fakeGoogle(['error' => ['status' => 'UNAVAILABLE']], 503), 'fcm_down', false],
     'rejected' => [fn () => fakeGoogle(['error' => ['status' => 'INVALID_ARGUMENT', 'message' => 'bad']], 400), 'rejected', false],
-    'offline' => [fn () => Http::fake(fn () => throw new Illuminate\Http\Client\ConnectionException('timeout')), 'unreachable', false],
+    'offline' => [fn () => Http::fake(fn () => throw new ConnectionException('timeout')), 'unreachable', false],
 ]);
 
 it('validates without delivering: the test message is validate_only and goes to a topic, never a device', function () {

@@ -45,7 +45,11 @@ class _MapPinPickerState extends ConsumerState<MapPinPicker> {
 
   void _moved(MapCamera camera, bool gesture) {
     if (camera.center != _center.value) _center.value = camera.center;
-    if (!gesture) return;
+    if (gesture) _touched();
+  }
+
+  /// The person is moving the map: lift the pin until things have been quiet for a moment.
+  void _touched() {
     if (!_dragging.value) _dragging.value = true;
     _settle?.cancel();
     // flutter_map has no "finger lifted" callback for flings: a short quiet spell means the pin has landed.
@@ -120,6 +124,7 @@ class _MapPinPickerState extends ConsumerState<MapPinPicker> {
                   initialCenter: widget.initial ?? settings.center,
                   initialZoom: widget.initial != null ? 17 : 12,
                   onPositionChanged: _moved,
+                  onUserGesture: _touched,
                   controls: const MapControlsConfig(recenter: false, myLocation: true),
                   onMyLocation: _locate,
                   locating: _locating,
