@@ -8,8 +8,11 @@ The server sends pushes by itself once Firebase is connected; until then it skip
 2. Download each app's `google-services.json` and commit them (they hold no secrets) as
    `mobile/android/app/src/<flavor>/google-services.json` — customer: `src/main`-level flavors `customerProd`/`customerStaging`/`customerDev`
    (put the same file in each flavor folder you build), driver: `driverProd`, staff: `staffProd`.
-3. Project settings → Service accounts → generate a private key (JSON). Never commit it. Upload it to the server and set
-   `FCM_PROJECT_ID` and `FCM_CREDENTIALS_PATH` in the app's environment (panel → Docker app → Environment), then restart.
+3. Project settings → Service accounts → generate a private key (JSON). Never commit it. Then either
+   - **(recommended) upload it in the dashboard**: Organization → Push notifications (it also covers the web store and the web app: see
+     [the Firebase push guide](../guides/FIREBASE_PUSH.md)), no restart needed; or
+   - upload it to the server and set `FCM_PROJECT_ID` and `FCM_CREDENTIALS_PATH` in the app's environment (panel → Docker app →
+     Environment), then restart. These variables still work; a value saved in the dashboard wins when both exist.
 
 ## What each app shows
 - Customer: one live "order progress" card per order (step bar Placed → Preparing → On the way → Delivered), updated in place.

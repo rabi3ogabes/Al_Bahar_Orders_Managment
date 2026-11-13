@@ -89,7 +89,8 @@ void main() {
     await t.pump(const Duration(milliseconds: 150));
     expect(t.getRect(find.byType(MapPin)).bottom, lessThan(pin.bottom - 5), reason: 'lifted while dragging');
     await gesture.up();
-    await t.pump(const Duration(seconds: 1));
+    await t.pump(const Duration(seconds: 1)); // the fling runs out
+    await t.pump(const Duration(milliseconds: 500)); // and the pin has been still for a moment
     expect(t.getRect(find.byType(MapPin)).bottom, closeTo(pin.bottom, 1));
     expect(camera(t).center.latitude, isNot(closeTo(25.3, 1e-6)));
   });
@@ -104,7 +105,6 @@ void main() {
       await t.pump(const Duration(seconds: 2));
       expect(camera(t).center.latitude, closeTo(25.28, 1e-3));
       expect(camera(t).zoom, 17);
-      expect(findsNothing); // semantics are off in this test; the dot itself is drawn
       expect(find.byType(MyLocationDot), findsOneWidget);
     });
 
