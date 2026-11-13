@@ -19,6 +19,7 @@ import 'package:albahar_customer/features/reviews/presentation/write_review_scre
 import 'package:albahar_customer/features/support/presentation/cms_page_screen.dart';
 import 'package:albahar_customer/features/support/presentation/support_screens.dart';
 import 'package:albahar_customer/features/wishlist/presentation/wishlist_screen.dart';
+import 'package:albahar_customer/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -73,23 +74,33 @@ void main() {
       t.takeException();
 
       final problems = <String>[];
+      final close = lookupAppLocalizations(Locale(c.locale)).close;
+      final previous = FlutterError.onError;
+      var current = 'start';
+      FlutterError.onError = (details) {
+        final lines = details.toDiagnosticsNode().toStringDeep().split('\n');
+        final where = lines.where((l) => l.contains('lib/')).take(2).join(' ').trim();
+        problems.add('$current: ${details.exceptionAsString().split('\n').first} $where');
+      };
+      addTearDown(() => FlutterError.onError = previous);
       for (final entry in openers.entries) {
+        current = entry.key;
         final context = t.element(find.byType(Scaffold).first);
         unawaited(entry.value(context));
         await settle(t, 8);
-        final error = t.takeException();
-        if (error != null) problems.add('${entry.key}: ${error.toString().split('\n').first}');
-        final open = find.byType(BottomSheet).evaluate().isNotEmpty || find.byTooltip('Close').evaluate().isNotEmpty;
+        t.takeException();
+        final open = find.byTooltip(close).evaluate().isNotEmpty;
         if (!open) problems.add('${entry.key}: nothing opened');
         await back(t);
         await settle(t, 3);
-        final stillOpen = find.byTooltip('Close').evaluate().isNotEmpty;
+        final stillOpen = find.byTooltip(close).evaluate().isNotEmpty;
         if (stillOpen) {
           problems.add('${entry.key}: still open after Back (a dirty form would ask first)');
           await back(t);
         }
       }
-      expect(problems, isEmpty, reason: problems.join('\n'));
+      FlutterError.onError = previous;
+      expect(problems.toSet(), isEmpty, reason: problems.toSet().join('\n'));
       await teardown(t);
     });
   }

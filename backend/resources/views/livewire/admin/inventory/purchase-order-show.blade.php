@@ -1,4 +1,11 @@
-<div class="mx-auto max-w-7xl">
+<div class="{{ $embedded ? '' : 'mx-auto max-w-7xl' }}">
+    @if ($embedded)
+        <div class="mb-5 flex flex-wrap items-center gap-2 text-sm text-ink-500">
+            <x-admin.status :value="$po->status" />
+            <span class="badge-neutral tabular-nums">{{ \App\Support\Money::of((string) $po->subtotal)->format() }}</span>
+            <span>{{ __('inventory_admin.deliver_to', ['branch' => $po->branch->localized('name')]) }}@if ($po->expected_at) · {{ __('inventory_admin.expected_on') }} {{ \App\Support\BusinessTime::display($po->expected_at, 'd M Y') }}@endif</span>
+        </div>
+    @else
     <a href="{{ route('admin.purchase-orders.index') }}" wire:navigate class="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-brass-600"><x-icon name="chevron-left" class="size-4 rtl-flip" />{{ __('nav.purchase_orders') }}</a>
     <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div class="min-w-0">
@@ -11,9 +18,10 @@
             <span class="badge-neutral tabular-nums">{{ \App\Support\Money::of((string) $po->subtotal)->format() }}</span>
         </div>
     </div>
+    @endif
 
-    <div class="grid gap-6 [&>*]:min-w-0 lg:grid-cols-3">
-        <div class="min-w-0 space-y-6 lg:col-span-2">
+    <div class="grid gap-6 [&>*]:min-w-0 {{ $embedded ? '' : 'lg:grid-cols-3' }}">
+        <div class="min-w-0 space-y-6 {{ $embedded ? '' : 'lg:col-span-2' }}">
             <div class="card overflow-hidden">
                 <div class="table-wrap"><table class="table">
                     <thead><tr><th>{{ __('catalog_admin.product') }}</th><th class="!text-end">{{ __('inventory_admin.ordered') }}</th><th class="!text-end">{{ __('inventory_admin.received') }}</th><th class="!text-end">{{ __('inventory_admin.outstanding') }}</th><th class="!text-end">{{ __('inventory_admin.unit_cost') }}</th><th class="!text-end">{{ __('inventory_admin.line_total') }}</th></tr></thead>

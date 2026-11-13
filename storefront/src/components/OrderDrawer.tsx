@@ -33,7 +33,7 @@ export default function OrderDrawer({ id, open, onClose }: { id: string; open: b
   const Back = dir === 'rtl' ? ArrowRight : ArrowLeft;
   const returning = step === 'return' && !!o;
   const title = returning ? t('return.title') : o ? `${t('order.title')} ${o.number}` : t('order.title');
-  const unpaid = !!o && (o.payment_status === 'pending' && o.payment_method === 'sadad' || ['failed', 'expired'].includes(o.payment_status)) && o.can_pay !== false;
+  const unpaid = !!o && ((o.payment_status === 'pending' && o.payment_method === 'sadad') || ['failed', 'expired'].includes(o.payment_status)) && o.can_pay !== false;
 
   const footer = !o || returning ? null : unpaid
     ? <Button size="lg" block loading={pay.isPending} onClick={() => pay.mutate()}><CreditCard size={18} />{t('order.pay_now')} · {o.totals.grand_total.formatted}</Button>

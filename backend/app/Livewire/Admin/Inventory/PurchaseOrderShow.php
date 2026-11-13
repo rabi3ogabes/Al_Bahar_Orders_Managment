@@ -9,6 +9,7 @@ use App\Domain\Inventory\Models\PurchaseOrder;
 use App\Domain\Inventory\Services\PurchasingService;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use App\Support\BusinessTime;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /** Purchase order lifecycle and goods receiving (partial quantities, rejected quantities, supplier invoice). */
@@ -18,6 +19,10 @@ class PurchaseOrderShow extends Component
 
     public PurchaseOrder $po;
 
+    /** True when shown inside the purchase orders list's side window (no page chrome; the list refreshes after each change). */
+    #[Locked]
+    public bool $embedded = false;
+
     /** PO item id => [received, rejected, unit_cost, rejection_reason] */
     public array $receipt = [];
 
@@ -25,10 +30,11 @@ class PurchaseOrderShow extends Component
 
     public string $receiptNotes = '';
 
-    public function mount(PurchaseOrder $po): void
+    public function mount(PurchaseOrder $po, bool $embedded = false): void
     {
         abort_unless($this->can('purchasing.view', $po->branch_id), 403);
         $this->po = $po;
+        $this->embedded = $embedded;
         $this->prefill();
     }
 
@@ -48,6 +54,7 @@ class PurchaseOrderShow extends Component
         if ($this->attempt($fn, $msg)) {
             $this->po->refresh();
             $this->prefill();
+            $this->dispatch('inventory-doc-changed');
         }
     }
 
