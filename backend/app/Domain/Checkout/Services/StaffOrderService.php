@@ -436,6 +436,11 @@ class StaffOrderService
      */
     public function place(User $staff, Cart $draft, string $quoteHash, string $idempotencyKey): array
     {
+        $this->authorize($staff);
+        $prior = Order::where('placed_by_staff_id', $staff->id)->where('idempotency_key', $idempotencyKey)->first();
+        if ($prior) { // double submit / retry after the draft was already converted
+            return ['order' => $prior, 'replayed' => true, 'payment_link' => $prior->payment_method === 'sadad' ? $this->paymentLink($staff, $prior) : null, 'link_sent' => []];
+        }
         $draft = $this->owned($staff, $draft);
         $this->throttle($staff, 'place', 10);
         if (! preg_match('/^[A-Za-z0-9\-_]{16,128}$/', $idempotencyKey)) {

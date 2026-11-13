@@ -11,6 +11,7 @@ use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use App\Support\BusinessTime;
 use App\Support\Money;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -247,7 +248,7 @@ class OrderCart extends Component
         try {
             $this->act(fn (Cart $d) => $this->svc()->setOptions(auth()->user(), $d, ['coupon_code' => $code ?: null]));
             $this->coupon = '';
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             $this->addError('coupon', $e->validator->errors()->first());
         }
     }

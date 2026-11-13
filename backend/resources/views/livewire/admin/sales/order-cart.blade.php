@@ -1,5 +1,5 @@
+<div {{ ($mode ?? '') === 'docked' ? 'data-docked-cart' : '' }} class="{{ ($mode ?? '') === 'docked' ? 'flex min-h-0 flex-1 flex-col' : '' }}">
 @if (! $active)
-    <div></div>
 @elseif ($mode === 'overlay')
     {{-- Drawer on tablets/desktops, bottom sheet on phones. Mounted only while open. Esc and the browser Back button close the top layer. --}}
     <div x-data="{
@@ -20,7 +20,6 @@
         </section>
     </div>
 @else
-    <div data-docked-cart class="flex min-h-0 flex-1 flex-col">
-        @include('livewire.admin.sales.order-cart-body')
-    </div>
+    @include('livewire.admin.sales.order-cart-body')
 @endif
+</div>
