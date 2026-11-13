@@ -83,7 +83,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const inflight = useRef(0);
   const chain = useRef<Promise<unknown>>(Promise.resolve());
   const ids = useRef(new Map<string, string>()); // variant id -> server line id
-  const remember = (c: Cart) => { ids.current = new Map(c.items.map((i) => [i.variant_id, i.id])); };
+  // Only real ids are kept (never the optimistic `pending-…` ones); a newer answer overwrites an older id for the same variant.
+  const remember = (c: Cart) => { for (const i of c.items) if (!i.id.startsWith('pending-')) ids.current.set(i.variant_id, i.id); };
   useEffect(() => { if (server.data) remember(server.data); }, [server.data]);
 
   const write = (optimistic: (c: Cart | null) => Cart | null, send: () => Promise<Cart | null>): Promise<void> => {

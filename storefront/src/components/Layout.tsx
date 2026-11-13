@@ -129,7 +129,7 @@ export function Footer() {
   const [email, setEmail] = useState('');
   return (
     <footer className="mt-24 bg-primary text-bg/85">
-      <div className="wrap grid gap-10 py-16 md:grid-cols-[1.3fr_1fr_1fr_1.2fr]">
+      <div className="wrap grid grid-cols-[minmax(0,1fr)] gap-10 py-16 md:grid-cols-[1.3fr_1fr_1fr_1.2fr]">
         <div>
           <Logo light />
           <p className="mt-5 max-w-xs text-sm leading-relaxed text-bg/65">{t('footer.about')}</p>

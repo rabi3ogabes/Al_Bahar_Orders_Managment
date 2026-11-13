@@ -118,7 +118,7 @@ export function FreshFooter() {
   const a = 'text-[14px] text-on-band/75 hover:text-accent';
   return (
     <footer className="fx-sec bg-band text-on-band">
-      <div className="wrap grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.3fr]">
+      <div className="wrap grid grid-cols-[minmax(0,1fr)] gap-10 py-14 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.3fr]">
         <div>
           <Logo light band />
           <p className="mt-5 max-w-xs text-[14px] leading-relaxed text-on-band/75">{t('footer.about')}</p>

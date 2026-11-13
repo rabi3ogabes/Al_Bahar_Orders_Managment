@@ -182,7 +182,7 @@ export default function Checkout() {
       <h1 className="text-[clamp(38px,5vw,60px)] leading-none">{t('checkout.title')}</h1>
       <p className="mt-2 flex items-center gap-2 text-sm text-muted"><Lock size={14} className="text-success" />{t('checkout.secure')}</p>
 
-      <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_400px]">
+      <div className="mt-10 grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1fr)_400px]">
         <div className="space-y-6">
           <Step n={1} title={t('checkout.how')} done={ready}>
             <Segmented label={t('checkout.how')} value={ful} onChange={setFul} options={[
