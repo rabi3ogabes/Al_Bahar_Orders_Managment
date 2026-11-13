@@ -7,14 +7,18 @@ import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_repository.dart';
 import 'package:albahar_customer/ops/ops_strings.dart';
 import 'package:albahar_customer/ops/ops_widgets.dart';
+import 'package:albahar_customer/ops/staff/staff_home.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
-final staffFleetProvider = FutureProvider.autoDispose<List<FleetDriver>>(
-  (ref) => ref.watch(opsRepositoryProvider).fleet(),
-);
+/// Drivers of the branch the staff app is showing (the overview's branch), so the map never lists another branch's drivers.
+final staffFleetProvider = FutureProvider.autoDispose<List<FleetDriver>>((ref) async {
+  final repo = ref.watch(opsRepositoryProvider);
+  final branchId = ref.watch(staffOverviewProvider.select((o) => o.value?.branchId));
+  return repo.fleet(branchId: branchId == null || branchId.isEmpty ? null : branchId);
+});
 
 /// Live map of every driver of the branch: pins move in real time (`driver.moved` on the branch channel); a 20 s refresh is the
 /// safety net. Tap a driver in the list to centre the map on them; a driver with no position yet is listed but not pinned.
@@ -74,7 +78,24 @@ class _FleetMapTabState extends ConsumerState<FleetMapTab> {
     super.dispose();
   }
 
-  LatLng? _pos(FleetDriver d) => _live[d.id] ?? (d.hasPosition ? LatLng(d.lat!, d.lng!) : null);
+  /// The newest of the live ping and the last refresh, so a missed ping never leaves a pin stuck on an old spot.
+  /// When the driver was last heard from: the later of the live ping and the last refresh.
+  DateTime? _lastSeen(FleetDriver d) {
+    final live = _seen[d.id];
+    final server = d.lastSeen;
+    if (live == null) return server;
+    if (server == null) return live;
+    return server.isAfter(live) ? server : live;
+  }
+
+  LatLng? _pos(FleetDriver d) {
+    final live = _live[d.id];
+    final server = d.hasPosition ? LatLng(d.lat!, d.lng!) : null;
+    if (live == null) return server;
+    final seen = _seen[d.id];
+    if (server != null && d.lastSeen != null && seen != null && d.lastSeen!.isAfter(seen)) return server;
+    return live;
+  }
 
   void _fit(List<FleetDriver> list) {
     final pts = [for (final d in list) ?_pos(d)];
@@ -96,8 +117,10 @@ class _FleetMapTabState extends ConsumerState<FleetMapTab> {
     final t = OpsStrings.of(context);
     final async = ref.watch(staffFleetProvider);
     final tiles = ref.watch(appConfigProvider).mapTileUrlTemplate;
+    final stale = async.hasError && async.hasValue;
     return async.when(
       skipLoadingOnRefresh: true,
+      skipError: true,
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => ErrorState(error: e, onRetry: () => ref.invalidate(staffFleetProvider)),
       data: (list) {
@@ -111,6 +134,7 @@ class _FleetMapTabState extends ConsumerState<FleetMapTab> {
         final scheme = Theme.of(context).colorScheme;
         return Column(
           children: [
+            if (stale) StaleBanner(onRetry: () => ref.invalidate(staffFleetProvider)),
             Expanded(
               flex: 3,
               child: Stack(
@@ -150,7 +174,7 @@ class _FleetMapTabState extends ConsumerState<FleetMapTab> {
                             Container(
                               width: 8,
                               height: 8,
-                              decoration: const BoxDecoration(color: Color(0xFF2E7D5B), shape: BoxShape.circle),
+                              decoration: BoxDecoration(color: context.palette.success, shape: BoxShape.circle),
                             ),
                             const SizedBox(width: 6),
                             Text(
@@ -183,6 +207,7 @@ class _FleetMapTabState extends ConsumerState<FleetMapTab> {
               child: RefreshIndicator(
                 onRefresh: () => ref.refresh(staffFleetProvider.future),
                 child: ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
                   itemCount: list.length,
                   separatorBuilder: (_, _) => const Divider(height: 1),
@@ -196,11 +221,12 @@ class _FleetMapTabState extends ConsumerState<FleetMapTab> {
     );
   }
 
-  Color _tone(FleetDriver d) {
-    final last = _seen[d.id] ?? d.lastSeen;
+  Color _tone(BuildContext context, FleetDriver d) {
+    final p = Theme.of(context).extension<AppColors>() ?? AppColors.light;
+    final last = _lastSeen(d);
     final stale = last == null || DateTime.now().difference(last).inMinutes > 15;
-    if (!d.onDuty || stale) return const Color(0xFF9AA0A6);
-    return d.openJobs > 0 ? const Color(0xFFB8893A) : const Color(0xFF2E7D5B);
+    if (!d.onDuty || stale) return p.muted;
+    return d.openJobs > 0 ? p.warning : p.success;
   }
 
   Marker _pin(BuildContext context, FleetDriver d, LatLng at, {required bool selected}) => Marker(
@@ -220,7 +246,7 @@ class _FleetMapTabState extends ConsumerState<FleetMapTab> {
               height: selected ? 44 : 38,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _tone(d),
+                color: _tone(context, d),
                 border: Border.all(color: Colors.white, width: 2),
                 boxShadow: const [BoxShadow(blurRadius: 8, color: Colors.black26)],
               ),
@@ -251,7 +277,7 @@ class _FleetMapTabState extends ConsumerState<FleetMapTab> {
   Widget _tile(BuildContext context, FleetDriver d) {
     final t = OpsStrings.of(context);
     final at = _pos(d);
-    final last = _seen[d.id] ?? d.lastSeen;
+    final last = _lastSeen(d);
     final job = d.orderNumber == null
         ? (d.onDuty ? t.driversFree : t.offDutyTag)
         : '${t.orderNo(d.orderNumber!)} · ${t.statusLabel(d.jobStatus ?? '')}';
@@ -266,8 +292,8 @@ class _FleetMapTabState extends ConsumerState<FleetMapTab> {
               _map.move(at, 16);
             },
       leading: CircleAvatar(
-        backgroundColor: _tone(d).withValues(alpha: 0.18),
-        child: Icon(Icons.two_wheeler_rounded, color: _tone(d)),
+        backgroundColor: _tone(context, d).withValues(alpha: 0.18),
+        child: Icon(Icons.two_wheeler_rounded, color: _tone(context, d)),
       ),
       title: Text(d.name),
       subtitle: Text(
@@ -279,7 +305,11 @@ class _FleetMapTabState extends ConsumerState<FleetMapTab> {
       ),
       trailing: d.phone == null
           ? null
-          : IconButton(tooltip: d.phone, icon: const Icon(Icons.call_rounded), onPressed: () => dial(d.phone)),
+          : IconButton(
+              tooltip: '${t.call} ${d.name}',
+              icon: const Icon(Icons.call_rounded),
+              onPressed: () => dial(context, d.phone),
+            ),
     );
   }
 }

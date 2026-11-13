@@ -619,21 +619,29 @@ class CheckoutSteps extends StatelessWidget {
       );
     }
 
+    // Large text: only the current step keeps its label, so the row never overflows.
+    final compact = MediaQuery.textScalerOf(context).scale(10) > 11;
     return Semantics(
       label: labels[current],
       child: Row(
         children: [
           for (var i = 0; i < labels.length; i++) ...[
             dot(i),
-            const Gap(6),
-            Text(
-              labels[i],
-              style: context.text.labelMedium?.copyWith(
-                color: i <= current ? navy : context.palette.muted,
-                fontWeight: i == current ? FontWeight.w600 : FontWeight.w500,
-                letterSpacing: 0,
+            if (!compact || i == current) ...[
+              const Gap(6),
+              Flexible(
+                child: Text(
+                  labels[i],
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.text.labelMedium?.copyWith(
+                    color: i <= current ? navy : context.palette.muted,
+                    fontWeight: i == current ? FontWeight.w600 : FontWeight.w500,
+                    letterSpacing: 0,
+                  ),
+                ),
               ),
-            ),
+            ],
             if (i < labels.length - 1)
               Expanded(
                 child: Container(

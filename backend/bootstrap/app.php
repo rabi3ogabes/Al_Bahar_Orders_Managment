@@ -8,10 +8,13 @@ use App\Http\Middleware\RequirePermission;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetAdminLocale;
 use App\Http\Middleware\SetApiLocale;
+use App\Http\Middleware\ValidateStaffQuery;
 use App\Support\DomainException;
+use App\Support\InvalidMoney;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -39,13 +42,25 @@ return Application::configure(basePath: dirname(__DIR__))
             'staff' => EnsureStaff::class,
             'customer' => EnsureCustomer::class,
             'permission' => RequirePermission::class,
+            'staff.query' => ValidateStaffQuery::class,
         ]);
         $middleware->redirectGuestsTo(fn (Request $request) => $request->is('admin*') || $request->is('driver*') ? route('admin.login') : null);
         $middleware->validateCsrfTokens(except: ['webhooks/*', 'payments/sadad/return']);
-        $middleware->trustProxies(at: '*');
+        // Behind a load balancer/CDN set TRUSTED_PROXIES to its address list (comma separated); the default "*" trusts every
+        // hop, which is only safe when the edge overwrites X-Forwarded-For (otherwise a client can fake its IP and dodge IP rate limits).
+        $middleware->trustProxies(at: ($trusted = (string) env('TRUSTED_PROXIES', '*')) === '*' ? '*' : array_values(array_filter(array_map('trim', explode(',', $trusted)))));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->dontReport([DomainException::class]);
+
+        // A malformed identifier in a URL or body ("/orders/abc") is PostgreSQL error 22P02 (invalid text representation) and a number
+        // the column cannot hold is 22003: both are the client's mistake, not a server fault — answer 404 / 422 instead of 500.
+        $exceptions->map(fn (QueryException $e) => match ($e->getCode()) {
+            '22P02' => new NotFoundHttpException(previous: $e),
+            '22003' => ValidationException::withMessages(['amount' => [__('errors.invalid_amount')]]),
+            default => $e,
+        });
+        $exceptions->map(fn (InvalidMoney $e) => ValidationException::withMessages(['amount' => [__('errors.invalid_amount')]]));
 
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->is('webhooks/*') || $request->expectsJson(),

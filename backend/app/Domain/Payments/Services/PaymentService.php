@@ -111,7 +111,7 @@ class PaymentService
 
         if (! $result->authentic) {
             PaymentWebhookEvent::firstOrCreate(['provider' => $provider, 'provider_event_id' => 'invalid:'.$payloadHash], [
-                'payload' => Redactor::redact($request->all()), 'signature_valid' => false, 'status' => 'failed', 'error' => $result->message, 'ip' => $request->ip(), 'payload_hash' => $payloadHash]);
+                'payload' => $this->boundedPayload(Redactor::redact($request->all())), 'signature_valid' => false, 'status' => 'failed', 'error' => $result->message, 'ip' => $request->ip(), 'payload_hash' => $payloadHash]);
             $this->audit->log('payment.webhook_rejected', 'PaymentWebhookEvent', [], [], ['provider' => $provider, 'reason' => $result->message, 'ip' => $request->ip()]);
 
             return ['ok' => false, 'status' => 'invalid_signature'];
@@ -137,6 +137,12 @@ class PaymentService
         $event->update(['status' => 'processed', 'payment_id' => $payment->id, 'processed_at' => now()]);
 
         return ['ok' => true, 'status' => $outcome];
+    }
+
+    /** Unauthenticated callers can post anything: keep a forged payload small so the audit table cannot be filled with junk. */
+    private function boundedPayload(array $payload): array
+    {
+        return strlen((string) json_encode($payload)) > 8000 ? ['truncated' => true, 'keys' => array_slice(array_map('strval', array_keys($payload)), 0, 50)] : $payload;
     }
 
     /** Re-check pending online payments with the provider (scheduled; resolves ambiguous/missed callbacks). */

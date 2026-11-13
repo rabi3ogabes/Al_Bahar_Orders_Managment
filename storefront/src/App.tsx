@@ -10,11 +10,13 @@ import { ThemeProvider } from './lib/theme';
 import { BrandProvider } from './lib/brand';
 import { ToastProvider } from './lib/toast';
 import { WishlistProvider } from './lib/wishlist';
-import { AuthModalProvider, useAuthModal } from './components/AuthModal';
+import { AuthModalProvider, captureReferral, useAuthModal } from './components/AuthModal';
 import { Layout } from './components/Layout';
 import { Spinner } from './components/ui';
 import Home from './pages/Home';
 import { NotFound, CmsPageView, Showrooms } from './pages/Misc';
+
+captureReferral();
 
 const Shop = lazy(() => import('./pages/Shop'));
 const Product = lazy(() => import('./pages/Product'));

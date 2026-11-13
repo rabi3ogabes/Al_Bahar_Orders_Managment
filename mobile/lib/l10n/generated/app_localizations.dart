@@ -719,7 +719,7 @@ abstract class AppLocalizations {
   /// No description provided for @passwordTooShort.
   ///
   /// In en, this message translates to:
-  /// **'Use at least 8 characters.'**
+  /// **'Use at least 8 characters, with letters and numbers.'**
   String get passwordTooShort;
 
   /// No description provided for @termsAgreementPrefix.
@@ -4081,6 +4081,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'New arrivals'**
   String get freshNewArrivals;
+
+  /// No description provided for @discardChangesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard changes?'**
+  String get discardChangesTitle;
+
+  /// No description provided for @discardChangesMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'You have unsaved changes. If you leave now they will be lost.'**
+  String get discardChangesMessage;
+
+  /// No description provided for @discard.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard'**
+  String get discard;
+
+  /// No description provided for @keepEditing.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep editing'**
+  String get keepEditing;
+
+  /// No description provided for @showPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Show password'**
+  String get showPassword;
+
+  /// No description provided for @hidePassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide password'**
+  String get hidePassword;
+
+  /// No description provided for @minLengthError.
+  ///
+  /// In en, this message translates to:
+  /// **'Please write at least {count} characters.'**
+  String minLengthError(String count);
+
+  /// No description provided for @ticketCategoryReturn.
+  ///
+  /// In en, this message translates to:
+  /// **'Return'**
+  String get ticketCategoryReturn;
+
+  /// No description provided for @enterValidAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid amount.'**
+  String get enterValidAmount;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

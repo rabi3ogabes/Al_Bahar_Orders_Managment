@@ -190,6 +190,7 @@
             {{-- Internal notes --}}
             <section class="card card-pad">
                 <h2 class="mb-4 font-display text-xl font-semibold">{{ __('sales_admin.internal_notes') }}</h2>
+                @if ($canNote)
                 <form wire:submit="addNote" class="flex flex-col gap-2 sm:flex-row sm:items-start">
                     <div class="flex-1">
                         <textarea wire:model="note" rows="2" class="input" placeholder="{{ __('sales_admin.note_ph') }}" aria-label="{{ __('sales_admin.internal_notes') }}"></textarea>
@@ -197,6 +198,7 @@
                     </div>
                     <button class="btn-primary" wire:loading.attr="disabled" wire:target="addNote"><x-icon name="message" class="size-4" />{{ __('sales_admin.add_note') }}</button>
                 </form>
+                @endif
                 @if ($o->notes->isNotEmpty())
                     <ul class="mt-5 space-y-3">
                         @foreach ($o->notes->sortByDesc('created_at') as $n)

@@ -9,6 +9,7 @@ import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/profile/data/profile_repository.dart';
 import 'package:albahar_customer/features/profile/domain/profile_models.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Account deletion request with typed confirmation and 14-day grace period.
@@ -33,6 +34,7 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
   }
 
   Future<void> _submit() async {
+    if (_busy) return;
     final l10n = context.l10n;
     final ok = await confirmAction(
       context,
@@ -103,11 +105,21 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
                       const Gap(AppSpace.sm),
                       Text(l10n.deleteAccountWarning, style: context.text.bodyMedium),
                       const Gap(AppSpace.lg),
-                      AppTextField(controller: _reason, label: l10n.deleteAccountReason, maxLines: 3, minLines: 2),
+                      AppTextField(
+                        controller: _reason,
+                        label: l10n.deleteAccountReason,
+                        maxLines: 3,
+                        minLines: 2,
+                        keyboardType: TextInputType.multiline,
+                        textCapitalization: TextCapitalization.sentences,
+                        inputFormatters: [LengthLimitingTextInputFormatter(1000)],
+                      ),
                       const Gap(AppSpace.md),
                       AppTextField(
                         controller: _confirm,
                         label: l10n.deleteAccountTypeToConfirm(word),
+                        textInputAction: TextInputAction.done,
+                        inputFormatters: [LengthLimitingTextInputFormatter(32)],
                         onChanged: (_) => setState(() {}),
                       ),
                       const Gap(AppSpace.lg),

@@ -78,8 +78,7 @@ class AuctionController extends ApiController
 
     public function bid(Request $request, string $lotId, BidEngine $engine): JsonResponse
     {
-        $key = (string) $request->header('Idempotency-Key');
-        abort_unless(preg_match('/^[A-Za-z0-9\-_]{16,128}$/', $key), 400, __('checkout.idempotency_required'));
+        $key = $this->idempotencyKey($request);
         $data = $request->validate(['amount' => 'required|numeric|min:0']);
         $res = $engine->placeBid($this->user(), $lotId, Money::of((string) $data['amount']), $key, 'manual', $request->ip());
 

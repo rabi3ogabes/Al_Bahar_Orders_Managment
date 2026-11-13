@@ -104,7 +104,7 @@
   "resetPassword": "تعيين كلمة المرور",
   "passwordResetSuccess": "تم تحديث كلمة المرور. يُرجى تسجيل الدخول.",
   "passwordsDoNotMatch": "كلمتا المرور غير متطابقتين.",
-  "passwordTooShort": "استخدم 8 أحرف على الأقل.",
+  "passwordTooShort": "استخدم 8 أحرف على الأقل مع حروف وأرقام.",
   "termsAgreementPrefix": "بالمتابعة فإنك توافق على",
   "termsAndPrivacy": "الشروط وسياسة الخصوصية",
   "continueAsGuest": "تصفّح كضيف",
@@ -664,5 +664,14 @@
   "freshTaglineCategories": "كل ما يحتاجه منزلك، قسماً بقسم.",
   "freshTaglineSearch": "ابحث في المتجر كله.",
   "freshBestSellers": "الأكثر مبيعاً",
-  "freshNewArrivals": "وصل حديثاً"
+  "freshNewArrivals": "وصل حديثاً",
+  "discardChangesTitle": "تجاهل التغييرات؟",
+  "discardChangesMessage": "لديك تغييرات غير محفوظة. إذا غادرت الآن فسوف تُفقد.",
+  "discard": "تجاهل",
+  "keepEditing": "متابعة التعديل",
+  "showPassword": "إظهار كلمة المرور",
+  "hidePassword": "إخفاء كلمة المرور",
+  "minLengthError": "يُرجى كتابة {count} أحرف على الأقل.",
+  "ticketCategoryReturn": "إرجاع",
+  "enterValidAmount": "أدخل مبلغاً صحيحاً."
 }

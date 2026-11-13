@@ -40,6 +40,11 @@ class RefundService
 
         return DB::transaction(function () use ($payment, $amount, $reasonCode, $reason, $actor, $idempotencyKey, $method) {
             if ($idempotencyKey && ($existing = Refund::where('idempotency_key', $idempotencyKey)->first())) {
+                // The key is unique across all refunds: reusing it for another payment must never return (or leak) that refund.
+                if ($existing->payment_id !== $payment->id) {
+                    throw DomainException::make('idempotency_key_reused', 409);
+                }
+
                 return $existing;
             }
             $p = Payment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
@@ -92,13 +97,21 @@ class RefundService
 
     public function reject(Refund $refund, User $approver, string $note): Refund
     {
-        if (! $this->allowedForPayment($approver, 'refunds.approve', $refund->payment) || $refund->status !== 'requested') {
+        if (! $this->allowedForPayment($approver, 'refunds.approve', $refund->payment)) {
             throw DomainException::make('branch_forbidden', 403);
         }
-        $refund->update(['status' => 'rejected', 'approved_by' => $approver->id, 'failure_reason' => $note]);
-        $this->audit->log('refund.rejected', $refund, [], ['note' => $note], actor: $approver);
 
-        return $refund;
+        // Under the row lock: a concurrent approve/process must never be overwritten by a late rejection.
+        return DB::transaction(function () use ($refund, $approver, $note) {
+            $r = Refund::whereKey($refund->id)->lockForUpdate()->firstOrFail();
+            if ($r->status !== 'requested') {
+                throw DomainException::make('invalid_state_transition', 409, ['from' => $r->status]);
+            }
+            $r->update(['status' => 'rejected', 'approved_by' => $approver->id, 'failure_reason' => $note]);
+            $this->audit->log('refund.rejected', $r, [], ['note' => $note], actor: $approver);
+
+            return $r;
+        });
     }
 
     /** Manual refund completion (cash handed back / bank transfer sent) with the external reference. */

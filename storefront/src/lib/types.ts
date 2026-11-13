@@ -107,3 +107,9 @@ export interface AuctionDetail extends Auction {
 export interface Loyalty { balance: number; tier: string; lifetime_earned: number; value: Money; transactions: { type: string; points: number; balance_after: number; reason: string | null; created_at: string; expires_at: string | null }[] }
 export interface CmsPage { slug: string; title: string; body: string; updated_at: string }
 export interface Ticket { id: string; subject?: string; status: string; created_at: string; [k: string]: unknown }
+
+/** `GET /me/referral`: only `enabled: false` is sent while the programme is off. */
+export interface Referral {
+  enabled: boolean; code?: string; share_url: string; referred_count: number
+  referrer_reward?: { type: string; text: string | null } | null
+}

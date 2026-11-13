@@ -48,7 +48,10 @@ class _SegmentedTabs extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(AppSpace.gutter, AppSpace.xxs, AppSpace.gutter, AppSpace.xs),
       child: Container(
         padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(color: AppPalette.sand, borderRadius: BorderRadius.circular(AppRadius.pill)),
+        decoration: BoxDecoration(
+          color: context.palette.surfaceMuted,
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+        ),
         child: AnimatedBuilder(
           animation: controller.animation!,
           builder: (context, _) => Row(
@@ -63,7 +66,7 @@ class _SegmentedTabs extends StatelessWidget {
                       onTap: () => controller.animateTo(i),
                       child: AnimatedContainer(
                         duration: AppDurations.fast,
-                        height: 40,
+                        height: kMinTouchTarget,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: controller.index == i ? context.colors.primary : Colors.transparent,
@@ -74,7 +77,7 @@ class _SegmentedTabs extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: context.text.labelMedium?.copyWith(
-                            color: controller.index == i ? context.colors.onPrimary : AppPalette.inkSoft,
+                            color: controller.index == i ? context.colors.onPrimary : context.palette.muted,
                             fontWeight: controller.index == i ? FontWeight.w600 : FontWeight.w500,
                             letterSpacing: 0,
                           ),

@@ -58,6 +58,7 @@ class SupplierIndex extends Component
     public function save(AuditLogger $audit): void
     {
         abort_unless($this->can($this->editingId ? 'suppliers.edit' : 'suppliers.create'), 403);
+        $this->form['code'] = strtoupper(trim((string) ($this->form['code'] ?? ''))); // codes are stored upper-case: check uniqueness on that form
         $data = $this->validate([
             'form.code' => ['required', 'string', 'max:32', 'regex:/^[A-Za-z0-9\-_]+$/', Rule::unique('suppliers', 'code')->ignore($this->editingId)],
             'form.name' => 'required|string|max:191',

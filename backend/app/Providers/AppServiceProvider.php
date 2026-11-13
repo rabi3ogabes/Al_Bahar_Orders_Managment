@@ -9,7 +9,10 @@ use App\Domain\Notifications\Channels\HttpSmsSender;
 use App\Domain\Notifications\Channels\NullSmsSender;
 use App\Domain\Notifications\Contracts\SmsSender;
 use App\Domain\Orders\Models\Order;
+use App\Http\Middleware\EnsureStaff;
+use App\Http\Middleware\RequirePermission;
 use App\Support\BranchOf;
+use App\Support\Phone;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Model;
@@ -19,6 +22,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
 use RuntimeException;
 
 class AppServiceProvider extends ServiceProvider
@@ -39,6 +43,10 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->guardProductionSafety();
+
+        // Livewire update requests only re-run its own short list of persistent middleware (auth). Without this, a staff member whose
+        // permission was revoked, or whose account was suspended, after a page loaded could keep calling that page's actions.
+        Livewire::addPersistentMiddleware([EnsureStaff::class, RequirePermission::class]);
 
         // N+1 protection and mass-assignment safety in dev/test. (Missing-attribute strictness is not enabled:
         // freshly created models legitimately omit nullable columns until refreshed.)
@@ -89,12 +97,19 @@ class AppServiceProvider extends ServiceProvider
     private function configureRateLimiting(): void
     {
         RateLimiter::for('api', fn (Request $r) => Limit::perMinute(120)->by($r->user()?->id ?: $r->ip()));
+        // The limiter runs before request validation, so "+974 5555 1234", "55551234" and "٥٥٥٥١٢٣٤" must all count against one
+        // bucket, and a non-string value (phone[]=x) must not crash it.
+        $identity = function (Request $r): string {
+            $raw = $r->input('phone') ?? $r->input('email');
+
+            return is_string($raw) ? (Phone::normalize($raw) ?? mb_strtolower(trim($raw))) : 'invalid';
+        };
         RateLimiter::for('otp', fn (Request $r) => [
             Limit::perMinute(3)->by('otp-ip:'.$r->ip()),
-            Limit::perHour(10)->by('otp-phone:'.preg_replace('/\D/', '', (string) $r->input('phone'))),
+            Limit::perHour(10)->by('otp-phone:'.$identity($r)),
         ]);
         RateLimiter::for('login', fn (Request $r) => [
-            Limit::perMinute(5)->by('login:'.strtolower((string) ($r->input('phone') ?? $r->input('email'))).'|'.$r->ip()),
+            Limit::perMinute(5)->by('login:'.$identity($r).'|'.$r->ip()),
             Limit::perMinute(20)->by('login-ip:'.$r->ip()),
         ]);
         RateLimiter::for('password-reset', fn (Request $r) => Limit::perHour(5)->by('reset:'.$r->ip()));

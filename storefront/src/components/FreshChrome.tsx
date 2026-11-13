@@ -37,7 +37,8 @@ export function FreshHeader() {
   const brand = tokens.header === 'brand';
   const centre = tokens.nav === 'center_action';
 
-  useEffect(() => { setMenu(false); }, [loc.pathname, loc.search]);
+  useEffect(() => { setMenu(false); setSearch(false); setPick(false); }, [loc.pathname, loc.search]);
+  useEffect(() => { cart.closeDrawer(); }, [loc.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
   const links = useMemo(() => [
     { to: '/', label: t('fresh.nav_home'), on: loc.pathname === '/' },
     { to: '/shop', label: t('nav.shop'), on: loc.pathname === '/shop' && !loc.search.includes('sale=1') },

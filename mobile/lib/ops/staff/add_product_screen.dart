@@ -1,11 +1,15 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
+import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
+import 'package:albahar_customer/ops/ops_input.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_repository.dart';
 import 'package:albahar_customer/ops/ops_strings.dart';
+import 'package:albahar_customer/ops/ops_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -36,12 +40,18 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
   final _shortAr = TextEditingController();
   final _descAr = TextEditingController();
   final _photos = <File>[];
-  final _picker = ImagePicker();
   ShopCategory? _category;
   bool _publish = false;
   bool _studio = false;
   bool _writing = false;
   bool _saving = false;
+  String? _savingNote;
+
+  // A save that failed half way (product created, some photos not uploaded) continues from where it stopped, so a second
+  // tap never creates a duplicate product.
+  String? _productId;
+  String? _firstImageId;
+  final _uploaded = <String>{};
 
   bool get _dirty =>
       _photos.isNotEmpty ||
@@ -60,11 +70,14 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     if (room <= 0) return;
     try {
       if (source == ImageSource.camera) {
-        final x = await _picker.pickImage(source: source, imageQuality: 88, maxWidth: 2400);
-        if (x != null) setState(() => _photos.add(File(x.path)));
+        final x = await ref.read(opsImagePickerProvider).pickImage(source: source, imageQuality: 88, maxWidth: 2400);
+        if (x != null && mounted) setState(() => _photos.add(File(x.path)));
       } else {
-        final xs = await _picker.pickMultiImage(imageQuality: 88, maxWidth: 2400, limit: room);
-        setState(() => _photos.addAll(xs.take(room).map((x) => File(x.path))));
+        // The multi-picker needs a limit of at least 2: with one slot left, pick a single photo.
+        final xs = room == 1
+            ? [?await ref.read(opsImagePickerProvider).pickImage(source: source, imageQuality: 88, maxWidth: 2400)]
+            : await ref.read(opsImagePickerProvider).pickMultiImage(imageQuality: 88, maxWidth: 2400, limit: room);
+        if (mounted) setState(() => _photos.addAll(xs.take(room).map((x) => File(x.path))));
       }
     } catch (_) {
       // Permission refused or picker closed: nothing to add.
@@ -121,15 +134,20 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
 
   Future<void> _write() async {
     final t = OpsStrings.of(context);
+    if (_writing) return;
     if (_titleEn.text.trim().isEmpty && _titleAr.text.trim().isEmpty) {
       showInfoSnack(context, t.needTitleFirst);
       return;
     }
+    final typed = [_shortEn, _descEn, _shortAr, _descAr].any((c) => c.text.trim().isNotEmpty);
+    if (typed && !await _confirmReplace() || !mounted) return;
     setState(() => _writing = true);
     try {
       final r = await ref
           .read(opsRepositoryProvider)
           .describe(titleEn: _titleEn.text.trim(), titleAr: _titleAr.text.trim(), categoryId: _category?.id);
+      // The screen may have been closed while Claude was writing: its controllers are gone.
+      if (!mounted) return;
       if (_titleEn.text.trim().isEmpty) _titleEn.text = r.nameEn;
       if (_titleAr.text.trim().isEmpty) _titleAr.text = r.nameAr;
       _shortEn.text = r.shortEn;
@@ -143,19 +161,43 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     }
   }
 
+  Future<bool> _confirmReplace() async {
+    final t = OpsStrings.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(t.replaceTextQ),
+        content: Text(t.replaceTextBody),
+        actions: [
+          TextButton(autofocus: true, onPressed: () => Navigator.pop(c, false), child: Text(t.cancel)),
+          TextButton(onPressed: () => Navigator.pop(c, true), child: Text(t.replace)),
+        ],
+      ),
+    );
+    return ok ?? false;
+  }
+
+  /// A unique SKU the staff never has to type: time plus a random tail (two employees saving in the same millisecond differ).
+  static String _newSku() {
+    final tail = Random().nextInt(36 * 36 * 36).toRadixString(36).toUpperCase().padLeft(3, '0');
+    return 'AB-${DateTime.now().millisecondsSinceEpoch.toRadixString(36).toUpperCase()}$tail';
+  }
+
   Future<void> _save() async {
-    if (!(_form.currentState?.validate() ?? false) || _saving) return;
+    if (_saving || !(_form.currentState?.validate() ?? false)) return;
     final t = OpsStrings.of(context);
     FocusScope.of(context).unfocus();
-    setState(() => _saving = true);
+    setState(() {
+      _saving = true;
+      _savingNote = null;
+    });
     final repo = ref.read(opsRepositoryProvider);
-    final sku = 'AB-${DateTime.now().millisecondsSinceEpoch.toRadixString(36).toUpperCase()}';
     final titleEn = _titleEn.text.trim().isEmpty ? _titleAr.text.trim() : _titleEn.text.trim();
     final titleAr = _titleAr.text.trim().isEmpty ? _titleEn.text.trim() : _titleAr.text.trim();
     try {
-      final made = await repo.createProduct(
-        sku: sku,
-        price: _price.text.trim(),
+      _productId ??= await repo.createProduct(
+        sku: _newSku(),
+        price: normalizeDigits(_price.text.trim()),
         titleEn: titleEn,
         titleAr: titleAr,
         text: ProductDraftText(
@@ -166,28 +208,47 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
         ),
         categoryId: _category?.id,
         publish: _publish,
-        photos: _photos,
       );
-      if (_studio && made.imageIds.isNotEmpty) {
-        // A failed studio request must not undo a saved product.
+      final id = _productId!;
+      final todo = _photos.where((f) => !_uploaded.contains(f.path)).toList();
+      for (var i = 0; i < todo.length; i++) {
+        if (mounted) setState(() => _savingNote = t.uploadingPhoto(i + 1, todo.length));
+        final imageId = await repo.uploadProductImage(id, todo[i]);
+        _uploaded.add(todo[i].path);
+        _firstImageId ??= imageId;
+      }
+      var studioFailed = false;
+      if (_studio && _firstImageId != null) {
+        // A failed studio request must not undo a saved product: tell the user and carry on.
         try {
-          await repo.askPhotoStudio(made.id, made.imageIds.first, 'clean_background');
-        } catch (_) {}
+          await repo.askPhotoStudio(id, _firstImageId!, 'clean_background');
+        } catch (_) {
+          studioFailed = true;
+        }
       }
       if (!mounted) return;
-      showInfoSnack(context, t.productSaved);
+      showInfoSnack(context, studioFailed ? t.studioFailed : t.productSaved);
       Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        showErrorSnack(context, e);
-        setState(() => _saving = false);
+        final message = describeError(context.l10n, e);
+        showInfoSnack(context, _productId != null ? '$message\n${t.partialSaved}' : message);
+        setState(() {
+          _saving = false;
+          _savingNote = null;
+        });
       }
     }
   }
 
   Future<bool> _confirmLeave() async {
-    if (!_dirty || _saving) return true;
     final t = OpsStrings.of(context);
+    if (_saving) {
+      // Leaving mid-save would orphan a half-uploaded product: ask the user to wait.
+      showInfoSnack(context, t.saveBlocked);
+      return false;
+    }
+    if (!_dirty) return true;
     final leave = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
@@ -260,6 +321,9 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
               const SizedBox(height: AppSpace.lg),
               TextFormField(
                 controller: _titleEn,
+                maxLength: 255,
+                maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                buildCounter: _noCounter,
                 textInputAction: TextInputAction.next,
                 textCapitalization: TextCapitalization.words,
                 decoration: InputDecoration(labelText: t.titleEn),
@@ -268,6 +332,8 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
               const SizedBox(height: AppSpace.sm),
               TextFormField(
                 controller: _titleAr,
+                maxLength: 255,
+                buildCounter: _noCounter,
                 textDirection: TextDirection.rtl,
                 textInputAction: TextInputAction.next,
                 decoration: InputDecoration(labelText: t.titleAr),
@@ -275,21 +341,36 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
               const SizedBox(height: AppSpace.sm),
               TextFormField(
                 controller: _price,
+                maxLength: 12,
+                buildCounter: _noCounter,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                inputFormatters: const [AmountInputFormatter()],
                 textInputAction: TextInputAction.next,
                 decoration: InputDecoration(labelText: t.price),
-                validator: (v) => RegExp(r'^\d{1,9}(\.\d{1,2})?$').hasMatch((v ?? '').trim()) ? null : t.priceInvalid,
+                validator: (v) {
+                  final amount = parseAmount(v ?? '');
+                  if (amount == null) return t.priceInvalid;
+                  return amount > 0 ? null : t.priceZero;
+                },
               ),
               const SizedBox(height: AppSpace.sm),
               InkWell(
                 borderRadius: BorderRadius.circular(AppRadius.input),
-                onTap: cats.hasValue ? () => _chooseCategory(cats.value!) : null,
+                onTap: cats.hasValue
+                    ? () => _chooseCategory(cats.value!)
+                    : cats.hasError
+                    ? () => ref.invalidate(_categoriesProvider)
+                    : null,
                 child: InputDecorator(
-                  decoration: InputDecoration(labelText: t.category, suffixIcon: const Icon(Icons.expand_more_rounded)),
+                  decoration: InputDecoration(
+                    labelText: t.category,
+                    suffixIcon: Icon(cats.hasError ? Icons.refresh_rounded : Icons.expand_more_rounded),
+                  ),
                   child: Text(
-                    _category?.name ?? (cats.isLoading ? '…' : t.chooseCategory),
-                    style: _category == null ? TextStyle(color: scheme.onSurfaceVariant) : null,
+                    _category?.name ?? (cats.isLoading ? '…' : (cats.hasError ? t.categoriesFailed : t.chooseCategory)),
+                    style: _category == null
+                        ? TextStyle(color: cats.hasError ? scheme.error : scheme.onSurfaceVariant)
+                        : null,
                   ),
                 ),
               ),
@@ -363,13 +444,20 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
           minimum: const EdgeInsets.fromLTRB(AppSpace.gutter, AppSpace.xs, AppSpace.gutter, AppSpace.sm),
           child: SizedBox(
             height: 52,
-            child: FilledButton(onPressed: _saving ? null : _save, child: Text(_saving ? t.saving : t.saveProduct)),
+            child: FilledButton(
+              onPressed: _saving ? null : _save,
+              child: Text(_saving ? (_savingNote ?? t.saving) : t.saveProduct),
+            ),
           ),
         ),
       ),
     );
   }
 }
+
+/// Hides Flutter's "0/255" counter on fields where the limit is only a safety net.
+Widget? _noCounter(BuildContext context, {required int currentLength, required bool isFocused, required int? maxLength}) =>
+    null;
 
 class _AddTile extends StatelessWidget {
   const _AddTile({required this.label, required this.onTap});
@@ -422,7 +510,18 @@ class _PhotoTile extends StatelessWidget {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(AppRadius.input),
-          child: Image.file(file, width: 104, height: 104, fit: BoxFit.cover, cacheWidth: 320),
+          child: Image.file(
+            file,
+            width: 104,
+            height: 104,
+            fit: BoxFit.cover,
+            cacheWidth: 320,
+            errorBuilder: (_, _, _) => SizedBox(
+              width: 104,
+              height: 104,
+              child: Center(child: Icon(Icons.broken_image_outlined, color: Theme.of(context).colorScheme.error)),
+            ),
+          ),
         ),
         PositionedDirectional(
           top: 2,

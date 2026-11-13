@@ -74,7 +74,7 @@ Route::controller(V1\Auctions\AuctionController::class)->group(function () {
     Route::get('auctions/lots/{lotId}/bids', 'bids')->name('auctions.lots.bids');
     Route::get('auctions/lots/{lotId}/events', 'events')->name('auctions.lots.events');
     Route::middleware(['auth:sanctum', 'customer'])->group(function () {
-        Route::post('auctions/{id}/register', 'register')->name('auctions.register');
+        Route::post('auctions/{id}/register', 'register')->middleware('throttle:20,60')->name('auctions.register');
         Route::post('auctions/lots/{lotId}/bids', 'bid')->middleware('throttle:bids')->name('auctions.lots.bid');
         Route::post('auctions/lots/{lotId}/auto-bid', 'autoBid')->middleware('throttle:bids')->name('auctions.lots.auto-bid');
         Route::delete('auctions/lots/{lotId}/auto-bid', 'cancelAutoBid')->name('auctions.lots.auto-bid.cancel');
@@ -106,15 +106,15 @@ Route::controller(V1\Engagement\EngagementController::class)->group(function () 
         Route::get('me/wishlist', 'wishlist')->name('me.wishlist');
         Route::post('me/wishlist', 'addWishlist')->name('me.wishlist.add');
         Route::delete('me/wishlist/{productId}', 'removeWishlist')->name('me.wishlist.remove');
-        Route::post('products/{productId}/reviews', 'submitReview')->whereUuid('productId')->name('products.reviews.store');
-        Route::post('reviews/{id}/report', 'reportReview')->name('reviews.report');
-        Route::post('products/{productId}/questions', 'ask')->whereUuid('productId')->name('products.questions.store');
+        Route::post('products/{productId}/reviews', 'submitReview')->whereUuid('productId')->middleware('throttle:10,60')->name('products.reviews.store');
+        Route::post('reviews/{id}/report', 'reportReview')->middleware('throttle:30,60')->name('reviews.report');
+        Route::post('products/{productId}/questions', 'ask')->whereUuid('productId')->middleware('throttle:10,60')->name('products.questions.store');
         Route::post('me/stock-alerts', 'addAlert')->name('me.alerts.store');
         Route::delete('me/stock-alerts', 'removeAlert')->name('me.alerts.destroy');
         Route::get('me/support/tickets', 'tickets')->name('me.tickets');
-        Route::post('me/support/tickets', 'openTicket')->name('me.tickets.store');
+        Route::post('me/support/tickets', 'openTicket')->middleware('throttle:10,60')->name('me.tickets.store');
         Route::get('me/support/tickets/{id}', 'ticket')->name('me.tickets.show');
-        Route::post('me/support/tickets/{id}/messages', 'replyTicket')->name('me.tickets.reply');
+        Route::post('me/support/tickets/{id}/messages', 'replyTicket')->middleware('throttle:30,60')->name('me.tickets.reply');
     });
 });
 

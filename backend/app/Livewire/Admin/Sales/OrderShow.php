@@ -173,8 +173,15 @@ class OrderShow extends Component
         }
     }
 
+    /** Notes are a write: read-only roles (auditor) can read them but not add them. */
+    private function canNote(Order $order): bool
+    {
+        return collect($order->branchIds())->contains(fn ($b) => $this->can('orders.edit', $b));
+    }
+
     public function addNote(OrderService $orders): void
     {
+        abort_unless($this->canNote($this->order()), 403);
         $this->validate(['note' => 'required|string|min:2|max:2000'], [], ['note' => __('admin.notes')]);
         if ($this->attempt(fn () => $orders->addNote($this->order(), auth()->user(), trim($this->note)), __('sales_admin.note_added'))) {
             $this->reset('note');
@@ -244,6 +251,7 @@ class OrderShow extends Component
             'timeline' => $timeline,
             'drivers' => $drivers,
             'providers' => DeliveryProvider::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'canNote' => $this->canNote($o),
             'canPayments' => $this->can('payments.view'),
             'canCustomer' => $o->user_id && $this->can('customers.view'),
         ])->title($o->number);

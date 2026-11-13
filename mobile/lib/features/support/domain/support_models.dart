@@ -76,7 +76,7 @@ class SupportTicket {
 
 /// Ticket categories (subset of the backend's
 /// `order, delivery, payment, product, auction, return, account, other`).
-const ticketCategories = ['order', 'payment', 'delivery', 'product', 'auction', 'account', 'other'];
+const ticketCategories = ['order', 'payment', 'delivery', 'product', 'auction', 'return', 'account', 'other'];
 
 @immutable
 class CmsPage {

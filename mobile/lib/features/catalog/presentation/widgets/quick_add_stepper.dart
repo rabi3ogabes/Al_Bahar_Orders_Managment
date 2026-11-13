@@ -75,8 +75,8 @@ class _QuickAddStepperState extends ConsumerState<QuickAddStepper> {
         onTap: onTap,
         radius: 22,
         child: SizedBox(
-          width: 44,
-          height: 44,
+          width: kMinTouchTarget,
+          height: kMinTouchTarget,
           child: Center(
             child: _busy
                 ? const SizedBox(

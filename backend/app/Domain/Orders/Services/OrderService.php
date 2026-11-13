@@ -203,29 +203,32 @@ class OrderService
         if ($order->user_id !== $customer->id) {
             throw DomainException::make('not_found', 404);
         }
-        $order->load('fulfillments');
-        $statuses = $order->fulfillments->reject(fn ($f) => $f->status === FS::Cancelled)->map(fn ($f) => $f->status);
-        if ($statuses->isEmpty() || $statuses->contains(fn (FS $s) => $s->stockHandedOver() || $s->isTerminal())) {
-            throw DomainException::make('order_not_cancellable', 409);
-        }
-        if ($order->cancellations()->where('status', 'requested')->exists()) {
-            throw DomainException::make('cancellation_pending', 409);
-        }
-        $auto = $statuses->every(fn (FS $s) => in_array($s, [FS::Pending, FS::Accepted], true));
-        $request = OrderCancellation::create(['order_id' => $order->id, 'requested_by' => $customer->id, 'requested_by_type' => 'customer',
-            'reason_code' => $reasonCode, 'reason' => $reason, 'status' => $auto ? 'approved' : 'requested', 'decided_at' => $auto ? now() : null]);
-        if ($auto) {
-            $this->cancelOrder($order, null, $reasonCode, $reason, system: true);
 
-            return ['status' => 'approved', 'cancellation' => $request];
-        }
-        DB::transaction(function () use ($order, $customer, $reasonCode) {
+        // One transaction under the order's row lock: a double tap (or two devices) must never create two requests.
+        return DB::transaction(function () use ($order, $customer, $reasonCode, $reason) {
+            $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            $order->load('fulfillments');
+            $statuses = $order->fulfillments->reject(fn ($f) => $f->status === FS::Cancelled)->map(fn ($f) => $f->status);
+            if ($statuses->isEmpty() || $statuses->contains(fn (FS $s) => $s->stockHandedOver() || $s->isTerminal())) {
+                throw DomainException::make('order_not_cancellable', 409);
+            }
+            if ($order->cancellations()->where('status', 'requested')->exists()) {
+                throw DomainException::make('cancellation_pending', 409);
+            }
+            $auto = $statuses->every(fn (FS $s) => in_array($s, [FS::Pending, FS::Accepted], true));
+            $request = OrderCancellation::create(['order_id' => $order->id, 'requested_by' => $customer->id, 'requested_by_type' => 'customer',
+                'reason_code' => $reasonCode, 'reason' => $reason, 'status' => $auto ? 'approved' : 'requested', 'decided_at' => $auto ? now() : null]);
+            if ($auto) {
+                $this->cancelOrder($order, null, $reasonCode, $reason, system: true);
+
+                return ['status' => 'approved', 'cancellation' => $request];
+            }
             $from = $order->status;
             $order->update(['status' => OS::CancellationRequested]);
             $this->history($order, null, 'order', $from->value, OS::CancellationRequested->value, $customer, $reasonCode);
-        });
 
-        return ['status' => 'requested', 'cancellation' => $request];
+            return ['status' => 'requested', 'cancellation' => $request];
+        });
     }
 
     public function decideCancellation(OrderCancellation $request, User $staff, bool $approve, ?string $note = null): void
@@ -236,16 +239,20 @@ class OrderService
                 throw DomainException::make('branch_forbidden', 403);
             }
         }
-        if ($request->status !== 'requested') {
-            throw DomainException::make('invalid_state_transition', 409, ['from' => $request->status]);
-        }
-        $request->update(['status' => $approve ? 'approved' : 'rejected', 'decided_by' => $staff->id, 'decided_at' => now(), 'decision_note' => $note]);
-        if ($approve) {
-            $this->cancelOrder($order, $staff, $request->reason_code, $note);
-        } else {
-            $this->refreshOrderStatus($order->fresh(), $staff, 'cancellation_rejected');
-        }
-        $this->audit->log('order.cancellation_'.($approve ? 'approved' : 'rejected'), $order, [], ['note' => $note], actor: $staff);
+        DB::transaction(function () use ($request, $order, $staff, $approve, $note) {
+            // Two staff members deciding the same request at once: the second one must see it already decided.
+            $request = OrderCancellation::whereKey($request->id)->lockForUpdate()->firstOrFail();
+            if ($request->status !== 'requested') {
+                throw DomainException::make('invalid_state_transition', 409, ['from' => $request->status]);
+            }
+            $request->update(['status' => $approve ? 'approved' : 'rejected', 'decided_by' => $staff->id, 'decided_at' => now(), 'decision_note' => $note]);
+            if ($approve) {
+                $this->cancelOrder($order, $staff, $request->reason_code, $note);
+            } else {
+                $this->refreshOrderStatus($order->fresh(), $staff, 'cancellation_rejected');
+            }
+            $this->audit->log('order.cancellation_'.($approve ? 'approved' : 'rejected'), $order, [], ['note' => $note], actor: $staff);
+        });
     }
 
     /**

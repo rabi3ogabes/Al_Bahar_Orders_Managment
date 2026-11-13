@@ -1,3 +1,4 @@
+import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:flutter/widgets.dart';
 
 /// English / Arabic text for the two staff apps (kept small and local; the customer app uses ARB files).
@@ -175,6 +176,90 @@ class OpsStrings {
     if (d.inMinutes < 60) return _t('${d.inMinutes} min ago', 'قبل ${d.inMinutes} د');
     return _t('${d.inHours} h ago', 'قبل ${d.inHours} س');
   }
+
+
+  // Account, session and menu
+  String get sessionExpired => _t('Your session ended. Please sign in again.', 'انتهت جلستك. سجّل الدخول من جديد.');
+  String get showPassword => _t('Show password', 'إظهار كلمة المرور');
+  String get hidePassword => _t('Hide password', 'إخفاء كلمة المرور');
+  String get twoFactorCode => _t('Verification code', 'رمز التحقق');
+  String get twoFactorHint =>
+      _t('Enter the code from your authenticator app.', 'أدخل الرمز من تطبيق المصادقة.');
+  String get signInHintRequired => _t('Enter your email and password.', 'أدخل البريد الإلكتروني وكلمة المرور.');
+  String get menu => _t('Menu', 'القائمة');
+  String get signOutDriverQ => _t('Sign out and go off duty?', 'تسجيل الخروج وإنهاء التواجد؟');
+  String get signOutDriverBody => _t(
+    'You will stop receiving deliveries and stop sharing your location.',
+    'ستتوقف عن استلام التوصيلات ومشاركة موقعك.',
+  );
+  String get signOutQ => _t('Sign out?', 'تسجيل الخروج؟');
+  String get errorFallback => _t('Something went wrong. Please try again.', 'حدث خطأ ما. حاول مرة أخرى.');
+
+  // Driver extras
+  String get locationOffTitle => _t('Location is off', 'الموقع متوقف');
+  String get locationOffBody => _t(
+    'Dispatch cannot see where you are. Turn on location for this app.',
+    'لا يستطيع المرسل رؤية موقعك. فعّل الموقع لهذا التطبيق.',
+  );
+  String get openSettings => _t('Open settings', 'فتح الإعدادات');
+  String get retryDelivery => _t('Try delivery again', 'إعادة محاولة التوصيل');
+  String get returnToBranch => _t('Return to branch', 'إعادة إلى الفرع');
+  String get confirmFailQ => _t('Report as not delivered?', 'الإبلاغ بتعذّر التسليم؟');
+  String confirmFailBody(String reason) => _t('Reason: $reason. The branch will be told.', 'السبب: $reason. سيتم إبلاغ الفرع.');
+  String get confirmReturnQ => _t('Handed back at the branch?', 'تم تسليمه للفرع؟');
+  String get confirmReturnBody => _t(
+    'Only confirm once the order is back at the branch.',
+    'أكّد فقط بعد عودة الطلب إلى الفرع.',
+  );
+  String scheduledFor(String when) => _t('Scheduled: $when', 'الموعد: $when');
+  String get couldNotRefresh => _t('Could not refresh. Showing the last list.', 'تعذّر التحديث. تُعرض آخر قائمة.');
+  String get cashRequired => _t('Enter the cash amount.', 'أدخل المبلغ المحصّل.');
+  String get cashInvalid => _t('Enter a valid amount.', 'أدخل مبلغاً صحيحاً.');
+  String cashTooMuch(String due) => _t('More than the amount due (${money(due)}).', 'أكثر من المبلغ المستحق (${money(due)}).');
+  String get currency => _t('QAR', 'ر.ق');
+  String money(String amount) => _t('QAR $amount', '$amount ر.ق');
+  String get photoFailed => _t(
+    'Could not open the camera. Check the camera permission.',
+    'تعذّر فتح الكاميرا. تحقق من إذن الكاميرا.',
+  );
+  String get zoneWord => _t('Zone', 'المنطقة');
+  String get streetWord => _t('Street', 'الشارع');
+  String get buildingWord => _t('Bldg', 'المبنى');
+  String get unitWord => _t('Unit', 'الوحدة');
+  String get couldNotOpen => _t('Could not open this on your phone.', 'تعذّر فتح هذا على هاتفك.');
+
+  /// "Zone 24 · Street 817 · Bldg 12" in the app language.
+  String address(OpsAddress a) {
+    final parts = <String>[
+      if (a.zone != null) '$zoneWord ${a.zone}',
+      if (a.street != null) '$streetWord ${a.street}',
+      if (a.building != null) '$buildingWord ${a.building}',
+      if (a.unit != null) '$unitWord ${a.unit}',
+      if (a.area != null) a.area!,
+    ];
+    return parts.isEmpty ? a.line : parts.join(' · ');
+  }
+
+  // Add product extras
+  String get studioFailed => _t(
+    'Product saved, but the photo studio request was not sent. Ask again from the dashboard.',
+    'تم حفظ المنتج، لكن لم يُرسل طلب استوديو الصور. اطلبه من لوحة التحكم.',
+  );
+  String get replaceTextQ => _t('Replace your text?', 'استبدال نصك؟');
+  String get replaceTextBody => _t(
+    'The AI will overwrite the descriptions you already typed.',
+    'سيستبدل الذكاء الاصطناعي الأوصاف التي كتبتها.',
+  );
+  String get replace => _t('Replace', 'استبدال');
+  String get priceZero => _t('The price must be more than zero.', 'يجب أن يكون السعر أكبر من صفر.');
+  String uploadingPhoto(int n, int total) => _t('Uploading photo $n of $total…', 'جارٍ رفع الصورة $n من $total…');
+  String get partialSaved => _t(
+    'The product was created but some photos did not upload. Tap Save to finish uploading.',
+    'تم إنشاء المنتج لكن لم ترفع بعض الصور. اضغط حفظ لإكمال الرفع.',
+  );
+  String get categoriesFailed => _t('Could not load categories. Tap to retry.', 'تعذّر تحميل الفئات. اضغط للمحاولة.');
+  String get saveBlocked => _t('Please wait, saving…', 'يرجى الانتظار، جارٍ الحفظ…');
+  String get photoBroken => _t('Photo unreadable', 'تعذّر عرض الصورة');
 
   String get language => _t('العربية', 'English');
 }

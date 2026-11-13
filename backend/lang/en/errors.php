@@ -1,6 +1,9 @@
 <?php
 
 return [
+    'invalid_amount' => 'Please enter a valid amount.',
+    'idempotency_key_reused' => 'This idempotency key was already used for a different request.',
+    'address_limit' => 'You have reached the maximum number of saved addresses. Please delete one first.',
     'validation_failed' => 'Some details need your attention.',
     'unauthenticated' => 'Please sign in to continue.',
     'forbidden' => 'You do not have permission to perform this action.',

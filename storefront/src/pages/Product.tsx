@@ -157,6 +157,11 @@ export default function Product() {
     return own.length ? own : p.images;
   }, [p, variant?.id]);
 
+  // A variant with less stock (or fewer photos) than the previous choice must not keep an impossible quantity or picture.
+  const stockMax = Math.max(1, Math.min(20, variant?.available_quantity || 20));
+  useEffect(() => { setQty((n) => Math.min(n, stockMax)); }, [stockMax]);
+  useEffect(() => { setImg((i) => (i < images.length ? i : 0)); }, [images.length]);
+
   if (q.isError) {
     const nf = q.error instanceof ApiError && q.error.status === 404;
     return <div className="wrap py-24"><EmptyState title={nf ? t('product.not_found') : t('error.title')} text={nf ? t('product.not_found_text') : t('error.generic')} action={<Button onClick={() => nav('/shop')}>{t('nav.shop')}</Button>} /></div>;
@@ -167,7 +172,6 @@ export default function Product() {
 
   const price = variant?.price ?? p.price;
   const canBuy = !!variant && variant.in_stock && variant.available_in_branch && p.purchasable;
-  const max = Math.max(1, Math.min(20, variant?.available_quantity || 20));
   const liked = wl.has(p.id);
   const low = canBuy && variant!.available_quantity > 0 && variant!.available_quantity <= 5;
   const productHref = `${location.origin}/products/${p.slug}`;
@@ -193,7 +197,7 @@ export default function Product() {
 
   return (
     <div className="wrap pb-28 pt-6 md:pt-8 lg:pb-12">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
       <Breadcrumbs items={[{ to: '/', label: t('nav.home') }, { to: '/shop', label: t('nav.shop') }, ...(p.category ? [{ to: `/shop?category=${p.category.slug}`, label: p.category.name }] : []), { label: p.name }]} />
 
       <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-14">
@@ -246,7 +250,7 @@ export default function Product() {
           </div>
 
           <div className="mt-5 flex flex-wrap items-center gap-3">
-            <QtyStepper value={qty} onChange={setQty} max={max} />
+            <QtyStepper value={qty} onChange={setQty} max={stockMax} />
             <Button size="lg" className="min-w-0 flex-1" disabled={!canBuy} loading={adding} onClick={() => add(false)}>{t('product.add_to_bag')}</Button>
             <button onClick={() => wl.toggle(p.id)} aria-pressed={liked} aria-label={liked ? t('wishlist.remove') : t('wishlist.add')} className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-line bg-paper hover:border-primary"><Heart size={20} className={liked ? 'fill-danger text-danger' : ''} /></button>
           </div>

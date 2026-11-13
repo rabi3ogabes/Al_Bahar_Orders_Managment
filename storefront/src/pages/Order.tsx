@@ -4,13 +4,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import QRCode from 'qrcode';
 import { CheckCircle2, Clock, Download, MapPin, Phone, RotateCcw, XCircle, CreditCard, Store, Truck, PackageCheck } from 'lucide-react';
 import { ApiError, api, get, post, uuid } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import { useCart } from '../lib/cart';
 import { useI18n } from '../lib/i18n';
 import { useToast } from '../lib/toast';
 import { useDocTitle } from '../lib/hooks';
 import { cx, mapsHref, telHref } from '../lib/format';
 import type { OrderDetail, PaymentAction, TimelineEvent } from '../lib/types';
-import { Alert, Badge, Button, EmptyState, LinkButton, Modal, Pic, Select, Skeleton, Textarea } from '../components/ui';
+import { useAuthModal } from '../components/AuthModal';
+import { Alert, Badge, Button, EmptyState, LinkButton, Modal, Pic, Select, Skeleton, Spinner, Textarea } from '../components/ui';
 
 export const statusTone = (s: string): 'success' | 'danger' | 'warning' | 'brass' | 'sand' => {
   if (['completed', 'delivered', 'picked_up', 'paid'].includes(s)) return 'success';
@@ -43,6 +45,8 @@ export default function Order() {
   const qc = useQueryClient();
   const toast = useToast();
   const cart = useCart();
+  const { user, loading: authLoading } = useAuth();
+  const authModal = useAuthModal();
   const placed = sp.get('placed') === '1';
   const returning = !!sp.get('payment');
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -52,10 +56,10 @@ export default function Order() {
 
   // After SADAD redirects back, the callback may still be in flight: poll for up to ~90 s.
   const order = useQuery({
-    queryKey: ['order', id], queryFn: async () => (await get<{ data: OrderDetail }>(`/orders/${id}`)).data,
+    queryKey: ['order', id], enabled: !!user, queryFn: async () => (await get<{ data: OrderDetail }>(`/orders/${id}`)).data,
     refetchInterval: (q) => (returning && q.state.data?.payment_status === 'pending' && polls.current++ < 30 ? 3000 : false),
   });
-  const timeline = useQuery({ queryKey: ['timeline', id], queryFn: async () => (await get<{ data: TimelineEvent[] }>(`/orders/${id}/timeline`)).data, refetchInterval: 60_000 });
+  const timeline = useQuery({ queryKey: ['timeline', id], enabled: !!user, queryFn: async () => (await get<{ data: TimelineEvent[] }>(`/orders/${id}/timeline`)).data, refetchInterval: 60_000 });
   const o = order.data;
   useDocTitle(o ? `${t('order.title')} ${o.number}` : t('order.title'));
   useEffect(() => { try { localStorage.removeItem('albahar.web_checkout'); } catch { /* ignore */ } }, []);
@@ -85,9 +89,12 @@ export default function Order() {
     } catch { toast.push(t('order.invoice_unavailable'), 'error'); }
   };
 
+  if (authLoading) return <div className="wrap py-20"><Spinner /></div>;
+  if (!user) return <div className="wrap py-20"><EmptyState title={t('order.signin_title')} text={t('order.signin_text')} action={<Button size="lg" onClick={() => authModal.open()}>{t('auth.sign_in')}</Button>} /></div>;
   if (order.isError) {
-    const nf = order.error instanceof ApiError && order.error.status === 404;
-    return <div className="wrap py-20"><EmptyState title={nf ? t('order.not_found') : t('error.title')} action={<Button onClick={() => nav('/account/orders')}>{t('account.orders')}</Button>} /></div>;
+    // Somebody else's order answers 403/404: to the visitor it simply does not exist.
+    const nf = order.error instanceof ApiError && [403, 404].includes(order.error.status);
+    return <div className="wrap py-20"><EmptyState title={nf ? t('order.not_found') : t('error.title')} action={<div className="flex gap-3">{!nf && <Button variant="outline" onClick={() => void order.refetch()}>{t('action.retry')}</Button>}<Button onClick={() => nav('/account/orders')}>{t('account.orders')}</Button></div>} /></div>;
   }
   if (!o) return <div className="wrap space-y-4 py-12"><Skeleton className="h-16 w-1/2" /><Skeleton className="h-64" /></div>;
 

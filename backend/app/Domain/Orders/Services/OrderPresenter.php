@@ -50,10 +50,24 @@ class OrderPresenter
             'fulfillments' => $o->fulfillments->map(fn (OrderFulfillment $f) => $this->fulfillment($f))->values(),
             'can_cancel' => ! $o->status->isTerminal() && ! $handedOver && $o->status->value !== 'cancellation_requested',
             'can_pay' => $o->status->value === 'pending_payment' && $o->payment_method === 'sadad' && ! $o->payment_due_at?->isPast(),
-            'can_return' => $o->fulfillments->contains(fn ($f) => in_array($f->status, [FS::Delivered, FS::PickedUp], true) && $f->updated_at?->gt(now()->subDays(14))),
+            'can_return' => $o->fulfillments->contains(fn ($f) => self::returnWindowOpen($f)),
             'can_review' => $o->fulfillments->contains(fn ($f) => in_array($f->status, [FS::Delivered, FS::PickedUp], true)),
             'payment_due_at' => BusinessTime::iso($o->payment_due_at),
         ];
+    }
+
+    /** Days after delivery/collection during which a customer may ask to return goods. */
+    public const RETURN_WINDOW_DAYS = 14;
+
+    /** True while a delivered/collected fulfillment is still inside the return window (the API enforces it, the app only shows it). */
+    public static function returnWindowOpen(OrderFulfillment $f): bool
+    {
+        if (! in_array($f->status, [FS::Delivered, FS::PickedUp], true)) {
+            return false;
+        }
+        $since = $f->delivered_at ?? $f->picked_up_at ?? $f->updated_at;
+
+        return $since !== null && $since->gt(now()->subDays(self::RETURN_WINDOW_DAYS));
     }
 
     public function timeline(Order $o): array

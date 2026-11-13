@@ -9,7 +9,7 @@ import { useToast } from '../lib/toast';
 import { useWishlist } from '../lib/wishlist';
 import { useDocTitle } from '../lib/hooks';
 import { cx } from '../lib/format';
-import type { Address, Auction, Loyalty, Lot, OrderSummary, Paged, Ticket } from '../lib/types';
+import type { Address, Auction, Loyalty, Lot, OrderSummary, Paged, Referral, Ticket } from '../lib/types';
 import { AddressForm } from '../components/AddressForm';
 import { useAuthModal } from '../components/AuthModal';
 import { ProductCard, CardGrid } from '../components/ProductCard';
@@ -76,16 +76,22 @@ function Stat({ label, value, sub, to, tone }: { label: string; value: string; s
 function ReferralCard() {
   const { t } = useI18n();
   const toast = useToast();
-  const ref = useQuery({ queryKey: ['referral'], queryFn: async () => (await get<{ data: { code: string; share_url: string; referred_count: number; referrer_reward_points: number } }>('/me/referral')).data });
-  if (!ref.data) return null;
+  const ref = useQuery({ queryKey: ['referral'], queryFn: async () => (await get<{ data: Referral }>('/me/referral')).data });
+  const r = ref.data;
+  // The programme is switched off in the dashboard (the API then returns only `enabled: false`).
+  if (!r || !r.enabled || !r.code) return null;
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(r.share_url); toast.push(t('product.link_copied')); } catch { toast.push(r.share_url, 'info'); }
+  };
   return (
     <section className="rounded-[28px] bg-primary p-6 text-bg">
       <p className="eyebrow !text-brass">{t('referral.eyebrow')}</p>
-      <h2 className="mt-1 text-3xl">{t('referral.title', { n: ref.data.referrer_reward_points })}</h2>
+      <h2 className="mt-1 text-3xl">{t('referral.title')}</h2>
+      {r.referrer_reward?.text && <p className="mt-2 text-bg/80">{r.referrer_reward.text}</p>}
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <code className="rounded-full bg-bg/10 px-5 py-2.5 text-lg tracking-widest">{ref.data.code}</code>
-        <Button variant="brass" size="sm" onClick={async () => { await navigator.clipboard?.writeText(ref.data!.share_url); toast.push(t('product.link_copied')); }}><Copy size={14} />{t('referral.copy')}</Button>
-        <span className="text-sm text-bg/70">{t('referral.count', { n: ref.data.referred_count })}</span>
+        <code className="rounded-full bg-bg/10 px-5 py-2.5 text-lg tracking-widest" dir="ltr">{r.code}</code>
+        <Button variant="brass" size="sm" onClick={copy}><Copy size={14} />{t('referral.copy')}</Button>
+        <span className="text-sm text-bg/70">{t('referral.count', { n: r.referred_count })}</span>
       </div>
     </section>
   );

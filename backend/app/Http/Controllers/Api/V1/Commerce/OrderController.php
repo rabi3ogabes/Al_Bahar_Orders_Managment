@@ -20,6 +20,7 @@ use App\Support\DomainException;
 use App\Support\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /** @tags Orders */
 class OrderController extends ApiController
@@ -107,8 +108,7 @@ class OrderController extends ApiController
 
     public function pay(Request $request, string $id, PaymentService $payments): JsonResponse
     {
-        $key = (string) $request->header('Idempotency-Key');
-        abort_unless(preg_match('/^[A-Za-z0-9\-_]{16,128}$/', $key), 400, __('checkout.idempotency_required'));
+        $key = $this->idempotencyKey($request);
         $payment = $payments->retry($this->own($id), $key);
 
         return response()->json(['data' => $payments->action($payment)], 201);
@@ -134,18 +134,32 @@ class OrderController extends ApiController
 
     public function requestReturn(Request $request, string $id): JsonResponse
     {
-        $order = $this->own($id)->load('items.fulfillment');
-        $data = $request->validate(['items' => 'required|array|min:1', 'items.*.order_item_id' => 'required|uuid', 'items.*.quantity' => 'required|integer|min:1',
+        $order = $this->own($id);
+        $data = $request->validate(['items' => 'required|array|min:1|max:50', 'items.*.order_item_id' => 'required|uuid|distinct', 'items.*.quantity' => 'required|integer|min:1|max:100000',
             'reason_code' => 'required|in:damaged,wrong_item,not_as_described,changed_mind,other', 'reason' => 'nullable|string|max:1000']);
-        $branchId = null;
-        foreach ($data['items'] as $line) {
-            $item = $order->items->firstWhere('id', $line['order_item_id']);
-            abort_unless($item && in_array($item->fulfillment->status->value, ['delivered', 'picked_up'], true)
-                && $line['quantity'] <= $item->quantity_handed_over - $item->quantity_returned, 422, __('checkout.return_not_allowed'));
-            $branchId ??= $item->branch_id;
-        }
-        $rr = ReturnRequest::create(['number' => DocumentNumber::make('RT'), 'order_id' => $order->id, 'user_id' => $this->user()->id, 'branch_id' => $branchId,
-            'reason_code' => $data['reason_code'], 'reason' => $data['reason'] ?? null, 'items' => $data['items']]);
+
+        // Under the order's row lock, counting what earlier open requests already claim: a double submit or a second
+        // request can never ask to return more than was handed over.
+        $rr = DB::transaction(function () use ($order, $data) {
+            Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            $order->load('items.fulfillment');
+            $claimed = [];
+            foreach (ReturnRequest::where('order_id', $order->id)->whereIn('status', ['requested', 'approved'])->get() as $open) {
+                foreach ((array) $open->items as $line) {
+                    $claimed[$line['order_item_id'] ?? ''] = ($claimed[$line['order_item_id'] ?? ''] ?? 0) + (int) ($line['quantity'] ?? 0);
+                }
+            }
+            $branchId = null;
+            foreach ($data['items'] as $line) {
+                $item = $order->items->firstWhere('id', $line['order_item_id']);
+                abort_unless($item && OrderPresenter::returnWindowOpen($item->fulfillment)
+                    && $line['quantity'] <= $item->quantity_handed_over - $item->quantity_returned - ($claimed[$item->id] ?? 0), 422, __('checkout.return_not_allowed'));
+                $branchId ??= $item->branch_id;
+            }
+
+            return ReturnRequest::create(['number' => DocumentNumber::make('RT'), 'order_id' => $order->id, 'user_id' => $this->user()->id, 'branch_id' => $branchId,
+                'reason_code' => $data['reason_code'], 'reason' => $data['reason'] ?? null, 'items' => $data['items']]);
+        });
 
         return response()->json(['data' => ['id' => $rr->id, 'number' => $rr->number, 'status' => $rr->status]], 201);
     }

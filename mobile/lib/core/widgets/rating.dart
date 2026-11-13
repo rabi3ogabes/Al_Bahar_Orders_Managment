@@ -36,9 +36,13 @@ class RatingStars extends StatelessWidget {
             ),
           if (showValue) ...[
             const Gap(AppSpace.xxs),
-            Text(
-              count != null ? '${value.toStringAsFixed(1)} ($count)' : value.toStringAsFixed(1),
-              style: context.text.bodySmall,
+            Flexible(
+              child: Text(
+                count != null ? '${value.toStringAsFixed(1)} ($count)' : value.toStringAsFixed(1),
+                style: context.text.bodySmall,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ],

@@ -23,6 +23,7 @@ use App\Support\BusinessTime;
 use App\Support\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * Staff order operations. Orders are visible to staff of ANY branch that fulfills part of them; every mutation is
@@ -85,7 +86,7 @@ class OrderOpsController extends ApiController
 
     public function note(Request $request, Order $order, OrderService $orders): JsonResponse
     {
-        $data = $request->validate(['body' => 'required|string|max:2000', 'fulfillment_id' => 'nullable|uuid']);
+        $data = $request->validate(['body' => 'required|string|max:2000', 'fulfillment_id' => ['nullable', 'uuid', Rule::exists('order_fulfillments', 'id')->where('order_id', $order->id)]]);
 
         return response()->json(['data' => $orders->addNote($order, $this->user(), $data['body'], $data['fulfillment_id'] ?? null)], 201);
     }
@@ -182,7 +183,7 @@ class OrderOpsController extends ApiController
     {
         $data = $request->validate(['amount' => 'required|numeric|min:0.01', 'reason_code' => 'required|string|max:48', 'reason' => 'nullable|string|max:1000',
             'method' => 'nullable|in:original,manual_cash,manual_bank_transfer']);
-        $key = $request->header('Idempotency-Key');
+        $key = $this->idempotencyKey($request, required: false);
 
         return response()->json(['data' => $refunds->request($payment, Money::of((string) $data['amount']), $data['reason_code'], $data['reason'] ?? null, $this->user(), $key, $data['method'] ?? 'original')], 201);
     }

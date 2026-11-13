@@ -35,6 +35,8 @@ class BidEngine
     public function placeBid(User $user, string $lotId, Money $amount, string $idempotencyKey, string $type = 'manual', ?string $ip = null): array
     {
         if ($existing = AuctionBid::where('user_id', $user->id)->where('idempotency_key', $idempotencyKey)->first()) {
+            $this->assertNotRejected($existing);
+
             return ['bid' => $existing, 'lot' => $existing->lot()->first(), 'replayed' => true];
         }
 
@@ -47,6 +49,9 @@ class BidEngine
             // Duplicate submission that raced the first check.
             if ($existing = AuctionBid::where('user_id', $user->id)->where('idempotency_key', $idempotencyKey)->first()) {
                 $replayed = true;
+                if ($existing->status === 'rejected') {
+                    return [$existing, $lot, $existing->rejection_reason, []];
+                }
 
                 return [$existing, $lot, null, []];
             }
@@ -76,6 +81,15 @@ class BidEngine
         $this->broadcast($lot, $events);
 
         return ['bid' => $bid, 'lot' => $lot->fresh(), 'replayed' => $replayed];
+    }
+
+    /** Retrying a bid that was rejected must report the same rejection again, never a 200 "replayed" success. */
+    private function assertNotRejected(AuctionBid $bid): void
+    {
+        if ($bid->status === 'rejected') {
+            $lot = $bid->lot()->first();
+            throw DomainException::make('bid_'.$bid->rejection_reason, $bid->rejection_reason === 'outbid_min' ? 422 : 409, ['min_next_bid' => $lot->minNextBid()->format()]);
+        }
     }
 
     /** Set (or replace) a maximum the server bids on the customer's behalf. */

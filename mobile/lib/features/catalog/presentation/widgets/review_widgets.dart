@@ -4,8 +4,8 @@ import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/qatar_time.dart';
 import 'package:albahar_customer/core/widgets/app_button.dart';
-import 'package:albahar_customer/core/widgets/app_text_field.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
+import 'package:albahar_customer/core/widgets/input_sheets.dart';
 import 'package:albahar_customer/core/widgets/paged.dart';
 import 'package:albahar_customer/core/widgets/rating.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
@@ -216,28 +216,15 @@ class _QuestionsSection extends ConsumerWidget {
             TextButton(
               onPressed: () async {
                 if (!requireAuth(context, ref)) return;
-                final controller = TextEditingController();
-                final text = await showAppBottomSheet<String>(
-                  context: context,
+                final text = await showTextSheet(
+                  context,
                   title: l10n.askQuestion,
-                  builder: (ctx) => Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      AppTextField(
-                        controller: controller,
-                        label: l10n.askQuestion,
-                        maxLines: 4,
-                        minLines: 2,
-                        autofocus: true,
-                      ),
-                      const Gap(AppSpace.md),
-                      AppButton(label: l10n.send, onPressed: () => Navigator.of(ctx).pop(controller.text.trim())),
-                    ],
-                  ),
+                  label: l10n.askQuestion,
+                  actionLabel: l10n.send,
+                  minLength: 5,
+                  maxLength: 1000,
                 );
-                controller.dispose();
-                if (text == null || text.isEmpty) return;
+                if (text == null) return;
                 try {
                   await ref.read(catalogRepositoryProvider).askQuestion(productId, text);
                   if (context.mounted) showInfoSnack(context, l10n.questionSubmitted);

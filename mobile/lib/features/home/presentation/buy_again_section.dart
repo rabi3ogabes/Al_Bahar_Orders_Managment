@@ -120,8 +120,8 @@ class _BuyAgainCardState extends ConsumerState<_BuyAgainCard> {
                       customBorder: const CircleBorder(),
                       onTap: _adding || !p.inStock ? null : _add,
                       child: SizedBox(
-                        width: 36,
-                        height: 36,
+                        width: kMinTouchTarget,
+                        height: kMinTouchTarget,
                         child: _adding
                             ? const Padding(
                                 padding: EdgeInsets.all(10),

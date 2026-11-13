@@ -95,7 +95,7 @@ export default function Shop() {
       )}
       <div>
         <h3 className="eyebrow mb-3">{t('filter.price')} (QAR)</h3>
-        <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); const f = new FormData(e.currentTarget); set({ min: String(f.get('min') || ''), max: String(f.get('max') || '') }); }}>
+        <form key={`${pmin}-${pmax}`} className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); const f = new FormData(e.currentTarget); let lo = String(f.get('min') || '').trim(), hi = String(f.get('max') || '').trim(); if (lo && hi && Number(lo) > Number(hi)) [lo, hi] = [hi, lo]; set({ min: lo, max: hi }); }}>
           <input name="min" type="number" min={0} inputMode="numeric" defaultValue={pmin} placeholder={t('filter.min')} aria-label={t('filter.min')} className="h-11 w-full rounded-xl border border-line bg-paper px-3 text-sm" />
           <span className="text-muted">–</span>
           <input name="max" type="number" min={0} inputMode="numeric" defaultValue={pmax} placeholder={t('filter.max')} aria-label={t('filter.max')} className="h-11 w-full rounded-xl border border-line bg-paper px-3 text-sm" />

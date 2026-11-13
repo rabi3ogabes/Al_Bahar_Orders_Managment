@@ -153,22 +153,29 @@ class InviteBody extends StatelessWidget {
           Text(l10n.inviteNoFriends, style: context.text.bodyMedium)
         else
           for (final f in r.friends)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              minTileHeight: 48,
-              leading: const CircleAvatar(child: Icon(Icons.person_outline_rounded)),
-              title: Text(f.name),
-              trailing: StatusChip(
-                label: switch (f.status) {
-                  'rewarded' => l10n.inviteStatusRewarded,
-                  'pending' => l10n.inviteStatusPending,
-                  _ => l10n.inviteStatusClosed,
-                },
-                tone: switch (f.status) {
-                  'rewarded' => StatusTone.success,
-                  'pending' => StatusTone.warning,
-                  _ => StatusTone.neutral,
-                },
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 56),
+              child: Row(
+                children: [
+                  const CircleAvatar(child: Icon(Icons.person_outline_rounded)),
+                  const Gap(AppSpace.sm),
+                  Expanded(child: Text(f.name, maxLines: 2, overflow: TextOverflow.ellipsis)),
+                  const Gap(AppSpace.sm),
+                  Flexible(
+                    child: StatusChip(
+                      label: switch (f.status) {
+                        'rewarded' => l10n.inviteStatusRewarded,
+                        'pending' => l10n.inviteStatusPending,
+                        _ => l10n.inviteStatusClosed,
+                      },
+                      tone: switch (f.status) {
+                        'rewarded' => StatusTone.success,
+                        'pending' => StatusTone.warning,
+                        _ => StatusTone.neutral,
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
       ],

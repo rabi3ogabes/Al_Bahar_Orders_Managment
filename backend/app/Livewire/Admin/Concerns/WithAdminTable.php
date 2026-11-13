@@ -5,6 +5,7 @@ namespace App\Livewire\Admin\Concerns;
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Identity\Support\BranchScope;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\WithPagination;
 
@@ -25,6 +26,8 @@ trait WithAdminTable
     #[Url(except: '')]
     public string $sort = '';
 
+    /** Server-chosen page size: locked so a tampered request cannot ask for an unbounded page. */
+    #[Locked]
     public int $perPage = 20;
 
     public function updated($property): void

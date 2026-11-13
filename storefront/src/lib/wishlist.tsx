@@ -1,7 +1,9 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { del, get, post } from './api';
+import { ApiError, del, get, post } from './api';
 import { useAuth } from './auth';
+import { useI18n } from './i18n';
+import { useToast } from './toast';
 import type { ProductCard } from './types';
 
 interface Item { id: string; product: ProductCard | null; variant_id: string | null; added_at: string }
@@ -12,6 +14,8 @@ export const useWishlist = () => useContext(C);
 export function WishlistProvider({ children, onNeedAuth }: { children: ReactNode; onNeedAuth: () => void }) {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const { t } = useI18n();
+  const toast = useToast();
   const q = useQuery({ queryKey: ['wishlist', user?.id], enabled: !!user, queryFn: async () => (await get<{ data: Item[] }>('/me/wishlist')).data });
   const add = useMutation({ mutationFn: (id: string) => post('/me/wishlist', { product_id: id }), onSettled: () => qc.invalidateQueries({ queryKey: ['wishlist'] }) });
   const rm = useMutation({ mutationFn: (id: string) => del(`/me/wishlist/${id}`), onSettled: () => qc.invalidateQueries({ queryKey: ['wishlist'] }) });
@@ -22,9 +26,11 @@ export function WishlistProvider({ children, onNeedAuth }: { children: ReactNode
       items, loading: q.isLoading, has: (id) => ids.has(id),
       toggle: async (id) => {
         if (!user) { onNeedAuth(); return; }
-        if (ids.has(id)) await rm.mutateAsync(id); else await add.mutateAsync(id);
+        if (add.isPending || rm.isPending) return;
+        try { if (ids.has(id)) await rm.mutateAsync(id); else await add.mutateAsync(id); }
+        catch (e) { toast.push(e instanceof ApiError ? e.message : t('error.generic'), 'error'); }
       },
     };
-  }, [q.data, q.isLoading, user, add, rm, onNeedAuth]);
+  }, [q.data, q.isLoading, user, add, rm, onNeedAuth, toast, t]);
   return <C.Provider value={value}>{children}</C.Provider>;
 }

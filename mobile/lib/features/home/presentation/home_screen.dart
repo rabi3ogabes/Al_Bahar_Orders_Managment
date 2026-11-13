@@ -939,15 +939,25 @@ class AuctionCardView extends StatelessWidget {
                   const Gap(2),
                   Row(
                     children: [
-                      Text(l10n.lotsCount(auction.lotsCount), style: context.text.bodySmall),
-                      const Spacer(),
+                      Expanded(
+                        child: Text(
+                          l10n.lotsCount(auction.lotsCount),
+                          style: context.text.bodySmall,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                       if (target != null && auction.status != 'completed')
-                        CountdownText(
-                          target: target,
-                          serverOffset: offset,
-                          builder: (context, remaining, f) => Text(
-                            auction.isUpcoming ? l10n.startsIn(f) : l10n.endsIn(f),
-                            style: context.text.labelMedium?.copyWith(color: context.palette.brass),
+                        Flexible(
+                          child: CountdownText(
+                            target: target,
+                            serverOffset: offset,
+                            builder: (context, remaining, f) => Text(
+                              auction.isUpcoming ? l10n.startsIn(f) : l10n.endsIn(f),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: context.text.labelMedium?.copyWith(color: context.palette.brass),
+                            ),
                           ),
                         )
                       else if (auction.endsAt != null)

@@ -161,7 +161,7 @@ class _Card extends StatelessWidget {
               const Gap(AppSpace.sm),
               SizedBox(
                 width: double.infinity,
-                height: 44,
+                height: kMinTouchTarget,
                 child: FilledButton.icon(
                   onPressed: () => context.push('/orders/${order.id}/track'),
                   icon: const Icon(Icons.location_on_rounded),

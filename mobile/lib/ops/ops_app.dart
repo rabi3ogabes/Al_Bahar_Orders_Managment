@@ -1,34 +1,55 @@
 import 'dart:async';
 
+import 'package:albahar_customer/core/l10n/l10n.dart';
+import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/push/push_service.dart';
 import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/update/app_update.dart';
-import 'package:albahar_customer/l10n/generated/app_localizations.dart';
 import 'package:albahar_customer/ops/driver/driver_home.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_session.dart';
 import 'package:albahar_customer/ops/ops_strings.dart';
 import 'package:albahar_customer/ops/staff/staff_home.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 /// Root of both staff apps: the same shell, a different home screen per [OpsRole].
-class OpsApp extends ConsumerWidget {
+class OpsApp extends ConsumerStatefulWidget {
   const OpsApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<OpsApp> createState() => _OpsAppState();
+}
+
+class _OpsAppState extends ConsumerState<OpsApp> {
+  final _navigator = GlobalKey<NavigatorState>();
+
+  @override
+  void initState() {
+    super.initState();
+    // A saved session starts signed in: the push token must be (re)registered on every launch, not only after a sign-in.
+    if (ref.read(opsSessionProvider) == OpsAuth.signedIn) _registerPush();
+  }
+
+  void _registerPush() => unawaited(ref.read(pushServiceProvider).register().catchError((Object _) {}));
+
+  @override
+  Widget build(BuildContext context) {
     final role = ref.watch(opsRoleProvider);
     final locale = Locale(ref.watch(localeCodeProvider));
     final auth = ref.watch(opsSessionProvider);
     ref.listen(opsSessionProvider, (_, next) {
-      if (next == OpsAuth.signedIn) unawaited(ref.read(pushServiceProvider).register().catchError((Object _) {}));
+      if (next == OpsAuth.signedIn) _registerPush();
+      // Signed out (or expired) while a pushed screen or sheet is open: close them so only the sign-in screen is left.
+      if (next == OpsAuth.signedOut) _navigator.currentState?.popUntil((r) => r.isFirst);
     });
     return MaterialApp(
+      navigatorKey: _navigator,
       debugShowCheckedModeBanner: false,
       onGenerateTitle: (c) => role == OpsRole.driver ? OpsStrings.of(c).driverApp : OpsStrings.of(c).staffApp,
       locale: locale,
@@ -91,30 +112,60 @@ class OpsLoginScreen extends ConsumerStatefulWidget {
 class _OpsLoginScreenState extends ConsumerState<OpsLoginScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _code = TextEditingController();
   bool _busy = false;
   bool _show = false;
+  bool _needsCode = false;
   String? _error;
 
   @override
   void dispose() {
     _email.dispose();
     _password.dispose();
+    _code.dispose();
     super.dispose();
   }
 
+  String _describe(Object e) {
+    if (e is ApiException && e.kind == ApiErrorKind.validation) {
+      return e.fieldError('email') ?? e.fieldError('password') ?? describeError(context.l10n, e);
+    }
+    return describeError(context.l10n, e);
+  }
+
   Future<void> _submit(OpsStrings t, OpsRole role) async {
-    if (_email.text.trim().isEmpty || _password.text.isEmpty) return;
+    if (_busy) return;
+    final email = _email.text.trim();
+    if (email.isEmpty || _password.text.isEmpty || (_needsCode && _code.text.trim().isEmpty)) {
+      setState(() => _error = _needsCode && _code.text.trim().isEmpty ? t.twoFactorHint : t.signInHintRequired);
+      return;
+    }
+    FocusScope.of(context).unfocus();
     setState(() {
       _busy = true;
       _error = null;
     });
-    final err = await ref
-        .read(opsSessionProvider.notifier)
-        .signIn(_email.text, _password.text, notEligible: role == OpsRole.driver ? t.notDriver : t.notStaff);
+    String? error;
+    try {
+      final outcome = await ref
+          .read(opsSessionProvider.notifier)
+          .signIn(email, _password.text, twoFactorCode: _needsCode ? _code.text.trim() : null);
+      switch (outcome) {
+        case OpsSignIn.success:
+          TextInput.finishAutofillContext();
+        case OpsSignIn.notEligible:
+          error = role == OpsRole.driver ? t.notDriver : t.notStaff;
+        case OpsSignIn.twoFactorRequired:
+          _needsCode = true;
+          error = t.twoFactorHint;
+      }
+    } catch (e) {
+      if (mounted) error = _describe(e);
+    }
     if (mounted) {
       setState(() {
         _busy = false;
-        _error = err;
+        _error = error;
       });
     }
   }
@@ -123,6 +174,8 @@ class _OpsLoginScreenState extends ConsumerState<OpsLoginScreen> {
   Widget build(BuildContext context) {
     final t = OpsStrings.of(context);
     final role = ref.watch(opsRoleProvider);
+    final expired = ref.read(opsSessionProvider.notifier).expired;
+    final message = _error ?? (expired ? t.sessionExpired : null);
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -159,9 +212,13 @@ class _OpsLoginScreenState extends ConsumerState<OpsLoginScreen> {
                     const Gap(AppSpace.lg),
                     TextField(
                       controller: _email,
+                      enabled: !_busy,
                       keyboardType: TextInputType.emailAddress,
-                      autofillHints: const [AutofillHints.username],
+                      autofillHints: const [AutofillHints.username, AutofillHints.email],
+                      autocorrect: false,
+                      enableSuggestions: false,
                       textInputAction: TextInputAction.next,
+                      inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
                       decoration: InputDecoration(
                         labelText: t.email,
                         prefixIcon: const Icon(Icons.alternate_email_rounded),
@@ -170,34 +227,63 @@ class _OpsLoginScreenState extends ConsumerState<OpsLoginScreen> {
                     const Gap(AppSpace.sm),
                     TextField(
                       controller: _password,
+                      enabled: !_busy,
                       obscureText: !_show,
+                      autocorrect: false,
+                      enableSuggestions: false,
                       autofillHints: const [AutofillHints.password],
-                      onSubmitted: (_) => _submit(t, role),
+                      textInputAction: _needsCode ? TextInputAction.next : TextInputAction.done,
+                      onSubmitted: _needsCode ? null : (_) => _submit(t, role),
                       decoration: InputDecoration(
                         labelText: t.password,
                         prefixIcon: const Icon(Icons.lock_outline_rounded),
                         suffixIcon: IconButton(
+                          tooltip: _show ? t.hidePassword : t.showPassword,
                           icon: Icon(_show ? Icons.visibility_off_outlined : Icons.visibility_outlined),
                           onPressed: () => setState(() => _show = !_show),
                         ),
                       ),
                     ),
-                    if (_error != null) ...[
+                    if (_needsCode) ...[
                       const Gap(AppSpace.sm),
-                      Text(
-                        _error!,
-                        style: TextStyle(color: context.palette.danger),
-                        textAlign: TextAlign.center,
+                      TextField(
+                        controller: _code,
+                        enabled: !_busy,
+                        autofocus: true,
+                        maxLength: 32,
+                        keyboardType: TextInputType.number,
+                        autofillHints: const [AutofillHints.oneTimeCode],
+                        textInputAction: TextInputAction.done,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        onSubmitted: (_) => _submit(t, role),
+                        decoration: InputDecoration(
+                          labelText: t.twoFactorCode,
+                          prefixIcon: const Icon(Icons.verified_user_outlined),
+                        ),
+                      ),
+                    ],
+                    if (message != null) ...[
+                      const Gap(AppSpace.sm),
+                      Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          message,
+                          style: TextStyle(color: _error == null && expired ? context.palette.muted : context.palette.danger),
+                          textAlign: TextAlign.center,
+                        ),
                       ),
                     ],
                     const Gap(AppSpace.lg),
                     FilledButton(
                       onPressed: _busy ? null : () => _submit(t, role),
                       child: _busy
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 22,
                               height: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                                color: Theme.of(context).colorScheme.onPrimary,
+                              ),
                             )
                           : Text(t.signIn),
                     ),
@@ -219,10 +305,11 @@ class _VersionFooter extends StatelessWidget {
   const _VersionFooter();
 
   static const _sha = String.fromEnvironment('BUILD_SHA');
+  static final Future<PackageInfo> _info = PackageInfo.fromPlatform();
 
   @override
   Widget build(BuildContext context) => FutureBuilder<PackageInfo>(
-    future: PackageInfo.fromPlatform(),
+    future: _info,
     builder: (context, snap) {
       final info = snap.data;
       if (info == null) return const SizedBox.shrink();

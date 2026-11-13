@@ -18,6 +18,7 @@ import 'package:albahar_customer/features/cart/presentation/state/cart_controlle
 import 'package:albahar_customer/features/catalog/presentation/widgets/catalog_widgets.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/upsell_widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -308,7 +309,7 @@ class _CouponFieldState extends ConsumerState<_CouponField> {
   }
 
   Future<void> _apply() async {
-    if (_controller.text.trim().isEmpty) return;
+    if (_busy || _controller.text.trim().isEmpty) return;
     setState(() {
       _busy = true;
       _error = null;
@@ -363,7 +364,12 @@ class _CouponFieldState extends ConsumerState<_CouponField> {
             prefixIcon: Icons.local_offer_outlined,
             forceLtr: true,
             textCapitalization: TextCapitalization.characters,
+            textInputAction: TextInputAction.done,
+            inputFormatters: [LengthLimitingTextInputFormatter(48)],
             errorText: _error,
+            onChanged: (_) {
+              if (_error != null) setState(() => _error = null);
+            },
             onSubmitted: (_) => _apply(),
           ),
         ),

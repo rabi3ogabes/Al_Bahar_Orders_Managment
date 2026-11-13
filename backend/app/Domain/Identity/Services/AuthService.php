@@ -11,6 +11,7 @@ use App\Domain\Identity\Models\User;
 use App\Support\DomainException;
 use App\Support\Phone;
 use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -67,7 +68,22 @@ class AuthService
             throw DomainException::make('registration_token_invalid', 401);
         }
 
-        $user = DB::transaction(function () use ($payload, $data) {
+        try {
+            $user = $this->createCustomer($payload, $data);
+        } catch (UniqueConstraintViolationException) {
+            // Two sign-ups for one number racing each other: the loser gets the same answer as a sequential duplicate.
+            throw DomainException::make('phone_taken', 409);
+        }
+
+        $this->audit->log('auth.registered', $user, [], ['phone' => $user->phone], actor: $user);
+        CustomerRegistered::dispatch($user, $data['referral_code'] ?? null, $context['device_id'] ?? null);
+
+        return ['user' => $user, 'tokens' => $this->login($user, $context, 'registration')];
+    }
+
+    private function createCustomer(array $payload, array $data): User
+    {
+        return DB::transaction(function () use ($payload, $data) {
             if (User::withTrashed()->where('phone', $payload['phone'])->lockForUpdate()->exists()) {
                 throw DomainException::make('phone_taken', 409);
             }
@@ -85,11 +101,6 @@ class AuthService
                 'marketing_consent_at' => ! empty($data['marketing_consent']) ? now() : null,
             ]);
         });
-
-        $this->audit->log('auth.registered', $user, [], ['phone' => $user->phone], actor: $user);
-        CustomerRegistered::dispatch($user, $data['referral_code'] ?? null, $context['device_id'] ?? null);
-
-        return ['user' => $user, 'tokens' => $this->login($user, $context, 'registration')];
     }
 
     public function passwordLogin(array $data, array $context, ?UserType $expectedType = UserType::Customer): array

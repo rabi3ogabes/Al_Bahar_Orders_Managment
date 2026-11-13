@@ -63,15 +63,23 @@ class AuctionDetailScreen extends ConsumerWidget {
                                     : (s.isUpcoming ? l10n.auctionUpcoming : l10n.auctionCompleted),
                                 tone: toneForStatus(s.isLive ? 'live' : s.status),
                               ),
-                              const Spacer(),
+                              const Gap(AppSpace.sm),
                               if (target != null && !(s.status == 'completed'))
-                                CountdownText(
-                                  target: target,
-                                  serverOffset: offset,
-                                  onElapsed: () => ref.invalidate(auctionDetailProvider(auctionId)),
-                                  builder: (context, _, f) => Text(
-                                    s.isUpcoming ? l10n.startsIn(f) : l10n.endsIn(f),
-                                    style: context.text.titleMedium?.copyWith(color: context.palette.brass),
+                                Expanded(
+                                  child: Align(
+                                    alignment: AlignmentDirectional.centerEnd,
+                                    child: CountdownText(
+                                      target: target,
+                                      serverOffset: offset,
+                                      onElapsed: () => ref.invalidate(auctionDetailProvider(auctionId)),
+                                      builder: (context, _, f) => Text(
+                                        s.isUpcoming ? l10n.startsIn(f) : l10n.endsIn(f),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        textAlign: TextAlign.end,
+                                        style: context.text.titleMedium?.copyWith(color: context.palette.brass),
+                                      ),
+                                    ),
                                   ),
                                 ),
                             ],

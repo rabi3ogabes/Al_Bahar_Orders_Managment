@@ -327,7 +327,8 @@ class DeliveryService
         } catch (UniqueConstraintViolationException) {
             return 'duplicate';
         }
-        $delivery = Delivery::where('delivery_provider_id', $provider->id)->where('provider_reference', $data['reference'])->first();
+        // A payload without a reference must never match deliveries that have none yet (where(col, null) means "IS NULL").
+        $delivery = filled($data['reference']) ? Delivery::where('delivery_provider_id', $provider->id)->where('provider_reference', (string) $data['reference'])->first() : null;
         $status = $data['status'] ? DS::tryFrom($data['status']) : null;
         if (! $delivery || ! $status) {
             $event->update(['status' => 'ignored', 'processed_at' => now()]);

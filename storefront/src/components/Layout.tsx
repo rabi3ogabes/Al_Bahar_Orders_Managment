@@ -32,7 +32,10 @@ export function Header() {
   const [pick, setPick] = useState(false);
   const [stuck, setStuck] = useState(false);
 
-  useEffect(() => { setMenu(false); }, [loc.pathname]);
+  const onShop = loc.pathname === '/shop';
+  const activeCat = new URLSearchParams(loc.search).get('category');
+  // A page change (including the browser's back button) leaves no overlay behind.
+  useEffect(() => { setMenu(false); setSearch(false); setPick(false); cart.closeDrawer(); }, [loc.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const f = () => setStuck(window.scrollY > 8); f(); window.addEventListener('scroll', f, { passive: true }); return () => window.removeEventListener('scroll', f); }, []);
   const top = useMemo(() => (cats.data ?? []).slice(0, 6), [cats.data]);
   const link = ({ isActive }: { isActive: boolean }) => cx('relative whitespace-nowrap py-2 text-[13px] font-medium uppercase tracking-[0.14em] transition-colors hover:text-brass-deep after:absolute after:inset-x-0 after:-bottom-0.5 after:h-px after:origin-center after:scale-x-0 after:bg-brass after:transition-transform hover:after:scale-x-100', isActive ? 'text-brass-deep after:scale-x-100' : 'text-ink-soft');
@@ -56,8 +59,8 @@ export function Header() {
           <div className="flex items-center gap-1">
             <IconButton label={t('nav.menu')} className="lg:hidden" onClick={() => setMenu(true)}><Menu size={22} /></IconButton>
             <nav aria-label={t('nav.main')} className="hidden items-center gap-7 lg:flex">
-              <NavLink to="/shop" end className={link}>{t('nav.shop')}</NavLink>
-              {top.slice(0, 3).map((c) => <NavLink key={c.id} to={`/shop?category=${c.slug}`} className={link}>{c.name}</NavLink>)}
+              <Link to="/shop" aria-current={onShop && !activeCat ? 'page' : undefined} className={link({ isActive: onShop && !activeCat })}>{t('nav.shop')}</Link>
+              {top.slice(0, 3).map((c) => { const on = onShop && activeCat === c.slug; return <Link key={c.id} to={`/shop?category=${c.slug}`} aria-current={on ? 'page' : undefined} className={link({ isActive: on })}>{c.name}</Link>; })}
             </nav>
           </div>
           <Logo />

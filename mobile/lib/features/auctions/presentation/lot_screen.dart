@@ -6,10 +6,12 @@ import 'package:albahar_customer/core/realtime/pusher_client.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/utils/qatar_time.dart';
+import 'package:albahar_customer/core/utils/validators.dart';
 import 'package:albahar_customer/core/widgets/app_button.dart';
 import 'package:albahar_customer/core/widgets/app_text_field.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/countdown.dart';
+import 'package:albahar_customer/core/widgets/input_sheets.dart';
 import 'package:albahar_customer/core/widgets/price_tag.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
@@ -221,11 +223,15 @@ class _PricePanel extends StatelessWidget {
                         color: urgent ? context.palette.danger : context.palette.brass,
                       ),
                       const Gap(AppSpace.xs),
-                      Text(
-                        lot.isOpen ? l10n.endsIn(f) : l10n.startsIn(f),
-                        style: context.text.titleMedium?.copyWith(
-                          color: urgent ? context.palette.danger : context.palette.brass,
-                          fontFeatures: const [FontFeature.tabularFigures()],
+                      Flexible(
+                        child: Text(
+                          lot.isOpen ? l10n.endsIn(f) : l10n.startsIn(f),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: context.text.titleMedium?.copyWith(
+                            color: urgent ? context.palette.danger : context.palette.brass,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
                         ),
                       ),
                       if (lot.extensionCount > 0) ...[
@@ -340,6 +346,7 @@ class _BidComposer extends ConsumerStatefulWidget {
 class _BidComposerState extends ConsumerState<_BidComposer> {
   late final _amount = TextEditingController(text: _plain(widget.lot.minNextBid.amount));
   bool _busy = false;
+  bool _confirming = false;
   String? _error;
   bool _edited = false;
 
@@ -368,7 +375,7 @@ class _BidComposerState extends ConsumerState<_BidComposer> {
   }
 
   Future<void> _place() async {
-    if (!requireAuth(context, ref)) return;
+    if (_busy || _confirming || !requireAuth(context, ref)) return;
     final l10n = context.l10n;
     final amount = _amount.text.trim();
     final value = double.tryParse(amount);
@@ -377,12 +384,14 @@ class _BidComposerState extends ConsumerState<_BidComposer> {
       Haptics.warning();
       return;
     }
+    _confirming = true;
     final confirmed = await confirmAction(
       context,
       title: l10n.confirmBidTitle,
       message: l10n.confirmBidMessage('${widget.lot.minNextBid.currency} $amount'),
       confirmLabel: l10n.placeBid,
     );
+    _confirming = false;
     if (!confirmed || !mounted) return;
     setState(() {
       _busy = true;
@@ -438,8 +447,10 @@ class _BidComposerState extends ConsumerState<_BidComposer> {
                 label: l10n.bidAmount,
                 forceLtr: true,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                inputFormatters: const [AsciiDigitsFormatter(), _AmountFormatter()],
+                textInputAction: TextInputAction.done,
                 errorText: _error,
+                onSubmitted: (_) => _place(),
                 onChanged: (_) => _edited = true,
               ),
             ),
@@ -513,37 +524,24 @@ class _AutoBidRow extends ConsumerWidget {
 
   Future<String?> _askMax(BuildContext context, Lot lot) {
     final l10n = context.l10n;
-    final controller = TextEditingController();
-    return showAppBottomSheet<String>(
-      context: context,
+    return showTextSheet(
+      context,
       title: l10n.setAutoBid,
-      builder: (ctx) => Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(l10n.autoBidHint, style: ctx.text.bodyMedium),
-          const Gap(AppSpace.md),
-          AppTextField(
-            controller: controller,
-            label: l10n.autoBidMax,
-            helper: l10n.bidTooLow(lot.minNextBid.formatted),
-            forceLtr: true,
-            autofocus: true,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
-          ),
-          const Gap(AppSpace.lg),
-          AppButton(
-            label: l10n.setAutoBid,
-            onPressed: () {
-              final v = double.tryParse(controller.text.trim());
-              if (v == null || v < lot.minNextBid.displayValue) return;
-              Navigator.of(ctx).pop(controller.text.trim());
-            },
-          ),
-        ],
-      ),
-    ).whenComplete(controller.dispose);
+      intro: l10n.autoBidHint,
+      label: l10n.autoBidMax,
+      helper: l10n.bidTooLow(lot.minNextBid.formatted),
+      actionLabel: l10n.setAutoBid,
+      maxLength: 12,
+      maxLines: 1,
+      forceLtr: true,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: const [AsciiDigitsFormatter(), _AmountFormatter()],
+      validate: (text) {
+        final v = double.tryParse(text);
+        if (v == null) return l10n.enterValidAmount;
+        return v < lot.minNextBid.displayValue ? l10n.bidTooLow(lot.minNextBid.formatted) : null;
+      },
+    );
   }
 }
 
@@ -594,4 +592,15 @@ class _BidRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Digits with at most one decimal point and two decimals (money amounts).
+class _AmountFormatter extends TextInputFormatter {
+  const _AmountFormatter();
+
+  static final _valid = RegExp(r'^\d*\.?\d{0,2}$');
+
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) =>
+      _valid.hasMatch(newValue.text) ? newValue : oldValue;
 }

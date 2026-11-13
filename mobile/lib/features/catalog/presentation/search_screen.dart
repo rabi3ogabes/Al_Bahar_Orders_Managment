@@ -10,6 +10,7 @@ import 'package:albahar_customer/features/catalog/presentation/product_list_scre
 import 'package:albahar_customer/features/catalog/presentation/state/catalog_providers.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/search_suggestions_panel.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -48,6 +49,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   void _onChanged(String value) {
+    setState(() {}); // keeps the clear button in step with the text
     _debouncer(() {
       if (!mounted) return;
       final term = value.trim();
@@ -87,6 +89,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       controller: _controller,
       autofocus: widget.initialQuery == null,
       textInputAction: TextInputAction.search,
+      inputFormatters: [LengthLimitingTextInputFormatter(120)],
       onChanged: _onChanged,
       onSubmitted: _submit,
       decoration: InputDecoration(

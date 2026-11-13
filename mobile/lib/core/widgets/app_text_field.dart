@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/l10n.dart';
 import '../theme/tokens.dart';
 
 /// Labelled text input with consistent styling and accessible error text.
@@ -77,6 +78,8 @@ class _AppTextFieldState extends State<AppTextField> {
       controller: widget.controller,
       initialValue: widget.controller == null ? widget.initialValue : null,
       obscureText: _obscured,
+      autocorrect: !(widget.obscure || widget.forceLtr),
+      enableSuggestions: !(widget.obscure || widget.forceLtr),
       keyboardType: widget.keyboardType,
       textInputAction: widget.textInputAction,
       inputFormatters: widget.inputFormatters,
@@ -106,7 +109,7 @@ class _AppTextFieldState extends State<AppTextField> {
         prefixIcon: widget.prefixIcon == null ? null : Icon(widget.prefixIcon, size: 20),
         suffixIcon: widget.obscure
             ? IconButton(
-                tooltip: _obscured ? 'Show' : 'Hide',
+                tooltip: _obscured ? context.l10n.showPassword : context.l10n.hidePassword,
                 icon: Icon(_obscured ? Icons.visibility_outlined : Icons.visibility_off_outlined, size: 20),
                 onPressed: () => setState(() => _obscured = !_obscured),
               )

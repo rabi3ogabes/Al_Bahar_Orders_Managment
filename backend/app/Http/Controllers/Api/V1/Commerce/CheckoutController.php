@@ -77,10 +77,7 @@ class CheckoutController extends ApiController
     /** Place the order. Requires the Idempotency-Key header; retries with the same key return the original order. */
     public function place(Request $request, CheckoutService $checkout, PaymentService $payments, OrderPresenter $presenter): JsonResponse
     {
-        $key = (string) $request->header('Idempotency-Key');
-        if (! preg_match('/^[A-Za-z0-9\-_]{16,128}$/', $key)) {
-            return response()->json(['message' => __('checkout.idempotency_required'), 'code' => 'idempotency_key_required', 'request_id' => $request->attributes->get('request_id')], 400);
-        }
+        $key = $this->idempotencyKey($request);
         $options = $this->options($request);
         $request->validate(['quote_hash' => 'required|string|size:64', 'customer_notes' => 'nullable|string|max:1000', 'payment_method' => 'required|in:sadad,cod,pay_at_pickup']);
         $this->carts->current($this->user()); // ensure the cart exists

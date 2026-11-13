@@ -48,6 +48,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       final state = ref.read(checkoutControllerProvider);
       if (state.options.addressId == null) {
         final list = await ref.read(addressesProvider.future).catchError((Object _) => <Address>[]);
+        if (!mounted) return;
         final def = list.where((a) => a.isDefault).firstOrNull ?? list.firstOrNull;
         if (def != null) {
           await controller.update((o) => o.copyWith(addressId: () => def.id));
@@ -241,7 +242,7 @@ class _FulfillmentToggle extends StatelessWidget {
             onTap: () => onChanged(t),
             child: AnimatedContainer(
               duration: AppDurations.medium,
-              height: 44,
+              height: kMinTouchTarget,
               decoration: BoxDecoration(
                 color: on ? context.colors.primary : Colors.transparent,
                 borderRadius: BorderRadius.circular(999),
@@ -252,10 +253,14 @@ class _FulfillmentToggle extends StatelessWidget {
                 children: [
                   Icon(icon, size: 18, color: on ? context.colors.onPrimary : context.palette.muted),
                   const Gap(AppSpace.xs),
-                  Text(
-                    label,
-                    style: context.text.labelLarge?.copyWith(
-                      color: on ? context.colors.onPrimary : context.palette.muted,
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.text.labelLarge?.copyWith(
+                        color: on ? context.colors.onPrimary : context.palette.muted,
+                      ),
                     ),
                   ),
                 ],

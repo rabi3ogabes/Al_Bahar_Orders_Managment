@@ -77,7 +77,10 @@ class AuthInterceptor extends Interceptor {
     }
 
     try {
+      // A multipart body is a one-shot stream: replay it from a fresh copy.
+      final body = options.data;
       final retryOptions = options.copyWith(
+        data: body is FormData ? body.clone() : body,
         headers: {...options.headers, 'Authorization': 'Bearer ${fresh.accessToken}'},
         extra: {...options.extra, RequestFlags.retried: true},
       );

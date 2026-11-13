@@ -6,9 +6,11 @@ import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/utils/phone.dart';
+import 'package:albahar_customer/core/utils/validators.dart';
 import 'package:albahar_customer/core/widgets/app_button.dart';
 import 'package:albahar_customer/core/widgets/app_text_field.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
+import 'package:albahar_customer/core/widgets/dirty_form_guard.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/auth/data/auth_repository.dart';
 import 'package:albahar_customer/features/auth/domain/auth_models.dart';
@@ -42,16 +44,25 @@ String _q(String? from) => from == null ? '' : '?from=${Uri.encodeComponent(from
 
 /// Shared frame for the auth flow: brand mark, title, scrollable form.
 class _AuthScaffold extends StatelessWidget {
-  const _AuthScaffold({required this.title, required this.subtitle, required this.children, this.showBack = true});
+  const _AuthScaffold({
+    required this.title,
+    required this.subtitle,
+    required this.children,
+    this.showBack = true,
+    this.guard,
+  });
 
   final String title;
   final String subtitle;
   final List<Widget> children;
   final bool showBack;
 
+  /// Wraps the screen (used to confirm before discarding typed input).
+  final Widget Function(Widget child)? guard;
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final screen = Scaffold(
       appBar: AppBar(automaticallyImplyLeading: showBack),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -76,6 +87,7 @@ class _AuthScaffold extends StatelessWidget {
         ),
       ),
     );
+    return guard == null ? screen : guard!(screen);
   }
 }
 
@@ -100,6 +112,7 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
   }
 
   Future<void> _submit() async {
+    if (_busy) return;
     final l10n = context.l10n;
     final e164 = QatarPhone.toE164(_phone.text);
     if (e164 == null) {
@@ -150,6 +163,9 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
             LengthLimitingTextInputFormatter(16),
           ],
           errorText: _error,
+          onChanged: (_) {
+            if (_error != null) setState(() => _error = null);
+          },
           onSubmitted: (_) => _submit(),
           autofocus: true,
         ),
@@ -234,6 +250,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   }
 
   Future<void> _verify() async {
+    if (_busy) return;
     final l10n = context.l10n;
     final code = QatarPhone.normalizeDigits(_code.text);
     if (code.length < 4) {
@@ -373,7 +390,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _submit() async {
-    if (!_form.currentState!.validate()) return;
+    if (_busy || !_form.currentState!.validate()) return;
     setState(() {
       _busy = true;
       _error = null;
@@ -410,6 +427,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     return _AuthScaffold(
       title: l10n.registerTitle,
       subtitle: l10n.registerSubtitle,
+      guard: (child) => DirtyFormGuard(
+        controllers: [_name, _email, _password, _referral],
+        enabled: !_busy,
+        isDirty: () => [_name, _email, _password, _referral].any((c) => c.text.trim().isNotEmpty),
+        child: child,
+      ),
       children: [
         Form(
           key: _form,
@@ -422,6 +445,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 autofillHints: const [AutofillHints.name],
                 textCapitalization: TextCapitalization.words,
                 textInputAction: TextInputAction.next,
+                inputFormatters: [LengthLimitingTextInputFormatter(120)],
                 errorText: _error?.fieldError('name'),
                 validator: (v) => (v == null || v.trim().length < 2) ? l10n.fieldRequired : null,
               ),
@@ -433,11 +457,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 keyboardType: TextInputType.emailAddress,
                 autofillHints: const [AutofillHints.email],
                 textInputAction: TextInputAction.next,
+                inputFormatters: [LengthLimitingTextInputFormatter(191)],
                 errorText: _error?.fieldError('email'),
                 validator: (v) =>
-                    (v != null && v.isNotEmpty && !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v.trim()))
-                    ? l10n.emailInvalid
-                    : null,
+                    (v != null && v.trim().isNotEmpty && !Validators.isEmail(v)) ? l10n.emailInvalid : null,
               ),
               const Gap(AppSpace.md),
               AppTextField(
@@ -446,8 +469,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 helper: l10n.passwordOptionalHint,
                 obscure: true,
                 autofillHints: const [AutofillHints.newPassword],
+                textInputAction: TextInputAction.next,
+                inputFormatters: [LengthLimitingTextInputFormatter(200)],
                 errorText: _error?.fieldError('password'),
-                validator: (v) => (v != null && v.isNotEmpty && v.length < 8) ? l10n.passwordTooShort : null,
+                validator: (v) =>
+                    (v != null && v.isNotEmpty && !Validators.isStrongPassword(v)) ? l10n.passwordTooShort : null,
               ),
               const Gap(AppSpace.md),
               if (ref.watch(referralEnabledProvider).value ?? false) ...[
@@ -456,6 +482,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   label: '${l10n.referralCodeLabel} (${l10n.optional})',
                   forceLtr: true,
                   textCapitalization: TextCapitalization.characters,
+                  textInputAction: TextInputAction.done,
+                  inputFormatters: [LengthLimitingTextInputFormatter(16)],
+                  onSubmitted: (_) => _submit(),
                   errorText: _error?.fieldError('referral_code'),
                 ),
                 const Gap(AppSpace.sm),
@@ -497,6 +526,7 @@ class _PasswordLoginScreenState extends ConsumerState<PasswordLoginScreen> {
   final _password = TextEditingController();
   bool _busy = false;
   String? _error;
+  String? _idError;
 
   @override
   void dispose() {
@@ -506,16 +536,22 @@ class _PasswordLoginScreenState extends ConsumerState<PasswordLoginScreen> {
   }
 
   Future<void> _submit() async {
+    if (_busy) return;
     final l10n = context.l10n;
     final raw = _id.text.trim();
     final identifier = raw.contains('@') ? raw : (QatarPhone.toE164(raw) ?? '');
     if (identifier.isEmpty || _password.text.isEmpty) {
-      setState(() => _error = identifier.isEmpty ? l10n.phoneInvalid : l10n.fieldRequired);
+      setState(() {
+        _idError = identifier.isEmpty ? l10n.phoneInvalid : null;
+        _error = _password.text.isEmpty ? l10n.fieldRequired : null;
+      });
+      Haptics.warning();
       return;
     }
     setState(() {
       _busy = true;
       _error = null;
+      _idError = null;
     });
     try {
       final result = await ref.read(authRepositoryProvider).login(identifier, _password.text);
@@ -544,6 +580,8 @@ class _PasswordLoginScreenState extends ConsumerState<PasswordLoginScreen> {
           keyboardType: TextInputType.emailAddress,
           autofillHints: const [AutofillHints.username],
           textInputAction: TextInputAction.next,
+          inputFormatters: [LengthLimitingTextInputFormatter(191)],
+          errorText: _idError,
         ),
         const Gap(AppSpace.md),
         AppTextField(
@@ -551,6 +589,8 @@ class _PasswordLoginScreenState extends ConsumerState<PasswordLoginScreen> {
           label: l10n.passwordLabel,
           obscure: true,
           autofillHints: const [AutofillHints.password],
+          textInputAction: TextInputAction.done,
+          inputFormatters: [LengthLimitingTextInputFormatter(200)],
           errorText: _error,
           onSubmitted: (_) => _submit(),
         ),
@@ -580,6 +620,8 @@ class _PasswordResetScreenState extends ConsumerState<PasswordResetScreen> {
   final _code = TextEditingController();
   final _password = TextEditingController();
   final _confirm = TextEditingController();
+  Timer? _timer;
+  int _resendIn = 0;
   String? _e164;
   String? _debugCode;
   bool _busy = false;
@@ -588,13 +630,26 @@ class _PasswordResetScreenState extends ConsumerState<PasswordResetScreen> {
 
   @override
   void dispose() {
+    _timer?.cancel();
     for (final c in [_phone, _code, _password, _confirm]) {
       c.dispose();
     }
     super.dispose();
   }
 
+  void _startTimer(int seconds) {
+    _timer?.cancel();
+    setState(() => _resendIn = seconds);
+    if (seconds <= 0) return;
+    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) return t.cancel();
+      setState(() => _resendIn = (_resendIn - 1).clamp(0, 9999));
+      if (_resendIn == 0) t.cancel();
+    });
+  }
+
   Future<void> _requestCode() async {
+    if (_busy) return;
     final l10n = context.l10n;
     final e164 = QatarPhone.toE164(_phone.text);
     if (e164 == null) {
@@ -613,16 +668,24 @@ class _PasswordResetScreenState extends ConsumerState<PasswordResetScreen> {
         _e164 = e164;
         _debugCode = r.debugCode;
       });
+      _startTimer(r.resendIn);
     } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e);
+      if (!mounted) return;
+      setState(() => _error = e);
+      if (e.retryAfter != null) _startTimer(e.retryAfter!.inSeconds);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _reset() async {
+    if (_busy) return;
     final l10n = context.l10n;
-    if (_password.text.length < 8) {
+    if (_code.text.trim().isEmpty) {
+      setState(() => _localError = l10n.fieldRequired);
+      return;
+    }
+    if (!Validators.isStrongPassword(_password.text)) {
       setState(() => _localError = l10n.passwordTooShort);
       return;
     }
@@ -658,15 +721,29 @@ class _PasswordResetScreenState extends ConsumerState<PasswordResetScreen> {
     return _AuthScaffold(
       title: l10n.resetPasswordTitle,
       subtitle: l10n.resetPasswordSubtitle,
+      guard: (child) => DirtyFormGuard(
+        controllers: [_phone, _code, _password, _confirm],
+        enabled: !_busy,
+        isDirty: () => step2 && [_code, _password, _confirm].any((c) => c.text.isNotEmpty),
+        child: child,
+      ),
       children: [
         AppTextField(
           controller: _phone,
           label: l10n.phoneLabel,
+          hint: l10n.phoneHint,
           prefix: '+974  ',
           forceLtr: true,
           enabled: !step2,
           keyboardType: TextInputType.phone,
+          textInputAction: TextInputAction.done,
+          autofillHints: const [AutofillHints.telephoneNumberNational],
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9٠-٩۰-۹+ ]')),
+            LengthLimitingTextInputFormatter(16),
+          ],
           errorText: _error?.fieldError('phone'),
+          onSubmitted: (_) => step2 ? null : _requestCode(),
         ),
         if (step2) ...[
           const Gap(AppSpace.md),
@@ -675,20 +752,57 @@ class _PasswordResetScreenState extends ConsumerState<PasswordResetScreen> {
             label: l10n.otpCodeLabel,
             forceLtr: true,
             keyboardType: TextInputType.number,
+            textInputAction: TextInputAction.next,
             autofillHints: const [AutofillHints.oneTimeCode],
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9٠-٩]')),
+              LengthLimitingTextInputFormatter(6),
+            ],
             errorText: _error?.fieldError('code'),
           ),
           if (_debugCode != null && kDebugMode) Text(l10n.debugCodeHint(_debugCode!), style: context.text.bodySmall),
-          const Gap(AppSpace.md),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              TextButton(
+                onPressed: _busy
+                    ? null
+                    : () => setState(() {
+                        _timer?.cancel();
+                        _e164 = null;
+                        _resendIn = 0;
+                        _code.clear();
+                        _error = null;
+                        _localError = null;
+                      }),
+                child: Text(l10n.changeNumber),
+              ),
+              TextButton(
+                onPressed: _resendIn > 0 || _busy ? null : _requestCode,
+                child: Text(_resendIn > 0 ? l10n.resendIn(_resendIn) : l10n.resendCode),
+              ),
+            ],
+          ),
           AppTextField(
             controller: _password,
             label: l10n.newPasswordLabel,
+            helper: l10n.passwordTooShort,
             obscure: true,
             autofillHints: const [AutofillHints.newPassword],
+            textInputAction: TextInputAction.next,
+            inputFormatters: [LengthLimitingTextInputFormatter(200)],
             errorText: _error?.fieldError('password'),
           ),
           const Gap(AppSpace.md),
-          AppTextField(controller: _confirm, label: l10n.passwordConfirmLabel, obscure: true),
+          AppTextField(
+            controller: _confirm,
+            label: l10n.passwordConfirmLabel,
+            obscure: true,
+            autofillHints: const [AutofillHints.newPassword],
+            textInputAction: TextInputAction.done,
+            inputFormatters: [LengthLimitingTextInputFormatter(200)],
+            onSubmitted: (_) => _reset(),
+          ),
         ],
         if (general != null) ...[
           const Gap(AppSpace.sm),

@@ -20,5 +20,9 @@ abstract class ApiRequest extends FormRequest
                 $this->merge([$field => Phone::normalize($this->input($field)) ?? $this->input($field)]);
             }
         }
+        // The unique-email rule compares exact text, so compare the lower-cased address (they are stored lower-case).
+        if ($this->has('email') && is_string($this->input('email'))) {
+            $this->merge(['email' => mb_strtolower(trim($this->input('email')))]);
+        }
     }
 }

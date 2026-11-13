@@ -244,7 +244,7 @@ class EngagementController extends ApiController
     {
         return response()->json(['data' => SupportTicket::where('user_id', $this->user()->id)->latest()->limit(100)->get()
             ->map(fn ($t) => ['id' => $t->id, 'number' => $t->number, 'subject' => $t->subject, 'category' => $t->category, 'status' => $t->status,
-                'status_label' => __('status.'.$t->status), 'updated_at' => BusinessTime::iso($t->updated_at)])]);
+                'status_label' => __('status.'.$t->status), 'order_id' => $t->order_id, 'created_at' => BusinessTime::iso($t->created_at), 'updated_at' => BusinessTime::iso($t->updated_at)])]);
     }
 
     public function openTicket(Request $request, SupportService $support): JsonResponse
@@ -261,6 +261,7 @@ class EngagementController extends ApiController
         $t = SupportTicket::where('user_id', $this->user()->id)->with(['messages' => fn ($q) => $q->where('is_internal', false)])->findOrFail($id);
 
         return response()->json(['data' => ['id' => $t->id, 'number' => $t->number, 'subject' => $t->subject, 'category' => $t->category, 'status' => $t->status,
+            'status_label' => __('status.'.$t->status), 'order_id' => $t->order_id, 'created_at' => BusinessTime::iso($t->created_at), 'updated_at' => BusinessTime::iso($t->updated_at),
             'messages' => $t->messages->map(fn ($m) => ['id' => $m->id, 'from' => $m->author_type, 'body' => $m->body, 'created_at' => BusinessTime::iso($m->created_at)])]]);
     }
 

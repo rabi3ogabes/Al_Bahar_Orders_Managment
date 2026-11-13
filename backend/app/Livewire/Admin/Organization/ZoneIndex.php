@@ -58,6 +58,7 @@ class ZoneIndex extends Component
     public function save(AuditLogger $audit): void
     {
         abort_unless($this->canGlobally($this->editingId ? 'zones.edit' : 'zones.create'), 403);
+        $this->form['code'] = strtoupper(trim((string) ($this->form['code'] ?? ''))); // codes are stored upper-case: check uniqueness on that form
         $data = $this->validate([
             'form.code' => ['required', 'string', 'max:32', 'regex:/^[A-Za-z0-9\-_]+$/', Rule::unique('delivery_zones', 'code')->ignore($this->editingId)],
             'form.name_en' => 'required|string|max:120',

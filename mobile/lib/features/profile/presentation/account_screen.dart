@@ -378,7 +378,9 @@ class _SignOutButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: AppPalette.dangerTint,
+    color: Theme.of(context).brightness == Brightness.dark
+        ? context.palette.danger.withValues(alpha: 0.16)
+        : AppPalette.dangerTint,
     borderRadius: AppRadius.inputAll,
     child: InkWell(
       borderRadius: AppRadius.inputAll,
@@ -388,9 +390,9 @@ class _SignOutButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.logout_rounded, size: 18, color: AppPalette.danger),
+            Icon(Icons.logout_rounded, size: 18, color: context.palette.danger),
             const Gap(AppSpace.xs),
-            Text(label, style: context.text.labelLarge?.copyWith(color: AppPalette.danger)),
+            Text(label, style: context.text.labelLarge?.copyWith(color: context.palette.danger)),
           ],
         ),
       ),

@@ -29,6 +29,9 @@ class ProfileController extends ApiController
     public function update(Request $request): UserResource
     {
         $user = $this->user();
+        if (is_string($request->input('email'))) {
+            $request->merge(['email' => mb_strtolower(trim($request->input('email')))]);
+        }
         $data = $request->validate([
             'name' => ['sometimes', 'string', 'min:2', 'max:120'],
             'email' => ['sometimes', 'nullable', 'email:rfc', 'max:191', Rule::unique('users', 'email')->ignore($user->id)],

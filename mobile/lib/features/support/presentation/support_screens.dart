@@ -8,6 +8,7 @@ import 'package:albahar_customer/core/utils/qatar_time.dart';
 import 'package:albahar_customer/core/widgets/app_button.dart';
 import 'package:albahar_customer/core/widgets/app_text_field.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
+import 'package:albahar_customer/core/widgets/dirty_form_guard.dart';
 import 'package:albahar_customer/core/widgets/paged.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
@@ -16,6 +17,7 @@ import 'package:albahar_customer/features/orders/presentation/state/order_provid
 import 'package:albahar_customer/features/support/data/support_repository.dart';
 import 'package:albahar_customer/features/support/domain/support_models.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -33,6 +35,7 @@ String ticketCategoryLabel(AppLocalizations l10n, String code) => switch (code) 
   'product' => l10n.ticketCategoryProduct,
   'auction' => l10n.ticketCategoryAuction,
   'account' => l10n.ticketCategoryAccount,
+  'return' => l10n.ticketCategoryReturn,
   _ => l10n.ticketCategoryOther,
 };
 
@@ -157,6 +160,7 @@ class _NewTicketScreenState extends ConsumerState<NewTicketScreen> {
   late String _category = widget.orderId != null ? 'order' : 'other';
   late String? _orderId = widget.orderId;
   bool _busy = false;
+  bool _done = false;
   ApiException? _error;
 
   @override
@@ -167,7 +171,7 @@ class _NewTicketScreenState extends ConsumerState<NewTicketScreen> {
   }
 
   Future<void> _submit() async {
-    if (!_form.currentState!.validate()) return;
+    if (_busy || !_form.currentState!.validate()) return;
     setState(() {
       _busy = true;
       _error = null;
@@ -179,6 +183,7 @@ class _NewTicketScreenState extends ConsumerState<NewTicketScreen> {
       ref.invalidate(ticketsProvider);
       Haptics.success();
       if (!mounted) return;
+      setState(() => _done = true);
       showInfoSnack(context, context.l10n.ticketCreated);
       context.pushReplacement('/support/${ticket.id}');
     } on ApiException catch (e) {
@@ -192,72 +197,82 @@ class _NewTicketScreenState extends ConsumerState<NewTicketScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final orders = ref.watch(ordersProvider(OrderFilter.all)).value?.items ?? const <OrderSummary>[];
-    return Scaffold(
-      appBar: AppBar(title: Text(l10n.newTicket)),
-      body: Form(
-        key: _form,
-        child: ListView(
-          padding: const EdgeInsets.all(AppSpace.gutter),
-          children: [
-            ContentWidth(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  DropdownButtonFormField<String>(
-                    initialValue: _category,
-                    decoration: InputDecoration(
-                      labelText: l10n.ticketCategory,
-                      errorText: _error?.fieldError('category'),
+    return DirtyFormGuard(
+      controllers: [_subject, _message],
+      enabled: !_busy && !_done,
+      isDirty: () => _subject.text.trim().isNotEmpty || _message.text.trim().isNotEmpty,
+      child: Scaffold(
+        appBar: AppBar(title: Text(l10n.newTicket)),
+        body: Form(
+          key: _form,
+          child: ListView(
+            padding: const EdgeInsets.all(AppSpace.gutter),
+            children: [
+              ContentWidth(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      initialValue: _category,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: l10n.ticketCategory,
+                        errorText: _error?.fieldError('category'),
+                      ),
+                      items: [
+                        for (final c in ticketCategories)
+                          DropdownMenuItem(value: c, child: Text(ticketCategoryLabel(l10n, c))),
+                      ],
+                      onChanged: (v) => setState(() => _category = v ?? _category),
                     ),
-                    items: [
-                      for (final c in ticketCategories)
-                        DropdownMenuItem(value: c, child: Text(ticketCategoryLabel(l10n, c))),
-                    ],
-                    onChanged: (v) => setState(() => _category = v ?? _category),
-                  ),
-                  const Gap(AppSpace.md),
-                  DropdownButtonFormField<String?>(
-                    initialValue: orders.any((o) => o.id == _orderId) || _orderId == null ? _orderId : null,
-                    isExpanded: true,
-                    decoration: InputDecoration(labelText: '${l10n.relatedOrder} (${l10n.optional})'),
-                    items: [
-                      DropdownMenuItem<String?>(child: Text(l10n.noRelatedOrder)),
-                      for (final o in orders)
-                        DropdownMenuItem<String?>(value: o.id, child: Text(l10n.orderNumber(o.number))),
-                      if (_orderId != null && !orders.any((o) => o.id == _orderId))
-                        DropdownMenuItem<String?>(value: _orderId, child: Text(l10n.orderNumber('…'))),
-                    ],
-                    onChanged: (v) => setState(() => _orderId = v),
-                  ),
-                  const Gap(AppSpace.md),
-                  AppTextField(
-                    controller: _subject,
-                    label: l10n.ticketSubject,
-                    maxLength: 150,
-                    errorText: _error?.fieldError('subject'),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? l10n.fieldRequired : null,
-                  ),
-                  const Gap(AppSpace.xs),
-                  AppTextField(
-                    controller: _message,
-                    label: l10n.ticketMessage,
-                    maxLines: 8,
-                    minLines: 5,
-                    maxLength: 4000,
-                    errorText: _error?.fieldError('message'),
-                    validator: (v) => (v == null || v.trim().length < 5) ? l10n.fieldRequired : null,
-                  ),
-                  if (_error != null && _error!.errors.isEmpty)
-                    Text(
-                      describeError(l10n, _error),
-                      style: context.text.bodySmall?.copyWith(color: context.palette.danger),
+                    const Gap(AppSpace.md),
+                    DropdownButtonFormField<String?>(
+                      initialValue: orders.any((o) => o.id == _orderId) || _orderId == null ? _orderId : null,
+                      isExpanded: true,
+                      decoration: InputDecoration(labelText: '${l10n.relatedOrder} (${l10n.optional})'),
+                      items: [
+                        DropdownMenuItem<String?>(child: Text(l10n.noRelatedOrder)),
+                        for (final o in orders)
+                          DropdownMenuItem<String?>(value: o.id, child: Text(l10n.orderNumber(o.number))),
+                        if (_orderId != null && !orders.any((o) => o.id == _orderId))
+                          DropdownMenuItem<String?>(value: _orderId, child: Text(l10n.orderNumber('…'))),
+                      ],
+                      onChanged: (v) => setState(() => _orderId = v),
                     ),
-                  const Gap(AppSpace.lg),
-                  AppButton(label: l10n.send, loading: _busy, onPressed: _submit),
-                ],
+                    const Gap(AppSpace.md),
+                    AppTextField(
+                      controller: _subject,
+                      label: l10n.ticketSubject,
+                      maxLength: 150,
+                      textInputAction: TextInputAction.next,
+                      textCapitalization: TextCapitalization.sentences,
+                      errorText: _error?.fieldError('subject'),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? l10n.fieldRequired : null,
+                    ),
+                    const Gap(AppSpace.xs),
+                    AppTextField(
+                      controller: _message,
+                      label: l10n.ticketMessage,
+                      maxLines: 8,
+                      minLines: 5,
+                      maxLength: 4000,
+                      keyboardType: TextInputType.multiline,
+                      textCapitalization: TextCapitalization.sentences,
+                      errorText: _error?.fieldError('message'),
+                      validator: (v) => (v == null || v.trim().length < 5) ? l10n.fieldRequired : null,
+                    ),
+                    if (_error != null && _error!.errors.isEmpty)
+                      Text(
+                        describeError(l10n, _error),
+                        style: context.text.bodySmall?.copyWith(color: context.palette.danger),
+                      ),
+                    const Gap(AppSpace.lg),
+                    AppButton(label: l10n.send, loading: _busy, onPressed: _submit),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -275,28 +290,40 @@ class TicketScreen extends ConsumerStatefulWidget {
 
 class _TicketScreenState extends ConsumerState<TicketScreen> {
   final _reply = TextEditingController();
+  final _scroll = ScrollController();
   final _local = <TicketMessage>[];
   bool _sending = false;
+  bool _pendingEnd = true;
 
   @override
   void dispose() {
     _reply.dispose();
+    _scroll.dispose();
     super.dispose();
+  }
+
+  /// Newest message is at the bottom: keep it in view after load and send.
+  void _toEnd() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scroll.hasClients) _scroll.jumpTo(_scroll.position.maxScrollExtent);
+    });
   }
 
   Future<void> _send() async {
     final text = _reply.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || _sending) return;
     setState(() => _sending = true);
     try {
       final msg = await ref.read(supportRepositoryProvider).reply(widget.ticketId, text);
+      if (!mounted) return;
       _reply.clear();
       Haptics.light();
       if (msg != null) {
-        setState(() => _local.add(msg));
+        _local.add(msg);
       } else {
         ref.invalidate(ticketProvider(widget.ticketId));
       }
+      setState(() => _pendingEnd = true);
     } catch (e) {
       if (mounted) showErrorSnack(context, e);
     } finally {
@@ -317,6 +344,10 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
         data: (t) {
           final ids = t.messages.map((m) => m.id).toSet();
           final messages = [...t.messages, ..._local.where((m) => !ids.contains(m.id))];
+          if (_pendingEnd) {
+            _pendingEnd = false;
+            _toEnd();
+          }
           return Column(
             children: [
               Padding(
@@ -334,6 +365,7 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
                 child: RefreshIndicator(
                   onRefresh: () => ref.refresh(ticketProvider(widget.ticketId).future),
                   child: ListView.builder(
+                    controller: _scroll,
                     padding: const EdgeInsets.all(AppSpace.gutter),
                     itemCount: messages.length,
                     itemBuilder: (_, i) => _Bubble(message: messages[i]),
@@ -353,6 +385,9 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
                             minLines: 1,
                             maxLines: 4,
                             textInputAction: TextInputAction.newline,
+                            keyboardType: TextInputType.multiline,
+                            textCapitalization: TextCapitalization.sentences,
+                            inputFormatters: [LengthLimitingTextInputFormatter(5000)],
                             decoration: InputDecoration(hintText: l10n.typeMessage),
                           ),
                         ),

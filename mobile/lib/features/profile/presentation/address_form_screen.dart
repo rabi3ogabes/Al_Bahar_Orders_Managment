@@ -6,9 +6,11 @@ import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/utils/phone.dart';
+import 'package:albahar_customer/core/utils/validators.dart';
 import 'package:albahar_customer/core/widgets/app_button.dart';
 import 'package:albahar_customer/core/widgets/app_text_field.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
+import 'package:albahar_customer/core/widgets/dirty_form_guard.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
@@ -52,8 +54,14 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
   bool _default = false;
   bool _busy = false;
   bool _loaded = false;
+  bool _done = false;
+  Object? _loadError;
   ApiException? _error;
   String? _localError;
+  String _initial = '';
+
+  /// Everything the customer can change, for the unsaved-changes check.
+  String _snapshot() => [..._all.map((c) => c.text.trim()), _zoneId, _pin, _default].join('\u0001');
 
   List<TextEditingController> get _all => [
     _label,
@@ -76,6 +84,7 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
       _name.text = user?.name ?? '';
       _phone.text = user == null ? '' : user.phone.replaceFirst('+974', '');
       _loaded = true;
+      _initial = _snapshot();
     } else {
       unawaited(_load());
     }
@@ -100,9 +109,11 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
         _pin = a.hasPin ? LatLng(a.latitude!, a.longitude!) : null;
         _default = a.isDefault;
         _loaded = true;
+        _loadError = null;
+        _initial = _snapshot();
       });
     } catch (e) {
-      if (mounted) setState(() => _error = e is ApiException ? e : null);
+      if (mounted) setState(() => _loadError = e);
     }
   }
 
@@ -121,6 +132,7 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
   }
 
   Future<void> _save() async {
+    if (_busy) return;
     final l10n = context.l10n;
     if (!_form.currentState!.validate()) return;
     final phone = QatarPhone.toE164(_phone.text);
@@ -158,6 +170,7 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
       final saved = await ref.read(addressesProvider.notifier).save(input, id: widget.addressId);
       Haptics.success();
       if (!mounted) return;
+      setState(() => _done = true);
       showInfoSnack(context, l10n.addressSaved);
       context.pop(saved);
     } on ApiException catch (e) {
@@ -171,16 +184,64 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final zones = ref.watch(deliveryZonesProvider);
-    final digits = [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(4)];
+    final digits = [
+      const AsciiDigitsFormatter(),
+      FilteringTextInputFormatter.digitsOnly,
+      LengthLimitingTextInputFormatter(8),
+    ];
     String? err(String f) => _error?.fieldError(f);
+    // Server errors for fields this form does not show (e.g. map pin outside Qatar).
+    const shown = {
+      'label',
+      'recipient_name',
+      'recipient_phone',
+      'zone_number',
+      'street_number',
+      'building_number',
+      'unit_number',
+      'area',
+      'delivery_zone_id',
+      'landmark',
+      'instructions',
+    };
+    final hiddenField = _error?.errors.entries.where((e) => !shown.contains(e.key)).firstOrNull;
+    final generalError =
+        _localError ??
+        (_error == null
+            ? null
+            : (hiddenField?.value.firstOrNull ?? (_error!.errors.isEmpty ? describeError(l10n, _error) : null)));
 
     if (!_loaded) {
       return Scaffold(
         appBar: AppBar(),
-        body: _error != null ? ErrorState(error: _error, onRetry: _load) : const ListSkeleton(leading: false),
+        body: _loadError != null
+            ? ErrorState(
+                error: _loadError,
+                onRetry: () {
+                  setState(() => _loadError = null);
+                  unawaited(_load());
+                },
+              )
+            : const ListSkeleton(leading: false),
       );
     }
 
+    return DirtyFormGuard(
+      controllers: _all,
+      enabled: !_busy && !_done,
+      isDirty: () => _snapshot() != _initial,
+      child: _buildForm(context, l10n, zones, digits, err, generalError),
+    );
+  }
+
+  Widget _buildForm(
+    BuildContext context,
+    AppLocalizations l10n,
+    AsyncValue<List<DeliveryZone>> zones,
+    List<TextInputFormatter> digits,
+    String? Function(String) err,
+    String? generalError,
+  ) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.addressId == null ? l10n.newAddress : l10n.editAddress)),
       body: Form(
@@ -196,12 +257,19 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
                     controller: _label,
                     label: '${l10n.addressLabel} (${l10n.optional})',
                     hint: l10n.addressLabelHint,
+                    textInputAction: TextInputAction.next,
+                    textCapitalization: TextCapitalization.sentences,
+                    inputFormatters: [LengthLimitingTextInputFormatter(48)],
                     errorText: err('label'),
                   ),
                   const Gap(AppSpace.md),
                   AppTextField(
                     controller: _name,
                     label: l10n.recipientName,
+                    autofillHints: const [AutofillHints.name],
+                    textCapitalization: TextCapitalization.words,
+                    textInputAction: TextInputAction.next,
+                    inputFormatters: [LengthLimitingTextInputFormatter(120)],
                     errorText: err('recipient_name'),
                     validator: (v) => (v == null || v.trim().isEmpty) ? l10n.fieldRequired : null,
                   ),
@@ -212,6 +280,12 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
                     prefix: '+974  ',
                     forceLtr: true,
                     keyboardType: TextInputType.phone,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const [AutofillHints.telephoneNumberNational],
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9٠-٩۰-۹+ ]')),
+                      LengthLimitingTextInputFormatter(16),
+                    ],
                     errorText: err('recipient_phone'),
                     validator: (v) => QatarPhone.isValid(v ?? '') ? null : l10n.phoneInvalid,
                   ),
@@ -228,6 +302,7 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
                           keyboardType: TextInputType.number,
                           inputFormatters: digits,
                           forceLtr: true,
+                          textInputAction: TextInputAction.next,
                           errorText: err('zone_number'),
                         ),
                       ),
@@ -239,6 +314,7 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
                           keyboardType: TextInputType.number,
                           inputFormatters: digits,
                           forceLtr: true,
+                          textInputAction: TextInputAction.next,
                           errorText: err('street_number'),
                         ),
                       ),
@@ -250,6 +326,7 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
                           keyboardType: TextInputType.number,
                           inputFormatters: digits,
                           forceLtr: true,
+                          textInputAction: TextInputAction.next,
                           errorText: err('building_number'),
                         ),
                       ),
@@ -262,12 +339,20 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
                         child: AppTextField(
                           controller: _unit,
                           label: '${l10n.unitNumber} (${l10n.optional})',
+                          textInputAction: TextInputAction.next,
+                          inputFormatters: [LengthLimitingTextInputFormatter(16)],
                           errorText: err('unit_number'),
                         ),
                       ),
                       const Gap(AppSpace.xs),
                       Expanded(
-                        child: AppTextField(controller: _area, label: l10n.area, errorText: err('area')),
+                        child: AppTextField(
+                          controller: _area,
+                          label: l10n.area,
+                          textInputAction: TextInputAction.next,
+                          inputFormatters: [LengthLimitingTextInputFormatter(120)],
+                          errorText: err('area'),
+                        ),
                       ),
                     ],
                   ),
@@ -299,6 +384,8 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
                   AppTextField(
                     controller: _landmark,
                     label: '${l10n.landmark} (${l10n.optional})',
+                    textInputAction: TextInputAction.next,
+                    inputFormatters: [LengthLimitingTextInputFormatter(255)],
                     errorText: err('landmark'),
                   ),
                   const Gap(AppSpace.md),
@@ -307,6 +394,8 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
                     label: '${l10n.instructions} (${l10n.optional})',
                     maxLines: 3,
                     minLines: 1,
+                    keyboardType: TextInputType.multiline,
+                    inputFormatters: [LengthLimitingTextInputFormatter(500)],
                     errorText: err('instructions'),
                   ),
                   const Gap(AppSpace.lg),
@@ -348,13 +437,10 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
                     onChanged: (v) => setState(() => _default = v),
                     title: Text(l10n.setAsDefault),
                   ),
-                  if (_localError != null || (_error != null && _error!.errors.isEmpty))
+                  if (generalError != null)
                     Padding(
                       padding: const EdgeInsets.only(top: AppSpace.xs),
-                      child: Text(
-                        _localError ?? describeError(l10n, _error),
-                        style: context.text.bodySmall?.copyWith(color: context.palette.danger),
-                      ),
+                      child: Text(generalError, style: context.text.bodySmall?.copyWith(color: context.palette.danger)),
                     ),
                   const Gap(AppSpace.lg),
                   AppButton(label: l10n.saveAddress, loading: _busy, onPressed: _save),

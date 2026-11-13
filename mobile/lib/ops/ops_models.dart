@@ -6,26 +6,53 @@ enum OpsRole { driver, staff }
 
 @immutable
 class OpsAddress {
-  const OpsAddress({required this.line, this.lat, this.lng, this.notes});
+  const OpsAddress({
+    required this.line,
+    this.zone,
+    this.street,
+    this.building,
+    this.unit,
+    this.area,
+    this.lat,
+    this.lng,
+    this.notes,
+  });
 
   factory OpsAddress.fromJson(Object? raw) {
     final j = raw is Map ? asMap(raw) : <String, dynamic>{};
+    final zone = asStringOrNull(j['zone_number']);
+    final street = asStringOrNull(j['street_number']);
+    final building = asStringOrNull(j['building_number']);
+    final unit = asStringOrNull(j['unit_number']);
+    final area = asStringOrNull(j['area']);
     final parts = <String>[
-      if (asStringOrNull(j['zone_number']) != null) 'Zone ${asString(j['zone_number'])}',
-      if (asStringOrNull(j['street_number']) != null) 'Street ${asString(j['street_number'])}',
-      if (asStringOrNull(j['building_number']) != null) 'Bldg ${asString(j['building_number'])}',
-      if (asStringOrNull(j['unit_number']) != null) 'Unit ${asString(j['unit_number'])}',
-      if (asStringOrNull(j['area']) != null) asString(j['area']),
+      if (zone != null) 'Zone $zone',
+      if (street != null) 'Street $street',
+      if (building != null) 'Bldg $building',
+      if (unit != null) 'Unit $unit',
+      ?area,
     ];
     return OpsAddress(
       line: parts.isEmpty ? asString(j['label'], '—') : parts.join(' · '),
+      zone: zone,
+      street: street,
+      building: building,
+      unit: unit,
+      area: area,
       lat: asDoubleOrNull(j['latitude']),
       lng: asDoubleOrNull(j['longitude']),
       notes: asStringOrNull(j['notes']) ?? asStringOrNull(j['landmark']),
     );
   }
 
+  /// English one-liner (also the text sent to the maps app when there are no coordinates); screens show
+  /// `OpsStrings.address` so the words follow the app language.
   final String line;
+  final String? zone;
+  final String? street;
+  final String? building;
+  final String? unit;
+  final String? area;
   final double? lat;
   final double? lng;
   final String? notes;
@@ -82,8 +109,16 @@ class DriverJob {
     'accepted' => 'pickup',
     'picked_up' => 'out-for-delivery',
     'out_for_delivery' => 'deliver',
+    // A failed or rescheduled delivery can go out again (or be handed back to the branch).
+    'failed' || 'rescheduled' => 'out-for-delivery',
     _ => null,
   };
+
+  /// A failed delivery may also be brought back to the branch.
+  bool get canReturn => status == 'failed';
+
+  /// The driver can report "could not deliver" from these steps.
+  bool get canFail => status == 'picked_up' || status == 'out_for_delivery';
 }
 
 @immutable

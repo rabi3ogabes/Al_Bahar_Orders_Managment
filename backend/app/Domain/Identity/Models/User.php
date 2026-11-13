@@ -9,6 +9,7 @@ use App\Domain\Identity\Enums\UserType;
 use App\Domain\Marketing\Models\LoyaltyAccount;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\UserAddress;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -40,6 +41,12 @@ class User extends Authenticatable
         'locale' => 'en',
         'is_super_admin' => false,
     ];
+
+    /** E-mail addresses are stored lower-case so "A@x.com" and "a@x.com" can never be two accounts (login looks up case-insensitively). */
+    protected function email(): Attribute
+    {
+        return Attribute::make(set: fn (?string $value) => $value === null || trim($value) === '' ? null : mb_strtolower(trim($value)));
+    }
 
     protected function casts(): array
     {

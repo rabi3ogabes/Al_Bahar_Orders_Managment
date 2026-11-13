@@ -169,11 +169,32 @@ function useLock(open: boolean, onClose: () => void) {
     return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', k); };
   }, [open, onClose]);
 }
+const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+/** Keeps Tab inside an open dialog, puts focus in it on open (unless a field already took it) and gives it back to the opener on close. */
+export function useFocusTrap(open: boolean, ref: React.RefObject<HTMLElement>) {
+  useEffect(() => {
+    if (!open) return;
+    const opener = document.activeElement as HTMLElement | null;
+    const box = ref.current;
+    if (box && !box.contains(document.activeElement)) (box.querySelector<HTMLElement>('[autofocus],input,textarea,select') ?? box).focus({ preventScroll: true });
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' || !box) return;
+      const items = Array.from(box.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => el.offsetParent !== null || el === document.activeElement);
+      if (!items.length) { e.preventDefault(); box.focus(); return; }
+      const first = items[0], last = items[items.length - 1];
+      if (!box.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+      else if (e.shiftKey && (document.activeElement === first || document.activeElement === box)) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('keydown', onKey); if (opener?.isConnected) opener.focus({ preventScroll: true }); };
+  }, [open, ref]);
+}
 export function Drawer({ open, onClose, title, children, footer, side = 'end' }: { open: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode; side?: 'start' | 'end' }) {
   const { t, dir } = useI18n();
   const ref = useRef<HTMLDivElement>(null);
   useLock(open, onClose);
-  useEffect(() => { if (open) ref.current?.focus(); }, [open]);
+  useFocusTrap(open, ref);
   if (!open) return null;
   const fromRight = (side === 'end') === (dir === 'ltr');
   return (
@@ -192,12 +213,14 @@ export function Drawer({ open, onClose, title, children, footer, side = 'end' }:
 }
 export function Modal({ open, onClose, title, children, wide }: { open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean }) {
   const { t } = useI18n();
+  const ref = useRef<HTMLDivElement>(null);
   useLock(open, onClose);
+  useFocusTrap(open, ref);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[90] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={title}>
       <div className="fade absolute inset-0 bg-ink/50 backdrop-blur-[2px]" onClick={onClose} />
-      <div className={cx('rise relative max-h-[92dvh] w-full overflow-y-auto rounded-t-[28px] bg-bg p-6 shadow-soft sm:rounded-[28px] sm:p-8', wide ? 'sm:max-w-2xl' : 'sm:max-w-md')}>
+      <div ref={ref} tabIndex={-1} className={cx('rise relative max-h-[92dvh] w-full overflow-y-auto rounded-t-[28px] bg-bg p-6 shadow-soft outline-none sm:rounded-[28px] sm:p-8', wide ? 'sm:max-w-2xl' : 'sm:max-w-md')}>
         <div className="mb-5 flex items-start justify-between gap-4">
           <h2 className="text-3xl leading-tight">{title}</h2>
           <IconButton label={t('action.close')} onClick={onClose} className="-me-2 -mt-2"><X size={20} /></IconButton>

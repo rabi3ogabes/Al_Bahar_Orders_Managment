@@ -330,7 +330,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get passwordsDoNotMatch => 'كلمتا المرور غير متطابقتين.';
 
   @override
-  String get passwordTooShort => 'استخدم 8 أحرف على الأقل.';
+  String get passwordTooShort => 'استخدم 8 أحرف على الأقل مع حروف وأرقام.';
 
   @override
   String get termsAgreementPrefix => 'بالمتابعة فإنك توافق على';
@@ -2256,4 +2256,33 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get freshNewArrivals => 'وصل حديثاً';
+
+  @override
+  String get discardChangesTitle => 'تجاهل التغييرات؟';
+
+  @override
+  String get discardChangesMessage => 'لديك تغييرات غير محفوظة. إذا غادرت الآن فسوف تُفقد.';
+
+  @override
+  String get discard => 'تجاهل';
+
+  @override
+  String get keepEditing => 'متابعة التعديل';
+
+  @override
+  String get showPassword => 'إظهار كلمة المرور';
+
+  @override
+  String get hidePassword => 'إخفاء كلمة المرور';
+
+  @override
+  String minLengthError(String count) {
+    return 'يُرجى كتابة $count أحرف على الأقل.';
+  }
+
+  @override
+  String get ticketCategoryReturn => 'إرجاع';
+
+  @override
+  String get enterValidAmount => 'أدخل مبلغاً صحيحاً.';
 }

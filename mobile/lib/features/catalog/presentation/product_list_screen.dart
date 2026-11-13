@@ -156,22 +156,24 @@ class _Toolbar extends StatelessWidget {
                 ? const SizedBox.shrink()
                 : Text(l10n.resultsCount(total!), style: context.text.bodySmall),
           ),
-          TextButton.icon(
-            onPressed: () async {
-              final next = await showAppBottomSheet<ProductQuery>(
-                context: context,
-                title: l10n.filters,
-                builder: (_) => FilterSheet(query: query, filters: filters),
-              );
-              if (next != null) onChanged(next);
-            },
-            icon: Badge(
-              isLabelVisible: count > 0,
-              label: Text('$count'),
-              backgroundColor: context.palette.brass,
-              child: const Icon(Icons.tune_rounded, size: 20),
+          Flexible(
+            child: TextButton.icon(
+              onPressed: () async {
+                final next = await showAppBottomSheet<ProductQuery>(
+                  context: context,
+                  title: l10n.filters,
+                  builder: (_) => FilterSheet(query: query, filters: filters),
+                );
+                if (next != null) onChanged(next);
+              },
+              icon: Badge(
+                isLabelVisible: count > 0,
+                label: Text('$count'),
+                backgroundColor: context.palette.brass,
+                child: const Icon(Icons.tune_rounded, size: 20),
+              ),
+              label: Text(l10n.filters, maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
-            label: Text(l10n.filters),
           ),
           PopupMenuButton<ProductSort>(
             tooltip: l10n.sortBy,
@@ -191,7 +193,14 @@ class _Toolbar extends StatelessWidget {
                 children: [
                   const Icon(Icons.swap_vert_rounded, size: 20),
                   const Gap(4),
-                  Text(l10n.sortBy, style: context.text.labelLarge),
+                  Flexible(
+                    child: Text(
+                      l10n.sortBy,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.text.labelLarge,
+                    ),
+                  ),
                 ],
               ),
             ),

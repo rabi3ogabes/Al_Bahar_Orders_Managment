@@ -116,9 +116,17 @@ class EmployeeEditor extends Component
         $this->showPassword = true;
     }
 
+    /** Stored form is lower-case e-mail and a space-free phone, so uniqueness must be checked on that same form. */
+    private function normaliseContact(): void
+    {
+        $this->form['email'] = strtolower(trim((string) ($this->form['email'] ?? '')));
+        $this->form['phone'] = preg_replace('/\s+/', '', (string) ($this->form['phone'] ?? ''));
+    }
+
     public function create(EmployeeService $svc)
     {
         abort_unless($this->can('employees.create'), 403);
+        $this->normaliseContact();
         $data = $this->validate([
             'form.name' => 'required|string|max:120',
             'form.email' => 'required|email|max:191|unique:users,email',
@@ -140,6 +148,7 @@ class EmployeeEditor extends Component
     public function saveProfile(AuditLogger $audit): void
     {
         abort_unless($this->canManage(), 403);
+        $this->normaliseContact();
         $data = $this->validate([
             'form.name' => 'required|string|max:120',
             'form.email' => ['required', 'email', 'max:191', Rule::unique('users', 'email')->ignore($this->employee->id)],

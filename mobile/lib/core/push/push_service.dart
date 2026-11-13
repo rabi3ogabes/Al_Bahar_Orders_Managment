@@ -227,15 +227,17 @@ class PushService {
   void Function(String notificationId)? onOpened;
 
   bool _available = false;
-  bool _started = false;
+  Future<void>? _startFuture;
   String? _pendingLocation;
   final _subs = <StreamSubscription<Object?>>[];
+  StreamSubscription<String>? _tokenRefreshSub;
 
   bool get available => _available;
 
-  Future<void> start() async {
-    if (_started) return;
-    _started = true;
+  /// Starts once; every caller (including [register]) waits for the same start-up to finish.
+  Future<void> start() => _startFuture ??= _start();
+
+  Future<void> _start() async {
     if (!enabled) return;
     _available = await messaging.initialize();
     await local.initialize((payload) => _handleTap(_decode(payload)));
@@ -253,12 +255,14 @@ class PushService {
 
   /// Registers this device for the signed-in customer.
   Future<void> register() async {
+    await start();
     if (!_available) return;
     final granted = await messaging.requestPermission();
     if (!granted) return;
     final token = await messaging.getToken();
     if (token != null) await _send(token);
-    _subs.add(messaging.onTokenRefresh.listen((t) => unawaited(_send(t).catchError((Object _) {}))));
+    await _tokenRefreshSub?.cancel();
+    _tokenRefreshSub = messaging.onTokenRefresh.listen((t) => unawaited(_send(t).catchError((Object _) {})));
   }
 
   Future<void> unregister() async {
@@ -335,6 +339,7 @@ class PushService {
   void debugHandleForeground(PushMessage m) => _handleForeground(m);
 
   Future<void> dispose() async {
+    await _tokenRefreshSub?.cancel();
     for (final s in _subs) {
       await s.cancel();
     }

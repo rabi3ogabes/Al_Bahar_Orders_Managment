@@ -37,8 +37,8 @@ final class Money implements JsonSerializable, Stringable
             return new self($amount * 100, $currency);
         }
         $amount = trim($amount);
-        if (! preg_match('/^(-)?(\d+)(?:\.(\d{1,4}))?$/', $amount, $m)) {
-            throw new InvalidArgumentException("Invalid money amount [{$amount}].");
+        if (! preg_match('/^(-)?(\d{1,13})(?:\.(\d{1,4}))?$/', $amount, $m)) {
+            throw new InvalidMoney("Invalid money amount [{$amount}].");
         }
         $sign = $m[1] === '-' ? -1 : 1;
         $fraction = str_pad($m[3] ?? '', 4, '0');

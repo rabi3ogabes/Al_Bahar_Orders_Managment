@@ -25,6 +25,11 @@ class MediaService
         if (! in_array($mime, $cfg['image_mimes'], true) || $file->getSize() > $cfg['max_image_kb'] * 1024) {
             throw DomainException::make('media_invalid');
         }
+        // Decompression-bomb guard: a tiny file can declare a gigantic canvas and exhaust memory when decoded.
+        $size = @getimagesize($file->getRealPath());
+        if ($size === false || $size[0] > 8000 || $size[1] > 8000 || $size[0] * $size[1] > 40_000_000) {
+            throw DomainException::make('media_invalid');
+        }
         $image = @imagecreatefromstring((string) file_get_contents($file->getRealPath()));
         if ($image === false) {
             throw DomainException::make('media_invalid');

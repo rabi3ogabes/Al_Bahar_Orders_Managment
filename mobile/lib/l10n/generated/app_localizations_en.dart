@@ -330,7 +330,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get passwordsDoNotMatch => 'Passwords do not match.';
 
   @override
-  String get passwordTooShort => 'Use at least 8 characters.';
+  String get passwordTooShort => 'Use at least 8 characters, with letters and numbers.';
 
   @override
   String get termsAgreementPrefix => 'By continuing you agree to our';
@@ -2222,4 +2222,33 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get freshNewArrivals => 'New arrivals';
+
+  @override
+  String get discardChangesTitle => 'Discard changes?';
+
+  @override
+  String get discardChangesMessage => 'You have unsaved changes. If you leave now they will be lost.';
+
+  @override
+  String get discard => 'Discard';
+
+  @override
+  String get keepEditing => 'Keep editing';
+
+  @override
+  String get showPassword => 'Show password';
+
+  @override
+  String get hidePassword => 'Hide password';
+
+  @override
+  String minLengthError(String count) {
+    return 'Please write at least $count characters.';
+  }
+
+  @override
+  String get ticketCategoryReturn => 'Return';
+
+  @override
+  String get enterValidAmount => 'Enter a valid amount.';
 }

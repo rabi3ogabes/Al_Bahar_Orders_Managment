@@ -35,7 +35,7 @@ class ProductCardView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final badge = _primaryBadge(l10n, context.colors.primary);
+    final badge = _primaryBadge(context, l10n, context.colors.primary);
 
     return Semantics(
       button: true,
@@ -149,19 +149,28 @@ class ProductCardView extends StatelessWidget {
     ],
   );
 
-  ({String label, Color bg, Color fg})? _primaryBadge(AppLocalizations l10n, Color primary) {
-    if (!product.inStock) return (label: l10n.outOfStock, bg: AppPalette.sand, fg: AppPalette.inkSoft);
-    final pct = product.price?.discountPercent;
-    if (product.badges.contains('sale') || (product.price?.isOnSale ?? false)) {
+  ({String label, Color bg, Color fg})? _primaryBadge(BuildContext context, AppLocalizations l10n, Color primary) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final p = context.palette;
+    // Pastel pill in light mode, translucent tint on the night surface.
+    ({Color bg, Color fg}) tone(Color light, Color lightTint, Color base) =>
+        dark ? (bg: base.withValues(alpha: 0.22), fg: base) : (bg: lightTint, fg: light);
+    if (!product.inStock) {
       return (
-        label: pct != null && pct > 0 ? l10n.discountOff(pct) : l10n.badgeSale,
-        bg: AppPalette.dangerTint,
-        fg: AppPalette.danger,
+        label: l10n.outOfStock,
+        bg: dark ? p.surfaceMuted : AppPalette.sand,
+        fg: dark ? p.muted : AppPalette.inkSoft,
       );
     }
-    if (product.badges.contains('new')) return (label: l10n.badgeNew, bg: primary, fg: Colors.white);
+    final pct = product.price?.discountPercent;
+    if (product.badges.contains('sale') || (product.price?.isOnSale ?? false)) {
+      final t = tone(AppPalette.danger, AppPalette.dangerTint, p.danger);
+      return (label: pct != null && pct > 0 ? l10n.discountOff(pct) : l10n.badgeSale, bg: t.bg, fg: t.fg);
+    }
+    if (product.badges.contains('new')) return (label: l10n.badgeNew, bg: primary, fg: context.colors.onPrimary);
     if (product.badges.contains('bestseller')) {
-      return (label: l10n.badgeBestseller, bg: AppPalette.successTint, fg: AppPalette.success);
+      final t = tone(AppPalette.success, AppPalette.successTint, p.success);
+      return (label: l10n.badgeBestseller, bg: t.bg, fg: t.fg);
     }
     return null;
   }

@@ -25,13 +25,17 @@ export function ProductCard({ p, priority }: { p: P; priority?: boolean }) {
 
   const quickAdd = async (e: React.MouseEvent) => {
     e.preventDefault();
+    if (busy) return;
     setBusy(true);
+    let v: ProductDetail['variants'][number] | undefined;
     try {
       const d = (await get<{ data: ProductDetail }>(`/products/${p.slug}`)).data;
-      const v = d.variants.find((x) => x.id === d.default_variant_id) ?? d.variants[0];
-      if (!v) throw new Error('no variant');
+      v = d.variants.find((x) => x.id === d.default_variant_id) ?? d.variants[0];
+    } catch { /* handled below */ }
+    try {
+      if (!v) { toast.push(t('error.generic'), 'error'); return; }
       await cart.add({ id: p.id, slug: p.slug, name: p.name, brand: p.brand, image: p.image?.thumb_url }, v, 1);
-    } catch { toast.push(t('error.generic'), 'error'); } finally { setBusy(false); }
+    } catch { /* the cart already showed the reason */ } finally { setBusy(false); }
   };
 
   if (layout === 'fresh') {

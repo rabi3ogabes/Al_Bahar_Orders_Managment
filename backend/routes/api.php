@@ -32,7 +32,7 @@ Route::prefix('v1')->name('api.v1.')->middleware('throttle:api')->group(function
     Route::middleware(['auth:sanctum', 'customer'])->prefix('me')->name('me.')->controller(V1\Customer\ProfileController::class)->group(function () {
         Route::get('/', 'show')->name('show');
         Route::patch('/', 'update')->name('update');
-        Route::put('password', 'changePassword')->name('password');
+        Route::put('password', 'changePassword')->middleware('throttle:10,60')->name('password');
         Route::post('devices', 'registerDevice')->name('devices.store');
         Route::delete('devices', 'unregisterDevice')->name('devices.destroy');
         Route::get('sessions', 'sessions')->name('sessions');
@@ -45,7 +45,7 @@ Route::prefix('v1')->name('api.v1.')->middleware('throttle:api')->group(function
     Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('auth/login', [V1\Admin\StaffAuthController::class, 'login'])->middleware('throttle:login')->name('auth.login');
 
-        Route::middleware(['auth:sanctum', 'staff'])->group(function () {
+        Route::middleware(['auth:sanctum', 'staff', 'staff.query'])->group(function () {
             Route::get('me', [V1\Admin\StaffAuthController::class, 'me'])->name('me');
             require __DIR__.'/api_admin.php';
         });
