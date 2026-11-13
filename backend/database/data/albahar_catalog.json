@@ -1,0 +1,1147 @@
+{
+ "categories": [
+  {
+   "slug": "kitchen-dining",
+   "sort": 1,
+   "en": {
+    "name": "Kitchen & Dining",
+    "description": "Cookware, tableware and food storage for everyday cooking and hosting."
+   },
+   "ar": {
+    "name": "المطبخ والسفرة",
+    "description": "أواني الطبخ وأطقم السفرة وحافظات الطعام للاستخدام اليومي والضيافة."
+   },
+   "image_prompt": "wide editorial photo for a home and living store category called Kitchen & Dining, a calm styled arrangement of related items, soft natural daylight, light neutral tones, no text"
+  },
+  {
+   "slug": "cleaning-laundry",
+   "sort": 2,
+   "en": {
+    "name": "Cleaning & Laundry",
+    "description": "Practical tools that keep the home spotless and the laundry in order."
+   },
+   "ar": {
+    "name": "التنظيف والغسيل",
+    "description": "أدوات عملية تحافظ على نظافة المنزل وترتيب الغسيل."
+   },
+   "image_prompt": "wide editorial photo for a home and living store category called Cleaning & Laundry, a calm styled arrangement of related items, soft natural daylight, light neutral tones, no text"
+  },
+  {
+   "slug": "bath-personal",
+   "sort": 3,
+   "en": {
+    "name": "Bath & Personal Care",
+    "description": "Towels, mats and bathroom accessories for a calm, tidy bathroom."
+   },
+   "ar": {
+    "name": "الحمّام والعناية",
+    "description": "مناشف وسجاد وإكسسوارات حمّام لمساحة هادئة ومرتبة."
+   },
+   "image_prompt": "wide editorial photo for a home and living store category called Bath & Personal Care, a calm styled arrangement of related items, soft natural daylight, light neutral tones, no text"
+  },
+  {
+   "slug": "storage-organisation",
+   "sort": 4,
+   "en": {
+    "name": "Storage & Organisation",
+    "description": "Boxes, baskets and organisers that give every room more space."
+   },
+   "ar": {
+    "name": "التخزين والتنظيم",
+    "description": "صناديق وسلال ومنظّمات تمنح كل غرفة مساحة أكبر."
+   },
+   "image_prompt": "wide editorial photo for a home and living store category called Storage & Organisation, a calm styled arrangement of related items, soft natural daylight, light neutral tones, no text"
+  },
+  {
+   "slug": "home-fragrance",
+   "sort": 5,
+   "en": {
+    "name": "Home Fragrance",
+    "description": "Candles, diffusers and burners to scent the home the Gulf way."
+   },
+   "ar": {
+    "name": "عطور المنزل",
+    "description": "شموع ومعطّرات ومباخر لتعطير المنزل بأجواء خليجية."
+   },
+   "image_prompt": "wide editorial photo for a home and living store category called Home Fragrance, a calm styled arrangement of related items, soft natural daylight, light neutral tones, no text"
+  },
+  {
+   "slug": "bedding-linens",
+   "sort": 6,
+   "en": {
+    "name": "Bedding & Linens",
+    "description": "Soft sheets, duvets and pillows for better sleep."
+   },
+   "ar": {
+    "name": "المفروشات والبياضات",
+    "description": "شراشف ولحف ووسائد ناعمة لنوم أفضل."
+   },
+   "image_prompt": "wide editorial photo for a home and living store category called Bedding & Linens, a calm styled arrangement of related items, soft natural daylight, light neutral tones, no text"
+  },
+  {
+   "slug": "decor-living",
+   "sort": 7,
+   "en": {
+    "name": "Decor & Living",
+    "description": "Cushions, vases, mirrors and rugs that finish a living space."
+   },
+   "ar": {
+    "name": "الديكور والمعيشة",
+    "description": "وسائد ومزهريات ومرايا وسجاد تكمل أجواء المعيشة."
+   },
+   "image_prompt": "wide editorial photo for a home and living store category called Decor & Living, a calm styled arrangement of related items, soft natural daylight, light neutral tones, no text"
+  }
+ ],
+ "products": [
+  {
+   "sku": "ABH-1001",
+   "category": "kitchen-dining",
+   "price": "189.00",
+   "sale_price": null,
+   "weight": 7.5,
+   "featured": true,
+   "new": false,
+   "bestseller": true,
+   "en": {
+    "name": "Ceramic Dinner Set, 16 Pieces, White",
+    "short_description": "Sixteen white ceramic pieces for four place settings.",
+    "description": "<p>A clean, timeless dinner set for family meals and guests: four dinner plates, four side plates, four bowls and four mugs in glazed white ceramic.</p><ul><li>Four full place settings</li><li>Glazed ceramic, easy to wipe clean</li><li>Microwave and dishwasher safe</li></ul>",
+    "material": "Glazed ceramic",
+    "search_keywords": "plates bowls mugs tableware dinnerware white set",
+    "seo_title": "Ceramic Dinner Set, 16 Pieces, White | Al Bahar Home & Livin",
+    "seo_description": "Sixteen white ceramic pieces for four place settings."
+   },
+   "ar": {
+    "name": "طقم عشاء سيراميك ١٦ قطعة أبيض",
+    "short_description": "ست عشرة قطعة من السيراميك الأبيض لأربعة أشخاص.",
+    "description": "<p>طقم عشاء أنيق وبسيط لوجبات العائلة والضيوف: أربعة أطباق رئيسية وأربعة أطباق جانبية وأربع سلطانيات وأربعة أكواب من السيراميك المطلي الأبيض.</p><ul><li>أربعة أطقم كاملة للمائدة</li><li>سيراميك مطلي سهل التنظيف</li><li>آمن للاستخدام في المايكروويف وغسالة الصحون</li></ul>",
+    "material": "سيراميك مطلي",
+    "search_keywords": "صحون سلطانيات أكواب طقم سفرة أبيض",
+    "seo_title": "طقم عشاء سيراميك ١٦ قطعة أبيض | البحار للمنزل والمعيشة",
+    "seo_description": "ست عشرة قطعة من السيراميك الأبيض لأربعة أشخاص."
+   },
+   "image_prompt": "studio product photo of a white glazed ceramic dinner set of plates bowls and mugs neatly stacked, soft daylight, light grey seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a white glazed ceramic dinner set of plates bowls and mugs neatly stacked, soft daylight, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1002",
+   "category": "kitchen-dining",
+   "price": "249.00",
+   "sale_price": null,
+   "weight": 6.2,
+   "featured": true,
+   "new": false,
+   "bestseller": false,
+   "en": {
+    "name": "Stainless Steel Cookware Set, 5 Pieces",
+    "short_description": "Two pots, a casserole, a frying pan and a saucepan with glass lids.",
+    "description": "<p>Five heavy-base stainless steel pieces that heat evenly and last for years. The tempered glass lids let you watch the food without lifting them.</p><ul><li>Heavy base for even heat</li><li>Tempered glass lids with steam vents</li><li>Works on gas, electric and induction hobs</li></ul>",
+    "material": "18/10 stainless steel",
+    "search_keywords": "pots pans cookware set stainless steel casserole frying pan",
+    "seo_title": "Stainless Steel Cookware Set, 5 Pieces | Al Bahar Home & Liv",
+    "seo_description": "Two pots, a casserole, a frying pan and a saucepan with glass lids."
+   },
+   "ar": {
+    "name": "طقم أواني طبخ ستانلس ستيل ٥ قطع",
+    "short_description": "قدران وصينية وطاسة ومقلاة صغيرة مع أغطية زجاجية.",
+    "description": "<p>خمس قطع من الستانلس ستيل بقاعدة سميكة توزّع الحرارة بالتساوي وتدوم لسنوات. الأغطية الزجاجية المقسّاة تتيح لك مراقبة الطعام دون رفعها.</p><ul><li>قاعدة سميكة لحرارة متوازنة</li><li>أغطية زجاجية مقسّاة بفتحات بخار</li><li>تناسب الغاز والكهرباء والإنداكشن</li></ul>",
+    "material": "ستانلس ستيل ١٨/١٠",
+    "search_keywords": "قدور طاسات طقم طبخ ستانلس مقلاة",
+    "seo_title": "طقم أواني طبخ ستانلس ستيل ٥ قطع | البحار للمنزل والمعيشة",
+    "seo_description": "قدران وصينية وطاسة ومقلاة صغيرة مع أغطية زجاجية."
+   },
+   "image_prompt": "studio product photo of a five piece stainless steel cookware set with glass lids, pots and a frying pan, light grey seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a five piece stainless steel cookware set with glass lids, pots and a frying pan, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1003",
+   "category": "kitchen-dining",
+   "price": "79.00",
+   "sale_price": null,
+   "weight": 2.4,
+   "featured": false,
+   "new": true,
+   "bestseller": false,
+   "en": {
+    "name": "Glass Food Storage Containers, Set of 6",
+    "short_description": "Six airtight glass containers with snap lids.",
+    "description": "<p>Keep leftovers fresh and ready to reheat. Each container has a snap-lock lid with a silicone seal, and the glass never stains or holds smells.</p><ul><li>Airtight silicone-sealed lids</li><li>Oven, microwave, fridge and freezer safe (lids excluded from oven)</li><li>Stackable to save shelf space</li></ul>",
+    "material": "Borosilicate glass, BPA-free lids",
+    "search_keywords": "food containers glass storage meal prep lunch box airtight",
+    "seo_title": "Glass Food Storage Containers, Set of 6 | Al Bahar Home & Li",
+    "seo_description": "Six airtight glass containers with snap lids."
+   },
+   "ar": {
+    "name": "حافظات طعام زجاجية ٦ قطع",
+    "short_description": "ست حافظات زجاجية محكمة الإغلاق بأغطية بإغلاق مزدوج.",
+    "description": "<p>حافظ على بقايا الطعام طازجة وجاهزة للتسخين. لكل حافظة غطاء بإغلاق محكم وحلقة سيليكون، والزجاج لا يتلوّن ولا يحتفظ بالروائح.</p><ul><li>أغطية محكمة بحلقة سيليكون</li><li>مناسبة للمايكروويف والثلاجة والفريزر والفرن (باستثناء الأغطية)</li><li>قابلة للتكديس لتوفير المساحة</li></ul>",
+    "material": "زجاج بوروسيليكات وأغطية خالية من BPA",
+    "search_keywords": "حافظات طعام زجاج تخزين وجبات علبة غداء",
+    "seo_title": "حافظات طعام زجاجية ٦ قطع | البحار للمنزل والمعيشة",
+    "seo_description": "ست حافظات زجاجية محكمة الإغلاق بأغطية بإغلاق مزدوج."
+   },
+   "image_prompt": "studio product photo of six glass food storage containers with snap lids, stacked and side by side, light grey seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, six glass food storage containers with snap lids, stacked and side by side, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1004",
+   "category": "kitchen-dining",
+   "price": "59.00",
+   "sale_price": null,
+   "weight": 1.9,
+   "featured": false,
+   "new": false,
+   "bestseller": false,
+   "en": {
+    "name": "Bamboo Cutting Board Set, 3 Pieces",
+    "short_description": "Small, medium and large boards in natural bamboo.",
+    "description": "<p>Three sizes for every job, from herbs to a whole roast. Natural bamboo is gentle on knives and a good deal harder wearing than plastic.</p><ul><li>Three sizes in one set</li><li>Juice groove on the large board</li><li>Hang-up hole on every board</li></ul>",
+    "material": "Natural bamboo",
+    "search_keywords": "chopping board cutting board bamboo wood kitchen",
+    "seo_title": "Bamboo Cutting Board Set, 3 Pieces | Al Bahar Home & Living",
+    "seo_description": "Small, medium and large boards in natural bamboo."
+   },
+   "ar": {
+    "name": "طقم ألواح تقطيع من الخيزران ٣ قطع",
+    "short_description": "لوح صغير ومتوسط وكبير من الخيزران الطبيعي.",
+    "description": "<p>ثلاثة مقاسات لكل مهمة، من الأعشاب إلى اللحم الكامل. الخيزران الطبيعي لطيف على السكاكين وأمتن بكثير من البلاستيك.</p><ul><li>ثلاثة مقاسات في طقم واحد</li><li>قناة لتجميع العصارة في اللوح الكبير</li><li>فتحة تعليق في كل لوح</li></ul>",
+    "material": "خيزران طبيعي",
+    "search_keywords": "لوح تقطيع خشب خيزران مطبخ",
+    "seo_title": "طقم ألواح تقطيع من الخيزران ٣ قطع | البحار للمنزل والمعيشة",
+    "seo_description": "لوح صغير ومتوسط وكبير من الخيزران الطبيعي."
+   },
+   "image_prompt": "studio product photo of a set of three natural bamboo cutting boards in graduated sizes, light grey seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a set of three natural bamboo cutting boards in graduated sizes, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1005",
+   "category": "kitchen-dining",
+   "price": "45.00",
+   "sale_price": null,
+   "weight": 0.45,
+   "featured": false,
+   "new": false,
+   "bestseller": true,
+   "en": {
+    "name": "Insulated Stainless Steel Water Bottle, 750 ml",
+    "short_description": "Keeps drinks cold for 24 hours or hot for 12.",
+    "description": "<p>A double-wall vacuum bottle for the car, the office and the beach. The wide mouth takes ice cubes and the leak-proof cap locks tight in a bag.</p><ul><li>Cold for 24 hours, hot for 12</li><li>Leak-proof screw cap</li><li>Powder-coated, sweat-free outside</li></ul>",
+    "material": "Stainless steel",
+    "search_keywords": "water bottle flask thermos insulated cold hot",
+    "seo_title": "Insulated Stainless Steel Water Bottle, 750 ml | Al Bahar Ho",
+    "seo_description": "Keeps drinks cold for 24 hours or hot for 12."
+   },
+   "ar": {
+    "name": "زجاجة ماء معزولة ستانلس ستيل ٧٥٠ مل",
+    "short_description": "تحافظ على برودة المشروب ٢٤ ساعة أو حرارته ١٢ ساعة.",
+    "description": "<p>زجاجة بجدار مزدوج مفرّغ للسيارة والمكتب والشاطئ. فتحتها الواسعة تتسع لمكعبات الثلج وغطاؤها المحكم لا يسرّب داخل الحقيبة.</p><ul><li>بارد ٢٤ ساعة وساخن ١٢ ساعة</li><li>غطاء لولبي مانع للتسرب</li><li>طلاء ناعم لا يتعرّق من الخارج</li></ul>",
+    "material": "ستانلس ستيل",
+    "search_keywords": "زجاجة ماء ثيرموس معزولة بارد ساخن",
+    "seo_title": "زجاجة ماء معزولة ستانلس ستيل ٧٥٠ مل | البحار للمنزل والمعيشة",
+    "seo_description": "تحافظ على برودة المشروب ٢٤ ساعة أو حرارته ١٢ ساعة."
+   },
+   "image_prompt": "studio product photo of a matte sand-coloured insulated stainless steel water bottle, light grey seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a matte sand-coloured insulated stainless steel water bottle, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1101",
+   "category": "cleaning-laundry",
+   "price": "25.00",
+   "sale_price": null,
+   "weight": 0.4,
+   "featured": false,
+   "new": false,
+   "bestseller": true,
+   "en": {
+    "name": "Microfibre Cleaning Cloths, Pack of 12",
+    "short_description": "Twelve soft cloths for glass, surfaces and dusting.",
+    "description": "<p>Colour-coded cloths so the kitchen cloth never meets the bathroom. They lift dust and grease with water alone and can be machine washed again and again.</p><ul><li>Four colours, three cloths each</li><li>Streak-free on glass and steel</li><li>Machine washable</li></ul>",
+    "material": "Microfibre",
+    "search_keywords": "cleaning cloths microfiber dusting towels wipes",
+    "seo_title": "Microfibre Cleaning Cloths, Pack of 12 | Al Bahar Home & Liv",
+    "seo_description": "Twelve soft cloths for glass, surfaces and dusting."
+   },
+   "ar": {
+    "name": "مناديل تنظيف من الميكروفايبر ١٢ قطعة",
+    "short_description": "اثنا عشر منديلاً ناعماً للزجاج والأسطح والغبار.",
+    "description": "<p>مناديل بألوان مختلفة لتخصيص كل لون لمكان، فلا تختلط أدوات المطبخ بالحمّام. تزيل الغبار والدهون بالماء وحده وتُغسل في الغسالة مراراً.</p><ul><li>أربعة ألوان وثلاثة مناديل من كل لون</li><li>لا تترك آثاراً على الزجاج والستانلس</li><li>قابلة للغسل في الغسالة</li></ul>",
+    "material": "ميكروفايبر",
+    "search_keywords": "مناديل تنظيف ميكروفايبر غبار",
+    "seo_title": "مناديل تنظيف من الميكروفايبر ١٢ قطعة | البحار للمنزل والمعيش",
+    "seo_description": "اثنا عشر منديلاً ناعماً للزجاج والأسطح والغبار."
+   },
+   "image_prompt": "studio product photo of a neat stack of twelve colourful microfibre cleaning cloths in four colours, light grey seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a neat stack of twelve colourful microfibre cleaning cloths in four colours, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1102",
+   "category": "cleaning-laundry",
+   "price": "69.00",
+   "sale_price": null,
+   "weight": 1.4,
+   "featured": false,
+   "new": false,
+   "bestseller": false,
+   "en": {
+    "name": "Flat Mop with 2 Microfibre Pads",
+    "short_description": "Telescopic flat mop for tiles and wood floors.",
+    "description": "<p>A light flat mop that reaches under sofas and beds. Two washable pads mean one is always ready, and the handle adjusts to your height.</p><ul><li>Telescopic handle</li><li>Two washable microfibre pads</li><li>360 degree swivel head</li></ul>",
+    "material": "Microfibre, aluminium handle",
+    "search_keywords": "mop floor cleaning flat mop tiles",
+    "seo_title": "Flat Mop with 2 Microfibre Pads | Al Bahar Home & Living",
+    "seo_description": "Telescopic flat mop for tiles and wood floors."
+   },
+   "ar": {
+    "name": "ممسحة أرضيات مسطحة مع قطعتين ميكروفايبر",
+    "short_description": "ممسحة مسطحة بمقبض قابل للتعديل للبلاط والباركيه.",
+    "description": "<p>ممسحة خفيفة تصل أسفل الكنب والأسرّة. قطعتان قابلتان للغسل تجعلان واحدة جاهزة دائماً، والمقبض يُضبط على طولك.</p><ul><li>مقبض قابل للتمديد</li><li>قطعتا ميكروفايبر قابلتان للغسل</li><li>رأس يدور ٣٦٠ درجة</li></ul>",
+    "material": "ميكروفايبر ومقبض ألمنيوم",
+    "search_keywords": "ممسحة أرضيات تنظيف بلاط",
+    "seo_title": "ممسحة أرضيات مسطحة مع قطعتين ميكروفايبر | البحار للمنزل والم",
+    "seo_description": "ممسحة مسطحة بمقبض قابل للتعديل للبلاط والباركيه."
+   },
+   "image_prompt": "studio product photo of a flat floor mop with a microfibre pad and telescopic handle standing upright, light grey seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a flat floor mop with a microfibre pad and telescopic handle standing upright, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1103",
+   "category": "cleaning-laundry",
+   "price": "39.00",
+   "sale_price": null,
+   "weight": 0.8,
+   "featured": false,
+   "new": true,
+   "bestseller": false,
+   "en": {
+    "name": "Foldable Laundry Basket, 50 L",
+    "short_description": "Collapses flat when you do not need it.",
+    "description": "<p>A roomy fabric basket with reinforced handles and a stiff frame, so it stands up when full and folds flat to slip behind a door.</p><ul><li>50 litre capacity</li><li>Reinforced carry handles</li><li>Folds flat in seconds</li></ul>",
+    "material": "Oxford fabric, steel frame",
+    "search_keywords": "laundry basket hamper foldable clothes",
+    "seo_title": "Foldable Laundry Basket, 50 L | Al Bahar Home & Living",
+    "seo_description": "Collapses flat when you do not need it."
+   },
+   "ar": {
+    "name": "سلة غسيل قابلة للطي ٥٠ لتراً",
+    "short_description": "تنطوي بشكل مسطح عندما لا تحتاجها.",
+    "description": "<p>سلة قماشية واسعة بمقابض مقوّاة وإطار صلب، تقف بثبات وهي ممتلئة وتنطوي لتوضع خلف الباب.</p><ul><li>سعة ٥٠ لتراً</li><li>مقابض حمل مقوّاة</li><li>تنطوي خلال ثوانٍ</li></ul>",
+    "material": "قماش أوكسفورد وإطار معدني",
+    "search_keywords": "سلة غسيل ملابس قابلة للطي",
+    "seo_title": "سلة غسيل قابلة للطي ٥٠ لتراً | البحار للمنزل والمعيشة",
+    "seo_description": "تنطوي بشكل مسطح عندما لا تحتاجها."
+   },
+   "image_prompt": "studio product photo of a foldable fabric laundry basket in light grey with two handles, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a foldable fabric laundry basket in light grey with two handles, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1104",
+   "category": "cleaning-laundry",
+   "price": "35.00",
+   "sale_price": null,
+   "weight": 1.1,
+   "featured": false,
+   "new": false,
+   "bestseller": false,
+   "en": {
+    "name": "Broom and Dustpan Set",
+    "short_description": "Long-handled broom with a self-cleaning dustpan.",
+    "description": "<p>Soft bristles lift fine dust and the dustpan has a rubber edge that sits flat on the floor, so nothing slips under. The comb on the pan cleans the broom for you.</p><ul><li>Rubber-edged dustpan</li><li>Built-in bristle comb</li><li>Handle clips onto the pan for storage</li></ul>",
+    "material": "Polypropylene, steel handle",
+    "search_keywords": "broom dustpan sweeping floor cleaning",
+    "seo_title": "Broom and Dustpan Set | Al Bahar Home & Living",
+    "seo_description": "Long-handled broom with a self-cleaning dustpan."
+   },
+   "ar": {
+    "name": "مكنسة ومجرفة غبار",
+    "short_description": "مكنسة بمقبض طويل ومجرفة ذاتية التنظيف.",
+    "description": "<p>شعيرات ناعمة تلتقط الغبار الدقيق ومجرفة بحافة مطاطية تلتصق بالأرض فلا يفلت شيء تحتها. مشط المجرفة ينظّف المكنسة بنفسه.</p><ul><li>مجرفة بحافة مطاطية</li><li>مشط مدمج لتنظيف الشعيرات</li><li>يُثبَّت المقبض على المجرفة للتخزين</li></ul>",
+    "material": "بولي بروبيلين ومقبض معدني",
+    "search_keywords": "مكنسة مجرفة كنس أرضيات",
+    "seo_title": "مكنسة ومجرفة غبار | البحار للمنزل والمعيشة",
+    "seo_description": "مكنسة بمقبض طويل ومجرفة ذاتية التنظيف."
+   },
+   "image_prompt": "studio product photo of a broom and matching dustpan set in grey and white, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a broom and matching dustpan set in grey and white, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1105",
+   "category": "cleaning-laundry",
+   "price": "99.00",
+   "sale_price": null,
+   "weight": 3.2,
+   "featured": false,
+   "new": false,
+   "bestseller": false,
+   "en": {
+    "name": "Folding Clothes Drying Rack",
+    "short_description": "Two-tier steel rack with room for a full wash.",
+    "description": "<p>Dry a whole load indoors or on the balcony. The rack opens in a moment, holds up to fifteen kilos and folds to a slim profile for storage.</p><ul><li>Holds up to 15 kg</li><li>Folds flat, stores behind a door</li><li>Rust-resistant coated steel</li></ul>",
+    "material": "Coated steel",
+    "search_keywords": "drying rack clothes airer laundry folding",
+    "seo_title": "Folding Clothes Drying Rack | Al Bahar Home & Living",
+    "seo_description": "Two-tier steel rack with room for a full wash."
+   },
+   "ar": {
+    "name": "حامل تجفيف ملابس قابل للطي",
+    "short_description": "حامل من الفولاذ بطابقين يتسع لغسلة كاملة.",
+    "description": "<p>جفّف غسلة كاملة في الداخل أو على الشرفة. يُفتح بسرعة ويتحمل حتى ١٥ كغم ويُطوى بشكل نحيف للتخزين.</p><ul><li>يتحمل حتى ١٥ كغم</li><li>يُطوى ويُخزَّن خلف الباب</li><li>فولاذ مطلي مقاوم للصدأ</li></ul>",
+    "material": "فولاذ مطلي",
+    "search_keywords": "حامل تجفيف ملابس غسيل قابل للطي",
+    "seo_title": "حامل تجفيف ملابس قابل للطي | البحار للمنزل والمعيشة",
+    "seo_description": "حامل من الفولاذ بطابقين يتسع لغسلة كاملة."
+   },
+   "image_prompt": "studio product photo of a two tier folding steel clothes drying rack with a few folded towels on it, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a two tier folding steel clothes drying rack with a few folded towels on it, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1201",
+   "category": "bath-personal",
+   "price": "119.00",
+   "sale_price": null,
+   "weight": 2.6,
+   "featured": true,
+   "new": false,
+   "bestseller": true,
+   "en": {
+    "name": "Cotton Bath Towel Set, 4 Pieces",
+    "short_description": "Two bath towels and two hand towels in 500 GSM cotton.",
+    "description": "<p>Thick, absorbent towels that stay soft wash after wash. Combed cotton and a tight weave mean less lint and a quicker dry.</p><ul><li>500 GSM combed cotton</li><li>Two bath and two hand towels</li><li>Hanging loop on every towel</li></ul>",
+    "material": "100% combed cotton",
+    "search_keywords": "towels bath towel set cotton hand towel",
+    "seo_title": "Cotton Bath Towel Set, 4 Pieces | Al Bahar Home & Living",
+    "seo_description": "Two bath towels and two hand towels in 500 GSM cotton."
+   },
+   "ar": {
+    "name": "طقم مناشف قطن ٤ قطع",
+    "short_description": "منشفتا استحمام ومنشفتا يد من القطن ٥٠٠ غرام.",
+    "description": "<p>مناشف سميكة وماصّة تبقى ناعمة بعد كل غسلة. القطن المسرّح والنسج المحكم يقلّلان الوبر ويجفّان أسرع.</p><ul><li>قطن مسرّح ٥٠٠ غرام/م²</li><li>منشفتا استحمام ومنشفتا يد</li><li>عروة تعليق في كل منشفة</li></ul>",
+    "material": "قطن مسرّح ١٠٠٪",
+    "search_keywords": "مناشف حمام طقم مناشف قطن",
+    "seo_title": "طقم مناشف قطن ٤ قطع | البحار للمنزل والمعيشة",
+    "seo_description": "منشفتا استحمام ومنشفتا يد من القطن ٥٠٠ غرام."
+   },
+   "image_prompt": "studio product photo of a neatly folded stack of four white and sand coloured cotton bath towels, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a neatly folded stack of four white and sand coloured cotton bath towels, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1202",
+   "category": "bath-personal",
+   "price": "89.00",
+   "sale_price": null,
+   "weight": 1.5,
+   "featured": false,
+   "new": false,
+   "bestseller": false,
+   "en": {
+    "name": "Ceramic Bathroom Accessory Set, 5 Pieces",
+    "short_description": "Soap dish, dispenser, tumbler, toothbrush holder and bin.",
+    "description": "<p>A matching set in matte ceramic that pulls a bathroom together. Each piece is glazed inside and out, so it wipes clean in a second.</p><ul><li>Five matching pieces</li><li>Matte glaze, easy to wipe</li><li>Non-slip rubber feet</li></ul>",
+    "material": "Glazed ceramic",
+    "search_keywords": "bathroom set soap dispenser toothbrush holder tumbler accessories",
+    "seo_title": "Ceramic Bathroom Accessory Set, 5 Pieces | Al Bahar Home & L",
+    "seo_description": "Soap dish, dispenser, tumbler, toothbrush holder and bin."
+   },
+   "ar": {
+    "name": "طقم إكسسوارات حمّام سيراميك ٥ قطع",
+    "short_description": "حاملة صابون وموزّع وكوب وحامل فرش أسنان وسلة.",
+    "description": "<p>طقم متناسق من السيراميك المطفي يكمل ديكور الحمّام. كل قطعة مطلية من الداخل والخارج فتُمسح بثانية.</p><ul><li>خمس قطع متناسقة</li><li>طلاء مطفي سهل المسح</li><li>قواعد مطاطية غير قابلة للانزلاق</li></ul>",
+    "material": "سيراميك مطلي",
+    "search_keywords": "طقم حمام موزع صابون حامل فرشاة أسنان",
+    "seo_title": "طقم إكسسوارات حمّام سيراميك ٥ قطع | البحار للمنزل والمعيشة",
+    "seo_description": "حاملة صابون وموزّع وكوب وحامل فرش أسنان وسلة."
+   },
+   "image_prompt": "studio product photo of a matte white ceramic bathroom accessory set with soap dispenser, tumbler, soap dish and toothbrush holder, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a matte white ceramic bathroom accessory set with soap dispenser, tumbler, soap dish and toothbrush holder, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1203",
+   "category": "bath-personal",
+   "price": "29.00",
+   "sale_price": null,
+   "weight": 0.7,
+   "featured": false,
+   "new": false,
+   "bestseller": false,
+   "en": {
+    "name": "Non-Slip Bath Mat",
+    "short_description": "Soft, quick-drying mat with a grippy base.",
+    "description": "<p>A cushioned mat that stays put on wet tiles and dries quickly. Fully machine washable, so it stays fresh.</p><ul><li>Anti-slip rubber backing</li><li>Quick-drying microfibre</li><li>Machine washable</li></ul>",
+    "material": "Microfibre, rubber backing",
+    "search_keywords": "bath mat non slip shower mat bathroom rug",
+    "seo_title": "Non-Slip Bath Mat | Al Bahar Home & Living",
+    "seo_description": "Soft, quick-drying mat with a grippy base."
+   },
+   "ar": {
+    "name": "سجادة حمّام غير قابلة للانزلاق",
+    "short_description": "سجادة ناعمة سريعة الجفاف بقاعدة لاصقة.",
+    "description": "<p>سجادة مبطّنة تثبت على البلاط المبلل وتجفّ بسرعة. قابلة للغسل بالكامل لتبقى منعشة.</p><ul><li>قاعدة مطاطية مانعة للانزلاق</li><li>ميكروفايبر سريع الجفاف</li><li>قابلة للغسل في الغسالة</li></ul>",
+    "material": "ميكروفايبر وقاعدة مطاطية",
+    "search_keywords": "سجادة حمام مانعة للانزلاق دوش",
+    "seo_title": "سجادة حمّام غير قابلة للانزلاق | البحار للمنزل والمعيشة",
+    "seo_description": "سجادة ناعمة سريعة الجفاف بقاعدة لاصقة."
+   },
+   "image_prompt": "studio product photo of a soft sand-coloured non-slip bath mat laid flat, seen from above at an angle, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a soft sand-coloured non-slip bath mat laid flat, seen from above at an angle, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1204",
+   "category": "bath-personal",
+   "price": "49.00",
+   "sale_price": null,
+   "weight": 0.9,
+   "featured": false,
+   "new": true,
+   "bestseller": false,
+   "en": {
+    "name": "Stainless Steel Shower Caddy",
+    "short_description": "Two-shelf hanging caddy, no drilling.",
+    "description": "<p>Keeps shampoo, soap and razors off the floor. It hangs over the shower pipe or sticks to tiles, and the open shelves drain freely.</p><ul><li>No drilling needed</li><li>Rust-resistant stainless steel</li><li>Hooks for razors and loofahs</li></ul>",
+    "material": "Stainless steel",
+    "search_keywords": "shower caddy shelf bathroom organiser hanging",
+    "seo_title": "Stainless Steel Shower Caddy | Al Bahar Home & Living",
+    "seo_description": "Two-shelf hanging caddy, no drilling."
+   },
+   "ar": {
+    "name": "رف استحمام ستانلس ستيل",
+    "short_description": "رف معلّق بطابقين دون حاجة للحفر.",
+    "description": "<p>يبعد الشامبو والصابون والشفرات عن الأرض. يُعلَّق على ماسورة الدوش أو يُلصق على البلاط والرفوف المفتوحة تصرّف الماء بحرية.</p><ul><li>لا يحتاج إلى حفر</li><li>ستانلس ستيل مقاوم للصدأ</li><li>خطافات للشفرات والليفة</li></ul>",
+    "material": "ستانلس ستيل",
+    "search_keywords": "رف حمام منظم دوش معلق",
+    "seo_title": "رف استحمام ستانلس ستيل | البحار للمنزل والمعيشة",
+    "seo_description": "رف معلّق بطابقين دون حاجة للحفر."
+   },
+   "image_prompt": "studio product photo of a two shelf stainless steel hanging shower caddy with small bottles, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a two shelf stainless steel hanging shower caddy with small bottles, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1205",
+   "category": "bath-personal",
+   "price": "24.00",
+   "sale_price": null,
+   "weight": 0.5,
+   "featured": false,
+   "new": false,
+   "bestseller": false,
+   "en": {
+    "name": "Glass Soap Dispenser, 400 ml",
+    "short_description": "Refillable pump dispenser in frosted glass.",
+    "description": "<p>A refillable pump bottle that looks good beside any basin. The frosted glass hides the level and the stainless pump does not clog.</p><ul><li>400 ml refillable</li><li>Frosted glass body</li><li>Rust-proof pump</li></ul>",
+    "material": "Frosted glass, stainless steel pump",
+    "search_keywords": "soap dispenser pump bottle glass hand wash lotion",
+    "seo_title": "Glass Soap Dispenser, 400 ml | Al Bahar Home & Living",
+    "seo_description": "Refillable pump dispenser in frosted glass."
+   },
+   "ar": {
+    "name": "موزّع صابون زجاجي ٤٠٠ مل",
+    "short_description": "موزّع بمضخة قابل لإعادة التعبئة من الزجاج المصنفر.",
+    "description": "<p>زجاجة بمضخة تُعاد تعبئتها وتناسب أي حوض. الزجاج المصنفر أنيق والمضخة المعدنية لا تنسد.</p><ul><li>سعة ٤٠٠ مل قابلة لإعادة التعبئة</li><li>جسم زجاجي مصنفر</li><li>مضخة لا تصدأ</li></ul>",
+    "material": "زجاج مصنفر ومضخة ستانلس",
+    "search_keywords": "موزع صابون مضخة زجاج سائل غسيل اليدين",
+    "seo_title": "موزّع صابون زجاجي ٤٠٠ مل | البحار للمنزل والمعيشة",
+    "seo_description": "موزّع بمضخة قابل لإعادة التعبئة من الزجاج المصنفر."
+   },
+   "image_prompt": "studio product photo of a frosted glass soap dispenser with a brushed steel pump, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a frosted glass soap dispenser with a brushed steel pump, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1301",
+   "category": "storage-organisation",
+   "price": "85.00",
+   "sale_price": null,
+   "weight": 3.0,
+   "featured": true,
+   "new": false,
+   "bestseller": false,
+   "en": {
+    "name": "Stackable Storage Boxes with Lids, Set of 3",
+    "short_description": "Three clear boxes in graduated sizes.",
+    "description": "<p>See what is inside without opening a thing. The boxes lock together when stacked and nest inside each other when empty.</p><ul><li>Clear sides, latching lids</li><li>Stack when full, nest when empty</li><li>Three sizes: 10, 20 and 30 litres</li></ul>",
+    "material": "Polypropylene",
+    "search_keywords": "storage boxes containers stackable clear lid organiser",
+    "seo_title": "Stackable Storage Boxes with Lids, Set of 3 | Al Bahar Home ",
+    "seo_description": "Three clear boxes in graduated sizes."
+   },
+   "ar": {
+    "name": "صناديق تخزين قابلة للتكديس بأغطية ٣ قطع",
+    "short_description": "ثلاثة صناديق شفافة بمقاسات متدرجة.",
+    "description": "<p>شاهد ما بداخلها دون فتحها. تتثبت فوق بعضها عند التكديس وتتداخل داخل بعضها عندما تكون فارغة.</p><ul><li>جوانب شفافة وأغطية بإغلاق</li><li>تُكدَّس وهي ممتلئة وتتداخل وهي فارغة</li><li>ثلاثة مقاسات: ١٠ و٢٠ و٣٠ لتراً</li></ul>",
+    "material": "بولي بروبيلين",
+    "search_keywords": "صناديق تخزين شفافة قابلة للتكديس منظم",
+    "seo_title": "صناديق تخزين قابلة للتكديس بأغطية ٣ قطع | البحار للمنزل والم",
+    "seo_description": "ثلاثة صناديق شفافة بمقاسات متدرجة."
+   },
+   "image_prompt": "studio product photo of three clear plastic stackable storage boxes with white latching lids stacked together, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, three clear plastic stackable storage boxes with white latching lids stacked together, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1302",
+   "category": "storage-organisation",
+   "price": "45.00",
+   "sale_price": null,
+   "weight": 0.6,
+   "featured": false,
+   "new": false,
+   "bestseller": false,
+   "en": {
+    "name": "Hanging Wardrobe Organiser, 6 Shelves",
+    "short_description": "Six fabric shelves that hang from the rail.",
+    "description": "<p>Turns a hanging rail into extra shelf space for sweaters, bags and folded clothes. It folds away when you do not need it.</p><ul><li>Six roomy shelves</li><li>Hooks onto any wardrobe rail</li><li>Breathable fabric</li></ul>",
+    "material": "Non-woven fabric",
+    "search_keywords": "wardrobe organiser hanging shelves closet",
+    "seo_title": "Hanging Wardrobe Organiser, 6 Shelves | Al Bahar Home & Livi",
+    "seo_description": "Six fabric shelves that hang from the rail."
+   },
+   "ar": {
+    "name": "منظّم خزانة معلّق ٦ أرفف",
+    "short_description": "ستة أرفف قماشية تُعلَّق على عمود الملابس.",
+    "description": "<p>يحوّل عمود الملابس إلى مساحة رفوف إضافية للكنزات والحقائب والملابس المطوية. يُطوى عند عدم الحاجة إليه.</p><ul><li>ستة أرفف واسعة</li><li>يُعلَّق على أي عمود خزانة</li><li>قماش يسمح بمرور الهواء</li></ul>",
+    "material": "قماش غير منسوج",
+    "search_keywords": "منظم خزانة رفوف معلقة ملابس",
+    "seo_title": "منظّم خزانة معلّق ٦ أرفف | البحار للمنزل والمعيشة",
+    "seo_description": "ستة أرفف قماشية تُعلَّق على عمود الملابس."
+   },
+   "image_prompt": "studio product photo of a hanging fabric wardrobe organiser with six shelves in light grey holding folded clothes, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a hanging fabric wardrobe organiser with six shelves in light grey holding folded clothes, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1303",
+   "category": "storage-organisation",
+   "price": "55.00",
+   "sale_price": null,
+   "weight": 0.7,
+   "featured": false,
+   "new": false,
+   "bestseller": false,
+   "en": {
+    "name": "Under-Bed Storage Bags, Pack of 2",
+    "short_description": "Large zip bags for bedding and off-season clothes.",
+    "description": "<p>Slide a duvet or a season of clothes under the bed. A clear window shows what is inside and the zip keeps dust out.</p><ul><li>Clear viewing window</li><li>Dust-proof zip</li><li>Carry handles</li></ul>",
+    "material": "Non-woven fabric, PVC window",
+    "search_keywords": "under bed storage bag blanket clothes organiser",
+    "seo_title": "Under-Bed Storage Bags, Pack of 2 | Al Bahar Home & Living",
+    "seo_description": "Large zip bags for bedding and off-season clothes."
+   },
+   "ar": {
+    "name": "حقائب تخزين تحت السرير عدد ٢",
+    "short_description": "حقيبتان كبيرتان بسحّاب للمفروشات وملابس المواسم.",
+    "description": "<p>ضع لحافاً أو ملابس موسم كامل تحت السرير. نافذة شفافة تُظهر المحتوى والسحّاب يمنع الغبار.</p><ul><li>نافذة شفافة للعرض</li><li>سحّاب يمنع الغبار</li><li>مقابض للحمل</li></ul>",
+    "material": "قماش غير منسوج ونافذة PVC",
+    "search_keywords": "حقيبة تخزين تحت السرير لحاف ملابس",
+    "seo_title": "حقائب تخزين تحت السرير عدد ٢ | البحار للمنزل والمعيشة",
+    "seo_description": "حقيبتان كبيرتان بسحّاب للمفروشات وملابس المواسم."
+   },
+   "image_prompt": "studio product photo of two large flat under-bed storage bags in light grey with a clear window and zip, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, two large flat under-bed storage bags in light grey with a clear window and zip, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1304",
+   "category": "storage-organisation",
+   "price": "65.00",
+   "sale_price": null,
+   "weight": 1.2,
+   "featured": false,
+   "new": true,
+   "bestseller": false,
+   "en": {
+    "name": "Woven Seagrass Basket, Medium",
+    "short_description": "Handwoven basket with two handles.",
+    "description": "<p>A natural seagrass basket for blankets, magazines, toys or laundry. Every basket is woven by hand, so no two are exactly alike.</p><ul><li>Handwoven natural seagrass</li><li>Two sturdy handles</li><li>About 35 cm wide</li></ul>",
+    "material": "Seagrass",
+    "search_keywords": "basket seagrass woven storage blanket toys",
+    "seo_title": "Woven Seagrass Basket, Medium | Al Bahar Home & Living",
+    "seo_description": "Handwoven basket with two handles."
+   },
+   "ar": {
+    "name": "سلة حشائش البحر المنسوجة، متوسطة",
+    "short_description": "سلة منسوجة يدوياً بمقبضين.",
+    "description": "<p>سلة طبيعية للبطانيات والمجلات والألعاب أو الغسيل. تُنسج كل سلة يدوياً لذلك لا تتطابق اثنتان تماماً.</p><ul><li>حشائش بحر طبيعية منسوجة يدوياً</li><li>مقبضان متينان</li><li>عرض ٣٥ سم تقريباً</li></ul>",
+    "material": "حشائش البحر",
+    "search_keywords": "سلة قش منسوجة تخزين بطانيات ألعاب",
+    "seo_title": "سلة حشائش البحر المنسوجة، متوسطة | البحار للمنزل والمعيشة",
+    "seo_description": "سلة منسوجة يدوياً بمقبضين."
+   },
+   "image_prompt": "studio product photo of a handwoven natural seagrass storage basket with two handles, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a handwoven natural seagrass storage basket with two handles, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1305",
+   "category": "storage-organisation",
+   "price": "29.00",
+   "sale_price": null,
+   "weight": 0.8,
+   "featured": false,
+   "new": false,
+   "bestseller": false,
+   "en": {
+    "name": "Over-the-Door Hook Rack",
+    "short_description": "Six hooks that hang on any door, no tools.",
+    "description": "<p>Instant space for coats, bags and towels. The padded hooks do not scratch the door, and the rack fits doors up to 4 cm thick.</p><ul><li>Six strong hooks</li><li>No drilling or glue</li><li>Fits doors up to 4 cm thick</li></ul>",
+    "material": "Coated steel",
+    "search_keywords": "door hooks rack coat hanger bag towel",
+    "seo_title": "Over-the-Door Hook Rack | Al Bahar Home & Living",
+    "seo_description": "Six hooks that hang on any door, no tools."
+   },
+   "ar": {
+    "name": "حامل خطافات للباب",
+    "short_description": "ستة خطافات تُعلَّق على أي باب بلا أدوات.",
+    "description": "<p>مساحة فورية للمعاطف والحقائب والمناشف. الخطافات المبطنة لا تخدش الباب والحامل يناسب أبواباً بسماكة حتى ٤ سم.</p><ul><li>ستة خطافات قوية</li><li>بلا حفر أو لصق</li><li>يناسب أبواباً حتى ٤ سم</li></ul>",
+    "material": "فولاذ مطلي",
+    "search_keywords": "خطافات باب حامل معاطف حقائب مناشف",
+    "seo_title": "حامل خطافات للباب | البحار للمنزل والمعيشة",
+    "seo_description": "ستة خطافات تُعلَّق على أي باب بلا أدوات."
+   },
+   "image_prompt": "studio product photo of a black steel over-the-door hook rack with six hooks hanging on a white door edge, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a black steel over-the-door hook rack with six hooks hanging on a white door edge, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1401",
+   "category": "home-fragrance",
+   "price": "59.00",
+   "sale_price": null,
+   "weight": 0.55,
+   "featured": true,
+   "new": false,
+   "bestseller": true,
+   "en": {
+    "name": "Oud & Amber Scented Candle, Glass Jar",
+    "short_description": "Warm oud and amber, about 45 hours of burn.",
+    "description": "<p>A hand-poured soy wax candle with a deep, warm oud and amber scent. The cotton wick burns evenly and the glass jar is lovely to reuse.</p><ul><li>About 45 hours of burn time</li><li>Soy wax, cotton wick</li><li>Reusable glass jar with lid</li></ul>",
+    "material": "Soy wax, glass jar",
+    "search_keywords": "candle scented oud amber home fragrance",
+    "seo_title": "Oud & Amber Scented Candle, Glass Jar | Al Bahar Home & Livi",
+    "seo_description": "Warm oud and amber, about 45 hours of burn."
+   },
+   "ar": {
+    "name": "شمعة معطّرة عود وعنبر في برطمان زجاجي",
+    "short_description": "رائحة عود وعنبر دافئة تدوم نحو ٤٥ ساعة.",
+    "description": "<p>شمعة من شمع الصويا المصبوب يدوياً برائحة عود وعنبر عميقة ودافئة. الفتيل القطني يحترق بانتظام والبرطمان الزجاجي يصلح لإعادة الاستخدام.</p><ul><li>نحو ٤٥ ساعة احتراق</li><li>شمع صويا وفتيل قطني</li><li>برطمان زجاجي بغطاء قابل لإعادة الاستخدام</li></ul>",
+    "material": "شمع صويا وبرطمان زجاجي",
+    "search_keywords": "شمعة معطرة عود عنبر عطور المنزل",
+    "seo_title": "شمعة معطّرة عود وعنبر في برطمان زجاجي | البحار للمنزل والمعي",
+    "seo_description": "رائحة عود وعنبر دافئة تدوم نحو ٤٥ ساعة."
+   },
+   "image_prompt": "studio product photo of a scented candle in an amber tinted glass jar with a wooden lid, warm soft light, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a scented candle in an amber tinted glass jar with a wooden lid, warm soft light, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1402",
+   "category": "home-fragrance",
+   "price": "69.00",
+   "sale_price": null,
+   "weight": 0.5,
+   "featured": false,
+   "new": false,
+   "bestseller": false,
+   "en": {
+    "name": "Reed Diffuser, White Musk, 200 ml",
+    "short_description": "Flameless fragrance that lasts up to three months.",
+    "description": "<p>Clean white musk scent released slowly through natural rattan reeds. No flame, no plug, just a steady fragrance for living rooms and hallways.</p><ul><li>200 ml, up to 3 months</li><li>Flameless and cord-free</li><li>Includes natural rattan reeds</li></ul>",
+    "material": "Glass bottle, rattan reeds",
+    "search_keywords": "reed diffuser white musk fragrance home scent",
+    "seo_title": "Reed Diffuser, White Musk, 200 ml | Al Bahar Home & Living",
+    "seo_description": "Flameless fragrance that lasts up to three months."
+   },
+   "ar": {
+    "name": "معطّر عيدان أبيض مسك ٢٠٠ مل",
+    "short_description": "عطر بلا لهب يدوم حتى ثلاثة أشهر.",
+    "description": "<p>رائحة مسك أبيض نظيفة تنتشر ببطء عبر عيدان الروطان الطبيعية. لا لهب ولا كهرباء، فقط عطر ثابت لغرف الجلوس والممرات.</p><ul><li>٢٠٠ مل تدوم حتى ٣ أشهر</li><li>بلا لهب وبلا أسلاك</li><li>يشمل عيدان روطان طبيعية</li></ul>",
+    "material": "زجاج وعيدان روطان",
+    "search_keywords": "معطر عيدان مسك أبيض عطر منزل",
+    "seo_title": "معطّر عيدان أبيض مسك ٢٠٠ مل | البحار للمنزل والمعيشة",
+    "seo_description": "عطر بلا لهب يدوم حتى ثلاثة أشهر."
+   },
+   "image_prompt": "studio product photo of a reed diffuser in a frosted glass bottle with natural rattan reeds, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a reed diffuser in a frosted glass bottle with natural rattan reeds, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1403",
+   "category": "home-fragrance",
+   "price": "79.00",
+   "sale_price": null,
+   "weight": 0.9,
+   "featured": false,
+   "new": false,
+   "bestseller": false,
+   "en": {
+    "name": "Ceramic Bakhoor Burner with Wooden Lid",
+    "short_description": "Traditional burner with a vented lid.",
+    "description": "<p>A handsome ceramic burner for bakhoor and oud chips. The vented wooden lid carries the scent into the room while keeping ash contained.</p><ul><li>Heat-safe ceramic bowl</li><li>Vented wooden lid</li><li>Fits one charcoal disc</li></ul>",
+    "material": "Ceramic, wood",
+    "search_keywords": "bakhoor burner mabkhara incense oud ceramic",
+    "seo_title": "Ceramic Bakhoor Burner with Wooden Lid | Al Bahar Home & Liv",
+    "seo_description": "Traditional burner with a vented lid."
+   },
+   "ar": {
+    "name": "مبخرة سيراميك بغطاء خشبي",
+    "short_description": "مبخرة تقليدية بغطاء مفتوح للتهوية.",
+    "description": "<p>مبخرة سيراميك أنيقة للبخور ورقائق العود. الغطاء الخشبي المثقّب ينشر الرائحة في الغرفة ويحصر الرماد.</p><ul><li>وعاء سيراميك مقاوم للحرارة</li><li>غطاء خشبي مثقّب للتهوية</li><li>يتسع لقرص فحم واحد</li></ul>",
+    "material": "سيراميك وخشب",
+    "search_keywords": "مبخرة بخور عود سيراميك",
+    "seo_title": "مبخرة سيراميك بغطاء خشبي | البحار للمنزل والمعيشة",
+    "seo_description": "مبخرة تقليدية بغطاء مفتوح للتهوية."
+   },
+   "image_prompt": "studio product photo of a ceramic incense burner with a perforated wooden lid, matte sand and dark wood, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a ceramic incense burner with a perforated wooden lid, matte sand and dark wood, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1404",
+   "category": "home-fragrance",
+   "price": "29.00",
+   "sale_price": null,
+   "weight": 0.35,
+   "featured": false,
+   "new": true,
+   "bestseller": false,
+   "en": {
+    "name": "Jasmine Room Spray, 300 ml",
+    "short_description": "A light jasmine mist for a quick refresh.",
+    "description": "<p>A fine mist that freshens a room in a spritz. The jasmine scent is light and clean, and it is safe for fabrics and cushions.</p><ul><li>300 ml fine-mist spray</li><li>Light jasmine scent</li><li>Safe on fabrics</li></ul>",
+    "material": "Water-based fragrance",
+    "search_keywords": "room spray air freshener jasmine fabric spray",
+    "seo_title": "Jasmine Room Spray, 300 ml | Al Bahar Home & Living",
+    "seo_description": "A light jasmine mist for a quick refresh."
+   },
+   "ar": {
+    "name": "معطّر جو بخاخ ياسمين ٣٠٠ مل",
+    "short_description": "رذاذ ياسمين خفيف لانتعاش سريع.",
+    "description": "<p>رذاذ ناعم ينعش الغرفة بضغطة واحدة. رائحة الياسمين خفيفة ونظيفة وآمنة على الأقمشة والوسائد.</p><ul><li>بخاخ رذاذ ناعم ٣٠٠ مل</li><li>رائحة ياسمين خفيفة</li><li>آمن على الأقمشة</li></ul>",
+    "material": "عطر مائي",
+    "search_keywords": "معطر جو بخاخ ياسمين أقمشة",
+    "seo_title": "معطّر جو بخاخ ياسمين ٣٠٠ مل | البحار للمنزل والمعيشة",
+    "seo_description": "رذاذ ياسمين خفيف لانتعاش سريع."
+   },
+   "image_prompt": "studio product photo of a white and gold room spray bottle with a fine mist nozzle, jasmine flowers beside it, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a white and gold room spray bottle with a fine mist nozzle, jasmine flowers beside it, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1405",
+   "category": "home-fragrance",
+   "price": "99.00",
+   "sale_price": null,
+   "weight": 0.8,
+   "featured": false,
+   "new": false,
+   "bestseller": false,
+   "en": {
+    "name": "Ultrasonic Aroma Diffuser, 300 ml",
+    "short_description": "Cool mist, soft light and auto shut-off.",
+    "description": "<p>Add water and a few drops of essential oil, and the diffuser fills the room with a cool mist. A soft night light and an auto shut-off make it safe to leave on in the bedroom.</p><ul><li>300 ml tank, up to 8 hours</li><li>Warm night light</li><li>Auto shut-off when empty</li></ul>",
+    "material": "ABS plastic, wood-effect finish",
+    "search_keywords": "aroma diffuser humidifier essential oil ultrasonic",
+    "seo_title": "Ultrasonic Aroma Diffuser, 300 ml | Al Bahar Home & Living",
+    "seo_description": "Cool mist, soft light and auto shut-off."
+   },
+   "ar": {
+    "name": "موزّع عطري بالموجات فوق الصوتية ٣٠٠ مل",
+    "short_description": "رذاذ بارد وإضاءة هادئة وإيقاف تلقائي.",
+    "description": "<p>أضف الماء وقطرات من الزيت العطري ليملأ الموزّع الغرفة برذاذ بارد. إضاءة ليلية هادئة وإيقاف تلقائي يجعلانه آمناً في غرفة النوم.</p><ul><li>خزان ٣٠٠ مل حتى ٨ ساعات</li><li>إضاءة ليلية دافئة</li><li>إيقاف تلقائي عند فراغ الماء</li></ul>",
+    "material": "بلاستيك ABS بلمسة خشبية",
+    "search_keywords": "موزع عطري مرطب جو زيوت عطرية",
+    "seo_title": "موزّع عطري بالموجات فوق الصوتية ٣٠٠ مل | البحار للمنزل والمع",
+    "seo_description": "رذاذ بارد وإضاءة هادئة وإيقاف تلقائي."
+   },
+   "image_prompt": "studio product photo of an ultrasonic aroma diffuser with a wood-effect base releasing a soft mist, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, an ultrasonic aroma diffuser with a wood-effect base releasing a soft mist, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1501",
+   "category": "bedding-linens",
+   "price": "159.00",
+   "sale_price": null,
+   "weight": 2.2,
+   "featured": true,
+   "new": false,
+   "bestseller": false,
+   "en": {
+    "name": "Cotton Bedsheet Set, Queen, 4 Pieces",
+    "short_description": "Fitted sheet, flat sheet and two pillowcases in soft cotton.",
+    "description": "<p>Crisp, breathable cotton percale that keeps you cool in the Gulf summer. Deep pockets hold the fitted sheet on mattresses up to 30 cm.</p><ul><li>Queen size, 4 pieces</li><li>200 thread count cotton</li><li>Fits mattresses up to 30 cm deep</li></ul>",
+    "material": "100% cotton percale",
+    "search_keywords": "bed sheets set queen cotton bedding pillowcase fitted sheet",
+    "seo_title": "Cotton Bedsheet Set, Queen, 4 Pieces | Al Bahar Home & Livin",
+    "seo_description": "Fitted sheet, flat sheet and two pillowcases in soft cotton."
+   },
+   "ar": {
+    "name": "طقم شراشف قطن مقاس كوين ٤ قطع",
+    "short_description": "شرشف مطاطي وشرشف مسطح وكيسا وسادة من القطن الناعم.",
+    "description": "<p>قطن بيركال منعش يحافظ على برودتك في صيف الخليج. الجيوب العميقة تثبّت الشرشف على مراتب بسماكة حتى ٣٠ سم.</p><ul><li>مقاس كوين ٤ قطع</li><li>قطن بكثافة ٢٠٠ خيط</li><li>يناسب مراتب بعمق حتى ٣٠ سم</li></ul>",
+    "material": "قطن بيركال ١٠٠٪",
+    "search_keywords": "شراشف سرير طقم قطن كوين",
+    "seo_title": "طقم شراشف قطن مقاس كوين ٤ قطع | البحار للمنزل والمعيشة",
+    "seo_description": "شرشف مطاطي وشرشف مسطح وكيسا وسادة من القطن الناعم."
+   },
+   "image_prompt": "studio product photo of a neatly folded queen cotton bedsheet set in soft sand and white, with a pillowcase on top, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a neatly folded queen cotton bedsheet set in soft sand and white, with a pillowcase on top, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1502",
+   "category": "bedding-linens",
+   "price": "189.00",
+   "sale_price": null,
+   "weight": 2.4,
+   "featured": false,
+   "new": false,
+   "bestseller": false,
+   "en": {
+    "name": "Microfibre Duvet, Queen, 200 GSM",
+    "short_description": "Light, warm and machine washable.",
+    "description": "<p>A soft hollow-fibre duvet that is just right for air-conditioned rooms. The box-stitched design keeps the filling evenly spread.</p><ul><li>Queen size, 200 GSM</li><li>Box-stitched, filling stays put</li><li>Machine washable</li></ul>",
+    "material": "Microfibre cover, hollow-fibre fill",
+    "search_keywords": "duvet comforter quilt queen bedding",
+    "seo_title": "Microfibre Duvet, Queen, 200 GSM | Al Bahar Home & Living",
+    "seo_description": "Light, warm and machine washable."
+   },
+   "ar": {
+    "name": "لحاف ميكروفايبر مقاس كوين ٢٠٠ غرام",
+    "short_description": "خفيف ودافئ وقابل للغسل في الغسالة.",
+    "description": "<p>لحاف ناعم بحشوة ألياف مجوّفة مناسب للغرف المكيّفة. التطريز المربّع يبقي الحشوة موزّعة بالتساوي.</p><ul><li>مقاس كوين ٢٠٠ غرام</li><li>تطريز مربّع يثبّت الحشوة</li><li>قابل للغسل في الغسالة</li></ul>",
+    "material": "غطاء ميكروفايبر وحشوة ألياف مجوّفة",
+    "search_keywords": "لحاف لحاف سرير كوين مفروشات",
+    "seo_title": "لحاف ميكروفايبر مقاس كوين ٢٠٠ غرام | البحار للمنزل والمعيشة",
+    "seo_description": "خفيف ودافئ وقابل للغسل في الغسالة."
+   },
+   "image_prompt": "studio product photo of a thick white microfibre duvet folded in thirds with box stitching visible, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a thick white microfibre duvet folded in thirds with box stitching visible, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1503",
+   "category": "bedding-linens",
+   "price": "99.00",
+   "sale_price": null,
+   "weight": 1.8,
+   "featured": false,
+   "new": false,
+   "bestseller": true,
+   "en": {
+    "name": "Hotel-Style Pillows, Pack of 2",
+    "short_description": "Plump, supportive pillows with a cotton cover.",
+    "description": "<p>Two pillows with a soft-but-supportive fill and a smooth cotton cover. They hold their shape night after night and can be washed at home.</p><ul><li>Pack of 2</li><li>Soft-medium support</li><li>Cotton cover, machine washable</li></ul>",
+    "material": "Cotton cover, polyester fibre fill",
+    "search_keywords": "pillows bed pillow hotel pillow pack sleep",
+    "seo_title": "Hotel-Style Pillows, Pack of 2 | Al Bahar Home & Living",
+    "seo_description": "Plump, supportive pillows with a cotton cover."
+   },
+   "ar": {
+    "name": "وسائد بأسلوب الفنادق عدد ٢",
+    "short_description": "وسادتان ممتلئتان بدعم مريح وغطاء قطني.",
+    "description": "<p>وسادتان بحشوة ناعمة ومساندة وغطاء قطني ناعم. تحتفظان بشكلهما ليلة بعد ليلة وتُغسلان في المنزل.</p><ul><li>عبوة من وسادتين</li><li>دعم ناعم إلى متوسط</li><li>غطاء قطني قابل للغسل</li></ul>",
+    "material": "غطاء قطن وحشوة ألياف",
+    "search_keywords": "وسائد نوم سرير فندقية",
+    "seo_title": "وسائد بأسلوب الفنادق عدد ٢ | البحار للمنزل والمعيشة",
+    "seo_description": "وسادتان ممتلئتان بدعم مريح وغطاء قطني."
+   },
+   "image_prompt": "studio product photo of two plump white hotel style pillows stacked at a slight angle, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, two plump white hotel style pillows stacked at a slight angle, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1504",
+   "category": "bedding-linens",
+   "price": "79.00",
+   "sale_price": null,
+   "weight": 0.9,
+   "featured": false,
+   "new": false,
+   "bestseller": false,
+   "en": {
+    "name": "Waterproof Mattress Protector, Queen",
+    "short_description": "Breathable and quiet, protects against spills.",
+    "description": "<p>A fitted protector with a breathable waterproof layer that does not crackle. It keeps the mattress clean and is fully machine washable.</p><ul><li>Waterproof but breathable</li><li>Elastic skirt fits up to 35 cm</li><li>Machine washable</li></ul>",
+    "material": "Cotton terry top, TPU backing",
+    "search_keywords": "mattress protector waterproof queen bed cover",
+    "seo_title": "Waterproof Mattress Protector, Queen | Al Bahar Home & Livin",
+    "seo_description": "Breathable and quiet, protects against spills."
+   },
+   "ar": {
+    "name": "واقي مرتبة مقاوم للماء مقاس كوين",
+    "short_description": "يسمح بالتهوية وهادئ ويحمي من السوائل.",
+    "description": "<p>واقي بطبقة مقاومة للماء تسمح بمرور الهواء ولا تُصدر خشخشة. يحافظ على المرتبة نظيفة وقابل للغسل بالكامل.</p><ul><li>مقاوم للماء مع تهوية</li><li>حواف مطاطية تناسب حتى ٣٥ سم</li><li>قابل للغسل في الغسالة</li></ul>",
+    "material": "وجه قطني وطبقة TPU",
+    "search_keywords": "واقي مرتبة مقاوم للماء سرير كوين",
+    "seo_title": "واقي مرتبة مقاوم للماء مقاس كوين | البحار للمنزل والمعيشة",
+    "seo_description": "يسمح بالتهوية وهادئ ويحمي من السوائل."
+   },
+   "image_prompt": "studio product photo of a white quilted waterproof mattress protector partly folded over a mattress corner, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a white quilted waterproof mattress protector partly folded over a mattress corner, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1505",
+   "category": "bedding-linens",
+   "price": "69.00",
+   "sale_price": null,
+   "weight": 0.8,
+   "featured": false,
+   "new": true,
+   "bestseller": false,
+   "en": {
+    "name": "Fleece Throw Blanket, 150 × 200 cm",
+    "short_description": "Soft, warm and light for the sofa.",
+    "description": "<p>A plush fleece throw for cool evenings and long films. Lightweight enough to travel with, soft enough to want to keep.</p><ul><li>150 × 200 cm</li><li>Plush double-sided fleece</li><li>Machine washable</li></ul>",
+    "material": "Polyester fleece",
+    "search_keywords": "throw blanket fleece sofa cosy warm",
+    "seo_title": "Fleece Throw Blanket, 150 × 200 cm | Al Bahar Home & Living",
+    "seo_description": "Soft, warm and light for the sofa."
+   },
+   "ar": {
+    "name": "بطانية صوف ناعم للأريكة ١٥٠ × ٢٠٠ سم",
+    "short_description": "ناعمة ودافئة وخفيفة.",
+    "description": "<p>بطانية فليس فاخرة لأمسيات المكيّف وأفلام السهرة. خفيفة تسهل حملها وناعمة تغريك باقتنائها.</p><ul><li>١٥٠ × ٢٠٠ سم</li><li>فليس مزدوج الوجه</li><li>قابلة للغسل في الغسالة</li></ul>",
+    "material": "فليس بوليستر",
+    "search_keywords": "بطانية للأريكة ناعمة دافئة",
+    "seo_title": "بطانية صوف ناعم للأريكة ١٥٠ × ٢٠٠ سم | البحار للمنزل والمعيش",
+    "seo_description": "ناعمة ودافئة وخفيفة."
+   },
+   "image_prompt": "studio product photo of a soft sand coloured fleece throw blanket folded loosely over a minimal stool, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a soft sand coloured fleece throw blanket folded loosely over a minimal stool, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1601",
+   "category": "decor-living",
+   "price": "59.00",
+   "sale_price": null,
+   "weight": 0.7,
+   "featured": true,
+   "new": false,
+   "bestseller": false,
+   "en": {
+    "name": "Linen-Look Cushion Covers, Set of 4, 45 × 45 cm",
+    "short_description": "Four textured covers with hidden zips.",
+    "description": "<p>Refresh the sofa in minutes. The woven linen-look fabric adds texture, and the hidden zip makes the covers easy to remove and wash.</p><ul><li>Set of 4, 45 × 45 cm</li><li>Hidden zip</li><li>Machine washable</li></ul>",
+    "material": "Polyester linen-look fabric",
+    "search_keywords": "cushion covers pillow cases sofa linen decor",
+    "seo_title": "Linen-Look Cushion Covers, Set of 4, 45 × 45 cm | Al Bahar H",
+    "seo_description": "Four textured covers with hidden zips."
+   },
+   "ar": {
+    "name": "أغطية وسائد بمظهر الكتان طقم ٤ قطع ٤٥ × ٤٥ سم",
+    "short_description": "أربعة أغطية بنسيج بارز وسحّاب مخفي.",
+    "description": "<p>جدّد الأريكة بدقائق. النسيج بمظهر الكتان يضيف ملمساً مميزاً والسحّاب المخفي يسهّل الخلع والغسل.</p><ul><li>طقم ٤ قطع ٤٥ × ٤٥ سم</li><li>سحّاب مخفي</li><li>قابلة للغسل في الغسالة</li></ul>",
+    "material": "نسيج بوليستر بمظهر الكتان",
+    "search_keywords": "أغطية وسائد كنب ديكور كتان",
+    "seo_title": "أغطية وسائد بمظهر الكتان طقم ٤ قطع ٤٥ × ٤٥ سم | البحار للمنز",
+    "seo_description": "أربعة أغطية بنسيج بارز وسحّاب مخفي."
+   },
+   "image_prompt": "studio product photo of four linen-look cushions in sand, white, grey and olive arranged on a minimal bench, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, four linen-look cushions in sand, white, grey and olive arranged on a minimal bench, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1602",
+   "category": "decor-living",
+   "price": "69.00",
+   "sale_price": null,
+   "weight": 1.3,
+   "featured": false,
+   "new": false,
+   "bestseller": false,
+   "en": {
+    "name": "Ceramic Vase, Matte Sand, 25 cm",
+    "short_description": "A tall matte vase with a soft organic shape.",
+    "description": "<p>A hand-finished ceramic vase that looks as good empty as it does with a few dried stems. The matte glaze catches light softly.</p><ul><li>25 cm tall</li><li>Matte hand-finished glaze</li><li>Waterproof inside</li></ul>",
+    "material": "Glazed ceramic",
+    "search_keywords": "vase ceramic decor flowers matte sand",
+    "seo_title": "Ceramic Vase, Matte Sand, 25 cm | Al Bahar Home & Living",
+    "seo_description": "A tall matte vase with a soft organic shape."
+   },
+   "ar": {
+    "name": "مزهرية سيراميك رملية مطفية ٢٥ سم",
+    "short_description": "مزهرية طويلة مطفية بشكل عضوي ناعم.",
+    "description": "<p>مزهرية سيراميك بلمسة يدوية تبدو جميلة فارغة كما تبدو مع بضعة سيقان مجففة. الطلاء المطفي يعكس الضوء بنعومة.</p><ul><li>ارتفاع ٢٥ سم</li><li>طلاء مطفي بلمسة يدوية</li><li>مقاومة للماء من الداخل</li></ul>",
+    "material": "سيراميك مطلي",
+    "search_keywords": "مزهرية سيراميك ديكور ورد رملي",
+    "seo_title": "مزهرية سيراميك رملية مطفية ٢٥ سم | البحار للمنزل والمعيشة",
+    "seo_description": "مزهرية طويلة مطفية بشكل عضوي ناعم."
+   },
+   "image_prompt": "studio product photo of a tall matte sand coloured ceramic vase with a few dried pampas stems, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a tall matte sand coloured ceramic vase with a few dried pampas stems, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1603",
+   "category": "decor-living",
+   "price": "149.00",
+   "sale_price": null,
+   "weight": 2.8,
+   "featured": false,
+   "new": false,
+   "bestseller": true,
+   "en": {
+    "name": "Round Wall Mirror, Brass Frame, 60 cm",
+    "short_description": "A slim brass-finish frame, ready to hang.",
+    "description": "<p>A round mirror that opens up a hallway, a bedroom or a living room. The thin brass-finish frame is light and modern, and the mirror hangs from a ready-fitted hook.</p><ul><li>60 cm diameter</li><li>Brass-finish metal frame</li><li>Ready-fitted hanging hook</li></ul>",
+    "material": "Mirror glass, metal frame",
+    "search_keywords": "wall mirror round brass frame decor hallway",
+    "seo_title": "Round Wall Mirror, Brass Frame, 60 cm | Al Bahar Home & Livi",
+    "seo_description": "A slim brass-finish frame, ready to hang."
+   },
+   "ar": {
+    "name": "مرآة حائط دائرية بإطار نحاسي ٦٠ سم",
+    "short_description": "إطار نحاسي رفيع جاهز للتعليق.",
+    "description": "<p>مرآة دائرية توسّع المدخل أو غرفة النوم أو المعيشة. الإطار الرفيع بلمسة نحاسية خفيف وعصري والمرآة تُعلَّق بخطاف جاهز.</p><ul><li>قطر ٦٠ سم</li><li>إطار معدني بلمسة نحاسية</li><li>خطاف تعليق جاهز</li></ul>",
+    "material": "زجاج مرآة وإطار معدني",
+    "search_keywords": "مرآة حائط دائرية إطار نحاسي ديكور",
+    "seo_title": "مرآة حائط دائرية بإطار نحاسي ٦٠ سم | البحار للمنزل والمعيشة",
+    "seo_description": "إطار نحاسي رفيع جاهز للتعليق."
+   },
+   "image_prompt": "studio product photo of a round wall mirror with a thin brushed brass frame leaning on a light wall, soft shadow, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a round wall mirror with a thin brushed brass frame leaning on a light wall, soft shadow, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1604",
+   "category": "decor-living",
+   "price": "179.00",
+   "sale_price": null,
+   "weight": 4.5,
+   "featured": false,
+   "new": false,
+   "bestseller": false,
+   "en": {
+    "name": "Woven Jute Rug, 120 × 170 cm",
+    "short_description": "A natural jute rug with a soft, flat weave.",
+    "description": "<p>A natural-fibre rug that adds warmth and texture to a living room or bedroom. The flat weave is easy to vacuum and sits neatly under furniture.</p><ul><li>120 × 170 cm</li><li>Natural jute fibre</li><li>Flat weave, easy to vacuum</li></ul>",
+    "material": "Jute",
+    "search_keywords": "rug jute carpet natural living room bedroom",
+    "seo_title": "Woven Jute Rug, 120 × 170 cm | Al Bahar Home & Living",
+    "seo_description": "A natural jute rug with a soft, flat weave."
+   },
+   "ar": {
+    "name": "سجادة جوت منسوجة ١٢٠ × ١٧٠ سم",
+    "short_description": "سجادة جوت طبيعية بنسج مسطح ناعم.",
+    "description": "<p>سجادة من الألياف الطبيعية تضيف الدفء والملمس لغرفة المعيشة أو النوم. النسج المسطح سهل التنظيف بالمكنسة ويستقر تحت الأثاث.</p><ul><li>١٢٠ × ١٧٠ سم</li><li>ألياف جوت طبيعية</li><li>نسج مسطح سهل التنظيف</li></ul>",
+    "material": "جوت",
+    "search_keywords": "سجادة جوت سجاد طبيعي غرفة معيشة",
+    "seo_title": "سجادة جوت منسوجة ١٢٠ × ١٧٠ سم | البحار للمنزل والمعيشة",
+    "seo_description": "سجادة جوت طبيعية بنسج مسطح ناعم."
+   },
+   "image_prompt": "studio product photo of a natural woven jute rug seen from above at a slight angle, with one corner gently curled, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, a natural woven jute rug seen from above at a slight angle, with one corner gently curled, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  },
+  {
+   "sku": "ABH-1605",
+   "category": "decor-living",
+   "price": "129.00",
+   "sale_price": null,
+   "weight": 1.6,
+   "featured": false,
+   "new": true,
+   "bestseller": false,
+   "en": {
+    "name": "Canvas Wall Art Set, Sea Waves, 3 Pieces",
+    "short_description": "Three calm sea-wave canvases in sand and blue.",
+    "description": "<p>Three framed canvases that hang as a set. Soft layers of sand and sea blue bring a quiet coastal feel to a living room or bedroom.</p><ul><li>Set of 3 canvases</li><li>Ready to hang</li><li>Wooden frames</li></ul>",
+    "material": "Printed canvas, wooden frame",
+    "search_keywords": "wall art canvas set sea waves coastal decor frames",
+    "seo_title": "Canvas Wall Art Set, Sea Waves, 3 Pieces | Al Bahar Home & L",
+    "seo_description": "Three calm sea-wave canvases in sand and blue."
+   },
+   "ar": {
+    "name": "طقم لوحات كانفاس أمواج البحر ٣ قطع",
+    "short_description": "ثلاث لوحات هادئة بأمواج البحر بدرجات الرمل والأزرق.",
+    "description": "<p>ثلاث لوحات بإطار تُعلَّق كطقم. تدرجات الرمل وأزرق البحر تضيف إحساساً ساحلياً هادئاً لغرفة المعيشة أو النوم.</p><ul><li>طقم من ٣ لوحات</li><li>جاهزة للتعليق</li><li>إطارات خشبية</li></ul>",
+    "material": "كانفاس مطبوع وإطار خشبي",
+    "search_keywords": "لوحات حائط كانفاس أمواج بحر ديكور ساحلي",
+    "seo_title": "طقم لوحات كانفاس أمواج البحر ٣ قطع | البحار للمنزل والمعيشة",
+    "seo_description": "ثلاث لوحات هادئة بأمواج البحر بدرجات الرمل والأزرق."
+   },
+   "image_prompt": "studio product photo of three framed abstract sea wave canvas prints in sand and soft blue hung in a row on a light wall, light seamless background, no text, no logo, no watermark, photorealistic, sharp focus",
+   "lifestyle_prompt": "lifestyle photo, three framed abstract sea wave canvas prints in sand and soft blue hung in a row on a light wall, styled in a bright modern Gulf home, natural daylight, no text, no logo"
+  }
+ ]
+}
