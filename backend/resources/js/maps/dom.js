@@ -90,7 +90,7 @@ export function svgFrom(markup) {
 
 /* ───────────── Language, numbers, time ───────────── */
 
-export const localeFor = (lang) => (lang === 'ar' ? 'ar-u-nu-latn' : 'en-GB');
+const localeFor = (lang) => (lang === 'ar' ? 'ar-u-nu-latn' : 'en-GB');
 
 export function numberFormat(lang, opts) {
     return new Intl.NumberFormat(localeFor(lang), opts);

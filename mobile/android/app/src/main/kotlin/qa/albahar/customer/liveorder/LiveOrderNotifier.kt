@@ -72,6 +72,11 @@ internal object LiveOrderNotifier {
         }
         ensureChannel(app, nm)
         if (!LiveOrderPermissions.areEnabled(app)) return Outcome.DISABLED
+        // A re-read that says what the card already says only moves the version on (so older updates stay refused).
+        if (prev != null && !order.force && order.signature == prev.snapshot.signature && isShowing(nm, order.orderId)) {
+            store.put(order.orderId, prev.copy(snapshot = order.snapshot(), touchedMs = now))
+            return Outcome.SKIPPED
+        }
 
         val expires = now + if (order.isFinal) FINAL_TIMEOUT_MS else ACTIVE_TIMEOUT_MS
         nm.notify(TAG, notificationId(order.orderId), build(app, order, now, expires))
@@ -108,6 +113,14 @@ internal object LiveOrderNotifier {
         val app = context.applicationContext
         LiveOrderStore(app).markDismissed(orderId, System.currentTimeMillis())
         syncSummary(app, manager(app))
+    }
+
+    private fun isShowing(nm: NotificationManager, orderId: String): Boolean = try {
+        val id = notificationId(orderId)
+        nm.activeNotifications.any { it.tag == TAG && it.id == id }
+    } catch (e: Exception) {
+        Log.w(LOG_TAG, "Could not list notifications", e)
+        false
     }
 
     private fun manager(context: Context): NotificationManager =

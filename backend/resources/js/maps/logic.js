@@ -3,14 +3,14 @@
 // detection, the out-of-order guard, heading interpolation, grid clustering, polyline thinning, stop detection and playback.
 
 export const STALE_MS = 90_000;
-export const MOVING_KMH = 2;
-export const MOVED_RECENT_MS = 20_000;
-export const MOVED_MIN_M = 10;
-export const SNAP_DISTANCE_M = 1500;
-export const TRAIL_POINTS = 40;
-export const DEFAULT_CENTER = Object.freeze({ lat: 25.2854, lng: 51.531 });
-export const OSM_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-export const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+const MOVING_KMH = 2;
+const MOVED_RECENT_MS = 20_000;
+const MOVED_MIN_M = 10;
+const SNAP_DISTANCE_M = 1500;
+const TRAIL_POINTS = 40;
+const DEFAULT_CENTER = Object.freeze({ lat: 25.2854, lng: 51.531 });
+const OSM_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 const EARTH_M = 6371008.8;
 const rad = (d) => (d * Math.PI) / 180;
@@ -30,7 +30,7 @@ export const toMs = (v) => {
     return Number.isNaN(t) ? null : t;
 };
 
-export const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
 export const validPoint = (lat, lng) => lat !== null && lng !== null && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && !(lat === 0 && lng === 0);
 

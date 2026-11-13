@@ -14,7 +14,7 @@ const VEHICLE = `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="tr
 const DROP = 'M16 1.5C8.6 1.5 2.5 7.4 2.5 14.7c0 9.7 13.5 25.6 13.5 25.6S29.5 24.4 29.5 14.7C29.5 7.4 23.4 1.5 16 1.5z';
 
 /** The DOM of one driver marker. Painted later with paintDriver(). */
-export function buildDriverEl(initialsText) {
+function buildDriverEl(initialsText) {
     return h('div', { class: 'abm-dm' },
         h('span', { class: 'abm-dm__pulse' }),
         h('span', { class: 'abm-dm__beam' }),
@@ -46,7 +46,22 @@ export function paintDriver(el, s) {
     if (wrap && s.label && wrap.getAttribute('aria-label') !== s.label) wrap.setAttribute('aria-label', s.label);
 }
 
-export function driverIcon(el) {
+/**
+ * Runs `fn` when a marker is clicked or, for keyboard users, when Enter or Space is pressed on it. Leaflet 1.9 only turns Enter into a
+ * click for popups, so a focused marker would otherwise do nothing.
+ */
+export function onActivate(marker, fn) {
+    marker.on('click', fn);
+    marker.on('keypress', (e) => {
+        const k = e.originalEvent;
+        if (k?.key === 'Enter' || k?.key === ' ') {
+            k.preventDefault();
+            fn();
+        }
+    });
+}
+
+function driverIcon(el) {
     return L.divIcon({ className: 'abm-icon', html: el, iconSize: [44, 44], iconAnchor: [22, 22] });
 }
 
@@ -58,7 +73,7 @@ export class DriverMarker {
         this.pos = { lat: d.lat, lng: d.lng, heading: d.heading };
         this.tween = new Tween(this.pos);
         this.marker = L.marker([d.lat, d.lng], { icon: driverIcon(this.el), keyboard: true, riseOnHover: true });
-        this.marker.on('click', () => onClick?.(this.id));
+        if (onClick) onActivate(this.marker, () => onClick(this.id));
         this.marker.on('mouseover', () => onHover?.(this.id, true));
         this.marker.on('mouseout', () => onHover?.(this.id, false));
         this.marker.bindTooltip(() => tooltip(this.id), { direction: 'top', offset: [0, -24], opacity: 1, className: 'abm-tip' });

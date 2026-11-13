@@ -114,6 +114,13 @@ void main() {
       expect(calls.map((c) => c.method).toSet(), {'permissionStatus', 'requestPermission'});
     });
 
+    test('asks whether notifications are on, and says yes where there is nothing of ours to switch off', () async {
+      answer((_) async => false);
+      expect(await MethodChannelLiveOrderPlatform(android: true).areEnabled(), isFalse);
+      expect(calls.single.method, 'areEnabled');
+      expect(await MethodChannelLiveOrderPlatform(android: false).areEnabled(), isTrue);
+    });
+
     test('opens the system settings', () async {
       answer((_) async => true);
       expect(await MethodChannelLiveOrderPlatform(android: true).openSettings(), isTrue);

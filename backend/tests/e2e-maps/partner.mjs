@@ -50,6 +50,16 @@ const browser = await chromium.launch();
         await page.click('.abm-pb__play');
         check('speed buttons present', (await page.locator('.abm-seg__b').count()) === 3);
     }
+    // A day without trips: the empty state, with the hint to pick another date.
+    await page.click('#m-history');
+    await page.waitForSelector('#map-host .abm-pb');
+    await page.click('#prev');
+    await page.waitForSelector('#map-host .abm-empty:not([hidden])', { timeout: 15000 });
+    await page.waitForTimeout(500);
+    await shot(page, 'partner-desktop-history-empty');
+    check('history of an empty day says so', (await page.locator('.abm-empty').innerText()).includes('No routes recorded'));
+    await page.click('#today');
+    await page.waitForSelector('#map-host .abm-pb', { timeout: 15000 });
     // The order drawer carries the same route card, with the server's stops and totals.
     await page.click('#m-live');
     const number = state.orders?.[0]?.number;
@@ -74,6 +84,19 @@ const browser = await chromium.launch();
     await page.waitForTimeout(600);
     await shot(page, 'partner-desktop-ar-history');
     await page.click('#lang');
+    console.log('console:', log.join(' | ') || 'clean');
+    await ctx.close();
+}
+
+// Dark theme (follows the system)
+{
+    const { ctx, page, log } = await open(browser, { width: 1440, height: 900 }, { ctx: { colorScheme: 'dark' } });
+    await shot(page, 'partner-desktop-dark');
+    await page.click('#m-history');
+    await page.waitForSelector('#map-host .abm-pb');
+    await page.waitForTimeout(500);
+    await shot(page, 'partner-desktop-dark-history');
+    check('dark: map UI uses the dark palette', await page.evaluate(() => getComputedStyle(document.querySelector('.abm')).getPropertyValue('--abm-panel').trim() === '#1d2029'));
     console.log('console:', log.join(' | ') || 'clean');
     await ctx.close();
 }

@@ -12,8 +12,8 @@ import io.flutter.plugin.common.MethodChannel
 /**
  * The Dart side of the live order notification (`lib/core/live_order/live_order_platform.dart`):
  *
- *  - `capabilities` -> `{native: true, sdk: int}`
- *  - `show(map)` -> `posted | skipped | dismissed | disabled | invalid`
+ *  - `show(map)` / `update(map)` (the same: a card is updated in place by its order id)
+ *    -> `posted | skipped | dismissed | disabled | invalid`
  *  - `cancel(orderId)`, `cancelAll()`
  *  - `areEnabled()` -> bool
  *  - `permissionStatus()` / `requestPermission()` -> `granted | denied | blocked`
@@ -39,8 +39,7 @@ internal class LiveOrderChannel(private val activity: Activity) : MethodChannel.
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         try {
             when (call.method) {
-                "capabilities" -> result.success(mapOf("native" to true, "sdk" to Build.VERSION.SDK_INT))
-                "show" -> {
+                "show", "update" -> {
                     val order = LiveOrder.fromMap(stringKeyed(call.arguments))
                     result.success(if (order == null) "invalid" else LiveOrderNotifier.show(activity, order).wire)
                 }

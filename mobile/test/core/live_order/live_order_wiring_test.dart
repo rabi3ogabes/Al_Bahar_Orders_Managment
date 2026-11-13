@@ -1,8 +1,8 @@
 import 'dart:async';
+import 'dart:ui' show Locale;
 
 import 'package:albahar_customer/core/live_order/live_order.dart';
 import 'package:albahar_customer/core/live_order/live_order_controller.dart';
-import 'package:albahar_customer/core/live_order/live_order_platform.dart';
 import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/push/push_service.dart';
 import 'package:albahar_customer/core/realtime/pusher_client.dart';
@@ -10,8 +10,6 @@ import 'package:albahar_customer/core/storage/token_storage.dart';
 import 'package:albahar_customer/features/auctions/data/auction_repository.dart';
 import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-
-import 'dart:ui' show Locale;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -101,7 +99,7 @@ void main() {
 
       // A realtime event reaches the card.
       pusher.streams['private-users.u1']!.add(
-        PusherEvent(
+        const PusherEvent(
           channel: 'private-users.u1',
           event: 'order.updated',
           data: {'order_id': 'o1', 'number': '1', 'status': 'processing'},

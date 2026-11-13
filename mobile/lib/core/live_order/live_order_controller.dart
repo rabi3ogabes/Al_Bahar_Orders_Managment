@@ -288,6 +288,8 @@ class LiveOrderController {
       await _forget(next.orderId);
       return false;
     }
+    // A re-read that says what the card already says only moves the version on (so older updates stay refused).
+    final unchanged = prev != null && next.signature == prev.signature;
     _orders[next.orderId] = next;
     if (next.isFinal) {
       _finishedAt[next.orderId] = _now();
@@ -297,7 +299,7 @@ class LiveOrderController {
     }
     _purgeFinished();
     await prefs.setLiveOrders(Map.of(_tracked));
-    await _render(next);
+    if (!unchanged) await _render(next);
     _updateTimer();
     return true;
   });

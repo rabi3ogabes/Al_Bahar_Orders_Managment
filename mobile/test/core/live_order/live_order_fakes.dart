@@ -48,6 +48,9 @@ class FakePlatform implements LiveOrderPlatform {
   Future<void> cancelAll() async => cancelAllCalls++;
 
   @override
+  Future<bool> areEnabled() async => state == LiveOrderPermission.granted;
+
+  @override
   Future<LiveOrderPermission> permission() async => state;
 
   @override

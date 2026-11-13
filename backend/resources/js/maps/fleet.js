@@ -3,7 +3,7 @@
 // fallback. The host (admin Livewire page / partner page) only feeds it data and says how positions arrive.
 
 import { L, claimHost, createBaseMap } from './base.js';
-import { DriverMarker, Mover, clusterIcon, paintDriver, pinIcon } from './markers.js';
+import { DriverMarker, Mover, clusterIcon, onActivate, paintDriver, pinIcon } from './markers.js';
 import { agoText, clockText, h, lazy, numberFormat } from './dom.js';
 import { fmt } from './text.js';
 import {
@@ -249,7 +249,7 @@ export function createFleetMap(o) {
             if (!cm) {
                 const marker = L.marker([c.lat, c.lng], { icon: clusterIcon(c.count, c.status), keyboard: true });
                 cm = { marker, count: c.count, status: c.status, ids: c.ids };
-                marker.on('click', () => zoomToIds(cm.ids));
+                onActivate(marker, () => zoomToIds(cm.ids));
                 clusterLayer.addLayer(marker);
                 clusters.set(c.key, cm);
             } else {
@@ -317,7 +317,7 @@ export function createFleetMap(o) {
             let marker = branchMarkers.get(key);
             if (!marker) {
                 marker = L.marker([lat, lng], { icon: pinIcon('branch', 'store'), keyboard: true, riseOnHover: true });
-                marker.on('click', () => flyTo({ lat, lng }, 15));
+                onActivate(marker, () => flyTo({ lat, lng }, 15));
                 marker.bindTooltip(String(b.name ?? ''), { direction: 'top', offset: [0, -6], opacity: 1, className: 'abm-tip' });
                 branchMarkers.set(key, marker);
             } else {

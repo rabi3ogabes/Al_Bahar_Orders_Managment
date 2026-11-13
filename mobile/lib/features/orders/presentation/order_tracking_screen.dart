@@ -6,6 +6,7 @@ import 'package:albahar_customer/core/map/driver_markers_layer.dart';
 import 'package:albahar_customer/core/map/map_geo.dart';
 import 'package:albahar_customer/core/map/map_layers.dart';
 import 'package:albahar_customer/core/map/map_markers.dart';
+import 'package:albahar_customer/core/map/map_nav.dart';
 import 'package:albahar_customer/core/map/map_providers.dart';
 import 'package:albahar_customer/core/map/measure_size.dart';
 import 'package:albahar_customer/core/providers.dart';
@@ -24,7 +25,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 /// How often the screen asks again while the app is in front (the live push does the real work; this covers a dropped
 /// socket and keeps the arrival estimate fresh).
@@ -203,7 +203,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> with 
     final l10n = context.l10n;
     var ok = false;
     try {
-      ok = await launchUrl(Uri(scheme: 'tel', path: phone));
+      ok = await ref.read(navigationLauncherProvider).open(Uri(scheme: 'tel', path: phone));
     } catch (_) {}
     if (ok || !mounted) return;
     // No phone app (tablet, simulator): hand over the number instead.

@@ -113,11 +113,14 @@ class LiveOrder {
   /// In-app location of the order (the notification opens it).
   String get location => DeepLinks.fromString(deepLink) ?? '/orders/$orderId';
 
-  /// What makes two states of the order look the same on the screen; the version is not part of it.
+  /// What makes two states of the order look the same on the screen. The version is not part of it: the server stamps
+  /// every re-read with a new one, and a re-read that says the same thing must not redraw the card.
   String get signature => [
     phase.wire,
     step,
     (effectiveSub * 20).round(),
+    title,
+    body,
     etaLabel,
     etaFrom?.millisecondsSinceEpoch,
     etaTo?.millisecondsSinceEpoch,
@@ -127,9 +130,11 @@ class LiveOrder {
   ].join('|');
 
   /// True when this state should replace [prev]. Versioned states (`seq`, then `updated_at`) are ordered by their
-  /// version; unversioned ones never move an order backwards and never reopen a finished one. Mirrors the Kotlin side.
+  /// version; unversioned ones never move an order backwards and never reopen a finished one. A finished order stays as
+  /// it first finished (a re-read would restamp the time). Mirrors the Kotlin side.
   bool supersedes(LiveOrder? prev) {
     if (prev == null) return true;
+    if (prev.isFinal && phase == prev.phase) return false;
     if (seq > 0 && prev.seq > 0) return seq > prev.seq;
     final a = updatedAt?.millisecondsSinceEpoch ?? 0;
     final b = prev.updatedAt?.millisecondsSinceEpoch ?? 0;

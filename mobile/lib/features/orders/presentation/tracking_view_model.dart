@@ -77,15 +77,13 @@ TrackingPanelModel buildTrackingPanel(
   final threshold = tracking.staleAfter ?? staleAfter ?? MapGeo.staleAfter;
   final first = tracking.driverFirstName;
   final stale = fix != null && fix.isStale(now, threshold: threshold);
-  final link = switch (stage) {
-    TrackingStage.onTheWay || TrackingStage.waitingPickup =>
-      offline
-          ? TrackingLink.offline
-          : (socket == RealtimeState.connected || (fix != null && !stale)
-                ? TrackingLink.live
-                : TrackingLink.reconnecting),
-    _ => TrackingLink.idle,
-  };
+  // The link pill talks about the live position, so it shows only while there is one to follow.
+  final following = stage == TrackingStage.onTheWay || (stage == TrackingStage.waitingPickup && fix != null);
+  final link = !following
+      ? TrackingLink.idle
+      : offline
+      ? TrackingLink.offline
+      : (socket == RealtimeState.connected || (fix != null && !stale) ? TrackingLink.live : TrackingLink.reconnecting);
   final age = fix?.age(now);
   final offlineNote = offline ? l10n.trackOffline : null;
   switch (stage) {

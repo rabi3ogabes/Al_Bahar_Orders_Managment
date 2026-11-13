@@ -71,7 +71,8 @@ class LiveOrderTexts {
     return l10n.liveOrderArrivesAt(time((to ?? from)!));
   }
 
-  /// The bold line. Finished orders say when they finished; active ones when they arrive.
+  /// The bold line. Finished orders say when they finished; active ones carry the server's headline (the arrival
+  /// window), else the window worked out here, else the order number.
   String headline(LiveOrder o, {DateTime? now}) {
     final at = o.updatedAt ?? now ?? DateTime.now();
     return switch (o.phase) {
@@ -79,7 +80,8 @@ class LiveOrderTexts {
       LiveOrderPhase.collected => l10n.liveOrderHeadlineCollected(time(at)),
       LiveOrderPhase.cancelled => l10n.liveOrderHeadlineCancelled,
       LiveOrderPhase.failed => l10n.liveOrderHeadlineFailed,
-      _ => o.etaLabel ?? etaWindow(o) ?? o.title ?? l10n.liveOrderHeadlineNumber(o.number),
+      // The server's headline already carries the arrival window ("Arrives at 6:35pm-6:55pm").
+      _ => o.title ?? o.etaLabel ?? etaWindow(o) ?? l10n.liveOrderHeadlineNumber(o.number),
     };
   }
 

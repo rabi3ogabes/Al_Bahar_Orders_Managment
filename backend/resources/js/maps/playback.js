@@ -2,10 +2,10 @@
 // timeline with play / pause, x1 x2 x4, a scrubber, start and end markers and stops with their durations. Read-only.
 
 import { L, claimHost, createBaseMap } from './base.js';
-import { DriverMarker, dotIcon, paintDriver } from './markers.js';
+import { DriverMarker, dotIcon, onActivate, paintDriver } from './markers.js';
 import { clockText, durationText, h, icon, numberFormat } from './dom.js';
 import { fmt } from './text.js';
-import { detectStops, firstName, normaliseStops, normaliseTrack, pathLengthM, playbackRate, simplify, trackAt } from './logic.js';
+import { detectStops, firstName, normaliseStops, normaliseTrack, pathLengthM, playbackRate, simplify, thin, trackAt } from './logic.js';
 
 /** Leaflet rebuilds a divIcon element every time a marker is added, so the accessible name is set on each add. */
 const labelOnAdd = (marker, label) => marker.on('add', () => marker.getElement()?.setAttribute('aria-label', label));
@@ -83,7 +83,7 @@ export function createPlayback(o) {
         const stopMs = stops.map((s, k) => {
             const m = L.marker([s.lat, s.lng], { icon: dotIcon('stop', String(k + 1)), keyboard: true, riseOnHover: true });
             m.bindTooltip(h('div', { class: 'abm-tip__b' }, h('strong', {}, `${fmt(text.stop_n, { n: nf.format(k + 1) })} · ${durationText(s.ms, text, lang)}`), h('span', {}, `${clockText(s.from, lang)} – ${clockText(s.to, lang)}`)), { direction: 'top', offset: [0, -4], className: 'abm-tip', opacity: 1 });
-            m.on('click', () => seek(s.from));
+            onActivate(m, () => seek(s.from));
             labelOnAdd(m, `${fmt(text.stop_n, { n: nf.format(k + 1) })}, ${durationText(s.ms, text, lang)}`);
             return m;
         });
@@ -153,7 +153,7 @@ export function createPlayback(o) {
 
     function fit() {
         const pts = tracks.filter((t) => t.visible).flatMap((t) => t.points.map((p) => ({ lat: p.lat, lng: p.lng })));
-        base.fit(pts.length > 300 ? pts.filter((_, i) => i % Math.ceil(pts.length / 300) === 0) : pts, { maxZoom: 16, padding: [48, 48], paddingBottomRight: [48, 200] });
+        base.fit(thin(pts, 300), { maxZoom: 16, padding: [48, 48], paddingBottomRight: [48, 200] });
     }
 
     /* ───────────── Timeline ───────────── */

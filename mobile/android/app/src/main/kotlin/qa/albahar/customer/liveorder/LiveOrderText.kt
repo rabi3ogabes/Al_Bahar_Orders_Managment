@@ -24,7 +24,8 @@ internal class LiveOrderText private constructor(private val res: Resources, pri
             LivePhase.COLLECTED -> res.getString(R.string.live_order_headline_collected, time(at))
             LivePhase.CANCELLED -> res.getString(R.string.live_order_headline_cancelled)
             LivePhase.FAILED -> res.getString(R.string.live_order_headline_failed)
-            else -> o.etaLabel ?: etaWindow(o) ?: o.title ?: res.getString(R.string.live_order_headline_number, o.number)
+            // The server's headline already carries the arrival window ("Arrives at 6:35pm-6:55pm").
+            else -> o.title ?: o.etaLabel ?: etaWindow(o) ?: res.getString(R.string.live_order_headline_number, o.number)
         }
     }
 

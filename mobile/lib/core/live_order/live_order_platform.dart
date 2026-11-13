@@ -52,6 +52,10 @@ abstract class LiveOrderPlatform {
   Future<void> cancel(String orderId);
   Future<void> cancelAll();
 
+  /// True when notifications of the app are on (and the live order channel has not been silenced). Platforms without a
+  /// native side answer true: there is nothing of ours to switch off.
+  Future<bool> areEnabled();
+
   /// Where notification permission stands. Platforms without a runtime permission of our own report `granted`.
   Future<LiveOrderPermission> permission();
 
@@ -123,6 +127,9 @@ class MethodChannelLiveOrderPlatform implements LiveOrderPlatform {
   Future<void> cancelAll() async {
     await _call<void>('cancelAll');
   }
+
+  @override
+  Future<bool> areEnabled() async => await _call<bool>('areEnabled') ?? true;
 
   @override
   Future<LiveOrderPermission> permission() async => LiveOrderPermission.parse(await _call<String>('permissionStatus'));

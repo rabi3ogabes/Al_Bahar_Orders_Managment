@@ -84,18 +84,20 @@ data class LiveOrder(
 
     val signature: String
         get() = listOf(
-            phase.wire, step, (sub * 20).roundToInt(), etaLabel, etaFromMs, etaToMs, driverName, driverPhone, vehicle, locale,
-            arabicDigits, brandPrimary,
+            phase.wire, step, (sub * 20).roundToInt(), title, body, etaLabel, etaFromMs, etaToMs, driverName, driverPhone,
+            vehicle, locale, arabicDigits, brandPrimary,
         ).joinToString("|")
 
     fun snapshot() = LiveSnapshot(seq, updatedMs, phase, step, signature)
 
     /**
      * True when this update should replace [prev]. Versioned updates (`seq`, then `updated_at`) are ordered by their
-     * version; unversioned ones never move an order backwards and never reopen a finished one.
+     * version; unversioned ones never move an order backwards and never reopen a finished one. A finished order stays
+     * as it first finished: a re-read would only restamp its time.
      */
     fun supersedes(prev: LiveSnapshot?): Boolean {
         if (prev == null || force) return true
+        if (prev.phase.isFinal && phase == prev.phase) return false
         if (seq > 0 && prev.seq > 0) return seq > prev.seq
         if (updatedMs > 0 && prev.updatedMs > 0 && updatedMs != prev.updatedMs) return updatedMs > prev.updatedMs
         if (signature == prev.signature) return false
