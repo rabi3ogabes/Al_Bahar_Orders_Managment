@@ -1,9 +1,12 @@
 import 'package:albahar_customer/core/l10n/l10n.dart';
-import 'package:albahar_customer/core/providers.dart';
+import 'package:albahar_customer/core/map/al_bahar_map.dart';
+import 'package:albahar_customer/core/map/map_layers.dart';
+import 'package:albahar_customer/core/map/map_markers.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/qatar_time.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/features/branches/domain/branch_models.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -97,58 +100,78 @@ class BranchTile extends StatelessWidget {
   }
 }
 
-/// OpenStreetMap-compatible map (tile URL configurable via MAP_TILE_URL).
-class BranchMap extends ConsumerWidget {
+/// The branches on a map: every branch with a location gets a pin (the chosen one is larger), the map frames all of them,
+/// and choosing a branch elsewhere in the screen glides the map to it. Tiles, dark mode, credit line and controls come
+/// from the shared Al Bahar map.
+class BranchMap extends ConsumerStatefulWidget {
   const BranchMap({
     super.key,
     required this.branches,
     required this.onSelect,
     this.selectedId,
     this.interactive = true,
+    this.bottomInset = 0,
   });
   final List<Branch> branches;
   final ValueChanged<Branch> onSelect;
   final String? selectedId;
   final bool interactive;
 
+  /// Height of a card laid over the bottom of the map, so the controls and the framed pins stay clear of it.
+  final double bottomInset;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tiles = ref.watch(appConfigProvider).mapTileUrlTemplate;
-    final located = branches.where((b) => b.hasLocation).toList();
-    final center = located.isEmpty ? dohaCenter : LatLng(located.first.latitude!, located.first.longitude!);
-    return FlutterMap(
-      options: MapOptions(
-        initialCenter: center,
-        initialZoom: located.length == 1 ? 14 : 11,
-        interactionOptions: InteractionOptions(
-          flags: interactive ? InteractiveFlag.all & ~InteractiveFlag.rotate : InteractiveFlag.none,
-        ),
-      ),
+  ConsumerState<BranchMap> createState() => _BranchMapState();
+}
+
+class _BranchMapState extends ConsumerState<BranchMap> {
+  final _map = AlBaharMapController();
+
+  List<Branch> get _located => widget.branches.where((b) => b.hasLocation).toList();
+
+  List<LatLng> _points() => [for (final b in _located) LatLng(b.latitude!, b.longitude!)];
+
+  @override
+  void didUpdateWidget(BranchMap old) {
+    super.didUpdateWidget(old);
+    if (widget.interactive && widget.selectedId != old.selectedId) {
+      final b = _located.where((b) => b.id == widget.selectedId).firstOrNull;
+      if (b != null) _map.flyTo(LatLng(b.latitude!, b.longitude!), zoom: 15);
+    } else if (!listEquals(_points(), [for (final b in old.branches.where((b) => b.hasLocation)) LatLng(b.latitude!, b.longitude!)])) {
+      _map.fit(_points(), maxZoom: 15);
+    }
+  }
+
+  @override
+  void dispose() {
+    _map.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final located = _located;
+    final points = _points();
+    return AlBaharMap(
+      controller: _map,
+      initialFit: points,
+      maxFitZoom: 15,
+      interactive: widget.interactive,
+      bottomInset: widget.bottomInset,
+      controls: widget.interactive ? MapControlsConfig(recenter: located.length > 1) : MapControlsConfig.none,
       children: [
-        TileLayer(urlTemplate: tiles, userAgentPackageName: 'qa.albahar.customer'),
         MarkerLayer(
           markers: [
             for (final b in located)
-              Marker(
-                point: LatLng(b.latitude!, b.longitude!),
-                width: 48,
-                height: 48,
-                child: Semantics(
-                  button: true,
-                  label: b.name,
-                  child: GestureDetector(
-                    onTap: () => onSelect(b),
-                    child: Icon(
-                      Icons.location_on_rounded,
-                      size: b.id == selectedId ? 46 : 38,
-                      color: b.id == selectedId ? context.palette.brass : AppPalette.ink,
-                    ),
-                  ),
-                ),
+              pinMarker(
+                LatLng(b.latitude!, b.longitude!),
+                kind: PinKind.branch,
+                label: b.name,
+                selected: b.id == widget.selectedId,
+                onTap: widget.interactive ? () => widget.onSelect(b) : null,
               ),
           ],
         ),
-        RichAttributionWidget(attributions: [TextSourceAttribution(context.l10n.mapAttribution)]),
       ],
     );
   }

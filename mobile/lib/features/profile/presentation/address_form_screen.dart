@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/map/map_geo.dart';
 import 'package:albahar_customer/core/network/api_exception.dart';
-import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/utils/phone.dart';
