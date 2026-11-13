@@ -439,9 +439,9 @@ class _PickupSectionState extends ConsumerState<_PickupSection> {
               itemBuilder: (_, i) {
                 final d = days[i];
                 final selected = QatarTime.isoDate(d) == date;
-                return ChoiceChip(
+                return _PickChip(
                   selected: selected,
-                  label: Text(QatarTime.weekdayDate(d.subtract(QatarTime.offset), locale)),
+                  label: QatarTime.weekdayDate(d.subtract(QatarTime.offset), locale),
                   onSelected: (_) {
                     setState(() => _day = d);
                     widget.onChanged(
@@ -467,12 +467,11 @@ class _PickupSectionState extends ConsumerState<_PickupSection> {
                         runSpacing: AppSpace.xs,
                         children: [
                           for (final s in slots)
-                            ChoiceChip(
+                            _PickChip(
                               selected: widget.options.pickupSlotId == s.id,
-                              label: Text(
-                                '${QatarTime.clock(s.startsAt, locale)}–${QatarTime.clock(s.endsAt, locale)}'
-                                '${s.isFull ? ' · ${l10n.slotFull}' : (s.available <= 3 ? ' · ${l10n.slotRemaining(s.available)}' : '')}',
-                              ),
+                              label:
+                                  '${QatarTime.clock(s.startsAt, locale)}–${QatarTime.clock(s.endsAt, locale)}'
+                                  '${s.isFull ? ' · ${l10n.slotFull}' : (s.available <= 3 ? ' · ${l10n.slotRemaining(s.available)}' : '')}',
                               onSelected: s.isFull
                                   ? null
                                   : (_) => widget.onChanged(
@@ -487,6 +486,44 @@ class _PickupSectionState extends ConsumerState<_PickupSection> {
               ),
         ],
       ],
+    );
+  }
+}
+
+/// A day or time choice with a clear state: filled with the brand colour and a tick when chosen, a bordered card with
+/// dark text otherwise, and struck-through muted text when it cannot be picked. At least 48dp high.
+class _PickChip extends StatelessWidget {
+  const _PickChip({required this.selected, required this.label, required this.onSelected});
+
+  final bool selected;
+  final String label;
+  final ValueChanged<bool>? onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final enabled = onSelected != null;
+    final Color fg = !enabled ? context.palette.muted : (selected ? colors.onPrimary : colors.onSurface);
+    return ChoiceChip(
+      selected: selected,
+      showCheckmark: true,
+      checkmarkColor: colors.onPrimary,
+      selectedColor: colors.primary,
+      backgroundColor: colors.surface,
+      disabledColor: colors.surface,
+      side: BorderSide(
+        color: selected ? colors.primary : context.palette.muted.withValues(alpha: 0.5),
+        width: selected ? 1.5 : 1,
+      ),
+      labelStyle: context.text.labelLarge?.copyWith(
+        color: fg,
+        fontWeight: FontWeight.w700,
+        decoration: enabled ? null : TextDecoration.lineThrough,
+      ),
+      padding: const EdgeInsetsDirectional.symmetric(horizontal: AppSpace.sm, vertical: AppSpace.sm),
+      materialTapTargetSize: MaterialTapTargetSize.padded,
+      label: Text(label),
+      onSelected: onSelected,
     );
   }
 }

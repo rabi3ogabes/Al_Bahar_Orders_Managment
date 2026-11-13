@@ -47,7 +47,7 @@ function Slots({ branchId, kind, value, date, onPick, required }: { branchId: st
           const dt = new Date(`${d.date}T12:00:00`);
           const on = current.date === d.date;
           return (
-            <button key={d.date} role="tab" aria-selected={on} onClick={() => { setDay(d.date); onPick(null, null); }} className={cx('flex w-[74px] shrink-0 flex-col items-center rounded-2xl border py-3 transition-colors', on ? 'border-primary bg-primary text-on-primary' : 'border-line bg-bg hover:border-brass', !on && d.available === 0 && 'opacity-50')}>
+            <button key={d.date} role="tab" aria-selected={on} onClick={() => { setDay(d.date); onPick(null, null); }} className={cx('flex w-[74px] shrink-0 flex-col items-center rounded-2xl border py-3 transition-colors', on ? 'border-primary bg-primary text-on-primary shadow-soft' : 'border-ink/25 bg-paper text-ink hover:border-primary', !on && d.available === 0 && 'opacity-50')}>
               <span className="text-[11px] uppercase tracking-wider opacity-80">{fmt(dt, { weekday: 'short' })}</span>
               <span className="font-display text-3xl leading-none">{dt.getDate()}</span>
               <span className="text-[11px] opacity-80">{fmt(dt, { month: 'short' })}</span>
@@ -59,9 +59,10 @@ function Slots({ branchId, kind, value, date, onPick, required }: { branchId: st
         {current.slots.map((s) => {
           const on = value === s.id;
           return (
-            <button key={s.id} role="radio" aria-checked={on} disabled={s.is_full} onClick={() => onPick(s.id, s.date)} className={cx('rounded-2xl border px-3 py-3 text-center text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40', on ? 'border-primary ring-1 ring-ink' : 'border-line bg-bg hover:border-brass')}>
+            <button key={s.id} role="radio" aria-checked={on} disabled={s.is_full} onClick={() => onPick(s.id, s.date)} className={cx('relative rounded-2xl border px-3 py-3 text-center text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50', on ? 'border-primary bg-primary text-on-primary shadow-soft' : 'border-ink/25 bg-paper text-ink hover:border-primary', s.is_full && 'line-through')}>
+              {on && <Check size={14} className="absolute end-2 top-2" aria-hidden="true" />}
               <span className="block font-semibold tabular-nums" dir="ltr">{s.starts_at} – {s.ends_at}</span>
-              <span className="text-[11px] text-muted">{s.is_full ? t('checkout.slot_full') : t('checkout.slot_left', { n: s.available })}</span>
+              <span className={cx('text-[11px]', on ? 'text-on-primary/85' : 'text-ink-soft')}>{s.is_full ? t('checkout.slot_full') : t('checkout.slot_left', { n: s.available })}</span>
             </button>
           );
         })}
