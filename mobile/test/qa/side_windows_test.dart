@@ -690,6 +690,34 @@ void main() {
     });
   });
 
+  group('A window belongs to its page', () {
+    testWidgets('changing the page underneath (a footer tab) closes the window', (t) async {
+      final h = await boot(t, backend());
+      await go(t, h, '/products');
+      await t.tap(find.byTooltip(en.quickViewOf('Product 1')));
+      await settle(t);
+      expect(find.text(en.quickView), findsOneWidget);
+      h.read(routerProvider).go('/cart');
+      await settle(t);
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(path(h), '/cart');
+      await teardown(t);
+    });
+
+    testWidgets('a page pushed from a window opens above it, and Back returns to the window', (t) async {
+      final h = await boot(t, backend());
+      await openOrderPanel(t, h);
+      // Tapping an item opens the product page above the order window.
+      await t.tap(find.textContaining('Nordic oak dining table').first);
+      await settle(t);
+      expect(path(h), '/products/p1');
+      await back(t);
+      expect(path(h), '/orders');
+      expect(find.text(en.orderTimeline), findsOneWidget, reason: 'the order window is still open');
+      await teardown(t);
+    });
+  });
+
   group('Things that stay full screens', () {
     testWidgets('checkout is a page, not a window, and keeps the back arrow as its exit', (t) async {
       final h = await boot(t, backend());

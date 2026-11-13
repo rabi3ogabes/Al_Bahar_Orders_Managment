@@ -343,6 +343,29 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
-  ref.onDispose(router.dispose);
+
+  // A side window belongs to the page it was opened on. When the page changes underneath it (a footer tab, a redirect to
+  // sign-in), the window closes with it instead of floating over a page it has nothing to do with. A push keeps the
+  // windows: Back from the pushed page returns to the window it was opened from.
+  var lastLocation = '';
+  var lastDepth = 0;
+  void closeWindowsOnGo() {
+    final configuration = router.routerDelegate.currentConfiguration;
+    final location = configuration.uri.toString();
+    final depth = configuration.matches.length;
+    final moved = lastLocation.isNotEmpty && location != lastLocation && depth <= lastDepth;
+    lastLocation = location;
+    lastDepth = depth;
+    if (!moved) return;
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => rootNavigatorKey.currentState?.popUntil((r) => r is! PopupRoute),
+    );
+  }
+
+  router.routerDelegate.addListener(closeWindowsOnGo);
+  ref.onDispose(() {
+    router.routerDelegate.removeListener(closeWindowsOnGo);
+    router.dispose();
+  });
   return router;
 });

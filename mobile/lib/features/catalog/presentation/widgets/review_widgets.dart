@@ -113,6 +113,7 @@ class _AllReviews extends ConsumerWidget {
     return NotificationListener<ScrollNotification>(
       onNotification: (n) => handleLoadMoreScroll(n, () => ref.read(provider.notifier).loadMore()),
       child: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpace.gutter),
         children: [
           for (final r in state.items) ReviewTile(review: r),
           LoadMoreFooter(state: state, onLoadMore: () => ref.read(provider.notifier).loadMore()),

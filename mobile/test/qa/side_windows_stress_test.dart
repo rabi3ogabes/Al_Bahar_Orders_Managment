@@ -11,6 +11,7 @@ import 'package:albahar_customer/features/catalog/presentation/widgets/quick_vie
 import 'package:albahar_customer/features/notifications/presentation/notifications_screen.dart';
 import 'package:albahar_customer/features/orders/presentation/order_detail_screen.dart';
 import 'package:albahar_customer/features/profile/presentation/address_form_screen.dart';
+import 'package:albahar_customer/features/profile/presentation/addresses_screen.dart';
 import 'package:albahar_customer/features/profile/presentation/edit_profile_screen.dart';
 import 'package:albahar_customer/features/profile/presentation/loyalty_screen.dart';
 import 'package:albahar_customer/features/profile/presentation/notification_prefs_screen.dart';
@@ -21,7 +22,7 @@ import 'package:albahar_customer/features/wishlist/presentation/wishlist_screen.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'customer_fixtures.dart';
+import '../helpers/fakes.dart' show productCard;
 import 'side_windows_test.dart' show back, backend, boot, go, settle, teardown;
 import 'test_fonts.dart';
 

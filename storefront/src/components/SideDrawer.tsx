@@ -38,6 +38,7 @@ export interface SideDrawerProps {
   className?: string
 }
 
+// Narrower than the screen on phones too, so a strip of the page (the scrim) stays tappable.
 const WIDTH = { sm: 'sm:w-[400px]', md: 'sm:w-[460px]', lg: 'sm:w-[560px]' } as const;
 
 export function SideDrawer({ open, onClose, title, description, children, footer, headerAction, size = 'md', side = 'end', phone = 'sheet', dirty = false, urlBacked = false, className }: SideDrawerProps) {
@@ -92,7 +93,7 @@ export function SideDrawer({ open, onClose, title, description, children, footer
           <Dialog.Portal>
             <Dialog.Overlay className="ov-scrim fixed inset-0 z-[80] bg-ink/45 backdrop-blur-[2px]" />
             <Dialog.Content ref={panel} tabIndex={-1} data-side={side} onOpenAutoFocus={onOpenAutoFocus} onCloseAutoFocus={opener.restore} {...(description ? {} : { 'aria-describedby': undefined })}
-              className={cx('ov-panel fixed inset-y-0 z-[80] flex w-full flex-col bg-bg shadow-soft outline-none', side === 'end' ? 'end-0 sm:rounded-s-[28px]' : 'start-0 sm:rounded-e-[28px]', WIDTH[size], className)}>
+              className={cx('ov-panel fixed inset-y-0 z-[80] flex w-[calc(100vw-48px)] flex-col bg-bg shadow-soft outline-none', side === 'end' ? 'end-0 sm:rounded-s-[28px]' : 'start-0 sm:rounded-e-[28px]', WIDTH[size], className)}>
               {head}{sr}{body}{foot}
             </Dialog.Content>
           </Dialog.Portal>

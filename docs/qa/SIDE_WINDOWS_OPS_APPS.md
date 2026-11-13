@@ -55,7 +55,7 @@ screen, stock quick view, pickup pass or QR. "Return to branch" is the only retu
 
 ## Tests
 
-`flutter test test/ops`: 262 passed (198 before). New: `driver_windows_test.dart` (36), `staff_windows_test.dart` (28), one
+`flutter test test/ops`: 263 passed (198 before); full `flutter test`: 855 passed; `flutter analyze`: 0 issues. New: `driver_windows_test.dart` (36), `staff_windows_test.dart` (28), one
 session test. They cover, per converted flow: sheet at 390 px, end panel at 1024 px, left panel in Arabic, Back closes only the top
 window, pinned action works and stays at the bottom, follows the record, closes itself with a message when the record leaves,
 is not fooled by a reload in progress or an order in the middle of a stage change, proof window cannot be dismissed by a tap

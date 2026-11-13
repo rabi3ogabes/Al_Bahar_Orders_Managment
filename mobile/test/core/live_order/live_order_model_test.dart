@@ -266,7 +266,10 @@ void main() {
         'quiet': '1',
       });
       expect(onTheWay.etaAt, DateTime.utc(2026, 11, 14, 15, 20));
-      expect(onTheWay.toChannelMap(locale: 'en')['eta_at_ms'], DateTime.utc(2026, 11, 14, 15, 20).millisecondsSinceEpoch);
+      expect(
+        onTheWay.toChannelMap(locale: 'en')['eta_at_ms'],
+        DateTime.utc(2026, 11, 14, 15, 20).millisecondsSinceEpoch,
+      );
       expect(parse({'order_id': 'o', 'phase': 'on_the_way', 'step': '2'}).etaAt, isNull);
 
       final later = parse({'order_id': 'o', 'phase': 'on_the_way', 'step': '2', 'eta_at': '2026-11-14T15:23:00Z'});
