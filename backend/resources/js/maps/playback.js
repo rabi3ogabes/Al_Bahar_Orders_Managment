@@ -10,7 +10,7 @@ import { detectStops, firstName, normaliseStops, normaliseTrack, pathLengthM, pl
 /** Leaflet rebuilds a divIcon element every time a marker is added, so the accessible name is set on each add. */
 const labelOnAdd = (marker, label) => marker.on('add', () => marker.getElement()?.setAttribute('aria-label', label));
 
-const PALETTE = ['#8a1538', '#b08d57', '#3b82b8', '#2f8f6f', '#7c5cbf', '#d1662e', '#2b8a9e', '#a23b8e'];
+const PALETTE = ['#c7253f', '#b08d57', '#3b82b8', '#2f8f6f', '#7c5cbf', '#d1662e', '#2b8a9e', '#a23b8e'];
 const SPEEDS = [1, 2, 4];
 
 /**
@@ -122,7 +122,7 @@ export function createPlayback(o) {
             const chip = h('button', { type: 'button', class: 'abm-chip', 'aria-pressed': 'true', title: text.pb_trip_toggle, 'aria-label': `${t.label}. ${text.pb_trip_toggle}`, on: { click: () => toggleTrack(t, chip) } },
                 h('span', { class: 'abm-chip__dot' }),
                 h('span', { class: 'abm-chip__t' }, t.label),
-                h('span', { class: 'abm-chip__m' }, [t.sub, fmt(text.pb_km, { n: nf.format(Math.round(t.distanceM / 100) / 10) }), t.stops.length ? `${nf.format(t.stops.length)} ${text.pb_stops}` : ''].filter(Boolean).join(' · ')));
+                h('span', { class: 'abm-chip__m' }, [t.sub, fmt(text.pb_km, { n: nf.format(Math.round(t.distanceM / 100) / 10) }), t.stops.length ? `${text.pb_stops} ${nf.format(t.stops.length)}` : ''].filter(Boolean).join(' · ')));
             chip.firstElementChild.style.setProperty('background', t.color);
             t.chip = chip;
             trips.append(chip);

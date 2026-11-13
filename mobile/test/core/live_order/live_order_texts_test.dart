@@ -57,14 +57,23 @@ void main() {
       );
     });
 
-    test('headline: server text wins, then the estimate, then the title, then the order number', () {
-      expect(
-        t.headline(order({'phase': 'preparing', 'eta_label': 'Arrives at 9:20pm-9:35pm'}).copyWith(etaTo: _to)),
-        'Arrives at 9:20pm-9:35pm',
-      );
-      expect(t.headline(order({'phase': 'preparing', 'title': 'Order #A-100'})), 'Order #A-100');
-      expect(t.headline(order({'phase': 'preparing'})), 'Order #A-100');
-    });
+    test(
+      'headline: the server headline wins, then its window, then the one worked out here, then the order number',
+      () {
+        // The server's title is the finished headline; eta_label is only the window.
+        expect(
+          t.headline(order({'phase': 'preparing', 'title': 'Arrives at 6:35pm-6:55pm', 'eta_label': '6:35pm-6:55pm'})),
+          'Arrives at 6:35pm-6:55pm',
+        );
+        expect(
+          t.headline(order({'phase': 'preparing', 'eta_label': 'Arrives at 9:20pm-9:35pm'}).copyWith(etaTo: _to)),
+          'Arrives at 9:20pm-9:35pm',
+        );
+        expect(plain(t.headline(order({'phase': 'preparing'}).copyWith(etaTo: _to))), 'Arrives at 9:35 PM');
+        expect(t.headline(order({'phase': 'preparing', 'title': 'Order #A-100'})), 'Order #A-100');
+        expect(t.headline(order({'phase': 'preparing'})), 'Order #A-100');
+      },
+    );
 
     test('headline of a finished order says when it finished', () {
       expect(

@@ -288,6 +288,83 @@ void main() {
       });
     });
 
+    test('every re-read carries a new version: the card is redrawn only when it says something new', () async {
+      final rig = await _Rig.create();
+      fakeAsync((async) {
+        final c = rig.controller..onSignedIn();
+        async.flushMicrotasks();
+        unawaited(
+          c.ingestPush({
+            'kind': 'order_progress',
+            'order_id': 'o1',
+            'phase': 'preparing',
+            'seq': '100',
+            'title': 'T',
+            'body': 'B',
+          }),
+        );
+        async.flushMicrotasks();
+        expect(rig.platform.shown, hasLength(1));
+
+        // The server restamps `seq` on every read.
+        for (var i = 1; i <= 3; i++) {
+          rig.api.active = [
+            LiveOrder.tryParse({
+              'order_id': 'o1',
+              'phase': 'preparing',
+              'seq': '${100 + i}',
+              'title': 'T',
+              'body': 'B',
+            })!,
+          ];
+          async.elapse(const Duration(seconds: 61));
+        }
+        expect(rig.platform.shown, hasLength(1), reason: 'same words: no redraw');
+
+        // An older push is still refused: the version moved on.
+        unawaited(c.ingestPush({'kind': 'order_progress', 'order_id': 'o1', 'phase': 'on_the_way', 'seq': '102'}));
+        async.flushMicrotasks();
+        expect(rig.platform.shown, hasLength(1));
+
+        rig.api.active = [
+          LiveOrder.tryParse({'order_id': 'o1', 'phase': 'preparing', 'seq': '110', 'title': 'T', 'body': 'B2'})!,
+        ];
+        async.elapse(const Duration(seconds: 61));
+        expect(rig.platform.shown, hasLength(2));
+        expect(rig.platform.last.order.subtitle, 'B2');
+      });
+    });
+
+    test('a finished order is not restamped by a later re-read', () async {
+      final rig = await _Rig.create();
+      fakeAsync((async) {
+        final c = rig.controller..onSignedIn();
+        async.flushMicrotasks();
+        unawaited(
+          c.ingestPush({
+            'kind': 'order_progress',
+            'order_id': 'o1',
+            'phase': 'delivered',
+            'seq': '100',
+            'updated_at': '2026-11-13T18:31:00Z',
+          }),
+        );
+        async.flushMicrotasks();
+        rig.api.active = [
+          LiveOrder.tryParse({
+            'order_id': 'o1',
+            'phase': 'delivered',
+            'seq': '900',
+            'updated_at': '2026-11-13T18:50:00Z',
+          })!,
+        ];
+        c.onOnline();
+        async.flushMicrotasks();
+        expect(rig.platform.shown, hasLength(1));
+        expect(rig.platform.last.order.headline, contains('9:31'));
+      });
+    });
+
     test('an order that dropped out of the list is looked up: delivered becomes a final card', () async {
       final rig = await _Rig.create();
       fakeAsync((async) {

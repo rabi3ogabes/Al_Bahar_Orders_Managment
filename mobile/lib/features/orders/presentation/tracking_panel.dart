@@ -114,12 +114,19 @@ class _TrackingPanelState extends State<TrackingPanel> {
                 const Gap(AppSpace.xs),
                 Row(
                   children: [
-                    if (m.link != TrackingLink.idle) _LinkPill(link: m.link),
+                    if (m.link != TrackingLink.idle) Flexible(child: _LinkPill(link: m.link)),
                     const Spacer(),
-                    TextButton.icon(
-                      onPressed: () => setState(() => _steps = !_steps),
-                      icon: Icon(_steps ? Icons.expand_more_rounded : Icons.expand_less_rounded),
-                      label: Text(_steps ? l10n.trackStepsHide : l10n.trackStepsShow),
+                    Flexible(
+                      flex: 2,
+                      child: TextButton.icon(
+                        onPressed: () => setState(() => _steps = !_steps),
+                        icon: Icon(_steps ? Icons.expand_more_rounded : Icons.expand_less_rounded),
+                        label: Text(
+                          _steps ? l10n.trackStepsHide : l10n.trackStepsShow,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -230,9 +237,13 @@ class _LinkPill extends StatelessWidget {
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const Gap(6),
-          Text(
-            text,
-            style: context.text.labelMedium?.copyWith(color: color, fontWeight: FontWeight.w600),
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: context.text.labelMedium?.copyWith(color: color, fontWeight: FontWeight.w600),
+            ),
           ),
         ],
       ),

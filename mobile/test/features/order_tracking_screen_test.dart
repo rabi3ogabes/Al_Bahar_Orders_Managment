@@ -37,7 +37,8 @@ class FakePusher extends PusherClient {
   Stream<RealtimeState> get states => _states.stream;
 
   @override
-  Stream<PusherEvent> channel(String channelName) => (channels[channelName] ??= StreamController<PusherEvent>.broadcast()).stream;
+  Stream<PusherEvent> channel(String channelName) =>
+      (channels[channelName] ??= StreamController<PusherEvent>.broadcast()).stream;
 
   bool listening(String channelName) => channels[channelName]?.hasListener ?? false;
 
@@ -134,14 +135,20 @@ void main() {
   }
 
   Finder driverMarker() => find.byType(DriverMarkerView);
-  LatLng driverPoint(WidgetTester t) =>
-      t.widgetList<MarkerLayer>(find.byType(MarkerLayer)).expand((l) => l.markers).firstWhere((m) => m.child is DriverMarkerView).point;
+  LatLng driverPoint(WidgetTester t) => t
+      .widgetList<MarkerLayer>(find.byType(MarkerLayer))
+      .expand((l) => l.markers)
+      .firstWhere((m) => m.child is DriverMarkerView)
+      .point;
 
   group('on the way', () {
-    testWidgets('the driver, the address and the branch are on the map; the panel says who, when and how far', (t) async {
+    testWidgets('the driver, the address and the branch are on the map; the panel says who, when and how far', (
+      t,
+    ) async {
       await open(t);
       expect(driverMarker(), findsOneWidget);
-      expect(find.byType(MapPin), findsNWidgets(2)); // address and branch
+      // The camera frames the driver and the address (the branch is behind them), so the address pin is on screen.
+      expect(find.byType(MapPin), findsOneWidget);
       expect(find.text('Ahmed is on the way'), findsOneWidget);
       expect(find.text('Motorcycle'), findsOneWidget);
       expect(find.text('Arriving in ~12 min'), findsOneWidget);
@@ -190,27 +197,42 @@ void main() {
       expect(driverPoint(t).latitude, closeTo(25.2820, 1e-6), reason: 'a late push must not move the marker back');
     });
 
-    testWidgets('the camera keeps the driver and the address in view while the driver moves, until the person moves the map', (t) async {
-      final env = await open(t);
-      MapCamera cam() => MapCamera.of(t.element(find.byType(TileLayer)));
-      final before = cam().zoom;
-      final now = DateTime.now().toUtc();
-      env.pusher.push('private-orders.o1', {'lat': 25.2950, 'lng': 51.5450, 'at': now.toIso8601String(), 'age_seconds': 0, 'speed_kmh': 40, 'heading': 45});
-      await t.pump();
-      await t.pump(const Duration(seconds: 2));
-      expect(cam().zoom, greaterThan(before), reason: 'closer to the address: zoom in');
-      final size = t.getSize(find.byType(FlutterMap));
-      final o = cam().getOffsetFromOrigin(const LatLng(25.2950, 51.5450));
-      expect(o.dx, inInclusiveRange(0, size.width));
+    testWidgets(
+      'the camera keeps the driver and the address in view while the driver moves, until the person moves the map',
+      (t) async {
+        final env = await open(t);
+        MapCamera cam() => MapCamera.of(t.element(find.byType(TileLayer)));
+        final before = cam().zoom;
+        final now = DateTime.now().toUtc();
+        env.pusher.push('private-orders.o1', {
+          'lat': 25.2950,
+          'lng': 51.5450,
+          'at': now.toIso8601String(),
+          'age_seconds': 0,
+          'speed_kmh': 40,
+          'heading': 45,
+        });
+        await t.pump();
+        await t.pump(const Duration(seconds: 2));
+        expect(cam().zoom, greaterThan(before), reason: 'closer to the address: zoom in');
+        final size = t.getSize(find.byType(FlutterMap));
+        final o = cam().getOffsetFromOrigin(const LatLng(25.2950, 51.5450));
+        expect(o.dx, inInclusiveRange(0, size.width));
 
-      await t.dragFrom(const Offset(200, 250), const Offset(80, 40));
-      await t.pump(const Duration(milliseconds: 400));
-      final held = cam().center;
-      env.pusher.push('private-orders.o1', {'lat': 25.2980, 'lng': 51.5480, 'at': now.add(const Duration(seconds: 5)).toIso8601String(), 'age_seconds': 0});
-      await t.pump();
-      await t.pump(const Duration(seconds: 2));
-      expect(cam().center, held, reason: 'the person moved the map: it stays where they put it');
-    });
+        await t.dragFrom(const Offset(200, 250), const Offset(80, 40));
+        await t.pump(const Duration(milliseconds: 400));
+        final held = cam().center;
+        env.pusher.push('private-orders.o1', {
+          'lat': 25.2980,
+          'lng': 51.5480,
+          'at': now.add(const Duration(seconds: 5)).toIso8601String(),
+          'age_seconds': 0,
+        });
+        await t.pump();
+        await t.pump(const Duration(seconds: 2));
+        expect(cam().center, held, reason: 'the person moved the map: it stays where they put it');
+      },
+    );
 
     testWidgets('it asks again every 12 seconds, and stops while the app is in the background', (t) async {
       final env = await open(t);
@@ -247,11 +269,13 @@ void main() {
 
     testWidgets('a quiet driver: grey ETA and "Last seen" instead of a confident time', (t) async {
       await open(t, payload: serverPayload(driverExtra: {'age_seconds': 400}));
-      expect(find.text('Last seen 6 min ago'), findsOneWidget);
+      expect(find.text('Last seen 6 min ago'), findsNWidgets(2)); // under the marker and in the panel
       expect(t.widget<DriverMarkerView>(driverMarker()).stale, isTrue);
     });
 
-    testWidgets('the call button dials the number from the order; with no phone app it hands over the number', (t) async {
+    testWidgets('the call button dials the number from the order; with no phone app it hands over the number', (
+      t,
+    ) async {
       final copied = <String>[];
       t.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
         if (call.method == 'Clipboard.setData') copied.add((call.arguments as Map)['text'] as String);
@@ -298,8 +322,13 @@ void main() {
   });
 
   group('the other states', () {
-    testWidgets('not assigned yet: the address and branch on the map, a calm message, no driver, no live pill', (t) async {
-      await open(t, payload: serverPayload(status: 'processing', deliveryStatus: null, live: false, withDriver: false, eta: null));
+    testWidgets('not assigned yet: the address and branch on the map, a calm message, no driver, no live pill', (
+      t,
+    ) async {
+      await open(
+        t,
+        payload: serverPayload(status: 'processing', deliveryStatus: null, live: false, withDriver: false, eta: null),
+      );
       expect(driverMarker(), findsNothing);
       expect(find.text('We are getting your order ready'), findsOneWidget);
       expect(find.text('Live'), findsNothing);
@@ -308,7 +337,16 @@ void main() {
     });
 
     testWidgets('waiting for pickup: names the branch', (t) async {
-      await open(t, payload: serverPayload(status: 'processing', deliveryStatus: 'accepted', live: false, withDriver: false, eta: null));
+      await open(
+        t,
+        payload: serverPayload(
+          status: 'processing',
+          deliveryStatus: 'accepted',
+          live: false,
+          withDriver: false,
+          eta: null,
+        ),
+      );
       expect(find.text('Your driver is collecting your order'), findsOneWidget);
       expect(find.text('Picking it up from Al Markhiya.'), findsOneWidget);
     });
@@ -316,7 +354,13 @@ void main() {
     testWidgets('delivered: the map stands still, says when, and stops asking and listening', (t) async {
       final env = await open(
         t,
-        payload: serverPayload(status: 'completed', deliveryStatus: 'delivered', live: false, eta: null, driverExtra: {'at': '2026-11-13T12:05:00Z', 'age_seconds': 900}),
+        payload: serverPayload(
+          status: 'completed',
+          deliveryStatus: 'delivered',
+          live: false,
+          eta: null,
+          driverExtra: {'at': '2026-11-13T12:05:00Z', 'age_seconds': 900},
+        ),
       );
       expect(find.textContaining('Delivered at'), findsOneWidget);
       expect(find.text('Live'), findsNothing);
@@ -330,12 +374,24 @@ void main() {
     });
 
     testWidgets('cancelled: says there is nothing to follow', (t) async {
-      await open(t, payload: serverPayload(status: 'cancelled', deliveryStatus: null, live: false, withDriver: false, eta: null));
+      await open(
+        t,
+        payload: serverPayload(status: 'cancelled', deliveryStatus: null, live: false, withDriver: false, eta: null),
+      );
       expect(find.text('Nothing to follow'), findsOneWidget);
     });
 
-    testWidgets('no coordinates at all: a clear message instead of an empty map, and the steps are still there', (t) async {
-      await open(t, payload: {...serverPayload(status: 'processing', deliveryStatus: null, live: false, withDriver: false, eta: null), 'destination': null, 'branch': null});
+    testWidgets('no coordinates at all: a clear message instead of an empty map, and the steps are still there', (
+      t,
+    ) async {
+      await open(
+        t,
+        payload: {
+          ...serverPayload(status: 'processing', deliveryStatus: null, live: false, withDriver: false, eta: null),
+          'destination': null,
+          'branch': null,
+        },
+      );
       expect(find.byType(FlutterMap), findsNothing);
       expect(find.text('Live tracking is unavailable'), findsOneWidget);
       expect(find.text('We are getting your order ready'), findsOneWidget);
@@ -354,7 +410,11 @@ void main() {
         UncontrolledProviderScope(
           container: h.container,
           child: MaterialApp(
-            localizationsDelegates: const [AppLocalizations.delegate, GlobalMaterialLocalizations.delegate, GlobalWidgetsLocalizations.delegate],
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+            ],
             supportedLocales: const [Locale('en')],
             theme: AppTheme.light(const Locale('en')),
             home: const OrderTrackingScreen(orderId: 'o1'),
@@ -369,6 +429,8 @@ void main() {
       await t.pump();
       await t.pump(const Duration(milliseconds: 300));
       expect(find.text('Ahmed is on the way'), findsOneWidget);
+      await t.pumpWidget(const SizedBox.shrink());
+      await t.pump(const Duration(seconds: 30));
     });
 
     testWidgets('a failed refresh keeps the last picture on screen', (t) async {

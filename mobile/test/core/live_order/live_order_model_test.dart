@@ -197,6 +197,66 @@ void main() {
       expect(o({'step': 2}).supersedes(null), isTrue);
     });
 
+    test('a finished order stays as it first finished; a retried delivery (newer version) reopens it', () {
+      final delivered = o({'seq': 5, 'phase': 'delivered'});
+      expect(
+        o({'seq': 9, 'phase': 'delivered'}).supersedes(delivered),
+        isFalse,
+        reason: 'a re-read only restamps the time',
+      );
+      final failed = o({'seq': 5, 'phase': 'failed', 'step': 2});
+      expect(o({'seq': 6, 'phase': 'on_the_way'}).supersedes(failed), isTrue);
+      expect(o({'seq': 4, 'phase': 'on_the_way'}).supersedes(failed), isFalse);
+    });
+
+    test('a re-read with a new version but the same words looks the same; new words do not', () {
+      final a = o({'seq': 5, 'phase': 'preparing', 'title': 'T', 'body': 'B', 'eta_label': 'W'});
+      expect(o({'seq': 6, 'phase': 'preparing', 'title': 'T', 'body': 'B', 'eta_label': 'W'}).signature, a.signature);
+      expect(
+        o({'seq': 6, 'phase': 'preparing', 'title': 'T', 'body': 'B2', 'eta_label': 'W'}).signature,
+        isNot(a.signature),
+      );
+    });
+
+    test('the server push as it is sent: every value a string, nulls absent, brand a JSON string, quiet ignored', () {
+      final push = parse({
+        'kind': 'order_progress',
+        'order_id': '01a1d649-06c8-72d2-b51c-b85f7e63552d',
+        'number': 'AB100014',
+        'type': 'delivery',
+        'step': '1',
+        'total': '4',
+        'sub': '0.4',
+        'phase': 'preparing',
+        'detail': 'driver_accepted',
+        'step_label': 'Preparing',
+        'title': 'Arrives at 6:35pm-6:55pm',
+        'body': 'Ahmed is heading to Al Markhiya to pick up your order.',
+        'eta_label': '6:35pm-6:55pm',
+        'eta_from': '2026-11-14T15:35:00Z',
+        'eta_to': '2026-11-14T15:55:00Z',
+        'driver_name': 'Ahmed',
+        'driver_phone': '+97455123456',
+        'vehicle': 'White Toyota Hilux',
+        'seq': '1794668400000',
+        'updated_at': '2026-11-14T15:00:00Z',
+        'deep_link': '/orders/01a1d649-06c8-72d2-b51c-b85f7e63552d',
+        'done': '0',
+        'brand': '{"primary":"#8A1538","accent":"#B3254F"}',
+        'quiet': '1',
+      });
+      expect(push.phase, LiveOrderPhase.preparing);
+      expect(push.step, 1);
+      expect(push.sub, 0.4);
+      expect(push.seq, 1794668400000);
+      expect(push.brandPrimary, const Color(0xFF8A1538));
+      expect(push.driverPhone, '+97455123456');
+      expect(push.title, 'Arrives at 6:35pm-6:55pm');
+      expect(push.location, '/orders/01a1d649-06c8-72d2-b51c-b85f7e63552d');
+      // `sub` is left out when there is nothing to measure against.
+      expect(parse({'order_id': 'o', 'phase': 'placed', 'step': '0'}).sub, isNull);
+    });
+
     test('a driver or estimate change at the same stage is a new state', () {
       final prev = o({'step': 2});
       expect(o({'step': 2, 'eta_label': 'Arrives at 9pm'}).supersedes(prev), isTrue);

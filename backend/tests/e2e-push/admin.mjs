@@ -32,6 +32,9 @@ const posts = [];
 
 // The page-side stubs: a push subscription (headless Chromium has no push service), applied to every page of this context.
 await context.addInitScript(() => {
+    // Headless Chromium reports the permission as "denied" even after a grant: say "granted" like a person who clicked Allow.
+    Object.defineProperty(Notification, 'permission', { get: () => 'granted', configurable: true });
+    Notification.requestPermission = async () => 'granted';
     const sub = { endpoint: 'https://fcm.googleapis.com/fcm/send/stub-endpoint-123', expirationTime: null, getKey: () => new Uint8Array(65).fill(4).buffer, toJSON: () => ({ endpoint: 'https://fcm.googleapis.com/fcm/send/stub-endpoint-123', keys: { p256dh: 'BAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ', auth: 'AQEBAQEBAQEBAQEBAQEBAQ' } }), unsubscribe: async () => true };
     const proto = window.PushManager?.prototype;
     if (proto) {

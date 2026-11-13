@@ -184,10 +184,15 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> with 
     }
   }
 
+  /// What the camera frames: while the driver is on the way, the driver and the address (the branch is behind them);
+  /// before pickup, the driver (if known), the branch and the address; otherwise the address and the branch.
   List<LatLng> _points(OrderTracking t) {
     final stage = trackingStageOf(t);
-    final showDriver = (stage == TrackingStage.onTheWay || stage == TrackingStage.waitingPickup) && _fix != null;
-    return [if (showDriver) _fix!.point, ?t.destination, ?t.branch];
+    return switch (stage) {
+      TrackingStage.onTheWay when _fix != null => [_fix!.point, ?t.destination],
+      TrackingStage.waitingPickup => [?_fix?.point, ?t.branch, ?t.destination],
+      _ => [?t.destination, ?t.branch],
+    };
   }
 
   void _fitAll() {
