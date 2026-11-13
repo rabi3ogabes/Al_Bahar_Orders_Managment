@@ -87,7 +87,11 @@ return [
     'live_order' => [
         'window_half_minutes' => 7,         // estimate ± this many minutes, rounded to 5
         'shift_minutes' => 5,               // push again when the arrival window end moves by at least this much
-        'tick_seconds' => 120,              // driver position ticks re-check the estimate at most this often per order
+        'tick_seconds' => 20,               // driver position ticks re-check the estimate at most this often per order
+        'estimate_seconds' => 15,           // an order's arrival estimate is re-worked at most this often
+        'progress_steps' => 20,             // the bar is redrawn when its fill crosses one of this many steps (20 = every 5 %)
+        'countdown_shift_seconds' => 60,    // push again when the point arrival time (the countdown) moves by at least this much
+        'min_push_seconds' => 15,           // quiet progress pushes for one order are at least this far apart
         'keep_after_done_minutes' => 30,    // a finished order stays in the active list and may still be updated this long
         'ttl_seconds' => 14400,             // how long FCM/APNs hold an undelivered update (4 h)
         'max_active' => 10,                 // orders returned by GET /orders/active-progress

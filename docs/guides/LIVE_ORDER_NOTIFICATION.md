@@ -62,6 +62,7 @@ Clients should read numbers with a tolerant parser (`int.tryParse('$v')`) so one
 | `body` | the status line |
 | `eta_label` | the window alone, ready to show: `6:35pm-6:55pm` / `6:35 م - 6:55 م` (with "tomorrow, " or a date in front when it is not today) |
 | `eta_from`, `eta_to` | the window, ISO 8601 UTC. `null` (left out in FCM) when there is no window |
+| `eta_at` | the driver's expected arrival as **one moment** (ISO 8601 UTC), only while the order is `on_the_way` and the moment is still ahead. The Android card counts down to it by itself (mm:ss in the header) with no push in between; left out otherwise |
 | `driver_name` | the driver's **first name**, once a driver is assigned |
 | `driver_phone` | E.164, only while the delivery is active (assigned, accepted, picked up, out for delivery). Never after delivery |
 | `vehicle` | the driver's vehicle text, while the delivery is active |
@@ -115,12 +116,19 @@ The window never starts in the past and is at least 5 minutes wide. Estimates ar
 
 `PushNotifier::refreshOrder()` is the single entry point. It rebuilds the card and **sends only if something changed**:
 
-- the card's state changed since the last push: stage, `detail` (driver assigned / accepted / picked up / out for delivery ...), driver, `done`; or
-- the window end moved by **5 minutes or more** (`platform.live_order.shift_minutes`). This push is marked `quiet = "1"` (iOS: passive, no sound).
+- the card's state changed since the last push: stage, `detail` (driver assigned / accepted / picked up / out for delivery ...), driver, `done` (a normal alert); or
+- the window end moved by **5 minutes or more** (`platform.live_order.shift_minutes`); or
+- **the bar moved:** the fill of the current stage crossed one of `platform.live_order.progress_steps` steps (default 20, so every 5 %); or
+- **the countdown moved:** the driver's arrival moment (`eta_at`) shifted by `platform.live_order.countdown_shift_seconds` (default 60 s) or more.
+
+The last three are marked `quiet = "1"` (no sound, no new heads-up; iOS: passive) and are never sent closer together than
+`platform.live_order.min_push_seconds` (default 15 s) per order. Setting `progress_steps` or `countdown_shift_seconds` to 0 turns that trigger off.
+Between pushes the Android card keeps counting down on its own, so it is live to the second, not only to the push.
 
 It is called from: order placed (`OrderPlaced`), order status change (`OrderUpdated`), a branch moving its part (`DispatchUpdated`, kind `order`),
 every delivery step (assigned, accepted, picked up, out for delivery, delivered, failed), cancellation, and driver position ticks
-(`OrderDriverMoved`, **at most once per 2 minutes per order**, `platform.live_order.tick_seconds`). Duplicates are harmless: the state check, a per-order lock and a unique queue job make it idempotent.
+(`OrderDriverMoved`, **at most once per 20 seconds per order**, `platform.live_order.tick_seconds`). The arrival estimate behind it is re-worked at most every
+15 seconds per order (`platform.live_order.estimate_seconds`). Duplicates are harmless: the state check, a per-order lock and a unique queue job make it idempotent.
 
 - A finished order stops being updated **30 minutes after it finished** (and drops out of `active-progress`).
 - Everything runs on the `notifications` queue; the order flow never waits for it and never sees an error from it. If Firebase fails the card is simply sent again at the next change.

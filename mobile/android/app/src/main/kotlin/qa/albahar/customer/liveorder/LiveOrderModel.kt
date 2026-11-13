@@ -48,6 +48,8 @@ data class LiveOrder(
     val subtitle: String?,
     val etaFromMs: Long,
     val etaToMs: Long,
+    /** The driver's expected arrival (one moment, not a window), only while on the road; the card counts down to it by itself. */
+    val etaAtMs: Long,
     val driverName: String?,
     val driverPhone: String?,
     val vehicle: String?,
@@ -84,7 +86,7 @@ data class LiveOrder(
 
     val signature: String
         get() = listOf(
-            phase.wire, step, (sub * 20).roundToInt(), title, body, etaLabel, etaFromMs, etaToMs, driverName, driverPhone,
+            phase.wire, step, (sub * 20).roundToInt(), title, body, etaLabel, etaFromMs, etaToMs, etaAtMs / 60_000, driverName, driverPhone,
             vehicle, locale, arabicDigits, brandPrimary,
         ).joinToString("|")
 
@@ -142,6 +144,7 @@ data class LiveOrder(
                 subtitle = m.text("subtitle", MAX_TEXT),
                 etaFromMs = m.millis("eta_from_ms", "eta_from"),
                 etaToMs = m.millis("eta_to_ms", "eta_to"),
+                etaAtMs = m.millis("eta_at_ms", "eta_at"),
                 driverName = m.text("driver_name", 60),
                 driverPhone = m.text("driver_phone", 30),
                 vehicle = m.text("vehicle", 40),

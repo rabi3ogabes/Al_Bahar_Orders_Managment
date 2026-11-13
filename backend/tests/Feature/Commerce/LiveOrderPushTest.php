@@ -29,6 +29,7 @@ require_once __DIR__.'/LiveOrderHelpers.php';
 
 beforeEach(function () {
     lopFreeze();
+    config(['platform.live_order.progress_steps' => 0, 'platform.live_order.countdown_shift_seconds' => 0]);   // the tests below look at one trigger at a time
     $this->w = commerceWorld();
     $this->fcm = lopFcm();
     $this->push = fn (Order $o) => app(PushNotifier::class)->refreshOrder($o->id);
@@ -210,6 +211,68 @@ it('keeps quiet for a window that moved less than the limit', function () {
     expect(lopSent())->toHaveCount(2)->and(lopSent()[1]['data'])->toMatchArray(['quiet' => '1', 'eta_to' => '2026-11-14T16:15:00Z']);
 });
 
+it('moves the bar quietly while the driver is on the road, and never more often than the minimum gap', function () {
+    config(['platform.live_order.progress_steps' => 20, 'platform.live_order.min_push_seconds' => 15]);
+    $order = lopMove(lopPlace($this->w), FS::Dispatched, delivery: DS::PickedUp, driver: driverFor($this->w->a), deliveryAttrs: ['picked_up_at' => now()]);
+    ($this->device)('tok', 'en');
+    ($this->push)($order);
+    expect(lopSent())->toHaveCount(1)
+        ->and(lopSent()[0]['data']['eta_at'])->toBe('2026-11-14T15:20:00Z');       // picked up 18:00 Qatar + the 20 typical minutes
+
+    $this->travelTo(now()->addSeconds(5));                                        // the bar has not crossed a step
+    ($this->push)($order);
+    expect(lopSent())->toHaveCount(1);
+
+    $this->travelTo(now()->addSeconds(60));                                       // 65 s in: 5.4 % of the way, the bar crosses its first step
+    ($this->push)($order);
+    expect(lopSent())->toHaveCount(2)->and(lopSent()[1]['data'])->toMatchArray(['quiet' => '1'])->and(lopSent()[1]['data'])->toHaveKey('sub');
+
+    $this->travelTo(now()->addSeconds(70));                                       // 135 s in: the second step
+    ($this->push)($order);
+    expect(lopSent())->toHaveCount(3);
+});
+
+it('does not push the bar again inside the minimum gap, whatever the position says', function () {
+    config(['platform.live_order.progress_steps' => 20, 'platform.live_order.min_push_seconds' => 600, 'platform.live_order.shift_minutes' => 999]);
+    $order = lopMove(lopPlace($this->w), FS::Dispatched, delivery: DS::PickedUp, driver: driverFor($this->w->a), deliveryAttrs: ['picked_up_at' => now()]);
+    ($this->device)('tok', 'en');
+    ($this->push)($order);
+
+    $this->travelTo(now()->addMinutes(5));                                        // 25 % of the way, but the last push was 5 minutes ago and the gap is 10
+    ($this->push)($order);
+    expect(lopSent())->toHaveCount(1);
+
+    $this->travelTo(now()->addMinutes(6));                                        // 11 minutes since the last push
+    ($this->push)($order);
+    expect(lopSent())->toHaveCount(2)->and(lopSent()[1]['data'])->toMatchArray(['quiet' => '1']);
+});
+
+it('resets the countdown quietly when the driver\'s arrival time moves by a minute or more, and only then', function () {
+    config(['platform.live_order.countdown_shift_seconds' => 60]);
+    $order = lopMove(lopPlace($this->w), FS::Dispatched, delivery: DS::PickedUp, driver: driverFor($this->w->a), deliveryAttrs: ['picked_up_at' => now()]);
+    ($this->device)('tok', 'en');
+    ($this->push)($order);
+    $first = lopSent()[0]['data']['eta_at'];
+
+    $this->travelTo(now()->addSeconds(30));                                       // the arrival time is the same moment: the countdown is still right
+    ($this->push)($order);
+    expect(lopSent())->toHaveCount(1);
+
+    Delivery::query()->update(['picked_up_at' => now()->subMinutes(8)]);          // the real pick-up turns out to be 8 minutes earlier
+    $this->travelTo(now()->addSeconds(16));                                       // past the 15 s the estimate is kept
+    ($this->push)($order);
+    expect(lopSent())->toHaveCount(2)
+        ->and(lopSent()[1]['data'])->toMatchArray(['quiet' => '1'])
+        ->and(lopSent()[1]['data']['eta_at'])->not->toBe($first);
+});
+
+it('leaves the countdown out of the card unless the driver is on the road', function () {
+    $order = lopMove(lopPlace($this->w), FS::Preparing);
+    ($this->device)('tok', 'en');
+    ($this->push)($order);
+    expect(lopSent()[0]['data'])->not->toHaveKey('eta_at');
+});
+
 it('treats a change of stage as a normal alert, even when the window moved too', function () {
     $order = lopMove(lopPlace($this->w), FS::Preparing);
     ($this->device)('tok', 'en', 'ios');
@@ -306,7 +369,7 @@ it('queues one small job when an order is placed', function () {
     Queue::assertPushed(RefreshOrderProgressJob::class, fn (RefreshOrderProgressJob $j) => $j->orderId === '0199a6d8-0000-7000-8000-000000000001' && $j->queue === 'notifications');
 });
 
-it('re-checks the arrival window on driver position ticks at most every two minutes per order', function () {
+it('re-checks the arrival window on driver position ticks at most every 20 seconds per order', function () {
     Queue::fake();
     $tick = fn (string $orderId) => event(new OrderDriverMoved($orderId, 'Ahmed', 25.3, 51.5, 'out_for_delivery'));
     $a = '0199a6d8-0000-7000-8000-00000000000a';
@@ -317,10 +380,10 @@ it('re-checks the arrival window on driver position ticks at most every two minu
     $tick($b);
     Queue::assertPushed(RefreshOrderProgressJob::class, 2);                      // one for each order, not one per tick
 
-    $this->travelTo(now()->addSeconds(119));
+    $this->travelTo(now()->addSeconds(19));
     $tick($a);
     Queue::assertPushed(RefreshOrderProgressJob::class, 2);
-    $this->travelTo(now()->addSeconds(2));
+    $this->travelTo(now()->addSeconds(12));                                       // 31 s: past the 20 s tick and the 30 s a waiting copy is remembered
     $tick($a);
     Queue::assertPushed(RefreshOrderProgressJob::class, 3);
 });

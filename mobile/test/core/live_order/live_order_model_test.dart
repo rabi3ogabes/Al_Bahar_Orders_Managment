@@ -257,6 +257,24 @@ void main() {
       expect(parse({'order_id': 'o', 'phase': 'placed', 'step': '0'}).sub, isNull);
     });
 
+    test('carries the driver\'s arrival moment to the native card, and a moved countdown is a new state', () {
+      final onTheWay = parse({
+        'order_id': 'o',
+        'phase': 'on_the_way',
+        'step': '2',
+        'eta_at': '2026-11-14T15:20:00Z',
+        'quiet': '1',
+      });
+      expect(onTheWay.etaAt, DateTime.utc(2026, 11, 14, 15, 20));
+      expect(onTheWay.toChannelMap(locale: 'en')['eta_at_ms'], DateTime.utc(2026, 11, 14, 15, 20).millisecondsSinceEpoch);
+      expect(parse({'order_id': 'o', 'phase': 'on_the_way', 'step': '2'}).etaAt, isNull);
+
+      final later = parse({'order_id': 'o', 'phase': 'on_the_way', 'step': '2', 'eta_at': '2026-11-14T15:23:00Z'});
+      final sameMinute = parse({'order_id': 'o', 'phase': 'on_the_way', 'step': '2', 'eta_at': '2026-11-14T15:20:20Z'});
+      expect(later.signature == onTheWay.signature, isFalse);
+      expect(sameMinute.signature == onTheWay.signature, isTrue);
+    });
+
     test('a driver or estimate change at the same stage is a new state', () {
       final prev = o({'step': 2});
       expect(o({'step': 2, 'eta_label': 'Arrives at 9pm'}).supersedes(prev), isTrue);

@@ -54,6 +54,7 @@ class LiveOrder {
     this.etaLabel,
     this.etaFrom,
     this.etaTo,
+    this.etaAt,
     this.driverName,
     this.driverPhone,
     this.vehicle,
@@ -90,6 +91,9 @@ class LiveOrder {
   final String? etaLabel;
   final DateTime? etaFrom;
   final DateTime? etaTo;
+
+  /// The moment the driver is expected to arrive (a point, not a window), only while on the road: the card counts down to it by itself.
+  final DateTime? etaAt;
   final String? driverName;
   final String? driverPhone;
   final String? vehicle;
@@ -124,6 +128,7 @@ class LiveOrder {
     etaLabel,
     etaFrom?.millisecondsSinceEpoch,
     etaTo?.millisecondsSinceEpoch,
+    (etaAt?.millisecondsSinceEpoch ?? 0) ~/ 60000,
     driverName,
     driverPhone,
     vehicle,
@@ -154,6 +159,7 @@ class LiveOrder {
     String? etaLabel,
     DateTime? etaFrom,
     DateTime? etaTo,
+    DateTime? etaAt,
     String? driverName,
     String? driverPhone,
     String? vehicle,
@@ -175,6 +181,7 @@ class LiveOrder {
     etaLabel: etaLabel ?? this.etaLabel,
     etaFrom: etaFrom ?? this.etaFrom,
     etaTo: etaTo ?? this.etaTo,
+    etaAt: etaAt ?? this.etaAt,
     driverName: driverName ?? this.driverName,
     driverPhone: driverPhone ?? this.driverPhone,
     vehicle: vehicle ?? this.vehicle,
@@ -216,6 +223,7 @@ class LiveOrder {
       etaLabel: _text(data['eta_label'], _maxText),
       etaFrom: asDate(data['eta_from']),
       etaTo: asDate(data['eta_to']),
+      etaAt: asDate(data['eta_at']),
       driverName: _text(data['driver_name'], 60),
       driverPhone: _text(data['driver_phone'], 30),
       vehicle: _text(data['vehicle'], 40),
@@ -293,6 +301,7 @@ class LiveOrder {
     'eta_label': etaLabel,
     'eta_from_ms': etaFrom?.millisecondsSinceEpoch,
     'eta_to_ms': etaTo?.millisecondsSinceEpoch,
+    'eta_at_ms': etaAt?.millisecondsSinceEpoch,
     'driver_name': driverName,
     'driver_phone': driverPhone,
     'vehicle': vehicle,

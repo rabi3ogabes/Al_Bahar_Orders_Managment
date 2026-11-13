@@ -210,6 +210,7 @@ internal object LiveOrderNotifier {
             .setDeleteIntent(dismissIntent(context, order.orderId, id))
             .addAction(action(context, texts.actionLabel(order), open))
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) builder.setTimeoutAfter(expires - now)
+        countdown(builder, order, now)
 
         val phone = order.driverPhone?.filter { it.isDigit() || it == '+' }?.takeIf { it.length in 5..20 }
         if (order.phase == LivePhase.ON_THE_WAY && phone != null) {
@@ -218,6 +219,15 @@ internal object LiveOrderNotifier {
             builder.addAction(action(context, texts.callDriverLabel(), call))
         }
         return builder.build()
+    }
+
+    /**
+     * While the driver is on the road the card's header counts down to the expected arrival (mm:ss), ticking by itself
+     * every second with no push and no running service. A new estimate (a push or a re-read) moves the target.
+     */
+    private fun countdown(builder: Notification.Builder, order: LiveOrder, now: Long) {
+        if (order.phase != LivePhase.ON_THE_WAY || order.etaAtMs <= now || Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
+        builder.setWhen(order.etaAtMs).setShowWhen(true).setUsesChronometer(true).setChronometerCountDown(true)
     }
 
     private fun action(context: Context, label: String, intent: PendingIntent): Notification.Action =

@@ -147,7 +147,7 @@ class OrderProgress
         if ($order->status === OS::Cancelled) {
             return ['type' => $type, 'step' => 0, 'phase' => 'cancelled', 'detail' => 'cancelled', 'done' => true,
                 'finished_at' => $order->cancelled_at ?? CarbonImmutable::instance($order->updated_at),
-                'fulfillment' => null, 'delivery' => null, 'window' => null, 'sub' => null];
+                'fulfillment' => null, 'delivery' => null, 'window' => null, 'sub' => null, 'point' => null];
         }
         $parts = $order->fulfillments->reject(fn (OrderFulfillment $f) => $f->status === FS::Cancelled)->map(fn (OrderFulfillment $f) => $this->stage($order, $f));
         if ($order->status === OS::Returned || $parts->isEmpty()) {
@@ -160,6 +160,7 @@ class OrderProgress
         $done = in_array($chosen['phase'], self::DONE_PHASES, true);
         $window = null;
         $sub = null;
+        $point = null;
         if (! $done) {
             // Latest arrival over every part still to come; the progress share comes from the part that decides the stage.
             foreach ($parts->reject(fn (array $p) => in_array($p['phase'], [...self::DONE_PHASES, 'ready'], true) || $p['detail'] === 'pending_payment') as $p) {
@@ -169,13 +170,14 @@ class OrderProgress
                 }
                 if ($p['fulfillment']->is($f)) {
                     $sub = $w['sub'] ?? null;
+                    $point = $w['point'] ?? null;
                 }
             }
         }
 
         return ['type' => $type, 'step' => $chosen['rank'], 'phase' => $chosen['phase'], 'detail' => $chosen['detail'], 'done' => $done,
             'finished_at' => $done ? $this->finishedAt($order, $chosen) : null,
-            'fulfillment' => $f, 'delivery' => $chosen['delivery'], 'window' => $window, 'sub' => $sub];
+            'fulfillment' => $f, 'delivery' => $chosen['delivery'], 'window' => $window, 'sub' => $sub, 'point' => $point];
     }
 
     /** @return array{rank: int, phase: string, detail: string, fulfillment: OrderFulfillment, delivery: ?Delivery} */
@@ -231,7 +233,8 @@ class OrderProgress
         }
         $w = $this->estimate($order, $p, $remote);
         if ($remote && $w !== null) {
-            Cache::put($key, ['from' => $w['from']->getTimestamp(), 'to' => $w['to']->getTimestamp(), 'sub' => $w['sub'] ?? null], 30);
+            Cache::put($key, ['from' => $w['from']->getTimestamp(), 'to' => $w['to']->getTimestamp(), 'point' => $w['point']->getTimestamp(), 'sub' => $w['sub'] ?? null],
+                max(1, (int) config('platform.live_order.estimate_seconds', 15)));
         }
 
         return $w;
@@ -254,7 +257,7 @@ class OrderProgress
 
     /**
      * @param  array{rank: int, phase: string, detail: string, fulfillment: OrderFulfillment, delivery: ?Delivery}  $p
-     * @return array{from: CarbonImmutable, to: CarbonImmutable, sub: ?float}
+     * @return array{from: CarbonImmutable, to: CarbonImmutable, point: CarbonImmutable, sub: ?float}
      */
     private function estimate(Order $order, array $p, bool $remote): array
     {
@@ -280,7 +283,7 @@ class OrderProgress
         }
         $window = $this->round($point, $half, $now);
 
-        return $window + ['sub' => $p['rank'] === 0 ? null : $this->share($from, $p['phase'] === 'on_the_way' ? $point : $ready, $now)];
+        return $window + ['point' => $point, 'sub' => $p['rank'] === 0 ? null : $this->share($from, $p['phase'] === 'on_the_way' ? $point : $ready, $now)];
     }
 
     /** Minutes the driver still needs to reach the destination, from a fresh GPS position; null when there is none to go by. */
@@ -326,10 +329,11 @@ class OrderProgress
         return ['from' => $from, 'to' => $to->lte($from) ? $from->addMinutes(5) : $to];
     }
 
-    /** @param array{from: int, to: int, sub: ?float} $c */
+    /** @param array{from: int, to: int, point?: int, sub: ?float} $c */
     private function fromCache(array $c): array
     {
-        return ['from' => CarbonImmutable::createFromTimestamp($c['from']), 'to' => CarbonImmutable::createFromTimestamp($c['to']), 'sub' => $c['sub']];
+        return ['from' => CarbonImmutable::createFromTimestamp($c['from']), 'to' => CarbonImmutable::createFromTimestamp($c['to']),
+            'point' => isset($c['point']) ? CarbonImmutable::createFromTimestamp($c['point']) : null, 'sub' => $c['sub']];
     }
 
     // ── Wording ──────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -358,6 +362,8 @@ class OrderProgress
             'eta_label' => $window !== null ? $this->windowLabel($window, $locale) : null,
             'eta_from' => $window !== null ? $window['from']->utc()->toIso8601ZuluString() : null,
             'eta_to' => $window !== null ? $window['to']->utc()->toIso8601ZuluString() : null,
+            // The point estimate of the arrival, only while the driver is on the road: the Android card counts down to it by itself.
+            'eta_at' => $s['phase'] === 'on_the_way' && ($s['point'] ?? null) !== null && $s['point']->gt($now) ? $s['point']->utc()->toIso8601ZuluString() : null,
             'driver_name' => $name !== '' && $d !== null && $d->status !== DS::Cancelled ? $name : null,
             'driver_phone' => $active ? Phone::normalize($driver?->phone) : null,
             'vehicle' => $name !== '' && $active ? $profile?->vehicle : null,
@@ -369,6 +375,9 @@ class OrderProgress
         ];
         if ($payload['sub'] === null) {
             unset($payload['sub']); // omitted, not zero, when there is no estimate to measure against
+        }
+        if ($payload['eta_at'] === null) {
+            unset($payload['eta_at']);
         }
 
         return $payload;

@@ -102,20 +102,34 @@ class PushNotifier
         $first = reset($payloads);
         $state = md5((string) json_encode([$first['phase'], $first['detail'], $first['step'], $first['driver_name'], $first['done']]));
         $etaTo = $first['eta_to'] !== null ? strtotime($first['eta_to']) : null;
+        $etaAt = isset($first['eta_at']) ? strtotime($first['eta_at']) : null;
+        $steps = (int) config('platform.live_order.progress_steps', 20);       // 0 turns the bar pushes off
+        $countdownShift = (int) config('platform.live_order.countdown_shift_seconds', 60); // 0 turns the countdown pushes off
+        $fill = $steps > 0 && isset($first['sub']) ? (int) round((float) $first['sub'] * $steps) : null;
         $last = Cache::get(self::LAST.$orderId);
 
         $changed = ! is_array($last) || $last['state'] !== $state;
         $shifted = ! $changed && $etaTo !== null && ($last['eta_to'] ?? null) !== null
             && abs($etaTo - $last['eta_to']) >= (int) config('platform.live_order.shift_minutes', 5) * 60;
+        // Between stages the card keeps moving: the bar is redrawn when its fill crosses a step, and the countdown is reset
+        // when the driver's arrival time shifts, never more often than min_push_seconds per order.
+        $moved = false;
         if (! $changed && ! $shifted) {
+            $recent = now()->getTimestamp() - (int) ($last['at'] ?? 0) < (int) config('platform.live_order.min_push_seconds', 15);
+            $barMoved = $fill !== null && isset($last['fill']) && $fill !== $last['fill'];
+            $countdownMoved = $countdownShift > 0 && $etaAt !== null && isset($last['eta_at']) && abs($etaAt - $last['eta_at']) >= $countdownShift;
+            $moved = ! $recent && ($barMoved || $countdownMoved);
+        }
+        if (! $changed && ! $shifted && ! $moved) {
             return;
         }
+        $silent = $shifted || $moved;
 
         $delivered = 0;
         foreach ($devices as $device) {
             $payload = $payloads[$this->progress->locale($device->locale)];
             try {
-                $res = $this->fcm->sendProgress($device->push_token, $payload['title'], $payload['body'], $shifted ? $payload + ['quiet' => '1'] : $payload, $device);
+                $res = $this->fcm->sendProgress($device->push_token, $payload['title'], $payload['body'], $silent ? $payload + ['quiet' => '1'] : $payload, $device);
             } catch (Throwable $e) {
                 report($e); // one bad device must not stop the others
 
@@ -125,7 +139,7 @@ class PushNotifier
             $delivered += ($res['ok'] ?? false) ? 1 : 0;
         }
         if ($delivered > 0) {
-            Cache::put(self::LAST.$orderId, ['state' => $state, 'eta_to' => $etaTo], now()->addDay());
+            Cache::put(self::LAST.$orderId, ['state' => $state, 'eta_to' => $etaTo, 'eta_at' => $etaAt, 'fill' => $fill, 'at' => now()->getTimestamp()], now()->addDay());
         }
     }
 

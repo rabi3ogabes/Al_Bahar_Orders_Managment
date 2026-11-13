@@ -91,12 +91,14 @@ class RestLiveOrderApi implements LiveOrderApi {
       final t = await _orders.tracking(live.orderId);
       final minutes = t.eta?.minutes;
       final base = t.eta?.updatedAt ?? DateTime.now();
+      final arrival = minutes == null ? null : base.add(Duration(minutes: minutes));
       return LiveOrder(
         orderId: live.orderId,
         number: live.number,
         phase: live.phase,
         pickup: live.pickup,
-        etaTo: minutes == null ? null : base.add(Duration(minutes: minutes)),
+        etaTo: arrival,
+        etaAt: live.phase == LiveOrderPhase.onTheWay ? arrival : null,
         driverName: t.driverFirstName ?? t.driverName,
         driverPhone: t.driverPhone,
         vehicle: t.vehicle,
