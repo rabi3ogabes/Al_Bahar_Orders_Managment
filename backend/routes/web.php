@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\SessionController;
 use App\Http\Controllers\FirebaseWorkerController;
 use App\Http\Controllers\PartnerController;
+use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StorefrontController;
 use App\Http\Controllers\Webhooks\PaymentWebhookController;
 use App\Http\Middleware\SetAdminLocale;
@@ -75,6 +76,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
 | Every GET that is not the API, the admin, a provider endpoint or a static asset directory falls through
 | to the storefront shell; the client router renders the page (or its own 404).
 */
+Route::get('/sitemap.xml', [SitemapController::class, 'sitemap'])->name('sitemap');
+Route::get('/robots.txt', [SitemapController::class, 'robots'])->name('robots');
 Route::get('/{path?}', [StorefrontController::class, 'show'])
     ->where('path', '^(?!(?:admin|partner|api|app|broadcasting|webhooks|payments|docs|build|store|mobile-web|storage|up|health)(?:/|$)).*$')
     ->name('storefront');

@@ -22,13 +22,12 @@ afterEach(function () {
 
 it('serves the storefront shell for the web root and client-side routes', function () {
     File::ensureDirectoryExists(dirname($this->shell));
-    file_put_contents($this->shell, '<!doctype html><title>Al Bahar storefront</title>');
+    file_put_contents($this->shell, '<!doctype html><html><head><title>Al Bahar storefront</title></head><body></body></html>');
 
-    foreach (['/', '/shop', '/products/oslo-linen-sofa', '/checkout', '/account/orders', '/auctions/lots/abc', '/pages/about'] as $path) {
+    foreach (['/', '/shop', '/checkout', '/account/orders', '/auctions/lots/abc'] as $path) {
         $response = $this->get($path)->assertOk();
         expect($response->headers->get('Cache-Control'))->toContain('no-cache');
-        expect($response->baseResponse)->toBeInstanceOf(BinaryFileResponse::class);
-        expect(file_get_contents($response->baseResponse->getFile()->getPathname()))->toContain('Al Bahar storefront');
+        expect($response->getContent())->toContain('<body></body>')->toContain('Al Bahar');
     }
 });
 

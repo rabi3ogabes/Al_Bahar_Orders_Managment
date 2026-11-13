@@ -83,6 +83,12 @@ return [
         'default_delivery_minutes' => 20,   // typical drive from the branch to the customer
     ],
 
+    // Search-engine tags and the sitemap (see App\Support\StorefrontSeo and SitemapController).
+    'seo' => [
+        'cache_seconds' => 300,             // page tags are rebuilt from the catalogue at most this often per address
+        'sitemap_seconds' => 600,
+    ],
+
     // The customer's live order notification (see docs/guides/LIVE_ORDER_NOTIFICATION.md).
     'live_order' => [
         'window_half_minutes' => 7,         // estimate ± this many minutes, rounded to 5
