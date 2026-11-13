@@ -29,7 +29,7 @@ class PartnerController extends Controller
         $unlocked = $this->unlocked($request);
 
         return response()->view($unlocked ? 'partner.dashboard' : 'partner.lock', ['token' => $token, 'today' => BusinessTime::now()->toDateString()])
-            ->header('X-Robots-Tag', 'noindex, nofollow, noarchive')->header('Cache-Control', 'no-store')->header('Referrer-Policy', 'no-referrer');
+            ->header('X-Robots-Tag', 'noindex, nofollow, noarchive')->header('Cache-Control', 'no-store')->header('Referrer-Policy', 'strict-origin');
     }
 
     public function unlock(Request $request, string $token): JsonResponse
