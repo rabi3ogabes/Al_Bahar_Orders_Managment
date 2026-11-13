@@ -41,7 +41,7 @@ messaging.onBackgroundMessage(function (payload) {
     var tag = text(data.tag, 64);
     var options = {
         body: text(data.body, 300),
-        icon: safeLink(data.icon || SETTINGS.icon),
+        icon: typeof data.icon === 'string' && data.icon !== '' ? safeLink(data.icon) : SETTINGS.icon,
         badge: SETTINGS.icon,
         dir: 'auto',
         data: { deep_link: safeLink(data.deep_link), kind: text(data.kind, 40), order_id: order },

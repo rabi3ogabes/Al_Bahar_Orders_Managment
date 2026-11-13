@@ -65,7 +65,6 @@ Future<bool> promptForNotificationsIfNeeded(
     if (!context.mounted) return false;
     final accepted = await showAppBottomSheet<bool>(
       context: context,
-      scrollable: false,
       builder: (_) => NotificationPermissionSheet(settings: kind == NotificationPromptKind.settings),
     );
     if (accepted != true) return false;

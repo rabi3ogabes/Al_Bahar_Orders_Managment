@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:albahar_customer/core/map/map_config.dart';
+import 'package:albahar_customer/core/map/map_nav.dart';
 import 'package:albahar_customer/core/map/map_providers.dart';
 import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:albahar_customer/l10n/generated/app_localizations.dart';
@@ -59,9 +60,47 @@ class StaticMapConfig extends MapConfigController {
   Future<void> ensureFresh({bool force = false}) async {}
 }
 
+/// A phone with a chosen set of navigation apps; every trip it is asked to open is recorded.
+class FakeNavigation extends NavigationLauncher {
+  FakeNavigation({this.installed = const {}, this.opens = true, this.platformOverride = TargetPlatform.android});
+
+  /// URL schemes that count as installed (`waze`, `google.navigation`, `comgooglemaps`).
+  final Set<String> installed;
+
+  /// Whether opening works at all.
+  bool opens;
+  final TargetPlatform platformOverride;
+  final opened = <Uri>[];
+  NavApp? remembered;
+  NavApp? last;
+
+  @override
+  TargetPlatform get platform => platformOverride;
+
+  @override
+  Future<bool> canLaunch(Uri uri) async => installed.contains(uri.scheme);
+
+  @override
+  Future<bool> open(Uri uri) async {
+    opened.add(uri);
+    return opens;
+  }
+
+  @override
+  Future<NavApp?> lastUsed() async => last;
+
+  @override
+  Future<void> remember(NavApp app) async => remembered = app;
+}
+
 /// Providers that keep every map in a test off the network (tile provider and server settings).
-List<Override> mapTestOverrides({MapSettings? settings, FakeTileProvider Function(String ua)? tiles}) => [
+List<Override> mapTestOverrides({
+  MapSettings? settings,
+  FakeTileProvider Function(String ua)? tiles,
+  FakeNavigation? navigation,
+}) => [
   mapConfigProvider.overrideWith(() => StaticMapConfig(settings)),
+  navigationLauncherProvider.overrideWithValue(navigation ?? FakeNavigation()),
   mapTileProviderFactoryProvider.overrideWithValue(tiles ?? FakeTileProvider.new),
 ];
 

@@ -59,6 +59,7 @@ export function createFleetMap(o) {
     let userMoved = Boolean(o.view);
     let progUntil = 0;
     let loaded = !o.loading;
+    let everLoaded = false;
     let refreshing = false;
     let lastUnknownRefresh = 0;
     let destroyed = false;
@@ -567,6 +568,7 @@ export function createFleetMap(o) {
         o.serverTime = null;
         if (branchList) syncBranches(branchList);
         loaded = true;
+        everLoaded = true;
         overlays.skeleton.hidden = true;
         setError(false);
         layout();
@@ -702,8 +704,12 @@ export function createFleetMap(o) {
         if (state === 'live' && was !== 'live') runRefresh();
     }
 
+    /** Shows the refresh error. Before the first successful load it replaces the skeleton and says nothing was loaded yet. */
     function setError(on) {
         overlays.error.hidden = !on;
+        if (!on) return;
+        overlays.skeleton.hidden = true;
+        setText(overlays.errText, everLoaded ? text.refresh_error : text.drivers_load_error);
     }
 
     async function runRefresh() {

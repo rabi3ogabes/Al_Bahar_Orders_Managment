@@ -170,7 +170,12 @@ void main() {
           'GET /orders/o1': (r) => ok(
             order(
               'out_for_delivery',
-              delivery: {'status': 'picked_up', 'driver_name': 'Ahmed', 'driver_phone': '+97455500000', 'eta': '2026-11-13T18:35:00Z'},
+              delivery: {
+                'status': 'picked_up',
+                'driver_name': 'Ahmed',
+                'driver_phone': '+97455500000',
+                'eta': '2026-11-13T18:35:00Z',
+              },
             ),
           ),
         }),

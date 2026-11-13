@@ -1,4 +1,5 @@
-import 'package:albahar_customer/core/live_order/live_order.dart';
+import 'dart:async';
+
 import 'package:albahar_customer/core/live_order/live_order_controller.dart';
 import 'package:albahar_customer/core/live_order/live_order_platform.dart';
 import 'package:albahar_customer/core/live_order/notification_permission.dart';
@@ -14,7 +15,13 @@ final _now = DateTime.utc(2026, 11, 13, 18);
 
 class _Flow {
   _Flow(this.prefs) {
-    controller = LiveOrderController(platform: platform, api: FakeLiveOrderApi(), prefs: prefs, localeCode: () => 'en', now: () => now);
+    controller = LiveOrderController(
+      platform: platform,
+      api: FakeLiveOrderApi(),
+      prefs: prefs,
+      localeCode: () => 'en',
+      now: () => now,
+    );
   }
 
   final AppPreferences prefs;
@@ -132,7 +139,9 @@ void main() {
         await open(tester);
         expect(tester.takeException(), isNull);
         for (final label in ['Allow notifications', 'Not now']) {
-          final button = find.ancestor(of: find.text(label), matching: find.byType(ButtonStyleButton)).first;
+          final button = find
+              .ancestor(of: find.text(label), matching: find.byWidgetPredicate((w) => w is ButtonStyleButton))
+              .first;
           expect(tester.getSize(button).height, greaterThanOrEqualTo(48), reason: label);
         }
       });
@@ -145,20 +154,21 @@ void main() {
       flow.platform.state = LiveOrderPermission.denied;
       flow.controller.onSignedIn();
       await tester.pumpWidget(flow.app());
-      await tester.runAsync(() => flow.controller.orderPlaced(orderId: 'o1', number: '1'));
+      unawaited(flow.controller.orderPlaced(orderId: 'o1', number: '1'));
+      await tester.pump();
       final drawn = flow.platform.shown.length;
 
       await open(tester);
       await tester.tap(find.text('Allow notifications'));
       await tester.pumpAndSettle();
-      await tester.runAsync(() async => Future<void>.delayed(const Duration(milliseconds: 10)));
       expect(flow.platform.requestCalls, 1);
       expect(flow.outcome, isTrue);
       expect(flow.platform.shown.length, drawn + 1, reason: 'the waiting card is drawn now');
       expect(flow.platform.last.force, isTrue);
       expect(flow.prefs.livePermissionPrompt.count, 1);
-      expect(flow.prefs.livePermissionPrompt.at, _now);
+      expect(flow.prefs.livePermissionPrompt.at!.isAtSameMomentAs(_now), isTrue);
       expect(find.text('Follow your order live'), findsNothing);
+      await flow.controller.dispose(); // the poll timer of the followed order must not outlive the test
     });
 
     testWidgets('allow, then "don\'t allow" in the system dialog: no card is forced', (tester) async {

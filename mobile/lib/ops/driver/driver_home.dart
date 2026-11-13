@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:albahar_customer/core/l10n/l10n.dart';
+import 'package:albahar_customer/core/map/map_nav.dart';
 import 'package:albahar_customer/core/realtime/pusher_client.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
@@ -484,8 +485,13 @@ class _JobCardState extends ConsumerState<_JobCard> {
                   const Gap(AppSpace.xs),
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () =>
-                          openMaps(context, lat: job.address.lat, lng: job.address.lng, query: job.address.line),
+                      onPressed: () => openMaps(
+                        context,
+                        lat: job.address.lat,
+                        lng: job.address.lng,
+                        query: job.address.line,
+                        launcher: ref.read(navigationLauncherProvider),
+                      ),
                       icon: const Icon(Icons.navigation_rounded, size: 18),
                       label: Text(t.navigate, maxLines: 1, overflow: TextOverflow.ellipsis),
                     ),
@@ -559,8 +565,15 @@ class _JobMapRoute extends ConsumerWidget {
       job: current,
       fixes: tracker.fixes,
       initialFix: tracker.lastFix,
-      onNavigate: () =>
-          unawaited(openMaps(context, lat: current.address.lat, lng: current.address.lng, query: current.address.line)),
+      onNavigate: () => unawaited(
+        openMaps(
+          context,
+          lat: current.address.lat,
+          lng: current.address.lng,
+          query: current.address.line,
+          launcher: ref.read(navigationLauncherProvider),
+        ),
+      ),
       card: _JobCard(key: ValueKey('map-${current.id}'), job: current, readOnly: false, embedded: true),
     );
   }

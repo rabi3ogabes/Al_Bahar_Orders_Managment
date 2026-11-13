@@ -2,6 +2,7 @@ import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -109,7 +110,19 @@ abstract final class MapNavigation {
   }
 }
 
-Future<bool> _open(Uri uri) => launchUrl(uri, mode: LaunchMode.externalApplication);
+/// What the phone can do for navigation: which apps are installed, opening one, and remembering the last choice.
+/// Replaced in tests, where no phone plugin exists.
+class NavigationLauncher {
+  const NavigationLauncher();
+
+  TargetPlatform get platform => defaultTargetPlatform;
+  Future<bool> canLaunch(Uri uri) => canLaunchUrl(uri);
+  Future<bool> open(Uri uri) => launchUrl(uri, mode: LaunchMode.externalApplication);
+  Future<NavApp?> lastUsed() => MapNavigation.lastUsed();
+  Future<void> remember(NavApp app) => MapNavigation.remember(app);
+}
+
+final navigationLauncherProvider = Provider<NavigationLauncher>((ref) => const NavigationLauncher());
 
 /// Starts navigation to a point. One installed app starts at once; several show a short chooser (last used first).
 /// Returns false when nothing on the phone could open the trip, so the caller can say so.
@@ -117,16 +130,13 @@ Future<bool> startNavigation(
   BuildContext context, {
   required double lat,
   required double lng,
-  TargetPlatform? platform,
-  Future<bool> Function(Uri uri)? canLaunch,
-  Future<bool> Function(Uri uri)? open,
+  NavigationLauncher launcher = const NavigationLauncher(),
 }) async {
-  final launcher = open ?? _open;
-  final all = MapNavigation.choices(lat, lng, platform: platform ?? defaultTargetPlatform);
-  final usable = await MapNavigation.available(all, canLaunch: canLaunch ?? canLaunchUrl);
+  final all = MapNavigation.choices(lat, lng, platform: launcher.platform);
+  final usable = await MapNavigation.available(all, canLaunch: launcher.canLaunch);
+  final last = await launcher.lastUsed();
   if (!context.mounted) return false;
-  final options = MapNavigation.ordered(usable, await MapNavigation.lastUsed());
-  if (!context.mounted) return false;
+  final options = MapNavigation.ordered(usable, last);
   NavChoice? pick;
   if (options.length == 1) {
     pick = options.first;
@@ -139,8 +149,8 @@ Future<bool> startNavigation(
     );
   }
   if (pick == null) return true; // the driver closed the chooser: nothing failed
-  final ok = await MapNavigation.launch(pick, open: launcher);
-  if (ok) await MapNavigation.remember(pick.app);
+  final ok = await MapNavigation.launch(pick, open: launcher.open);
+  if (ok) await launcher.remember(pick.app);
   return ok;
 }
 

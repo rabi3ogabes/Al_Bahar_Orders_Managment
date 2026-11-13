@@ -292,7 +292,7 @@ void main() {
     });
 
     testWidgets('tapping a pin selects that driver\'s row; a driver with no position cannot be tapped', (t) async {
-      await pump(t, drivers: _team());
+      await pump(t, drivers: _team(), v: const Variant('tall', Size(390, 1500), kEn));
       await framed(t);
       await t.tap(find.byWidgetPredicate((w) => w is DriverMarkerView && w.label == 'Omar'));
       await t.pump();
@@ -355,10 +355,10 @@ void main() {
         await t.pump(const Duration(seconds: 2));
         expect(pin().latitude, closeTo(25.2812, 1e-6), reason: 'a late, older push never moves the pin back');
 
-        events.add({'driver_id': 'u2', 'lat': 25.3, 'lng': 51.5, 'speed_kmh': 5}); // not in the list yet
+        events.add({'driver_id': 'u2', 'lat': 25.2815, 'lng': 51.5215, 'speed_kmh': 5}); // not in the list yet
         await t.pump();
         expect(pins(t), hasLength(1));
-        repo.fleetList = [...repo.fleetList, _fd(_driver('u2', 'Salem', lat: 25.3, lng: 51.5, speed: 5, age: 1))];
+        repo.fleetList = [...repo.fleetList, _fd(_driver('u2', 'Salem', lat: 25.2815, lng: 51.5215, speed: 5, age: 1))];
         ProviderScope.containerOf(t.element(find.byType(FleetMapTab))).invalidate(staffFleetProvider);
         await t.pump();
         await t.pump(const Duration(seconds: 2));

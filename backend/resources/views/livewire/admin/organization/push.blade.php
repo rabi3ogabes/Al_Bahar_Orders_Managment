@@ -93,7 +93,7 @@
         <fieldset class="grid gap-5 p-5 sm:grid-cols-2 sm:p-6" @disabled(! $canEdit)>
             @foreach ([['projectId', 'project_id', false], ['apiKey', 'api_key', false], ['authDomain', 'auth_domain', false], ['senderId', 'sender_id', false], ['appId', 'app_id', false], ['vapidKey', 'vapid_key', true]] as [$prop, $lang, $wide])
                 <x-admin.field :label="__('push_admin.field.'.$lang)" :for="$prop" :hint="__('push_admin.hint_field.'.$lang)" class="{{ $wide ? 'sm:col-span-2' : '' }}">
-                    <input id="{{ $prop }}" wire:model.blur="{{ $prop }}" class="input font-mono text-[0.8125rem] @error($prop) input-error @enderror" dir="ltr" spellcheck="false" autocapitalize="off" autocomplete="off"
+                    <input id="{{ $prop }}" wire:model.live.debounce.700ms="{{ $prop }}" class="input font-mono text-[0.8125rem] @error($prop) input-error @enderror" dir="ltr" spellcheck="false" autocapitalize="off" autocomplete="off"
                            placeholder="{{ __('push_admin.example.'.$lang) }}" @if ($errors->has($prop)) aria-invalid="true" @endif>
                 </x-admin.field>
             @endforeach
@@ -261,6 +261,7 @@
                     this.$wire.$refresh();
                 } catch (e) {
                     this.state = 'error';
+                    console.warn('Push: enabling this browser failed', e); // the exact reason, for anyone with the console open
                     this.error = boot.text[mod?.errorCode(e) ?? 'unknown'] ?? boot.text.unknown;
                 } finally {
                     this.permission = typeof Notification === 'undefined' ? 'unsupported' : Notification.permission;

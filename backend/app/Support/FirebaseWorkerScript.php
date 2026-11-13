@@ -11,8 +11,11 @@ use App\Domain\Settings\Services\Settings;
  */
 final class FirebaseWorkerScript
 {
-    /** The Firebase compat bundles the worker imports from gstatic.com (a released version, so the file never changes underneath us). */
-    public const SDK_VERSION = '10.14.1';
+    /**
+     * The Firebase compat bundles the worker imports from gstatic.com: an exact released version, so the file never changes underneath us.
+     * Kept equal to the `firebase` package the dashboard and the store pages use (a test checks package.json), so page and worker agree.
+     */
+    public const SDK_VERSION = '12.19.0';
 
     /** Shown when a push carries no icon of its own (the app icon the Flutter web build ships). */
     public const ICON = '/mobile-web/icons/Icon-192.png';

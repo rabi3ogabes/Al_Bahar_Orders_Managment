@@ -87,3 +87,9 @@ it('ships a template whose placeholder is replaced exactly once', function () {
 
     expect(substr_count($template, '/*@settings*/ {}'))->toBe(1);
 });
+
+it('imports the same Firebase version from the CDN as the dashboard installs from npm', function () {
+    $package = json_decode(file_get_contents(base_path('package.json')), true);
+
+    expect($package['dependencies']['firebase'])->toBe(FirebaseWorkerScript::SDK_VERSION);
+});

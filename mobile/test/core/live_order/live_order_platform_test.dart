@@ -27,7 +27,9 @@ void main() {
   }
 
   setUp(calls.clear);
-  tearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(_channel, null));
+  tearDown(
+    () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(_channel, null),
+  );
 
   test('the channel name is the one Kotlin registers', () {
     expect(MethodChannelLiveOrderPlatform.channelName, 'albahar/live_order');

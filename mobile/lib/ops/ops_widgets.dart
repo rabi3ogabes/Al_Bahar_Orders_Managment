@@ -56,17 +56,23 @@ Future<void> dial(BuildContext context, String? phone) async {
 
 /// Starts navigation to the coordinates in the phone's navigation app (Google Maps, Apple Maps or Waze: a chooser when
 /// more than one is installed), or opens a maps search for the address text when there is no pin.
-Future<void> openMaps(BuildContext context, {double? lat, double? lng, required String query}) async {
+Future<void> openMaps(
+  BuildContext context, {
+  double? lat,
+  double? lng,
+  required String query,
+  NavigationLauncher launcher = const NavigationLauncher(),
+}) async {
   if (MapGeo.isFinitePair(lat, lng)) {
-    final ok = await startNavigation(context, lat: lat!, lng: lng!);
+    final ok = await startNavigation(context, lat: lat!, lng: lng!, launcher: launcher);
     if (!ok && context.mounted) showInfoSnack(context, OpsStrings.of(context).couldNotOpen);
     return;
   }
-  await _launch(
-    context,
-    Uri.https('www.google.com', '/maps/search/', {'api': '1', 'query': query}),
-    LaunchMode.externalApplication,
-  );
+  var ok = false;
+  try {
+    ok = await launcher.open(Uri.https('www.google.com', '/maps/search/', {'api': '1', 'query': query}));
+  } catch (_) {}
+  if (!ok && context.mounted) showInfoSnack(context, OpsStrings.of(context).couldNotOpen);
 }
 
 Future<void> _launch(BuildContext context, Uri uri, LaunchMode mode) async {

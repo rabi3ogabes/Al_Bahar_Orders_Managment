@@ -1,6 +1,7 @@
 // Loader for the map kit. Every page loads the kit lazily (Leaflet and the map code are a separate chunk), so a page without a
 // map never pays for it. If the chunk cannot be fetched, the host shows a plain message with a retry button; the classes used here
-// belong to the page stylesheet, because the map stylesheet is part of the chunk that failed.
+// belong to the page stylesheet, because the map stylesheet is part of the chunk that failed. Retry reloads the page: the browser
+// keeps a failed module import cached as failed, so importing it again in the same page would fail again.
 
 import { TEXT } from './text.js';
 
@@ -44,7 +45,8 @@ export async function bootMap(host, build) {
         return await build(kit);
     } catch (e) {
         console.error('Map failed to start', e);
-        if (host.isConnected) errorBox(host, () => bootMap(host, build));
+        // A module that failed to download is remembered as failed by the browser until the page is loaded again, so Retry reloads the page.
+        if (host.isConnected) errorBox(host, () => location.reload());
         return null;
     }
 }

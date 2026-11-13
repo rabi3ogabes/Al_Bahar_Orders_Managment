@@ -251,19 +251,24 @@ class _InfoBar extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
+                      // A Wrap: on a narrow phone with large text the distance drops under the time instead of overflowing.
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 2,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          Icon(Icons.schedule_rounded, size: 18, color: scheme.primary),
-                          const SizedBox(width: 6),
-                          Text(
-                            eta!,
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.schedule_rounded, size: 18, color: scheme.primary),
+                              const SizedBox(width: 6),
+                              Text(
+                                eta!,
+                                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                              ),
+                            ],
                           ),
-                          if (distance != null) ...[
-                            const SizedBox(width: 8),
-                            Text('·  $distance', style: Theme.of(context).textTheme.bodyMedium),
-                          ],
+                          if (distance != null) Text(distance!, style: Theme.of(context).textTheme.bodyMedium),
                         ],
                       ),
                       if (note != null)

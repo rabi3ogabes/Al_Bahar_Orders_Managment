@@ -393,6 +393,7 @@ Widget opsHost(
   FakeLocation? location,
   FakePicker? picker,
   FakeTracker? tracker,
+  FakeNavigation? navigation,
   OpsRole role = OpsRole.driver,
   List<Override> overrides = const [],
 }) => ProviderScope(
@@ -409,7 +410,7 @@ Widget opsHost(
     driverEventsProvider.overrideWith((ref) => const Stream.empty()),
     staffEventsProvider.overrideWith((ref) => const Stream.empty()),
     staffMovesProvider.overrideWith((ref) => const Stream<Map<String, dynamic>>.empty()),
-    ...mapTestOverrides(),
+    ...mapTestOverrides(navigation: navigation),
     ...overrides,
   ],
   child: MaterialApp(

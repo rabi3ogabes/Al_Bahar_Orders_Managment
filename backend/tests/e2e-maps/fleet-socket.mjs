@@ -27,7 +27,7 @@ check('starts live', true);
 execSync(STOP, { stdio: 'ignore', shell: '/bin/bash' });
 await page.waitForFunction(() => document.querySelector('.abm-conn')?.dataset.state !== 'live', null, { timeout: 20000 });
 const down = await page.locator('.abm-conn').innerText();
-check('chip says reconnecting and names the interval', /Reconnecting/.test(down), down);
+check('chip says reconnecting and names the interval', /Reconnecting.*15/.test(down), down);
 await shot(page, 'fleet-socket-down');
 updates = 0;
 await sleep(17000);

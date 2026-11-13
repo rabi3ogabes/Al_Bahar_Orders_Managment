@@ -418,7 +418,7 @@ html.abm-lock { overflow: hidden; }
     background: color-mix(in srgb, var(--abm-danger) 10%, var(--abm-panel));
     box-shadow: var(--abm-shadow);
     font-size: 13px;
-    z-index: 15;
+    z-index: 40;
 }
 [dir='rtl'] .abm-err { translate: 50% 0; }
 .abm-err svg { color: var(--abm-danger); flex: none; }
