@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Drawer as Sheet } from 'vaul';
 import { X } from 'lucide-react';
@@ -52,8 +52,11 @@ export function SideDrawer({ open, onClose, title, description, children, footer
   const opener = useOpener(returnFocus);
 
   const request = useCallback(() => { if (dirty) setAsk(true); else onClose(); }, [dirty, onClose]);
-  // Back with unsaved input: stay open, ask, and put the history entry back for the next Back.
-  useCloseOnBack(open && !urlBacked, () => { if (dirty) { setAsk(true); setRearm((n) => n + 1); } else onClose(); }, rearm);
+  // Back with unsaved input: stay open, put this window's history entry back first, and only then ask (the question is the
+  // top window, so its entry must be pushed after the window's own).
+  const askAfterRearm = useRef(false);
+  useCloseOnBack(open && !urlBacked, () => { if (dirty) { askAfterRearm.current = true; setRearm((n) => n + 1); } else onClose(); }, rearm);
+  useEffect(() => { if (askAfterRearm.current) { askAfterRearm.current = false; setAsk(true); } }, [rearm]);
 
   const onOpenAutoFocus = (e: Event) => {
     opener.remember();

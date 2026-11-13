@@ -79,8 +79,9 @@ export class OverlayStack {
     const top = this.open[this.open.length - 1] === e;
     this.open = this.open.filter((x) => x !== e);
     // Only step back while the entry is still ours and on top. After a router navigation (a link inside the window) the
-    // current entry belongs to the destination page and must stay.
-    if (top && depthOf(this.h.state) === e.depth) { this.travelling += 1; this.h.back(); }
+    // current entry belongs to the destination page and must stay. Backs already on their way (a window and the question
+    // above it closing together) count: by the time ours runs, the state will be that many entries lower.
+    if (top && depthOf(this.h.state) - this.travelling === e.depth) { this.travelling += 1; this.h.back(); }
   }
 
   /** Call from the window's `popstate` listener. */

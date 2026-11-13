@@ -227,3 +227,35 @@ test('depth continues from the entry the router created', () => {
   open('drawer');
   assert.deepEqual(h.state, { usr: null, key: 'x', idx: 1, __ovDepth: 1 });
 });
+
+test('dirty form: the window re-arms first and the question is pushed after it, so Discard leaves no dead entry', () => {
+  const { h, stack, closed } = setup();
+  let window1 = stack.register(() => closed.push('drawer-back'));
+  stack.push(window1);
+  h.userBack(); // Back while dirty: our entry is popped and the window is told
+  assert.deepEqual(closed, ['drawer-back']);
+  stack.release(window1); // effect cleanup with the new rearm key
+  window1 = stack.register(() => closed.push('drawer-back-2'));
+  stack.push(window1); // re-armed entry first ...
+  const question = stack.register(() => closed.push('question'));
+  stack.push(question); // ... then the "Discard changes?" question on top
+  assert.equal(depthOf(h.state), 2);
+  // Discard: question and window close together (cleanups run child first)
+  stack.release(question);
+  stack.release(window1);
+  h.settle();
+  assert.equal(h.index, 0);
+  assert.equal(depthOf(h.state), 0);
+  assert.equal(stack.size, 0);
+});
+test('the wrong order (question pushed before the re-armed window) is what left a dead entry', () => {
+  const { h, stack } = setup();
+  const question = stack.register(() => {});
+  stack.push(question);
+  const window1 = stack.register(() => {});
+  stack.push(window1);
+  stack.release(question);
+  stack.release(window1);
+  h.settle();
+  assert.equal(h.index, 1, 'documents the failure mode the ordering rule prevents');
+});
