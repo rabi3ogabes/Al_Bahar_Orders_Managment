@@ -10,11 +10,13 @@ import 'package:albahar_customer/ops/driver/driver_home.dart';
 import 'package:albahar_customer/ops/driver/driver_tracker.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_repository.dart';
+import 'package:albahar_customer/ops/ops_session.dart';
 import 'package:albahar_customer/ops/ops_widgets.dart';
 import 'package:albahar_customer/ops/staff/staff_home.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -38,6 +40,9 @@ class FakeOps implements OpsRepository {
   Object? studioError;
   Object? categoriesError;
   Completer<void>? deliverGate;
+  Completer<void>? advanceGate;
+  Completer<void>? uploadGate;
+  final failUploads = <String>{};
   Completer<void>? stepGate;
   Completer<void>? dutyGate;
   Completer<List<DriverJob>>? jobsGate;
@@ -181,6 +186,7 @@ class FakeOps implements OpsRepository {
   @override
   Future<void> advance(String fulfillmentId, String status) async {
     calls.add('advance:$fulfillmentId:$status');
+    await advanceGate?.future;
     if (advanceError != null) throw advanceError!;
   }
 
@@ -219,7 +225,8 @@ class FakeOps implements OpsRepository {
   @override
   Future<String> uploadProductImage(String productId, File photo) async {
     calls.add('upload:${photo.path}');
-    if (uploadError != null) throw uploadError!;
+    await uploadGate?.future;
+    if (uploadError != null || failUploads.contains(photo.path)) throw uploadError ?? apiError(ApiErrorKind.offline, 0);
     return 'img-${photo.path}';
   }
 
@@ -345,9 +352,13 @@ Widget opsHost(
   FakeLocation? location,
   FakePicker? picker,
   FakeTracker? tracker,
+  OpsRole role = OpsRole.driver,
   List<Override> overrides = const [],
 }) => ProviderScope(
+  // Like the real app: a failed load is shown, not silently retried by the container.
+  retry: (_, _) => null,
   overrides: [
+    opsRoleProvider.overrideWithValue(role),
     opsRepositoryProvider.overrideWithValue(repo),
     appConfigProvider.overrideWithValue(testConfig),
     locationServiceProvider.overrideWithValue(location ?? FakeLocation()),

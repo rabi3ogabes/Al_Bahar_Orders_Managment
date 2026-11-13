@@ -57,8 +57,12 @@ String _summary(FlutterErrorDetails d) {
   final headline = d.exception.toString().split('\n').first;
   final file = lines.firstWhere((l) => l.contains('file:///') && l.contains('/lib/'), orElse: () => '');
   final creator = lines.firstWhere((l) => l.trimLeft().startsWith('creator:'), orElse: () => '');
+  final ex = d.exception;
+  final chain = ex is FlutterError
+      ? ex.diagnostics.map((n) => n.toStringDeep()).where((t) => t.contains('creator:')).join(' ')
+      : '';
   final trace = lines.firstWhere((l) => l.contains('package:albahar_customer'), orElse: () => '');
-  return '$headline @ ${file.trim().replaceAll(RegExp(r'file:///[^ ]*/mobile/'), '')} ${creator.trim()} $trace'
+  return '$headline @ ${file.trim().replaceAll(RegExp(r'file:///[^ ]*/mobile/'), '')} ${creator.trim()} $chain $trace'
       .replaceAll(RegExp(r'\s+'), ' ');
 }
 

@@ -9,7 +9,7 @@ import { useI18n } from '../lib/i18n';
 import { useDebounce } from '../lib/hooks';
 import { cx } from '../lib/format';
 import type { Category, ProductCard } from '../lib/types';
-import { Button, Drawer, IconButton, Modal, Pic, PriceTag, QtyStepper, Spinner } from './ui';
+import { Button, Drawer, IconButton, Modal, Pic, PriceTag, QtyStepper, Spinner, useFocusTrap } from './ui';
 import { useBrand } from '../lib/brand';
 
 export function LogoMark({ className = 'h-9 w-9 sm:h-10 sm:w-10' }: { className?: string }) {
@@ -64,6 +64,8 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
   const [q, setQ] = useState('');
   const dq = useDebounce(q.trim(), 250);
   const ref = useRef<HTMLInputElement>(null);
+  const box = useRef<HTMLDivElement>(null);
+  useFocusTrap(open, box);
   const { branchId } = useBranch();
   const res = useQuery({
     queryKey: ['suggest', dq, branchId], enabled: open && dq.length >= 2,
@@ -77,7 +79,7 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
   return (
     <div className="fixed inset-0 z-[85]" role="dialog" aria-modal="true" aria-label={t('search.title')}>
       <div className="fade absolute inset-0 bg-ink/45 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="rise relative mx-auto mt-0 max-w-3xl rounded-b-[28px] bg-bg p-5 shadow-soft sm:mt-6 sm:rounded-[28px] sm:p-7">
+      <div ref={box} className="rise relative mx-auto mt-0 max-w-3xl rounded-b-[28px] bg-bg p-5 shadow-soft sm:mt-6 sm:rounded-[28px] sm:p-7">
         <form onSubmit={go} className="flex items-center gap-3 border-b border-primary pb-3">
           <Search size={22} className="text-muted" />
           <input ref={ref} value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('search.placeholder')} aria-label={t('search.title')} className="flex-1 bg-transparent font-display text-[26px] outline-none placeholder:text-muted/60" />

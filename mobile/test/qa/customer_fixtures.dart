@@ -149,6 +149,8 @@ Map<String, dynamic> productDetail(String id) => {
   'description': '<p>Solid oak, hand finished.</p>',
 };
 
+String _soon() => DateTime.now().toUtc().add(const Duration(days: 2, hours: 3, minutes: 12)).toIso8601String();
+
 Map<String, dynamic> lotJson() => {
   'id': 'lot1',
   'auction_id': 'auc1',
@@ -165,10 +167,10 @@ Map<String, dynamic> lotJson() => {
   'reserve_met': true,
   'bid_count': 7,
   'last_sequence': 12,
-  'starts_at': '2026-11-04T18:00:00+03:00',
-  'ends_at': '2099-11-04T21:00:00+03:00',
+  'starts_at': '2026-11-01T18:00:00+03:00',
+  'ends_at': _soon(),
   'extension_count': 0,
-  'server_time': '2026-11-04T19:12:44+03:00',
+  'server_time': DateTime.now().toUtc().toIso8601String(),
   'my_status': 'leading',
   'my_max_auto_bid': null,
   'is_watching': true,
@@ -179,8 +181,8 @@ Map<String, dynamic> auctionJson(String id) => {
   'title': 'Autumn heritage auction',
   'description': 'Rare pieces',
   'status': 'live',
-  'starts_at': '2026-11-04T18:00:00+03:00',
-  'ends_at': '2099-11-04T21:00:00+03:00',
+  'starts_at': '2026-11-01T18:00:00+03:00',
+  'ends_at': _soon(),
   'image_url': null,
   'lots_count': 1,
   'lots': [lotJson()],

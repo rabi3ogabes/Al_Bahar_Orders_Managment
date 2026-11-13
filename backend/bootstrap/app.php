@@ -8,6 +8,7 @@ use App\Http\Middleware\RequirePermission;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetAdminLocale;
 use App\Http\Middleware\SetApiLocale;
+use App\Http\Middleware\StripNullBytes;
 use App\Http\Middleware\ValidateStaffQuery;
 use App\Support\DomainException;
 use App\Support\InvalidMoney;
@@ -36,6 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(AssignRequestId::class);
         $middleware->append(SecurityHeaders::class);
+        $middleware->append(StripNullBytes::class);
         $middleware->api(prepend: [SetApiLocale::class], append: [EnforceMinimumAppBuild::class]);
         $middleware->web(append: [SetAdminLocale::class]);
         $middleware->alias([

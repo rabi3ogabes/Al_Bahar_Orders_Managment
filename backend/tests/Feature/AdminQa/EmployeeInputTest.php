@@ -51,3 +51,8 @@ it('treats zone and supplier codes case-insensitively when checking for duplicat
         ->set('form.code', 'acme')->set('form.name', 'Acme')->set('form.currency', 'QAR')
         ->call('save')->assertHasErrors(['form.code']);
 });
+
+it('accepts a NUL byte in a submitted string without a server error (it is stripped before it reaches PostgreSQL)', function () {
+    $this->postJson('/api/v1/auth/login', ['email' => "a\0b@example.com", 'password' => "x\0y"])->assertUnauthorized();
+    $this->actingAs($this->admin)->get('/admin/products?search='.urlencode("ab\0cd"))->assertOk();
+});
