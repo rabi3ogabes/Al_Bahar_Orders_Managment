@@ -42,6 +42,7 @@ Route::middleware(['auth:sanctum', 'customer'])->group(function () {
     });
     Route::controller(V1\Commerce\CheckoutController::class)->group(function () {
         Route::get('cart', 'cart')->name('cart.show');
+        Route::get('cart/suggestions', 'suggestions')->name('cart.suggestions');
         Route::put('cart', 'updateCart')->name('cart.update');
         Route::post('cart/items', 'addItem')->name('cart.items.store');
         Route::patch('cart/items/{id}', 'updateItem')->name('cart.items.update');

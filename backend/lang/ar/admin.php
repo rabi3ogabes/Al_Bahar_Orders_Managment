@@ -125,4 +125,5 @@ return [
     'reject' => 'رفض',
     'print' => 'طباعة',
     'all_branches' => 'جميع الفروع',
+    'undo' => 'تراجع',
 ];

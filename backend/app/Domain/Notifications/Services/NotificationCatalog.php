@@ -29,6 +29,8 @@ final class NotificationCatalog
         'stock.price_drop' => ['marketing', ['push', 'in_app']],
         'cart.abandoned' => ['marketing', ['push', 'whatsapp']],
         'support.reply' => ['transactional', ['push', 'in_app', 'email']],
+        'referral.rewarded' => ['transactional', ['push', 'in_app']],
+        'referral.friend_rewarded' => ['transactional', ['push', 'in_app']],
         'campaign' => ['marketing', ['push', 'in_app']],
     ];
 

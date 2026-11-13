@@ -125,4 +125,5 @@ return [
     'reject' => 'Reject',
     'print' => 'Print',
     'all_branches' => 'All branches',
+    'undo' => 'Undo',
 ];

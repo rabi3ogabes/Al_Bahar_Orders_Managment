@@ -132,4 +132,6 @@ return [
     'auction_not_publishable' => 'أضف عنواناً وقطعة واحدة على الأقل وأكمل التواريخ قبل النشر.',
     'delivery_unavailable_area' => 'لا نوصل إلى هذا العنوان بعد.',
     'review_exists' => 'لقد قيّمت هذا المنتج بالفعل.',
+    'upsell_limit' => 'يمكنك اقتراح حتى :max منتجات.',
+    'upsell_invalid' => 'لا يمكن اقتراح هذا المنتج.',
 ];

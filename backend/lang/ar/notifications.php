@@ -41,6 +41,10 @@ return [
     'cart.abandoned.body' => 'القطع التي اخترتها ما زالت هنا — يتم تأكيد الأسعار والتوفر عند الدفع.',
     'support.reply.title' => 'رد جديد من البحر',
     'support.reply.body' => 'رد فريقنا على طلبك {{reference}}.',
+    'referral.rewarded.title' => 'وصل أول طلب لصديقك',
+    'referral.rewarded.body' => 'أكمل {{friend}} أول طلب، ومكافأتك جاهزة: {{reward}}',
+    'referral.friend_rewarded.title' => 'هدية ترحيب لك',
+    'referral.friend_rewarded.body' => 'شكراً على أول طلب. مكافأتك: {{reward}}',
     'campaign.title' => '{{title}}',
     'campaign.body' => '{{body}}',
 ];

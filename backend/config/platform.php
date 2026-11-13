@@ -109,8 +109,20 @@ return [
         'redeem_value_per_point' => '0.05', // QAR per point
         'max_redeem_percent' => 30,
         'points_expiry_days' => 365,
-        'referral_referrer_points' => 500,
-        'referral_referee_points' => 250,
+    ],
+
+    // Referral programme: a customer shares a code; when the friend's first order completes, rewards are granted.
+    // Reward type: balance (loyalty points worth the QAR amount) | coupon (a personal one-time coupon of a promotion).
+    'referrals' => [
+        'enabled' => false,
+        'referrer_type' => 'balance', 'referrer_amount' => '25.00', 'referrer_promotion_id' => null, 'referrer_prefix' => 'FRIEND', 'referrer_valid_hours' => 720,
+        'friend_type' => 'balance', 'friend_amount' => '12.50', 'friend_promotion_id' => null, 'friend_prefix' => 'WELCOME', 'friend_valid_hours' => 720,
+        'min_order_amount' => '0.00',
+        'max_rewards_per_referrer' => 0, // 0 = unlimited
+        'validity_days' => 30,
+        'share_link' => null, // null = the site URL
+        'share_message_en' => 'Shop on the Al Bahar app with my code {{code}}. {{reward}} {{link}}',
+        'share_message_ar' => 'تسوّق من تطبيق البحر باستخدام رمزي {{code}}. {{reward}} {{link}}',
     ],
 
     'notifications' => [

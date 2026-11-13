@@ -186,6 +186,8 @@ return [
     'ev_stock_price_drop' => 'Price drop',
     'ev_cart_abandoned' => 'Abandoned cart',
     'ev_support_reply' => 'Support reply',
+    'ev_referral_rewarded' => 'Referral reward (inviter)',
+    'ev_referral_friend_rewarded' => 'Referral reward (invited friend)',
     'ev_campaign' => 'Marketing campaign',
     'r_sales_summary' => 'Sales summary',
     'r_sales_by_branch' => 'Sales by branch',

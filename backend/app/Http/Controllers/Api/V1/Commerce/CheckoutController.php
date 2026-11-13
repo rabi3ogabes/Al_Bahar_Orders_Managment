@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api\V1\Commerce;
 
+use App\Domain\Branches\Models\Branch;
+use App\Domain\Catalog\Services\UpsellService;
 use App\Domain\Checkout\Services\CartService;
 use App\Domain\Checkout\Services\CheckoutService;
 use App\Domain\Checkout\Services\QuoteService;
@@ -19,6 +21,15 @@ class CheckoutController extends ApiController
     public function cart(): JsonResponse
     {
         return response()->json(['data' => $this->carts->present($this->carts->current($this->user()))]);
+    }
+
+    /** "You may also need": the admin-chosen upsells of what is in the cart (never what is already in it), max 8. */
+    public function suggestions(UpsellService $upsells): JsonResponse
+    {
+        $cart = $this->carts->current($this->user());
+        $branch = $cart->branch_id ? Branch::active()->find($cart->branch_id) : null;
+
+        return response()->json(['data' => $upsells->forCart($cart, $branch)]);
     }
 
     public function addItem(Request $request): JsonResponse

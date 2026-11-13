@@ -78,8 +78,6 @@ class SettingsIndex extends Component
                 'loyalty.redeem_value_per_point' => ['type' => 'money', 'rules' => ['required', 'numeric', 'min:0', 'max:100', 'regex:/^\d+(\.\d{1,4})?$/']],
                 'loyalty.max_redeem_percent' => ['type' => 'percent', 'rules' => $int(0, 100)],
                 'loyalty.points_expiry_days' => ['type' => 'int', 'rules' => $int(0, 3650), 'suffix' => 'days'],
-                'loyalty.referral_referrer_points' => ['type' => 'int', 'rules' => $int(0, 100000)],
-                'loyalty.referral_referee_points' => ['type' => 'int', 'rules' => $int(0, 100000)],
             ],
             'auctions' => [
                 'auctions.cod_allowed_default' => ['type' => 'bool', 'rules' => ['boolean']],

@@ -132,4 +132,6 @@ return [
     'auction_not_publishable' => 'Add a title, at least one lot and complete dates before publishing.',
     'delivery_unavailable_area' => 'We don\'t deliver to this address yet.',
     'review_exists' => 'You\'ve already reviewed this product.',
+    'upsell_limit' => 'You can suggest up to :max products.',
+    'upsell_invalid' => 'This product cannot be suggested.',
 ];

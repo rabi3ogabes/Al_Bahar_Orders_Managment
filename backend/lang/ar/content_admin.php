@@ -186,6 +186,8 @@ return [
     'ev_stock_price_drop' => 'انخفاض السعر',
     'ev_cart_abandoned' => 'سلة متروكة',
     'ev_support_reply' => 'رد الدعم',
+    'ev_referral_rewarded' => 'مكافأة الإحالة (صاحب الدعوة)',
+    'ev_referral_friend_rewarded' => 'مكافأة الإحالة (الصديق المدعو)',
     'ev_campaign' => 'حملة تسويقية',
     'r_sales_summary' => 'ملخص المبيعات',
     'r_sales_by_branch' => 'المبيعات حسب الفرع',

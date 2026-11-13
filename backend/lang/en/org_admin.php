@@ -168,7 +168,7 @@ return [
     'settings_tab_hint' => [
         'general' => 'How the brand appears to customers, and how they can reach you.',
         'checkout' => 'Fees, tax and how long stock is held for unpaid orders.',
-        'loyalty' => 'How customers earn and redeem points, and referral rewards.',
+        'loyalty' => 'How customers earn and redeem points.',
         'auctions' => 'Defaults applied to new auctions.',
         'notifications' => 'Limits that keep customer messaging respectful.',
         'integrations' => 'Payment gateway credentials. Secrets are encrypted and never displayed.',
@@ -192,8 +192,6 @@ return [
         'loyalty__redeem_value_per_point' => 'Value of one point (QAR)',
         'loyalty__max_redeem_percent' => 'Maximum of order payable with points',
         'loyalty__points_expiry_days' => 'Points expiry',
-        'loyalty__referral_referrer_points' => 'Referrer reward (points)',
-        'loyalty__referral_referee_points' => 'New customer reward (points)',
         'auctions__cod_allowed_default' => 'Allow cash on delivery for auction wins',
         'auctions__default_winner_payment_hours' => 'Winner payment deadline',
         'auctions__default_extension_window_seconds' => 'Anti-sniping window',

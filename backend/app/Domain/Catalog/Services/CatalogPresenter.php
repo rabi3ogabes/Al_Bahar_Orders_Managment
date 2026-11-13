@@ -126,6 +126,7 @@ class CatalogPresenter
             'availability' => ['branch_id' => $branch?->id, 'purchasable' => $purchasable && $inStock,
                 'reason' => ! $purchasable ? 'not_in_branch' : (! $inStock ? 'out_of_stock' : null)],
             'related' => $this->cards($p->related, $branch),
+            'upsell' => app(UpsellService::class)->forProduct($p, $branch),
             'share_url' => rtrim(config('app.url'), '/').'/products/'.$p->slug,
             'seo' => ['title' => $p->trans('seo_title') ?? $p->trans('name'), 'description' => $p->trans('seo_description') ?? $p->trans('short_description')],
         ]);

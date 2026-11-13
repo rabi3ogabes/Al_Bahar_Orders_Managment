@@ -20,7 +20,7 @@
             <fieldset @disabled(! $editingRules) class="space-y-4">
                 <x-admin.toggle :label="__('marketing_admin.rule_enabled')" wire:model="rules.enabled" />
                 <div class="grid gap-4 sm:grid-cols-2 [&>*]:min-w-0">
-                    @foreach (['points_per_qar', 'redeem_value_per_point', 'max_redeem_percent', 'points_expiry_days', 'referral_referrer_points', 'referral_referee_points'] as $k)
+                    @foreach (['points_per_qar', 'redeem_value_per_point', 'max_redeem_percent', 'points_expiry_days'] as $k)
                         <x-admin.field :label="__('marketing_admin.rule_'.$k)" for="rules.{{ $k }}" :hint="__('marketing_admin.rule_'.$k.'_hint')"><input id="rules.{{ $k }}" type="number" step="{{ $k === 'redeem_value_per_point' ? '0.01' : '1' }}" min="0" wire:model="rules.{{ $k }}" class="input tabular-nums" dir="ltr"></x-admin.field>
                     @endforeach
                 </div>

@@ -168,7 +168,7 @@ return [
     'settings_tab_hint' => [
         'general' => 'كيف تظهر العلامة التجارية للعملاء، وكيف يمكنهم التواصل معكم.',
         'checkout' => 'الرسوم والضريبة ومدة حجز المخزون للطلبات غير المدفوعة.',
-        'loyalty' => 'كيف يكسب العملاء النقاط ويستبدلونها، ومكافآت الإحالة.',
+        'loyalty' => 'كيف يكسب العملاء النقاط ويستبدلونها.',
         'auctions' => 'القيم الافتراضية للمزادات الجديدة.',
         'notifications' => 'حدود تحافظ على رسائل لائقة ومحترمة للعملاء.',
         'integrations' => 'بيانات اعتماد بوابة الدفع. القيم السرية مشفّرة ولا تُعرض أبداً.',
@@ -192,8 +192,6 @@ return [
         'loyalty__redeem_value_per_point' => 'قيمة النقطة الواحدة (ر.ق)',
         'loyalty__max_redeem_percent' => 'الحد الأقصى من الطلب القابل للدفع بالنقاط',
         'loyalty__points_expiry_days' => 'مدة صلاحية النقاط',
-        'loyalty__referral_referrer_points' => 'مكافأة صاحب الإحالة (نقاط)',
-        'loyalty__referral_referee_points' => 'مكافأة العميل الجديد (نقاط)',
         'auctions__cod_allowed_default' => 'السماح بالدفع عند الاستلام للفائزين بالمزاد',
         'auctions__default_winner_payment_hours' => 'مهلة دفع الفائز',
         'auctions__default_extension_window_seconds' => 'نافذة منع المزايدة اللحظية',

@@ -113,7 +113,15 @@ class Product extends Model
     /** @return BelongsToMany<self, $this> */
     public function related(): BelongsToMany
     {
-        return $this->belongsToMany(self::class, 'product_related', 'product_id', 'related_product_id')->withPivot(['type', 'sort_order'])->orderByPivot('sort_order');
+        return $this->belongsToMany(self::class, 'product_related', 'product_id', 'related_product_id')->withPivot(['type', 'sort_order'])
+            ->wherePivot('type', 'related')->orderByPivot('sort_order');
+    }
+
+    /** Products the admin suggests next to this one ("Complete the set"), in the admin's order. @return BelongsToMany<self, $this> */
+    public function upsells(): BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'product_related', 'product_id', 'related_product_id')->withPivot(['type', 'sort_order'])
+            ->wherePivot('type', 'upsell')->orderByPivot('sort_order')->orderBy('products.id');
     }
 
     /** @return HasMany<ProductPriceHistory, $this> */

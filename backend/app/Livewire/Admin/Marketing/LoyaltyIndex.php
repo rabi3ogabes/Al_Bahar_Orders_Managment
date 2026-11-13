@@ -17,7 +17,7 @@ class LoyaltyIndex extends Component
 {
     use WithAdminTable;
 
-    public const RULES = ['enabled', 'points_per_qar', 'redeem_value_per_point', 'max_redeem_percent', 'points_expiry_days', 'referral_referrer_points', 'referral_referee_points'];
+    public const RULES = ['enabled', 'points_per_qar', 'redeem_value_per_point', 'max_redeem_percent', 'points_expiry_days'];
 
     #[Url(except: 'ledger')]
     public string $tab = 'ledger';
@@ -54,8 +54,7 @@ class LoyaltyIndex extends Component
         $this->validate([
             'rules.enabled' => 'boolean', 'rules.points_per_qar' => 'required|integer|min:0|max:100',
             'rules.redeem_value_per_point' => 'required|numeric|min:0|max:10', 'rules.max_redeem_percent' => 'required|integer|min:0|max:100',
-            'rules.points_expiry_days' => 'required|integer|min:1|max:3650', 'rules.referral_referrer_points' => 'required|integer|min:0|max:100000',
-            'rules.referral_referee_points' => 'required|integer|min:0|max:100000',
+            'rules.points_expiry_days' => 'required|integer|min:1|max:3650',
         ], [], collect(self::RULES)->mapWithKeys(fn ($k) => ['rules.'.$k => __('marketing_admin.rule_'.$k)])->all());
         foreach (self::RULES as $k) {
             $v = $this->rules[$k];

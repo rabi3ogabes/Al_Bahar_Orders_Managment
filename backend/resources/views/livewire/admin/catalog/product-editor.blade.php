@@ -64,6 +64,7 @@
             'pricing' => ['tag', __('catalog_admin.tab_pricing')],
             'variants' => ['layers', __('catalog_admin.tab_variants'), $counts['variants']],
             'media' => ['image', __('catalog_admin.tab_media'), $counts['media']],
+            'upsell' => ['layers', __('catalog_admin.tab_upsell'), $counts['upsell'] ?: null],
             'specs' => ['clipboard', __('catalog_admin.tab_specs')],
             'history' => ['history', __('catalog_admin.tab_history')],
         ]" />
@@ -138,6 +139,9 @@
             <livewire:admin.catalog.product-variants :product="$product" :key="'variants-'.$product->id" />
         @elseif ($tab === 'media')
             <livewire:admin.catalog.product-media :product="$product" :key="'media-'.$product->id" />
+
+        @elseif ($tab === 'upsell')
+            <livewire:admin.catalog.product-upsell :product="$product" :key="'upsell-'.$product->id" />
 
         @elseif ($tab === 'specs')
             <form wire:submit="saveSpecs" class="grid gap-6 [&>*]:min-w-0 lg:grid-cols-3">

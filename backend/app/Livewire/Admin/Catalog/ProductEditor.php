@@ -60,7 +60,7 @@ class ProductEditor extends Component
             if ($product->warranty) {
                 $this->warranty = array_map(fn ($v) => (string) $v, $product->warranty->only(['duration_months', 'provider', 'terms_en', 'terms_ar']));
             }
-            if (! in_array($this->tab, ['content', 'pricing', 'variants', 'media', 'specs', 'history'], true)) {
+            if (! in_array($this->tab, ['content', 'pricing', 'variants', 'media', 'upsell', 'specs', 'history'], true)) {
                 $this->tab = 'content';
             }
         } else {
@@ -230,6 +230,7 @@ class ProductEditor extends Component
             $data['counts'] = [
                 'variants' => $this->product->variants()->count(),
                 'media' => $this->product->images()->count(),
+                'upsell' => $this->product->upsells()->count(),
             ];
         }
 

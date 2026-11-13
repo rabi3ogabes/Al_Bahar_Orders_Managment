@@ -97,9 +97,9 @@
     </main>
 </div>
 
-{{-- Toasts: $this->dispatch('toast', type: 'success', message: '...') --}}
+{{-- Toasts: $this->dispatch('toast', type: 'success', message: '...') — add undoLabel, undoEvent, undoParams for an Undo button --}}
 <div x-data="{ toasts: [] }"
-     @toast.window="const t = { id: Date.now() + Math.random(), ...$event.detail }; toasts.push(t); setTimeout(() => toasts = toasts.filter(x => x.id !== t.id), 4500)"
+     @toast.window="const t = { id: Date.now() + Math.random(), ...$event.detail }; toasts.push(t); setTimeout(() => toasts = toasts.filter(x => x.id !== t.id), t.undoEvent ? 9000 : 4500)"
      class="pointer-events-none fixed bottom-6 end-6 z-[60] flex w-[min(24rem,calc(100vw-3rem))] flex-col gap-3" aria-live="polite">
     @if (session('toast'))
         <div x-init="$dispatch('toast', @js(session('toast')))"></div>
@@ -110,7 +110,11 @@
                   :class="t.type === 'error' ? 'bg-ruby-soft/10 text-ruby-soft' : (t.type === 'warning' ? 'bg-amber-soft/10 text-amber-soft' : 'bg-emerald-soft/10 text-emerald-soft')">
                 <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path x-show="t.type !== 'error'" d="M20 6L9 17l-5-5"/><path x-show="t.type === 'error'" d="M18 6L6 18M6 6l12 12"/></svg>
             </span>
-            <p class="text-sm text-ink-800 dark:text-sand-100" x-text="t.message"></p>
+            <p class="min-w-0 flex-1 text-sm text-ink-800 dark:text-sand-100" x-text="t.message"></p>
+            <template x-if="t.undoEvent">
+                <button type="button" class="-my-2 -me-2 min-h-11 shrink-0 rounded-lg px-3 text-sm font-semibold text-brass-700 hover:bg-sand-100 focus-visible:outline-2 focus-visible:outline-offset-2 dark:text-brass-300 dark:hover:bg-ink-800"
+                        @click="Livewire.dispatch(t.undoEvent, t.undoParams || {}); toasts = toasts.filter(x => x.id !== t.id)" x-text="t.undoLabel"></button>
+            </template>
         </div>
     </template>
 </div>

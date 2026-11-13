@@ -41,6 +41,10 @@ return [
     'cart.abandoned.body' => 'The pieces you chose are still here — prices and availability are confirmed at checkout.',
     'support.reply.title' => 'New reply from Al Bahar',
     'support.reply.body' => 'Our team replied to your request {{reference}}.',
+    'referral.rewarded.title' => 'Your friend\'s first order is in',
+    'referral.rewarded.body' => '{{friend}} placed a first order, so your reward is here: {{reward}}',
+    'referral.friend_rewarded.title' => 'A welcome gift for you',
+    'referral.friend_rewarded.body' => 'Thanks for your first order. Your reward: {{reward}}',
     'campaign.title' => '{{title}}',
     'campaign.body' => '{{body}}',
 ];
