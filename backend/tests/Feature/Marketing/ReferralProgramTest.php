@@ -11,6 +11,7 @@ use App\Domain\Notifications\Models\Notification;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Settings\Services\Settings;
 use App\Livewire\Admin\Marketing\ReferralIndex;
+use Laravel\Sanctum\Sanctum;
 use Livewire\Livewire;
 
 function refSet(array $s): void
@@ -104,7 +105,7 @@ it('blocks self referral, shared devices and refunded orders', function () {
 
 it('exposes the customer payload without personal data of friends', function () {
     refSet(['enabled' => true, 'share_link' => 'https://albahar.qa/app', 'min_order_amount' => '50.00']);
-    \Laravel\Sanctum\Sanctum::actingAs($this->referrer, ['customer']);
+    Sanctum::actingAs($this->referrer, ['customer']);
     $friend = User::factory()->create(['name' => 'Salem Al Kuwari']);
     $this->svc->attach($friend, 'ABREFER1');
     $d = $this->getJson('/api/v1/me/referral')->assertOk()->json('data');
@@ -130,4 +131,10 @@ it('lets staff toggle, save, validate and reject, and denies customers', functio
 
     $this->actingAs(User::factory()->create());
     Livewire::test(ReferralIndex::class)->assertForbidden();
+});
+
+it('tells the sign-up screen whether referrals are on', function () {
+    $this->getJson('/api/v1/referrals/status')->assertOk()->assertJsonPath('data.enabled', false);
+    refSet(['enabled' => true]);
+    $this->getJson('/api/v1/referrals/status')->assertOk()->assertJsonPath('data.enabled', true);
 });

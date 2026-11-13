@@ -91,6 +91,7 @@ Route::controller(V1\Auctions\AuctionController::class)->group(function () {
 Route::controller(V1\Engagement\EngagementController::class)->group(function () {
     Route::get('home', 'home')->name('home');
     Route::get('pages/{slug}', 'page')->name('pages.show');
+    Route::get('referrals/status', 'referralStatus')->name('referrals.status');
     Route::get('products/{productId}/reviews', 'reviews')->whereUuid('productId')->name('products.reviews');
     Route::get('products/{productId}/questions', 'questions')->whereUuid('productId')->name('products.questions');
     Route::middleware(['auth:sanctum', 'customer'])->group(function () {

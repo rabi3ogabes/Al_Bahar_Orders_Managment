@@ -290,7 +290,9 @@ class ReferralService
             'pending_total' => $reward['type'] === 'balance' ? Money::ofMinor($reward['amount']->minor * $pending)->jsonSerialize() : null,
             'friends' => $rows->map(fn (Referral $r) => [
                 'name' => Str::before(trim((string) ($names[$r->referee_id] ?? '')), ' ') ?: '—',
-                'status' => match ($r->status) { 'rewarded' => 'rewarded', 'pending' => 'pending', default => 'closed' },
+                'status' => match ($r->status) {
+                    'rewarded' => 'rewarded', 'pending' => 'pending', default => 'closed'
+                },
                 'joined_at' => BusinessTime::iso($r->created_at),
                 'rewarded_at' => BusinessTime::iso($r->rewarded_at),
                 'reward' => $r->status === 'rewarded' ? ($r->referrer_reward_type === 'coupon' ? ['type' => 'coupon', 'code' => $r->referrer_coupon_code] : ($r->referrer_reward_type === 'balance' ? ['type' => 'balance', 'amount' => Money::of($r->referrer_reward_value)->jsonSerialize()] : null)) : null,

@@ -103,6 +103,12 @@ class EngagementController extends ApiController
                 'created_at' => BusinessTime::iso($t->created_at), 'expires_at' => BusinessTime::iso($t->expires_at)])]]);
     }
 
+    /** Public: lets the sign-up screen show the invite-code field only while the programme is on. */
+    public function referralStatus(ReferralService $referrals): JsonResponse
+    {
+        return response()->json(['data' => ['enabled' => $referrals->enabled()]])->header('Cache-Control', 'public, max-age=60');
+    }
+
     public function referral(ReferralService $referrals): JsonResponse
     {
         return response()->json(['data' => $referrals->summary($this->user())]);

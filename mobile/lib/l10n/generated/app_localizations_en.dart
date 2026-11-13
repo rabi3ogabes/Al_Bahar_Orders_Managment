@@ -1779,6 +1779,61 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get inviteHowTitle => 'How it works';
+
+  @override
+  String get inviteStep1 => 'Share your code or link with a friend.';
+
+  @override
+  String get inviteStep2 => 'Your friend signs up and places a first order.';
+
+  @override
+  String get inviteStep3 => 'You get your reward once that order is completed.';
+
+  @override
+  String get inviteYourReward => 'Your reward';
+
+  @override
+  String get inviteFriendReward => 'Your friend gets';
+
+  @override
+  String get inviteFriendsTitle => 'Your friends';
+
+  @override
+  String get inviteNoFriends => 'No friends yet. Share your code to get started.';
+
+  @override
+  String get inviteStatusPending => 'Waiting for first order';
+
+  @override
+  String get inviteStatusRewarded => 'Reward earned';
+
+  @override
+  String get inviteStatusClosed => 'Not eligible';
+
+  @override
+  String get inviteEarned => 'Earned';
+
+  @override
+  String get inviteWaiting => 'Waiting';
+
+  @override
+  String get inviteCardBody => 'Share the app and earn a reward for every friend who orders.';
+
+  @override
+  String get inviteOpen => 'Invite friends';
+
+  @override
+  String inviteMinOrder(String amount) {
+    return 'First order of $amount or more.';
+  }
+
+  @override
+  String inviteCodeSemantics(String code) {
+    return 'Your invite code $code';
+  }
+
+  @override
   String get referredCount => 'Friends joined';
 
   @override

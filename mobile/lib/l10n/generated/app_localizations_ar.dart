@@ -1813,6 +1813,61 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String get inviteHowTitle => 'كيف يعمل';
+
+  @override
+  String get inviteStep1 => 'شارك رمزك أو رابطك مع صديق.';
+
+  @override
+  String get inviteStep2 => 'يسجّل صديقك ويُكمل أول طلب.';
+
+  @override
+  String get inviteStep3 => 'تحصل على مكافأتك عند اكتمال ذلك الطلب.';
+
+  @override
+  String get inviteYourReward => 'مكافأتك';
+
+  @override
+  String get inviteFriendReward => 'صديقك يحصل على';
+
+  @override
+  String get inviteFriendsTitle => 'أصدقاؤك';
+
+  @override
+  String get inviteNoFriends => 'لا أصدقاء بعد. شارك رمزك للبدء.';
+
+  @override
+  String get inviteStatusPending => 'بانتظار أول طلب';
+
+  @override
+  String get inviteStatusRewarded => 'تم كسب المكافأة';
+
+  @override
+  String get inviteStatusClosed => 'غير مؤهل';
+
+  @override
+  String get inviteEarned => 'المكتسب';
+
+  @override
+  String get inviteWaiting => 'قيد الانتظار';
+
+  @override
+  String get inviteCardBody => 'شارك التطبيق واكسب مكافأة عن كل صديق يطلب.';
+
+  @override
+  String get inviteOpen => 'ادعُ أصدقاءك';
+
+  @override
+  String inviteMinOrder(String amount) {
+    return 'أول طلب بقيمة $amount أو أكثر.';
+  }
+
+  @override
+  String inviteCodeSemantics(String code) {
+    return 'رمز دعوتك $code';
+  }
+
+  @override
   String get referredCount => 'أصدقاء انضموا';
 
   @override

@@ -3254,6 +3254,108 @@ abstract class AppLocalizations {
   /// **'Discover Al Bahar Home & Living. Use my code {code}: {url}'**
   String referralShareText(String code, String url);
 
+  /// No description provided for @inviteHowTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How it works'**
+  String get inviteHowTitle;
+
+  /// No description provided for @inviteStep1.
+  ///
+  /// In en, this message translates to:
+  /// **'Share your code or link with a friend.'**
+  String get inviteStep1;
+
+  /// No description provided for @inviteStep2.
+  ///
+  /// In en, this message translates to:
+  /// **'Your friend signs up and places a first order.'**
+  String get inviteStep2;
+
+  /// No description provided for @inviteStep3.
+  ///
+  /// In en, this message translates to:
+  /// **'You get your reward once that order is completed.'**
+  String get inviteStep3;
+
+  /// No description provided for @inviteYourReward.
+  ///
+  /// In en, this message translates to:
+  /// **'Your reward'**
+  String get inviteYourReward;
+
+  /// No description provided for @inviteFriendReward.
+  ///
+  /// In en, this message translates to:
+  /// **'Your friend gets'**
+  String get inviteFriendReward;
+
+  /// No description provided for @inviteFriendsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your friends'**
+  String get inviteFriendsTitle;
+
+  /// No description provided for @inviteNoFriends.
+  ///
+  /// In en, this message translates to:
+  /// **'No friends yet. Share your code to get started.'**
+  String get inviteNoFriends;
+
+  /// No description provided for @inviteStatusPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for first order'**
+  String get inviteStatusPending;
+
+  /// No description provided for @inviteStatusRewarded.
+  ///
+  /// In en, this message translates to:
+  /// **'Reward earned'**
+  String get inviteStatusRewarded;
+
+  /// No description provided for @inviteStatusClosed.
+  ///
+  /// In en, this message translates to:
+  /// **'Not eligible'**
+  String get inviteStatusClosed;
+
+  /// No description provided for @inviteEarned.
+  ///
+  /// In en, this message translates to:
+  /// **'Earned'**
+  String get inviteEarned;
+
+  /// No description provided for @inviteWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting'**
+  String get inviteWaiting;
+
+  /// No description provided for @inviteCardBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Share the app and earn a reward for every friend who orders.'**
+  String get inviteCardBody;
+
+  /// No description provided for @inviteOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite friends'**
+  String get inviteOpen;
+
+  /// No description provided for @inviteMinOrder.
+  ///
+  /// In en, this message translates to:
+  /// **'First order of {amount} or more.'**
+  String inviteMinOrder(String amount);
+
+  /// No description provided for @inviteCodeSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Your invite code {code}'**
+  String inviteCodeSemantics(String code);
+
   /// No description provided for @referredCount.
   ///
   /// In en, this message translates to:

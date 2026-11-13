@@ -6,10 +6,10 @@ use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Identity\Models\User;
 use App\Domain\Marketing\Models\Promotion;
 use App\Domain\Marketing\Models\Referral;
+use App\Domain\Marketing\Services\LoyaltyService;
 use App\Domain\Marketing\Services\ReferralService;
 use App\Domain\Settings\Services\Settings;
 use App\Livewire\Admin\Concerns\WithAdminTable;
-use App\Support\DomainException;
 use App\Support\Money;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
@@ -159,7 +159,7 @@ class ReferralIndex extends Component
             'promotions' => Promotion::where('requires_coupon', true)->where('is_active', true)->orderBy('name_en')->get(['id', 'name_en', 'name_ar']),
             'stats' => ['referrers' => Referral::distinct('referrer_id')->count('referrer_id'), 'signed_up' => (int) $counts->sum(), 'pending' => (int) ($counts['pending'] ?? 0),
                 'rewarded' => (int) ($counts['rewarded'] ?? 0), 'rejected' => (int) ($counts['rejected'] ?? 0), 'value' => $value],
-            'loyaltyOff' => ! app(\App\Domain\Marketing\Services\LoyaltyService::class)->enabled(),
+            'loyaltyOff' => ! app(LoyaltyService::class)->enabled(),
             'perPoint' => $perPoint,
             'example' => $this->example(),
         ])->title(__('referrals_admin.title'));

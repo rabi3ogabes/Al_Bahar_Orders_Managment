@@ -18,6 +18,7 @@ use App\Domain\Notifications\Models\Notification;
 use App\Domain\Notifications\Models\NotificationLog;
 use App\Domain\Notifications\Services\NotificationService;
 use App\Domain\Orders\Models\Order;
+use App\Domain\Settings\Services\Settings;
 use App\Domain\Support\Models\SupportTicket;
 use App\Domain\Support\Services\SupportService;
 use App\Support\DomainException;
@@ -107,7 +108,7 @@ it('redeems loyalty points within the cap, earns on completion and reverses on c
 });
 
 it('rewards referrals only after the referee completes a first order, and blocks self/shared-device referrals', function () {
-    app(\App\Domain\Settings\Services\Settings::class)->set('referrals.enabled', true);
+    app(Settings::class)->set('referrals.enabled', true);
     $referrer = User::factory()->create(['referral_code' => 'ABREFER1']);
     $svc = app(ReferralService::class);
     expect($svc->attach($referrer, 'ABREFER1'))->toBeNull(); // self
