@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:albahar_customer/core/map/map_markers.dart';
 import 'package:albahar_customer/core/providers.dart';
-import 'package:albahar_customer/core/realtime/pusher_client.dart';
 import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:albahar_customer/l10n/generated/app_localizations.dart';
 import 'package:albahar_customer/ops/driver/driver_home.dart';
@@ -258,7 +257,6 @@ void main() {
           overrides: [
             opsRepositoryProvider.overrideWithValue(repo),
             appConfigProvider.overrideWithValue(testConfig),
-            staffConnectionProvider.overrideWith((ref) => const Stream<RealtimeState>.empty()),
             ...mapTestOverrides(),
           ],
           child: MaterialApp(

@@ -83,10 +83,13 @@ class LiveOrderController {
   Timer? _timer;
   Timer? _debounce;
   StreamSubscription<PusherEvent>? _events;
-  Future<void> _tail = Future.value();
+  Future<void>? _tail;
 
   /// Orders being followed right now.
-  List<LiveOrder> get active => [for (final o in _orders.values) if (!o.isFinal) o];
+  List<LiveOrder> get active => [
+    for (final o in _orders.values)
+      if (!o.isFinal) o,
+  ];
 
   @visibleForTesting
   Set<String> get trackedIds => _tracked.keys.toSet();
@@ -113,7 +116,7 @@ class LiveOrderController {
     _signedIn = false;
     _debounce?.cancel();
     _timer?.cancel();
-    await _events?.cancel();
+    unawaited(_events?.cancel());
     _events = null;
     await _enqueue(() async {
       _orders.clear();
@@ -152,7 +155,7 @@ class LiveOrderController {
   Future<void> dispose() async {
     _debounce?.cancel();
     _timer?.cancel();
-    await _events?.cancel();
+    unawaited(_events?.cancel());
     _events = null;
   }
 
@@ -329,7 +332,9 @@ class LiveOrderController {
   LiveOrder _present(LiveOrder o) {
     final code = localeCode();
     final b = brand?.call();
-    final withBrand = o.brandPrimary == null && b != null ? o.copyWith(brandPrimary: b.primary, brandAccent: b.accent) : o;
+    final withBrand = o.brandPrimary == null && b != null
+        ? o.copyWith(brandPrimary: b.primary, brandAccent: b.accent)
+        : o;
     return LiveOrderTexts.forLocale(code, arabicDigits: arabicDigits).localise(withBrand, now: _now());
   }
 
@@ -348,7 +353,7 @@ class LiveOrderController {
   }
 
   Future<T> _enqueue<T>(Future<T> Function() job) {
-    final next = _tail.then((_) => job());
+    final next = (_tail ?? Future<void>.value()).then((_) => job());
     _tail = next.then((_) {}, onError: (Object _) {});
     return next;
   }

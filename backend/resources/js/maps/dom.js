@@ -110,7 +110,7 @@ export function agoText(ms, lang, text) {
 
 export function clockText(ms, lang, withSeconds = false) {
     if (ms === null || ms === undefined) return '';
-    return new Date(ms).toLocaleTimeString(localeFor(lang), { hour: '2-digit', minute: '2-digit', second: withSeconds ? '2-digit' : undefined, timeZone: 'Asia/Qatar' });
+    return new Date(ms).toLocaleTimeString(localeFor(lang), { hour: '2-digit', minute: '2-digit', second: withSeconds ? '2-digit' : undefined, hourCycle: 'h23', timeZone: 'Asia/Qatar' });
 }
 
 /** 7 min / 1 h 05 min / 40 s, in the page language. */

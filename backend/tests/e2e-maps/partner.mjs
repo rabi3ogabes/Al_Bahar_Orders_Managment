@@ -50,6 +50,30 @@ const browser = await chromium.launch();
         await page.click('.abm-pb__play');
         check('speed buttons present', (await page.locator('.abm-seg__b').count()) === 3);
     }
+    // The order drawer carries the same route card, with the server's stops and totals.
+    await page.click('#m-live');
+    const number = state.orders?.[0]?.number;
+    if (number) {
+        await page.locator(`[data-order]:visible`, { hasText: number }).first().click();
+        await page.waitForSelector('#route-map .abm .leaflet-marker-icon', { timeout: 20000 });
+        await page.waitForTimeout(900);
+        await shot(page, 'partner-desktop-drawer-route');
+        check('drawer route card: route, stop, destination', (await page.locator('#route-map .abm-dot--stop').count()) >= 1 && (await page.locator('#route-map .abm-pin--destination').count()) === 1);
+        check('drawer shows the recorded totals', (await page.locator('#drawer').innerText()).includes('km'));
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(500);
+        check('closing the drawer destroys its map', (await page.locator('#route-map .abm').count()) === 0);
+    }
+    // Arabic: the map is rebuilt in the new language
+    await page.click('#lang');
+    await page.waitForTimeout(1200);
+    await shot(page, 'partner-desktop-ar');
+    check('Arabic map UI', (await page.locator('#map-host .abm-stat__l').first().innerText()).includes('الدوام') && (await page.evaluate(() => document.documentElement.dir)) === 'rtl');
+    await page.click('#m-history');
+    await page.waitForSelector('#map-host .abm-pb, #map-host .abm-empty:not([hidden])', { timeout: 15000 });
+    await page.waitForTimeout(600);
+    await shot(page, 'partner-desktop-ar-history');
+    await page.click('#lang');
     console.log('console:', log.join(' | ') || 'clean');
     await ctx.close();
 }

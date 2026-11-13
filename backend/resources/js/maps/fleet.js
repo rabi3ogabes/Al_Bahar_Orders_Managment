@@ -692,11 +692,13 @@ export function createFleetMap(o) {
 
     const pollSeconds = () => (connection === 'live' ? (o.poll?.live ?? 30) : (o.poll?.down ?? 15));
 
+    /** The socket flaps through connecting / unavailable while it retries; only a change of interval may restart the poll timer. */
     function setConnection(state) {
         const was = connection;
+        const wasEvery = pollSeconds();
         connection = state;
-        conn.set(state, pollSeconds());
-        restartPoll();
+        if (was !== state) conn.set(state, pollSeconds());
+        if (pollSeconds() !== wasEvery || pollTimer === null) restartPoll();
         if (state === 'live' && was !== 'live') runRefresh();
     }
 

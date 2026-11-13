@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
 import '../l10n/l10n.dart';
 import '../storage/app_preferences.dart';
 import '../theme/tokens.dart';
@@ -140,7 +141,11 @@ class NotificationPermissionSheet extends StatelessWidget {
           onPressed: () => Navigator.of(context).pop(true),
         ),
         const Gap(AppSpace.xs),
-        AppButton.ghost(label: l10n.liveOrderPermissionLater, expand: true, onPressed: () => Navigator.of(context).pop(false)),
+        AppButton.ghost(
+          label: l10n.liveOrderPermissionLater,
+          expand: true,
+          onPressed: () => Navigator.of(context).pop(false),
+        ),
       ],
     );
   }

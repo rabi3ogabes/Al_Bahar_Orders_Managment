@@ -198,6 +198,22 @@ void main() {
 
     LatLng cameraCentre(WidgetTester t) => MapCamera.of(t.element(find.byType(TileLayer))).center;
     double cameraZoom(WidgetTester t) => MapCamera.of(t.element(find.byType(TileLayer))).zoom;
+
+    /// The first view frames the drivers with a short glide: wait for it before touching the map.
+    Future<void> framed(WidgetTester t) async {
+      await t.pump();
+      await t.pump(const Duration(seconds: 2));
+    }
+
+    /// The chips scroll sideways on a small phone: bring one into view like a person would, then tap it.
+    Future<void> chip(WidgetTester t, String label) async {
+      await t.ensureVisible(find.text(label));
+      await t.pump();
+      await t.tap(find.text(label));
+      await t.pump();
+      await t.pump(const Duration(seconds: 2));
+    }
+
     List<DriverMarkerView> pins(WidgetTester t) =>
         t.widgetList<DriverMarkerView>(find.byType(DriverMarkerView)).toList();
 
@@ -239,32 +255,24 @@ void main() {
       expect(find.text('Waiting · 1'), findsOneWidget);
       expect(find.text('Not live · 1'), findsOneWidget);
 
-      await t.tap(find.text('Moving · 2'));
-      await t.pump();
-      await t.pump(const Duration(seconds: 2));
+      await chip(t, 'Moving · 2');
       expect(pins(t).map((p) => p.label).toSet(), {'Omar', 'Nasser'});
       expect(find.widgetWithText(ListTile, 'Salem'), findsNothing);
       expect(find.widgetWithText(ListTile, 'Omar'), findsOneWidget);
 
-      await t.tap(find.text('Not live · 1'));
-      await t.pump();
-      await t.pump(const Duration(seconds: 2));
+      await chip(t, 'Not live · 1');
       expect(pins(t).map((p) => p.label).toSet(), {'Khalid'});
       expect(pins(t).single.stale, isTrue);
       expect(find.text('Last seen 10 min ago'), findsOneWidget);
 
-      await t.tap(find.text('All · 5'));
-      await t.pump();
-      await t.pump(const Duration(seconds: 2));
+      await chip(t, 'All · 5');
       expect(pins(t), hasLength(4));
     });
 
     testWidgets('a filter with nobody in it says so, and the chip count is zero', (t) async {
       await pump(t, drivers: [_fd(_driver('u1', 'Omar', lat: 25.28, lng: 51.52, speed: 0, age: 5))]);
       expect(find.text('Moving · 0'), findsOneWidget);
-      await t.tap(find.text('Moving · 0'));
-      await t.pump();
-      await t.pump(const Duration(milliseconds: 300));
+      await chip(t, 'Moving · 0');
       expect(find.text('No drivers match this filter.'), findsOneWidget);
       expect(pins(t), isEmpty);
     });
@@ -285,7 +293,7 @@ void main() {
 
     testWidgets('tapping a pin selects that driver\'s row; a driver with no position cannot be tapped', (t) async {
       await pump(t, drivers: _team());
-      await t.pump(const Duration(seconds: 1));
+      await framed(t);
       await t.tap(find.byWidgetPredicate((w) => w is DriverMarkerView && w.label == 'Omar'));
       await t.pump();
       await t.pump(const Duration(milliseconds: 400));
@@ -302,6 +310,7 @@ void main() {
       await t.pump();
       await t.pump(const Duration(seconds: 2));
       expect(find.byType(PolylineLayer), findsOneWidget);
+      // The camera frames the driver and the address together, so the address pin is on screen.
       expect(find.byType(MapPin), findsOneWidget);
       // Tapping the empty map clears it.
       await t.tapAt(const Offset(30, 200));
@@ -323,8 +332,8 @@ void main() {
         final now = _now();
         events.add({
           'driver_id': 'u1',
-          'lat': 25.30,
-          'lng': 51.54,
+          'lat': 25.2812,
+          'lng': 51.5212,
           'speed_kmh': 30,
           'heading': 45,
           'at': now.toUtc().toIso8601String(),
@@ -332,7 +341,7 @@ void main() {
         });
         await t.pump();
         await t.pump(const Duration(seconds: 2));
-        expect(pin().latitude, closeTo(25.30, 1e-6));
+        expect(pin().latitude, closeTo(25.2812, 1e-6));
         expect(pins(t).single.moving, isTrue);
 
         events.add({
@@ -344,7 +353,7 @@ void main() {
         });
         await t.pump();
         await t.pump(const Duration(seconds: 2));
-        expect(pin().latitude, closeTo(25.30, 1e-6), reason: 'a late, older push never moves the pin back');
+        expect(pin().latitude, closeTo(25.2812, 1e-6), reason: 'a late, older push never moves the pin back');
 
         events.add({'driver_id': 'u2', 'lat': 25.3, 'lng': 51.5, 'speed_kmh': 5}); // not in the list yet
         await t.pump();
@@ -474,8 +483,9 @@ void main() {
       await t.pumpWidget(opsHost(const StaffHome(), repo, role: OpsRole.staff));
       await settle(t);
       // The map is the last tab.
-      final tabs = find.byType(Tab);
-      await t.tap(tabs.last);
+      await t.ensureVisible(find.text('Live map'));
+      await t.pump();
+      await t.tap(find.text('Live map'));
       await settle(t);
       expect(find.text('All · 5'), findsOneWidget);
       final before = MapCamera.of(t.element(find.byType(TileLayer))).center;

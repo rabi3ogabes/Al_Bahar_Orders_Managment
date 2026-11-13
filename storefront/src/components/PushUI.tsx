@@ -30,22 +30,22 @@ const stepBadge = 'flex h-7 w-7 shrink-0 items-center justify-center rounded-ful
 function IosArt({ label }: { label: string }) {
   return (
     <svg role="img" aria-label={label} viewBox="0 0 200 150" className="mx-auto h-auto w-full max-w-[260px] text-ink-soft">
-      <rect x="55" y="4" width="90" height="142" rx="16" fill="var(--paper)" stroke="currentColor" strokeWidth="2" />
-      <rect x="63" y="16" width="74" height="9" rx="4.5" fill="var(--sand)" />
-      <rect x="63" y="32" width="52" height="6" rx="3" fill="var(--sand-deep)" />
-      <rect x="63" y="44" width="74" height="36" rx="6" fill="var(--sand)" />
-      <rect x="63" y="88" width="66" height="5" rx="2.5" fill="var(--sand-deep)" />
-      <rect x="63" y="98" width="44" height="5" rx="2.5" fill="var(--sand-deep)" />
-      <rect x="57" y="116" width="86" height="28" rx="0" fill="var(--sand)" />
+      <rect x="38" y="4" width="124" height="142" rx="18" fill="var(--paper)" stroke="currentColor" strokeWidth="2" />
+      <rect x="48" y="16" width="104" height="9" rx="4.5" fill="var(--sand)" />
+      <rect x="48" y="32" width="64" height="6" rx="3" fill="var(--sand-deep)" />
+      <rect x="48" y="44" width="104" height="38" rx="6" fill="var(--sand)" />
+      <rect x="48" y="90" width="88" height="5" rx="2.5" fill="var(--sand-deep)" />
+      <rect x="48" y="100" width="56" height="5" rx="2.5" fill="var(--sand-deep)" />
+      <path d="M40 114h120v20a12 12 0 0 1 -12 12h-96a12 12 0 0 1 -12 -12z" fill="var(--sand)" />
       <g stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" opacity=".55">
-        <path d="M71 130l-4 -4 4 -4" /><path d="M87 122l4 4 -4 4" />
-        <path d="M118 123h6a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1 -1.5 1.5h-6a1.5 1.5 0 0 1 -1.5 -1.5v-9a1.5 1.5 0 0 1 1.5 -1.5z" />
-        <rect x="129" y="123" width="9" height="11" rx="2" />
+        <path d="M60 130l-4 -4 4 -4" /><path d="M76 122l4 4 -4 4" />
+        <path d="M118 124.5h5a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1 -1.5 1.5h-5a1.5 1.5 0 0 1 -1.5 -1.5v-8a1.5 1.5 0 0 1 1.5 -1.5z" />
+        <rect x="135" y="123" width="10" height="12" rx="2" />
       </g>
-      <circle cx="103" cy="129" r="11" fill="var(--primary)" opacity=".16" className="live-dot" />
-      <circle cx="103" cy="129" r="11" fill="none" stroke="var(--primary)" strokeWidth="1.6" />
+      <circle cx="98" cy="129" r="12" fill="var(--primary)" opacity=".16" className="live-dot" />
+      <circle cx="98" cy="129" r="12" fill="none" stroke="var(--primary)" strokeWidth="1.6" />
       <g stroke="var(--primary)" strokeWidth="1.7" fill="none" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M99 129v5a1.4 1.4 0 0 0 1.4 1.4h5.2a1.4 1.4 0 0 0 1.4 -1.4v-5" /><path d="M103 133v-9M100 127l3 -3 3 3" />
+        <path d="M94 129v5a1.4 1.4 0 0 0 1.4 1.4h5.2a1.4 1.4 0 0 0 1.4 -1.4v-5" /><path d="M98 133v-9M95 127l3 -3 3 3" />
       </g>
     </svg>
   );

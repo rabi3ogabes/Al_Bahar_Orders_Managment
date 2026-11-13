@@ -98,7 +98,7 @@ First rule that applies:
 
 1. **Booked slot** (delivery or pickup): the slot's window, while its end is still ahead. After it has passed the order is late and the estimate below takes over.
 2. **Driver on the road with a fresh position** (at most 2 minutes old) and a destination: minutes from the tracking estimator
-   (`EtaService`: road time from the routing server in Settings → Integrations → "Routing service URL", else straight line).
+   (`EtaService`: road time from the routing server in Settings → Integrations → "Routing service URL", else straight line; see [MAPS.md](MAPS.md)).
    Page loads (`active-progress`, order detail) never wait on the routing server; they use the straight-line estimate unless a road estimate is already cached.
 3. **On the road without a position:** the typical delivery time minus the time since pickup (at least 3 minutes).
 4. **Before pickup (delivery):** the later of "now" and "accepted + preparation time", plus the typical delivery time.
@@ -106,7 +106,7 @@ First rule that applies:
    *Typical delivery time* (`orders.default_delivery_minutes`, default **20**).
 5. **Before pickup (pickup order):** accepted + the branch's own *pickup preparation time* (Branches → edit, default 60 minutes).
 
-The point estimate becomes a window of **± 7 minutes, widened to whole 5-minute marks** (9:27 → 9:20-9:35); with a live driver the margin shrinks to a third of the minutes left (3 to 7).
+The point estimate becomes a window of **± 7 minutes, widened to whole 5-minute marks** (9:27 → 9:20-9:35); once the order is on the road the margin shrinks to a third of the minutes left (3 to 7).
 The window never starts in the past and is at least 5 minutes wide. Estimates are cached **30 s per order**; nothing here waits on an external call except the push worker, which may ask the routing server (3 s limit, then straight line).
 
 `sub` = share of time elapsed inside the current stage: preparing runs from accepted to ready; on the way runs from pickup to the estimated arrival.
@@ -212,7 +212,13 @@ The server skips push silently until Firebase is connected (`FcmClient::configur
 7. **Check it.** Place a test order in the customer app with a registered device, then in the admin move it through *Accepted → Preparing → Ready*, assign a driver and run the driver's steps. A card should appear within seconds and update in place.
    On the server, `php artisan tinker` → `app(\App\Domain\Notifications\Services\FcmClient::class)->configured()` must return `true`.
 
-## 8. Tests
+## 8. Privacy
+
+- The card is built for, and sent to, the customer who placed the order only; the API lists only the caller's own orders.
+- The driver appears by **first name**. The **driver's phone number** is included (so the card can offer "Call driver") only while that customer's delivery is active, and is dropped as soon as it is delivered or fails. It travels through Firebase like any push data. If the business prefers not to share it, return `null` for `driver_phone` in `OrderProgress::present()`; nothing else depends on it.
+- No address, no totals and no items are in the card.
+
+## 9. Tests
 
 `backend/tests/Feature/Commerce/LiveOrderProgressTest.php` (stages, texts, times, ETA, driver, `seq`), `LiveOrderProgressApiTest.php` (endpoint, authorisation, language, order detail),
 `LiveOrderPushTest.php` (FCM shape, devices and languages, when it sends, throttling, failures, events, the whole journey), and the older `RealtimePushTest.php` (driver and staff pushes).

@@ -109,7 +109,15 @@ class _FleetMapTabState extends ConsumerState<FleetMapTab> with OpsPolling {
   void _select(FleetEntry e, {bool fly = true, bool scroll = false, List<FleetEntry> list = const []}) {
     setState(() => _selected = e.id);
     final p = e.point;
-    if (fly && p != null) _map.flyTo(p, zoom: 16);
+    final dest = e.driver.destination;
+    if (fly && p != null) {
+      // A driver on a delivery is shown together with the address; one without goes to street level.
+      if (dest != null) {
+        _map.fit([p, dest], maxZoom: 16);
+      } else {
+        _map.flyTo(p, zoom: 16);
+      }
+    }
     if (scroll) _scrollToRow(list.indexWhere((x) => x.id == e.id));
     if (_sheet.isAttached && _sheet.size > 0.5) {
       unawaited(_sheet.animateTo(0.3, duration: AppDurations.medium, curve: Curves.easeOutCubic));
@@ -231,12 +239,7 @@ class _FleetMapTabState extends ConsumerState<FleetMapTab> with OpsPolling {
                         top: AppSpace.xs,
                         start: 0,
                         end: 0,
-                        child: _FilterBar(
-                          filter: _filter,
-                          counts: counts,
-                          onDuty: list.where((d) => d.onDuty).length,
-                          onChanged: _setFilter,
-                        ),
+                        child: _FilterBar(filter: _filter, counts: counts, onChanged: _setFilter),
                       ),
                       NotificationListener<DraggableScrollableNotification>(
                         onNotification: (n) {
@@ -256,6 +259,7 @@ class _FleetMapTabState extends ConsumerState<FleetMapTab> with OpsPolling {
                               controller: scroll,
                               entries: shown,
                               total: entries.length,
+                              onDuty: list.where((d) => d.onDuty).length,
                               selectedId: _selected,
                               now: now,
                               onSelect: (e) => _select(e),
@@ -276,12 +280,11 @@ class _FleetMapTabState extends ConsumerState<FleetMapTab> with OpsPolling {
   }
 }
 
-/// The filter chips and the connection pill, in one row that scrolls sideways when the text is large.
+/// The filter chips, in one row that scrolls sideways when the text is large.
 class _FilterBar extends StatelessWidget {
-  const _FilterBar({required this.filter, required this.counts, required this.onDuty, required this.onChanged});
+  const _FilterBar({required this.filter, required this.counts, required this.onChanged});
   final FleetFilter filter;
   final Map<FleetFilter, int> counts;
-  final int onDuty;
   final ValueChanged<FleetFilter> onChanged;
 
   @override
@@ -295,32 +298,34 @@ class _FilterBar extends StatelessWidget {
     };
     return SizedBox(
       height: 48,
-      child: ListView(
+      child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: AppSpace.xs),
-        children: [
-          _ConnectionPill(onDuty: onDuty),
-          for (final f in FleetFilter.values)
-            Padding(
-              padding: const EdgeInsetsDirectional.only(start: AppSpace.xs),
-              child: Center(
-                child: FilterChip(
-                  showCheckmark: false,
-                  selected: filter == f,
-                  label: Text('${label[f]} · ${counts[f] ?? 0}'),
-                  onSelected: (_) => onChanged(f),
-                  backgroundColor: Theme.of(context).colorScheme.surface,
-                  elevation: 2,
-                  shadowColor: Colors.black38,
+        child: Row(
+          children: [
+            for (final f in FleetFilter.values)
+              Padding(
+                padding: const EdgeInsetsDirectional.only(start: AppSpace.xs),
+                child: Center(
+                  child: FilterChip(
+                    showCheckmark: false,
+                    selected: filter == f,
+                    label: Text('${label[f]} · ${counts[f] ?? 0}'),
+                    onSelected: (_) => onChanged(f),
+                    backgroundColor: Theme.of(context).colorScheme.surface,
+                    elevation: 2,
+                    shadowColor: Colors.black38,
+                  ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
+/// "Live", "Reconnecting" or "Offline" with the number of drivers on duty: whether what the map shows is up to the second.
 class _ConnectionPill extends ConsumerWidget {
   const _ConnectionPill({required this.onDuty});
   final int onDuty;
@@ -339,32 +344,27 @@ class _ConnectionPill extends ConsumerWidget {
             RealtimeState.disconnected => (palette.danger, t.fleetLinkReconnecting),
             _ => (palette.warning, t.fleetLinkConnecting),
           };
-    return Center(
-      child: Semantics(
-        label: '$text, $onDuty',
-        excludeSemantics: true,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(AppRadius.pill),
-            boxShadow: kSoftShadow,
+    return Semantics(
+      label: '$text, $onDuty',
+      excludeSemantics: true,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-                ),
-                const SizedBox(width: 6),
-                Text('$text · $onDuty', style: Theme.of(context).textTheme.labelMedium),
-              ],
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              '$text · $onDuty',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelMedium,
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -376,6 +376,7 @@ class _DriverSheet extends StatelessWidget {
     required this.controller,
     required this.entries,
     required this.total,
+    required this.onDuty,
     required this.selectedId,
     required this.now,
     required this.onSelect,
@@ -385,6 +386,7 @@ class _DriverSheet extends StatelessWidget {
   final ScrollController controller;
   final List<FleetEntry> entries;
   final int total;
+  final int onDuty;
   final String? selectedId;
   final DateTime now;
   final ValueChanged<FleetEntry> onSelect;
@@ -426,12 +428,21 @@ class _DriverSheet extends StatelessWidget {
                       padding: const EdgeInsetsDirectional.only(start: AppSpace.gutter, end: AppSpace.xxs),
                       child: Row(
                         children: [
-                          Expanded(
+                          Flexible(
+                            flex: 2,
                             child: Semantics(
                               header: true,
-                              child: Text(t.fleetListTitle(total), style: Theme.of(context).textTheme.titleSmall),
+                              child: Text(
+                                t.fleetListTitle(total),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
                             ),
                           ),
+                          const SizedBox(width: AppSpace.sm),
+                          Flexible(flex: 3, child: _ConnectionPill(onDuty: onDuty)),
+                          const Spacer(),
                           // Pulling the list down while the sheet is small drags the sheet, so refreshing has a button too.
                           IconButton(
                             tooltip: t.refresh,

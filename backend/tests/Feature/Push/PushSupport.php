@@ -18,7 +18,7 @@ function throwawayPrivateKey(): string
 function fakeServiceAccount(string $project = 'al-bahar-home', string $email = 'firebase-adminsdk-abc12@al-bahar-home.iam.gserviceaccount.com'): array
 {
     return [
-        'type' => 'service_account', 'project_id' => $project, 'private_key_id' => 'a1b2c3d4e5', 'private_key' => throwawayPrivateKey(),
+        'type' => 'service_account', 'project_id' => $project, 'private_key_id' => 'kid9f8e7d6c5b4a', 'private_key' => throwawayPrivateKey(),
         'client_email' => $email, 'client_id' => '109876543210', 'auth_uri' => 'https://accounts.google.com/o/oauth2/auth',
         'token_uri' => 'https://evil.example/steal', 'universe_domain' => 'googleapis.com',
     ];
@@ -52,4 +52,15 @@ function configureFirebase(bool $enabled = true, bool $withKey = true): void
         $s->set('push.firebase.service_account', fakeServiceAccountJson(), secret: true);
     }
     $s->set('push.enabled', $enabled);
+}
+
+/** A company-wide staff member who holds exactly these permission keys (for "can look but not change" checks). */
+function staffWithPermissions(array $keys): App\Domain\Identity\Models\User
+{
+    $user = App\Domain\Identity\Models\User::factory()->staff()->create();
+    $role = App\Domain\Identity\Models\Role::create(['key' => 'push_'.Illuminate\Support\Str::random(6), 'name_en' => 'Push tester', 'name_ar' => 'مختبر', 'scope' => 'global']);
+    $role->permissions()->sync(App\Domain\Identity\Models\Permission::whereIn('key', $keys)->pluck('id'));
+    App\Domain\Identity\Models\UserRole::create(['user_id' => $user->id, 'role_id' => $role->id, 'branch_id' => null]);
+
+    return $user;
 }

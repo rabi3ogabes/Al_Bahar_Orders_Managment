@@ -37,19 +37,22 @@ messaging.onBackgroundMessage(function (payload) {
     if (payload.notification) return;
     var data = payload.data || {};
     var title = text(data.title, 120) || SETTINGS.brand;
+    var order = text(data.order_id, 64);
+    var tag = text(data.tag, 64);
     var options = {
         body: text(data.body, 300),
         icon: safeLink(data.icon || SETTINGS.icon),
         badge: SETTINGS.icon,
         dir: 'auto',
-        data: { deep_link: safeLink(data.deep_link), kind: text(data.kind, 40), order_id: text(data.order_id, 64) },
+        data: { deep_link: safeLink(data.deep_link), kind: text(data.kind, 40), order_id: order },
     };
-    if (data.kind === 'order_progress' && data.order_id) {
+    if (data.kind === 'order_progress' && order) {
         // One card per order: the next update replaces it in place and stays quiet.
-        options.tag = 'order-' + text(data.order_id, 64);
+        options.tag = 'order-' + order;
         options.renotify = false;
-    } else if (data.tag) {
-        options.tag = text(data.tag, 64);
+        options.silent = data.quiet === '1'; // an estimate-only update replaces the card without a sound
+    } else if (tag) {
+        options.tag = tag;
     }
     return self.registration.showNotification(title, options);
 });

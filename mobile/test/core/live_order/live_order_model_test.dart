@@ -76,8 +76,14 @@ void main() {
     });
 
     test('FCM sends brand as a JSON string, or as flat keys', () {
-      expect(parse({'order_id': 'o', 'brand': '{"primary":"#112233","accent":"#445566"}'}).brandPrimary, const Color(0xFF112233));
-      expect(parse({'order_id': 'o', 'brand': '{"primary":"#112233","accent":"#445566"}'}).brandAccent, const Color(0xFF445566));
+      expect(
+        parse({'order_id': 'o', 'brand': '{"primary":"#112233","accent":"#445566"}'}).brandPrimary,
+        const Color(0xFF112233),
+      );
+      expect(
+        parse({'order_id': 'o', 'brand': '{"primary":"#112233","accent":"#445566"}'}).brandAccent,
+        const Color(0xFF445566),
+      );
       expect(parse({'order_id': 'o', 'brand_primary': '#ABCDEF'}).brandPrimary, const Color(0xFFABCDEF));
       expect(parse({'order_id': 'o', 'brand_accent': 'ABCDEF'}).brandAccent, const Color(0xFFABCDEF));
     });
@@ -123,12 +129,8 @@ void main() {
 
   group('step and sub-progress mapping', () {
     test('a step maps to a phase; pickup orders end at ready and collected', () {
-      LiveOrderPhase phase(int step, {bool pickup = false, bool done = false}) => parse({
-        'order_id': 'o',
-        'step': step,
-        if (pickup) 'type': 'pickup',
-        if (done) 'done': '1',
-      }).phase;
+      LiveOrderPhase phase(int step, {bool pickup = false, bool done = false}) =>
+          parse({'order_id': 'o', 'step': step, if (pickup) 'type': 'pickup', if (done) 'done': '1'}).phase;
       expect(phase(0), LiveOrderPhase.placed);
       expect(phase(1), LiveOrderPhase.preparing);
       expect(phase(2), LiveOrderPhase.onTheWay);
@@ -254,7 +256,9 @@ void main() {
   group('what is sent to the platform', () {
     test('the channel map carries the push keys, the normalised stage and the colour as an int', () {
       final o = parse({..._legacyPush, 'brand_primary': '#8A1538', 'sub': '0.4', 'seq': '5'});
-      final map = o.copyWith(headline: 'Arrives at 9pm', subtitle: 'On its way').toChannelMap(locale: 'ar', force: true);
+      final map = o
+          .copyWith(headline: 'Arrives at 9pm', subtitle: 'On its way')
+          .toChannelMap(locale: 'ar', force: true);
       expect(map['order_id'], 'o1');
       expect(map['type'], 'delivery');
       expect(map['phase'], 'on_the_way');

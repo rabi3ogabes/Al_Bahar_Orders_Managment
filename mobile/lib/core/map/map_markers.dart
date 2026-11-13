@@ -290,17 +290,18 @@ class _DriverMarkerViewState extends State<DriverMarkerView> with SingleTickerPr
       selected: widget.selected,
       excludeSemantics: true,
       onTap: widget.onTap,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onTap,
-        child: SizedBox(
-          width: DriverMarkerView.width,
-          height: DriverMarkerView.height,
-          child: Stack(
-            alignment: Alignment.center,
-            clipBehavior: Clip.none,
-            children: [
-              RepaintBoundary(
+      // Only the disc and the name are touchable (not the empty corners of the box), so neighbouring drivers can be hit.
+      child: SizedBox(
+        width: DriverMarkerView.width,
+        height: DriverMarkerView.height,
+        child: Stack(
+          alignment: Alignment.center,
+          clipBehavior: Clip.none,
+          children: [
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.onTap,
+              child: RepaintBoundary(
                 child: AnimatedBuilder(
                   animation: _pulse,
                   builder: (_, _) => CustomPaint(
@@ -316,11 +317,15 @@ class _DriverMarkerViewState extends State<DriverMarkerView> with SingleTickerPr
                   ),
                 ),
               ),
-              if (widget.showName || widget.stale)
-                Positioned(
-                  top: 70,
-                  left: 0,
-                  right: 0,
+            ),
+            if (widget.showName || widget.stale)
+              Positioned(
+                top: 70,
+                left: 0,
+                right: 0,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: widget.onTap,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -342,8 +347,8 @@ class _DriverMarkerViewState extends State<DriverMarkerView> with SingleTickerPr
                     ],
                   ),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );

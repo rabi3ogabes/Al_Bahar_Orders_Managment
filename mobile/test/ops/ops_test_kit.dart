@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/providers.dart';
-import 'package:albahar_customer/core/realtime/pusher_client.dart';
 import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
 import 'package:albahar_customer/l10n/generated/app_localizations.dart';
@@ -13,7 +12,6 @@ import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_repository.dart';
 import 'package:albahar_customer/ops/ops_session.dart';
 import 'package:albahar_customer/ops/ops_widgets.dart';
-import 'package:albahar_customer/ops/staff/fleet_map_tab.dart';
 import 'package:albahar_customer/ops/staff/staff_home.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -411,7 +409,6 @@ Widget opsHost(
     driverEventsProvider.overrideWith((ref) => const Stream.empty()),
     staffEventsProvider.overrideWith((ref) => const Stream.empty()),
     staffMovesProvider.overrideWith((ref) => const Stream<Map<String, dynamic>>.empty()),
-    staffConnectionProvider.overrideWith((ref) => const Stream<RealtimeState>.empty()),
     ...mapTestOverrides(),
     ...overrides,
   ],

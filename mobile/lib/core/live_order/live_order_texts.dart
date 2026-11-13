@@ -86,6 +86,8 @@ class LiveOrderTexts {
   String subtitle(LiveOrder o) => o.body ?? status(o);
 
   /// [o] with its headline and status line filled in (server text kept).
-  LiveOrder localise(LiveOrder o, {DateTime? now}) =>
-      o.copyWith(headline: o.headline ?? headline(o, now: now), subtitle: o.subtitle ?? subtitle(o));
+  LiveOrder localise(LiveOrder o, {DateTime? now}) => o.copyWith(
+    headline: o.headline ?? headline(o, now: now),
+    subtitle: o.subtitle ?? subtitle(o),
+  );
 }

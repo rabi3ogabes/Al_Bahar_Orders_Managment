@@ -43,7 +43,12 @@ enum LiveOrderPermission {
 /// The native live order notification (Android: `qa.albahar.customer.liveorder`). Everything here is best effort: a
 /// failing or missing platform never throws into the order flow.
 abstract class LiveOrderPlatform {
-  Future<LiveOrderShowResult> show(LiveOrder order, {required String locale, bool force = false, bool arabicDigits = false});
+  Future<LiveOrderShowResult> show(
+    LiveOrder order, {
+    required String locale,
+    bool force = false,
+    bool arabicDigits = false,
+  });
   Future<void> cancel(String orderId);
   Future<void> cancelAll();
 
@@ -95,7 +100,10 @@ class MethodChannelLiveOrderPlatform implements LiveOrderPlatform {
     bool force = false,
     bool arabicDigits = false,
   }) async {
-    final answer = await _call<String>('show', order.toChannelMap(locale: locale, force: force, arabicDigits: arabicDigits));
+    final answer = await _call<String>(
+      'show',
+      order.toChannelMap(locale: locale, force: force, arabicDigits: arabicDigits),
+    );
     if (!_usable) return LiveOrderShowResult.unsupported;
     return switch (answer) {
       'skipped' => LiveOrderShowResult.skipped,
@@ -117,8 +125,7 @@ class MethodChannelLiveOrderPlatform implements LiveOrderPlatform {
   }
 
   @override
-  Future<LiveOrderPermission> permission() async =>
-      LiveOrderPermission.parse(await _call<String>('permissionStatus'));
+  Future<LiveOrderPermission> permission() async => LiveOrderPermission.parse(await _call<String>('permissionStatus'));
 
   @override
   Future<LiveOrderPermission> requestPermission() async =>

@@ -199,7 +199,7 @@ class PushNotificationsPage extends Component
             $result = ['ok' => false, 'code' => 'oauth_failed', 'status' => null, 'detail' => null];
         }
         $this->connection = ['ok' => $result['ok'], 'code' => $result['code'], 'detail' => $result['detail'] ?? null];
-        app(AuditLogger::class)->log('push.connection_tested', 'push', [], [], ['ok' => $result['ok'], 'code' => $result['code'], 'status' => $result['status'] ?? null]);
+        app(AuditLogger::class)->log('push.connection_tested', 'push', [], [], ['ok' => $result['ok'], 'result' => $result['code'], 'status' => $result['status'] ?? null]);
         $this->toast($result['ok'] ? __('push_admin.conn_ok') : __('push_admin.conn.'.$result['code']), $result['ok'] ? 'success' : 'error');
     }
 

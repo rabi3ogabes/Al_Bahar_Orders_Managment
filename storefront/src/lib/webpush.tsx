@@ -149,7 +149,7 @@ async function registerThisDevice(web: WebFirebaseConfig, userId: string): Promi
   if (!token) throw new PushError('token');
   const stored = readToken();
   if (needsRegistration(stored, token, userId, Date.now())) {
-    try { await post('/me/devices', { platform: 'web', push_token: token, locale: document.documentElement.lang === 'ar' ? 'ar' : 'en', device_id: deviceId() }); } catch (e) { throw e instanceof PushError ? e : new PushError('server'); }
+    try { await post('/me/devices', { platform: 'web', app: 'store', push_token: token, locale: document.documentElement.lang === 'ar' ? 'ar' : 'en', device_id: deviceId() }); } catch (e) { throw e instanceof PushError ? e : new PushError('server'); }
     write(K.token, JSON.stringify({ token, userId, at: Date.now() }));
     // A rotated token leaves the old one on the server until a send to it fails: remove it now so this browser is not notified twice.
     if (stored && stored.token !== token) void del('/me/devices', { push_token: stored.token }).catch(() => undefined);
