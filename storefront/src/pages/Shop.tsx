@@ -74,7 +74,7 @@ export default function Shop() {
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
             <div className="flex items-center gap-3">
               <Button variant="outline" size="sm" className="lg:hidden" onClick={() => setSheet(true)}><SlidersHorizontal size={15} />{t('filter.title')}{chips.length > 0 && ` (${chips.length})`}</Button>
-              <p className="text-sm text-muted">{list.isLoading ? '…' : t('shop.count', { n: num(total) })}</p>
+              <p className="text-sm text-muted">{list.isLoading ? '…' : total === 1 ? t('shop.count_one') : t('shop.count', { n: num(total) })}</p>
             </div>
             <div className="w-52"><Select label={t('sort.title')} value={sort} onChange={(e) => set({ sort: e.target.value })} className="[&_label]:sr-only [&_select]:h-10 [&_select]:text-sm">
               {q && <option value="relevance">{t('sort.relevance')}</option>}

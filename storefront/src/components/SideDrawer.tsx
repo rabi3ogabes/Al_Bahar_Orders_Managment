@@ -51,7 +51,9 @@ export function SideDrawer({ open, onClose, title, description, children, footer
   const panel = useRef<HTMLDivElement>(null);
   const opener = useOpener(returnFocus);
 
-  const request = useCallback(() => { if (dirty) setAsk(true); else onClose(); }, [dirty, onClose]);
+  // A swipe-down on a sheet with unsaved input must not leave the sheet half way down: ask, and slide it back up.
+  const snapBack = () => { const el = panel.current; if (el) { el.style.transition = 'transform 0.35s cubic-bezier(0.32, 0.72, 0, 1)'; el.style.transform = 'translate3d(0, 0, 0)'; } };
+  const request = useCallback(() => { if (dirty) { setAsk(true); snapBack(); } else onClose(); }, [dirty, onClose]);
   // Back with unsaved input: stay open, put this window's history entry back first, and only then ask (the question is the
   // top window, so its entry must be pushed after the window's own).
   const askAfterRearm = useRef(false);

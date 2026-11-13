@@ -624,4 +624,6 @@ export const ar: Record<string, string> = {
   "cart.remove_item": "إزالة {name} من السلة",
   "cart.view_full": "فتح صفحة السلة",
   "cart.qty_now": "{name}: {n} في سلتك",
+  "filter.show_one": "عرض قطعة واحدة",
+  "shop.count_one": "قطعة واحدة",
 };

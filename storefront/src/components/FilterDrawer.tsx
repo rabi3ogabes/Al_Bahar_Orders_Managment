@@ -30,7 +30,7 @@ export default function FilterDrawer({ open, onClose, sp, cats, brands, onApply 
   return (
     <SideDrawer open={open} onClose={onClose} title={t('filter.title')} size="sm"
       headerAction={n > 0 ? <button type="button" onClick={reset} className="flex h-11 items-center rounded-full px-3 text-sm font-medium text-brass-deep hover:underline">{t('filter.clear')}</button> : undefined}
-      footer={<Button size="lg" block disabled={count.data === 0} onClick={() => { onApply(draft); onClose(); }}>{count.data === undefined ? t('filter.show_any') : count.data === 0 ? t('filter.none') : t('filter.show', { n: num(count.data) })}</Button>}>
+      footer={<Button size="lg" block disabled={count.data === 0} onClick={() => { onApply(draft); onClose(); }}>{count.data === undefined ? t('filter.show_any') : count.data === 0 ? t('filter.none') : count.data === 1 ? t('filter.show_one') : t('filter.show', { n: num(count.data) })}</Button>}>
       <div className="space-y-8 p-6">
         <Select label={t('sort.title')} value={f.sort} onChange={(e) => set({ sort: e.target.value })}>
           {f.q && <option value="relevance">{t('sort.relevance')}</option>}

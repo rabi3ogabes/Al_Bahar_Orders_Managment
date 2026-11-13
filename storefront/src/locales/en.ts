@@ -624,4 +624,6 @@ export const en: Record<string, string> = {
   "cart.remove_item": "Remove {name} from cart",
   "cart.view_full": "Open full cart",
   "cart.qty_now": "{name}: {n} in your cart",
+  "filter.show_one": "Show 1 piece",
+  "shop.count_one": "1 piece",
 };

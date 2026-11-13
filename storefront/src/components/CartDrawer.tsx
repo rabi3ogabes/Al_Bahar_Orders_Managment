@@ -134,7 +134,7 @@ function CartLine({ l, size, onRemove }: { l: Line; size: 'focus' | 'regular' | 
         <p className="mt-0.5 text-[14px] text-ink-soft tabular-nums" lang={locale}>{l.unit.formatted}</p>
         <div className="mt-2 flex items-center justify-between gap-2">
           <PanelQty l={l} onRemove={onRemove} />
-          <span className="text-[15px] font-semibold tabular-nums" lang={locale}>{l.total.formatted}</span>
+          <span className="shrink-0 whitespace-nowrap text-[15px] font-semibold tabular-nums" lang={locale}>{l.total.formatted}</span>
         </div>
       </div>
     </li>
