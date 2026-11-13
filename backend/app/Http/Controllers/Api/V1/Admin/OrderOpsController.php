@@ -149,7 +149,7 @@ class OrderOpsController extends ApiController
             'fail' => $svc->fail($delivery, $u, $request->validate(['reason_code' => 'required|in:customer_unreachable,customer_absent,wrong_address,refused,damaged,access_denied,other'])['reason_code'], $request->input('notes')),
             // Either onto a delivery slot (capacity-safe) or, for branches without slots, to a free time (Qatar time unless an offset is given).
             'reschedule' => $request->filled('slot_id')
-                ? $svc->rescheduleToSlot($delivery, $u, ...array_values($request->validate(['slot_id' => 'required|uuid', 'date' => 'required|date_format:Y-m-d|after_or_equal:today'])))
+                ? $svc->rescheduleToSlot($delivery, $u, ...array_values($request->validate(['slot_id' => 'required|uuid', 'date' => 'required|date_format:Y-m-d|after_or_equal:'.BusinessTime::now()->toDateString()])))
                 : $svc->reschedule($delivery, $u, $request->validate(['scheduled_for' => ['required', 'date', fn ($a, $v, $fail) => BusinessTime::toUtc((string) $v)->isFuture() ?: $fail(__('validation.after', ['attribute' => $a, 'date' => 'now']))]])['scheduled_for']),
             'return' => $svc->returnToBranch($delivery, $u),
             'cancel' => $svc->cancel($delivery, $u, $request->validate(['reason' => 'required|string|max:500'])['reason']),

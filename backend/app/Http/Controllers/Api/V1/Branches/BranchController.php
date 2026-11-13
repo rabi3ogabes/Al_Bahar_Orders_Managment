@@ -86,10 +86,13 @@ class BranchController extends ApiController
      */
     private function slotsResponse(Request $request, Branch $branch, string $type, SlotService $slots): JsonResponse
     {
+        // "Today" and the 30-day limit are the business day (Qatar), not the server's UTC day, which is a day behind for the first three hours.
+        $today = BusinessTime::now()->toDateString();
+        $limit = BusinessTime::now()->addDays(30)->toDateString();
         $d = $request->validate([
-            'date' => 'nullable|date_format:Y-m-d|after_or_equal:today|before:+30 days|required_without_all:from,to|prohibits:from,to',
-            'from' => 'nullable|date_format:Y-m-d|after_or_equal:today|before:+30 days|required_with:to',
-            'to' => 'nullable|date_format:Y-m-d|after_or_equal:from|before:+30 days|required_with:from',
+            'date' => 'nullable|date_format:Y-m-d|after_or_equal:'.$today.'|before:'.$limit.'|required_without_all:from,to|prohibits:from,to',
+            'from' => 'nullable|date_format:Y-m-d|after_or_equal:'.$today.'|before:'.$limit.'|required_with:to',
+            'to' => 'nullable|date_format:Y-m-d|after_or_equal:from|before:'.$limit.'|required_with:from',
             'only_available' => 'nullable|boolean',
         ]);
         if (isset($d['date'])) {
