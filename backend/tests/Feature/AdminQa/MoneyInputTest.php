@@ -3,9 +3,14 @@
 use App\Domain\Fulfillment\Services\PickupService;
 use App\Domain\Identity\Models\User;
 use App\Domain\Orders\Models\Order;
+use App\Domain\Orders\Models\OrderNote;
 use App\Domain\Payments\Models\Payment;
 use App\Domain\Payments\Models\Refund;
+use App\Domain\Settings\Services\Settings;
 use App\Livewire\Admin\Finance\PaymentShow;
+use App\Livewire\Admin\Marketing\LoyaltyIndex;
+use App\Livewire\Admin\Organization\SettingsIndex;
+use App\Livewire\Admin\Sales\OrderShow;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Livewire\Livewire;
 
@@ -42,13 +47,27 @@ it('answers an unparseable refund amount with a toast, not a raw 422 error popup
 
 it('keeps a four-decimal point value and the settings limits when saving loyalty rules from the loyalty screen', function () {
     $this->actingAs($this->admin);
-    $settings = app(App\Domain\Settings\Services\Settings::class);
+    $settings = app(Settings::class);
 
-    Livewire::test(App\Livewire\Admin\Marketing\LoyaltyIndex::class)
+    Livewire::test(LoyaltyIndex::class)
         ->set('rules.points_per_qar', '250')->set('rules.redeem_value_per_point', '0.0125')->set('rules.points_expiry_days', '730')
         ->call('saveRules')->assertHasNoErrors();
 
     expect($settings->get('loyalty.redeem_value_per_point'))->toBe('0.0125')->and($settings->get('loyalty.points_per_qar'))->toBe(250);
-    Livewire::test(App\Livewire\Admin\Marketing\LoyaltyIndex::class)->set('rules.points_expiry_days', '0')->call('saveRules')->assertHasErrors(['rules.points_expiry_days']);
-    Livewire::test(App\Livewire\Admin\Organization\SettingsIndex::class, ['tab' => 'loyalty'])->set('values.loyalty.loyalty__points_expiry_days', '0')->call('save')->assertHasErrors(['values.loyalty.loyalty__points_expiry_days']);
+    Livewire::test(LoyaltyIndex::class)->set('rules.points_expiry_days', '0')->call('saveRules')->assertHasErrors(['rules.points_expiry_days']);
+    Livewire::test(SettingsIndex::class, ['tab' => 'loyalty'])->set('values.loyalty.loyalty__points_expiry_days', '0')->call('save')->assertHasErrors(['values.loyalty.loyalty__points_expiry_days']);
+});
+
+it('lets the read-only auditor read an order but not add notes to it', function () {
+    $order = qaPaidOrder($this->w);
+    $auditor = staffWithRole('auditor');
+    $manager = staffWithRole('branch_manager', $this->w->a);
+
+    $this->actingAs($auditor);
+    Livewire::test(OrderShow::class, ['order' => $order])->set('note', 'hello there')->call('addNote')->assertForbidden();
+    expect(OrderNote::count())->toBe(0);
+
+    $this->actingAs($manager);
+    Livewire::test(OrderShow::class, ['order' => $order])->set('note', 'hello there')->call('addNote')->assertHasNoErrors();
+    expect(OrderNote::count())->toBe(1);
 });

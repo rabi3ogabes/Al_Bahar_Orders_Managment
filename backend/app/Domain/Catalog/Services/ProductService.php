@@ -220,17 +220,90 @@ class ProductService
         $product->unsetRelation('translations');
     }
 
-    /** Allow-list sanitiser for rich product descriptions (no scripts, styles, event handlers or javascript: URLs). */
+    /** Tags a rich description may keep. Everything else is unwrapped (its text stays); script/style and similar are dropped whole. */
+    private const HTML_ALLOWED = ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 'ul', 'ol', 'li', 'h2', 'h3', 'h4', 'blockquote', 'a', 'span'];
+
+    private const HTML_DROPPED = ['script', 'style', 'iframe', 'object', 'embed', 'template', 'noscript', 'svg', 'math', 'form', 'textarea', 'title'];
+
+    /**
+     * Allow-list sanitiser for rich descriptions and CMS pages. It parses the markup (so unquoted or entity-encoded values cannot slip
+     * past a pattern), keeps only the tags above with no attributes except a safe `href` on links, and re-serialises the result.
+     */
     public function sanitizeHtml(?string $html): ?string
     {
         if ($html === null) {
             return null;
         }
-        $clean = strip_tags($html, '<p><br><strong><b><em><i><u><ul><ol><li><h2><h3><h4><blockquote><a><span>');
-        $clean = preg_replace('/\son\w+\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)/i', '', $clean);
-        $clean = preg_replace('/\s(style|class|id)\s*=\s*("[^"]*"|\'[^\']*\')/i', '', $clean);
+        if (trim($html) === '') {
+            return '';
+        }
+        $doc = new \DOMDocument('1.0', 'UTF-8');
+        $previous = libxml_use_internal_errors(true);
+        $doc->loadHTML('<?xml encoding="UTF-8"><body><div id="sanitize-root">'.$html.'</div></body>', LIBXML_HTML_NODEFDTD);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+        $root = $doc->getElementById('sanitize-root');
+        if (! $root) {
+            return trim(strip_tags($html));
+        }
+        $this->cleanNode($root);
+        $out = '';
+        foreach ($root->childNodes as $child) {
+            $out .= $doc->saveHTML($child);
+        }
 
-        return preg_replace('/href\s*=\s*(["\'])\s*(javascript|data|vbscript):[^"\']*\1/i', 'href="#"', $clean);
+        return $out;
+    }
+
+    private function cleanNode(\DOMNode $node): void
+    {
+        foreach (iterator_to_array($node->childNodes) as $child) {
+            if (! $child instanceof \DOMElement) {
+                if (! $child instanceof \DOMText) {
+                    $node->removeChild($child); // comments, processing instructions, CDATA
+                }
+
+                continue;
+            }
+            $tag = strtolower($child->tagName);
+            if (in_array($tag, self::HTML_DROPPED, true)) {
+                $node->removeChild($child);
+
+                continue;
+            }
+            $this->cleanNode($child);
+            if (! in_array($tag, self::HTML_ALLOWED, true)) {
+                while ($child->firstChild) {
+                    $node->insertBefore($child->firstChild, $child);
+                }
+                $node->removeChild($child);
+
+                continue;
+            }
+            $href = $tag === 'a' ? $child->getAttribute('href') : '';
+            foreach (iterator_to_array($child->attributes) as $attribute) {
+                $child->removeAttributeNode($attribute);
+            }
+            if ($tag === 'a') {
+                $child->setAttribute('href', self::safeHref($href));
+                $child->setAttribute('rel', 'noopener noreferrer');
+            }
+        }
+    }
+
+    /** A link target is kept only when it is http(s), mailto, tel, an in-page anchor or a relative path. */
+    private static function safeHref(string $href): string
+    {
+        $href = trim($href);
+        $probe = strtolower(preg_replace('/[\x00-\x20\x7f]+/', '', $href) ?? '');
+        if ($probe === '' || str_starts_with($probe, '#') || str_starts_with($probe, '/') && ! str_starts_with($probe, '//')) {
+            return $probe === '' ? '#' : $href;
+        }
+        if (preg_match('#^(https?:|mailto:|tel:)#', $probe)) {
+            return $href;
+        }
+
+        return '#';
     }
 
     private function uniqueSlug(string $locale, string $name): string

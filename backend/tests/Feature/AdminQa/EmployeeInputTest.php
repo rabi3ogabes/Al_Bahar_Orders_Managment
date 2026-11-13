@@ -1,8 +1,11 @@
 <?php
 
-use App\Domain\Branches\Models\Branch;
+use App\Domain\Branches\Models\DeliveryZone;
 use App\Domain\Identity\Models\User;
+use App\Domain\Inventory\Models\Supplier;
+use App\Livewire\Admin\Inventory\SupplierIndex;
 use App\Livewire\Admin\Organization\EmployeeEditor;
+use App\Livewire\Admin\Organization\ZoneIndex;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Livewire\Livewire;
 
@@ -41,13 +44,13 @@ it('rejects a phone number that is a duplicate once spaces are removed', functio
 });
 
 it('treats zone and supplier codes case-insensitively when checking for duplicates', function () {
-    App\Domain\Branches\Models\DeliveryZone::factory()->create(['code' => 'WESTBAY']);
-    App\Domain\Inventory\Models\Supplier::factory()->create(['code' => 'ACME']);
+    DeliveryZone::factory()->create(['code' => 'WESTBAY']);
+    Supplier::factory()->create(['code' => 'ACME']);
 
-    Livewire::test(App\Livewire\Admin\Organization\ZoneIndex::class)->call('create')
+    Livewire::test(ZoneIndex::class)->call('create')
         ->set('form.code', 'westbay')->set('form.name_en', 'West Bay')->set('form.name_ar', 'الخليج')
         ->call('save')->assertHasErrors(['form.code']);
-    Livewire::test(App\Livewire\Admin\Inventory\SupplierIndex::class)->call('create')
+    Livewire::test(SupplierIndex::class)->call('create')
         ->set('form.code', 'acme')->set('form.name', 'Acme')->set('form.currency', 'QAR')
         ->call('save')->assertHasErrors(['form.code']);
 });

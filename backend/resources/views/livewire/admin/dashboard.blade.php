@@ -1,5 +1,5 @@
 <div>
-    <x-admin.page-header :title="$greeting.', '.\Illuminate\Support\Str::before(auth()->user()->name, ' ')" :eyebrow="\App\Support\BusinessTime::now()->locale(app()->getLocale())->translatedFormat('l, d F Y')" :description="__('admin.dashboard_hint')">
+    <x-admin.page-header :title="$greeting.(app()->getLocale() === 'ar' ? '، ' : ', ').\Illuminate\Support\Str::before(auth()->user()->name, ' ')" :eyebrow="\App\Support\BusinessTime::now()->locale(app()->getLocale())->translatedFormat('l, d F Y')" :description="__('admin.dashboard_hint')">
         <x-slot:actions>
             @if ($branches->count() > 1)
                 <select wire:model.live="branchId" class="input w-auto min-w-52" aria-label="{{ __('admin.branch') }}">

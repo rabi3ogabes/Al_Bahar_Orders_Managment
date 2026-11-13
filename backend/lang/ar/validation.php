@@ -112,6 +112,13 @@ return [
     'not_in' => 'يجب ألا يكون حقل :attribute موجودًا في القائمة.',
     'not_regex' => 'صيغة حقل :attribute غير صحيحة.',
     'numeric' => 'يجب على حقل :attribute أن يكون رقمًا.',
+    'password' => [
+        'letters' => 'يجب أن يحتوي حقل :attribute على حرف واحد على الأقل.',
+        'mixed' => 'يجب أن يحتوي حقل :attribute على حرف كبير وحرف صغير على الأقل.',
+        'numbers' => 'يجب أن يحتوي حقل :attribute على رقم واحد على الأقل.',
+        'symbols' => 'يجب أن يحتوي حقل :attribute على رمز واحد على الأقل.',
+        'uncompromised' => 'ظهر :attribute المُدخل في تسريب بيانات. يرجى اختيار :attribute مختلف.',
+    ],
     'present' => 'يجب تقديم حقل :attribute.',
     'present_if' => 'يجب أن يكون الحقل :attribute متوفراً عندما :other يساوي :value.',
     'present_unless' => 'يجب أن يكون الحقل :attribute متوفراً ما لم يكن :other يساوي :value.',

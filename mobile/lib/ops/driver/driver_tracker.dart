@@ -15,12 +15,15 @@ class DriverTracker {
     this.minGap = const Duration(seconds: 8),
     this.keepAlive = const Duration(seconds: 60),
     Stream<Position> Function(LocationSettings settings)? positions,
-  }) : _positions = positions ?? ((s) => Geolocator.getPositionStream(locationSettings: s));
+    DateTime Function() now = DateTime.now,
+  }) : _now = now,
+       _positions = positions ?? ((s) => Geolocator.getPositionStream(locationSettings: s));
 
   final OpsRepository _repo;
   final Duration minGap;
   final Duration keepAlive;
   final Stream<Position> Function(LocationSettings settings) _positions;
+  final DateTime Function() _now;
   StreamSubscription<Position>? _sub;
   Timer? _keepAliveTimer;
   Position? _last;
@@ -57,7 +60,7 @@ class DriverTracker {
     _sub = _positions(settings).listen(_onPosition, onError: (Object e) => onError?.call(e));
     _keepAliveTimer = Timer.periodic(keepAlive, (_) {
       final p = _last;
-      final now = DateTime.now();
+      final now = _now();
       // Repeat only a recent fix: after a long GPS blackout the old position must not look fresh.
       if (p != null && now.difference(_lastSent) >= keepAlive && now.difference(p.timestamp) < const Duration(minutes: 10)) {
         unawaited(_send(p));
@@ -67,12 +70,12 @@ class DriverTracker {
 
   Future<void> _onPosition(Position p) async {
     _last = p;
-    if (DateTime.now().difference(_lastSent) < minGap) return;
+    if (_now().difference(_lastSent) < minGap) return;
     await _send(p);
   }
 
   Future<void> _send(Position p) async {
-    _lastSent = DateTime.now();
+    _lastSent = _now();
     try {
       await _repo.heartbeat(
         p.latitude,

@@ -6,6 +6,7 @@ import 'package:albahar_customer/ops/driver/driver_tracker.dart';
 import 'package:albahar_customer/ops/ops_input.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_strings.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
@@ -38,7 +39,7 @@ void main() {
       expect(pairs.length, greaterThan(150));
       final arabic = RegExp(r'[؀-ۿ]');
       for (final p in pairs) {
-        if (p.en == 'English') continue; // the language switch shows the other language's name
+        if (p.en == 'English' || p.en == 'العربية') continue; // the language switch shows the other language's name
         expect(p.en, isNotEmpty);
         expect(arabic.hasMatch(p.ar), isTrue, reason: 'no Arabic in the Arabic text of "${p.en}"');
         expect(arabic.hasMatch(p.en), isFalse, reason: 'Arabic in the English text "${p.en}"');
@@ -117,44 +118,62 @@ void main() {
   });
 
   group('location tracker', () {
+    // The tracker reads time through an injected clock, so the tests move time by hand.
+    var clock = DateTime(2026, 11, 13, 12);
+    DateTime now() => clock;
+    Future<void> tick(WidgetTester tester, Duration d) async {
+      clock = clock.add(d);
+      await tester.pump(d);
+    }
+
+    setUp(() => clock = DateTime(2026, 11, 13, 12));
+
     testWidgets('sends a fix at most every 8 s, repeats a standing driver every minute, and stops cleanly', (tester) async {
       final repo = FakeOps();
       final fixes = StreamController<Position>();
-      addTearDown(fixes.close);
-      final tracker = DriverTracker(repo, positions: (_) => fixes.stream);
+      addTearDown(() => unawaited(fixes.close()));
+      final tracker = DriverTracker(repo, positions: (_) => fixes.stream, now: now);
+      debugPrint('A');
       await tracker.start(title: 't', body: 'b');
+      debugPrint('B');
       expect(tracker.running, isTrue);
 
-      fixes.add(_fix(25.28, 51.52));
+      fixes.add(_fix(25.28, 51.52, at: clock));
       await tester.pump();
       expect(repo.beats, hasLength(1));
-      fixes.add(_fix(25.281, 51.521)); // two seconds later: held back by the gap
-      await tester.pump(const Duration(seconds: 2));
+      await tick(tester, const Duration(seconds: 2));
+      fixes.add(_fix(25.281, 51.521, at: clock)); // two seconds later: held back by the gap
+      await tester.pump();
       expect(repo.beats, hasLength(1));
-      fixes.add(_fix(25.282, 51.522));
-      await tester.pump(const Duration(seconds: 7));
+      await tick(tester, const Duration(seconds: 7));
+      fixes.add(_fix(25.282, 51.522, at: clock));
+      await tester.pump();
       expect(repo.beats, hasLength(2));
 
       // The driver stands still: nothing arrives, but dispatch must keep hearing from the phone.
-      await tester.pump(const Duration(seconds: 61));
-      expect(repo.beats.length, greaterThanOrEqualTo(3));
+      await tick(tester, const Duration(seconds: 61));
+      expect(repo.beats.length, 3);
+      expect(repo.beats.last.lat, 25.282);
 
+      debugPrint('C');
       await tracker.stop();
+      debugPrint('D');
       expect(tracker.running, isFalse);
       final before = repo.beats.length;
-      await tester.pump(const Duration(minutes: 5));
+      await tick(tester, const Duration(minutes: 5));
       expect(repo.beats.length, before, reason: 'no timer left running after stop');
     });
 
     testWidgets('an offline heartbeat is dropped quietly; a broken stream is reported', (tester) async {
       final repo = FakeOps()..beatError = apiError(ApiErrorKind.offline, 0);
       final fixes = StreamController<Position>();
-      addTearDown(fixes.close);
+      addTearDown(() => unawaited(fixes.close()));
       Object? broken;
-      final tracker = DriverTracker(repo, positions: (_) => fixes.stream);
+      final tracker = DriverTracker(repo, positions: (_) => fixes.stream, now: now);
       await tracker.start(title: 't', body: 'b', onError: (e) => broken = e);
-      fixes.add(_fix(25.28, 51.52));
+      fixes.add(_fix(25.28, 51.52, at: clock));
       await tester.pump();
+      expect(repo.beats, hasLength(1));
       expect(tester.takeException(), isNull);
       fixes.addError(const PermissionDeniedException('revoked'));
       await tester.pump();
@@ -165,14 +184,17 @@ void main() {
     testWidgets('an old fix is not repeated as if it were fresh', (tester) async {
       final repo = FakeOps();
       final fixes = StreamController<Position>();
-      addTearDown(fixes.close);
-      final tracker = DriverTracker(repo, positions: (_) => fixes.stream);
+      addTearDown(() => unawaited(fixes.close()));
+      final tracker = DriverTracker(repo, positions: (_) => fixes.stream, now: now);
       await tracker.start(title: 't', body: 'b');
-      fixes.add(_fix(25.28, 51.52, at: DateTime.now().subtract(const Duration(hours: 1))));
+      fixes.add(_fix(25.28, 51.52, at: clock));
       await tester.pump();
       repo.beats.clear();
-      await tester.pump(const Duration(minutes: 3));
-      expect(repo.beats, isEmpty);
+      await tick(tester, const Duration(minutes: 3));
+      expect(repo.beats, isNotEmpty); // a recent fix is repeated while standing still
+      repo.beats.clear();
+      await tick(tester, const Duration(minutes: 20));
+      expect(repo.beats, isEmpty, reason: 'after a long GPS blackout the old position must not look fresh');
       await tracker.stop();
     });
   });

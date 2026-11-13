@@ -1,8 +1,10 @@
 <?php
 
-use App\Domain\Identity\Models\Role;
+use App\Domain\Branches\Models\Branch;
 use App\Domain\Identity\Models\UserRole;
+use App\Livewire\Admin\Sales\OrderIndex;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Livewire\Livewire;
 
 beforeEach(fn () => $this->seed(RolesAndPermissionsSeeder::class));
 
@@ -25,7 +27,7 @@ function livewireCall(object $t, string $url, string $snapshot, string $method, 
 }
 
 it('stops a staff member whose permission was revoked after the page loaded (Livewire updates re-run the route middleware)', function () {
-    $user = staffWithRole('order_manager', App\Domain\Branches\Models\Branch::factory()->create());
+    $user = staffWithRole('order_manager', Branch::factory()->create());
     $this->actingAs($user);
     [$snap, $url] = livewireSnapshot($this, '/admin/issues');
     UserRole::where('user_id', $user->id)->delete();
@@ -35,7 +37,7 @@ it('stops a staff member whose permission was revoked after the page loaded (Liv
 });
 
 it('stops a deactivated staff member mid-session', function () {
-    $user = staffWithRole('order_manager', App\Domain\Branches\Models\Branch::factory()->create());
+    $user = staffWithRole('order_manager', Branch::factory()->create());
     $this->actingAs($user);
     [$snap, $url] = livewireSnapshot($this, '/admin/issues');
 
@@ -46,9 +48,15 @@ it('stops a deactivated staff member mid-session', function () {
 });
 
 it('lets an authorised staff member use the same Livewire action', function () {
-    $user = staffWithRole('order_manager', App\Domain\Branches\Models\Branch::factory()->create());
+    $user = staffWithRole('order_manager', Branch::factory()->create());
     $this->actingAs($user);
     [$snap, $url] = livewireSnapshot($this, '/admin/issues');
 
     livewireCall($this, $url, $snap, 'create')->assertOk();
 });
+
+it('does not let a client tamper with the page size', function () {
+    $branch = Branch::factory()->create();
+    $this->actingAs(staffWithRole('order_manager', $branch));
+    Livewire::test(OrderIndex::class)->set('perPage', 100000);
+})->throws(Exception::class, 'Cannot update locked property');
