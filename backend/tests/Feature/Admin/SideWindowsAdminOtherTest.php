@@ -8,8 +8,10 @@ use App\Domain\Branches\Models\Branch;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Identity\Models\User;
 use App\Domain\Inventory\Enums\MovementType;
+use App\Domain\Inventory\Models\PurchaseOrder;
 use App\Domain\Inventory\Models\StocktakingSession;
 use App\Domain\Inventory\Models\StockTransfer;
+use App\Domain\Inventory\Models\Supplier;
 use App\Domain\Inventory\Services\InventoryLedger;
 use App\Domain\Inventory\Services\PurchasingService;
 use App\Domain\Inventory\Services\StocktakingService;
@@ -156,7 +158,7 @@ describe('products quick view', function () {
 
 describe('purchase order window', function () {
     beforeEach(function () {
-        $this->po = app(PurchasingService::class)->create($this->admin, App\Domain\Inventory\Models\Supplier::factory()->create()->id, $this->wb->id,
+        $this->po = app(PurchasingService::class)->create($this->admin, Supplier::factory()->create()->id, $this->wb->id,
             [['variant_id' => $this->variant->id, 'quantity' => 5, 'unit_cost' => '400.00']]);
     });
 
@@ -186,7 +188,7 @@ describe('purchase order window', function () {
         $c = Livewire::test(PurchaseOrderIndex::class)->call('create')->set('form.supplier_id', $this->po->supplier_id)->set('form.branch_id', $this->wb->id)
             ->call('pickVariant', $this->variant->id)->set('lines.0.unit_cost', '410')->call('save')->assertHasNoErrors()->assertNoRedirect()
             ->assertSet('showEditor', false)->assertSet('showView', true);
-        expect($c->get('viewId'))->not->toBe('')->and(App\Domain\Inventory\Models\PurchaseOrder::whereKey($c->get('viewId'))->exists())->toBeTrue();
+        expect($c->get('viewId'))->not->toBe('')->and(PurchaseOrder::whereKey($c->get('viewId'))->exists())->toBeTrue();
         $c->set('showView', false)->assertSet('viewId', '');
     });
 });
