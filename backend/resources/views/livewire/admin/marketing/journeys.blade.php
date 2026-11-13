@@ -8,6 +8,7 @@
     <x-admin.tabs :tabs="[
         'abandoned_cart' => ['bag', __('journeys_admin.tab_cart')],
         'birthday' => ['gift', __('journeys_admin.tab_birthday')],
+        'recovered' => ['cash', __('journeys_admin.tab_recovered')],
         'templates' => ['file-text', __('journeys_admin.tab_templates')],
         'activity' => ['history', __('journeys_admin.tab_activity')],
     ]" :current="$tab" />
@@ -93,11 +94,55 @@
                         <x-admin.field :label="__('journeys_admin.quiet_to')" for="rules.quiet_end"><input id="rules.quiet_end" type="time" wire:model="rules.quiet_end" class="input" @disabled(! $canEdit)></x-admin.field>
                     </div>
                     <p class="-mt-2 text-xs text-ink-500">{{ __('journeys_admin.quiet_hint') }}</p>
+                    <x-admin.field :label="__('journeys_admin.attribution_days')" for="rules.attribution_days" :hint="__('journeys_admin.attribution_days_hint')"><input id="rules.attribution_days" type="number" min="1" max="30" wire:model="rules.attribution_days" class="input tabular-nums" @disabled(! $canEdit)></x-admin.field>
                     <x-admin.field :label="__('journeys_admin.max_per_day')" for="rules.max_per_day" :hint="__('journeys_admin.max_per_day_hint')"><input id="rules.max_per_day" type="number" min="0" max="20" wire:model="rules.max_per_day" class="input tabular-nums" @disabled(! $canEdit)></x-admin.field>
                     <p class="rounded-xl bg-sand-50 p-3 text-xs text-ink-600 dark:bg-ink-800 dark:text-ink-300"><x-icon name="shield" class="me-1 inline size-4 text-emerald-soft" />{{ __('journeys_admin.consent_note') }}</p>
                     @if ($canEdit)<button class="btn-primary w-full" :disabled="!dirty" wire:loading.attr="disabled" wire:target="saveRules"><x-icon name="check" class="size-4" />{{ __('admin.save_changes') }}</button>@endif
                 </form>
             </aside>
+        </div>
+    @endif
+
+    @if ($tab === 'recovered')
+        <div class="mb-4 flex flex-wrap items-center gap-2">
+            <div class="flex rounded-xl border border-sand-200 p-0.5 text-sm dark:border-ink-700" role="group" aria-label="{{ __('journeys_admin.period') }}">
+                @foreach ([7, 30, 90] as $d)<button type="button" wire:click="$set('days', {{ $d }})" class="min-h-10 rounded-lg px-3 {{ $days === $d ? 'bg-ink-900 text-ivory dark:bg-brass-500 dark:text-ink-950' : 'text-ink-600 dark:text-ink-300' }}">{{ __('journeys_admin.last_n_days', ['n' => $d]) }}</button>@endforeach
+            </div>
+            <select wire:model.live="filterJourney" class="input w-auto" aria-label="{{ __('journeys_admin.journey') }}"><option value="">{{ __('journeys_admin.all_journeys') }}</option><option value="abandoned_cart">{{ __('journeys_admin.name_abandoned_cart') }}</option><option value="birthday">{{ __('journeys_admin.name_birthday') }}</option></select>
+            <select wire:model.live="filterChannel" class="input w-auto" aria-label="{{ __('journeys_admin.channels') }}"><option value="">{{ __('journeys_admin.all_channels') }}</option>@foreach ($channels as $ch)<option value="{{ $ch }}">{{ __('content_admin.ch_'.$ch) }}</option>@endforeach</select>
+        </div>
+        <div class="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <x-admin.stat :label="__('journeys_admin.rc_orders')" :value="number_format($recovery['orders'])" icon="bag" :hint="__('journeys_admin.rc_orders_hint')" />
+            <x-admin.stat :label="__('journeys_admin.rc_revenue')" :value="number_format($recovery['revenue'], 2).' QAR'" icon="cash" tone="brass" />
+            <x-admin.stat :label="__('journeys_admin.rc_avg')" :value="$recovery['avg_minutes'] >= 120 ? round($recovery['avg_minutes'] / 60, 1).' '.__('journeys_admin.u_hours') : $recovery['avg_minutes'].' '.__('journeys_admin.u_minutes')" icon="clock" :hint="__('journeys_admin.rc_avg_hint')" />
+            <x-admin.stat :label="__('journeys_admin.rc_coupon')" :value="number_format($recovery['coupon_orders'])" icon="tag" :hint="__('journeys_admin.rc_coupon_hint')" />
+        </div>
+        @if ($recovery['by_channel'])
+            <div class="mb-6 flex flex-wrap gap-2 text-sm">@foreach ($recovery['by_channel'] as $ch => $v)<span class="badge-neutral">{{ __('content_admin.ch_'.$ch) }}: {{ $v['orders'] }} · {{ number_format($v['revenue'], 2) }} QAR</span>@endforeach</div>
+        @endif
+        <div class="card">
+            @if ($recovered->isEmpty())
+                <x-admin.empty :title="__('journeys_admin.rc_empty')" :description="__('journeys_admin.rc_empty_hint')" icon="cash" />
+            @else
+                <div class="overflow-x-auto"><table class="w-full text-sm">
+                    <thead class="text-xs uppercase tracking-wider text-ink-500"><tr>
+                        <th class="px-4 py-3 text-start">{{ __('journeys_admin.customer') }}</th><th class="px-4 py-3 text-start">{{ __('admin.order') }}</th><th class="px-4 py-3 text-end">{{ __('journeys_admin.rc_total') }}</th>
+                        <th class="px-4 py-3 text-start">{{ __('journeys_admin.rc_brought_by') }}</th><th class="px-4 py-3 text-start">{{ __('journeys_admin.rc_after') }}</th></tr></thead>
+                    <tbody class="divide-y divide-sand-100 dark:divide-ink-800">
+                        @foreach ($recovered as $r)
+                            @php $d = $r->attributedDelivery; $mins = $d?->sent_at ? $d->sent_at->diffInMinutes($r->converted_at) : null; @endphp
+                            <tr wire:key="rc-{{ $r->id }}">
+                                <td class="px-4 py-3 font-medium">@if ($r->user)<a class="hover:text-brass-600" wire:navigate href="{{ route('admin.customers.show', $r->user_id) }}">{{ $r->user->name }}</a>@endif</td>
+                                <td class="px-4 py-3">@if ($r->order)<a class="font-mono text-brass-700 hover:underline" dir="ltr" wire:navigate href="{{ route('admin.orders.show', $r->order_id) }}">{{ $r->order->number }}</a><span class="block text-xs text-ink-500 tabular-nums">{{ \App\Support\BusinessTime::display($r->order->placed_at) }}</span>@endif</td>
+                                <td class="px-4 py-3 text-end tabular-nums font-medium">{{ number_format((float) $r->revenue, 2) }}</td>
+                                <td class="px-4 py-3"><span class="block">{{ __('journeys_admin.name_'.$r->journey->key) }}@if ($d?->step) · {{ $d->step->label ?: __('journeys_admin.step_n', ['n' => $d->step->position]) }}@endif</span>
+                                    @if ($d)<span class="badge-neutral">{{ __('content_admin.ch_'.$d->channel) }}</span>@endif @if ($d?->coupon_code)<span class="badge-brass font-mono">{{ $d->coupon_code }}</span>@endif</td>
+                                <td class="px-4 py-3 whitespace-nowrap tabular-nums text-ink-600">@if ($mins !== null){{ $mins >= 2880 ? __('journeys_admin.rc_days', ['n' => round($mins / 1440, 1)]) : ($mins >= 120 ? __('journeys_admin.rc_hours', ['n' => round($mins / 60, 1)]) : __('journeys_admin.rc_mins', ['n' => $mins])) }}@endif</td>
+                            </tr>
+                        @endforeach
+                    </tbody></table></div>
+                @if ($recovered->hasPages())<div class="border-t border-sand-100 p-4 dark:border-ink-800">{{ $recovered->links('components.admin.pagination') }}</div>@endif
+            @endif
         </div>
     @endif
 

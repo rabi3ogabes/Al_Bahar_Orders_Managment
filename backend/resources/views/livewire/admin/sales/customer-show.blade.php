@@ -35,6 +35,10 @@
         <x-admin.stat :label="__('sales_admin.tier')" :value="__('sales_admin.tier_'.$account->tier)" icon="crown" :hint="$stats->last_at ? __('sales_admin.last_order', ['at' => \App\Support\BusinessTime::display($stats->last_at, 'd M Y')]) : null" />
     </div>
 
+    @if (\App\Domain\Marketing\Models\JourneyDelivery::where('user_id', $c->id)->exists())
+        <x-admin.journey-touches :touches="app(\App\Domain\Marketing\Services\JourneyService::class)->touchesFor($c->id)" />
+    @endif
+
     <x-admin.tabs :tabs="$tabs" :current="$tab" />
 
     @if ($tab === 'orders')

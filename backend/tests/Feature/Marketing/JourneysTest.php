@@ -13,7 +13,9 @@ use App\Domain\Notifications\Services\N8nClient;
 use App\Domain\Orders\Models\Cart;
 use App\Domain\Orders\Models\CartItem;
 use App\Domain\Settings\Services\Settings;
+use App\Livewire\Admin\Marketing\JourneyIndex;
 use App\Support\BusinessTime;
+use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 
@@ -173,4 +175,62 @@ it('waits until the birthday send time', function () {
 
     expect(Notification::count())->toBe(0)->and(JourneyRun::where('status', 'active')->count())->toBe(1);
     Carbon::setTestNow();
+});
+
+it('credits an order to a finished run when it follows a sent message within the window', function () {
+    enable('abandoned_cart');
+    abandonedCart($this->w);
+    app(JourneyService::class)->tick();
+    $run = JourneyRun::firstOrFail();
+    $run->update(['status' => 'completed']); // every step already ran
+    quoteAndPlace(['address_id' => $this->w->address->id, 'payment_method' => 'cod'])->assertCreated();
+    $r = app(JourneyService::class)->tick();
+
+    $run->refresh();
+    expect($r['converted'])->toBe(1)->and($run->status)->toBe('converted')->and($run->order_id)->not->toBeNull()->and($run->attributedDelivery->channel)->toBe('in_app')
+        ->and($run->converted_at)->not->toBeNull();
+    $stats = app(JourneyService::class)->recoveryStats(30);
+    expect($stats['orders'])->toBe(1)->and($stats['revenue'])->toBeGreaterThan(0.0)->and($stats['by_channel'])->toHaveKey('in_app');
+});
+
+it('does not take credit for an order placed before any message reached the customer', function () {
+    $j = enable('abandoned_cart');
+    $j->update(['settings' => ['quiet_start' => BusinessTime::now()->subHour()->format('H:i'), 'quiet_end' => BusinessTime::now()->addHour()->format('H:i'), 'max_per_day' => 10]]);
+    abandonedCart($this->w);
+    app(JourneyService::class)->tick(); // run starts, nothing is sent in quiet hours
+    quoteAndPlace(['address_id' => $this->w->address->id, 'payment_method' => 'cod'])->assertCreated();
+    app(JourneyService::class)->tick();
+
+    $run = JourneyRun::firstOrFail();
+    expect($run->status)->toBe('stopped')->and($run->stop_reason)->toBe('ordered_on_their_own')->and((float) $run->revenue)->toBe(0.0)
+        ->and(app(JourneyService::class)->recoveryStats(30)['orders'])->toBe(0);
+});
+
+it('does not credit an order placed after the attribution window', function () {
+    $j = enable('abandoned_cart');
+    abandonedCart($this->w);
+    app(JourneyService::class)->tick();
+    $run = JourneyRun::firstOrFail();
+    $run->update(['status' => 'completed']);
+    JourneyDelivery::where('run_id', $run->id)->update(['sent_at' => now()->subDays(10)]);
+    quoteAndPlace(['address_id' => $this->w->address->id, 'payment_method' => 'cod'])->assertCreated();
+    app(JourneyService::class)->tick();
+
+    expect($run->fresh()->status)->toBe('completed')->and(JourneyRun::whereNotNull('order_id')->count())->toBe(0);
+});
+
+it('shows recovered orders to the admin and flags the order page', function () {
+    $this->seed(RolesAndPermissionsSeeder::class);
+    enable('abandoned_cart');
+    abandonedCart($this->w);
+    app(JourneyService::class)->tick();
+    JourneyRun::firstOrFail()->update(['status' => 'completed']);
+    $res = quoteAndPlace(['address_id' => $this->w->address->id, 'payment_method' => 'cod'])->assertCreated();
+    app(JourneyService::class)->tick();
+    $order = JourneyRun::firstOrFail()->order;
+
+    $admin = staffWithRole('marketing_manager');
+    $this->actingAs($admin);
+    Livewire\Livewire::test(JourneyIndex::class, ['tab' => 'recovered'])->assertSee($order->number)->assertSee('Noor');
+    $this->get(route('admin.customers.show', $this->w->customer->id))->assertOk()->assertSee(__('journeys_admin.touches_title'));
 });

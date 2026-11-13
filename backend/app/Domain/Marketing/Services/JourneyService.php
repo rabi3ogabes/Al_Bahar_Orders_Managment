@@ -19,6 +19,8 @@ use App\Domain\Orders\Models\Order;
 use App\Support\BusinessTime;
 use App\Support\Phone;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
@@ -50,6 +52,9 @@ class JourneyService
     {
         $out = ['started' => 0, 'sent' => 0, 'converted' => 0, 'stopped' => 0];
         $this->ensureDefaults();
+        foreach (Journey::all() as $any) {
+            $out['converted'] += $this->attributeLateOrders($any); // a paused journey still gets credit for earlier messages
+        }
         foreach (Journey::where('is_enabled', true)->with(['steps' => fn ($q) => $q->where('is_enabled', true)->with('template')])->get() as $journey) {
             if ($journey->steps->isEmpty()) {
                 continue;
@@ -98,8 +103,12 @@ class JourneyService
             $order = Order::where('user_id', $run->user_id)->where('placed_at', '>=', $run->anchor_at)->whereNotIn('status', ['cancelled', 'pending_payment'])->orderBy('placed_at')->first();
             if ($order || $cart?->status === 'converted') {
                 $order ??= Order::where('user_id', $run->user_id)->where('placed_at', '>=', $run->anchor_at)->orderBy('placed_at')->first();
-                $this->finish($run, 'converted', null, $order?->id, (float) ($order?->grand_total ?? 0));
-                $converted++;
+                if ($order && $this->credit($run, $order)) {
+                    $converted++;
+                } else {
+                    $this->finish($run, 'stopped', 'ordered_on_their_own'); // they ordered before any message reached them: not our win
+                    $stopped++;
+                }
             } elseif (! $cart || $cart->items_count === 0) {
                 $this->finish($run, 'stopped', 'cart_empty');
                 $stopped++;
@@ -134,6 +143,41 @@ class JourneyService
                     $n += $run->wasRecentlyCreated ? 1 : 0;
                 });
         }
+
+        return $n;
+    }
+
+    /**
+     * Credits an order to a run when a message of the run was SENT before the order (and within the attribution window).
+     * The order is credited to the last such message, and to one run only, so revenue is never counted twice.
+     */
+    private function credit(JourneyRun $run, Order $order): bool
+    {
+        $window = max(1, (int) $run->journey->setting('attribution_days', 7));
+        $touch = JourneyDelivery::where('run_id', $run->id)->whereIn('status', ['sent', 'delivered'])->where('sent_at', '<=', $order->placed_at)
+            ->where('sent_at', '>=', $order->placed_at->subDays($window))->orderByDesc('sent_at')->first();
+        if (! $touch || JourneyRun::where('order_id', $order->id)->exists()) {
+            return false;
+        }
+        $run->update(['status' => 'converted', 'stop_reason' => null, 'order_id' => $order->id, 'revenue' => (float) $order->grand_total, 'converted_at' => $order->placed_at,
+            'attributed_delivery_id' => $touch->id, 'finished_at' => $run->finished_at ?? now()]);
+
+        return true;
+    }
+
+    /** Runs that already ended (all steps sent, or the customer came back) can still win the order later within the window. @return int orders credited */
+    private function attributeLateOrders(Journey $journey): int
+    {
+        $n = 0;
+        $window = max(1, (int) $journey->setting('attribution_days', 7));
+        JourneyRun::with('journey')->where('journey_id', $journey->id)->whereIn('status', ['completed', 'stopped'])->whereNull('order_id')
+            ->whereExists(fn ($q) => $q->select(DB::raw(1))->from('journey_deliveries')->whereColumn('journey_deliveries.run_id', 'journey_runs.id')->whereIn('journey_deliveries.status', ['sent', 'delivered'])
+                ->where('journey_deliveries.sent_at', '>=', now()->subDays($window + 1)))
+            ->limit(500)->get()->each(function (JourneyRun $run) use (&$n) {
+                $first = JourneyDelivery::where('run_id', $run->id)->whereIn('status', ['sent', 'delivered'])->min('sent_at');
+                $order = $first ? Order::where('user_id', $run->user_id)->where('placed_at', '>=', $first)->whereNotIn('status', ['cancelled', 'pending_payment'])->orderBy('placed_at')->first() : null;
+                $n += $order && $this->credit($run, $order) ? 1 : 0;
+            });
 
         return $n;
     }
@@ -473,6 +517,36 @@ class JourneyService
 
         return ['started' => $started, 'sent' => (int) ($del['sent'] ?? 0) + (int) ($del['delivered'] ?? 0), 'failed' => (int) ($del['failed'] ?? 0), 'skipped' => (int) ($del['skipped'] ?? 0),
             'converted' => $converted, 'revenue' => (float) (clone $runs)->where('status', 'converted')->sum('revenue'), 'rate' => $started ? round($converted * 100 / $started, 1) : 0.0];
+    }
+
+    /** Orders won back by messages: converted runs with the message that is credited. @return \Illuminate\Database\Eloquent\Builder<JourneyRun> */
+    public function recovered(int $days = 30, ?string $journeyKey = null, ?string $channel = null): Builder
+    {
+        return JourneyRun::query()->where('status', 'converted')->whereNotNull('order_id')->where('converted_at', '>=', now()->subDays($days))
+            ->when($journeyKey, fn ($q, $k) => $q->whereHas('journey', fn ($j) => $j->where('key', $k)))
+            ->when($channel, fn ($q, $c) => $q->whereHas('attributedDelivery', fn ($d) => $d->where('channel', $c)));
+    }
+
+    /** @return array{orders: int, revenue: float, avg_minutes: int, by_channel: array<string, array{orders: int, revenue: float}>, coupon_orders: int} */
+    public function recoveryStats(int $days = 30, ?string $journeyKey = null): array
+    {
+        $rows = $this->recovered($days, $journeyKey)->with('attributedDelivery:id,channel,sent_at,coupon_code')->get(['id', 'order_id', 'revenue', 'converted_at', 'attributed_delivery_id']);
+        $by = [];
+        foreach ($rows as $r) {
+            $ch = $r->attributedDelivery?->channel ?? 'push';
+            $by[$ch] = ['orders' => ($by[$ch]['orders'] ?? 0) + 1, 'revenue' => ($by[$ch]['revenue'] ?? 0) + (float) $r->revenue];
+        }
+        $mins = $rows->map(fn ($r) => $r->attributedDelivery?->sent_at ? $r->attributedDelivery->sent_at->diffInMinutes($r->converted_at) : null)->filter(fn ($m) => $m !== null);
+        $codes = $rows->pluck('attributedDelivery.coupon_code')->filter();
+        $used = $codes->isEmpty() ? 0 : DB::table('order_coupons')->whereIn('code', $codes)->whereIn('order_id', $rows->pluck('order_id'))->count();
+
+        return ['orders' => $rows->count(), 'revenue' => (float) $rows->sum('revenue'), 'avg_minutes' => (int) round($mins->avg() ?? 0), 'by_channel' => $by, 'coupon_orders' => $used];
+    }
+
+    /** What reached this customer, newest first (customer page, order page). @return \Illuminate\Support\Collection<int, JourneyDelivery> */
+    public function touchesFor(string $userId, int $limit = 12): Collection
+    {
+        return JourneyDelivery::with(['run.journey:id,key', 'step:id,label,position'])->where('user_id', $userId)->whereIn('status', ['sent', 'delivered'])->latest('sent_at')->limit($limit)->get();
     }
 
     /** First visit: both journeys exist (switched off) with sensible steps and bilingual starter templates the admin can edit. */

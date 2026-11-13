@@ -28,6 +28,8 @@
         </div>
     </div>
 
+    <x-admin.journey-touches :order="$o" :touches="collect()" />
+
     @if ($pendingCancellation)
         <div class="card mb-6 border-amber-soft/30 bg-amber-soft/5 p-5 sm:p-6">
             <div class="flex flex-col gap-4 md:flex-row md:items-start">

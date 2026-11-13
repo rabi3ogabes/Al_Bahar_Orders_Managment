@@ -31,6 +31,15 @@ class JourneyIndex extends Component
     #[Url(except: '')]
     public string $filterStatus = '';
 
+    #[Url(except: 30)]
+    public int $days = 30;
+
+    #[Url(except: '')]
+    public string $filterJourney = '';
+
+    #[Url(except: '')]
+    public string $filterChannel = '';
+
     public bool $showStep = false;
 
     #[Locked]
@@ -45,7 +54,7 @@ class JourneyIndex extends Component
 
     public array $tpl = [];
 
-    public array $rules = ['quiet_start' => '', 'quiet_end' => '', 'max_per_day' => 3];
+    public array $rules = ['quiet_start' => '', 'quiet_end' => '', 'max_per_day' => 3, 'attribution_days' => 7];
 
     public string $previewLocale = 'en';
 
@@ -56,6 +65,13 @@ class JourneyIndex extends Component
         abort_unless($this->can('marketing.view'), 403);
         $svc->ensureDefaults();
         $this->loadRules();
+    }
+
+    public function updated(string $property): void
+    {
+        if (in_array($property, ['days', 'filterJourney', 'filterChannel', 'filterStatus'], true)) {
+            $this->resetPage();
+        }
     }
 
     public function updatedTab(): void
@@ -72,7 +88,7 @@ class JourneyIndex extends Component
     private function loadRules(): void
     {
         $j = $this->journey();
-        $this->rules = ['quiet_start' => (string) $j?->setting('quiet_start', ''), 'quiet_end' => (string) $j?->setting('quiet_end', ''), 'max_per_day' => (int) $j?->setting('max_per_day', 3)];
+        $this->rules = ['quiet_start' => (string) $j?->setting('quiet_start', ''), 'quiet_end' => (string) $j?->setting('quiet_end', ''), 'max_per_day' => (int) $j?->setting('max_per_day', 3), 'attribution_days' => (int) $j?->setting('attribution_days', 7)];
     }
 
     /* ─────────── journey on/off + rules ─────────── */
@@ -96,9 +112,9 @@ class JourneyIndex extends Component
         abort_unless($this->can('marketing.edit'), 403);
         $j = $this->journey() ?? abort(404);
         $d = $this->validate([
-            'rules.quiet_start' => ['nullable', 'date_format:H:i'], 'rules.quiet_end' => ['nullable', 'date_format:H:i', 'required_with:rules.quiet_start'], 'rules.max_per_day' => ['required', 'integer', 'min:0', 'max:20'],
-        ], [], ['rules.quiet_start' => __('journeys_admin.quiet_from'), 'rules.quiet_end' => __('journeys_admin.quiet_to'), 'rules.max_per_day' => __('journeys_admin.max_per_day')])['rules'];
-        $j->update(['settings' => ['quiet_start' => $d['quiet_start'] ?: null, 'quiet_end' => $d['quiet_end'] ?: null, 'max_per_day' => (int) $d['max_per_day']]]);
+            'rules.quiet_start' => ['nullable', 'date_format:H:i'], 'rules.quiet_end' => ['nullable', 'date_format:H:i', 'required_with:rules.quiet_start'], 'rules.max_per_day' => ['required', 'integer', 'min:0', 'max:20'], 'rules.attribution_days' => ['required', 'integer', 'min:1', 'max:30'],
+        ], [], ['rules.quiet_start' => __('journeys_admin.quiet_from'), 'rules.quiet_end' => __('journeys_admin.quiet_to'), 'rules.max_per_day' => __('journeys_admin.max_per_day'), 'rules.attribution_days' => __('journeys_admin.attribution_days')])['rules'];
+        $j->update(['settings' => ['quiet_start' => $d['quiet_start'] ?: null, 'quiet_end' => $d['quiet_end'] ?: null, 'max_per_day' => (int) $d['max_per_day'], 'attribution_days' => (int) $d['attribution_days']]]);
         $audit->log('marketing.journey_rules_updated', $j, [], $j->settings);
         $this->toast(__('admin.saved'));
     }
@@ -239,6 +255,9 @@ class JourneyIndex extends Component
     {
         $j = $this->journey();
         $steps = $j ? $j->steps()->with('template:id,name,kind')->get() : collect();
+        $recovered = $this->tab === 'recovered'
+            ? $svc->recovered(in_array($this->days, [7, 30, 90], true) ? $this->days : 30, $this->filterJourney ?: null, $this->filterChannel ?: null)
+                ->with(['user:id,name', 'order:id,number,grand_total,placed_at,payment_method', 'journey:id,key', 'attributedDelivery.step:id,label,position'])->latest('converted_at')->paginate(20) : null;
         $deliveries = $this->tab === 'activity'
             ? JourneyDelivery::with(['user:id,name', 'run.journey:id,key,name', 'step:id,position,label'])->when($this->filterStatus, fn ($q, $s) => $q->where('status', $s))->latest()->paginate(20)
             : null;
@@ -250,6 +269,8 @@ class JourneyIndex extends Component
             'templates' => in_array($this->tab, ['templates', 'abandoned_cart', 'birthday'], true) || $this->showStep ? JourneyTemplate::orderBy('name')->get() : collect(),
             'promotions' => $this->showTemplate ? Promotion::where('is_active', true)->where('requires_coupon', true)->orderBy('name_en')->get(['id', 'name_en', 'name_ar', 'type', 'value']) : collect(),
             'deliveries' => $deliveries,
+            'recovered' => $recovered,
+            'recovery' => $this->tab === 'recovered' ? $svc->recoveryStats(in_array($this->days, [7, 30, 90], true) ? $this->days : 30, $this->filterJourney ?: null) : null,
             'canEdit' => $this->can('marketing.edit'),
             'n8nReady' => $n8n->configured(),
             'channels' => JourneyService::CHANNELS,
