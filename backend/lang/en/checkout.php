@@ -6,6 +6,7 @@ return [
     'insufficient_stock' => 'Only :available of :name available right now.',
     'pickup_branch_required' => 'Choose a branch for pickup.',
     'address_required' => 'Choose a delivery address.',
+    'branch_not_allowed' => 'You do not have access to a branch that can fulfil this order.',
     'delivery_unavailable_area' => 'We don\'t deliver to this address yet. Try store pickup.',
     'below_min_order' => 'Add :shortfall more from :branch to reach the minimum order.',
     'above_max_order' => 'Orders from :branch can\'t exceed :maximum for delivery.',

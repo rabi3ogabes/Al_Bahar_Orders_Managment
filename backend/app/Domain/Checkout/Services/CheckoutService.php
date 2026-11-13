@@ -50,16 +50,32 @@ class CheckoutService
     /** @return array{order: Order, payment: Payment, replayed: bool} */
     public function place(User $user, array $options, string $quoteHash, string $idempotencyKey, ?string $notes = null): array
     {
+        return $this->placeCart($user, null, $options, $quoteHash, $idempotencyKey, $notes);
+    }
+
+    /**
+     * Place the customer's active cart, or — when a staff member acts on the customer's behalf — that staff draft
+     * (source 'admin', remembered in orders.placed_by_staff_id, status history and the audit log).
+     *
+     * @return array{order: Order, payment: Payment, replayed: bool}
+     */
+    public function placeCart(User $user, ?Cart $draft, array $options, string $quoteHash, string $idempotencyKey, ?string $notes = null, ?User $staff = null): array
+    {
+        if ($draft && (! $staff || $draft->staff_id !== $staff->id || $draft->user_id !== $user->id)) {
+            throw DomainException::make('cart_empty', 422); // a draft can only be placed by its owner, for its customer
+        }
         if ($existing = $this->existing($user, $idempotencyKey)) {
             return $existing;
         }
 
-        $result = DB::transaction(function () use ($user, $options, $quoteHash, $idempotencyKey, $notes) {
+        $result = DB::transaction(function () use ($user, $draft, $staff, $options, $quoteHash, $idempotencyKey, $notes) {
             DB::select('SELECT pg_advisory_xact_lock(hashtext(?))', ['checkout:'.$user->id.':'.$idempotencyKey]);
             if ($existing = $this->existing($user, $idempotencyKey)) {
                 return $existing;
             }
-            $cart = Cart::where('user_id', $user->id)->where('status', 'active')->lockForUpdate()->first();
+            $cart = $draft
+                ? Cart::whereKey($draft->id)->where('status', Cart::STAFF_DRAFT)->lockForUpdate()->first()
+                : Cart::where('user_id', $user->id)->where('status', 'active')->lockForUpdate()->first();
             if (! $cart) {
                 throw DomainException::make('cart_empty', 422);
             }
@@ -74,7 +90,7 @@ class CheckoutService
 
             $online = $quote->paymentMethod === 'sadad';
             $dueAt = $online ? now()->addMinutes((int) config('platform.payments.online_payment_window_minutes')) : null;
-            $order = $this->createOrder($user, $quote, $idempotencyKey, $notes, $online, $dueAt);
+            $order = $this->createOrder($user, $quote, $idempotencyKey, $notes, $online, $dueAt, $staff);
 
             // Fulfillments + item snapshots.
             $lines = [];
@@ -115,10 +131,12 @@ class CheckoutService
             }
 
             $payment = $this->payments->createForOrder($order, 'order:'.$order->id.':1');
-            $this->orders->history($order, null, 'order', null, $order->status->value, $user, 'placed', ['payment_method' => $order->payment_method]);
+            $this->orders->history($order, null, 'order', null, $order->status->value, $staff ?? $user, 'placed',
+                ['payment_method' => $order->payment_method] + ($staff ? ['on_behalf_of' => $user->id] : []));
             $cart->update(['status' => 'converted', 'converted_order_id' => $order->id]);
             $this->audit->log('order.placed', $order, [], ['number' => $order->number, 'total' => $order->grand_total, 'method' => $order->payment_method,
-                'branches' => collect($quote->plans)->map(fn ($p) => $p->branch->code)->all()], actor: $user);
+                'branches' => collect($quote->plans)->map(fn ($p) => $p->branch->code)->all()]
+                + ($staff ? ['placed_by_staff_id' => $staff->id, 'customer_id' => $user->id] : []), actor: $staff ?? $user);
 
             return ['order' => $order, 'payment' => $payment, 'replayed' => false];
         });
@@ -128,14 +146,15 @@ class CheckoutService
         return $result;
     }
 
-    private function createOrder(User $user, Quote $quote, string $key, ?string $notes, bool $online, $dueAt): Order
+    private function createOrder(User $user, Quote $quote, string $key, ?string $notes, bool $online, $dueAt, ?User $staff = null): Order
     {
         $plan0 = $quote->plans[0];
 
         return Order::create([
             'number' => DocumentNumber::order(),
             'user_id' => $user->id,
-            'source' => 'app',
+            'source' => $staff ? 'admin' : 'app',
+            'placed_by_staff_id' => $staff?->id,
             'status' => $online ? OrderStatus::PendingPayment : OrderStatus::Confirmed,
             'payment_status' => PaymentStatus::Pending,
             'payment_method' => $quote->paymentMethod,

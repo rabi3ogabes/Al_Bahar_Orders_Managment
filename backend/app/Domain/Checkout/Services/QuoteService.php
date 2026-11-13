@@ -44,7 +44,7 @@ class QuoteService
     /**
      * @param  array{fulfillment_type?: string, address_id?: ?string, branch_id?: ?string, payment_method?: ?string, coupon_code?: ?string,
      *               loyalty_points?: int, allow_split?: bool, express?: bool, pickup_slot_id?: ?string, pickup_date?: ?string,
-     *               delivery_slot_id?: ?string, delivery_date?: ?string, latitude?: ?float, longitude?: ?float}  $o
+     *               delivery_slot_id?: ?string, delivery_date?: ?string, latitude?: ?float, longitude?: ?float, restrict_branch_ids?: list<string>}  $o
      */
     public function quote(User $user, Cart $cart, array $o): Quote
     {
@@ -74,6 +74,13 @@ class QuoteService
 
         // 2. Candidate branches.
         [$candidates, $zoneConfigs, $address] = $this->candidates($user, $cart, $o, $q);
+        // Staff-assisted orders: server-derived branch scope (never client input) limits which branches may fulfil.
+        if (isset($o['restrict_branch_ids']) && $candidates->isNotEmpty()) {
+            $candidates = $candidates->whereIn('id', $o['restrict_branch_ids'])->values();
+            if ($candidates->isEmpty()) {
+                $q->error('branch_not_allowed');
+            }
+        }
         if ($candidates->isEmpty() || ! $wanted) {
             return $this->finalize($q, $user, $o);
         }

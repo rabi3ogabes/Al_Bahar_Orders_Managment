@@ -39,11 +39,16 @@ class CartService
 
     public function add(User $user, string $variantId, int $quantity): Cart
     {
+        return $this->addTo($this->current($user), $variantId, $quantity);
+    }
+
+    /** Add to a specific cart (the customer's active cart, or a staff draft). */
+    public function addTo(Cart $cart, string $variantId, int $quantity): Cart
+    {
         $max = (int) config('platform.checkout.max_quantity_per_line');
         if ($quantity < 1 || $quantity > $max) {
             throw DomainException::make('quantity_invalid');
         }
-        $cart = $this->current($user);
         $variant = ProductVariant::with('product')->findOrFail($variantId);
         if (! $this->prices->availability($variant, null)->purchasable) {
             throw DomainException::make('item_unavailable_simple');
@@ -66,7 +71,11 @@ class CartService
 
     public function update(User $user, string $itemId, int $quantity): Cart
     {
-        $cart = $this->current($user);
+        return $this->updateIn($this->current($user), $itemId, $quantity);
+    }
+
+    public function updateIn(Cart $cart, string $itemId, int $quantity): Cart
+    {
         $item = CartItem::where('cart_id', $cart->id)->findOrFail($itemId);
         if ($quantity <= 0) {
             $item->delete();
@@ -88,7 +97,12 @@ class CartService
 
     public function setOptions(User $user, array $o): Cart
     {
-        $cart = $this->current($user);
+        return $this->setOptionsOn($this->current($user), $user, $o);
+    }
+
+    /** @param User|null $user the cart's customer (addresses and coupons are checked against them); null for a draft without one */
+    public function setOptionsOn(Cart $cart, ?User $user, array $o): Cart
+    {
         $data = [];
         if (array_key_exists('branch_id', $o)) {
             $data['branch_id'] = $o['branch_id'] && Branch::active()->whereKey($o['branch_id'])->exists() ? $o['branch_id'] : null;
@@ -97,11 +111,11 @@ class CartService
             $data['fulfillment_type'] = $o['fulfillment_type'];
         }
         if (array_key_exists('address_id', $o)) {
-            $data['address_id'] = $o['address_id'] && $user->addresses()->whereKey($o['address_id'])->exists() ? $o['address_id'] : null;
+            $data['address_id'] = $o['address_id'] && $user?->addresses()->whereKey($o['address_id'])->exists() ? $o['address_id'] : null;
         }
         if (array_key_exists('coupon_code', $o)) {
             $data['coupon_code'] = $o['coupon_code'] ? strtoupper(trim($o['coupon_code'])) : null;
-            if ($data['coupon_code'] && ($error = app(PromotionEngine::class)->couponError($data['coupon_code'], $user))) {
+            if ($data['coupon_code'] && $user && ($error = app(PromotionEngine::class)->couponError($data['coupon_code'], $user))) {
                 throw ValidationException::withMessages(['coupon_code' => [__('checkout.'.$error)]]);
             }
         }

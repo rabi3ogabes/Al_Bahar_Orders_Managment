@@ -58,12 +58,12 @@ final class PermissionRegistry
             'dashboard.view', 'catalog.view', 'inventory.*', 'transfers.*', 'stocktaking.*', 'purchasing.*', 'suppliers.*', 'reports.view',
         ]],
         'order_manager' => ['branch', 'Order Manager', 'مدير الطلبات', [
-            'dashboard.view', 'catalog.view', 'inventory.view', 'orders.view', 'orders.edit', 'orders.approve', 'orders.assign', 'orders.export',
+            'dashboard.view', 'catalog.view', 'inventory.view', 'orders.view', 'orders.create', 'orders.edit', 'orders.approve', 'orders.assign', 'orders.export',
             'pickup.*', 'deliveries.view', 'deliveries.create', 'deliveries.assign', 'deliveries.edit', 'customers.view', 'payments.view',
             'refunds.view', 'refunds.create', 'support.view',
         ]],
         'sales_employee' => ['branch', 'Sales Employee', 'موظف مبيعات', [
-            'dashboard.view', 'catalog.view', 'inventory.view', 'orders.view', 'orders.edit', 'customers.view', 'pickup.view',
+            'dashboard.view', 'catalog.view', 'inventory.view', 'orders.view', 'orders.create', 'orders.edit', 'customers.view', 'pickup.view',
         ]],
         'pickup_employee' => ['branch', 'Pickup Employee', 'موظف الاستلام', [
             'dashboard.view', 'orders.view', 'pickup.view', 'pickup.edit', 'pickup.approve', 'payments.create',
@@ -83,7 +83,7 @@ final class PermissionRegistry
             'purchasing.view', 'suppliers.view', 'inventory.view',
         ]],
         'customer_support' => ['global', 'Customer Support', 'خدمة العملاء', [
-            'dashboard.view', 'customers.view', 'customers.edit', 'orders.view', 'orders.edit', 'support.*', 'reviews.*', 'refunds.view',
+            'dashboard.view', 'customers.view', 'customers.edit', 'orders.view', 'orders.create', 'orders.edit', 'support.*', 'reviews.*', 'refunds.view',
             'refunds.create', 'deliveries.view', 'pickup.view', 'payments.view', 'catalog.view', 'loyalty.view',
         ]],
         'auditor' => ['global', 'Auditor (read-only)', 'مدقق (قراءة فقط)', ['*.view', 'audit.export', 'reports.export']],

@@ -17,6 +17,8 @@ return [
     'order.completed.body' => 'Order {{order_number}} is complete. We\'d love your review.',
     'order.cancelled.title' => 'Order cancelled',
     'order.cancelled.body' => 'Order {{order_number}} has been cancelled. Any payment will be refunded.',
+    'payment.link.title' => 'Pay for order {{order_number}}',
+    'payment.link.body' => 'Hello {{name}}, please pay {{total}} for your Al Bahar order {{order_number}} using this secure link: {{link}}',
     'payment.succeeded.title' => 'Payment received',
     'payment.succeeded.body' => 'We received {{total}} for order {{order_number}}.',
     'payment.failed.title' => 'Payment not completed',

@@ -17,7 +17,9 @@ class Cart extends Model
 
     protected $attributes = ['status' => 'active', 'fulfillment_type' => 'delivery', 'loyalty_points_to_redeem' => 0, 'abandoned_notifications' => 0];
 
-    protected $casts = ['last_activity_at' => 'immutable_datetime', 'abandoned_notified_at' => 'immutable_datetime', 'expires_at' => 'immutable_datetime', 'loyalty_points_to_redeem' => 'integer'];
+    public const STAFF_DRAFT = 'staff_draft';
+
+    protected $casts = ['staff_options' => 'array', 'last_activity_at' => 'immutable_datetime', 'abandoned_notified_at' => 'immutable_datetime', 'expires_at' => 'immutable_datetime', 'loyalty_points_to_redeem' => 'integer'];
 
     /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
@@ -29,6 +31,12 @@ class Cart extends Model
     public function items(): HasMany
     {
         return $this->hasMany(CartItem::class);
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function staff(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'staff_id');
     }
 
     /** @return BelongsTo<Branch, $this> */

@@ -6,6 +6,7 @@ return [
     'insufficient_stock' => 'المتوفر حالياً :available فقط من :name.',
     'pickup_branch_required' => 'اختر فرعاً للاستلام.',
     'address_required' => 'اختر عنوان التوصيل.',
+    'branch_not_allowed' => 'ليس لديك صلاحية على فرع يمكنه تنفيذ هذا الطلب.',
     'delivery_unavailable_area' => 'لا نوصل إلى هذا العنوان بعد. جرّب الاستلام من الفرع.',
     'below_min_order' => 'أضف :shortfall أخرى من :branch للوصول إلى الحد الأدنى للطلب.',
     'above_max_order' => 'لا يمكن أن تتجاوز طلبات التوصيل من :branch مبلغ :maximum.',

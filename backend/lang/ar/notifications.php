@@ -17,6 +17,8 @@ return [
     'order.completed.body' => 'اكتمل الطلب {{order_number}}. يسعدنا تقييمك.',
     'order.cancelled.title' => 'تم إلغاء الطلب',
     'order.cancelled.body' => 'تم إلغاء الطلب {{order_number}}. سيتم استرداد أي مبلغ مدفوع.',
+    'payment.link.title' => 'ادفع قيمة الطلب {{order_number}}',
+    'payment.link.body' => 'مرحباً {{name}}، يرجى دفع {{total}} لطلبك من البحر رقم {{order_number}} عبر هذا الرابط الآمن: {{link}}',
     'payment.succeeded.title' => 'تم استلام الدفعة',
     'payment.succeeded.body' => 'استلمنا {{total}} للطلب {{order_number}}.',
     'payment.failed.title' => 'لم تكتمل عملية الدفع',
