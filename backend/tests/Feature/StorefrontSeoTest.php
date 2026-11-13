@@ -73,6 +73,14 @@ it('describes a rating only when real reviews exist', function () {
     expect($product['aggregateRating'])->toMatchArray(['ratingValue' => '4.5', 'reviewCount' => 12]);
 });
 
+it('shortens a long default title so it still fits a search result', function () {
+    seoProduct([], ['name' => 'Stainless Steel Cookware Set, Five Pieces With Glass Lids']);
+
+    $html = $this->get('/products/linen-sofa-oslo')->getContent();
+
+    expect($html)->toContain('<title>Stainless Steel Cookware Set, Five Pieces With Glass Lids · Al Bahar</title>');
+});
+
 it('uses the editor\'s own search title and description when they are set', function () {
     seoProduct([], ['seo_title' => 'Oslo sofa, linen, three seats', 'seo_description' => 'Our best-selling sofa.']);
 

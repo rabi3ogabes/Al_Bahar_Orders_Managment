@@ -173,7 +173,7 @@ class StorefrontSeo
         $crumbs[] = [$name, $url];
 
         return $this->result([
-            'title' => (string) ($product->trans('seo_title') ?: $name.' · '.self::SUFFIX), 'description' => $description ?: null, 'canonical' => $url,
+            'title' => (string) ($product->trans('seo_title') ?: $this->defaultTitle($name)), 'description' => $description ?: null, 'canonical' => $url,
             'type' => 'product', 'image' => $images[0] ?? null, 'jsonld' => [$ld, $this->breadcrumbs($crumbs)],
             'product' => $final ? ['amount' => (string) $final['amount'], 'currency' => (string) $final['currency'], 'availability' => $card['in_stock'] ? 'in stock' : 'out of stock'] : null,
         ]);
@@ -192,6 +192,14 @@ class StorefrontSeo
             'title' => (string) ($t->seo_title ?: $t->title.' · '.self::SUFFIX), 'description' => ($t->seo_description ?: $this->excerpt((string) $t->body)) ?: null, 'canonical' => $url,
             'jsonld' => [$this->breadcrumbs([['Home', $this->base().'/'], [(string) $t->title, $url]])],
         ]);
+    }
+
+    /** "Name · Al Bahar Home & Living", or "Name · Al Bahar" when that would run past what a search result shows (about 60 characters). */
+    private function defaultTitle(string $name): string
+    {
+        $title = $name.' · '.self::SUFFIX;
+
+        return mb_strlen($title) > 60 ? $name.' · Al Bahar' : $title;
     }
 
     /** @param list<array{0: string, 1: string}> $items */
