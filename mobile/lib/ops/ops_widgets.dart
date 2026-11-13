@@ -406,3 +406,34 @@ class _CopyTextButtonState extends State<CopyTextButton> {
     );
   }
 }
+
+/// A label and its value on one line inside a [PanelSection]. The value takes the rest of the line and wraps when it is
+/// long (large text, Arabic), so a row never overflows.
+class PanelRow extends StatelessWidget {
+  const PanelRow({super.key, required this.label, required this.value, this.emphasize = false});
+  final String label;
+  final String value;
+  final bool emphasize;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = emphasize ? context.text.titleMedium : context.text.bodyMedium;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: style?.copyWith(color: emphasize ? null : context.palette.muted)),
+          const Gap(AppSpace.sm),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: style?.copyWith(fontWeight: emphasize ? FontWeight.w700 : FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

@@ -6,9 +6,11 @@ import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/debouncer.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/widgets/app_button.dart';
+import 'package:albahar_customer/core/widgets/side_panel.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/branches/domain/branch_models.dart';
+import 'package:albahar_customer/features/branches/presentation/branch_detail_screen.dart';
 import 'package:albahar_customer/features/branches/presentation/branch_widgets.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
 import 'package:flutter/material.dart';
@@ -16,9 +18,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 /// Branch selection: all (searchable), nearby (with location consent) and map.
+/// Opens branch selection in a side window. Resolves to the chosen branch (and confirms it on [context]).
+Future<Branch?> showBranchPicker(BuildContext context) async {
+  final l10n = context.l10n;
+  final chosen = await showSidePanel<Branch>(
+    context: context,
+    title: l10n.chooseBranch,
+    scrollable: false,
+    builder: (_) => const BranchesScreen(pickMode: true, embedded: true),
+  );
+  if (chosen != null && context.mounted) showInfoSnack(context, l10n.branchSelectedToast(chosen.name));
+  return chosen;
+}
+
 class BranchesScreen extends ConsumerStatefulWidget {
-  const BranchesScreen({super.key, this.pickMode = false});
+  const BranchesScreen({super.key, this.pickMode = false, this.embedded = false});
   final bool pickMode;
+
+  /// True inside a side window ([showBranchPicker]): no app bar; a branch's details open as a step of the window.
+  final bool embedded;
 
   @override
   ConsumerState<BranchesScreen> createState() => _BranchesScreenState();
@@ -27,6 +45,7 @@ class BranchesScreen extends ConsumerStatefulWidget {
 class _BranchesScreenState extends ConsumerState<BranchesScreen> {
   final _debouncer = Debouncer();
   bool _nearbyRequested = false;
+  Branch? _detail;
 
   @override
   void dispose() {
@@ -38,53 +57,81 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
     Haptics.success();
     await ref.read(preferredBranchProvider.notifier).select(b.ref);
     if (!mounted) return;
+    if (widget.embedded) {
+      Navigator.of(context).pop(b);
+      return;
+    }
     showInfoSnack(context, context.l10n.branchSelectedToast(b.name));
     if (widget.pickMode && context.canPop()) context.pop();
+  }
+
+  void _openDetail(Branch b) {
+    if (widget.embedded) {
+      setState(() => _detail = b);
+    } else {
+      unawaited(context.push('/branches/${b.id}'));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final selected = ref.watch(preferredBranchIdProvider);
+    final detail = _detail;
+    if (widget.embedded && detail != null) {
+      return PanelStep(
+        title: detail.name,
+        onBack: () => setState(() => _detail = null),
+        child: BranchDetailScreen(branchId: detail.id, embedded: true),
+      );
+    }
+    final tabs = TabBar(
+      tabs: [
+        Tab(text: l10n.allBranches),
+        Tab(text: l10n.nearbyBranches),
+        Tab(text: l10n.mapView),
+      ],
+      onTap: (i) {
+        if (i == 1) setState(() => _nearbyRequested = true);
+      },
+    );
+    final views = TabBarView(
+      physics: const NeverScrollableScrollPhysics(),
+      children: [
+        _AllTab(
+          selectedId: selected,
+          onSelect: _select,
+          onDetail: _openDetail,
+          onSearch: (q) => _debouncer(() => ref.read(branchSearchProvider.notifier).set(q)),
+        ),
+        _nearbyRequested
+            ? _NearbyTab(selectedId: selected, onSelect: _select, onDetail: _openDetail)
+            : _NearbyIntro(onStart: () => setState(() => _nearbyRequested = true)),
+        _MapTab(selectedId: selected, onSelect: _select, onDetail: _openDetail),
+      ],
+    );
     return DefaultTabController(
       length: 3,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(widget.pickMode ? l10n.chooseBranch : l10n.branchesTitle),
-          bottom: TabBar(
-            tabs: [
-              Tab(text: l10n.allBranches),
-              Tab(text: l10n.nearbyBranches),
-              Tab(text: l10n.mapView),
-            ],
-            onTap: (i) {
-              if (i == 1) setState(() => _nearbyRequested = true);
-            },
-          ),
-        ),
-        body: TabBarView(
-          physics: const NeverScrollableScrollPhysics(),
-          children: [
-            _AllTab(
-              selectedId: selected,
-              onSelect: _select,
-              onSearch: (q) => _debouncer(() => ref.read(branchSearchProvider.notifier).set(q)),
+      child: widget.embedded
+          ? Column(
+              children: [
+                tabs,
+                Expanded(child: views),
+              ],
+            )
+          : Scaffold(
+              appBar: AppBar(title: Text(widget.pickMode ? l10n.chooseBranch : l10n.branchesTitle), bottom: tabs),
+              body: views,
             ),
-            _nearbyRequested
-                ? _NearbyTab(selectedId: selected, onSelect: _select)
-                : _NearbyIntro(onStart: () => setState(() => _nearbyRequested = true)),
-            _MapTab(selectedId: selected, onSelect: _select),
-          ],
-        ),
-      ),
     );
   }
 }
 
 class _AllTab extends ConsumerWidget {
-  const _AllTab({required this.selectedId, required this.onSelect, required this.onSearch});
+  const _AllTab({required this.selectedId, required this.onSelect, required this.onDetail, required this.onSearch});
   final String? selectedId;
   final ValueChanged<Branch> onSelect;
+  final ValueChanged<Branch> onDetail;
   final ValueChanged<String> onSearch;
 
   @override
@@ -108,7 +155,7 @@ class _AllTab extends ConsumerWidget {
             error: (e, _) => ErrorState(error: e, onRetry: () => ref.invalidate(branchesProvider)),
             data: (list) => list.isEmpty
                 ? EmptyState(icon: Icons.storefront_outlined, title: l10n.noBranches)
-                : _BranchList(branches: list, selectedId: selectedId, onSelect: onSelect),
+                : _BranchList(branches: list, selectedId: selectedId, onSelect: onSelect, onDetail: onDetail),
           ),
         ),
       ],
@@ -117,10 +164,11 @@ class _AllTab extends ConsumerWidget {
 }
 
 class _BranchList extends StatelessWidget {
-  const _BranchList({required this.branches, required this.selectedId, required this.onSelect});
+  const _BranchList({required this.branches, required this.selectedId, required this.onSelect, required this.onDetail});
   final List<Branch> branches;
   final String? selectedId;
   final ValueChanged<Branch> onSelect;
+  final ValueChanged<Branch> onDetail;
 
   @override
   Widget build(BuildContext context) => ListView.separated(
@@ -135,12 +183,7 @@ class _BranchList extends StatelessWidget {
         );
       }
       final b = branches[i];
-      return BranchTile(
-        branch: b,
-        selected: b.id == selectedId,
-        onTap: () => onSelect(b),
-        onInfo: () => context.push('/branches/${b.id}'),
-      );
+      return BranchTile(branch: b, selected: b.id == selectedId, onTap: () => onSelect(b), onInfo: () => onDetail(b));
     },
   );
 }
@@ -160,9 +203,10 @@ class _NearbyIntro extends StatelessWidget {
 }
 
 class _NearbyTab extends ConsumerWidget {
-  const _NearbyTab({required this.selectedId, required this.onSelect});
+  const _NearbyTab({required this.selectedId, required this.onSelect, required this.onDetail});
   final String? selectedId;
   final ValueChanged<Branch> onSelect;
+  final ValueChanged<Branch> onDetail;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -190,16 +234,17 @@ class _NearbyTab extends ConsumerWidget {
           );
         }
         if (result.branches.isEmpty) return EmptyState(icon: Icons.storefront_outlined, title: l10n.noBranches);
-        return _BranchList(branches: result.branches, selectedId: selectedId, onSelect: onSelect);
+        return _BranchList(branches: result.branches, selectedId: selectedId, onSelect: onSelect, onDetail: onDetail);
       },
     );
   }
 }
 
 class _MapTab extends ConsumerStatefulWidget {
-  const _MapTab({required this.selectedId, required this.onSelect});
+  const _MapTab({required this.selectedId, required this.onSelect, required this.onDetail});
   final String? selectedId;
   final ValueChanged<Branch> onSelect;
+  final ValueChanged<Branch> onDetail;
 
   @override
   ConsumerState<_MapTab> createState() => _MapTabState();
@@ -250,7 +295,7 @@ class _MapTabState extends ConsumerState<_MapTab> {
                         BranchTile(
                           branch: _focused!,
                           selected: _focused!.id == widget.selectedId,
-                          onTap: () => context.push('/branches/${_focused!.id}'),
+                          onTap: () => widget.onDetail(_focused!),
                         ),
                         const Gap(AppSpace.xs),
                         AppButton(

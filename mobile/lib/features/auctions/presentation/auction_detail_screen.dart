@@ -1,12 +1,14 @@
+import 'dart:async';
+
 import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/utils/qatar_time.dart';
-import 'package:albahar_customer/core/widgets/side_panel.dart';
 import 'package:albahar_customer/core/widgets/app_button.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/countdown.dart';
 import 'package:albahar_customer/core/widgets/html_content.dart';
+import 'package:albahar_customer/core/widgets/side_panel.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/auctions/data/auction_repository.dart';
@@ -15,6 +17,7 @@ import 'package:albahar_customer/features/auctions/presentation/lot_widgets.dart
 import 'package:albahar_customer/features/auctions/presentation/state/auction_providers.dart';
 import 'package:albahar_customer/features/auth/presentation/require_auth.dart';
 import 'package:albahar_customer/features/checkout/presentation/payment_flow.dart';
+import 'package:albahar_customer/features/support/presentation/cms_page_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -205,7 +208,10 @@ class _RegistrationCardState extends ConsumerState<_RegistrationCard> {
                 child: Text(l10n.auctionTerms),
               )
             else
-              TextButton(onPressed: () => context.push('/pages/auction-terms'), child: Text(l10n.auctionTerms)),
+              TextButton(
+                onPressed: () => unawaited(showCmsPage(context, 'auction-terms', title: l10n.auctionTerms)),
+                child: Text(l10n.auctionTerms),
+              ),
             CheckboxListTile(
               contentPadding: EdgeInsets.zero,
               controlAffinity: ListTileControlAffinity.leading,

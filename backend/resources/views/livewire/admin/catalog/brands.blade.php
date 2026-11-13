@@ -76,7 +76,7 @@
                 <select id="form.status" wire:model="form.status" class="input pe-10 rtl:[background-position:left_0.5rem_center] sm:w-48"><option value="active">{{ __('status.active') }}</option><option value="inactive">{{ __('status.inactive') }}</option></select>
             </x-admin.field>
             <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">
-                <button type="button" class="btn-secondary" @click="open = false">{{ __('admin.cancel') }}</button>
+                <button type="button" class="btn-secondary" @click="requestClose()">{{ __('admin.cancel') }}</button>
                 <button class="btn-primary" wire:loading.attr="disabled" wire:target="save,logo"><x-icon name="check" class="size-4" />{{ __('admin.save') }}</button>
             </div>
         </form>

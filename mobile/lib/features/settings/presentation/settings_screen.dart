@@ -6,6 +6,8 @@ import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
+import 'package:albahar_customer/features/profile/presentation/notification_prefs_screen.dart';
+import 'package:albahar_customer/features/support/presentation/cms_page_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -44,7 +46,7 @@ class SettingsScreen extends ConsumerWidget {
       leading: Icon(icon),
       title: Text(title),
       trailing: const Icon(Icons.chevron_right_rounded),
-      onTap: () => context.push('/pages/$slug'),
+      onTap: () => unawaited(showCmsPage(context, slug, title: title)),
     );
 
     return Scaffold(
@@ -109,7 +111,7 @@ class SettingsScreen extends ConsumerWidget {
                     leading: const Icon(Icons.notifications_none_rounded),
                     title: Text(l10n.notificationPreferences),
                     trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => context.push('/preferences/notifications'),
+                    onTap: () => unawaited(showNotificationPrefsPanel(context)),
                   ),
                   ListTile(
                     leading: Icon(Icons.delete_forever_outlined, color: context.palette.danger),

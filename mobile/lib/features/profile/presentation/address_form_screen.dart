@@ -11,6 +11,7 @@ import 'package:albahar_customer/core/widgets/app_button.dart';
 import 'package:albahar_customer/core/widgets/app_text_field.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/dirty_form_guard.dart';
+import 'package:albahar_customer/core/widgets/side_panel.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
@@ -26,11 +27,33 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
+/// Opens the address form in a side window. Resolves to the saved address (and confirms it on [context]), or null.
+/// The map pin picker stays a full-screen route inside it, and hands its pin back to the form.
+Future<Address?> showAddressPanel(BuildContext context, {String? addressId}) async {
+  final l10n = context.l10n;
+  final saved = await showSidePanel<Address>(
+    context: context,
+    title: addressId == null ? l10n.newAddress : l10n.editAddress,
+    scrollable: false,
+    isForm: true,
+    builder: (_) => AddressFormScreen(addressId: addressId, embedded: true),
+  );
+  if (saved != null && context.mounted) showInfoSnack(context, l10n.addressSaved);
+  return saved;
+}
+
 /// Qatar address form: zone / street / building / unit (blue plate),
 /// area, landmark, instructions, delivery zone and an optional map pin.
 class AddressFormScreen extends ConsumerStatefulWidget {
-  const AddressFormScreen({super.key, this.addressId});
+  const AddressFormScreen({super.key, this.addressId, this.embedded = false, this.onDone});
   final String? addressId;
+
+  /// True inside a side window: no app bar, and the Save button is pinned at the bottom of the window.
+  final bool embedded;
+
+  /// Called with the saved address when the form lives inside another window's step (the address picker). Without it
+  /// the form closes itself with the address.
+  final ValueChanged<Address>? onDone;
 
   @override
   ConsumerState<AddressFormScreen> createState() => _AddressFormScreenState();
@@ -176,8 +199,15 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
       Haptics.success();
       if (!mounted) return;
       setState(() => _done = true);
-      showInfoSnack(context, l10n.addressSaved);
-      context.pop(saved);
+      if (widget.onDone != null) {
+        widget.onDone!(saved);
+      } else if (widget.embedded) {
+        // The window closes; its opener confirms on the page behind.
+        Navigator.of(context).pop(saved);
+      } else {
+        showInfoSnack(context, l10n.addressSaved);
+        context.pop(saved);
+      }
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e);
     } finally {
@@ -219,9 +249,9 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
             : (hiddenField?.value.firstOrNull ?? (_error!.errors.isEmpty ? describeError(l10n, _error) : null)));
 
     if (!_loaded) {
-      return Scaffold(
-        appBar: AppBar(),
-        body: _loadError != null
+      return _frame(
+        context,
+        _loadError != null
             ? ErrorState(
                 error: _loadError,
                 onRetry: () {
@@ -249,216 +279,213 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
     String? Function(String) err,
     String? generalError,
   ) {
-    return Scaffold(
-      appBar: AppBar(title: Text(widget.addressId == null ? l10n.newAddress : l10n.editAddress)),
-      body: Form(
+    return _frame(
+      context,
+      Form(
         key: _form,
-        child: ListView(
-          padding: const EdgeInsets.all(AppSpace.gutter),
-          children: [
-            ContentWidth(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: SidePanelLayout(
+          padding: widget.embedded ? const EdgeInsets.fromLTRB(20, 16, 20, 20) : const EdgeInsets.all(AppSpace.gutter),
+          footer: AppButton(label: l10n.saveAddress, loading: _busy, onPressed: _save),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AppTextField(
+                controller: _label,
+                label: '${l10n.addressLabel} (${l10n.optional})',
+                hint: l10n.addressLabelHint,
+                textInputAction: TextInputAction.next,
+                textCapitalization: TextCapitalization.sentences,
+                inputFormatters: [LengthLimitingTextInputFormatter(48)],
+                errorText: err('label'),
+              ),
+              const Gap(AppSpace.md),
+              AppTextField(
+                controller: _name,
+                label: l10n.recipientName,
+                autofillHints: const [AutofillHints.name],
+                textCapitalization: TextCapitalization.words,
+                textInputAction: TextInputAction.next,
+                inputFormatters: [LengthLimitingTextInputFormatter(120)],
+                errorText: err('recipient_name'),
+                validator: (v) => (v == null || v.trim().isEmpty) ? l10n.fieldRequired : null,
+              ),
+              const Gap(AppSpace.md),
+              AppTextField(
+                controller: _phone,
+                label: l10n.recipientPhone,
+                prefix: '+974  ',
+                forceLtr: true,
+                keyboardType: TextInputType.phone,
+                textInputAction: TextInputAction.next,
+                autofillHints: const [AutofillHints.telephoneNumberNational],
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9٠-٩۰-۹+ ]')),
+                  LengthLimitingTextInputFormatter(16),
+                ],
+                errorText: err('recipient_phone'),
+                validator: (v) => QatarPhone.isValid(v ?? '') ? null : l10n.phoneInvalid,
+              ),
+              const Gap(AppSpace.lg),
+              Text(l10n.qatarAddressHint, style: context.text.bodySmall),
+              const Gap(AppSpace.xs),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  AppTextField(
-                    controller: _label,
-                    label: '${l10n.addressLabel} (${l10n.optional})',
-                    hint: l10n.addressLabelHint,
-                    textInputAction: TextInputAction.next,
-                    textCapitalization: TextCapitalization.sentences,
-                    inputFormatters: [LengthLimitingTextInputFormatter(48)],
-                    errorText: err('label'),
+                  Expanded(
+                    child: AppTextField(
+                      controller: _zone,
+                      label: l10n.zoneNumber,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: digits,
+                      forceLtr: true,
+                      textInputAction: TextInputAction.next,
+                      errorText: err('zone_number'),
+                    ),
                   ),
-                  const Gap(AppSpace.md),
-                  AppTextField(
-                    controller: _name,
-                    label: l10n.recipientName,
-                    autofillHints: const [AutofillHints.name],
-                    textCapitalization: TextCapitalization.words,
-                    textInputAction: TextInputAction.next,
-                    inputFormatters: [LengthLimitingTextInputFormatter(120)],
-                    errorText: err('recipient_name'),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? l10n.fieldRequired : null,
-                  ),
-                  const Gap(AppSpace.md),
-                  AppTextField(
-                    controller: _phone,
-                    label: l10n.recipientPhone,
-                    prefix: '+974  ',
-                    forceLtr: true,
-                    keyboardType: TextInputType.phone,
-                    textInputAction: TextInputAction.next,
-                    autofillHints: const [AutofillHints.telephoneNumberNational],
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[0-9٠-٩۰-۹+ ]')),
-                      LengthLimitingTextInputFormatter(16),
-                    ],
-                    errorText: err('recipient_phone'),
-                    validator: (v) => QatarPhone.isValid(v ?? '') ? null : l10n.phoneInvalid,
-                  ),
-                  const Gap(AppSpace.lg),
-                  Text(l10n.qatarAddressHint, style: context.text.bodySmall),
                   const Gap(AppSpace.xs),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: AppTextField(
-                          controller: _zone,
-                          label: l10n.zoneNumber,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: digits,
-                          forceLtr: true,
-                          textInputAction: TextInputAction.next,
-                          errorText: err('zone_number'),
-                        ),
-                      ),
-                      const Gap(AppSpace.xs),
-                      Expanded(
-                        child: AppTextField(
-                          controller: _street,
-                          label: l10n.streetNumber,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: digits,
-                          forceLtr: true,
-                          textInputAction: TextInputAction.next,
-                          errorText: err('street_number'),
-                        ),
-                      ),
-                      const Gap(AppSpace.xs),
-                      Expanded(
-                        child: AppTextField(
-                          controller: _building,
-                          label: l10n.buildingNumber,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: digits,
-                          forceLtr: true,
-                          textInputAction: TextInputAction.next,
-                          errorText: err('building_number'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Gap(AppSpace.md),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: AppTextField(
-                          controller: _unit,
-                          label: '${l10n.unitNumber} (${l10n.optional})',
-                          textInputAction: TextInputAction.next,
-                          inputFormatters: [LengthLimitingTextInputFormatter(16)],
-                          errorText: err('unit_number'),
-                        ),
-                      ),
-                      const Gap(AppSpace.xs),
-                      Expanded(
-                        child: AppTextField(
-                          controller: _area,
-                          label: l10n.area,
-                          textInputAction: TextInputAction.next,
-                          inputFormatters: [LengthLimitingTextInputFormatter(120)],
-                          errorText: err('area'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Gap(AppSpace.md),
-                  zones.when(
-                    loading: () => const Skeleton(height: 56, radius: AppRadius.input),
-                    error: (_, _) => const SizedBox.shrink(),
-                    data: (list) => list.isEmpty
-                        ? const SizedBox.shrink()
-                        : DropdownButtonFormField<String>(
-                            initialValue: list.any((z) => z.id == _zoneId) ? _zoneId : null,
-                            isExpanded: true,
-                            decoration: InputDecoration(
-                              labelText: l10n.deliveryZone,
-                              errorText: err('delivery_zone_id'),
-                            ),
-                            items: [
-                              for (final DeliveryZone z in list) DropdownMenuItem(value: z.id, child: Text(z.name)),
-                            ],
-                            onChanged: (v) {
-                              setState(() => _zoneId = v);
-                              // Auto-fill area from zone when empty.
-                              final zone = list.where((z) => z.id == v).firstOrNull;
-                              if (zone != null && _area.text.isEmpty) _area.text = zone.name;
-                            },
-                          ),
-                  ),
-                  const Gap(AppSpace.md),
-                  AppTextField(
-                    controller: _landmark,
-                    label: '${l10n.landmark} (${l10n.optional})',
-                    textInputAction: TextInputAction.next,
-                    inputFormatters: [LengthLimitingTextInputFormatter(255)],
-                    errorText: err('landmark'),
-                  ),
-                  const Gap(AppSpace.md),
-                  AppTextField(
-                    controller: _instructions,
-                    label: '${l10n.instructions} (${l10n.optional})',
-                    maxLines: 3,
-                    minLines: 1,
-                    keyboardType: TextInputType.multiline,
-                    inputFormatters: [LengthLimitingTextInputFormatter(500)],
-                    errorText: err('instructions'),
-                  ),
-                  const Gap(AppSpace.lg),
-                  SurfaceCard(
-                    onTap: _pickOnMap,
-                    padding: EdgeInsets.zero,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (_pin != null)
-                          SizedBox(
-                            height: 140,
-                            child: IgnorePointer(
-                              child: PinPreview(pin: _pin!, label: l10n.pinSet),
-                            ),
-                          ),
-                        ListTile(
-                          leading: Icon(
-                            _pin != null ? Icons.where_to_vote_rounded : Icons.add_location_alt_outlined,
-                            color: context.palette.brass,
-                          ),
-                          title: Text(_pin != null ? l10n.pinSet : l10n.pinOnMap),
-                          subtitle: _pin != null ? Text(l10n.pinTapToChange) : null,
-                          trailing: const Icon(Icons.chevron_right_rounded),
-                        ),
-                      ],
+                  Expanded(
+                    child: AppTextField(
+                      controller: _street,
+                      label: l10n.streetNumber,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: digits,
+                      forceLtr: true,
+                      textInputAction: TextInputAction.next,
+                      errorText: err('street_number'),
                     ),
                   ),
-                  if (err('latitude') != null || err('longitude') != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: AppSpace.xs),
-                      child: Text(
-                        err('latitude') ?? err('longitude') ?? l10n.pinInvalid,
-                        style: context.text.bodySmall?.copyWith(color: context.palette.danger),
-                      ),
+                  const Gap(AppSpace.xs),
+                  Expanded(
+                    child: AppTextField(
+                      controller: _building,
+                      label: l10n.buildingNumber,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: digits,
+                      forceLtr: true,
+                      textInputAction: TextInputAction.next,
+                      errorText: err('building_number'),
                     ),
-                  const Gap(AppSpace.sm),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: _default,
-                    onChanged: (v) => setState(() => _default = v),
-                    title: Text(l10n.setAsDefault),
                   ),
-                  if (generalError != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: AppSpace.xs),
-                      child: Text(generalError, style: context.text.bodySmall?.copyWith(color: context.palette.danger)),
-                    ),
-                  const Gap(AppSpace.lg),
-                  AppButton(label: l10n.saveAddress, loading: _busy, onPressed: _save),
                 ],
               ),
-            ),
-          ],
+              const Gap(AppSpace.md),
+              Row(
+                children: [
+                  Expanded(
+                    child: AppTextField(
+                      controller: _unit,
+                      label: '${l10n.unitNumber} (${l10n.optional})',
+                      textInputAction: TextInputAction.next,
+                      inputFormatters: [LengthLimitingTextInputFormatter(16)],
+                      errorText: err('unit_number'),
+                    ),
+                  ),
+                  const Gap(AppSpace.xs),
+                  Expanded(
+                    child: AppTextField(
+                      controller: _area,
+                      label: l10n.area,
+                      textInputAction: TextInputAction.next,
+                      inputFormatters: [LengthLimitingTextInputFormatter(120)],
+                      errorText: err('area'),
+                    ),
+                  ),
+                ],
+              ),
+              const Gap(AppSpace.md),
+              zones.when(
+                loading: () => const Skeleton(height: 56, radius: AppRadius.input),
+                error: (_, _) => const SizedBox.shrink(),
+                data: (list) => list.isEmpty
+                    ? const SizedBox.shrink()
+                    : DropdownButtonFormField<String>(
+                        initialValue: list.any((z) => z.id == _zoneId) ? _zoneId : null,
+                        isExpanded: true,
+                        decoration: InputDecoration(labelText: l10n.deliveryZone, errorText: err('delivery_zone_id')),
+                        items: [for (final DeliveryZone z in list) DropdownMenuItem(value: z.id, child: Text(z.name))],
+                        onChanged: (v) {
+                          setState(() => _zoneId = v);
+                          // Auto-fill area from zone when empty.
+                          final zone = list.where((z) => z.id == v).firstOrNull;
+                          if (zone != null && _area.text.isEmpty) _area.text = zone.name;
+                        },
+                      ),
+              ),
+              const Gap(AppSpace.md),
+              AppTextField(
+                controller: _landmark,
+                label: '${l10n.landmark} (${l10n.optional})',
+                textInputAction: TextInputAction.next,
+                inputFormatters: [LengthLimitingTextInputFormatter(255)],
+                errorText: err('landmark'),
+              ),
+              const Gap(AppSpace.md),
+              AppTextField(
+                controller: _instructions,
+                label: '${l10n.instructions} (${l10n.optional})',
+                maxLines: 3,
+                minLines: 1,
+                keyboardType: TextInputType.multiline,
+                inputFormatters: [LengthLimitingTextInputFormatter(500)],
+                errorText: err('instructions'),
+              ),
+              const Gap(AppSpace.lg),
+              SurfaceCard(
+                onTap: _pickOnMap,
+                padding: EdgeInsets.zero,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_pin != null)
+                      SizedBox(
+                        height: 140,
+                        child: IgnorePointer(
+                          child: PinPreview(pin: _pin!, label: l10n.pinSet),
+                        ),
+                      ),
+                    ListTile(
+                      leading: Icon(
+                        _pin != null ? Icons.where_to_vote_rounded : Icons.add_location_alt_outlined,
+                        color: context.palette.brass,
+                      ),
+                      title: Text(_pin != null ? l10n.pinSet : l10n.pinOnMap),
+                      subtitle: _pin != null ? Text(l10n.pinTapToChange) : null,
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                    ),
+                  ],
+                ),
+              ),
+              if (err('latitude') != null || err('longitude') != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: AppSpace.xs),
+                  child: Text(
+                    err('latitude') ?? err('longitude') ?? l10n.pinInvalid,
+                    style: context.text.bodySmall?.copyWith(color: context.palette.danger),
+                  ),
+                ),
+              const Gap(AppSpace.sm),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _default,
+                onChanged: (v) => setState(() => _default = v),
+                title: Text(l10n.setAsDefault),
+              ),
+              if (generalError != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: AppSpace.xs),
+                  child: Text(generalError, style: context.text.bodySmall?.copyWith(color: context.palette.danger)),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
+
+  Widget _frame(BuildContext context, Widget body) => widget.embedded
+      ? body
+      : Scaffold(
+          appBar: AppBar(title: Text(widget.addressId == null ? context.l10n.newAddress : context.l10n.editAddress)),
+          body: ContentWidth(child: body),
+        );
 }

@@ -15,112 +15,115 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class BranchDetailScreen extends ConsumerWidget {
-  const BranchDetailScreen({super.key, required this.branchId});
+  const BranchDetailScreen({super.key, required this.branchId, this.embedded = false});
   final String branchId;
+
+  /// True inside a side window (a step of the branch picker): no app bar.
+  final bool embedded;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final branch = ref.watch(branchDetailProvider(branchId));
     final selectedId = ref.watch(preferredBranchIdProvider);
-    return Scaffold(
-      appBar: AppBar(title: Text(branch.value?.name ?? l10n.branchesTitle)),
-      body: branch.when(
-        loading: () => const ListSkeleton(count: 4, leading: false),
-        error: (e, _) => ErrorState(error: e, onRetry: () => ref.invalidate(branchDetailProvider(branchId))),
-        data: (b) => ListView(
-          children: [
-            if (b.hasLocation)
-              SizedBox(
-                height: 200,
-                child: BranchMap(branches: [b], selectedId: b.id, onSelect: (_) {}, interactive: false),
-              ),
-            ContentWidth(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpace.gutter),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(b.name, style: context.text.headlineMedium),
-                    const Gap(AppSpace.xs),
-                    Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: OpeningChip(opening: b.opening),
-                    ),
-                    if (b.address != null) ...[
-                      const Gap(AppSpace.sm),
-                      Text(b.address!, style: context.text.bodyMedium),
-                    ],
-                    if (b.description != null) ...[
-                      const Gap(AppSpace.sm),
-                      Text(b.description!, style: context.text.bodyMedium?.copyWith(color: context.palette.muted)),
-                    ],
-                    const Gap(AppSpace.md),
-                    Row(
-                      children: [
-                        if (b.phone != null)
-                          Expanded(
-                            child: AppButton.secondary(
-                              label: l10n.call,
-                              icon: Icons.call_outlined,
-                              onPressed: () => launchUrl(Uri(scheme: 'tel', path: b.phone)),
-                            ),
-                          ),
-                        if (b.phone != null && b.hasLocation) const Gap(AppSpace.sm),
-                        if (b.hasLocation)
-                          Expanded(
-                            child: AppButton.secondary(
-                              label: l10n.directions,
-                              icon: Icons.directions_outlined,
-                              onPressed: () => launchUrl(
-                                Uri.parse(
-                                  'https://www.google.com/maps/dir/?api=1&destination=${b.latitude},${b.longitude}',
-                                ),
-                                mode: LaunchMode.externalApplication,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const Gap(AppSpace.lg),
-                    Text(l10n.branchServices, style: context.text.titleMedium),
-                    const Gap(AppSpace.xs),
-                    Wrap(
-                      spacing: AppSpace.xs,
-                      runSpacing: AppSpace.xs,
-                      children: [
-                        if (b.pickupEnabled) StatusChip(label: l10n.pickupAvailable, icon: Icons.shopping_bag_outlined),
-                        if (b.deliveryEnabled)
-                          StatusChip(label: l10n.deliveryAvailable, icon: Icons.local_shipping_outlined),
-                        if (b.codEnabled) StatusChip(label: l10n.serviceCod, icon: Icons.payments_outlined),
-                        if (b.payAtPickupEnabled)
-                          StatusChip(label: l10n.servicePayAtPickup, icon: Icons.point_of_sale_outlined),
-                      ],
-                    ),
-                    const Gap(AppSpace.lg),
-                    _HoursSection(branchId: b.id),
-                    const Gap(AppSpace.xl),
-                    if (selectedId == b.id)
-                      StatusChip(label: l10n.selectedBranch, tone: StatusTone.accent, icon: Icons.check_rounded)
-                    else
-                      AppButton(
-                        label: l10n.selectThisBranch,
-                        onPressed: () async {
-                          Haptics.success();
-                          await ref.read(preferredBranchProvider.notifier).select(b.ref);
-                          if (context.mounted) showInfoSnack(context, l10n.branchSelectedToast(b.name));
-                        },
-                      ),
+    final body = branch.when(
+      loading: () => const ListSkeleton(count: 4, leading: false),
+      error: (e, _) => ErrorState(error: e, onRetry: () => ref.invalidate(branchDetailProvider(branchId))),
+      data: (b) => ListView(
+        children: [
+          if (b.hasLocation)
+            SizedBox(
+              height: 200,
+              child: BranchMap(branches: [b], selectedId: b.id, onSelect: (_) {}, interactive: false),
+            ),
+          ContentWidth(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpace.gutter),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(b.name, style: context.text.headlineMedium),
+                  const Gap(AppSpace.xs),
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: OpeningChip(opening: b.opening),
+                  ),
+                  if (b.address != null) ...[const Gap(AppSpace.sm), Text(b.address!, style: context.text.bodyMedium)],
+                  if (b.description != null) ...[
                     const Gap(AppSpace.sm),
-                    Text(l10n.branchChangeNote, style: context.text.bodySmall),
+                    Text(b.description!, style: context.text.bodyMedium?.copyWith(color: context.palette.muted)),
                   ],
-                ),
+                  const Gap(AppSpace.md),
+                  Row(
+                    children: [
+                      if (b.phone != null)
+                        Expanded(
+                          child: AppButton.secondary(
+                            label: l10n.call,
+                            icon: Icons.call_outlined,
+                            onPressed: () => launchUrl(Uri(scheme: 'tel', path: b.phone)),
+                          ),
+                        ),
+                      if (b.phone != null && b.hasLocation) const Gap(AppSpace.sm),
+                      if (b.hasLocation)
+                        Expanded(
+                          child: AppButton.secondary(
+                            label: l10n.directions,
+                            icon: Icons.directions_outlined,
+                            onPressed: () => launchUrl(
+                              Uri.parse(
+                                'https://www.google.com/maps/dir/?api=1&destination=${b.latitude},${b.longitude}',
+                              ),
+                              mode: LaunchMode.externalApplication,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const Gap(AppSpace.lg),
+                  Text(l10n.branchServices, style: context.text.titleMedium),
+                  const Gap(AppSpace.xs),
+                  Wrap(
+                    spacing: AppSpace.xs,
+                    runSpacing: AppSpace.xs,
+                    children: [
+                      if (b.pickupEnabled) StatusChip(label: l10n.pickupAvailable, icon: Icons.shopping_bag_outlined),
+                      if (b.deliveryEnabled)
+                        StatusChip(label: l10n.deliveryAvailable, icon: Icons.local_shipping_outlined),
+                      if (b.codEnabled) StatusChip(label: l10n.serviceCod, icon: Icons.payments_outlined),
+                      if (b.payAtPickupEnabled)
+                        StatusChip(label: l10n.servicePayAtPickup, icon: Icons.point_of_sale_outlined),
+                    ],
+                  ),
+                  const Gap(AppSpace.lg),
+                  _HoursSection(branchId: b.id),
+                  const Gap(AppSpace.xl),
+                  if (selectedId == b.id)
+                    StatusChip(label: l10n.selectedBranch, tone: StatusTone.accent, icon: Icons.check_rounded)
+                  else
+                    AppButton(
+                      label: l10n.selectThisBranch,
+                      onPressed: () async {
+                        Haptics.success();
+                        await ref.read(preferredBranchProvider.notifier).select(b.ref);
+                        if (context.mounted) showInfoSnack(context, l10n.branchSelectedToast(b.name));
+                      },
+                    ),
+                  const Gap(AppSpace.sm),
+                  Text(l10n.branchChangeNote, style: context.text.bodySmall),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
+    return embedded
+        ? body
+        : Scaffold(
+            appBar: AppBar(title: Text(branch.value?.name ?? l10n.branchesTitle)),
+            body: body,
+          );
   }
 }
 

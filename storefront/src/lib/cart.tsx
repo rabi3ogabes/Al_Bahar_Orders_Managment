@@ -21,7 +21,7 @@ const MAX_QTY = 20;
 
 interface Ctx {
   lines: Line[]; count: number; subtotal: Money; loading: boolean; cart: Cart | null
-  add: (product: Pick<ProductCard, 'id' | 'slug' | 'name' | 'brand'> & { image?: string | null }, variant: Variant, qty?: number) => Promise<void>
+  add: (product: Pick<ProductCard, 'id' | 'slug' | 'name' | 'brand'> & { image?: string | null }, variant: Variant, qty?: number, opts?: { open?: boolean }) => Promise<void>
   setQty: (line: Line, qty: number) => Promise<void>
   remove: (line: Line) => Promise<void>
   /** Undo for `remove`: puts the same line (variant and quantity) back. */
@@ -117,7 +117,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setDrawer(true);
       } catch (e) { fail(e); throw e; }
     },
-    add: async (product, variant, qty = 1) => {
+    add: async (product, variant, qty = 1, opts) => {
       try {
         if (user) { await addM.mutateAsync({ variantId: variant.id, qty }); }
         else {
@@ -127,7 +127,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           setGuest(rows); writeGuest(rows);
         }
         flash(variant.id);
-        setDrawer(true);
+        if (opts?.open !== false) setDrawer(true);
       } catch (e) { fail(e); throw e; }
     },
     setQty: async (line, qty) => {

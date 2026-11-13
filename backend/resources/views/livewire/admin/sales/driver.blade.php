@@ -108,17 +108,14 @@
         </ul>
     @endif
 
-    {{-- Bottom sheet --}}
-    @if ($current && $sheet)
-        @php $o = $current->fulfillment->order; $codDue = $o->payment_method === 'cod' && ! $o->payment_status->isSettled(); @endphp
-        <div class="fixed inset-0 z-50 flex items-end justify-center" role="dialog" aria-modal="true" x-data x-on:keydown.escape.window="$wire.closeSheet()">
-            <div class="absolute inset-0 bg-ink-950/60 backdrop-blur-sm" wire:click="closeSheet"></div>
-            <div class="relative max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-3xl bg-white p-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] shadow-[var(--shadow-lift)] dark:bg-ink-900">
-                <div class="mx-auto mb-4 h-1 w-10 rounded-full bg-sand-200 dark:bg-ink-700"></div>
-                <h2 class="font-display text-2xl font-semibold">{{ $sheet === 'deliver' ? __('sales_admin.drv_confirm_delivery') : __('sales_admin.mark_failed') }}</h2>
-                <p class="mt-1 text-sm text-ink-500"><span class="font-mono" dir="ltr">{{ $o->number }}</span> · {{ $o->customer_name }}</p>
+    {{-- Step sheet: the shared side window (a bottom sheet on the phone). Closing it any way clears the step. --}}
+    @php $o = $current?->fulfillment->order; $codDue = $o && $o->payment_method === 'cod' && ! $o->payment_status->isSettled(); @endphp
+    <x-admin.dialog wire:model="showSheet" max-width="max-w-lg" :title="$current ? ($sheet === 'deliver' ? __('sales_admin.drv_confirm_delivery') : __('sales_admin.mark_failed')) : null" :description="$current ? $o->number.' · '.$o->customer_name : null">
+        <x-admin.drawer-bar close="closeSheet" />
+        @if ($current && $sheet)
+            <div>
                 @if ($sheet === 'deliver')
-                    <form wire:submit="deliver" class="mt-5 space-y-4">
+                    <form wire:submit="deliver" class="space-y-4">
                         <x-admin.field :label="__('sales_admin.recipient')" for="recipient" required><input id="recipient" wire:model="recipient" class="input py-3" autocomplete="off"></x-admin.field>
                         <div>
                             <span class="field-label">{{ __('sales_admin.proof_photo') }}@if ($current->requires_proof)<span class="ms-0.5 text-ruby-soft">*</span>@endif</span>
@@ -153,7 +150,7 @@
                         </div>
                     </form>
                 @else
-                    <form wire:submit="fail" class="mt-5 space-y-4">
+                    <form wire:submit="fail" class="space-y-4">
                         <div class="grid gap-2" role="radiogroup" aria-label="{{ __('sales_admin.fail_reason') }}">
                             @foreach (\App\Livewire\Admin\Sales\DeliveryIndex::FAIL_REASONS as $rc)
                                 <label class="flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-sm {{ $failReason === $rc ? 'border-ruby-soft bg-ruby-soft/5 font-medium' : 'border-sand-200 dark:border-ink-700' }}">
@@ -169,6 +166,6 @@
                     </form>
                 @endif
             </div>
-        </div>
-    @endif
+        @endif
+    </x-admin.dialog>
 </div>

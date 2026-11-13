@@ -102,7 +102,7 @@
             </aside>
             <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end md:col-span-2 dark:border-ink-800">
                 @if ($overrides->has($channel.'|'.$locale))<button type="button" wire:click="resetDefault('{{ $channel }}', '{{ $locale }}')" wire:confirm="{{ __('content_admin.confirm_reset') }}" class="btn-ghost text-ruby-soft sm:me-auto">{{ __('content_admin.reset_default') }}</button>@endif
-                <button type="button" class="btn-secondary" @click="open = false">{{ __('admin.cancel') }}</button>
+                <button type="button" class="btn-secondary" @click="requestClose()">{{ __('admin.cancel') }}</button>
                 <button class="btn-primary" wire:loading.attr="disabled" wire:target="save"><x-icon name="check" class="size-4" />{{ __('content_admin.save_override') }}</button>
             </div>
         </form>

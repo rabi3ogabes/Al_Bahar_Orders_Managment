@@ -115,31 +115,32 @@ class _TextSheetState extends State<_TextSheet> {
       controllers: [_controller],
       isDirty: () => _controller.text.trim().isNotEmpty,
       child: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (widget.intro != null) ...[Text(widget.intro!, style: context.text.bodyMedium), const Gap(AppSpace.md)],
-        AppTextField(
-          controller: _controller,
-          label: widget.label,
-          helper: widget.helper,
-          errorText: _error,
-          autofocus: true,
-          forceLtr: widget.forceLtr,
-          keyboardType: widget.keyboardType ?? (widget.maxLines > 1 ? TextInputType.multiline : TextInputType.text),
-          textInputAction: widget.maxLines > 1 ? TextInputAction.newline : TextInputAction.done,
-          inputFormatters: [...?widget.inputFormatters, LengthLimitingTextInputFormatter(widget.maxLength)],
-          maxLines: widget.maxLines,
-          minLines: widget.maxLines > 1 ? 2 : 1,
-          onChanged: (_) {
-            if (_error != null) setState(() => _error = null);
-          },
-          onSubmitted: widget.maxLines > 1 ? null : (_) => _submit(),
-        ),
-        const Gap(AppSpace.md),
-        AppButton(label: widget.actionLabel, onPressed: _submit),
-      ],
-    ));
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (widget.intro != null) ...[Text(widget.intro!, style: context.text.bodyMedium), const Gap(AppSpace.md)],
+          AppTextField(
+            controller: _controller,
+            label: widget.label,
+            helper: widget.helper,
+            errorText: _error,
+            autofocus: true,
+            forceLtr: widget.forceLtr,
+            keyboardType: widget.keyboardType ?? (widget.maxLines > 1 ? TextInputType.multiline : TextInputType.text),
+            textInputAction: widget.maxLines > 1 ? TextInputAction.newline : TextInputAction.done,
+            inputFormatters: [...?widget.inputFormatters, LengthLimitingTextInputFormatter(widget.maxLength)],
+            maxLines: widget.maxLines,
+            minLines: widget.maxLines > 1 ? 2 : 1,
+            onChanged: (_) {
+              if (_error != null) setState(() => _error = null);
+            },
+            onSubmitted: widget.maxLines > 1 ? null : (_) => _submit(),
+          ),
+          const Gap(AppSpace.md),
+          AppButton(label: widget.actionLabel, onPressed: _submit),
+        ],
+      ),
+    );
   }
 }
 
@@ -153,19 +154,22 @@ Future<PasswordChange?> showPasswordSheet(BuildContext context, {required bool a
     context: context,
     title: askCurrent ? l10n.changePassword : l10n.setPassword,
     isForm: true,
-    builder: (_) => _PasswordSheet(askCurrent: askCurrent),
+    builder: (ctx) => PasswordFormBody(askCurrent: askCurrent, onDone: (change) => Navigator.of(ctx).pop(change)),
   );
 }
 
-class _PasswordSheet extends StatefulWidget {
-  const _PasswordSheet({required this.askCurrent});
+/// The set / change password form. [onDone] gets the new password, or is not called when the form is just closed.
+/// It is a body, not a window, so a window can show it as one of its own steps (the profile window does).
+class PasswordFormBody extends StatefulWidget {
+  const PasswordFormBody({super.key, required this.askCurrent, required this.onDone});
   final bool askCurrent;
+  final ValueChanged<PasswordChange> onDone;
 
   @override
-  State<_PasswordSheet> createState() => _PasswordSheetState();
+  State<PasswordFormBody> createState() => _PasswordFormBodyState();
 }
 
-class _PasswordSheetState extends State<_PasswordSheet> {
+class _PasswordFormBodyState extends State<PasswordFormBody> {
   final _current = TextEditingController();
   final _next = TextEditingController();
   String? _currentError;
@@ -189,7 +193,7 @@ class _PasswordSheetState extends State<_PasswordSheet> {
       });
       return;
     }
-    Navigator.of(context).pop((current: widget.askCurrent ? _current.text : null, next: _next.text));
+    widget.onDone((current: widget.askCurrent ? _current.text : null, next: _next.text));
   }
 
   @override
@@ -199,35 +203,36 @@ class _PasswordSheetState extends State<_PasswordSheet> {
       controllers: [_current, _next],
       isDirty: () => _current.text.isNotEmpty || _next.text.isNotEmpty,
       child: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (widget.askCurrent) ...[
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (widget.askCurrent) ...[
+            AppTextField(
+              controller: _current,
+              label: l10n.currentPassword,
+              obscure: true,
+              autofocus: true,
+              autofillHints: const [AutofillHints.password],
+              textInputAction: TextInputAction.next,
+              errorText: _currentError,
+            ),
+            const Gap(AppSpace.md),
+          ],
           AppTextField(
-            controller: _current,
-            label: l10n.currentPassword,
+            controller: _next,
+            label: l10n.newPasswordLabel,
+            helper: l10n.passwordTooShort,
             obscure: true,
-            autofocus: true,
-            autofillHints: const [AutofillHints.password],
-            textInputAction: TextInputAction.next,
-            errorText: _currentError,
+            autofocus: !widget.askCurrent,
+            autofillHints: const [AutofillHints.newPassword],
+            textInputAction: TextInputAction.done,
+            errorText: _nextError,
+            onSubmitted: (_) => _submit(),
           ),
-          const Gap(AppSpace.md),
+          const Gap(AppSpace.lg),
+          AppButton(label: l10n.save, onPressed: _submit),
         ],
-        AppTextField(
-          controller: _next,
-          label: l10n.newPasswordLabel,
-          helper: l10n.passwordTooShort,
-          obscure: true,
-          autofocus: !widget.askCurrent,
-          autofillHints: const [AutofillHints.newPassword],
-          textInputAction: TextInputAction.done,
-          errorText: _nextError,
-          onSubmitted: (_) => _submit(),
-        ),
-        const Gap(AppSpace.lg),
-        AppButton(label: l10n.save, onPressed: _submit),
-      ],
-    ));
+      ),
+    );
   }
 }

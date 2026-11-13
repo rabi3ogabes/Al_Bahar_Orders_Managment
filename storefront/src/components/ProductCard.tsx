@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Heart, ShoppingBag } from 'lucide-react';
+import { Eye, Heart, ShoppingBag } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import { useWishlist } from '../lib/wishlist';
 import { useCart } from '../lib/cart';
@@ -10,6 +10,8 @@ import { cx, moneyShort } from '../lib/format';
 import { useDesign } from '../lib/brand';
 import type { ProductCard as P, ProductDetail } from '../lib/types';
 import { Badge, PriceTag, Pic, Rating } from './ui';
+import { useUrlOverlay } from '../lib/useUrlOverlay';
+import { preloadQuick } from './OverlayHosts';
 
 const BADGE_TONE: Record<string, 'brass' | 'ink' | 'danger' | 'success'> = { new: 'ink', sale: 'danger', bestseller: 'brass', featured: 'brass', limited: 'danger' };
 
@@ -20,8 +22,17 @@ export function ProductCard({ p, priority }: { p: P; priority?: boolean }) {
   const cart = useCart();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
+  const quick = useUrlOverlay('quick');
   const liked = wl.has(p.id);
   const badges = [...(p.price.discount_percent > 0 && !p.badges.includes('sale') ? ['sale'] : []), ...p.badges].filter((b) => BADGE_TONE[b]).slice(0, 2);
+
+  const openQuick = (e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); quick.open(p.slug); };
+  const quickBtn = (cls: string) => (
+    <button type="button" onClick={openQuick} onPointerEnter={preloadQuick} onFocus={preloadQuick} onTouchStart={preloadQuick} aria-label={`${t('quick.view')}: ${p.name}`}
+      className={cx('absolute flex h-11 items-center justify-center gap-2 rounded-full bg-paper/95 text-[13px] font-medium text-ink shadow-soft backdrop-blur transition-all duration-300 hover:bg-paper max-md:w-11 md:px-4', cls)}>
+      <Eye size={17} /><span className="max-md:sr-only">{t('quick.view')}</span>
+    </button>
+  );
 
   const quickAdd = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -50,6 +61,7 @@ export function ProductCard({ p, priority }: { p: P; priority?: boolean }) {
               {badges.map((b) => <Badge key={b} tone={BADGE_TONE[b]}>{t(`badge.${b}`)}</Badge>)}
             </div>
             {!p.in_stock && <div className="absolute inset-0 flex items-end bg-bg/55 p-2"><Badge tone="sand">{t('product.out_of_stock')}</Badge></div>}
+            {quickBtn('bottom-2 start-2 md:translate-y-2 md:opacity-0 md:focus-visible:translate-y-0 md:focus-visible:opacity-100 md:group-hover:translate-y-0 md:group-hover:opacity-100')}
           </div>
           <div className="flex flex-1 flex-col px-1.5 pt-3">
             {p.brand && <p className="truncate text-[12px] text-muted">{p.brand.name}</p>}
@@ -86,6 +98,7 @@ export function ProductCard({ p, priority }: { p: P; priority?: boolean }) {
             {badges.map((b) => <Badge key={b} tone={BADGE_TONE[b]}>{t(`badge.${b}`)}</Badge>)}
           </div>
           {!p.in_stock && <div className="absolute inset-0 flex items-end bg-bg/55 p-3"><Badge tone="sand">{t('product.out_of_stock')}</Badge></div>}
+          {quickBtn('bottom-3 start-3 md:translate-y-2 md:opacity-0 md:focus-visible:translate-y-0 md:focus-visible:opacity-100 md:group-hover:translate-y-0 md:group-hover:opacity-100')}
           {p.purchasable && !p.has_variants && p.in_stock && (
             <button onClick={quickAdd} disabled={busy} aria-label={t('product.add_to_bag')}
               className="absolute bottom-3 end-3 flex h-11 w-11 translate-y-2 items-center justify-center rounded-full bg-primary text-bg opacity-0 shadow-soft transition-all duration-300 hover:bg-brass-deep focus-visible:translate-y-0 focus-visible:opacity-100 group-hover:translate-y-0 group-hover:opacity-100 max-md:translate-y-0 max-md:opacity-100">

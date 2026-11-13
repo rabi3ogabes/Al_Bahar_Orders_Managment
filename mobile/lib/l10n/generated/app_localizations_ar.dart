@@ -2616,4 +2616,7 @@ class AppLocalizationsAr extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get savedToast => 'تم الحفظ';
 }

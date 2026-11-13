@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/qatar_time.dart';
@@ -8,6 +10,7 @@ import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/auctions/domain/auction_models.dart';
 import 'package:albahar_customer/features/auctions/presentation/lot_widgets.dart';
 import 'package:albahar_customer/features/auctions/presentation/state/auction_providers.dart';
+import 'package:albahar_customer/features/orders/presentation/order_detail_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -135,7 +138,10 @@ class _WinCard extends StatelessWidget {
                   onPressed: () => context.push('/auctions/wins/${win.id}/checkout', extra: win),
                 )
               else if (win.orderId != null)
-                TextButton(onPressed: () => context.push('/orders/${win.orderId}'), child: Text(l10n.viewOrder)),
+                TextButton(
+                  onPressed: () => unawaited(showOrderPanel(context, win.orderId!)),
+                  child: Text(l10n.viewOrder),
+                ),
             ],
           ),
         ),

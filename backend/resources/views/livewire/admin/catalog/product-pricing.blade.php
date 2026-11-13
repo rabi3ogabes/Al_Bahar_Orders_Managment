@@ -138,7 +138,7 @@
                     @if ($editor['level'] !== 'product')
                         <button type="button" wire:click="clear" wire:confirm="{{ __('catalog_admin.confirm_clear_override') }}" class="btn-ghost text-ruby-soft sm:me-auto"><x-icon name="x" class="size-4" />{{ __('catalog_admin.clear_override') }}</button>
                     @endif
-                    <button type="button" class="btn-secondary sm:ms-auto" @click="open = false">{{ __('admin.cancel') }}</button>
+                    <button type="button" class="btn-secondary sm:ms-auto" @click="requestClose()">{{ __('admin.cancel') }}</button>
                     <button class="btn-primary" wire:loading.attr="disabled" wire:target="save"><x-icon name="check" class="size-4" />{{ __('admin.save') }}</button>
                 </div>
             </form>

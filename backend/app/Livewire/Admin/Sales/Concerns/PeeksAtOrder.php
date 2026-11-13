@@ -58,9 +58,7 @@ trait PeeksAtOrder
 
     /** An action inside the window changed the order: the list re-renders (this method only exists to be the listener). */
     #[On('record-changed')]
-    public function onRecordChanged(): void
-    {
-    }
+    public function onRecordChanged(): void {}
 
     /** The order for the window, or null when none is open or the viewer may not see it (never trusts the stored id blindly). */
     #[Computed]

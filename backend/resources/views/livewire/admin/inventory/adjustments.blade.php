@@ -117,7 +117,7 @@
             @endif
             <p class="flex items-start gap-2 rounded-xl bg-sand-50 p-3 text-xs text-ink-500 dark:bg-ink-800/60"><x-icon name="shield" class="mt-0.5 size-3.5 shrink-0" />{{ __('inventory_admin.segregation_hint') }}</p>
             <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">
-                <button type="button" class="btn-secondary" @click="open = false">{{ __('admin.cancel') }}</button>
+                <button type="button" class="btn-secondary" @click="requestClose()">{{ __('admin.cancel') }}</button>
                 <button class="btn-primary" wire:loading.attr="disabled" wire:target="save"><x-icon name="check" class="size-4" />{{ __('inventory_admin.submit_adjustment') }}</button>
             </div>
         </form>

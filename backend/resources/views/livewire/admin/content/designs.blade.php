@@ -48,7 +48,7 @@
     <x-admin.dialog variant="modal" wire:model="showConfirm" :title="$pending ? __('design_admin.confirm_title', ['name' => $name($pending)]) : ''" max-width="max-w-md">
         <p class="text-sm text-ink-600 dark:text-sand-200">{{ __('design_admin.confirm_body') }}</p>
         <div class="mt-6 flex flex-wrap justify-end gap-2">
-            <button type="button" class="btn-secondary min-h-11" @click="open = false">{{ __('admin.cancel') }}</button>
+            <button type="button" class="btn-secondary min-h-11" @click="requestClose()">{{ __('admin.cancel') }}</button>
             <button type="button" wire:click="apply" wire:loading.attr="disabled" class="btn-primary min-h-11">{{ __('design_admin.switch') }}</button>
         </div>
     </x-admin.dialog>

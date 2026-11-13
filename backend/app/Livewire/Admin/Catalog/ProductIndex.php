@@ -9,12 +9,14 @@ use App\Domain\Catalog\Models\Product;
 use App\Domain\Catalog\Services\ProductService;
 use App\Domain\Checkout\Services\StaffOrderService;
 use App\Livewire\Admin\Concerns\WithAdminTable;
+use App\Livewire\Admin\Concerns\WithRecordView;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
 class ProductIndex extends Component
 {
-    use WithAdminTable;
+    use WithAdminTable, WithRecordView;
 
     #[Url(except: '')]
     public string $filterStatus = '';
@@ -40,6 +42,16 @@ class ProductIndex extends Component
             $this->sort = 'updated';
         }
     }
+
+    /** Products are visible to everyone with catalog.view (the same rule as the product page), except nothing archived is hidden from a direct link. */
+    protected function viewable(string $id): bool
+    {
+        return $this->can('catalog.view') && Product::whereKey($id)->exists();
+    }
+
+    /** The quick view changed a product: re-render the list so its row is current. */
+    #[On('product-changed')]
+    public function refreshAfterQuickChange(): void {}
 
     public function updatedPaginators(): void
     {
@@ -143,6 +155,7 @@ class ProductIndex extends Component
             'canEdit' => $this->canGlobally('catalog.edit'),
             'canDelete' => $this->canGlobally('catalog.delete'),
             'canOrder' => app(StaffOrderService::class)->canCreate(auth()->user()),
+            'viewProduct' => ($id = $this->viewing()) ? Product::with('translations')->find($id) : null,
             'hasFilters' => (bool) ($this->search || $this->filterStatus || $this->filterCategory || $this->filterBrand || $this->filterFlag),
         ])->title(__('nav.products'));
     }

@@ -117,7 +117,7 @@
             </aside>
 
             <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end lg:col-span-2 dark:border-ink-800">
-                <button type="button" class="btn-secondary" @click="open = false">{{ __('admin.cancel') }}</button>
+                <button type="button" class="btn-secondary" @click="requestClose()">{{ __('admin.cancel') }}</button>
                 <button class="btn-primary" wire:loading.attr="disabled" wire:target="save" @if (($form['when'] ?? '') === 'now') wire:confirm="{{ __('marketing_admin.confirm_send') }}" @endif><x-icon name="check" class="size-4" />{{ __('marketing_admin.save_'.($form['when'] ?? 'draft')) }}</button>
             </div>
         </form>

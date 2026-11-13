@@ -9,6 +9,7 @@ import { useTheme } from '../lib/theme';
 import { useDesign } from '../lib/brand';
 import { cx, telHref } from '../lib/format';
 import { useAuthModal } from './AuthModal';
+import { OverlayHosts } from './OverlayHosts';
 import { stripOverlayParams } from '../lib/overlay';
 import { IconButton } from './ui';
 import { useToast } from '../lib/toast';
@@ -204,6 +205,7 @@ export function Layout() {
       {fresh ? <FreshHeader /> : <Header />}
       <main id="main" className="flex-1 outline-none" tabIndex={-1}><Outlet /></main>
       {fresh ? <FreshFooter /> : <Footer />}
+      <OverlayHosts />
     </div>
   );
 }

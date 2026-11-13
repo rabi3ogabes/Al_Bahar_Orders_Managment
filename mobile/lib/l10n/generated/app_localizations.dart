@@ -4699,6 +4699,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{Show 1 result} other{Show {count} results}}'**
   String showResultsCount(int count);
+
+  /// No description provided for @savedToast.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved'**
+  String get savedToast;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

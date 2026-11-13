@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import { useMedia } from '../lib/hooks';
 import { useCloseOnBack } from '../lib/useCloseOnBack';
+import { useOpener } from '../lib/useOpener';
 import { cx } from '../lib/format';
 import { ConfirmDialog } from './Dialogs';
 import { DrawerCtx } from './drawerLink';
@@ -45,12 +46,14 @@ export function SideDrawer({ open, onClose, title, description, children, footer
   const [ask, setAsk] = useState(false);
   const [rearm, setRearm] = useState(0);
   const panel = useRef<HTMLDivElement>(null);
+  const opener = useOpener();
 
   const request = useCallback(() => { if (dirty) setAsk(true); else onClose(); }, [dirty, onClose]);
   // Back with unsaved input: stay open, ask, and put the history entry back for the next Back.
   useCloseOnBack(open && !urlBacked, () => { if (dirty) { setAsk(true); setRearm((n) => n + 1); } else onClose(); }, rearm);
 
   const onOpenAutoFocus = (e: Event) => {
+    opener.remember();
     e.preventDefault();
     const box = panel.current;
     // First field when there is one (not on touch screens: the keyboard would cover the window), otherwise the window itself.
@@ -77,7 +80,7 @@ export function SideDrawer({ open, onClose, title, description, children, footer
         <Sheet.Root open={open} onOpenChange={(o) => { if (!o) request(); }} dismissible={!dirty}>
           <Sheet.Portal>
             <Sheet.Overlay className="ov-scrim fixed inset-0 z-[80] bg-ink/45 backdrop-blur-[2px]" />
-            <Sheet.Content ref={panel} tabIndex={-1} onOpenAutoFocus={onOpenAutoFocus} {...(description ? {} : { 'aria-describedby': undefined })}
+            <Sheet.Content ref={panel} tabIndex={-1} onOpenAutoFocus={onOpenAutoFocus} onCloseAutoFocus={opener.restore} {...(description ? {} : { 'aria-describedby': undefined })}
               className={cx('fixed inset-x-0 bottom-0 z-[80] flex max-h-[92dvh] min-h-[40dvh] flex-col rounded-t-[28px] bg-bg shadow-soft outline-none', className)}>
               <Sheet.Handle className="!mt-2.5 !mb-1 !h-1.5 !w-11 shrink-0 !bg-line" />
               {head}{sr}{body}{foot}
@@ -88,7 +91,7 @@ export function SideDrawer({ open, onClose, title, description, children, footer
         <Dialog.Root open={open} onOpenChange={(o) => { if (!o) request(); }}>
           <Dialog.Portal>
             <Dialog.Overlay className="ov-scrim fixed inset-0 z-[80] bg-ink/45 backdrop-blur-[2px]" />
-            <Dialog.Content ref={panel} tabIndex={-1} data-side={side} onOpenAutoFocus={onOpenAutoFocus} {...(description ? {} : { 'aria-describedby': undefined })}
+            <Dialog.Content ref={panel} tabIndex={-1} data-side={side} onOpenAutoFocus={onOpenAutoFocus} onCloseAutoFocus={opener.restore} {...(description ? {} : { 'aria-describedby': undefined })}
               className={cx('ov-panel fixed inset-y-0 z-[80] flex w-full flex-col bg-bg shadow-soft outline-none', side === 'end' ? 'end-0 sm:rounded-s-[28px]' : 'start-0 sm:rounded-e-[28px]', WIDTH[size], className)}>
               {head}{sr}{body}{foot}
             </Dialog.Content>

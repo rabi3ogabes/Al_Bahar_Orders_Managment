@@ -75,7 +75,7 @@
                         <tr wire:key="p-{{ $p->id }}" class="{{ in_array($p->id, $selected, true) ? 'bg-brass-50/40 dark:bg-brass-500/5' : '' }}">
                             @if ($canEdit)<td><input type="checkbox" value="{{ $p->id }}" wire:model.live="selected" class="checkbox" aria-label="{{ $p->sku }}"></td>@endif
                             <td>
-                                <a href="{{ route('admin.products.edit', $p) }}" wire:navigate class="group flex items-center gap-3">
+                                <a href="{{ route('admin.products.index', ['view' => $p->id]) }}" wire:click.prevent="openView('{{ $p->id }}')" class="group flex items-center gap-3" aria-label="{{ __('drawer_admin.quick_view_of', ['name' => $p->trans('name')]) }}">
                                     <span class="grid size-12 shrink-0 place-items-center overflow-hidden rounded-xl bg-sand-100 text-ink-400 dark:bg-ink-800">
                                         @if ($img)<img src="{{ $img->url(320) }}" alt="{{ $img->alt() }}" class="size-full object-cover" loading="lazy">@else<x-icon name="sofa" class="size-5" />@endif
                                     </span>
@@ -105,7 +105,7 @@
                             <td>
                                 <div class="flex justify-end gap-0.5">
                                     @if ($canOrder && $p->status === 'active')<button type="button" wire:click="addToOrder('{{ $p->id }}')" wire:loading.attr="disabled" wire:target="addToOrder('{{ $p->id }}')" class="btn-ghost btn-sm px-2 text-brass-600" aria-label="{{ __('neworder_admin.add_to_order') }}" title="{{ __('neworder_admin.add_to_order') }}"><x-icon name="cart" class="size-4" /></button>@endif
-                                    <a href="{{ route('admin.products.edit', $p) }}" wire:navigate class="btn-ghost btn-sm px-2" aria-label="{{ __('admin.edit') }}"><x-icon name="edit" class="size-4" /></a>
+                                    <a href="{{ route('admin.products.edit', $p) }}" wire:navigate class="btn-ghost btn-sm px-2" aria-label="{{ __('drawer_admin.open_full_editor') }}" title="{{ __('drawer_admin.open_full_editor') }}"><x-icon name="edit" class="size-4" /></a>
                                     @if ($canCreate)<button type="button" wire:click="duplicate('{{ $p->id }}')" wire:confirm="{{ __('catalog_admin.confirm_duplicate') }}" class="btn-ghost btn-sm px-2" aria-label="{{ __('catalog_admin.duplicate') }}" title="{{ __('catalog_admin.duplicate') }}"><x-icon name="copy" class="size-4" /></button>@endif
                                     @if ($canDelete && $p->status !== 'archived')<button type="button" wire:click="archive('{{ $p->id }}')" wire:confirm="{{ __('catalog_admin.confirm_archive') }}" class="btn-ghost btn-sm px-2 text-ruby-soft" aria-label="{{ __('catalog_admin.archive') }}" title="{{ __('catalog_admin.archive') }}"><x-icon name="ban" class="size-4" /></button>@endif
                                 </div>
@@ -118,4 +118,18 @@
             @if ($products->hasPages())<div class="border-t border-sand-100 p-4 dark:border-ink-800">{{ $products->links('components.admin.pagination') }}</div>@endif
         @endif
     </div>
+    {{-- Quick view: the row opens beside the list; the full editor (large, multi-tab) stays a page. --}}
+    <x-admin.dialog wire:model.live="showView" :title="$viewProduct?->trans('name') ?? $viewProduct?->sku ?? ''" :description="$viewProduct ? __('drawer_admin.quick_view') : null" max-width="max-w-xl">
+        @if ($viewProduct)
+            <livewire:admin.catalog.product-quick-view :product-id="$viewProduct->id" :key="'pq-'.$viewProduct->id" />
+        @endif
+        @if ($viewProduct)
+            <x-slot:footer>
+                <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <button type="button" class="btn-secondary min-h-11" @click="requestClose()">{{ __('admin.close') }}</button>
+                    <a href="{{ route('admin.products.edit', $viewProduct) }}" wire:navigate class="btn-primary min-h-11"><x-icon name="edit" class="size-4" />{{ __('drawer_admin.open_full_editor') }}</a>
+                </div>
+            </x-slot:footer>
+        @endif
+    </x-admin.dialog>
 </div>

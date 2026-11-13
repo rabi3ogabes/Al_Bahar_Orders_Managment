@@ -33,6 +33,7 @@ class AddProductScreen extends ConsumerStatefulWidget {
 
 class _AddProductScreenState extends ConsumerState<AddProductScreen> {
   static const _maxPhotos = 8;
+  static const _formWidth = 640.0;
   final _form = GlobalKey<FormState>();
   final _titleEn = TextEditingController();
   final _titleAr = TextEditingController();
@@ -267,160 +268,174 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
           ),
           title: Text(t.newProduct),
         ),
-        body: Form(
-          key: _form,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(AppSpace.gutter, AppSpace.sm, AppSpace.gutter, AppSpace.xxl),
-            children: [
-              Text(t.photos, style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: AppSpace.xxs),
-              Text(t.photosHint, style: Theme.of(context).textTheme.bodySmall),
-              const SizedBox(height: AppSpace.sm),
-              SizedBox(
-                height: 104,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    if (_photos.length < _maxPhotos) _AddTile(label: t.addPhoto, onTap: _photoSheet),
-                    for (var i = 0; i < _photos.length; i++)
-                      _PhotoTile(
-                        file: _photos[i],
-                        cover: i == 0,
-                        removeLabel: t.removePhoto,
-                        onRemove: () => setState(() => _photos.removeAt(i)),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpace.lg),
-              TextFormField(
-                controller: _titleEn,
-                maxLength: 255,
-                maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                buildCounter: _noCounter,
-                textInputAction: TextInputAction.next,
-                textCapitalization: TextCapitalization.words,
-                decoration: InputDecoration(labelText: t.titleEn),
-                validator: (v) => (v ?? '').trim().isEmpty && _titleAr.text.trim().isEmpty ? t.fieldRequired : null,
-              ),
-              const SizedBox(height: AppSpace.sm),
-              TextFormField(
-                controller: _titleAr,
-                maxLength: 255,
-                buildCounter: _noCounter,
-                textDirection: TextDirection.rtl,
-                textInputAction: TextInputAction.next,
-                decoration: InputDecoration(labelText: t.titleAr),
-              ),
-              const SizedBox(height: AppSpace.sm),
-              TextFormField(
-                controller: _price,
-                maxLength: 12,
-                buildCounter: _noCounter,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: const [AmountInputFormatter()],
-                textInputAction: TextInputAction.next,
-                decoration: InputDecoration(labelText: t.price),
-                validator: (v) {
-                  final amount = parseAmount(v ?? '');
-                  if (amount == null) return t.priceInvalid;
-                  return amount > 0 ? null : t.priceZero;
-                },
-              ),
-              const SizedBox(height: AppSpace.sm),
-              InkWell(
-                borderRadius: BorderRadius.circular(AppRadius.input),
-                onTap: cats.hasValue
-                    ? () => _chooseCategory(cats.value!)
-                    : cats.hasError
-                    ? () => ref.invalidate(_categoriesProvider)
-                    : null,
-                child: InputDecorator(
-                  decoration: InputDecoration(
-                    labelText: t.category,
-                    suffixIcon: Icon(cats.hasError ? Icons.refresh_rounded : Icons.expand_more_rounded),
+        // A wide screen keeps the form a readable width instead of stretching every field across it.
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _formWidth),
+            child: Form(
+              key: _form,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(AppSpace.gutter, AppSpace.sm, AppSpace.gutter, AppSpace.xxl),
+                children: [
+                  Text(t.photos, style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: AppSpace.xxs),
+                  Text(t.photosHint, style: Theme.of(context).textTheme.bodySmall),
+                  const SizedBox(height: AppSpace.sm),
+                  SizedBox(
+                    height: 104,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        if (_photos.length < _maxPhotos) _AddTile(label: t.addPhoto, onTap: _photoSheet),
+                        for (var i = 0; i < _photos.length; i++)
+                          _PhotoTile(
+                            file: _photos[i],
+                            cover: i == 0,
+                            removeLabel: t.removePhoto,
+                            onRemove: () => setState(() => _photos.removeAt(i)),
+                          ),
+                      ],
+                    ),
                   ),
-                  child: Text(
-                    _category?.name ?? (cats.isLoading ? '…' : (cats.hasError ? t.categoriesFailed : t.chooseCategory)),
-                    style: _category == null
-                        ? TextStyle(color: cats.hasError ? scheme.error : scheme.onSurfaceVariant)
+                  const SizedBox(height: AppSpace.lg),
+                  TextFormField(
+                    controller: _titleEn,
+                    maxLength: 255,
+                    maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                    buildCounter: _noCounter,
+                    textInputAction: TextInputAction.next,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: InputDecoration(labelText: t.titleEn),
+                    validator: (v) => (v ?? '').trim().isEmpty && _titleAr.text.trim().isEmpty ? t.fieldRequired : null,
+                  ),
+                  const SizedBox(height: AppSpace.sm),
+                  TextFormField(
+                    controller: _titleAr,
+                    maxLength: 255,
+                    buildCounter: _noCounter,
+                    textDirection: TextDirection.rtl,
+                    textInputAction: TextInputAction.next,
+                    decoration: InputDecoration(labelText: t.titleAr),
+                  ),
+                  const SizedBox(height: AppSpace.sm),
+                  TextFormField(
+                    controller: _price,
+                    maxLength: 12,
+                    buildCounter: _noCounter,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: const [AmountInputFormatter()],
+                    textInputAction: TextInputAction.next,
+                    decoration: InputDecoration(labelText: t.price),
+                    validator: (v) {
+                      final amount = parseAmount(v ?? '');
+                      if (amount == null) return t.priceInvalid;
+                      return amount > 0 ? null : t.priceZero;
+                    },
+                  ),
+                  const SizedBox(height: AppSpace.sm),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(AppRadius.input),
+                    onTap: cats.hasValue
+                        ? () => _chooseCategory(cats.value!)
+                        : cats.hasError
+                        ? () => ref.invalidate(_categoriesProvider)
                         : null,
+                    child: InputDecorator(
+                      decoration: InputDecoration(
+                        labelText: t.category,
+                        suffixIcon: Icon(cats.hasError ? Icons.refresh_rounded : Icons.expand_more_rounded),
+                      ),
+                      child: Text(
+                        _category?.name ??
+                            (cats.isLoading ? '…' : (cats.hasError ? t.categoriesFailed : t.chooseCategory)),
+                        style: _category == null
+                            ? TextStyle(color: cats.hasError ? scheme.error : scheme.onSurfaceVariant)
+                            : null,
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: AppSpace.lg),
+                  Text(t.description, style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: AppSpace.xxs),
+                  Text(aiReady ? t.aiHint : t.aiNotReady, style: Theme.of(context).textTheme.bodySmall),
+                  const SizedBox(height: AppSpace.sm),
+                  SizedBox(
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      onPressed: aiReady && !_writing ? _write : null,
+                      icon: _writing
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.auto_awesome_rounded),
+                      label: Text(_writing ? t.writing : t.writeWithAi),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpace.sm),
+                  TextFormField(
+                    controller: _shortEn,
+                    maxLength: 300,
+                    decoration: InputDecoration(labelText: '${t.shortDescription} · EN'),
+                  ),
+                  TextFormField(
+                    controller: _descEn,
+                    minLines: 3,
+                    maxLines: 8,
+                    decoration: InputDecoration(labelText: '${t.description} · EN'),
+                  ),
+                  const SizedBox(height: AppSpace.sm),
+                  TextFormField(
+                    controller: _shortAr,
+                    maxLength: 300,
+                    textDirection: TextDirection.rtl,
+                    decoration: InputDecoration(labelText: '${t.shortDescription} · AR'),
+                  ),
+                  TextFormField(
+                    controller: _descAr,
+                    minLines: 3,
+                    maxLines: 8,
+                    textDirection: TextDirection.rtl,
+                    decoration: InputDecoration(labelText: '${t.description} · AR'),
+                  ),
+                  const SizedBox(height: AppSpace.lg),
+                  // A form choice (waits for Save): a checkbox, not an instant switch.
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    value: _studio,
+                    onChanged: _photos.isEmpty ? null : (v) => setState(() => _studio = v ?? false),
+                    title: Text(t.studioOption),
+                    subtitle: Text(t.studioOptionHint),
+                  ),
+                  const SizedBox(height: AppSpace.sm),
+                  SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<bool>(
+                      segments: [
+                        ButtonSegment(value: false, label: Text(t.saveDraft)),
+                        ButtonSegment(value: true, label: Text(t.publishNow)),
+                      ],
+                      selected: {_publish},
+                      onSelectionChanged: (s) => setState(() => _publish = s.first),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: AppSpace.lg),
-              Text(t.description, style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: AppSpace.xxs),
-              Text(aiReady ? t.aiHint : t.aiNotReady, style: Theme.of(context).textTheme.bodySmall),
-              const SizedBox(height: AppSpace.sm),
-              SizedBox(
-                height: 48,
-                child: OutlinedButton.icon(
-                  onPressed: aiReady && !_writing ? _write : null,
-                  icon: _writing
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.auto_awesome_rounded),
-                  label: Text(_writing ? t.writing : t.writeWithAi),
-                ),
-              ),
-              const SizedBox(height: AppSpace.sm),
-              TextFormField(
-                controller: _shortEn,
-                maxLength: 300,
-                decoration: InputDecoration(labelText: '${t.shortDescription} · EN'),
-              ),
-              TextFormField(
-                controller: _descEn,
-                minLines: 3,
-                maxLines: 8,
-                decoration: InputDecoration(labelText: '${t.description} · EN'),
-              ),
-              const SizedBox(height: AppSpace.sm),
-              TextFormField(
-                controller: _shortAr,
-                maxLength: 300,
-                textDirection: TextDirection.rtl,
-                decoration: InputDecoration(labelText: '${t.shortDescription} · AR'),
-              ),
-              TextFormField(
-                controller: _descAr,
-                minLines: 3,
-                maxLines: 8,
-                textDirection: TextDirection.rtl,
-                decoration: InputDecoration(labelText: '${t.description} · AR'),
-              ),
-              const SizedBox(height: AppSpace.lg),
-              // A form choice (waits for Save): a checkbox, not an instant switch.
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                value: _studio,
-                onChanged: _photos.isEmpty ? null : (v) => setState(() => _studio = v ?? false),
-                title: Text(t.studioOption),
-                subtitle: Text(t.studioOptionHint),
-              ),
-              const SizedBox(height: AppSpace.sm),
-              SizedBox(
-                width: double.infinity,
-                child: SegmentedButton<bool>(
-                  segments: [
-                    ButtonSegment(value: false, label: Text(t.saveDraft)),
-                    ButtonSegment(value: true, label: Text(t.publishNow)),
-                  ],
-                  selected: {_publish},
-                  onSelectionChanged: (s) => setState(() => _publish = s.first),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
         bottomNavigationBar: SafeArea(
           minimum: const EdgeInsets.fromLTRB(AppSpace.gutter, AppSpace.xs, AppSpace.gutter, AppSpace.sm),
-          child: SizedBox(
-            height: 52,
-            child: FilledButton(
-              onPressed: _saving ? null : _save,
-              child: Text(_saving ? (_savingNote ?? t.saving) : t.saveProduct),
+          child: Center(
+            heightFactor: 1,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: _formWidth),
+              child: SizedBox(
+                height: 52,
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _saving ? null : _save,
+                  child: Text(_saving ? (_savingNote ?? t.saving) : t.saveProduct),
+                ),
+              ),
             ),
           ),
         ),

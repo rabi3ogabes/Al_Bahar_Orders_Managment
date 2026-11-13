@@ -16,6 +16,7 @@ import 'package:albahar_customer/features/auth/data/auth_repository.dart';
 import 'package:albahar_customer/features/auth/domain/auth_models.dart';
 import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
 import 'package:albahar_customer/features/profile/presentation/state/profile_providers.dart';
+import 'package:albahar_customer/features/support/presentation/cms_page_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -201,7 +202,8 @@ class _TermsNote extends StatelessWidget {
           TextSpan(
             text: l10n.termsAndPrivacy,
             style: TextStyle(color: context.palette.brass, decoration: TextDecoration.underline),
-            recognizer: TapGestureRecognizer()..onTap = () => context.push('/pages/terms'),
+            recognizer: TapGestureRecognizer()
+              ..onTap = () => unawaited(showCmsPage(context, 'terms', title: l10n.termsAndPrivacy)),
           ),
         ],
       ),

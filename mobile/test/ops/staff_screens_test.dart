@@ -179,7 +179,7 @@ void main() {
       expect(repo.calls, isEmpty);
       await tester.tap(find.text('Return to branch'));
       await settle(tester);
-      await tester.tap(find.widgetWithText(TextButton, 'Confirm'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirm return'));
       await settle(tester);
       expect(repo.calls, ['return:dl-f2']);
     });

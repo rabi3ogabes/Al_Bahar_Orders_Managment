@@ -235,7 +235,7 @@ void main() {
 
       await tester.tap(find.text('Return to branch'));
       await settle(tester);
-      await tester.tap(find.widgetWithText(TextButton, 'Confirm'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirm return'));
       await settle(tester);
       expect(repo.calls, ['return:d1']);
 
@@ -260,7 +260,7 @@ void main() {
       await settle(tester);
       await tester.tap(find.text('Wrong address'));
       await settle(tester);
-      await tester.tap(find.widgetWithText(TextButton, 'Confirm'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Report'));
       await settle(tester);
       expect(repo.calls, ['fail:d1:wrong_address']);
     });
@@ -272,7 +272,7 @@ void main() {
       await tester.tap(
         find.widgetWithText(
           FilledButton,
-          (variant ?? const Variant('d', Size(1, 1), kEn)).rtl ? 'تم التسليم' : 'Delivered',
+          (variant ?? const Variant('d', Size(1, 1), kEn)).rtl ? 'تسجيل التسليم' : 'Mark delivered',
         ),
       );
       await settle(tester);
@@ -286,7 +286,7 @@ void main() {
       final picker = FakePicker();
       await openSheet(tester, repo, picker: picker);
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirm delivery'));
       await settle(tester);
       expect(find.text('A proof photo is required.'), findsOneWidget);
       expect(repo.delivered, isEmpty);
@@ -297,12 +297,12 @@ void main() {
 
       final cash = find.widgetWithText(TextField, 'Cash collected (QAR)');
       await tester.enterText(cash, '');
-      await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirm delivery'));
       await settle(tester);
       expect(find.text('Enter the cash amount.'), findsOneWidget);
 
       await tester.enterText(cash, '999');
-      await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirm delivery'));
       await settle(tester);
       expect(find.text('More than the amount due (QAR 303.00).'), findsOneWidget);
 
@@ -312,7 +312,7 @@ void main() {
       await tester.enterText(cash, '٣٠٣٫٠٠');
       expect(tester.widget<TextField>(cash).controller!.text, '303.00');
       await tester.enterText(find.widgetWithText(TextField, 'Received by'), '  Noura Ali  ');
-      await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirm delivery'));
       await settle(tester);
       expect(repo.delivered.single.cod, 303.0);
       expect(repo.delivered.single.recipient, 'Noura Ali');
@@ -325,7 +325,7 @@ void main() {
       await openSheet(tester, repo);
       await tester.tap(find.text('Take proof photo'));
       await settle(tester);
-      await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirm delivery'));
       await tester.pump();
       await tester.tap(find.byType(FilledButton).last, warnIfMissed: false);
       await tester.pump();
@@ -340,7 +340,7 @@ void main() {
       final repo = FakeOps()..jobList = [FakeOps.job(status: 'out_for_delivery', cod: '0', proof: false)];
       await openSheet(tester, repo);
       expect(find.widgetWithText(TextField, 'Cash collected (QAR)'), findsNothing);
-      await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirm delivery'));
       await settle(tester);
       expect(repo.delivered.single.proof, isNull);
       expect(repo.delivered.single.cod, isNull);
@@ -354,14 +354,14 @@ void main() {
       await tester.enterText(find.widgetWithText(TextField, 'Received by'), 'Mariam');
       await tester.tap(find.text('Take proof photo'));
       await settle(tester);
-      await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirm delivery'));
       await settle(tester);
       expect(find.text('You appear to be offline. Check your connection and try again.'), findsOneWidget);
       expect(find.text('Photo added'), findsOneWidget);
       expect(find.text('Mariam'), findsOneWidget);
 
       repo.deliverError = null;
-      await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirm delivery'));
       await settle(tester);
       expect(repo.delivered, hasLength(2));
       expect(find.text('Photo added'), findsNothing);
@@ -377,7 +377,7 @@ void main() {
       await openSheet(tester, repo);
       await tester.tap(find.text('Take proof photo'));
       await settle(tester);
-      await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirm delivery'));
       await settle(tester);
       expect(find.text('Collected amount must equal the amount due (QAR 303.00).'), findsOneWidget);
     });
@@ -399,13 +399,13 @@ void main() {
       await settle(tester);
       await tester.tap(find.byTooltip('Close'));
       await settle(tester);
-      expect(find.text('Leave without saving?'), findsOneWidget);
+      expect(find.text('Discard changes?'), findsOneWidget);
       await tester.tap(find.text('Keep editing'));
       await settle(tester);
       expect(find.text('Photo added'), findsOneWidget);
       await tester.tap(find.byTooltip('Close'));
       await settle(tester);
-      await tester.tap(find.text('Leave'));
+      await tester.tap(find.text('Discard'));
       await settle(tester);
       expect(find.text('Photo added'), findsNothing);
       expect(repo.delivered, isEmpty);

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, Check, CreditCard, Gift, Lock, MapPin, Plus, Store, Tag, Truck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Banknote, Check, CreditCard, Gift, Lock, MapPin, Plus, Store, Tag, Truck } from 'lucide-react';
 import { ApiError, get, post, uuid } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useBranch } from '../lib/branch';
@@ -11,9 +11,9 @@ import { useToast } from '../lib/toast';
 import { useDocTitle } from '../lib/hooks';
 import { addDays, cx, isoDate } from '../lib/format';
 import type { Address, Branch, OrderDetail, PaymentAction, Quote, SlotDay } from '../lib/types';
-import { AddressForm } from '../components/AddressForm';
 import { useAuthModal } from '../components/AuthModal';
-import { Alert, Button, EmptyState, Input, Modal, Pic, Segmented, Skeleton, Spinner, Textarea } from '../components/ui';
+import { Alert, Button, EmptyState, Input, Pic, Segmented, Skeleton, Spinner, Textarea } from '../components/ui';
+import { AddressWindow } from '../components/windows';
 
 type Method = 'sadad' | 'cod' | 'pay_at_pickup';
 
@@ -72,7 +72,8 @@ function Slots({ branchId, kind, value, date, onPick, required }: { branchId: st
 }
 
 export default function Checkout() {
-  const { t } = useI18n();
+  const { t, dir } = useI18n();
+  const Back = dir === 'rtl' ? ArrowRight : ArrowLeft;
   const { user, loading: authLoading } = useAuth();
   const authModal = useAuthModal();
   const cart = useCart();
@@ -177,6 +178,7 @@ export default function Checkout() {
 
   return (
     <div className="wrap py-8 md:py-12">
+      <Link to="/cart" className="mb-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-ink-soft hover:text-ink"><Back size={16} />{t('checkout.back')}</Link>
       <h1 className="text-[clamp(38px,5vw,60px)] leading-none">{t('checkout.title')}</h1>
       <p className="mt-2 flex items-center gap-2 text-sm text-muted"><Lock size={14} className="text-success" />{t('checkout.secure')}</p>
 
@@ -301,9 +303,7 @@ export default function Checkout() {
         </aside>
       </div>
 
-      <Modal open={newAddr} onClose={() => setNewAddr(false)} title={t('address.add')} wide>
-        <AddressForm onCancel={() => setNewAddr(false)} onSaved={(a) => { setNewAddr(false); setAddressId(a.id); void qc.invalidateQueries({ queryKey: ['addresses'] }); }} />
-      </Modal>
+      <AddressWindow open={newAddr} onClose={() => setNewAddr(false)} onSaved={(a) => { setNewAddr(false); setAddressId(a.id); void qc.invalidateQueries({ queryKey: ['addresses'] }); }} />
     </div>
   );
 }

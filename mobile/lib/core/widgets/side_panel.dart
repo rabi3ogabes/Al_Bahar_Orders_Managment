@@ -40,7 +40,8 @@ Future<T?> showSidePanel<T>({
   bool barrierDismissible = true,
   bool isForm = false,
 }) {
-  final wide = MediaQuery.sizeOf(context).width >= kSidePanelBreakpoint;
+  final screen = MediaQuery.sizeOf(context);
+  final wide = screen.width >= kSidePanelBreakpoint;
   Widget frame({required bool sheet}) => _PanelFrame(
     title: title,
     subtitle: subtitle,
@@ -60,7 +61,8 @@ Future<T?> showSidePanel<T>({
       showDragHandle: true,
       isDismissible: barrierDismissible,
       enableDrag: barrierDismissible && !isForm,
-      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.92),
+      // Tall but never the whole screen. (A host that reports no screen size gets no cap rather than a zero-height sheet.)
+      constraints: BoxConstraints(maxHeight: screen.height > 0 ? screen.height * 0.92 : double.infinity),
       builder: (ctx) => frame(sheet: true),
     );
   }

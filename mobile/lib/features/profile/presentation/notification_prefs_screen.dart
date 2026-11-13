@@ -1,6 +1,7 @@
 import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
+import 'package:albahar_customer/core/widgets/side_panel.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/profile/domain/profile_models.dart';
@@ -8,9 +9,20 @@ import 'package:albahar_customer/features/profile/presentation/state/profile_pro
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+/// Opens the notification preferences in a side window. Every switch saves at once and says "Saved".
+Future<void> showNotificationPrefsPanel(BuildContext context) => showSidePanel<void>(
+  context: context,
+  title: context.l10n.notificationPreferences,
+  scrollable: false,
+  builder: (_) => const NotificationPrefsScreen(embedded: true),
+);
+
 /// Channel × category matrix from `GET /me/notification-preferences`.
 class NotificationPrefsScreen extends ConsumerWidget {
-  const NotificationPrefsScreen({super.key});
+  const NotificationPrefsScreen({super.key, this.embedded = false});
+
+  /// True inside a side window ([showNotificationPrefsPanel]): no app bar.
+  final bool embedded;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -30,50 +42,53 @@ class NotificationPrefsScreen extends ConsumerWidget {
       _ => (c, ''),
     };
 
-    return Scaffold(
-      appBar: AppBar(title: Text(l10n.notificationPreferences)),
-      body: async.when(
-        loading: () => const ListSkeleton(leading: false),
-        error: (e, _) => ErrorState(error: e, onRetry: () => ref.invalidate(notificationPrefsProvider)),
-        data: (prefs) {
-          final categories = <String>{for (final p in prefs) p.category}.toList();
-          return ListView(
-            padding: const EdgeInsets.all(AppSpace.gutter),
-            children: [
-              for (final cat in categories)
-                ContentWidth(
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpace.md),
-                    child: SurfaceCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(category(cat).$1, style: context.text.titleMedium),
-                          if (category(cat).$2.isNotEmpty) Text(category(cat).$2, style: context.text.bodySmall),
-                          const Gap(AppSpace.xs),
-                          for (final NotificationPreference p in prefs.where((p) => p.category == cat))
-                            SwitchListTile(
-                              contentPadding: EdgeInsets.zero,
-                              value: p.isEnabled,
-                              title: Text(channel(p.channel)),
-                              onChanged: (v) async {
-                                try {
-                                  await ref.read(notificationPrefsProvider.notifier).toggle(p, v);
-                                } catch (e) {
-                                  if (context.mounted) showErrorSnack(context, e);
-                                }
-                              },
-                            ),
-                        ],
-                      ),
+    final body = async.when(
+      loading: () => const ListSkeleton(leading: false),
+      error: (e, _) => ErrorState(error: e, onRetry: () => ref.invalidate(notificationPrefsProvider)),
+      data: (prefs) {
+        final categories = <String>{for (final p in prefs) p.category}.toList();
+        return ListView(
+          padding: const EdgeInsets.all(AppSpace.gutter),
+          children: [
+            for (final cat in categories)
+              ContentWidth(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpace.md),
+                  child: SurfaceCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(category(cat).$1, style: context.text.titleMedium),
+                        if (category(cat).$2.isNotEmpty) Text(category(cat).$2, style: context.text.bodySmall),
+                        const Gap(AppSpace.xs),
+                        for (final NotificationPreference p in prefs.where((p) => p.category == cat))
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            value: p.isEnabled,
+                            title: Text(channel(p.channel)),
+                            onChanged: (v) async {
+                              try {
+                                await ref.read(notificationPrefsProvider.notifier).toggle(p, v);
+                                if (context.mounted) showInfoSnack(context, l10n.savedToast);
+                              } catch (e) {
+                                if (context.mounted) showErrorSnack(context, e);
+                              }
+                            },
+                          ),
+                      ],
                     ),
                   ),
                 ),
-              Text(l10n.transactionalNote, style: context.text.bodySmall, textAlign: TextAlign.center),
-            ],
-          );
-        },
-      ),
+              ),
+            Text(l10n.transactionalNote, style: context.text.bodySmall, textAlign: TextAlign.center),
+          ],
+        );
+      },
+    );
+    if (embedded) return body;
+    return Scaffold(
+      appBar: AppBar(title: Text(l10n.notificationPreferences)),
+      body: body,
     );
   }
 }

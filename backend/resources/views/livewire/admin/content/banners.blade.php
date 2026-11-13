@@ -72,7 +72,7 @@
             </div>
             <x-admin.field :label="__('admin.status')" for="form.status"><select id="form.status" wire:model="form.status" class="input sm:w-48"><option value="draft">{{ __('status.draft') }}</option><option value="published">{{ __('status.published') }}</option></select></x-admin.field>
             <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">
-                <button type="button" class="btn-secondary" @click="open = false">{{ __('admin.cancel') }}</button>
+                <button type="button" class="btn-secondary" @click="requestClose()">{{ __('admin.cancel') }}</button>
                 <button class="btn-primary" wire:loading.attr="disabled" wire:target="save,imageEn,imageAr"><x-icon name="check" class="size-4" />{{ __('admin.save') }}</button>
             </div>
         </form>

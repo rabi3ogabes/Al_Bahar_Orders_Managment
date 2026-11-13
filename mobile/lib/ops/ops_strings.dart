@@ -53,9 +53,7 @@ class OpsStrings {
   String get photoTaken => _t('Photo added', 'تمت إضافة الصورة');
   String get photoRequired => _t('A proof photo is required.', 'صورة الإثبات مطلوبة.');
   String get cashCollected => _t('Cash collected', 'المبلغ المحصّل');
-  String get confirm => _t('Confirm', 'تأكيد');
   String get cancel => _t('Cancel', 'إلغاء');
-  String get reason => _t('Reason', 'السبب');
   String reasonLabel(String code) => switch (code) {
     'customer_unreachable' => _t('Customer unreachable', 'لا يمكن الوصول للعميل'),
     'customer_absent' => _t('Customer not there', 'العميل غير موجود'),

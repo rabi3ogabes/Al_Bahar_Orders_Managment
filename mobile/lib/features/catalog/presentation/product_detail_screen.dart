@@ -17,6 +17,7 @@ import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/auth/presentation/require_auth.dart';
 import 'package:albahar_customer/features/branches/domain/branch_models.dart';
+import 'package:albahar_customer/features/branches/presentation/branches_screen.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
 import 'package:albahar_customer/features/cart/presentation/bag_panel.dart';
 import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
@@ -29,7 +30,6 @@ import 'package:albahar_customer/features/catalog/presentation/widgets/review_wi
 import 'package:albahar_customer/features/catalog/presentation/widgets/upsell_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
 class ProductDetailScreen extends ConsumerStatefulWidget {
@@ -571,7 +571,7 @@ class _AvailabilityCard extends ConsumerWidget {
                 icon: const Icon(Icons.store_mall_directory_outlined, size: 18),
                 label: Text(l10n.checkOtherBranches),
               ),
-              TextButton(onPressed: () => context.push('/branches?pick=1'), child: Text(l10n.change)),
+              TextButton(onPressed: () => unawaited(showBranchPicker(context)), child: Text(l10n.change)),
             ],
           ),
         ],

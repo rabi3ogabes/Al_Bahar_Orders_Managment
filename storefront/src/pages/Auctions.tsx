@@ -10,7 +10,8 @@ import { useDocTitle, useTick } from '../lib/hooks';
 import { cx, toNum } from '../lib/format';
 import type { Auction, AuctionDetail, Lot, Money, Paged } from '../lib/types';
 import { useAuthModal } from '../components/AuthModal';
-import { Alert, Badge, Breadcrumbs, Button, Checkbox, EmptyState, Input, Modal, Pic, Skeleton } from '../components/ui';
+import { Alert, Badge, Breadcrumbs, Button, Checkbox, EmptyState, Input, Pic, Skeleton } from '../components/ui';
+import { ConfirmDialog } from '../components/Dialogs';
 
 function useCountdown(endIso: string | undefined, serverIso: string | undefined) {
   useTick(1000);
@@ -80,8 +81,7 @@ export function AuctionPage() {
   useDocTitle(a?.title);
   const register = useMutation({
     mutationFn: () => post(`/auctions/${id}/register`, { accept_terms: true }),
-    onSuccess: () => { toast.push(t('auction.registered')); setReg(false); void qc.invalidateQueries({ queryKey: ['auction', id] }); },
-    onError: (e) => toast.push(e instanceof ApiError ? e.message : t('error.generic'), 'error'),
+    onSuccess: () => { toast.push(t('auction.registered')); setReg(false); setTerms(false); void qc.invalidateQueries({ queryKey: ['auction', id] }); },
   });
   if (q.isError) return <div className="wrap py-20"><EmptyState title={t('auction.not_found')} /></div>;
   if (!a) return <div className="wrap py-12"><Skeleton className="h-96" /></div>;
@@ -110,11 +110,11 @@ export function AuctionPage() {
       {a.terms && <section className="mt-14 rounded-[28px] border border-line bg-paper p-6"><h2 className="text-2xl">{t('auction.terms')}</h2><p className="mt-2 whitespace-pre-line text-sm text-ink-soft">{a.terms}</p>
         <ul className="mt-4 flex flex-wrap gap-2 text-xs"><Badge>{t('auction.pay_within', { h: a.winner_payment_hours })}</Badge>{a.pickup_allowed && <Badge>{t('checkout.pickup')}</Badge>}{a.delivery_allowed && <Badge>{t('checkout.delivery')}</Badge>}{!a.cod_allowed && <Badge>{t('auction.no_cod')}</Badge>}</ul></section>}
 
-      <Modal open={reg} onClose={() => setReg(false)} title={t('auction.register')}>
-        <p className="mb-4 text-sm text-ink-soft">{a.terms ?? t('auction.terms_default')}</p>
+      <ConfirmDialog open={reg} onClose={() => setReg(false)} destructive={false} title={t('auction.register_q')} confirmLabel={t('auction.confirm_register')} confirmDisabled={!terms}
+        onConfirm={async () => { await register.mutateAsync(); }}>
+        <p className="mb-4 max-h-48 overflow-y-auto whitespace-pre-line text-sm text-ink-soft">{a.terms ?? t('auction.terms_default')}</p>
         <Checkbox checked={terms} onChange={setTerms}>{t('auction.accept_terms')}</Checkbox>
-        <Button className="mt-5" block size="lg" disabled={!terms} loading={register.isPending} onClick={() => register.mutate()}>{t('auction.confirm_register')}</Button>
-      </Modal>
+      </ConfirmDialog>
     </div>
   );
 }

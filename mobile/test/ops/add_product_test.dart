@@ -321,7 +321,7 @@ void main() {
       // Leave straight away (confirm), before the answer lands.
       await tester.tap(find.byTooltip('Close'));
       await tester.pump();
-      await tester.tap(find.text('Leave'));
+      await tester.tap(find.text('Discard'));
       await settle(tester);
       expect(tester.takeException(), isNull);
       expect(find.byType(AddProductScreen), findsNothing);
@@ -340,13 +340,13 @@ void main() {
       await tester.enterText(_field('Title (English)'), 'Linen');
       await tester.binding.handlePopRoute();
       await settle(tester);
-      expect(find.text('Leave without saving?'), findsOneWidget);
+      expect(find.text('Discard changes?'), findsOneWidget);
       await tester.tap(find.text('Keep editing'));
       await settle(tester);
       expect(find.byType(AddProductScreen), findsOneWidget);
       await tester.binding.handlePopRoute();
       await settle(tester);
-      await tester.tap(find.text('Leave'));
+      await tester.tap(find.text('Discard'));
       await settle(tester);
       expect(find.byType(AddProductScreen), findsNothing);
     });

@@ -5,7 +5,7 @@ namespace App\Livewire\Admin\Insights;
 use App\Domain\Issues\Models\IssueReport;
 use App\Domain\Issues\Services\IssueService;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
-use Livewire\Attributes\Locked;
+use App\Livewire\Admin\Concerns\WithRecordView;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -13,7 +13,7 @@ use Livewire\WithPagination;
 /** Issue log: record payment problems and bugs in the platform or any app, track them to resolution. */
 class IssueIndex extends Component
 {
-    use InteractsWithAdmin, WithPagination;
+    use InteractsWithAdmin, WithPagination, WithRecordView;
 
     #[Url(except: '')]
     public string $search = '';
@@ -33,9 +33,6 @@ class IssueIndex extends Component
     public bool $showForm = false;
 
     public array $form = [];
-
-    #[Locked]
-    public ?string $detailId = null;
 
     public string $resolution = '';
 
@@ -84,21 +81,21 @@ class IssueIndex extends Component
         }
     }
 
-    public function open(string $id): void
+    /** The issue log is company-wide (no branch scoping): anyone who can open the page can open an issue. */
+    protected function viewable(string $id): bool
     {
-        $this->detailId = IssueReport::findOrFail($id)->id;
-        $this->resolution = (string) IssueReport::find($id)->resolution;
+        return $this->can('orders.view') && IssueReport::whereKey($id)->exists();
     }
 
-    public function closeDetail(): void
+    protected function viewOpened(string $id): void
     {
-        $this->detailId = null;
+        $this->resolution = (string) IssueReport::whereKey($id)->value('resolution');
     }
 
     public function setStatus(string $status, IssueService $issues): void
     {
         abort_unless($this->can('orders.edit'), 403);
-        $issue = IssueReport::findOrFail($this->detailId);
+        $issue = IssueReport::findOrFail($this->viewId);
         $this->attempt(fn () => $issues->setStatus($issue, $status, auth()->user(), trim($this->resolution) ?: null), __('issue_admin.updated'));
     }
 
@@ -115,7 +112,7 @@ class IssueIndex extends Component
         return view('livewire.admin.insights.issues', [
             'issues' => $q->paginate(20),
             'counts' => ['active' => IssueReport::whereIn('status', ['open', 'investigating'])->count(), 'critical' => IssueReport::whereIn('status', ['open', 'investigating'])->whereIn('severity', ['high', 'critical'])->count()],
-            'detail' => $this->detailId ? IssueReport::with(['order:id,number', 'payment:id,provider_reference,status', 'reporter:id,name', 'resolver:id,name'])->find($this->detailId) : null,
+            'detail' => ($id = $this->viewing()) ? IssueReport::with(['order:id,number', 'payment:id,provider_reference,status', 'reporter:id,name', 'resolver:id,name'])->find($id) : null,
             'canEdit' => $this->can('orders.edit'),
         ])->title(__('issue_admin.title'));
     }

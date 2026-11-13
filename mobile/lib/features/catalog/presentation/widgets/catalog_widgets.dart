@@ -8,6 +8,7 @@ import 'package:albahar_customer/core/widgets/product_card.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/auth/presentation/require_auth.dart';
+import 'package:albahar_customer/features/branches/presentation/branches_screen.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/quick_add_stepper.dart';
@@ -155,7 +156,7 @@ class BranchPill extends ConsumerWidget {
       label: branch == null ? l10n.chooseBranch : l10n.shoppingAt(branch.name),
       child: InkWell(
         borderRadius: BorderRadius.circular(AppRadius.pill),
-        onTap: () => context.push('/branches?pick=1'),
+        onTap: () => unawaited(showBranchPicker(context)),
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: kMinTouchTarget),
           child: Container(

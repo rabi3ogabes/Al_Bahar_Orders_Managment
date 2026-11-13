@@ -196,7 +196,7 @@
                 <p class="field-hint">{{ __('marketing_admin.branches_hint') }}</p>
             </div>
             <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">
-                <button type="button" class="btn-secondary" @click="open = false">{{ __('admin.cancel') }}</button>
+                <button type="button" class="btn-secondary" @click="requestClose()">{{ __('admin.cancel') }}</button>
                 <button class="btn-primary" wire:loading.attr="disabled" wire:target="savePromotion"><x-icon name="check" class="size-4" />{{ __('admin.save') }}</button>
             </div>
         </form>
@@ -219,7 +219,7 @@
             </div>
             <x-admin.toggle :label="__('marketing_admin.active')" wire:model="c.is_active" />
             <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">
-                <button type="button" class="btn-secondary" @click="open = false">{{ __('admin.cancel') }}</button>
+                <button type="button" class="btn-secondary" @click="requestClose()">{{ __('admin.cancel') }}</button>
                 <button class="btn-primary" wire:loading.attr="disabled" wire:target="saveCoupon"><x-icon name="check" class="size-4" />{{ __('marketing_admin.create_coupon') }}</button>
             </div>
         </form>

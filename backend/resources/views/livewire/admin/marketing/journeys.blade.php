@@ -244,7 +244,7 @@
             </x-admin.field>
             <x-admin.toggle :label="__('journeys_admin.step_enabled')" wire:model="step.is_enabled" />
             <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">
-                <button type="button" class="btn-secondary" @click="open = false">{{ __('admin.cancel') }}</button>
+                <button type="button" class="btn-secondary" @click="requestClose()">{{ __('admin.cancel') }}</button>
                 <button class="btn-primary" wire:loading.attr="disabled" wire:target="saveStep"><x-icon name="check" class="size-4" />{{ __('admin.save') }}</button>
             </div>
         </form>
@@ -259,7 +259,7 @@
                     <x-admin.field :label="__('journeys_admin.kind')" for="tpl.kind"><select id="tpl.kind" wire:model="tpl.kind" class="input"><option value="reminder">{{ __('journeys_admin.kind_reminder') }}</option><option value="offer">{{ __('journeys_admin.kind_offer') }}</option></select></x-admin.field>
                 </div>
                 <div class="flex flex-wrap items-center gap-1.5 text-xs text-ink-500"><span>{{ __('journeys_admin.placeholders') }}</span>
-                    @foreach (['name', 'items', 'first_item', 'coupon', 'expires', 'app_link'] as $ph)<code class="rounded bg-sand-100 px-1.5 py-0.5 dark:bg-ink-800" x-data @click="navigator.clipboard?.writeText('@{{ {{ $ph }} }}')" title="{{ __('journeys_admin.copy') }}">@{{ {{ $ph }} }}</code>@endforeach</div>
+                    @foreach (['name', 'items', 'first_item', 'coupon', 'expires', 'app_link'] as $ph)@php $token = '{'.'{ '.$ph.' }'.'}'; @endphp<button type="button" class="rounded bg-sand-100 px-1.5 py-1 font-mono dark:bg-ink-800" dir="ltr" x-data @click="navigator.clipboard?.writeText(@js($token))" title="{{ __('journeys_admin.copy') }}">{{ $token }}</button>@endforeach</div>
                 <div class="grid gap-4 sm:grid-cols-2 [&>*]:min-w-0">
                     <x-admin.field :label="__('marketing_admin.title_en')" for="tpl.title_en" required><input id="tpl.title_en" wire:model.live.debounce.300ms="tpl.title_en" class="input" dir="ltr" maxlength="120"></x-admin.field>
                     <x-admin.field :label="__('marketing_admin.title_ar')" for="tpl.title_ar" required><input id="tpl.title_ar" wire:model.live.debounce.300ms="tpl.title_ar" class="input" dir="rtl" maxlength="120"></x-admin.field>
@@ -311,7 +311,7 @@
             </aside>
 
             <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end lg:col-span-2 dark:border-ink-800">
-                <button type="button" class="btn-secondary" @click="open = false">{{ __('admin.cancel') }}</button>
+                <button type="button" class="btn-secondary" @click="requestClose()">{{ __('admin.cancel') }}</button>
                 <button class="btn-primary" wire:loading.attr="disabled" wire:target="saveTemplate"><x-icon name="check" class="size-4" />{{ __('admin.save') }}</button>
             </div>
         </form>

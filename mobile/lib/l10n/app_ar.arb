@@ -829,5 +829,6 @@
   "quickViewOf": "نظرة سريعة: {name}",
   "viewFullDetails": "عرض التفاصيل الكاملة",
   "openFullPage": "فتح الصفحة كاملة",
-  "showResultsCount": "{count, plural, =1{عرض نتيجة واحدة} =2{عرض نتيجتين} few{عرض {count} نتائج} many{عرض {count} نتيجة} other{عرض {count} نتيجة}}"
+  "showResultsCount": "{count, plural, =1{عرض نتيجة واحدة} =2{عرض نتيجتين} few{عرض {count} نتائج} many{عرض {count} نتيجة} other{عرض {count} نتيجة}}",
+  "savedToast": "تم الحفظ"
 }

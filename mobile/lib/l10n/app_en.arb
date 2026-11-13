@@ -2079,5 +2079,7 @@
   "showResultsCount": "{count, plural, =1{Show 1 result} other{Show {count} results}}",
   "@showResultsCount": {
     "placeholders": {"count": {"type": "int"}}
-  }
+  },
+  "savedToast": "Saved",
+  "@savedToast": {}
 }

@@ -188,7 +188,8 @@
         </aside>
     </div>
 
-    <x-admin.dialog wire:model="showDialog" :title="match ($dialog) { 'open' => __('auction_admin.open_lot'), 'pause' => __('auction_admin.pause'), 'extend' => __('auction_admin.extend'), 'cancel' => __('auction_admin.cancel_lot'), 'retract' => __('auction_admin.retract_bid'), 'block' => __('auction_admin.block_bidder'), default => '' }"
+    {{-- Every console step is a decision about a live lot: a centred modal, never closed by the scrim. --}}
+    <x-admin.dialog variant="modal" wire:model="showDialog" max-width="max-w-lg" :title="match ($dialog) { 'open' => __('auction_admin.open_lot'), 'pause' => __('auction_admin.pause'), 'extend' => __('auction_admin.extend'), 'cancel' => __('auction_admin.cancel_lot'), 'retract' => __('auction_admin.retract_bid'), 'block' => __('auction_admin.block_bidder'), default => '' }"
                     :description="match ($dialog) { 'open' => __('auction_admin.open_hint'), 'extend' => __('auction_admin.extend_hint'), 'retract' => __('auction_admin.retract_hint'), 'block' => __('auction_admin.block_hint'), default => null }">
         <form wire:submit="confirmDialog" class="space-y-5">
             @if ($dialog === 'open')
@@ -201,11 +202,11 @@
                         <select id="duration" wire:model="duration" class="input">@foreach ([60 => '1', 120 => '2', 300 => '5', 600 => '10', 900 => '15', 1800 => '30'] as $sec => $min)<option value="{{ $sec }}">{{ trans_choice('auction_admin.n_minutes', (int) $min, ['count' => $min]) }}</option>@endforeach</select>
                     </x-admin.field>
                 @endif
-                <x-admin.field :label="__('admin.reason')" for="reason" required><textarea id="reason" wire:model="reason" rows="3" class="input"></textarea></x-admin.field>
+                <x-admin.field :label="__('admin.reason')" for="reason" required><textarea id="reason" wire:model="reason" rows="3" class="input" autofocus></textarea></x-admin.field>
             @endif
             <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">
-                <button type="button" class="btn-secondary" @click="open = false">{{ __('admin.back') }}</button>
-                <button class="{{ $dialog === 'open' ? 'btn-brass' : (in_array($dialog, ['cancel', 'block', 'retract'], true) ? 'btn-danger' : 'btn-primary') }}" wire:loading.attr="disabled" wire:target="confirmDialog">{{ __('admin.confirm') }}</button>
+                <button type="button" class="btn-secondary min-h-11" @click="open = false">{{ __('admin.back') }}</button>
+                <button class="{{ $dialog === 'open' ? 'btn-brass' : (in_array($dialog, ['cancel', 'block', 'retract'], true) ? 'btn-danger' : 'btn-primary') }} min-h-11" wire:loading.attr="disabled" wire:target="confirmDialog">{{ match ($dialog) { 'open' => __('auction_admin.open_lot'), 'pause' => __('auction_admin.pause'), 'extend' => __('auction_admin.extend'), 'cancel' => __('auction_admin.cancel_lot'), 'retract' => __('auction_admin.retract_bid'), 'block' => __('auction_admin.block_bidder'), default => __('admin.confirm') } }}</button>
             </div>
         </form>
     </x-admin.dialog>

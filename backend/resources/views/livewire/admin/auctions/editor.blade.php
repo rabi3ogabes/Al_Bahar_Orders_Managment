@@ -167,30 +167,31 @@
                 <x-admin.field :label="__('auction_admin.title_en')" for="lot.title_en" required><input id="lot.title_en" wire:model="lot.title_en" class="input" dir="ltr"></x-admin.field>
                 <x-admin.field :label="__('auction_admin.title_ar')" for="lot.title_ar" required><input id="lot.title_ar" wire:model="lot.title_ar" class="input" dir="rtl"></x-admin.field>
             </div>
-            <div class="grid grid-cols-2 gap-4 sm:grid-cols-4 [&>*]:min-w-0">
+            {{-- A side window is narrow: two columns at most, so prices and dates never squeeze or overflow. --}}
+            <div class="grid grid-cols-2 gap-4 [&>*]:min-w-0">
                 <x-admin.field :label="__('auction_admin.starting_price')" for="lot.starting_price" required><input id="lot.starting_price" @disabled(! $lotFull) type="number" step="0.01" min="0" wire:model="lot.starting_price" class="input tabular-nums" dir="ltr"></x-admin.field>
                 <x-admin.field :label="__('auction_admin.increment')" for="lot.min_increment" required><input id="lot.min_increment" @disabled(! $lotFull) type="number" step="0.01" min="1" wire:model="lot.min_increment" class="input tabular-nums" dir="ltr"></x-admin.field>
                 <x-admin.field :label="__('auction_admin.reserve')" for="lot.reserve_price" :hint="__('auction_admin.reserve_hint')"><input id="lot.reserve_price" @disabled(! $reserveFree) type="number" step="0.01" min="0" wire:model="lot.reserve_price" class="input tabular-nums" dir="ltr"></x-admin.field>
                 <x-admin.field :label="__('auction_admin.buy_now')" for="lot.buy_now_price"><input id="lot.buy_now_price" @disabled(! $lotFull) type="number" step="0.01" min="0" wire:model="lot.buy_now_price" class="input tabular-nums" dir="ltr"></x-admin.field>
-            </div>
-            <div class="grid gap-4 sm:grid-cols-3 [&>*]:min-w-0">
                 <x-admin.field :label="__('admin.quantity')" for="lot.quantity" required><input id="lot.quantity" @disabled(! $lotFull) type="number" min="1" wire:model="lot.quantity" class="input tabular-nums"></x-admin.field>
+            </div>
+            <div class="grid gap-4 sm:grid-cols-2 [&>*]:min-w-0">
                 <x-admin.field :label="__('auction_admin.starts_at')" for="lot.starts_at" :required="($form['type'] ?? '') === 'scheduled'"><input id="lot.starts_at" @disabled(! $lotFull) type="datetime-local" wire:model="lot.starts_at" class="input"></x-admin.field>
                 <x-admin.field :label="__('auction_admin.ends_at')" for="lot.ends_at" :required="($form['type'] ?? '') === 'scheduled'"><input id="lot.ends_at" @disabled(! $lotFull) type="datetime-local" wire:model="lot.ends_at" class="input"></x-admin.field>
             </div>
             <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">
-                <button type="button" class="btn-secondary" @click="open = false">{{ __('admin.cancel') }}</button>
-                <button class="btn-primary" wire:loading.attr="disabled" wire:target="saveLot"><x-icon name="{{ $editingLot ? 'check' : 'plus' }}" class="size-4" />{{ $editingLot ? __('auction_admin.save_lot') : __('auction_admin.add_lot') }}</button>
+                <button type="button" class="btn-secondary min-h-11" @click="open = false">{{ __('admin.cancel') }}</button>
+                <button class="btn-primary min-h-11" wire:loading.attr="disabled" wire:target="saveLot"><x-icon name="{{ $editingLot ? 'check' : 'plus' }}" class="size-4" />{{ $editingLot ? __('auction_admin.save_lot') : __('auction_admin.add_lot') }}</button>
             </div>
         </form>
     </x-admin.dialog>
 
     <x-admin.dialog variant="modal" wire:model="showCancel" :title="__('auction_admin.cancel_auction')" :description="__('auction_admin.cancel_hint')">
         <form wire:submit="cancelAuction" class="space-y-5">
-            <x-admin.field :label="__('admin.reason')" for="cancelReason" required><textarea id="cancelReason" wire:model="cancelReason" rows="3" class="input"></textarea></x-admin.field>
+            <x-admin.field :label="__('admin.reason')" for="cancelReason" required><textarea id="cancelReason" wire:model="cancelReason" rows="3" class="input" autofocus></textarea></x-admin.field>
             <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">
-                <button type="button" class="btn-secondary" @click="open = false">{{ __('admin.back') }}</button>
-                <button class="btn-danger">{{ __('auction_admin.cancel_auction') }}</button>
+                <button type="button" class="btn-secondary min-h-11" @click="open = false">{{ __('admin.back') }}</button>
+                <button class="btn-danger min-h-11">{{ __('auction_admin.cancel_auction') }}</button>
             </div>
         </form>
     </x-admin.dialog>

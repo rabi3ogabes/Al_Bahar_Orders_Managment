@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:albahar_customer/core/l10n/l10n.dart';
+import 'package:albahar_customer/core/router/panel_links.dart';
 import 'package:albahar_customer/core/theme/brand_theme.dart';
 import 'package:albahar_customer/core/theme/design_tokens.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
@@ -19,6 +20,7 @@ import 'package:albahar_customer/features/home/data/home_repository.dart';
 import 'package:albahar_customer/features/home/domain/home_models.dart';
 import 'package:albahar_customer/features/home/presentation/buy_again_section.dart';
 import 'package:albahar_customer/features/home/presentation/season_banner.dart';
+import 'package:albahar_customer/features/notifications/presentation/notifications_screen.dart';
 import 'package:albahar_customer/features/notifications/presentation/state/notifications_controller.dart';
 import 'package:albahar_customer/features/orders/presentation/state/order_providers.dart';
 import 'package:albahar_customer/features/orders/presentation/widgets/active_order_card.dart';
@@ -136,7 +138,7 @@ class _HomeHeader extends ConsumerWidget {
             decoration: BoxDecoration(color: context.colors.surface, shape: BoxShape.circle, boxShadow: kSoftShadow),
             child: IconButton(
               tooltip: l10n.notificationsTitle,
-              onPressed: () => context.push('/notifications'),
+              onPressed: () => unawaited(showNotificationsPanel(context)),
               icon: Badge.count(
                 count: unread,
                 isLabelVisible: unread > 0,
@@ -183,7 +185,7 @@ class _FreshHomeHeader extends ConsumerWidget {
                 icon: const Icon(Icons.notifications_none_rounded),
                 tooltip: l10n.notificationsTitle,
                 badge: unread,
-                onPressed: () => context.push('/notifications'),
+                onPressed: () => unawaited(showNotificationsPanel(context)),
               ),
           ],
         ),
@@ -404,7 +406,7 @@ Future<void> openHomeLink(BuildContext context, HomeLink? link) async {
     return;
   }
   final location = link.location;
-  if (location != null && context.mounted) await context.push(location);
+  if (location != null && context.mounted) await openLocation(context, location);
 }
 
 class BannerCarousel extends StatefulWidget {

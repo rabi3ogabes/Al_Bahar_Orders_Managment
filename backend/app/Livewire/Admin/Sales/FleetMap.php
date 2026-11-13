@@ -5,6 +5,7 @@ namespace App\Livewire\Admin\Sales;
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Fulfillment\Services\DispatchService;
 use App\Livewire\Admin\Concerns\WithAdminTable;
+use App\Livewire\Admin\Sales\Concerns\PeeksAtOrder;
 use App\Support\MapConfig;
 use Illuminate\Support\Collection;
 use Livewire\Component;
@@ -13,10 +14,11 @@ use Livewire\Component;
  * Live fleet: every driver on duty on a map with their current job. Moves arrive over Reverb; the page refreshes this
  * component every 30 s while the socket is up and every 15 s while it is not (the map script drives that, see
  * resources/js/maps/fleet.js). Each render hands the map its rows, branch pins and channels through "fleet-updated".
+ * A driver's "open order" link opens the order in a side window over the map (the link keeps the order page's URL for middle-click).
  */
 class FleetMap extends Component
 {
-    use WithAdminTable;
+    use PeeksAtOrder, WithAdminTable;
 
     public function render(DispatchService $dispatch)
     {

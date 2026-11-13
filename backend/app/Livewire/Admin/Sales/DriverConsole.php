@@ -29,6 +29,9 @@ class DriverConsole extends Component
     /** deliver | fail */
     public ?string $sheet = null;
 
+    /** The step sheet is the shared side window (a bottom sheet on a phone); Back, Esc and a tap outside close it. */
+    public bool $showSheet = false;
+
     public string $recipient = '';
 
     public $proof = null;
@@ -72,6 +75,7 @@ class DriverConsole extends Component
         $this->failReason = 'customer_unreachable';
         $this->activeId = $d->id;
         $this->sheet = $sheet;
+        $this->showSheet = true;
         $o = $d->fulfillment->order;
         $this->recipient = $o->customer_name;
         $this->cod = ['tender' => 'cash', 'amount' => Money::of($o->grand_total)->minus(Money::of($o->paid_total))->toDecimal(), 'receipt_reference' => ''];
@@ -79,7 +83,7 @@ class DriverConsole extends Component
 
     public function closeSheet(): void
     {
-        $this->reset('activeId', 'sheet', 'proof');
+        $this->reset('activeId', 'sheet', 'proof', 'showSheet');
     }
 
     public function deliver(DeliveryService $svc): void

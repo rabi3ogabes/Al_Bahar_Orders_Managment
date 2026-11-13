@@ -34,6 +34,7 @@ FakeHandler _api({
   List<String> permissions = const ['orders.view'],
   bool driver = false,
   Duration? loginDelay,
+  List<Map<String, dynamic>> jobs = const [],
 }) => (r) async {
   switch ('${r.method} ${r.path}') {
     case 'POST /admin/auth/login':
@@ -50,7 +51,7 @@ FakeHandler _api({
           ? ok({'id': 'u1', 'name': 'Omar', 'on_duty': false, 'open_jobs': 0, 'branches': []})
           : error(403, 'driver_not_eligible', message: 'not a driver');
     case 'GET /admin/dispatch/driver/jobs':
-      return ok([]);
+      return ok(jobs);
     case 'GET /admin/dispatch/overview':
       return ok({
         'branch': {'id': 'b1', 'name': 'Main', 'dispatch_mode': 'manual'},
@@ -292,6 +293,38 @@ void main() {
       expect(find.text('Your session ended. Please sign in again.'), findsOneWidget);
     });
 
+    testWidgets('the server ending the session also closes an open delivery window, even one with typed input', (
+      tester,
+    ) async {
+      final job = {
+        'id': 'd1',
+        'status': 'out_for_delivery',
+        'order_number': 'AB100008',
+        'customer_name': 'Noura',
+        'address': {'zone_number': '24'},
+        'payment_method': 'card',
+        'cod_amount': '0',
+        'requires_proof': false,
+        'branch': {'id': 'b1', 'name': 'Al Markhiya'},
+      };
+      final h = await _harness(tester, OpsRole.driver, _api(driver: true, jobs: [job]), signedIn: signedIn);
+      expect(find.byType(DriverHome), findsOneWidget);
+      await tester.tap(find.text('#AB100008'));
+      await settle(tester);
+      expect(find.text('Delivery #AB100008'), findsOneWidget);
+      await tester.tap(find.text('Mark delivered').last);
+      await settle(tester);
+      await tester.enterText(find.widgetWithText(TextField, 'Received by'), 'Noura');
+      expect(find.text('Proof of delivery'), findsOneWidget);
+
+      h.read(sessionExpirySignalProvider).fire();
+      await settle(tester);
+      expect(find.text('Proof of delivery'), findsNothing);
+      expect(find.text('Delivery #AB100008'), findsNothing);
+      expect(find.byType(OpsLoginScreen), findsOneWidget);
+      expect(find.text('Your session ended. Please sign in again.'), findsOneWidget);
+    });
+
     testWidgets('sign out (staff): confirms, revokes the token on the server, clears the device', (tester) async {
       final h = await _harness(tester, OpsRole.staff, _api(), signedIn: signedIn);
       await tester.tap(find.byTooltip('Menu'));
@@ -299,7 +332,7 @@ void main() {
       await tester.tap(find.text('Sign out'));
       await settle(tester);
       expect(find.text('Sign out?'), findsOneWidget);
-      await tester.tap(find.widgetWithText(TextButton, 'Sign out'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Sign out'));
       await settle(tester);
       expect(h.adapter.where('POST', '/auth/logout'), hasLength(1));
       expect(h.tokenStore.cached, isNull);
@@ -316,7 +349,7 @@ void main() {
       await tester.tap(find.text('Sign out'));
       await settle(tester);
       expect(find.text('Sign out and go off duty?'), findsOneWidget);
-      await tester.tap(find.widgetWithText(TextButton, 'Sign out'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Sign out'));
       await settle(tester);
       final order = h.adapter.requests.map((r) => '${r.method} ${r.path}').toList();
       expect(order, containsAllInOrder(['PUT /admin/dispatch/driver/duty', 'POST /auth/logout']));

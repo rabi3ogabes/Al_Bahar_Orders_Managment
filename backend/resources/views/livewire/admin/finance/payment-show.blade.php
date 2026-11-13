@@ -140,10 +140,20 @@
             </x-admin.field>
             <x-admin.field :label="__('admin.notes')" for="refund.reason"><textarea id="refund.reason" wire:model="refund.reason" rows="2" class="input"></textarea></x-admin.field>
             <p class="rounded-xl bg-sky-soft/5 p-3 text-xs text-sky-soft dark:text-sky-300"><x-icon name="shield" class="me-1 inline size-3.5" />{{ __('finance_admin.dual_control_notice') }}</p>
-            <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">
-                <button type="button" class="btn-secondary min-h-11" @click="open = false">{{ __('admin.cancel') }}</button>
-                <button class="btn-primary min-h-11" wire:loading.attr="disabled" wire:target="requestRefund">{{ __('finance_admin.submit_request') }}</button>
-            </div>
+            @if ($drawer)
+                {{-- A modal inside the payment window's .drawer-body: wrapped once more so the window's pinned-row rule never matches it. --}}
+                <div class="border-t border-sand-100 pt-5 dark:border-ink-800">
+                    <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                        <button type="button" class="btn-secondary min-h-11" @click="open = false">{{ __('admin.cancel') }}</button>
+                        <button class="btn-primary min-h-11" wire:loading.attr="disabled" wire:target="requestRefund">{{ __('finance_admin.submit_request') }}</button>
+                    </div>
+                </div>
+            @else
+                <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <button type="button" class="btn-secondary min-h-11" @click="open = false">{{ __('admin.cancel') }}</button>
+                    <button class="btn-primary min-h-11" wire:loading.attr="disabled" wire:target="requestRefund">{{ __('finance_admin.submit_request') }}</button>
+                </div>
+            @endif
         </form>
     </x-admin.dialog>
 </div>

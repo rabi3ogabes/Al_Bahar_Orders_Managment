@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/theme/design_tokens.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
@@ -7,10 +9,15 @@ import 'package:albahar_customer/core/widgets/app_button.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/fresh.dart';
 import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
+import 'package:albahar_customer/features/branches/presentation/branches_screen.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
+import 'package:albahar_customer/features/notifications/presentation/notifications_screen.dart';
 import 'package:albahar_customer/features/notifications/presentation/state/notifications_controller.dart';
+import 'package:albahar_customer/features/profile/presentation/edit_profile_screen.dart';
+import 'package:albahar_customer/features/profile/presentation/loyalty_screen.dart';
 import 'package:albahar_customer/features/profile/presentation/state/profile_providers.dart';
 import 'package:albahar_customer/features/wishlist/presentation/state/wishlist_controller.dart';
+import 'package:albahar_customer/features/wishlist/presentation/wishlist_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -29,27 +36,46 @@ class AccountScreen extends ConsumerWidget {
     final branch = ref.watch(preferredBranchProvider);
     final signedIn = session.isAuthenticated;
 
-    Widget row(IconData icon, String title, String location, {String? subtitle, Widget? trailing}) => _SettingsRow(
+    // A row opens a page (a destination: orders, addresses, support) or, with [open], a window beside this page.
+    Widget row(
+      IconData icon,
+      String title,
+      String location, {
+      String? subtitle,
+      Widget? trailing,
+      VoidCallback? open,
+    }) => _SettingsRow(
       icon: icon,
       title: title,
       subtitle: subtitle,
       trailing: trailing,
-      onTap: () => context.push(location),
+      onTap: open ?? () => unawaited(context.push(location)),
     );
 
     final rows = <Widget>[
       if (signedIn) ...[
         row(Icons.receipt_long_outlined, l10n.myOrders, '/orders'),
-        row(Icons.favorite_border_rounded, l10n.myWishlist, '/wishlist'),
+        row(
+          Icons.favorite_border_rounded,
+          l10n.myWishlist,
+          '/wishlist',
+          open: () => unawaited(showWishlistPanel(context)),
+        ),
         row(Icons.gavel_rounded, l10n.myAuctions, '/my-auctions'),
         row(
           Icons.notifications_none_rounded,
           l10n.notificationsTitle,
           '/notifications',
           trailing: unread > 0 ? Badge.count(count: unread, backgroundColor: context.palette.brass) : null,
+          open: () => unawaited(showNotificationsPanel(context)),
         ),
         row(Icons.location_on_outlined, l10n.myAddresses, '/addresses'),
-        row(Icons.workspace_premium_outlined, l10n.loyaltyAndReferral, '/loyalty'),
+        row(
+          Icons.workspace_premium_outlined,
+          l10n.loyaltyAndReferral,
+          '/loyalty',
+          open: () => unawaited(showLoyaltyPanel(context)),
+        ),
         if (ref.watch(referralEnabledProvider).value ?? false)
           row(Icons.card_giftcard_rounded, l10n.inviteOpen, '/invite'),
         row(Icons.support_agent_outlined, l10n.support, '/support'),
@@ -59,6 +85,7 @@ class AccountScreen extends ConsumerWidget {
         l10n.preferredBranch,
         '/branches?pick=1',
         subtitle: branch?.name ?? l10n.chooseBranch,
+        open: () => unawaited(showBranchPicker(context)),
       ),
       row(Icons.settings_outlined, l10n.settings, '/settings'),
     ];
@@ -192,20 +219,30 @@ class _Header extends StatelessWidget {
                             style: context.text.displaySmall?.copyWith(color: context.colors.primary),
                           ),
                         ),
+                        // A 48 dp target around the 30 dp pencil, named for screen readers.
                         PositionedDirectional(
-                          end: -2,
-                          bottom: -2,
-                          child: Material(
-                            color: Colors.white,
-                            shape: const CircleBorder(),
-                            elevation: 2,
-                            child: InkWell(
-                              customBorder: const CircleBorder(),
-                              onTap: () => context.push('/profile/edit'),
+                          end: -11,
+                          bottom: -11,
+                          child: Tooltip(
+                            message: context.l10n.editProfile,
+                            child: InkResponse(
+                              onTap: () => unawaited(showProfilePanel(context)),
+                              radius: 24,
                               child: SizedBox(
-                                width: 30,
-                                height: 30,
-                                child: Icon(Icons.edit_outlined, size: 15, color: context.colors.primary),
+                                width: kMinTouchTarget,
+                                height: kMinTouchTarget,
+                                child: Center(
+                                  child: Material(
+                                    color: Colors.white,
+                                    shape: const CircleBorder(),
+                                    elevation: 2,
+                                    child: SizedBox(
+                                      width: 30,
+                                      height: 30,
+                                      child: Icon(Icons.edit_outlined, size: 15, color: context.colors.primary),
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -254,7 +291,7 @@ class _ProfileCard extends StatelessWidget {
       padding: EdgeInsetsDirectional.fromSTEB(design.gutter, AppSpace.xs, design.gutter, AppSpace.md),
       child: ContentWidth(
         child: SurfaceCard(
-          onTap: () => context.push('/profile/edit'),
+          onTap: () => unawaited(showProfilePanel(context)),
           child: Row(
             children: [
               Container(

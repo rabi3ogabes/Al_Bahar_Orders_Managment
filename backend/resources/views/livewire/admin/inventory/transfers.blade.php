@@ -82,7 +82,7 @@
             <x-admin.field :label="__('admin.notes')" for="form.notes"><textarea id="form.notes" wire:model="form.notes" rows="2" class="input"></textarea></x-admin.field>
             <label class="flex items-center gap-2 text-sm"><input type="checkbox" wire:model="form.submit" class="checkbox">{{ __('inventory_admin.submit_for_approval_now') }}</label>
             <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">
-                <button type="button" class="btn-secondary" @click="open = false">{{ __('admin.cancel') }}</button>
+                <button type="button" class="btn-secondary" @click="requestClose()">{{ __('admin.cancel') }}</button>
                 <button class="btn-primary" wire:loading.attr="disabled" wire:target="save"><x-icon name="check" class="size-4" />{{ __('inventory_admin.create_transfer') }}</button>
             </div>
         </form>

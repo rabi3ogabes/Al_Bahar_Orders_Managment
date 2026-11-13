@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/network/interceptors.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
@@ -8,13 +10,14 @@ import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/auctions/data/auction_repository.dart';
 import 'package:albahar_customer/features/auctions/domain/auction_models.dart';
 import 'package:albahar_customer/features/auctions/presentation/lot_widgets.dart';
+import 'package:albahar_customer/features/branches/presentation/branches_screen.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
 import 'package:albahar_customer/features/checkout/domain/checkout_models.dart';
 import 'package:albahar_customer/features/checkout/presentation/payment_flow.dart';
+import 'package:albahar_customer/features/profile/presentation/addresses_screen.dart';
 import 'package:albahar_customer/features/profile/presentation/state/profile_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 /// Checkout for a won lot: fulfilment + payment. Totals are computed by the
 /// server and shown on the resulting order.
@@ -107,7 +110,7 @@ class _WinCheckoutScreenState extends ConsumerState<WinCheckoutScreen> {
                 if (_type == FulfillmentType.delivery)
                   SurfaceCard(
                     onTap: () async {
-                      final id = await context.push<String>('/addresses?pick=1');
+                      final id = await showAddressPicker(context);
                       if (id != null && mounted) setState(() => _addressId = id);
                     },
                     child: Row(
@@ -127,7 +130,7 @@ class _WinCheckoutScreenState extends ConsumerState<WinCheckoutScreen> {
                   )
                 else
                   SurfaceCard(
-                    onTap: () => context.push('/branches?pick=1'),
+                    onTap: () => unawaited(showBranchPicker(context)),
                     child: Row(
                       children: [
                         const Icon(Icons.storefront_outlined),

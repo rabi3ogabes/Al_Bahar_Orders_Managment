@@ -85,13 +85,6 @@
 @layer components {
     .card { @apply rounded-[var(--radius-card)] border border-sand-200/70 bg-white shadow-[var(--shadow-card)] dark:border-ink-700 dark:bg-ink-900; }
     .card-pad { @apply p-5 sm:p-6; }
-    /* Side drawer (x-admin.dialog): the form's last action row stays pinned to the bottom edge while the fields scroll. */
-    .drawer-body { padding-block-end: 0; }
-    .drawer-body form > div:last-child:has(> .btn-primary, > .btn-danger, > .btn-brass) {
-        @apply sticky bottom-0 z-10 -mx-5 mt-6 border-t border-sand-200/70 bg-ivory/95 px-5 py-4 backdrop-blur sm:-mx-6 sm:px-6 dark:border-ink-800 dark:bg-ink-900/95;
-        padding-block-end: max(1rem, env(safe-area-inset-bottom));
-    }
-    .drawer-body > :last-child:not(form) { padding-block-end: 1.25rem; }
     .eyebrow { @apply text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-brass-600 dark:text-brass-300; }
     html[lang="ar"] .eyebrow { @apply tracking-normal text-xs; }
 
@@ -119,6 +112,27 @@
     html[dir="rtl"] .nav-link-active { @apply shadow-[inset_-2px_0_0_var(--color-brass-400)]; }
 
     .skeleton { @apply animate-pulse rounded-lg bg-sand-100 dark:bg-ink-800; }
+}
+
+/* Side drawer (x-admin.dialog): the form's last action row stays pinned to the bottom edge while the fields scroll.
+   Unlayered on purpose: it must beat the utility classes the forms put on that row (flex-col-reverse, justify-between, …). */
+.drawer-body { padding-block-end: 0; }
+.drawer-body > :last-child:not(form) { padding-block-end: 1.25rem; }
+/* A form whose last row holds the primary action fills the drawer, so that row sits on the bottom edge even when the form is short. */
+.drawer-body > form:has(> div:last-child > :is(.btn-primary, .btn-danger, .btn-brass)) { display: flex; min-height: 100%; flex-direction: column; }
+.drawer-body form > div:last-child:has(> :is(.btn-primary, .btn-danger, .btn-brass)) {
+    @apply sticky bottom-0 z-10 -mx-5 flex flex-row flex-wrap items-center justify-end gap-2 border-t border-sand-200/70 bg-ivory px-5 py-4 sm:-mx-6 sm:px-6 dark:border-ink-800 dark:bg-ink-900;
+    margin-block: auto 0;
+    padding-block-end: max(1rem, env(safe-area-inset-bottom));
+}
+.drawer-body form > div:last-child:has(> :is(.btn-primary, .btn-danger, .btn-brass)) > :is(.btn-primary, .btn-secondary, .btn-danger, .btn-brass, .btn-ghost) { min-height: 2.75rem; }
+/* Phones: Cancel and the action share one row instead of stacking two tall buttons. */
+@media (max-width: 639px) {
+    .drawer-body form > div:last-child:has(> :is(.btn-primary, .btn-danger, .btn-brass)) { flex-wrap: nowrap; }
+    .drawer-body form > div:last-child:has(> :is(.btn-primary, .btn-danger, .btn-brass)) > :is(.btn-primary, .btn-secondary, .btn-danger, .btn-brass, .btn-ghost) { flex: 1 1 0; justify-content: center; min-width: 0; white-space: nowrap; }
+    /* Three or more buttons (e.g. Cancel · Save draft · Publish): the main action takes a full row on top. */
+    .drawer-body form > div:last-child:has(> :is(.btn-primary, .btn-danger, .btn-brass)):has(> :nth-child(3)) { flex-wrap: wrap; }
+    .drawer-body form > div:last-child:has(> :is(.btn-primary, .btn-danger, .btn-brass)):has(> :nth-child(3)) > :is(.btn-primary, .btn-danger, .btn-brass) { flex-basis: 100%; order: -1; }
 }
 
 /* Mirror directional icons in RTL */

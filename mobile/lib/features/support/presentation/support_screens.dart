@@ -18,6 +18,7 @@ import 'package:albahar_customer/features/orders/presentation/order_detail_scree
 import 'package:albahar_customer/features/orders/presentation/state/order_providers.dart';
 import 'package:albahar_customer/features/support/data/support_repository.dart';
 import 'package:albahar_customer/features/support/domain/support_models.dart';
+import 'package:albahar_customer/features/support/presentation/cms_page_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -101,17 +102,17 @@ class SupportScreen extends ConsumerWidget {
                         ActionChip(
                           avatar: const Icon(Icons.quiz_outlined, size: 18),
                           label: Text(l10n.faq),
-                          onPressed: () => context.push('/pages/faq'),
+                          onPressed: () => unawaited(showCmsPage(context, 'faq', title: l10n.faq)),
                         ),
                         ActionChip(
                           avatar: const Icon(Icons.assignment_return_outlined, size: 18),
                           label: Text(l10n.returnsPolicy),
-                          onPressed: () => context.push('/pages/returns'),
+                          onPressed: () => unawaited(showCmsPage(context, 'returns', title: l10n.returnsPolicy)),
                         ),
                         ActionChip(
                           avatar: const Icon(Icons.call_outlined, size: 18),
                           label: Text(l10n.contactUs),
-                          onPressed: () => context.push('/pages/contact'),
+                          onPressed: () => unawaited(showCmsPage(context, 'contact', title: l10n.contactUs)),
                         ),
                       ],
                     ),

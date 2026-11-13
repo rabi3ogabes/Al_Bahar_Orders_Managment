@@ -210,7 +210,7 @@
                                 </div>
                                 <div class="flex items-center gap-3">
                                     <x-admin.money :value="$p->amount" class="font-semibold" />
-                                    @if ($canPayments)<a href="{{ route('admin.payments.show', $p) }}" wire:navigate class="btn-ghost btn-sm" aria-label="{{ __('admin.details') }}"><x-icon name="chevron-right" class="size-4 rtl-flip" /></a>@endif
+                                    @if ($canPayments)<a href="{{ $drawer ? route('admin.payments.index', ['view' => $p->id]) : route('admin.payments.show', $p) }}" wire:navigate class="btn-ghost btn-sm max-md:min-h-11" aria-label="{{ __('admin.details') }}"><x-icon name="chevron-right" class="size-4 rtl-flip" /></a>@endif
                                 </div>
                             </li>
                         @endforeach
@@ -228,7 +228,7 @@
                                 <span class="font-mono text-sm" dir="ltr">{{ $rr->number }}</span>
                                 <x-admin.status :value="$rr->status" />
                                 <span class="truncate text-sm text-ink-500">{{ __('sales_admin.reason_'.$rr->reason_code) }}</span>
-                                <a href="{{ route('admin.returns.index', ['search' => $rr->number]) }}" wire:navigate class="ms-auto text-xs font-medium text-brass-600 hover:underline">{{ __('sales_admin.review_return') }}</a>
+                                <a href="{{ $drawer ? route('admin.returns.index', ['view' => $rr->id]) : route('admin.returns.index', ['search' => $rr->number]) }}" wire:navigate class="ms-auto text-xs font-medium text-brass-600 hover:underline">{{ __('sales_admin.review_return') }}</a>
                             </li>
                         @endforeach
                     </ul>
@@ -264,7 +264,7 @@
             <section class="card card-pad {{ $drawer ? 'order-2' : '' }}">
                 <div class="mb-4 flex items-center justify-between gap-2">
                     <h2 class="font-display text-xl font-semibold">{{ __('admin.customer') }}</h2>
-                    @if ($canCustomer)<a href="{{ route('admin.customers.show', $o->user_id) }}" wire:navigate class="text-xs font-medium text-brass-600 hover:underline">{{ __('sales_admin.view_profile') }}</a>@endif
+                    @if ($canCustomer)<a href="{{ $drawer ? route('admin.customers.index', ['view' => $o->user_id]) : route('admin.customers.show', $o->user_id) }}" wire:navigate class="text-xs font-medium text-brass-600 hover:underline">{{ __('sales_admin.view_profile') }}</a>@endif
                 </div>
                 <p class="font-medium text-ink-900 dark:text-ivory">{{ $o->customer_name }}</p>
                 <div class="mt-2 space-y-1.5 text-sm text-ink-600 dark:text-sand-200">
@@ -348,10 +348,25 @@
                 <x-admin.field :label="__('admin.reason')" for="form.reason" required><textarea id="form.reason" wire:model="form.reason" rows="3" class="input" placeholder="{{ __('sales_admin.reason_ph') }}" autofocus></textarea></x-admin.field>
                 @if ($dialog === 'cancel_order' && $o->payment_status->isSettled())<p class="rounded-xl bg-sky-soft/5 p-3 text-xs text-sky-soft dark:text-sky-300"><x-icon name="info" class="me-1 inline size-3.5" />{{ __('sales_admin.cancel_refund_notice') }}</p>@endif
             @endif
-            <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">
-                <button type="button" class="btn-secondary min-h-11" @click="open = false">{{ __('admin.back') }}</button>
-                <button class="{{ in_array($dialog, ['cancel_order', 'cancel_fulfillment'], true) ? 'btn-danger' : 'btn-primary' }} min-h-11" wire:loading.attr="disabled" wire:target="confirmDialog">{{ match ($dialog) { 'cancel_order' => __('sales_admin.cancel_order'), 'cancel_fulfillment' => __('sales_admin.cancel_branch_part'), 'return_fulfillment' => __('sales_admin.mark_returned'), 'delivery' => __('sales_admin.act_arrange_delivery'), default => __('admin.confirm') } }}</button>
-            </div>
+            @php
+                $verb = match ($dialog) { 'cancel_order' => __('sales_admin.cancel_order'), 'cancel_fulfillment' => __('sales_admin.cancel_branch_part'), 'return_fulfillment' => __('sales_admin.mark_returned'), 'delivery' => __('sales_admin.act_arrange_delivery'), default => __('admin.confirm') };
+                $verbClass = in_array($dialog, ['cancel_order', 'cancel_fulfillment'], true) ? 'btn-danger' : 'btn-primary';
+            @endphp
+            @if ($drawer || $dialog !== 'delivery')
+                {{-- A decision sits in a centred modal, possibly inside a side window's .drawer-body: the buttons are wrapped once more so the window's pinned-row rule never matches them. --}}
+                <div class="border-t border-sand-100 pt-5 dark:border-ink-800">
+                    <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                        <button type="button" class="btn-secondary min-h-11" @click="open = false">{{ __('admin.back') }}</button>
+                        <button class="{{ $verbClass }} min-h-11" wire:loading.attr="disabled" wire:target="confirmDialog">{{ $verb }}</button>
+                    </div>
+                </div>
+            @else
+                {{-- The arrange-delivery form is a side window: its last row is pinned to the bottom. --}}
+                <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <button type="button" class="btn-secondary min-h-11" @click="open = false">{{ __('admin.back') }}</button>
+                    <button class="{{ $verbClass }} min-h-11" wire:loading.attr="disabled" wire:target="confirmDialog">{{ $verb }}</button>
+                </div>
+            @endif
         </form>
     </x-admin.dialog>
 </div>

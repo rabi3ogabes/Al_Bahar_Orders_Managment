@@ -39,12 +39,30 @@
         </div>
     @endif
 
-    <div @class(['mb-6 grid grid-cols-2 gap-4 [&>*]:min-w-0', 'lg:grid-cols-4' => ! $drawer, '!mb-5 !gap-3' => $drawer])>
+    @if ($drawer)
+        {{-- Compact tiles: the page's big figures would clip in a two-column window on a phone. --}}
+        <div class="mb-5 grid grid-cols-2 gap-3 [&>*]:min-w-0">
+            @foreach ([
+                [__('admin.orders'), number_format($stats->n), null],
+                [__('sales_admin.lifetime_spend'), \App\Support\Money::of($stats->spend)->format(), null],
+                [__('sales_admin.points_balance'), number_format($account->balance), __('sales_admin.worth', ['amount' => \App\Support\Money::ofMinor($account->balance * $pointValue->minor)->format()])],
+                [__('sales_admin.tier'), __('sales_admin.tier_'.$account->tier), $stats->last_at ? __('sales_admin.last_order', ['at' => \App\Support\BusinessTime::display($stats->last_at, 'd M Y')]) : null],
+            ] as [$label, $value, $hint])
+                <div class="card p-4">
+                    <p class="text-xs text-ink-500 dark:text-ink-400">{{ $label }}</p>
+                    <p class="mt-1 break-words font-display text-xl font-semibold tabular-nums text-ink-900 dark:text-ivory">{{ $value }}</p>
+                    @if ($hint)<p class="mt-1 text-[0.7rem] text-ink-500 dark:text-ink-400">{{ $hint }}</p>@endif
+                </div>
+            @endforeach
+        </div>
+    @else
+    <div class="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4 [&>*]:min-w-0">
         <x-admin.stat :label="__('admin.orders')" :value="number_format($stats->n)" icon="bag" />
         <x-admin.stat :label="__('sales_admin.lifetime_spend')" :value="\App\Support\Money::of($stats->spend)->format()" icon="wallet" />
         <x-admin.stat :label="__('sales_admin.points_balance')" :value="number_format($account->balance)" icon="gift" tone="brass" :hint="__('sales_admin.worth', ['amount' => \App\Support\Money::ofMinor($account->balance * $pointValue->minor)->format()])" />
         <x-admin.stat :label="__('sales_admin.tier')" :value="__('sales_admin.tier_'.$account->tier)" icon="crown" :hint="$stats->last_at ? __('sales_admin.last_order', ['at' => \App\Support\BusinessTime::display($stats->last_at, 'd M Y')]) : null" />
     </div>
+    @endif
 
     @if (! $drawer && \App\Domain\Marketing\Models\JourneyDelivery::where('user_id', $c->id)->exists())
         <x-admin.journey-touches :touches="app(\App\Domain\Marketing\Services\JourneyService::class)->touchesFor($c->id)" />
@@ -181,9 +199,12 @@
     <x-admin.dialog variant="modal" wire:model="showStatus" max-width="max-w-lg" :title="$newStatus === 'suspended' ? __('drawer_sales.q_suspend') : __('drawer_sales.q_reactivate')" :description="$newStatus === 'suspended' ? __('sales_admin.suspend_hint') : null">
         <form wire:submit="changeStatus" class="space-y-5">
             <x-admin.field :label="__('admin.reason')" for="statusReason" required><textarea id="statusReason" wire:model="statusReason" rows="3" class="input" autofocus></textarea></x-admin.field>
-            <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">
-                <button type="button" class="btn-secondary min-h-11" @click="open = false">{{ __('admin.back') }}</button>
-                <button class="{{ $newStatus === 'suspended' ? 'btn-danger' : 'btn-primary' }} min-h-11">{{ $newStatus === 'suspended' ? __('sales_admin.suspend') : __('sales_admin.reactivate') }}</button>
+            {{-- Wrapped once more: this modal can sit inside a side window's .drawer-body, whose pinned-row rule must not match it. --}}
+            <div class="border-t border-sand-100 pt-5 dark:border-ink-800">
+                <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <button type="button" class="btn-secondary min-h-11" @click="open = false">{{ __('admin.back') }}</button>
+                    <button class="{{ $newStatus === 'suspended' ? 'btn-danger' : 'btn-primary' }} min-h-11">{{ $newStatus === 'suspended' ? __('sales_admin.suspend') : __('sales_admin.reactivate') }}</button>
+                </div>
             </div>
         </form>
     </x-admin.dialog>

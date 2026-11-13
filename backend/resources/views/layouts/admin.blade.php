@@ -126,9 +126,12 @@
 @endif
 
 {{-- Toasts: $this->dispatch('toast', type: 'success', message: '...') — add undoLabel, undoEvent, undoParams for an Undo button --}}
-<div x-data="{ toasts: [] }"
+{{-- z-[80]: above side windows (68) and decisions (72), below the themed confirm (90). While a window is open the stack sits above its pinned action row. --}}
+<div x-data="{ toasts: [], over: window.Overlays ? window.Overlays.count() > 0 : false }"
      @toast.window="const t = { id: Date.now() + Math.random(), ...$event.detail }; toasts.push(t); setTimeout(() => toasts = toasts.filter(x => x.id !== t.id), t.undoEvent ? 9000 : 4500)"
-     class="pointer-events-none fixed bottom-6 end-6 z-[60] flex w-[min(24rem,calc(100vw-3rem))] flex-col gap-3" aria-live="polite">
+     @overlays.window="over = $event.detail.count > 0"
+     :class="over ? 'bottom-24' : 'bottom-6'"
+     class="pointer-events-none fixed end-6 z-[80] flex w-[min(24rem,calc(100vw-3rem))] flex-col gap-3 transition-[bottom] duration-200" aria-live="polite">
     @if (session('toast'))
         <div x-init="$dispatch('toast', @js(session('toast')))"></div>
     @endif

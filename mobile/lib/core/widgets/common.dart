@@ -362,13 +362,7 @@ Future<T?> showAppBottomSheet<T>({
   String? title,
   bool scrollable = true,
   bool isForm = false,
-}) => showSidePanel<T>(
-  context: context,
-  title: title ?? '',
-  builder: builder,
-  scrollable: scrollable,
-  isForm: isForm,
-);
+}) => showSidePanel<T>(context: context, title: title ?? '', builder: builder, scrollable: scrollable, isForm: isForm);
 
 /// Confirmation dialog for destructive or important actions.
 Future<bool> confirmAction(

@@ -67,6 +67,9 @@ class FakeOps implements OpsRepository {
     'failed': [order(id: 'f2', status: 'failed', number: 'AB100010', driver: 'Omar')],
   };
   Object? queueError;
+
+  /// Holds one stage's reload until completed, so a test can see the moment when some lists are newer than others.
+  final queueGates = <String, Completer<void>>{};
   Object? overviewError;
   List<BranchDriver> branchDrivers = const [
     BranchDriver(id: 'u1', name: 'Omar', phone: '+97455123456', onDuty: true, openJobs: 0),
@@ -198,6 +201,7 @@ class FakeOps implements OpsRepository {
   @override
   Future<List<QueueOrder>> queue(String stage, {String? branchId}) async {
     queueLoads++;
+    await queueGates[stage]?.future;
     if (queueError != null) throw queueError!;
     return queues[stage] ?? const [];
   }

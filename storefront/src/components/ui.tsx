@@ -1,6 +1,6 @@
-import { forwardRef, useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import { forwardRef, useId, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 import { Link, type LinkProps } from 'react-router-dom';
-import { Check, ChevronLeft, ChevronRight, Loader2, Minus, Plus, Star, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Loader2, Minus, Plus, Star } from 'lucide-react';
 import { cx, moneyShort } from '../lib/format';
 import { useI18n } from '../lib/i18n';
 import type { Price } from '../lib/types';
@@ -154,79 +154,6 @@ export function QtyStepper({ value, onChange, min = 1, max = 20, size = 'md' }: 
       <button type="button" aria-label={t('qty.less')} disabled={value <= min} onClick={() => onChange(value - 1)} className={cx('flex items-center justify-center rounded-full disabled:opacity-30', size === 'sm' ? 'h-9 w-9' : 'h-11 w-11')}><Minus size={15} /></button>
       <span className="min-w-8 text-center text-sm font-semibold tabular-nums" aria-live="polite">{value}</span>
       <button type="button" aria-label={t('qty.more')} disabled={value >= max} onClick={() => onChange(value + 1)} className={cx('flex items-center justify-center rounded-full disabled:opacity-30', size === 'sm' ? 'h-9 w-9' : 'h-11 w-11')}><Plus size={15} /></button>
-    </div>
-  );
-}
-
-/* ───────────── Overlays ───────────── */
-function useLock(open: boolean, onClose: () => void) {
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', k);
-    return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', k); };
-  }, [open, onClose]);
-}
-const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
-/** Keeps Tab inside an open dialog, puts focus in it on open (unless a field already took it) and gives it back to the opener on close. */
-export function useFocusTrap(open: boolean, ref: React.RefObject<HTMLElement>) {
-  useEffect(() => {
-    if (!open) return;
-    const opener = document.activeElement as HTMLElement | null;
-    const box = ref.current;
-    if (box && !box.contains(document.activeElement)) (box.querySelector<HTMLElement>('[autofocus],input,textarea,select') ?? box).focus({ preventScroll: true });
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Tab' || !box) return;
-      const items = Array.from(box.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => el.offsetParent !== null || el === document.activeElement);
-      if (!items.length) { e.preventDefault(); box.focus(); return; }
-      const first = items[0], last = items[items.length - 1];
-      if (!box.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
-      else if (e.shiftKey && (document.activeElement === first || document.activeElement === box)) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => { document.removeEventListener('keydown', onKey); if (opener?.isConnected) opener.focus({ preventScroll: true }); };
-  }, [open, ref]);
-}
-export function Drawer({ open, onClose, title, children, footer, side = 'end' }: { open: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode; side?: 'start' | 'end' }) {
-  const { t, dir } = useI18n();
-  const ref = useRef<HTMLDivElement>(null);
-  useLock(open, onClose);
-  useFocusTrap(open, ref);
-  if (!open) return null;
-  const fromRight = (side === 'end') === (dir === 'ltr');
-  return (
-    <div className="fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="fade absolute inset-0 bg-ink/45 backdrop-blur-[2px]" onClick={onClose} />
-      <div ref={ref} tabIndex={-1} style={{ ['--from' as string]: fromRight ? '100%' : '-100%' }} className={cx('drawer-panel absolute top-0 flex h-full w-full max-w-[440px] flex-col bg-bg shadow-soft outline-none', fromRight ? 'right-0' : 'left-0')}>
-        <div className="flex items-center justify-between border-b border-line px-6 py-4">
-          <h2 className="text-2xl">{title}</h2>
-          <IconButton label={t('action.close')} onClick={onClose}><X size={20} /></IconButton>
-        </div>
-        <div className="flex-1 overflow-y-auto">{children}</div>
-        {footer && <div className="border-t border-line bg-paper px-6 py-4 pb-[max(16px,env(safe-area-inset-bottom))]">{footer}</div>}
-      </div>
-    </div>
-  );
-}
-export function Modal({ open, onClose, title, children, wide }: { open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean }) {
-  const { t } = useI18n();
-  const ref = useRef<HTMLDivElement>(null);
-  useLock(open, onClose);
-  useFocusTrap(open, ref);
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="fade absolute inset-0 bg-ink/50 backdrop-blur-[2px]" onClick={onClose} />
-      <div ref={ref} tabIndex={-1} className={cx('rise relative max-h-[92dvh] w-full overflow-y-auto rounded-t-[28px] bg-bg p-6 shadow-soft outline-none sm:rounded-[28px] sm:p-8', wide ? 'sm:max-w-2xl' : 'sm:max-w-md')}>
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <h2 className="text-3xl leading-tight">{title}</h2>
-          <IconButton label={t('action.close')} onClick={onClose} className="-me-2 -mt-2"><X size={20} /></IconButton>
-        </div>
-        {children}
-      </div>
     </div>
   );
 }

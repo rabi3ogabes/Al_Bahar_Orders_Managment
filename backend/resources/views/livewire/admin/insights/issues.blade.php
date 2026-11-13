@@ -31,7 +31,7 @@
             <div class="table-wrap"><table class="table">
                 <thead><tr><th>{{ __('issue_admin.ref') }}</th><th>{{ __('issue_admin.title_field') }}</th><th>{{ __('issue_admin.app') }}</th><th>{{ __('issue_admin.severity') }}</th><th>{{ __('admin.status') }}</th><th>{{ __('issue_admin.reported') }}</th></tr></thead>
                 <tbody>@foreach ($issues as $i)
-                    <tr wire:key="i-{{ $i->id }}" wire:click="open('{{ $i->id }}')" class="cursor-pointer" tabindex="0" role="button" wire:keydown.enter="open('{{ $i->id }}')">
+                    <tr wire:key="i-{{ $i->id }}" wire:click="openView('{{ $i->id }}')" class="cursor-pointer" tabindex="0" role="button" aria-label="{{ $i->reference }} {{ $i->title }}" wire:keydown.enter="openView('{{ $i->id }}')">
                         <td class="font-mono text-xs" dir="ltr">{{ $i->reference }}</td>
                         <td><span class="font-medium">{{ $i->title }}</span><span class="block text-xs text-ink-500">{{ __('issue_admin.kinds.'.$i->kind) }}@if ($i->order) · <span dir="ltr">{{ $i->order->number }}</span>@endif</span></td>
                         <td class="text-sm">{{ __('issue_admin.apps.'.$i->app) }}</td>
@@ -60,48 +60,45 @@
                 <x-admin.field :label="__('issue_admin.payment_ref')" for="form.payment_reference"><input wire:model="form.payment_reference" class="input" dir="ltr"></x-admin.field>
             </div>
             <div class="flex justify-end gap-2 pt-2">
-                <button type="button" class="btn-secondary min-h-11" @click="open = false">{{ __('admin.cancel') }}</button>
+                <button type="button" class="btn-secondary min-h-11" @click="requestClose()">{{ __('admin.cancel') }}</button>
                 <button class="btn-primary min-h-11" wire:loading.attr="disabled" wire:target="save">{{ __('issue_admin.save') }}</button>
             </div>
         </form>
     </x-admin.dialog>
 
-    {{-- Detail drawer (the list stays in view) --}}
-    @if ($detail)
-        <div class="fixed inset-0 z-[60]" x-data x-on:keydown.escape.window="$wire.closeDetail()">
-            <div class="absolute inset-0 bg-ink-950/40" wire:click="closeDetail"></div>
-            <aside class="absolute inset-x-0 bottom-0 flex max-h-[92dvh] flex-col rounded-t-3xl bg-white shadow-2xl dark:bg-ink-900 md:inset-y-0 md:end-0 md:start-auto md:max-h-none md:w-[520px] md:rounded-none md:rounded-s-3xl" role="dialog" aria-modal="true" aria-labelledby="issue-title">
-                <header class="flex items-start justify-between gap-3 border-b border-sand-200 px-5 py-4 dark:border-ink-700">
-                    <div><p class="font-mono text-xs text-ink-500" dir="ltr">{{ $detail->reference }}</p><h2 id="issue-title" class="font-display text-xl font-semibold">{{ $detail->title }}</h2>
-                        <div class="mt-2 flex flex-wrap gap-2"><span class="{{ $sev($detail->severity) }}">{{ __('issue_admin.severities.'.$detail->severity) }}</span><x-admin.status :value="$detail->status" /></div></div>
-                    <button type="button" wire:click="closeDetail" class="btn-ghost size-11 p-0" aria-label="{{ __('admin.close') }}"><x-icon name="x" class="size-4" /></button>
-                </header>
-                <div class="flex-1 space-y-5 overflow-y-auto overscroll-contain px-5 py-5 text-sm">
-                    <dl class="grid grid-cols-2 gap-3">
-                        <div><dt class="text-xs text-ink-500">{{ __('issue_admin.kind') }}</dt><dd>{{ __('issue_admin.kinds.'.$detail->kind) }}</dd></div>
-                        <div><dt class="text-xs text-ink-500">{{ __('issue_admin.app') }}</dt><dd>{{ __('issue_admin.apps.'.$detail->app) }}</dd></div>
-                        <div><dt class="text-xs text-ink-500">{{ __('issue_admin.reported') }}</dt><dd>{{ \App\Support\BusinessTime::display($detail->created_at) }} · {{ $detail->reporter?->name }}</dd></div>
-                        <div><dt class="text-xs text-ink-500">{{ __('issue_admin.linked') }}</dt><dd dir="ltr">@if ($detail->order)<a class="hover:text-brass-600" wire:navigate href="{{ route('admin.orders.show', $detail->order_id) }}">{{ $detail->order->number }}</a>@else — @endif @if ($detail->payment)· <a class="hover:text-brass-600" wire:navigate href="{{ route('admin.payments.show', $detail->payment_id) }}">{{ $detail->payment->provider_reference ?: 'payment' }}</a>@endif</dd></div>
-                    </dl>
-                    @if ($detail->details)<div><p class="mb-1 text-xs text-ink-500">{{ __('issue_admin.details') }}</p><p class="whitespace-pre-line">{{ $detail->details }}</p></div>@endif
-                    @if ($canEdit)
-                        <div>
-                            <label for="resolution" class="field-label">{{ __('issue_admin.resolution') }}</label>
-                            <textarea id="resolution" wire:model="resolution" rows="3" class="input" placeholder="{{ __('issue_admin.resolution_ph') }}"></textarea>
-                        </div>
-                    @elseif ($detail->resolution)
-                        <div><p class="mb-1 text-xs text-ink-500">{{ __('issue_admin.resolution') }}</p><p class="whitespace-pre-line">{{ $detail->resolution }}</p></div>
-                    @endif
-                    @if ($detail->resolved_at)<p class="text-xs text-ink-500">{{ __('issue_admin.closed_by', ['name' => $detail->resolver?->name, 'at' => \App\Support\BusinessTime::display($detail->resolved_at)]) }}</p>@endif
-                </div>
+    {{-- Detail window (the list stays in view; ?view=<id> makes it reloadable and shareable) --}}
+    <x-admin.dialog wire:model.live="showView" :title="$detail?->title ?? ''" :description="$detail?->reference" max-width="max-w-xl">
+        @if ($detail)
+            <x-admin.drawer-bar>
+                <span class="{{ $sev($detail->severity) }}">{{ __('issue_admin.severities.'.$detail->severity) }}</span><x-admin.status :value="$detail->status" />
+            </x-admin.drawer-bar>
+            <div class="space-y-5 pb-5 text-sm">
+                <dl class="grid grid-cols-2 gap-3 [&>div]:min-w-0">
+                    <div><dt class="text-xs text-ink-500">{{ __('issue_admin.kind') }}</dt><dd>{{ __('issue_admin.kinds.'.$detail->kind) }}</dd></div>
+                    <div><dt class="text-xs text-ink-500">{{ __('issue_admin.app') }}</dt><dd>{{ __('issue_admin.apps.'.$detail->app) }}</dd></div>
+                    <div class="col-span-2"><dt class="text-xs text-ink-500">{{ __('issue_admin.reported') }}</dt><dd>{{ \App\Support\BusinessTime::display($detail->created_at) }} · {{ $detail->reporter?->name }}</dd></div>
+                    <div class="col-span-2"><dt class="text-xs text-ink-500">{{ __('issue_admin.linked') }}</dt><dd dir="ltr" class="text-start">@if ($detail->order)<a class="hover:text-brass-600" wire:navigate href="{{ route('admin.orders.show', $detail->order_id) }}">{{ $detail->order->number }}</a>@else — @endif @if ($detail->payment)· <a class="hover:text-brass-600" wire:navigate href="{{ route('admin.payments.show', $detail->payment_id) }}">{{ $detail->payment->provider_reference ?: 'payment' }}</a>@endif</dd></div>
+                </dl>
+                @if ($detail->details)<div><p class="mb-1 text-xs text-ink-500">{{ __('issue_admin.details') }}</p><p class="whitespace-pre-line">{{ $detail->details }}</p></div>@endif
                 @if ($canEdit)
-                    <footer class="flex flex-wrap gap-2 border-t border-sand-200 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] dark:border-ink-700">
-                        @foreach ([['investigating', 'btn-secondary'], ['resolved', 'btn-primary'], ['wont_fix', 'btn-ghost'], ['open', 'btn-ghost']] as [$st, $cls])
-                            @if ($detail->status !== $st)<button type="button" wire:click="setStatus('{{ $st }}')" class="{{ $cls }} min-h-11">{{ __('issue_admin.do_'.$st) }}</button>@endif
-                        @endforeach
-                    </footer>
+                    <div>
+                        <label for="resolution" class="field-label">{{ __('issue_admin.resolution') }}</label>
+                        <textarea id="resolution" wire:model="resolution" rows="4" class="input" placeholder="{{ __('issue_admin.resolution_ph') }}"></textarea>
+                    </div>
+                @elseif ($detail->resolution)
+                    <div><p class="mb-1 text-xs text-ink-500">{{ __('issue_admin.resolution') }}</p><p class="whitespace-pre-line">{{ $detail->resolution }}</p></div>
                 @endif
-            </aside>
-        </div>
-    @endif
+                @if ($detail->resolved_at)<p class="text-xs text-ink-500">{{ __('issue_admin.closed_by', ['name' => $detail->resolver?->name, 'at' => \App\Support\BusinessTime::display($detail->resolved_at)]) }}</p>@endif
+            </div>
+        @endif
+        @if ($detail && $canEdit)
+            <x-slot:footer>
+                <div class="flex flex-wrap justify-end gap-2">
+                    @foreach ([['investigating', 'btn-secondary'], ['wont_fix', 'btn-ghost'], ['open', 'btn-ghost'], ['resolved', 'btn-primary']] as [$st, $cls])
+                        @if ($detail->status !== $st)<button type="button" data-saves wire:click="setStatus('{{ $st }}')" wire:loading.attr="disabled" wire:target="setStatus" class="{{ $cls }} min-h-11">{{ __('issue_admin.do_'.$st) }}</button>@endif
+                    @endforeach
+                </div>
+            </x-slot:footer>
+        @endif
+    </x-admin.dialog>
 </div>

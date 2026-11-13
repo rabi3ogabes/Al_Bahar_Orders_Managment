@@ -240,10 +240,10 @@ void main() {
     // Typed input → the exit asks "Leave without saving?", Keep editing stays.
     await tester.tap(find.byTooltip('Close'));
     await tester.pumpAndSettle();
-    expect(find.text('Leave without saving?'), findsOneWidget);
+    expect(find.text('Discard changes?'), findsOneWidget);
     await tester.tap(find.text('Keep editing'));
     await tester.pumpAndSettle();
-    expect(find.text('Leave without saving?'), findsNothing);
+    expect(find.text('Discard changes?'), findsNothing);
   });
 
   testWidgets(

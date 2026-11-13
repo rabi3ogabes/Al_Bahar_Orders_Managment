@@ -121,7 +121,7 @@
                     <div class="sm:pt-7"><x-admin.toggle :label="__('catalog_admin.default')" wire:model="edit.is_default" /></div>
                 </div>
                 <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">
-                    <button type="button" class="btn-secondary" @click="open = false">{{ __('admin.cancel') }}</button>
+                    <button type="button" class="btn-secondary" @click="requestClose()">{{ __('admin.cancel') }}</button>
                     <button class="btn-primary" wire:loading.attr="disabled" wire:target="saveEdit"><x-icon name="check" class="size-4" />{{ __('admin.save') }}</button>
                 </div>
             </form>

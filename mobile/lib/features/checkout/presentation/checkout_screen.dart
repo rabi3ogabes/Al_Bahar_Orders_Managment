@@ -6,10 +6,10 @@ import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/utils/qatar_time.dart';
-import 'package:albahar_customer/core/widgets/side_panel.dart';
 import 'package:albahar_customer/core/widgets/app_button.dart';
 import 'package:albahar_customer/core/widgets/app_text_field.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
+import 'package:albahar_customer/core/widgets/side_panel.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/branches/data/branch_repository.dart';
@@ -20,10 +20,10 @@ import 'package:albahar_customer/features/checkout/presentation/delivery_slot_se
 import 'package:albahar_customer/features/checkout/presentation/payment_flow.dart';
 import 'package:albahar_customer/features/checkout/presentation/state/checkout_controller.dart';
 import 'package:albahar_customer/features/profile/domain/profile_models.dart';
+import 'package:albahar_customer/features/profile/presentation/addresses_screen.dart';
 import 'package:albahar_customer/features/profile/presentation/state/profile_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 final pickupBranchesProvider = FutureProvider.autoDispose<List<Branch>>((ref) async {
   ref.watch(localeCodeProvider);
@@ -307,7 +307,7 @@ class _AddressSection extends ConsumerWidget {
     final address = addresses.value?.where((a) => a.id == addressId).firstOrNull;
 
     Future<void> pick() async {
-      final id = await context.push<String>('/addresses?pick=1');
+      final id = await showAddressPicker(context);
       if (id != null) onChanged(id);
     }
 

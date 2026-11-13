@@ -134,7 +134,7 @@
             </div>
             <label class="flex items-center gap-2 text-sm"><input type="checkbox" class="checkbox" @checked(($form['status'] ?? '') === 'published') wire:click="$set('form.status', '{{ ($form['status'] ?? '') === 'published' ? 'draft' : 'published' }}')">{{ __('content_admin.show_on_homepage') }}</label>
             <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">
-                <button type="button" class="btn-secondary" @click="open = false">{{ __('admin.cancel') }}</button>
+                <button type="button" class="btn-secondary" @click="requestClose()">{{ __('admin.cancel') }}</button>
                 <button class="btn-primary" wire:loading.attr="disabled" wire:target="save"><x-icon name="check" class="size-4" />{{ __('admin.save') }}</button>
             </div>
         </form>

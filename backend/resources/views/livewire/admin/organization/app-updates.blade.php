@@ -57,7 +57,7 @@
             <p class="text-sm text-ink-600 dark:text-ink-300">{{ __('app_updates_admin.force_body', ['app' => __('app_updates_admin.apps.'.$forcing->app), 'platform' => __('app_updates_admin.platforms.'.$forcing->platform), 'build' => $forcing->latest_build]) }}</p>
         @endif
         <div class="mt-6 flex justify-end gap-2">
-            <button type="button" class="btn-secondary min-h-11" @click="open = false" x-init="$nextTick(() => $el.focus())">{{ __('admin.cancel') }}</button>
+            <button type="button" class="btn-secondary min-h-11" @click="requestClose()" x-init="$nextTick(() => $el.focus())">{{ __('admin.cancel') }}</button>
             <button type="button" class="btn-primary min-h-11 !bg-ruby-soft" wire:click="force">{{ __('app_updates_admin.force_yes') }}</button>
         </div>
     </x-admin.dialog>

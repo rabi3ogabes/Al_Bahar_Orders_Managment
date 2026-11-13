@@ -68,7 +68,7 @@
     @include('livewire.admin.sales.partials.order-peek')
 
     {{-- Rejecting is a decision (centred modal); recording a manual payout is a form (side window). --}}
-    <x-admin.dialog wire:model="showDialog" :variant="$dialog === 'reject' ? 'modal' : 'drawer'" :title="$dialog === 'reject' ? __('finance_admin.reject_refund') : __('finance_admin.mark_processed')" :description="$dialog === 'process' ? __('finance_admin.process_hint') : null">
+    <x-admin.dialog wire:model="showDialog" :variant="$dialog === 'reject' ? 'modal' : 'drawer'" :title="$dialog === 'reject' ? __('drawer_sales.q_reject_refund') : __('finance_admin.mark_processed')" :description="$dialog === 'process' ? __('finance_admin.process_hint') : null">
         <form wire:submit="confirmDialog" class="space-y-5">
             @if ($dialog === 'reject')
                 <x-admin.field :label="__('admin.reason')" for="note" required><textarea id="note" wire:model="note" rows="3" class="input"></textarea></x-admin.field>

@@ -8,6 +8,7 @@ import { useBranch } from '../lib/branch';
 import { useI18n } from '../lib/i18n';
 import { useDebounce } from '../lib/hooks';
 import { useCloseOnBack } from '../lib/useCloseOnBack';
+import { useOpener } from '../lib/useOpener';
 import type { ProductCard } from '../lib/types';
 import { IconButton, Pic, PriceTag, Spinner } from './ui';
 
@@ -21,6 +22,7 @@ export default function SearchOverlay({ open, onClose }: { open: boolean; onClos
   const dq = useDebounce(q.trim(), 250);
   const input = useRef<HTMLInputElement>(null);
   const { branchId } = useBranch();
+  const opener = useOpener();
   useCloseOnBack(open, onClose);
   const res = useQuery({
     queryKey: ['suggest', dq, branchId], enabled: open && dq.length >= 2,
@@ -34,7 +36,7 @@ export default function SearchOverlay({ open, onClose }: { open: boolean; onClos
     <Dialog.Root open={open} onOpenChange={(o) => { if (!o) { onClose(); setQ(''); } }}>
       <Dialog.Portal>
         <Dialog.Overlay className="ov-scrim fixed inset-0 z-[85] bg-ink/45 backdrop-blur-[2px]" />
-        <Dialog.Content aria-describedby={undefined} onOpenAutoFocus={(e) => { e.preventDefault(); input.current?.focus(); }}
+        <Dialog.Content aria-describedby={undefined} onOpenAutoFocus={(e) => { opener.remember(); e.preventDefault(); input.current?.focus(); }} onCloseAutoFocus={opener.restore}
           className="ov-top fixed inset-x-0 top-0 z-[85] mx-auto max-h-[100dvh] max-w-3xl overflow-y-auto overscroll-contain rounded-b-[28px] bg-bg p-5 shadow-soft outline-none sm:top-6 sm:rounded-[28px] sm:p-7">
           <Dialog.Title className="sr-only">{t('search.title')}</Dialog.Title>
           <form onSubmit={go} className="flex items-center gap-3 border-b border-primary pb-3">

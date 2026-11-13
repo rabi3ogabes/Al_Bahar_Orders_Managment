@@ -105,7 +105,7 @@
             </div>
             <x-admin.field :label="__('inventory_admin.bin')" for="edit.bin_location" :hint="__('inventory_admin.bin_hint')"><input id="edit.bin_location" wire:model="edit.bin_location" class="input font-mono" dir="ltr" placeholder="A-03-2"></x-admin.field>
             <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">
-                <button type="button" class="btn-secondary" @click="open = false">{{ __('admin.cancel') }}</button>
+                <button type="button" class="btn-secondary" @click="requestClose()">{{ __('admin.cancel') }}</button>
                 <button class="btn-primary" wire:loading.attr="disabled" wire:target="saveThresholds"><x-icon name="check" class="size-4" />{{ __('admin.save') }}</button>
             </div>
         </form>

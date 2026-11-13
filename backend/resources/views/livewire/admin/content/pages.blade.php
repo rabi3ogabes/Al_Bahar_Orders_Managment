@@ -64,7 +64,7 @@
                 </div>
             @endif
             <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">
-                <button type="button" class="btn-secondary" @click="open = false">{{ __('admin.cancel') }}</button>
+                <button type="button" class="btn-secondary" @click="requestClose()">{{ __('admin.cancel') }}</button>
                 <button class="btn-secondary" wire:loading.attr="disabled" wire:target="save"><x-icon name="file-text" class="size-4" />{{ __('content_admin.save_draft') }}</button>
                 <button type="button" wire:click="publish" wire:loading.attr="disabled" wire:target="publish" class="btn-primary"><x-icon name="sparkles" class="size-4" />{{ __('content_admin.publish') }}</button>
             </div>

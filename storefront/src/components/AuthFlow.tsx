@@ -65,7 +65,7 @@ export default function AuthFlow({ reason, onClose }: { reason?: string; onClose
 
       {step === 'phone' && (
         <form onSubmit={(e) => { e.preventDefault(); if (!busy) void sendCode(resetting ? 'password_reset' : 'login'); }} className="space-y-5">
-          <Input label={t('auth.phone')} type="tel" inputMode="tel" autoComplete="tel" autoFocus required maxLength={20} value={phone} onChange={(e) => setPhone(e.target.value)} prefix="+974" placeholder="5522 0011" error={f('phone')} hint={t('auth.phone_hint')} />
+          <Input label={t('auth.phone')} type="tel" inputMode="tel" autoComplete="tel" data-autofocus="" required maxLength={20} value={phone} onChange={(e) => setPhone(e.target.value)} prefix="+974" placeholder="5522 0011" error={f('phone')} hint={t('auth.phone_hint')} />
           <Button type="submit" size="lg" block loading={busy} disabled={latinDigits(phone).replace(/\D/g, '').length < 8}><MessageSquareText size={18} />{t('auth.send_code')}</Button>
           <button type="button" onClick={() => { setErr(null); setResetting(false); setStep('password'); }} className="flex w-full items-center justify-center gap-2 text-sm font-medium text-ink-soft hover:text-ink"><KeyRound size={15} />{t('auth.use_password')}</button>
         </form>
