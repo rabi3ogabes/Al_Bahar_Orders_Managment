@@ -190,7 +190,7 @@ void main() {
   for (final design in FooterDesign.values) {
     testWidgets('${design.name}: shows the items, lights the page, navigates, shows the cart count', (tester) async {
       final router = _router('/products/abc');
-      final config = FooterConfig.fromJson(_json(design: design.name))!;
+      final config = FooterConfig.fromJson(_json(design: design.wire))!;
       await tester.pumpWidget(_app(router, config));
       await tester.pumpAndSettle();
       expect(find.text('page /products/abc'), findsOneWidget);
@@ -203,7 +203,10 @@ void main() {
         expect(_selected('Shop'), findsOneWidget);
       }
       if (design != FooterDesign.minimal) {
-        expect(find.text('Auctions'), design == FooterDesign.bubble ? findsNothing : findsOneWidget);
+        // The bubble shows only the active label; the raised centre button of centerAction has no text, only a spoken label.
+        final hidden = design == FooterDesign.bubble || design == FooterDesign.centerAction;
+        expect(find.text('Auctions'), hidden ? findsNothing : findsOneWidget);
+        expect(find.bySemanticsLabel(RegExp('^Auctions')), findsOneWidget);
       } else {
         expect(find.text('Auctions'), findsNothing); // icons only
       }
@@ -278,7 +281,7 @@ void main() {
     for (final design in FooterDesign.values) {
       final config = FooterConfig.fromJson(
         _json(
-          design: design.name,
+          design: design.wire,
           items: [
             for (final k in ['home', 'notifications', 'wishlist', 'cart', 'support'])
               {'key': k, 'enabled': true, 'label_en': 'Very long label'},
