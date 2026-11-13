@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../helpers/fakes.dart';
 import 'customer_fixtures.dart';
+import 'test_fonts.dart';
 
 /// Every customer route.
 const routesUnderTest = <String>[
@@ -83,6 +84,8 @@ Future<List<String>> sweep(
   bool signedIn = true,
   double textScale = 1.3,
   List<String> routes = routesUnderTest,
+  Future<void> Function(String route)? check,
+  bool stress = false,
 }) async {
   t.view.physicalSize = const Size(390, 844);
   t.view.devicePixelRatio = 1;
@@ -93,9 +96,11 @@ Future<List<String>> sweep(
   final h = await TestHarness.create(
     tokens: signedIn ? signedInTokens : null,
     prefs: {'locale': variant.locale, 'onboarding_done': true, 'theme_mode': variant.dark ? 'dark' : 'light'},
-    handler: customerBackend(mode),
+    handler: customerBackend(mode, stress: stress, arabic: variant.locale == 'ar'),
   );
-  await t.pumpWidget(UncontrolledProviderScope(container: h.container, child: const AlBaharApp(watchConnectivity: false)));
+  await t.pumpWidget(
+    UncontrolledProviderScope(container: h.container, child: const AlBaharApp(watchConnectivity: false)),
+  );
   await t.pump(const Duration(milliseconds: 1700));
   await t.pump(const Duration(milliseconds: 400));
   t.takeException();
@@ -113,6 +118,7 @@ Future<List<String>> sweep(
       await t.pump(const Duration(milliseconds: 250));
     }
     t.takeException();
+    if (check != null) await check(route);
   }
   current = 'teardown';
   // Unmount and drain timers (banners, skeletons, snackbars).
@@ -129,12 +135,21 @@ Future<List<String>> sweep(
 }
 
 void main() {
+  setUpAll(loadAppFonts);
   const variants = [Variant('en', false), Variant('ar', true), Variant('en', true), Variant('ar', false)];
 
   group('data', () {
     for (final v in variants) {
       testWidgets('every customer screen renders with data at 390x844, text x1.3 ($v)', (t) async {
         expect(await sweep(t, mode: ApiMode.data, variant: v), isEmpty);
+      });
+    }
+  });
+
+  group('very long text', () {
+    for (final v in variants) {
+      testWidgets('long names, addresses and titles wrap or ellipsize without overflow, text x1.6 ($v)', (t) async {
+        expect(await sweep(t, mode: ApiMode.data, variant: v, stress: true, textScale: 1.6), isEmpty);
       });
     }
   });
@@ -155,15 +170,52 @@ void main() {
       mode: ApiMode.data,
       variant: const Variant('en', false),
       signedIn: false,
-      routes: const ['/home', '/categories', '/cart', '/account', '/auctions', '/search', '/wishlist', '/orders', '/login'],
+      routes: const [
+        '/home',
+        '/categories',
+        '/cart',
+        '/account',
+        '/auctions',
+        '/search',
+        '/wishlist',
+        '/orders',
+        '/login',
+      ],
     );
     expect(failures, isEmpty);
   });
 
-  testWidgets('semantics tree builds on every screen (no assertion from labels)', (t) async {
-    final handle = t.ensureSemantics();
-    addTearDown(handle.dispose);
-    expect(await sweep(t, mode: ApiMode.data, variant: const Variant('ar', false), textScale: 1.0), isEmpty);
-    debugDumpSemanticsTree; // referenced so the import stays used when debugging
-  });
+  for (final (mode, variant) in [
+    (ApiMode.data, const Variant('en', false)),
+    (ApiMode.data, const Variant('ar', true)),
+    (ApiMode.empty, const Variant('en', false)),
+    (ApiMode.error, const Variant('ar', false)),
+  ]) {
+    testWidgets('tap targets are 48dp and tappable controls are labelled ($mode, $variant)', (t) async {
+      final handle = t.ensureSemantics();
+      final problems = <String>[];
+      final failures = await sweep(
+        t,
+        mode: mode,
+        variant: variant,
+        textScale: 1.0,
+        check: (route) async {
+          for (final (name, guideline) in [
+            ('tap-size', androidTapTargetGuideline),
+            ('label', labeledTapTargetGuideline),
+          ]) {
+            final result = await guideline.evaluate(t);
+            if (!result.passed) problems.add('$route $name: ${result.reason}');
+          }
+        },
+      );
+      handle.dispose();
+      for (final p in problems) {
+        // ignore: avoid_print
+        print('QAA11Y $p');
+      }
+      expect(failures, isEmpty);
+      expect(problems, isEmpty);
+    });
+  }
 }

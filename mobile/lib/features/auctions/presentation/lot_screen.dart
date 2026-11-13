@@ -595,12 +595,21 @@ class _BidRow extends StatelessWidget {
 }
 
 /// Digits with at most one decimal point and two decimals (money amounts).
+/// Pasted values with more decimals are cut instead of rejected.
 class _AmountFormatter extends TextInputFormatter {
   const _AmountFormatter();
 
-  static final _valid = RegExp(r'^\d*\.?\d{0,2}$');
+  static final _valid = RegExp(r'^\d*\.?\d*$');
 
   @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) =>
-      _valid.hasMatch(newValue.text) ? newValue : oldValue;
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    if (!_valid.hasMatch(newValue.text)) return oldValue;
+    final dot = newValue.text.indexOf('.');
+    if (dot < 0 || newValue.text.length - dot - 1 <= 2) return newValue;
+    final cut = newValue.text.substring(0, dot + 3);
+    return TextEditingValue(
+      text: cut,
+      selection: TextSelection.collapsed(offset: cut.length),
+    );
+  }
 }

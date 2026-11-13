@@ -11,8 +11,7 @@
     <x-admin.page-header :title="__('nav.fleet')" :eyebrow="__('nav.sales')" :description="__('fleet.hint')" />
 
     <div class="grid gap-6 lg:grid-cols-3 [&>*]:min-w-0"
-         x-data="fleetMap(@js($payload), @js($statusLabels), @js($channels), @js(['offline' => __('fleet.offline'), 'idle' => __('fleet.idle'), 'job' => __('fleet.job'), 'seen' => __('fleet.seen')]), @js(['channels' => $liveChannels, 'text' => $liveText, 'orderUrl' => route('admin.orders.show', '__ID__')]))"
-         x-init="init()">
+         x-data="fleetMap(@js($payload), @js($statusLabels), @js($channels), @js(['offline' => __('fleet.offline'), 'idle' => __('fleet.idle'), 'job' => __('fleet.job'), 'seen' => __('fleet.seen')]), @js(['channels' => $liveChannels, 'text' => $liveText, 'orderUrl' => route('admin.orders.show', '__ID__')]))">
         <section class="card overflow-hidden lg:col-span-2">
             <div class="flex items-center justify-between gap-3 border-b border-sand-200 px-4 py-3 dark:border-ink-800">
                 <select wire:model.live="branch" class="input max-w-56" aria-label="{{ __('fleet.all_branches') }}">

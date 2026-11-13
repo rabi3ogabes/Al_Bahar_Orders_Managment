@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, KeyRound, MessageSquareText } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { ApiError, get, post } from '../lib/api';
+import { latinDigits } from '../lib/format';
 import { useI18n } from '../lib/i18n';
 import { Alert, Button, Checkbox, Input, Modal } from './ui';
 
@@ -14,15 +15,16 @@ type Step = 'phone' | 'code' | 'register' | 'password' | 'reset';
 
 /** Qatar numbers: accept "55220011", "+974 5522 0011" or "97455220011". */
 export function normalizePhone(raw: string): string {
-  const d = raw.replace(/[^\d+]/g, '');
-  if (d.startsWith('+')) return d;
+  const plus = raw.trim().startsWith('+');
+  const d = latinDigits(raw).replace(/\D/g, '');
+  if (plus) return `+${d}`;
   if (d.startsWith('974') && d.length > 8) return `+${d}`;
   if (d.startsWith('00')) return `+${d.slice(2)}`;
   return `+974${d}`;
 }
 
 /** Shows a stored number without the +974 that the field already prints. */
-const localPhone = (p: string) => p.replace(/[^\d+]/g, '').replace(/^(\+|00)?974(?=\d{8}$)/, '');
+const localPhone = (p: string) => latinDigits(p).replace(/\D/g, '').replace(/^(\+|00)?974(?=\d{8}$)/, '');
 
 const REF_KEY = 'albahar.ref';
 /** A friend's invite link (?ref=CODE) is remembered for this tab until sign-up. */
@@ -102,7 +104,7 @@ function AuthFlow({ reason, onClose }: { reason?: string; onClose: () => void })
       {step === 'phone' && (
         <form onSubmit={(e) => { e.preventDefault(); if (!busy) void sendCode(resetting ? 'password_reset' : 'login'); }} className="space-y-5">
           <Input label={t('auth.phone')} type="tel" inputMode="tel" autoComplete="tel" autoFocus required maxLength={20} value={phone} onChange={(e) => setPhone(e.target.value)} prefix="+974" placeholder="5522 0011" error={f('phone')} hint={t('auth.phone_hint')} />
-          <Button type="submit" size="lg" block loading={busy} disabled={phone.replace(/\D/g, '').length < 8}><MessageSquareText size={18} />{t('auth.send_code')}</Button>
+          <Button type="submit" size="lg" block loading={busy} disabled={latinDigits(phone).replace(/\D/g, '').length < 8}><MessageSquareText size={18} />{t('auth.send_code')}</Button>
           <button type="button" onClick={() => { setErr(null); setResetting(false); setStep('password'); }} className="flex w-full items-center justify-center gap-2 text-sm font-medium text-ink-soft hover:text-ink"><KeyRound size={15} />{t('auth.use_password')}</button>
         </form>
       )}
@@ -110,7 +112,7 @@ function AuthFlow({ reason, onClose }: { reason?: string; onClose: () => void })
       {step === 'code' && (
         <form onSubmit={verify} className="space-y-5">
           <p className="text-sm text-muted">{t('auth.code_sent', { phone: normalizePhone(phone) })}</p>
-          <Input label={t('auth.code')} inputMode="numeric" autoComplete="one-time-code" autoFocus required maxLength={8} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} className="[&_input]:text-center [&_input]:text-2xl [&_input]:tracking-[0.5em]" error={f('code')} />
+          <Input label={t('auth.code')} inputMode="numeric" autoComplete="one-time-code" autoFocus required maxLength={8} value={code} onChange={(e) => setCode(latinDigits(e.target.value).replace(/\D/g, ''))} className="[&_input]:text-center [&_input]:text-2xl [&_input]:tracking-[0.5em]" error={f('code')} />
           <Button type="submit" size="lg" block loading={busy} disabled={code.length < 4}>{t('auth.verify')}</Button>
           <div className="flex items-center justify-between text-sm">
             <button type="button" onClick={() => setStep('phone')} className="flex items-center gap-1 text-ink-soft hover:text-ink"><Back size={14} />{t('auth.change_phone')}</button>
@@ -146,7 +148,7 @@ function AuthFlow({ reason, onClose }: { reason?: string; onClose: () => void })
       {step === 'reset' && (
         <form onSubmit={reset} className="space-y-4">
           <p className="text-sm text-muted">{t('auth.code_sent', { phone: normalizePhone(phone) })}</p>
-          <Input label={t('auth.code')} inputMode="numeric" autoComplete="one-time-code" required maxLength={8} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} error={f('code')} />
+          <Input label={t('auth.code')} inputMode="numeric" autoComplete="one-time-code" required maxLength={8} value={code} onChange={(e) => setCode(latinDigits(e.target.value).replace(/\D/g, ''))} error={f('code')} />
           <Input label={t('auth.new_password')} type="password" autoComplete="new-password" required value={newPass} onChange={(e) => setNewPass(e.target.value)} hint={t('auth.password_rule')} error={f('password')} />
           <Button type="submit" size="lg" block loading={busy} disabled={code.length < 4 || newPass.length < 8}>{t('auth.save_password')}</Button>
           <div className="flex items-center justify-between text-sm">

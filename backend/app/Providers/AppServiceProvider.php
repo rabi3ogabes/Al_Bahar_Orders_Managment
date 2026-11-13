@@ -12,10 +12,12 @@ use App\Domain\Orders\Models\Order;
 use App\Http\Middleware\EnsureStaff;
 use App\Http\Middleware\RequirePermission;
 use App\Support\BranchOf;
+use App\Support\InvalidMoney;
 use App\Support\Phone;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -23,6 +25,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
+use function Livewire\on;
 use RuntimeException;
 
 class AppServiceProvider extends ServiceProvider
@@ -47,6 +50,15 @@ class AppServiceProvider extends ServiceProvider
         // Livewire update requests only re-run its own short list of persistent middleware (auth). Without this, a staff member whose
         // permission was revoked, or whose account was suspended, after a page loaded could keep calling that page's actions.
         Livewire::addPersistentMiddleware([EnsureStaff::class, RequirePermission::class]);
+
+        // An amount the money parser rejects (5 decimals, "1e3") or a number the column cannot hold used to surface as a raw 422 error
+        // popup, because the API-style exception mapping does not know which Livewire field to flag. Tell the user in a toast instead.
+        on('exception', function ($component, \Throwable $e, callable $stop): void {
+            if ($e instanceof InvalidMoney || ($e instanceof QueryException && $e->getCode() === '22003')) {
+                $component->dispatch('toast', type: 'error', message: __('errors.invalid_amount'));
+                $stop();
+            }
+        });
 
         // N+1 protection and mass-assignment safety in dev/test. (Missing-attribute strictness is not enabled:
         // freshly created models legitimately omit nullable columns until refreshed.)

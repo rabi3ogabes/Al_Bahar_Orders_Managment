@@ -52,14 +52,14 @@ class LoyaltyIndex extends Component
     {
         abort_unless($this->canGlobally('loyalty.override'), 403);
         $this->validate([
-            'rules.enabled' => 'boolean', 'rules.points_per_qar' => 'required|integer|min:0|max:100',
-            'rules.redeem_value_per_point' => 'required|numeric|min:0|max:10', 'rules.max_redeem_percent' => 'required|integer|min:0|max:100',
+            'rules.enabled' => 'boolean', 'rules.points_per_qar' => 'required|integer|min:0|max:1000',
+            'rules.redeem_value_per_point' => ['required', 'numeric', 'min:0', 'max:100', 'regex:/^\d+(\.\d{1,4})?$/'], 'rules.max_redeem_percent' => 'required|integer|min:0|max:100',
             'rules.points_expiry_days' => 'required|integer|min:1|max:3650',
         ], [], collect(self::RULES)->mapWithKeys(fn ($k) => ['rules.'.$k => __('marketing_admin.rule_'.$k)])->all());
         foreach (self::RULES as $k) {
             $v = $this->rules[$k];
             $settings->set('loyalty.'.$k, match ($k) {
-                'enabled' => (bool) $v, 'redeem_value_per_point' => number_format((float) $v, 2, '.', ''), default => (int) $v
+                'enabled' => (bool) $v, 'redeem_value_per_point' => rtrim(rtrim(number_format((float) $v, 4, '.', ''), '0'), '.') ?: '0', default => (int) $v
             });
         }
         $this->editingRules = false;

@@ -8,6 +8,17 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <title>Al Bahar Home &amp; Living</title>
+    <script>
+      // Theme and language are applied before first paint so a dark or Arabic visitor never sees a light/English flash.
+      try {
+        var d = document.documentElement, th = localStorage.getItem('albahar.theme');
+        if (th !== 'dark' && th !== 'light') th = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        d.dataset.theme = th;
+        var lc = localStorage.getItem('albahar.locale');
+        if (lc !== 'ar' && lc !== 'en') lc = (navigator.language || '').toLowerCase().indexOf('ar') === 0 ? 'ar' : 'en';
+        d.lang = lc; d.dir = lc === 'ar' ? 'rtl' : 'ltr';
+      } catch (e) { /* private mode: the app sets both after load */ }
+    </script>
   </head>
   <body>
     <div id="root"></div>

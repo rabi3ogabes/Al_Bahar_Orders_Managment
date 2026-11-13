@@ -85,12 +85,12 @@ function ReferralCard() {
   };
   return (
     <section className="rounded-[28px] bg-primary p-6 text-bg">
-      <p className="eyebrow !text-brass">{t('referral.eyebrow')}</p>
+      <p className="eyebrow !text-on-primary/80">{t('referral.eyebrow')}</p>
       <h2 className="mt-1 text-3xl">{t('referral.title')}</h2>
       {r.referrer_reward?.text && <p className="mt-2 text-bg/80">{r.referrer_reward.text}</p>}
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <code className="rounded-full bg-bg/10 px-5 py-2.5 text-lg tracking-widest" dir="ltr">{r.code}</code>
-        <Button variant="brass" size="sm" onClick={copy}><Copy size={14} />{t('referral.copy')}</Button>
+        <Button variant="outline" size="sm" onClick={copy}><Copy size={14} />{t('referral.copy')}</Button>
         <span className="text-sm text-bg/70">{t('referral.count', { n: r.referred_count })}</span>
       </div>
     </section>
@@ -189,7 +189,7 @@ export function LoyaltyPage() {
     <div className="space-y-6">
       <section className="relative overflow-hidden rounded-[28px] bg-primary p-8 text-bg">
         <Star className="absolute -end-6 -top-6 text-brass/20" size={160} strokeWidth={1} />
-        <p className="eyebrow !text-brass">{t('loyalty.tier')}: {t(`tier.${l.tier}`)}</p>
+        <p className="eyebrow !text-on-primary/80">{t('loyalty.tier')}: {t(`tier.${l.tier}`)}</p>
         <p className="mt-3 font-display text-7xl leading-none">{num(l.balance)}</p>
         <p className="mt-2 text-bg/70">{t('loyalty.worth', { v: l.value.formatted })}</p>
       </section>

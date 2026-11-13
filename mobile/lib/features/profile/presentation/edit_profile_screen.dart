@@ -156,7 +156,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                           firstDate: DateTime(1920),
                           lastDate: DateTime(now.year - 13),
                         );
-                        if (picked != null) setState(() => _dob = DateFormat('yyyy-MM-dd').format(picked));
+                        if (picked != null && mounted) setState(() => _dob = DateFormat('yyyy-MM-dd').format(picked));
                       },
                     ),
                     const Gap(AppSpace.md),

@@ -109,7 +109,7 @@ export function AuctionBand({ items }: { items: Auction[] }) {
     <section className="mt-24 bg-primary text-bg">
       <div className="wrap grid items-center gap-10 py-16 md:grid-cols-2">
         <div>
-          <p className="eyebrow mb-4 !text-brass"><span className="me-2 inline-block h-2 w-2 animate-pulse rounded-full bg-danger align-middle" />{t('auction.live_now')}</p>
+          <p className="eyebrow mb-4 !text-on-primary/80"><span className="me-2 inline-block h-2 w-2 animate-pulse rounded-full bg-danger align-middle" />{t('auction.live_now')}</p>
           <h2 className="text-[clamp(34px,5vw,58px)] leading-[1.05]">{a.title}</h2>
           <p className="mt-4 max-w-md text-bg/70">{t('auction.band_text')}</p>
           <div className="mt-8 flex flex-wrap items-center gap-4">

@@ -128,7 +128,7 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
   Future<void> _pickOnMap() async {
     final result = await Navigator.of(context)
         .push<LatLng>(MaterialPageRoute(builder: (_) => MapPinPicker(initial: _pin), fullscreenDialog: true));
-    if (result != null) setState(() => _pin = result);
+    if (result != null && mounted) setState(() => _pin = result);
   }
 
   Future<void> _save() async {
@@ -467,6 +467,12 @@ class _MapPinPickerState extends ConsumerState<MapPinPicker> {
   final _map = MapController();
   late LatLng _center = widget.initial ?? dohaCenter;
   bool _locating = false;
+
+  @override
+  void dispose() {
+    _map.dispose();
+    super.dispose();
+  }
 
   Future<void> _locate() async {
     setState(() => _locating = true);

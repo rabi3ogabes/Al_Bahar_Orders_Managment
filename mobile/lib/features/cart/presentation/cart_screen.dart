@@ -191,17 +191,22 @@ class CartLine extends ConsumerWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              GestureDetector(
-                onTap: () => openProduct(context, item.product, heroScope: 'cart'),
-                child: SizedBox(
-                  width: 80,
-                  height: 80,
-                  child: Hero(
-                    tag: item.product.heroTag('cart'),
-                    child: AppNetworkImage(
-                      url: item.product.image?.listUrl,
-                      borderRadius: AppRadius.imageAll,
-                      fit: BoxFit.contain,
+              Semantics(
+                button: true,
+                label: item.product.name,
+                excludeSemantics: true,
+                child: GestureDetector(
+                  onTap: () => openProduct(context, item.product, heroScope: 'cart'),
+                  child: SizedBox(
+                    width: 80,
+                    height: 80,
+                    child: Hero(
+                      tag: item.product.heroTag('cart'),
+                      child: AppNetworkImage(
+                        url: item.product.image?.listUrl,
+                        borderRadius: AppRadius.imageAll,
+                        fit: BoxFit.contain,
+                      ),
                     ),
                   ),
                 ),

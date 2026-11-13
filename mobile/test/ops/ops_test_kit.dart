@@ -152,6 +152,16 @@ class FakeOps implements OpsRepository {
   @override
   Future<void> returnToBranch(String id) async => calls.add('return:$id');
 
+  final beats = <({double lat, double lng})>[];
+
+  @override
+  Future<void> heartbeat(double lat, double lng, {double? speedKmh, int? heading, int? accuracy}) async {
+    beats.add((lat: lat, lng: lng));
+    if (beatError != null) throw beatError!;
+  }
+
+  Object? beatError;
+
   @override
   Future<List<String>> permissions() async => perms;
 
@@ -367,6 +377,7 @@ Widget opsHost(
     // No socket in tests: real-time pings are covered by the backend tests.
     driverEventsProvider.overrideWith((ref) => const Stream.empty()),
     staffEventsProvider.overrideWith((ref) => const Stream.empty()),
+    staffMovesProvider.overrideWith((ref) => const Stream<Map<String, dynamic>>.empty()),
     ...overrides,
   ],
   child: MaterialApp(

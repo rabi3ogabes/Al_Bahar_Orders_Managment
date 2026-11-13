@@ -116,7 +116,7 @@ export default function Order() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="eyebrow">{t('order.title')}</p>
-          <h2 className="font-display text-5xl leading-none">{o.number}</h2>
+          {placed || returning ? <h2 className="font-display text-5xl leading-none">{o.number}</h2> : <h1 className="font-display text-5xl leading-none">{o.number}</h1>}
           <p className="mt-2 text-sm text-muted">{t('order.placed_on', { d: date(o.placed_at) })}</p>
         </div>
         <div className="flex flex-wrap gap-2"><Badge tone={statusTone(o.status)}>{o.status_label}</Badge><Badge tone={statusTone(o.payment_status)}>{t(`payment.${o.payment_status}`)}</Badge></div>

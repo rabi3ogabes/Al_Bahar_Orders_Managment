@@ -46,7 +46,7 @@ export function Header() {
       <SeasonBanner />
       <div className="bg-primary text-[12px] text-bg/90">
         <div className="wrap flex items-center justify-between gap-4 py-2">
-          <span className="flex min-w-0 items-center gap-2"><Truck size={14} className="shrink-0 text-rose" /><span className="truncate">{t('top.promo')}</span></span>
+          <span className="flex min-w-0 items-center gap-2"><Truck size={14} className="shrink-0 text-on-primary/80" /><span className="truncate">{t('top.promo')}</span></span>
           {branches[0]?.phone && (
             <span className="hidden items-center gap-5 sm:flex">
               <a href={telHref(branches[0].phone)} className="flex items-center gap-1.5 hover:text-brass"><Phone size={13} /><bdi>{branches[0].phone}</bdi></a>
@@ -130,12 +130,12 @@ export function Footer() {
           <Logo light />
           <p className="mt-5 max-w-xs text-sm leading-relaxed text-bg/65">{t('footer.about')}</p>
           <ul className="mt-6 space-y-2 text-sm text-bg/75">
-            <li className="flex items-center gap-2"><ShieldCheck size={16} className="text-brass" />{t('footer.warranty')}</li>
-            <li className="flex items-center gap-2"><Truck size={16} className="text-brass" />{t('footer.delivery')}</li>
+            <li className="flex items-center gap-2"><ShieldCheck size={16} className="text-on-primary/80" />{t('footer.warranty')}</li>
+            <li className="flex items-center gap-2"><Truck size={16} className="text-on-primary/80" />{t('footer.delivery')}</li>
           </ul>
         </div>
         <div>
-          <h3 className="eyebrow mb-4 !text-brass">{t('footer.shop')}</h3>
+          <h3 className="eyebrow mb-4 !text-on-primary/80">{t('footer.shop')}</h3>
           <ul className="space-y-2.5 text-sm">
             <li><Link className="hover:text-brass" to="/shop">{t('nav.shop')}</Link></li>
             <li><Link className="hover:text-brass" to="/shop?sale=1">{t('footer.sale')}</Link></li>
@@ -144,7 +144,7 @@ export function Footer() {
           </ul>
         </div>
         <div>
-          <h3 className="eyebrow mb-4 !text-brass">{t('footer.help')}</h3>
+          <h3 className="eyebrow mb-4 !text-on-primary/80">{t('footer.help')}</h3>
           <ul className="space-y-2.5 text-sm">
             <li><Link className="hover:text-brass" to="/account/orders">{t('account.orders')}</Link></li>
             <li><Link className="hover:text-brass" to="/account/support">{t('account.support')}</Link></li>
@@ -155,14 +155,14 @@ export function Footer() {
           </ul>
         </div>
         <div>
-          <h3 className="eyebrow mb-4 !text-brass">{t('footer.news')}</h3>
+          <h3 className="eyebrow mb-4 !text-on-primary/80">{t('footer.news')}</h3>
           <p className="mb-3 text-sm text-bg/65">{t('footer.news_text')}</p>
           <form onSubmit={(e) => { e.preventDefault(); setEmail(''); toast.push(t('footer.thanks')); }} className="flex items-center rounded-full border border-bg/25 p-1 focus-within:border-brass">
             <Mail size={16} className="mx-3 shrink-0 text-bg/50" />
             <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('footer.email')} aria-label={t('footer.email')} className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-bg/45" />
             <button aria-label={t('footer.subscribe')} className="flex h-10 w-10 items-center justify-center rounded-full bg-brass text-on-brass hover:bg-bg"><Arrow size={16} /></button>
           </form>
-          {branches[0]?.phone && <a href={telHref(branches[0].phone)} className="mt-6 flex items-center gap-2 text-sm hover:text-brass"><Phone size={15} className="text-brass" />{branches[0].phone}</a>}
+          {branches[0]?.phone && <a href={telHref(branches[0].phone)} className="mt-6 flex items-center gap-2 text-sm hover:text-brass"><Phone size={15} className="text-on-primary/80" />{branches[0].phone}</a>}
         </div>
       </div>
       <div className="border-t border-bg/10">

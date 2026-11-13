@@ -28,3 +28,6 @@ export function isoDate(d: Date): string {
   return `${y}-${m}-${dd}`;
 }
 export const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+
+/** Arabic-Indic and Persian digits typed on an Arabic keyboard become 0-9, so numbers and codes validate on the server. */
+export const latinDigits = (v: string) => v.replace(/[\u0660-\u0669]/g, (c) => String(c.charCodeAt(0) - 0x660)).replace(/[\u06f0-\u06f9]/g, (c) => String(c.charCodeAt(0) - 0x6f0));

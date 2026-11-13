@@ -21,7 +21,7 @@ function Step({ n, title, done, children }: { n: number; title: string; done?: b
   return (
     <section className="rounded-[28px] border border-line bg-paper p-5 sm:p-7">
       <h2 className="mb-5 flex items-center gap-3 text-[26px]">
-        <span className={cx('flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold', done ? 'bg-success text-white' : 'bg-primary text-bg')}>{done ? <Check size={16} /> : n}</span>{title}
+        <span className={cx('flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-sans text-sm font-semibold tabular-nums', done ? 'bg-success text-white' : 'bg-primary text-bg')}>{done ? <Check size={16} /> : n}</span>{title}
       </h2>
       {children}
     </section>
@@ -35,7 +35,8 @@ function Slots({ branchId, kind, value, date, onPick, required }: { branchId: st
   const days = useQuery({ queryKey: ['slots', kind, branchId, from], queryFn: async () => (await get<{ data: SlotDay[] }>(`/branches/${branchId}/${kind}-slots`, { from, to })).data });
   const [day, setDay] = useState<string | null>(date);
   const open = (days.data ?? []).filter((d) => d.slots.length > 0);
-  useEffect(() => { if (!day && open[0]) setDay(open[0].date); }, [open, day]);
+  // Start on the first day that still has a free slot (today's earlier windows are usually gone).
+  useEffect(() => { if (!day && open[0]) setDay((open.find((d) => d.available > 0) ?? open[0]).date); }, [open, day]);
   if (days.isLoading) return <Skeleton className="h-28" />;
   if (!open.length) return <Alert tone={required ? 'warning' : 'info'}>{t(required ? 'checkout.no_slots_required' : 'checkout.no_slots')}</Alert>;
   const current = open.find((d) => d.date === day) ?? open[0];
@@ -46,7 +47,7 @@ function Slots({ branchId, kind, value, date, onPick, required }: { branchId: st
           const dt = new Date(`${d.date}T12:00:00`);
           const on = current.date === d.date;
           return (
-            <button key={d.date} role="tab" aria-selected={on} onClick={() => { setDay(d.date); onPick(null, null); }} className={cx('flex w-[74px] shrink-0 flex-col items-center rounded-2xl border py-3 transition-colors', on ? 'border-primary bg-primary text-bg' : 'border-line bg-bg hover:border-brass')}>
+            <button key={d.date} role="tab" aria-selected={on} onClick={() => { setDay(d.date); onPick(null, null); }} className={cx('flex w-[74px] shrink-0 flex-col items-center rounded-2xl border py-3 transition-colors', on ? 'border-primary bg-primary text-on-primary' : 'border-line bg-bg hover:border-brass', !on && d.available === 0 && 'opacity-50')}>
               <span className="text-[11px] uppercase tracking-wider opacity-80">{fmt(dt, { weekday: 'short' })}</span>
               <span className="font-display text-3xl leading-none">{dt.getDate()}</span>
               <span className="text-[11px] opacity-80">{fmt(dt, { month: 'short' })}</span>
@@ -132,11 +133,16 @@ export default function Checkout() {
     if (!method || !avail.includes(method)) setMethod((avail[0] as Method) ?? null);
   }, [q, method]);
 
+  // A smaller basket can lower the redeemable maximum below what was already chosen.
+  const maxPoints = q?.loyalty.max_redeemable_points;
+  useEffect(() => { if (maxPoints !== undefined && points > maxPoints) setPoints(maxPoints); }, [maxPoints, points]);
+
   const slotBranch = q?.fulfillments[0]?.branch.id ?? (ful === 'pickup' ? pickBranch : null);
   const slotRequired = !!q?.fulfillments[0]?.slot_required;
+  const showSlots = ready && !!slotBranch;
 
   const place = useMutation({
-    mutationFn: async () => (await post<{ data: { order: OrderDetail; payment: PaymentAction } }>('/checkout/orders', { ...options, quote_hash: q!.quote_hash, customer_notes: notes || undefined, payment_method: method }, { 'Idempotency-Key': idem.current })).data,
+    mutationFn: async () => (await post<{ data: { order: OrderDetail; payment: PaymentAction } }>('/checkout/orders', { ...options, quote_hash: q!.quote_hash, customer_notes: notes.trim() || undefined, payment_method: method }, { 'Idempotency-Key': idem.current })).data,
     onSuccess: async (r) => {
       await qc.invalidateQueries({ queryKey: ['cart'] });
       if (r.payment.action === 'redirect' && r.payment.redirect_url) {
@@ -212,14 +218,14 @@ export default function Checkout() {
             )}
           </Step>
 
-          {ready && slotBranch && (
+          {showSlots && (
             <Step n={2} title={ful === 'delivery' ? t('checkout.when_delivery') : t('checkout.when_pickup')} done={!!slotId || !slotRequired}>
               <Slots key={`${ful}-${slotBranch}`} branchId={slotBranch} kind={ful} value={slotId} date={slotDate} required={slotRequired} onPick={(id, d) => { setSlotId(id); setSlotDate(d); }} />
               {slotRequired && !slotId && <p className="mt-3 text-sm font-medium text-warning">{t('checkout.slot_required')}</p>}
             </Step>
           )}
 
-          <Step n={3} title={t('checkout.pay')} done={!!method}>
+          <Step n={showSlots ? 3 : 2} title={t('checkout.pay')} done={!!method}>
             {!q ? <p className="text-sm text-muted">{t('checkout.pay_after')}</p> : (
               <div role="radiogroup" aria-label={t('checkout.pay')} className="space-y-3">
                 {q.payment_methods.map((m) => {
@@ -236,12 +242,17 @@ export default function Checkout() {
             )}
           </Step>
 
-          <Step n={4} title={t('checkout.extras')}>
+          <Step n={showSlots ? 4 : 3} title={t('checkout.extras')}>
             <form className="flex items-end gap-3" onSubmit={(e) => { e.preventDefault(); setCouponApplied(coupon.trim()); }}>
-              <Input className="flex-1" label={t('checkout.coupon')} value={coupon} onChange={(e) => setCoupon(e.target.value.toUpperCase())} maxLength={48} prefix={<Tag size={15} />} />
-              <Button type="submit" variant="outline">{t('action.apply')}</Button>
+              <Input className="flex-1" label={t('checkout.coupon')} value={coupon} onChange={(e) => setCoupon(e.target.value.toUpperCase().replace(/\s/g, ''))} maxLength={48} autoComplete="off" autoCapitalize="characters" spellCheck={false} prefix={<Tag size={15} />} />
+              <Button type="submit" variant="outline" disabled={!coupon.trim() || coupon.trim() === couponApplied}>{t('action.apply')}</Button>
             </form>
-            {couponApplied && q && !q.discounts.length && !quote.isFetching && <p className="mt-2 text-sm text-warning">{t('checkout.coupon_none')}</p>}
+            {couponApplied && (
+              <p className="mt-2 flex flex-wrap items-center gap-x-3 text-sm">
+                {q && !q.discounts.length && !quote.isFetching && !q.warnings?.length ? <span className="text-warning">{t('checkout.coupon_none')}</span> : <span className="text-muted"><bdi>{couponApplied}</bdi></span>}
+                <button type="button" onClick={() => { setCoupon(''); setCouponApplied(''); }} className="font-medium text-brass-deep underline-offset-2 hover:underline">{t('checkout.coupon_remove')}</button>
+              </p>
+            )}
             {q && q.loyalty.balance > 0 && (
               <div className="mt-6 rounded-2xl bg-brass-tint/60 p-4">
                 <div className="flex items-center justify-between text-sm"><span className="flex items-center gap-2 font-semibold"><Gift size={16} className="text-brass-deep" />{t('checkout.points', { n: q.loyalty.balance })}</span>

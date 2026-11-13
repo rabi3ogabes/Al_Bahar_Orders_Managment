@@ -31,7 +31,7 @@ export function Logo({ light, band }: { light?: boolean; band?: boolean }) {
       {brand?.images.logo ? <img src={brand.images.logo} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover sm:h-10 sm:w-10" /> : <LogoMark />}
       <span className="flex flex-col items-start">
         <span lang="ar" dir="rtl" className="font-arabic text-[24px] font-semibold leading-[1.05] sm:text-[28px]">البحار</span>
-        <span className={cx('mt-0.5 whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.3em] sm:text-[11px]', light || band ? 'text-accent' : 'text-brass')}>Al Bahar</span>
+        <span className={cx('mt-0.5 whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.3em] sm:text-[11px]', light ? 'text-on-primary/80' : band ? 'text-accent' : 'text-brass')}>Al Bahar</span>
       </span>
     </Link>
   );

@@ -23,7 +23,7 @@
                 @if ($cards->isEmpty())
                     <div class="card"><x-admin.empty :title="__('neworder_admin.no_products')" :description="__('neworder_admin.no_products_hint')" icon="search" /></div>
                 @else
-                    <ul class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    <ul class="grid gap-3 sm:grid-cols-2 min-[1800px]:grid-cols-3">
                         @foreach ($cards as $c)
                             @php $p = $c['product']; $one = $c['variants']->first(); @endphp
                             <li wire:key="pc-{{ $p->id }}" x-data="{ qty: 1, pick: false }" class="card flex flex-col overflow-hidden">

@@ -77,7 +77,7 @@ class SettingsIndex extends Component
                 'loyalty.points_per_qar' => ['type' => 'int', 'rules' => $int(0, 1000)],
                 'loyalty.redeem_value_per_point' => ['type' => 'money', 'rules' => ['required', 'numeric', 'min:0', 'max:100', 'regex:/^\d+(\.\d{1,4})?$/']],
                 'loyalty.max_redeem_percent' => ['type' => 'percent', 'rules' => $int(0, 100)],
-                'loyalty.points_expiry_days' => ['type' => 'int', 'rules' => $int(0, 3650), 'suffix' => 'days'],
+                'loyalty.points_expiry_days' => ['type' => 'int', 'rules' => $int(1, 3650), 'suffix' => 'days'],
             ],
             'auctions' => [
                 'auctions.cod_allowed_default' => ['type' => 'bool', 'rules' => ['boolean']],

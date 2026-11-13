@@ -235,6 +235,7 @@ export const en: Record<string, string> = {
   "pay.reason.limit_exceeded": "Order is above the limit for this method",
   "checkout.extras": "Offers & notes",
   "checkout.coupon": "Coupon code",
+  "checkout.coupon_remove": "Remove code",
   "checkout.coupon_none": "That code does not apply to this order.",
   "checkout.points": "You have {n} points",
   "checkout.pts": "pts",

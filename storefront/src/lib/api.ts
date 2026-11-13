@@ -81,7 +81,7 @@ export async function api<T = any>(path: string, opts: ReqOpts = {}, retried = f
     });
   } catch (e: any) {
     if (e?.name === 'AbortError') throw e;
-    throw new ApiError(0, { message: 'network', code: 'network_error' });
+    throw new ApiError(0, { message: locale === 'ar' ? 'تعذّر الاتصال بالخادم. تحقق من اتصالك بالإنترنت وحاول مرة أخرى.' : 'We could not reach the server. Check your connection and try again.', code: 'network_error' });
   }
   if (res.status === 401 && !retried && tokens && opts.auth !== false && (await refresh())) return api<T>(path, opts, true);
   if (res.status === 204) return undefined as T;

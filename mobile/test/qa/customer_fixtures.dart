@@ -224,7 +224,49 @@ Map<String, dynamic> _home() => {
 
 /// A backend for the screen matrix. [mode] decides what GETs return;
 /// writes always succeed in `data` mode.
-FakeHandler customerBackend(ApiMode mode) {
+FakeHandler customerBackend(ApiMode mode, {bool stress = false, bool arabic = false}) {
+  final inner = _customerBackend(mode);
+  if (!stress) return inner;
+  return (RecordedRequest r) async {
+    final reply = await inner(r);
+    if (r.path == '/me') return reply;
+    return FakeReply(reply.status, _stress(reply.body, arabic), reply.headers);
+  };
+}
+
+const _stressKeys = {
+  'name',
+  'title',
+  'subject',
+  'body',
+  'label',
+  'address',
+  'landmark',
+  'description',
+  'recipient_name',
+  'variant_name',
+  'status_label',
+  'brand',
+  'message',
+  'area',
+};
+
+/// Replaces display strings with very long ones so layouts are tested at their limit.
+Object? _stress(Object? value, bool arabic) {
+  final filler = arabic
+      ? 'نص طويل جداً لاختبار حدود التخطيط في الشاشات الصغيرة مع تكبير الخط والتفاف الأسطر'
+      : 'Extraordinarily long text that keeps going to test wrapping and ellipsis on small screens';
+  if (value is Map) {
+    return value.map((k, v) {
+      if (_stressKeys.contains(k) && v is String && v.isNotEmpty) return MapEntry(k, '$v $filler');
+      return MapEntry(k, _stress(v, arabic));
+    });
+  }
+  if (value is List) return value.map((e) => _stress(e, arabic)).toList();
+  return value;
+}
+
+FakeHandler _customerBackend(ApiMode mode) {
   return (RecordedRequest r) {
     final path = r.path;
     if (r.method == 'GET' && path == '/me') return ok(userJson());

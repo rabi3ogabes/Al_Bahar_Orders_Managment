@@ -186,22 +186,25 @@ class _Toolbar extends StatelessWidget {
               for (final s in ProductSort.values)
                 CheckedPopupMenuItem(value: s, checked: s == query.sort, child: Text(sortLabel(l10n, s))),
             ],
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpace.xs, vertical: AppSpace.sm),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.swap_vert_rounded, size: 20),
-                  const Gap(4),
-                  Flexible(
-                    child: Text(
-                      l10n.sortBy,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: context.text.labelLarge,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: kMinTouchTarget),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpace.xs),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.swap_vert_rounded, size: 20),
+                    const Gap(4),
+                    Flexible(
+                      child: Text(
+                        l10n.sortBy,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.text.labelLarge,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

@@ -156,9 +156,23 @@ class OrderCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                StatusChip(label: order.statusLabel ?? order.status, tone: toneForStatus(order.status), dense: true),
-                const Spacer(),
-                Text(order.number, style: context.text.bodySmall),
+                Flexible(
+                  child: StatusChip(
+                    label: order.statusLabel ?? order.status,
+                    tone: toneForStatus(order.status),
+                    dense: true,
+                  ),
+                ),
+                const Gap(AppSpace.xs),
+                Expanded(
+                  child: Text(
+                    order.number,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                    style: context.text.bodySmall,
+                  ),
+                ),
               ],
             ),
             const Gap(AppSpace.sm),

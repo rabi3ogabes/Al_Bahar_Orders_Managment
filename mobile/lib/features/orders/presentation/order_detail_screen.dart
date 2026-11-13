@@ -20,6 +20,7 @@ import 'package:albahar_customer/features/orders/data/order_repository.dart';
 import 'package:albahar_customer/features/orders/domain/order_models.dart';
 import 'package:albahar_customer/features/orders/presentation/state/order_providers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
@@ -163,10 +164,12 @@ class _Header extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        Wrap(
+          spacing: AppSpace.xs,
+          runSpacing: AppSpace.xxs,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             StatusChip(label: order.statusLabel ?? order.status, tone: toneForStatus(order.status)),
-            const Gap(AppSpace.xs),
             if (order.paymentStatus != null)
               StatusChip(
                 label: _paymentLabel(l10n, order.paymentStatus!),
@@ -222,7 +225,10 @@ class _FulfillmentCard extends StatelessWidget {
                   ],
                 ),
               ),
-              StatusChip(label: f.statusLabel ?? f.status, tone: toneForStatus(f.status), dense: true),
+              const Gap(AppSpace.xs),
+              Flexible(
+                child: StatusChip(label: f.statusLabel ?? f.status, tone: toneForStatus(f.status), dense: true),
+              ),
             ],
           ),
           if (slot != null && slot['date'] != null)
@@ -705,7 +711,15 @@ class _CancelSheetState extends State<_CancelSheet> {
             ],
           ),
         ),
-        AppTextField(controller: _details, label: l10n.cancelDetails, maxLines: 3, minLines: 1),
+        AppTextField(
+          controller: _details,
+          label: l10n.cancelDetails,
+          maxLines: 3,
+          minLines: 1,
+          keyboardType: TextInputType.multiline,
+          textCapitalization: TextCapitalization.sentences,
+          inputFormatters: [LengthLimitingTextInputFormatter(500)],
+        ),
         const Gap(AppSpace.lg),
         AppButton(
           label: l10n.cancelOrder,
@@ -756,6 +770,7 @@ class _ReturnSheetState extends State<_ReturnSheet> {
         const Gap(AppSpace.sm),
         DropdownButtonFormField<String>(
           initialValue: _code,
+          isExpanded: true,
           decoration: InputDecoration(labelText: l10n.cancelReason),
           items: [for (final c in returnReasonCodes) DropdownMenuItem(value: c, child: Text(label(c)))],
           onChanged: (v) => setState(() => _code = v ?? _code),

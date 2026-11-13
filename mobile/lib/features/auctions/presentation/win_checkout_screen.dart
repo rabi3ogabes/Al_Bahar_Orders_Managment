@@ -108,7 +108,7 @@ class _WinCheckoutScreenState extends ConsumerState<WinCheckoutScreen> {
                   SurfaceCard(
                     onTap: () async {
                       final id = await context.push<String>('/addresses?pick=1');
-                      if (id != null) setState(() => _addressId = id);
+                      if (id != null && mounted) setState(() => _addressId = id);
                     },
                     child: Row(
                       children: [

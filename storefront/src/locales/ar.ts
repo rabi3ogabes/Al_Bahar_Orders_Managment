@@ -235,6 +235,7 @@ export const ar: Record<string, string> = {
   "pay.reason.limit_exceeded": "قيمة الطلب تتجاوز حد هذه الطريقة",
   "checkout.extras": "العروض والملاحظات",
   "checkout.coupon": "رمز القسيمة",
+  "checkout.coupon_remove": "إزالة الرمز",
   "checkout.coupon_none": "هذا الرمز لا ينطبق على الطلب.",
   "checkout.points": "لديك {n} نقطة",
   "checkout.pts": "نقطة",
