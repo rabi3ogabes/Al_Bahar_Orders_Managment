@@ -124,6 +124,7 @@ The window never starts in the past and is at least 5 minutes wide. Estimates ar
 The last three are marked `quiet = "1"` (no sound, no new heads-up; iOS: passive) and are never sent closer together than
 `platform.live_order.min_push_seconds` (default 15 s) per order. Setting `progress_steps` or `countdown_shift_seconds` to 0 turns that trigger off.
 Between pushes the Android card keeps counting down on its own, so it is live to the second, not only to the push.
+While the app is running (with or without Firebase) it also re-reads `GET /orders/active-progress` every **15 seconds** while a driver is on the road with the order (every minute otherwise), so the bar and the arrival moment follow the driver even before Firebase is connected; with the app closed only the push path can update the card.
 
 It is called from: order placed (`OrderPlaced`), order status change (`OrderUpdated`), a branch moving its part (`DispatchUpdated`, kind `order`),
 every delivery step (assigned, accepted, picked up, out for delivery, delivered, failed), cancellation, and driver position ticks

@@ -41,6 +41,7 @@ class LiveOrderController {
     this.brand,
     this.arabicDigits = false,
     this.resyncInterval = const Duration(seconds: 60),
+    this.liveInterval = const Duration(seconds: 15),
     this.eventDebounce = const Duration(milliseconds: 600),
     this.minResyncGap = const Duration(seconds: 5),
     DateTime Function()? now,
@@ -60,7 +61,10 @@ class LiveOrderController {
   /// Arabic-Indic digits in the times of Arabic cards (off: Western digits, like the rest of the app).
   final bool arabicDigits;
 
+  /// How often an order is re-read: [resyncInterval] normally, [liveInterval] while a driver is on the road with it
+  /// (the bar and the arrival moment keep moving; the push path does the same from the server when Firebase is on).
   final Duration resyncInterval;
+  final Duration liveInterval;
   final Duration eventDebounce;
   final Duration minResyncGap;
   final DateTime Function() _now;
@@ -81,6 +85,7 @@ class LiveOrderController {
   bool _again = false;
   DateTime? _lastSync;
   Timer? _timer;
+  Duration? _timerEvery;
   Timer? _debounce;
   StreamSubscription<PusherEvent>? _events;
   Future<void>? _tail;
@@ -266,14 +271,21 @@ class LiveOrderController {
     _debounce = Timer(after, () => unawaited(resync(force: true)));
   }
 
-  /// One poll timer, only while an order is active.
+  /// One poll timer, only while an order is active; quicker while a driver is on the road.
   void _updateTimer() {
     final needed = _signedIn && _tracked.isNotEmpty;
     if (!needed) {
       _timer?.cancel();
       _timer = null;
-    } else if (_timer == null || !_timer!.isActive) {
-      _timer = Timer.periodic(resyncInterval, (_) => unawaited(resync(force: true)));
+      _timerEvery = null;
+      return;
+    }
+    final onTheWay = _orders.values.any((o) => o.phase == LiveOrderPhase.onTheWay && !o.isFinal);
+    final every = onTheWay && liveInterval < resyncInterval ? liveInterval : resyncInterval;
+    if (_timer == null || !_timer!.isActive || _timerEvery != every) {
+      _timer?.cancel();
+      _timerEvery = every;
+      _timer = Timer.periodic(every, (_) => unawaited(resync(force: true)));
     }
   }
 

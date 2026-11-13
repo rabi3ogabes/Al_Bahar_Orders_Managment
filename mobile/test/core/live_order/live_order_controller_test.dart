@@ -94,6 +94,35 @@ void main() {
       });
     });
 
+    test('re-reads every 15 seconds while a driver is on the road, and every minute otherwise', () async {
+      final rig = await _Rig.create();
+      fakeAsync((async) {
+        final c = rig.controller..onSignedIn();
+        async.flushMicrotasks();
+        unawaited(c.orderPlaced(orderId: 'o1', number: 'A-1'));
+        async.flushMicrotasks();
+
+        // Preparing: the quiet pace.
+        rig.api.active = [liveOrder('o1', seq: 1, phase: LiveOrderPhase.preparing)];
+        async.elapse(const Duration(seconds: 3));
+        final preparing = rig.api.activeCalls;
+        async.elapse(const Duration(seconds: 30));
+        expect(rig.api.activeCalls, preparing, reason: 'nothing to read more often while it is only being prepared');
+
+        // The driver is on the road: the card follows closely.
+        rig.api.active = [liveOrder('o1', seq: 2, phase: LiveOrderPhase.onTheWay)];
+        async.elapse(const Duration(seconds: 31));
+        final onTheWay = rig.api.activeCalls;
+        async.elapse(const Duration(seconds: 61));
+        expect(rig.api.activeCalls - onTheWay, greaterThanOrEqualTo(4), reason: 'every 15 s while on the road');
+
+        // Delivered: the quick timer stops with the order.
+        rig.api.active = [liveOrder('o1', seq: 9, phase: LiveOrderPhase.delivered, updatedAt: _t0)];
+        async.elapse(const Duration(seconds: 16));
+        expect(c.polling, isFalse);
+      });
+    });
+
     test('a pickup order is placed as a pickup', () async {
       final rig = await _Rig.create();
       fakeAsync((async) {
