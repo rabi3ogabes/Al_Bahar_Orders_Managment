@@ -37,7 +37,25 @@
             <div class="text-[0.68rem] uppercase tracking-[0.2em] text-brass-300">{{ __('admin.console') }}</div>
         </div>
     </div>
-    <nav class="flex-1 space-y-6 overflow-y-auto px-4 pb-6 [scrollbar-width:thin]">
+    {{-- The menu remembers its scroll position across page loads (wire:navigate, reload) and keeps the current page's item in view. --}}
+    <nav class="flex-1 space-y-6 overflow-y-auto px-4 pb-6 [scrollbar-width:thin]"
+         x-data="{
+             k: 'albahar.admin.nav.scroll',
+             save() { try { localStorage.setItem(this.k, String(this.$el.scrollTop)); } catch (e) {} },
+             restore() {
+                 let y = 0;
+                 try { y = parseInt(localStorage.getItem(this.k) || '0', 10) || 0; } catch (e) {}
+                 this.$el.scrollTop = y;
+                 const a = this.$el.querySelector('[aria-current=page]');
+                 if (a) {
+                     const n = this.$el.getBoundingClientRect(), r = a.getBoundingClientRect();
+                     if (r.top < n.top + 8 || r.bottom > n.bottom - 8) { a.scrollIntoView({ block: 'nearest' }); }
+                 }
+             }
+         }"
+         x-init="restore(); $nextTick(() => restore())"
+         x-on:scroll.passive.debounce.80ms="save()"
+         x-on:click="save()">
         @php
             // Active item: exact route, or a child route (e.g. admin.orders.show) of an ".index" item when no nav item matches exactly.
             $navRoutes = collect($nav)->flatMap(fn ($g) => array_column($g['items'], 'route'));
