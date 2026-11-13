@@ -2,6 +2,7 @@ import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/qatar_time.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
+import 'package:albahar_customer/core/widgets/fresh.dart';
 import 'package:albahar_customer/core/widgets/paged.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
@@ -19,8 +20,9 @@ class OrdersScreen extends StatelessWidget {
     final l10n = context.l10n;
     return DefaultTabController(
       length: OrderFilter.values.length,
-      child: Scaffold(
+      child: FreshScaffold(
         appBar: AppBar(title: Text(l10n.ordersTitle)),
+        header: FreshHeader(title: l10n.ordersTitle, tagline: l10n.freshTaglineOrders),
         body: Column(
           children: [
             _SegmentedTabs(labels: [l10n.filterAll, l10n.filterActive, l10n.filterCompleted, l10n.filterCancelled]),

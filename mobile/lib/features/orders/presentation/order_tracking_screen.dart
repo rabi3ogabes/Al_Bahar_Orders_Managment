@@ -4,6 +4,7 @@ import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/realtime/pusher_client.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
+import 'package:albahar_customer/core/widgets/fresh.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/auctions/data/auction_repository.dart';
 import 'package:albahar_customer/features/orders/presentation/state/order_providers.dart';
@@ -68,8 +69,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
     final l10n = context.l10n;
     final async = ref.watch(orderTrackingProvider(widget.orderId));
     final tiles = ref.watch(appConfigProvider).mapTileUrlTemplate;
-    return Scaffold(
+    return FreshScaffold(
       appBar: AppBar(title: Text(l10n.trackTitle)),
+      header: FreshHeader(title: l10n.trackTitle, tagline: l10n.freshTaglineTrack),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => ErrorState(error: e, onRetry: () => ref.invalidate(orderTrackingProvider(widget.orderId))),

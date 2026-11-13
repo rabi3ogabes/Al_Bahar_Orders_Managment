@@ -1,5 +1,6 @@
 import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
+import 'package:albahar_customer/core/widgets/fresh.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/catalog_widgets.dart';
@@ -15,8 +16,9 @@ class WishlistScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final wishlist = ref.watch(wishlistControllerProvider);
-    return Scaffold(
+    return FreshScaffold(
       appBar: AppBar(title: Text(l10n.wishlistTitle)),
+      header: FreshHeader(title: l10n.wishlistTitle, tagline: l10n.freshTaglineWishlist),
       body: wishlist.when(
         skipLoadingOnRefresh: true,
         loading: () => const ProductGridSkeleton(),

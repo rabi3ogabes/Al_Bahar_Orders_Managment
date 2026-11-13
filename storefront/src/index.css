@@ -5,6 +5,7 @@
 @import '@fontsource/inter/latin-400.css';
 @import '@fontsource/inter/latin-500.css';
 @import '@fontsource/inter/latin-600.css';
+@import '@fontsource/inter/latin-700.css';
 @import '@fontsource/ibm-plex-sans-arabic/arabic-400.css';
 @import '@fontsource/ibm-plex-sans-arabic/arabic-500.css';
 @import '@fontsource/ibm-plex-sans-arabic/arabic-600.css';
@@ -30,6 +31,16 @@
   --danger: #b0453a;
   --info: #3e5c80;
   --shadow: 0 1px 2px rgb(29 35 48 / 0.04), 0 8px 28px -12px rgb(29 35 48 / 0.18);
+  /* Design-system extras: the brand payload overrides these (see lib/brand.tsx). */
+  --accent: #b3254f;
+  --on-accent: #ffffff;
+  --on-brass: #ffffff;
+  --on-primary: #fcf9fa;
+  --band: #8a1538;
+  --on-band: #fcf9fa;
+  --r-card: 20px;
+  --r-ctl: 16px;
+  --r-big: 28px;
   color-scheme: light;
 }
 :root[data-theme='dark'] {
@@ -47,6 +58,12 @@
   --brass-deep: #f0a8bd;
   --brass-tint: #33202a;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 10px 30px -12px rgb(0 0 0 / 0.6);
+  --accent: #e58aa5;
+  --on-accent: #181115;
+  --on-brass: #181115;
+  --on-primary: #181115;
+  --band: #2e1620;
+  --on-band: #f1ece3;
   color-scheme: dark;
 }
 
@@ -69,6 +86,12 @@
   --color-warning: var(--warning);
   --color-danger: var(--danger);
   --color-info: var(--info);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-on-brass: var(--on-brass);
+  --color-on-primary: var(--on-primary);
+  --color-band: var(--band);
+  --color-on-band: var(--on-band);
   --font-display: 'Cormorant Garamond', 'IBM Plex Sans Arabic', Georgia, serif;
   --font-arabic: 'IBM Plex Sans Arabic', 'Inter', system-ui, sans-serif;
   --font-sans: 'Inter', 'IBM Plex Sans Arabic', system-ui, sans-serif;
@@ -122,3 +145,28 @@ html[lang='ar'] .eyebrow { letter-spacing: 0; font-size: 12px; }
 .prose-store h2, .prose-store h3 { margin: 1.4em 0 0.5em; }
 .prose-store ul { padding-inline-start: 1.2em; list-style: disc; color: var(--ink-soft); }
 .prose-store a { color: var(--brass-deep); text-decoration: underline; text-underline-offset: 3px; }
+
+/* ───────────── 'fresh' web design: tokens from the dashboard (data-* on <html>) ───────────── */
+html[data-layout='fresh'][data-radius='md'] { --r-card: 14px; --r-ctl: 12px; --r-big: 20px; }
+html[data-layout='fresh'][data-radius='lg'] { --r-card: 20px; --r-ctl: 16px; --r-big: 28px; }
+html[data-layout='fresh'][data-radius='xl'] { --r-card: 26px; --r-ctl: 20px; --r-big: 34px; }
+html[data-layout='fresh'] { --sec: clamp(56px, 8vw, 96px); --shadow: 0 1px 2px rgb(20 40 28 / 0.05), 0 14px 34px -18px rgb(20 40 28 / 0.28); }
+html[data-layout='fresh'][data-density='compact'] { --sec: clamp(36px, 5vw, 60px); }
+/* Existing pages inherit the radius token through their current corner classes. */
+html[data-layout='fresh'] .rounded-2xl { border-radius: var(--r-ctl); }
+html[data-layout='fresh'] :is(.rounded-\[20px\], .rounded-\[24px\]) { border-radius: var(--r-card); }
+html[data-layout='fresh'] :is(.rounded-\[28px\], .rounded-\[32px\]) { border-radius: var(--r-big); }
+html[data-layout='fresh'] :is(h1, h2, h3, .font-display) { font-family: var(--font-sans); font-weight: 700; letter-spacing: -0.02em; }
+html[lang='ar'][data-layout='fresh'] :is(h1, h2, h3, .font-display) { font-family: var(--font-arabic); font-weight: 600; letter-spacing: 0; }
+html[data-layout='fresh'] .eyebrow { color: var(--brass-deep); }
+html[data-layout='fresh'][data-background='gradient'] body {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 9%, var(--bg)) 0, var(--bg) 640px) no-repeat, var(--bg);
+}
+.fx-sec { margin-top: var(--sec, 88px); }
+.fx-card { background: var(--paper); border-radius: var(--r-card); border: 1px solid transparent; }
+html[data-card='soft'] .fx-card { box-shadow: var(--shadow); }
+html[data-card='outlined'] .fx-card { border-color: var(--line); box-shadow: none; }
+html[data-card='flat'] .fx-card { box-shadow: none; background: var(--sand); }
+.fx-hover { transition: transform 0.25s ease, box-shadow 0.25s ease; }
+.fx-hover:hover { transform: translateY(-3px); }
+html[data-layout='fresh'] { --mark-bg: var(--accent); --mark-fg: var(--on-accent); --mark-fg2: var(--on-accent); }

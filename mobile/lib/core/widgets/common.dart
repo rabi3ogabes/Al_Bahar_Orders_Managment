@@ -2,6 +2,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../l10n/l10n.dart';
+import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
 import '../theme/tokens.dart';
 import '../utils/haptics.dart';
 import 'skeleton.dart';
@@ -83,8 +85,18 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final design = context.design;
+    final arabic = context.localeCode == 'ar';
+    final titleStyle = design.isFresh
+        ? context.text.headlineSmall?.copyWith(
+            fontFamily: arabic ? AppFonts.arabic : AppFonts.display,
+            fontWeight: FontWeight.w700,
+          )
+        : context.text.headlineSmall;
     return Padding(
-      padding: padding ?? const EdgeInsetsDirectional.fromSTEB(AppSpace.gutter, AppSpace.lg, AppSpace.xs, AppSpace.sm),
+      padding:
+          padding ??
+          EdgeInsetsDirectional.fromSTEB(design.gutter, AppSpace.lg * design.spacing, AppSpace.xs, AppSpace.sm),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
@@ -92,7 +104,7 @@ class SectionHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Semantics(header: true, child: Text(title, style: context.text.headlineSmall)),
+                Semantics(header: true, child: Text(title, style: titleStyle)),
                 if (subtitle != null) ...[const Gap(2), Text(subtitle!, style: context.text.bodySmall)],
               ],
             ),
@@ -105,8 +117,8 @@ class SectionHeader extends StatelessWidget {
                 children: [
                   Text(actionLabel ?? context.l10n.seeAll),
                   const Gap(2),
-                  // Directional chevron flips automatically in RTL.
-                  const Icon(Icons.chevron_right_rounded, size: 18),
+                  // Directional icons flip automatically in RTL.
+                  Icon(design.isFresh ? Icons.arrow_forward_rounded : Icons.chevron_right_rounded, size: 18),
                 ],
               ),
             ),
@@ -256,6 +268,73 @@ class QuantityStepper extends StatelessWidget {
       ),
     );
 
+    final fresh = context.design.isFresh;
+    // Fresh: two round buttons (a soft minus, a solid plus) around the number.
+    Widget round(IconData icon, String label, bool enabled, int next, {required bool solid}) => Semantics(
+      button: true,
+      enabled: enabled,
+      label: label,
+      excludeSemantics: true,
+      child: InkResponse(
+        radius: 26,
+        onTap: enabled
+            ? () {
+                Haptics.tap();
+                onChanged!(next);
+              }
+            : null,
+        child: SizedBox(
+          width: kMinTouchTarget,
+          height: kMinTouchTarget,
+          child: Center(
+            child: Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: !enabled ? palette.line : (solid ? context.colors.primary : palette.tint),
+              ),
+              child: Icon(
+                icon,
+                size: 18,
+                color: !enabled
+                    ? palette.muted.withValues(alpha: 0.5)
+                    : (solid ? context.colors.onPrimary : context.colors.primary),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    final number = SizedBox(
+      width: compact ? 28 : 36,
+      child: Center(
+        heightFactor: 1,
+        child: busy
+            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+            : AnimatedSwitcher(
+                duration: AppDurations.fast,
+                transitionBuilder: (c, a) => ScaleTransition(scale: a, child: c),
+                child: Text(
+                  '$value',
+                  key: ValueKey(value),
+                  style: context.text.titleSmall,
+                  semanticsLabel: '${l10n.quantity} $value',
+                ),
+              ),
+      ),
+    );
+    if (fresh) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          round(Icons.remove_rounded, l10n.decreaseQuantity, canDec, value - 1, solid: false),
+          number,
+          round(Icons.add_rounded, l10n.increaseQuantity, canInc, value + 1, solid: true),
+        ],
+      );
+    }
+
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: palette.line),
@@ -266,24 +345,7 @@ class QuantityStepper extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           btn(Icons.remove_rounded, l10n.decreaseQuantity, canDec, value - 1),
-          SizedBox(
-            width: compact ? 28 : 36,
-            child: Center(
-              heightFactor: 1,
-              child: busy
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                  : AnimatedSwitcher(
-                      duration: AppDurations.fast,
-                      transitionBuilder: (c, a) => ScaleTransition(scale: a, child: c),
-                      child: Text(
-                        '$value',
-                        key: ValueKey(value),
-                        style: context.text.titleSmall,
-                        semanticsLabel: '${l10n.quantity} $value',
-                      ),
-                    ),
-            ),
-          ),
+          number,
           btn(Icons.add_rounded, l10n.increaseQuantity, canInc, value + 1),
         ],
       ),

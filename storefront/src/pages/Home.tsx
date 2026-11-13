@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, ArrowLeft, Gavel, MapPin, PackageCheck, ShieldCheck, Sparkles, Truck, Clock } from 'lucide-react';
@@ -5,7 +6,7 @@ import { get } from '../lib/api';
 import { useBranch } from '../lib/branch';
 import { useI18n } from '../lib/i18n';
 import { useDocTitle, useTick } from '../lib/hooks';
-import { useBrand } from '../lib/brand';
+import { useBrand, useDesign } from '../lib/brand';
 import type { Auction, Brand, HomeSection, ProductCard as P } from '../lib/types';
 import { Rail } from '../components/Rail';
 import { BuyAgain } from '../components/BuyAgain';
@@ -100,7 +101,7 @@ function CountdownText({ iso }: { iso: string }) {
   return <span className="tabular-nums">{String(h).padStart(2, '0')}:{String(m).padStart(2, '0')}:{String(s).padStart(2, '0')}</span>;
 }
 
-function AuctionBand({ items }: { items: Auction[] }) {
+export function AuctionBand({ items }: { items: Auction[] }) {
   const { t } = useI18n();
   if (!items.length) return null;
   const a = items[0];
@@ -122,7 +123,7 @@ function AuctionBand({ items }: { items: Auction[] }) {
   );
 }
 
-export default function Home() {
+function ClassicHome() {
   const { t, dir } = useI18n();
   const { branchId } = useBranch();
   useDocTitle();
@@ -172,7 +173,7 @@ export default function Home() {
           <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {byType('promotions')[0].items.slice(0, 3).map((p: any) => (
               <li key={p.id}><Link to="/shop?sale=1" className="flex h-full items-center gap-4 rounded-[24px] border border-brass/30 bg-brass-tint p-5 transition-shadow hover:shadow-soft">
-                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brass text-sm font-bold text-white">{p.badge ?? '%'}</span>
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brass text-sm font-bold text-on-brass">{p.badge ?? '%'}</span>
                 <span><span className="block font-display text-2xl leading-tight">{p.name}</span>{p.description && <span className="text-sm text-ink-soft">{p.description}</span>}</span></Link></li>
             ))}
           </ul>
@@ -210,4 +211,13 @@ export default function Home() {
       </section>
     </>
   );
+}
+
+const FreshHome = lazy(() => import('./FreshHome'));
+
+/** The web design chosen in the dashboard decides which home page renders. */
+export default function Home() {
+  const { layout } = useDesign();
+  if (layout !== 'fresh') return <ClassicHome />;
+  return <Suspense fallback={<div className="min-h-[60vh]" />}><FreshHome /></Suspense>;
 }

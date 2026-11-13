@@ -653,5 +653,16 @@
   "trackWaiting": "سيظهر السائق هنا بعد استلام الطلب",
   "trackYou": "عنوان التوصيل",
   "trackBranch": "الفرع",
-  "trackUpdated": "تحديث مباشر"
+  "trackUpdated": "تحديث مباشر",
+  "freshTaglineHome": "ماذا نجهّز لمنزلك اليوم؟",
+  "freshTaglineCart": "راجع منتجاتك قبل إتمام الطلب.",
+  "freshTaglineWishlist": "منتجاتك المفضلة محفوظة لوقت لاحق.",
+  "freshTaglineOrders": "تابع جميع طلباتك في مكان واحد.",
+  "freshTaglineOrder": "كل التفاصيل عن هذا الطلب.",
+  "freshTaglineTrack": "تابع توصيلك خطوة بخطوة.",
+  "freshTaglineAccount": "بياناتك وعناوينك وتفضيلاتك.",
+  "freshTaglineCategories": "كل ما يحتاجه منزلك، قسماً بقسم.",
+  "freshTaglineSearch": "ابحث في المتجر كله.",
+  "freshBestSellers": "الأكثر مبيعاً",
+  "freshNewArrivals": "وصل حديثاً"
 }

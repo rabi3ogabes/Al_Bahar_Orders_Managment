@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/theme/brand_theme.dart';
+import 'package:albahar_customer/core/theme/design_tokens.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/qatar_time.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/countdown.dart';
+import 'package:albahar_customer/core/widgets/fresh.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/auctions/domain/auction_models.dart';
@@ -34,8 +36,9 @@ class HomeScreen extends ConsumerWidget {
     ref.watch(autoBranchSelectionProvider);
     final feed = ref.watch(homeFeedProvider);
     final l10n = context.l10n;
+    final fresh = context.design.isFresh;
 
-    return Scaffold(
+    return FreshScaffold(
       body: RefreshIndicator(
         onRefresh: () async {
           unawaited(ref.read(brandThemeProvider.notifier).refresh());
@@ -45,7 +48,7 @@ class HomeScreen extends ConsumerWidget {
         },
         child: CustomScrollView(
           slivers: [
-            const _HomeHeader(),
+            if (fresh) const SliverToBoxAdapter(child: _FreshHomeHeader()) else const _HomeHeader(),
             ...feed.when(
               skipLoadingOnRefresh: true,
               data: (data) {
@@ -55,6 +58,17 @@ class HomeScreen extends ConsumerWidget {
                       hasScrollBody: false,
                       child: EmptyState(icon: Icons.weekend_outlined, title: l10n.appFullName, message: l10n.homeEmpty),
                     ),
+                  ];
+                }
+                if (fresh) {
+                  // Fresh order: banner, categories, best sellers and new arrivals, the rest, promo strips, buy again.
+                  return [
+                    const SliverToBoxAdapter(child: SeasonBanner()),
+                    const SliverToBoxAdapter(child: ActiveOrderCard()),
+                    for (final s in freshSectionOrder(data.sections))
+                      SliverToBoxAdapter(child: HomeSectionView(section: s)),
+                    const SliverToBoxAdapter(child: BuyAgainSection()),
+                    const SliverToBoxAdapter(child: Gap(AppSpace.xxl)),
                   ];
                 }
                 return [
@@ -138,68 +152,139 @@ class _HomeHeader extends ConsumerWidget {
         preferredSize: Size.fromHeight(multiBranch ? 124 : 72),
         child: Padding(
           padding: const EdgeInsetsDirectional.fromSTEB(AppSpace.gutter, 0, AppSpace.gutter, AppSpace.sm),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (multiBranch) ...[const BranchPill(), const Gap(AppSpace.xs)],
-              Row(
-                children: [
-                  Expanded(
-                    child: Semantics(
-                      button: true,
-                      label: l10n.searchHint,
-                      child: InkWell(
-                        borderRadius: AppRadius.inputAll,
-                        onTap: () => context.push('/search'),
-                        child: Container(
-                          height: 52,
-                          padding: const EdgeInsetsDirectional.symmetric(horizontal: AppSpace.md),
-                          decoration: BoxDecoration(
-                            color: context.colors.surface,
-                            borderRadius: AppRadius.inputAll,
-                            boxShadow: kSoftShadow,
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.search_rounded, color: context.palette.muted),
-                              const Gap(AppSpace.sm),
-                              Expanded(
-                                child: Text(
-                                  l10n.searchHint,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: context.text.bodyMedium?.copyWith(color: context.palette.muted),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const Gap(AppSpace.sm),
-                  Semantics(
-                    button: true,
-                    label: l10n.searchHint,
-                    child: Material(
-                      color: context.colors.primary,
-                      borderRadius: AppRadius.inputAll,
-                      child: InkWell(
-                        borderRadius: AppRadius.inputAll,
-                        onTap: () => context.push('/search'),
-                        child: SizedBox(
-                          width: 52,
-                          height: 52,
-                          child: Icon(Icons.tune_rounded, color: context.colors.onPrimary),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+          child: _HomeSearchRow(multiBranch: multiBranch),
         ),
       ),
+    );
+  }
+}
+
+/// Greeting header of the fresh design: brand mark, bold greeting, tagline, bell, then the search pill.
+class _FreshHomeHeader extends ConsumerWidget {
+  const _FreshHomeHeader();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final user = ref.watch(sessionControllerProvider).user;
+    final unread = ref.watch(unreadCountProvider);
+    final signedIn = ref.watch(isAuthenticatedProvider);
+    final multiBranch = ref.watch(multipleBranchesProvider);
+    final gutter = context.design.gutter;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FreshHeader(
+          title: user != null ? l10n.homeGreetingNamed(user.firstName) : l10n.homeGreeting,
+          tagline: l10n.freshTaglineHome,
+          trailing: [
+            if (signedIn)
+              FreshHeaderAction(
+                icon: const Icon(Icons.notifications_none_rounded),
+                tooltip: l10n.notificationsTitle,
+                badge: unread,
+                onPressed: () => context.push('/notifications'),
+              ),
+          ],
+        ),
+        Padding(
+          padding: EdgeInsetsDirectional.fromSTEB(gutter, 0, gutter, AppSpace.xs),
+          child: _HomeSearchRow(multiBranch: multiBranch),
+        ),
+      ],
+    );
+  }
+}
+
+/// Order of the server's sections in the fresh home: pictures first, then categories, the product rails, everything
+/// else in the server's order, and the promotions last (they become promo strips). Nothing is added or removed.
+List<HomeSection> freshSectionOrder(List<HomeSection> sections) {
+  int rank(HomeSection s) => switch (s) {
+    BannersSection() => 0,
+    CategoriesSection() => 1,
+    ProductsSection(type: 'best_sellers') => 2,
+    ProductsSection(type: 'new_arrivals') => 3,
+    ProductsSection() => 4,
+    AuctionsSection() => 5,
+    BrandsSection() => 6,
+    PromotionsSection() => 7,
+  };
+  final indexed = [for (var i = 0; i < sections.length; i++) (i, sections[i])];
+  indexed.sort((a, b) {
+    final r = rank(a.$2).compareTo(rank(b.$2));
+    return r != 0 ? r : a.$1.compareTo(b.$1);
+  });
+  return [for (final e in indexed) e.$2];
+}
+
+/// Search pill (opens Search) with the filter button, and the branch pill above it when there are several branches.
+class _HomeSearchRow extends StatelessWidget {
+  const _HomeSearchRow({required this.multiBranch});
+  final bool multiBranch;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final radius = context.design.controlBorderRadius;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (multiBranch) ...[const BranchPill(), const Gap(AppSpace.xs)],
+        Row(
+          children: [
+            Expanded(
+              child: Semantics(
+                button: true,
+                label: l10n.searchHint,
+                child: InkWell(
+                  borderRadius: radius,
+                  onTap: () => context.push('/search'),
+                  child: Container(
+                    height: 52,
+                    padding: const EdgeInsetsDirectional.symmetric(horizontal: AppSpace.md),
+                    decoration: BoxDecoration(
+                      color: context.colors.surface,
+                      borderRadius: radius,
+                      boxShadow: kSoftShadow,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.search_rounded, color: context.palette.muted),
+                        const Gap(AppSpace.sm),
+                        Expanded(
+                          child: Text(
+                            l10n.searchHint,
+                            overflow: TextOverflow.ellipsis,
+                            style: context.text.bodyMedium?.copyWith(color: context.palette.muted),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const Gap(AppSpace.sm),
+            Semantics(
+              button: true,
+              label: l10n.searchHint,
+              child: Material(
+                color: context.colors.primary,
+                borderRadius: radius,
+                child: InkWell(
+                  borderRadius: radius,
+                  onTap: () => context.push('/search'),
+                  child: SizedBox(
+                    width: 52,
+                    height: 52,
+                    child: Icon(Icons.tune_rounded, color: context.colors.onPrimary),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -241,6 +326,7 @@ class HomeSectionView extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final s = section;
+    final fresh = context.design.isFresh;
     return switch (s) {
       BannersSection() => Padding(
         padding: const EdgeInsets.only(top: AppSpace.sm),
@@ -250,16 +336,16 @@ class HomeSectionView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SectionHeader(title: s.title ?? l10n.categoriesTitle, onAction: () => context.go('/categories')),
-          _CategoryChips(categories: s.categories),
+          if (fresh) _FreshCategoryRow(categories: s.categories) else _CategoryChips(categories: s.categories),
         ],
       ),
       ProductsSection() => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SectionHeader(
-            title: s.title ?? _defaultTitle(l10n, s.type),
+            title: s.title ?? _defaultTitle(l10n, s.type, fresh: fresh),
             onAction: () {
-              final q = {...s.listingQuery, 'title': s.title ?? _defaultTitle(l10n, s.type)};
+              final q = {...s.listingQuery, 'title': s.title ?? _defaultTitle(l10n, s.type, fresh: fresh)};
               context.push(Uri(path: '/products', queryParameters: q).toString());
             },
           ),
@@ -277,7 +363,7 @@ class HomeSectionView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (s.title != null) SectionHeader(title: s.title!),
-          _Promotions(promotions: s.promotions),
+          if (fresh) _PromoStrips(promotions: s.promotions) else _Promotions(promotions: s.promotions),
         ],
       ),
       AuctionsSection() => Column(
@@ -302,9 +388,9 @@ class HomeSectionView extends StatelessWidget {
     };
   }
 
-  static String _defaultTitle(AppLocalizations l10n, String type) => switch (type) {
-    'new_arrivals' => l10n.badgeNew,
-    'best_sellers' => l10n.badgeBestseller,
+  static String _defaultTitle(AppLocalizations l10n, String type, {bool fresh = false}) => switch (type) {
+    'new_arrivals' => fresh ? l10n.freshNewArrivals : l10n.badgeNew,
+    'best_sellers' => fresh ? l10n.freshBestSellers : l10n.badgeBestseller,
     'recommended' => l10n.relatedProducts,
     _ => l10n.productsTitle,
   };
@@ -380,7 +466,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
                   child: GestureDetector(
                     onTap: () => openHomeLink(context, b.link),
                     child: ClipRRect(
-                      borderRadius: AppRadius.cardAll,
+                      borderRadius: context.design.cardBorderRadius,
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
@@ -586,6 +672,120 @@ class _CategoryChips extends StatelessWidget {
       },
     ),
   );
+}
+
+/// Fresh category row: rounded cards with the picture on top, the name below and a small round arrow badge.
+class _FreshCategoryRow extends StatelessWidget {
+  const _FreshCategoryRow({required this.categories});
+  final List<CatalogCategory> categories;
+
+  @override
+  Widget build(BuildContext context) {
+    final design = context.design;
+    final textScale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.6);
+    return SizedBox(
+      height: 132 + 26 * textScale,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        padding: EdgeInsetsDirectional.fromSTEB(design.gutter, 4, design.gutter, 16),
+        itemCount: categories.length,
+        separatorBuilder: (_, _) => const Gap(AppSpace.sm),
+        itemBuilder: (context, i) {
+          final c = categories[i];
+          final image = c.imageUrl ?? c.iconUrl;
+          return SizedBox(
+            width: 124,
+            child: Semantics(
+              button: true,
+              label: c.name,
+              excludeSemantics: true,
+              child: DecoratedBox(
+                decoration: context.cardDecoration(),
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: InkWell(
+                    borderRadius: design.cardBorderRadius,
+                    onTap: () => context.push('/categories/${c.id}'),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                if (image != null && image.isNotEmpty)
+                                  AppNetworkImage(url: image, borderRadius: design.controlBorderRadius)
+                                else
+                                  DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: context.palette.tint,
+                                      borderRadius: design.controlBorderRadius,
+                                    ),
+                                    child: Icon(Icons.category_outlined, size: 30, color: context.colors.primary),
+                                  ),
+                                PositionedDirectional(
+                                  end: 6,
+                                  bottom: 6,
+                                  child: Container(
+                                    width: 26,
+                                    height: 26,
+                                    decoration: BoxDecoration(color: context.colors.primary, shape: BoxShape.circle),
+                                    child: Icon(Icons.arrow_forward_rounded, size: 15, color: context.colors.onPrimary),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Gap(AppSpace.xs),
+                          Text(
+                            c.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: context.text.labelLarge?.copyWith(fontSize: 13, height: 1.2, letterSpacing: 0),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Fresh promotions: a gradient strip per promotion (name, description, pill button when it has a link).
+class _PromoStrips extends StatelessWidget {
+  const _PromoStrips({required this.promotions});
+  final List<Promotion> promotions;
+
+  @override
+  Widget build(BuildContext context) {
+    final gutter = context.design.gutter;
+    return Padding(
+      padding: EdgeInsetsDirectional.fromSTEB(gutter, AppSpace.md, gutter, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final p in promotions.take(3)) ...[
+            PromoStrip(
+              title: p.badge == null ? p.name : '${p.badge} · ${p.name}',
+              subtitle: p.description,
+              actionLabel: context.l10n.shopNow,
+              onTap: p.link == null ? null : () => openHomeLink(context, p.link),
+            ),
+            const Gap(AppSpace.sm),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 class _BrandStrip extends StatelessWidget {

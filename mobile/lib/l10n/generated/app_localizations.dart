@@ -4015,6 +4015,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Updated live'**
   String get trackUpdated;
+
+  /// No description provided for @freshTaglineHome.
+  ///
+  /// In en, this message translates to:
+  /// **'What are we stocking up on today?'**
+  String get freshTaglineHome;
+
+  /// No description provided for @freshTaglineCart.
+  ///
+  /// In en, this message translates to:
+  /// **'Review your items before checkout.'**
+  String get freshTaglineCart;
+
+  /// No description provided for @freshTaglineWishlist.
+  ///
+  /// In en, this message translates to:
+  /// **'Things you love, saved for later.'**
+  String get freshTaglineWishlist;
+
+  /// No description provided for @freshTaglineOrders.
+  ///
+  /// In en, this message translates to:
+  /// **'Track every order in one place.'**
+  String get freshTaglineOrders;
+
+  /// No description provided for @freshTaglineOrder.
+  ///
+  /// In en, this message translates to:
+  /// **'Everything about this order.'**
+  String get freshTaglineOrder;
+
+  /// No description provided for @freshTaglineTrack.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow your delivery step by step.'**
+  String get freshTaglineTrack;
+
+  /// No description provided for @freshTaglineAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Your details, addresses and preferences.'**
+  String get freshTaglineAccount;
+
+  /// No description provided for @freshTaglineCategories.
+  ///
+  /// In en, this message translates to:
+  /// **'Everything for your home, aisle by aisle.'**
+  String get freshTaglineCategories;
+
+  /// No description provided for @freshTaglineSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Search the whole store.'**
+  String get freshTaglineSearch;
+
+  /// No description provided for @freshBestSellers.
+  ///
+  /// In en, this message translates to:
+  /// **'Best sellers'**
+  String get freshBestSellers;
+
+  /// No description provided for @freshNewArrivals.
+  ///
+  /// In en, this message translates to:
+  /// **'New arrivals'**
+  String get freshNewArrivals;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

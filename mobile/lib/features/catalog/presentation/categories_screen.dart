@@ -1,6 +1,8 @@
 import 'package:albahar_customer/core/l10n/l10n.dart';
+import 'package:albahar_customer/core/theme/design_tokens.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
+import 'package:albahar_customer/core/widgets/fresh.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
@@ -17,7 +19,18 @@ class CategoriesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final categories = ref.watch(categoriesProvider);
-    return Scaffold(
+    return FreshScaffold(
+      header: FreshHeader(
+        title: l10n.categoriesTitle,
+        tagline: l10n.freshTaglineCategories,
+        trailing: [
+          FreshHeaderAction(
+            icon: const Icon(Icons.search_rounded),
+            tooltip: l10n.search,
+            onPressed: () => context.push('/search'),
+          ),
+        ],
+      ),
       appBar: AppBar(
         title: Text(l10n.categoriesTitle),
         actions: [
@@ -68,10 +81,10 @@ class CategoryTile extends StatelessWidget {
     label: category.name,
     excludeSemantics: true,
     child: InkWell(
-      borderRadius: AppRadius.cardAll,
+      borderRadius: context.design.cardBorderRadius,
       onTap: () => context.push('/categories/${category.id}'),
       child: ClipRRect(
-        borderRadius: AppRadius.cardAll,
+        borderRadius: context.design.cardBorderRadius,
         child: Stack(
           fit: StackFit.expand,
           children: [

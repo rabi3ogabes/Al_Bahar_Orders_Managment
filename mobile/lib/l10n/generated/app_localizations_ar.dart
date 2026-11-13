@@ -2223,4 +2223,37 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get trackUpdated => 'تحديث مباشر';
+
+  @override
+  String get freshTaglineHome => 'ماذا نجهّز لمنزلك اليوم؟';
+
+  @override
+  String get freshTaglineCart => 'راجع منتجاتك قبل إتمام الطلب.';
+
+  @override
+  String get freshTaglineWishlist => 'منتجاتك المفضلة محفوظة لوقت لاحق.';
+
+  @override
+  String get freshTaglineOrders => 'تابع جميع طلباتك في مكان واحد.';
+
+  @override
+  String get freshTaglineOrder => 'كل التفاصيل عن هذا الطلب.';
+
+  @override
+  String get freshTaglineTrack => 'تابع توصيلك خطوة بخطوة.';
+
+  @override
+  String get freshTaglineAccount => 'بياناتك وعناوينك وتفضيلاتك.';
+
+  @override
+  String get freshTaglineCategories => 'كل ما يحتاجه منزلك، قسماً بقسم.';
+
+  @override
+  String get freshTaglineSearch => 'ابحث في المتجر كله.';
+
+  @override
+  String get freshBestSellers => 'الأكثر مبيعاً';
+
+  @override
+  String get freshNewArrivals => 'وصل حديثاً';
 }

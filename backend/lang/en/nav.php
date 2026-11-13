@@ -45,6 +45,7 @@ return [
     'partners' => 'Partner statistics',
     'fleet' => 'Live fleet',
     'appearance' => 'Appearance',
+    'store_design' => 'Store design',
     'app_footer' => 'App footer',
     'banners' => 'Banners',
     'pages' => 'Pages',

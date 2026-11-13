@@ -8,8 +8,8 @@ import type { Price } from '../lib/types';
 /* ───────────── Buttons ───────────── */
 type Variant = 'primary' | 'brass' | 'ghost' | 'outline' | 'danger';
 const vclass: Record<Variant, string> = {
-  primary: 'bg-primary text-bg hover:bg-primary-soft',
-  brass: 'bg-brass text-white hover:bg-brass-deep hover:text-white',
+  primary: 'bg-primary text-on-primary hover:bg-primary-soft',
+  brass: 'bg-brass text-on-brass hover:bg-brass-deep hover:text-on-primary',
   ghost: 'text-ink hover:bg-sand',
   outline: 'border border-line bg-paper text-ink hover:border-primary',
   danger: 'bg-danger text-white hover:opacity-90',

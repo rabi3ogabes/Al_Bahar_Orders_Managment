@@ -10,6 +10,7 @@ import 'package:albahar_customer/core/utils/qatar_time.dart';
 import 'package:albahar_customer/core/widgets/app_button.dart';
 import 'package:albahar_customer/core/widgets/app_text_field.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
+import 'package:albahar_customer/core/widgets/fresh.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
@@ -33,9 +34,22 @@ class OrderDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final order = ref.watch(orderDetailProvider(orderId));
-    return Scaffold(
+    final title = order.value != null ? l10n.orderNumber(order.value!.number) : l10n.ordersTitle;
+    return FreshScaffold(
+      header: FreshHeader(
+        title: title,
+        tagline: l10n.freshTaglineOrder,
+        trailing: [
+          if (justPlaced)
+            FreshHeaderAction(
+              icon: const Icon(Icons.close_rounded),
+              tooltip: l10n.close,
+              onPressed: () => context.go('/home'),
+            ),
+        ],
+      ),
       appBar: AppBar(
-        title: Text(order.value != null ? l10n.orderNumber(order.value!.number) : l10n.ordersTitle),
+        title: Text(title),
         leading: justPlaced
             ? IconButton(
                 tooltip: l10n.close,

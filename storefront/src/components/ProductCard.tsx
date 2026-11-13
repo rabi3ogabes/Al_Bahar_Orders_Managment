@@ -6,14 +6,16 @@ import { useWishlist } from '../lib/wishlist';
 import { useCart } from '../lib/cart';
 import { useToast } from '../lib/toast';
 import { get } from '../lib/api';
-import { cx } from '../lib/format';
+import { cx, moneyShort } from '../lib/format';
+import { useDesign } from '../lib/brand';
 import type { ProductCard as P, ProductDetail } from '../lib/types';
 import { Badge, PriceTag, Pic, Rating } from './ui';
 
 const BADGE_TONE: Record<string, 'brass' | 'ink' | 'danger' | 'success'> = { new: 'ink', sale: 'danger', bestseller: 'brass', featured: 'brass', limited: 'danger' };
 
 export function ProductCard({ p, priority }: { p: P; priority?: boolean }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const { layout } = useDesign();
   const wl = useWishlist();
   const cart = useCart();
   const toast = useToast();
@@ -31,6 +33,45 @@ export function ProductCard({ p, priority }: { p: P; priority?: boolean }) {
       await cart.add({ id: p.id, slug: p.slug, name: p.name, brand: p.brand, image: p.image?.thumb_url }, v, 1);
     } catch { toast.push(t('error.generic'), 'error'); } finally { setBusy(false); }
   };
+
+  if (layout === 'fresh') {
+    const canAdd = p.purchasable && !p.has_variants && p.in_stock;
+    const sale = !!p.price.sale && p.price.discount_percent > 0;
+    return (
+      <article className="fx-card fx-hover group relative flex h-full flex-col p-2.5 sm:p-3">
+        <Link to={`/products/${p.slug}`} className="flex h-full flex-col" aria-label={p.name}>
+          <div className="relative overflow-hidden rounded-[var(--r-ctl)]">
+            <Pic src={p.image?.thumb_url} alt={p.image?.alt ?? p.name} label={p.brand?.name} eager={priority} ratio="1/1" />
+            <div className="absolute start-2 top-2 flex flex-col items-start gap-1">
+              {badges.map((b) => <Badge key={b} tone={BADGE_TONE[b]}>{t(`badge.${b}`)}</Badge>)}
+            </div>
+            {!p.in_stock && <div className="absolute inset-0 flex items-end bg-bg/55 p-2"><Badge tone="sand">{t('product.out_of_stock')}</Badge></div>}
+          </div>
+          <div className="flex flex-1 flex-col px-1.5 pt-3">
+            {p.brand && <p className="truncate text-[12px] text-muted">{p.brand.name}</p>}
+            <h3 className="mt-0.5 line-clamp-2 min-h-[2.5em] text-[15px] font-semibold leading-[1.25]">{p.name}</h3>
+            <div className="mt-1 h-4">{p.rating.count > 0 && <Rating value={p.rating.average} count={p.rating.count} size={12} />}</div>
+            <div className="mt-auto flex items-end justify-between gap-2 pt-2">
+              <div className="min-w-0">
+                <p className={cx('text-[19px] font-bold leading-none tabular-nums', sale && 'text-danger')}>{moneyShort(p.price.final, locale)}</p>
+                {sale && <p className="mt-1 text-[12px] text-muted line-through tabular-nums">{moneyShort(p.price.regular, locale)}</p>}
+              </div>
+              {canAdd && (
+                <button onClick={quickAdd} disabled={busy} aria-label={t('product.add_to_bag')}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary transition-transform hover:scale-105 hover:bg-primary-soft disabled:opacity-60">
+                  <ShoppingBag size={18} className={busy ? 'animate-pulse' : ''} />
+                </button>
+              )}
+            </div>
+          </div>
+        </Link>
+        <button onClick={() => wl.toggle(p.id)} aria-pressed={liked} aria-label={liked ? t('wishlist.remove') : t('wishlist.add')}
+          className="absolute end-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-paper/95 text-ink shadow-soft transition-transform hover:scale-105">
+          <Heart size={17} className={cx(liked && 'fill-danger text-danger')} />
+        </button>
+      </article>
+    );
+  }
 
   return (
     <article className="group relative">

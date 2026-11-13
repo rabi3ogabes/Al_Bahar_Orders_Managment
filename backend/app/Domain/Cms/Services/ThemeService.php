@@ -2,6 +2,7 @@
 
 namespace App\Domain\Cms\Services;
 
+use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Cms\Models\BrandTheme;
 use App\Support\BusinessTime;
 use Carbon\CarbonImmutable;
@@ -16,7 +17,7 @@ use Illuminate\Support\Facades\Storage;
  */
 class ThemeService
 {
-    public const CACHE_KEY = 'brand_theme:active:v2';
+    public const CACHE_KEY = 'brand_theme:active:v3';
 
     public function active(?CarbonImmutable $now = null): ?BrandTheme
     {
@@ -80,14 +81,40 @@ class ThemeService
         return $next;
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * What the store and the apps load. Colours, artwork and banner come from the active look (an event recolours the
+     * design); layout, tokens and design always come from the default base theme, so an event never changes the layout.
+     *
+     * @return array<string, mixed>
+     */
     public function payload(): array
     {
         return Cache::remember(self::CACHE_KEY, 60, function () {
             $t = $this->active();
 
-            return ($t ? $this->present($t) : $this->fallback()) + ['footer' => app(AppFooterService::class)->config()];
+            return $this->compose($t ? $this->present($t) : $this->fallback(), BrandTheme::where('is_default', true)->first());
         });
+    }
+
+    /** The payload as if the base design with this key were live (admin "Preview store"). Null when no such base design. @return array<string, mixed>|null */
+    public function previewPayload(string $key): ?array
+    {
+        $design = BrandTheme::where('key', $key)->where('kind', 'base')->first();
+
+        return $design ? $this->compose($this->present($design), $design) : null;
+    }
+
+    /** @return array<string, mixed> */
+    private function compose(array $look, ?BrandTheme $design): array
+    {
+        return $look + [
+            'layout' => $design && in_array($design->layout, BrandTheme::LAYOUTS, true) ? $design->layout : 'classic',
+            'tokens' => BrandTheme::normalizeTokens($design?->tokens),
+            'design' => $design
+                ? ['key' => $design->key, 'name_en' => $design->name_en, 'name_ar' => $design->name_ar ?: $design->name_en, 'name' => $design->localized('name')]
+                : ['key' => 'default', 'name_en' => 'Al Bahar', 'name_ar' => 'البحار', 'name' => app()->getLocale() === 'ar' ? 'البحار' : 'Al Bahar'],
+            'footer' => app(AppFooterService::class)->config(),
+        ];
     }
 
     public function forget(): void
@@ -138,6 +165,63 @@ class ThemeService
         $this->forget();
     }
 
+    /** Switches the store and the apps to a base design: it becomes the default look. Event looks keep recolouring it. */
+    public function applyDesign(BrandTheme $design): void
+    {
+        $old = BrandTheme::where('is_default', true)->first();
+        $this->makeDefault($design);
+        app(AuditLogger::class)->log('cms.design_applied', $design, ['key' => $old?->key], ['key' => $design->key]);
+    }
+
+    /**
+     * The complete designs the admin can pick: colours plus a layout and look tokens. Idempotent: a design that exists is
+     * only given its layout and tokens when it has none yet, so an admin's edits are never overwritten.
+     *
+     * @return int number of designs created
+     */
+    public function seedDesigns(): int
+    {
+        $n = 0;
+        foreach ($this->designs() as $d) {
+            $theme = BrandTheme::where('key', $d['key'])->first();
+            if (! $theme) {
+                BrandTheme::create($d + ['is_default' => $d['key'] === 'qatar-maroon' && ! BrandTheme::where('is_default', true)->exists()]);
+                $n++;
+
+                continue;
+            }
+            if ($theme->tokens === null) {
+                $theme->update(['layout' => $d['layout'], 'tokens' => $d['tokens']]
+                    + ($theme->name_en === 'Qatar Maroon (default)' ? ['name_en' => $d['name_en'], 'name_ar' => $d['name_ar']] : []));
+            }
+        }
+        $this->forget();
+
+        return $n;
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function designs(): array
+    {
+        $c = fn (string $p, string $soft, string $a, string $bg, string $ink, string $s = '#FFFFFF') => ['primary' => $p, 'primary_soft' => $soft, 'accent' => $a, 'background' => $bg, 'surface' => $s, 'ink' => $ink];
+        $base = ['kind' => 'base', 'is_enabled' => true, 'priority' => 0];
+
+        return [
+            $base + ['key' => 'qatar-maroon', 'name_en' => 'Al Bahar Classic', 'name_ar' => 'البحار الكلاسيكي', 'layout' => 'classic',
+                'colors' => $c('#8A1538', '#A3294E', '#B3254F', '#FCF9FA', '#2A1A20'),
+                'tokens' => ['radius' => 'lg', 'card' => 'soft', 'header' => 'standard', 'nav' => 'classic', 'background' => 'plain', 'density' => 'comfortable']],
+            $base + ['key' => 'fresh-market', 'name_en' => 'Fresh Market', 'name_ar' => 'السوق الطازج', 'layout' => 'fresh',
+                'colors' => $c('#0F5D3A', '#E3F1E8', '#F5B301', '#FBF8F0', '#15241B'),
+                'tokens' => ['radius' => 'xl', 'card' => 'soft', 'header' => 'brand', 'nav' => 'center_action', 'background' => 'gradient', 'density' => 'comfortable']],
+            $base + ['key' => 'ocean-breeze', 'name_en' => 'Ocean Breeze', 'name_ar' => 'نسيم البحر', 'layout' => 'fresh',
+                'colors' => $c('#0B4F6C', '#E1F0F6', '#1FB5A3', '#F3F9FB', '#10222C'),
+                'tokens' => ['radius' => 'xl', 'card' => 'soft', 'header' => 'brand', 'nav' => 'center_action', 'background' => 'gradient', 'density' => 'comfortable']],
+            $base + ['key' => 'royal-navy', 'name_en' => 'Royal Navy', 'name_ar' => 'الأزرق الملكي', 'layout' => 'classic',
+                'colors' => $c('#1B2A49', '#E8ECF5', '#C9A24B', '#FAF7F2', '#1B2230'),
+                'tokens' => ['radius' => 'md', 'card' => 'outlined', 'header' => 'standard', 'nav' => 'classic', 'background' => 'plain', 'density' => 'comfortable']],
+        ];
+    }
+
     /** Ready-made looks for Qatar's calendar. Idempotent: existing keys are left as the admin edited them. */
     public function seedPresets(): int
     {
@@ -176,7 +260,7 @@ class ThemeService
         $c = fn (string $p, string $soft, string $a, string $bg = '#FCF9FA', string $s = '#FFFFFF', string $ink = '#2A1A20') => ['primary' => $p, 'primary_soft' => $soft, 'accent' => $a, 'background' => $bg, 'surface' => $s, 'ink' => $ink];
 
         return [
-            ['key' => 'qatar-maroon', 'kind' => 'base', 'name_en' => 'Qatar Maroon (default)', 'name_ar' => 'العنابي القطري (الافتراضي)', 'colors' => $c('#8A1538', '#A3294E', '#B3254F'), 'is_default' => true, 'is_enabled' => true, 'priority' => 0],
+            $this->designs()[0] + ['is_default' => ! BrandTheme::where('is_default', true)->exists()],
             ['key' => 'national-day', 'kind' => 'event', 'name_en' => 'Qatar National Day', 'name_ar' => 'اليوم الوطني لدولة قطر', 'colors' => $c('#8A1538', '#6E102D', '#C9A24D', '#FFFFFF'),
                 'banner_title_en' => 'Happy Qatar National Day', 'banner_title_ar' => 'كل عام وقطر بخير في اليوم الوطني', 'banner_subtitle_en' => 'Celebrate 18 December with Al Bahar', 'banner_subtitle_ar' => 'احتفل بيوم ١٨ ديسمبر مع البحار',
                 'recur_start' => '12-14', 'recur_end' => '12-19', 'is_enabled' => true, 'priority' => 200],

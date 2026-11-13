@@ -17,6 +17,9 @@ return [
         'name_ar' => env('APP_NAME_AR', 'البحر للمنزل والمعيشة'),
     ],
 
+    // Public web store address (the admin "Preview store" button opens it). null = the same host as the API.
+    'storefront_url' => env('STOREFRONT_URL'),
+
     'business_timezone' => env('APP_BUSINESS_TIMEZONE', 'Asia/Qatar'),
     'currency' => env('APP_CURRENCY', 'QAR'),
     'country' => 'QA',

@@ -13,7 +13,7 @@ class SeedThemePresets extends Command
 
     public function handle(ThemeService $themes): int
     {
-        $this->info('Created '.$themes->seedPresets().' theme(s).');
+        $this->info('Created '.($themes->seedPresets() + $themes->seedDesigns()).' theme(s).');
 
         return self::SUCCESS;
     }

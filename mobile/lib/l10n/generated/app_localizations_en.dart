@@ -2189,4 +2189,37 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get trackUpdated => 'Updated live';
+
+  @override
+  String get freshTaglineHome => 'What are we stocking up on today?';
+
+  @override
+  String get freshTaglineCart => 'Review your items before checkout.';
+
+  @override
+  String get freshTaglineWishlist => 'Things you love, saved for later.';
+
+  @override
+  String get freshTaglineOrders => 'Track every order in one place.';
+
+  @override
+  String get freshTaglineOrder => 'Everything about this order.';
+
+  @override
+  String get freshTaglineTrack => 'Follow your delivery step by step.';
+
+  @override
+  String get freshTaglineAccount => 'Your details, addresses and preferences.';
+
+  @override
+  String get freshTaglineCategories => 'Everything for your home, aisle by aisle.';
+
+  @override
+  String get freshTaglineSearch => 'Search the whole store.';
+
+  @override
+  String get freshBestSellers => 'Best sellers';
+
+  @override
+  String get freshNewArrivals => 'New arrivals';
 }

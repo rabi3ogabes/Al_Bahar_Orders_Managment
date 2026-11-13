@@ -1,7 +1,9 @@
 import 'package:albahar_customer/core/l10n/l10n.dart';
+import 'package:albahar_customer/core/theme/design_tokens.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/debouncer.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
+import 'package:albahar_customer/core/widgets/fresh.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
 import 'package:albahar_customer/features/catalog/presentation/product_list_screen.dart';
@@ -81,37 +83,46 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final recent = ref.watch(recentSearchesProvider);
-    return Scaffold(
+    final field = TextField(
+      controller: _controller,
+      autofocus: widget.initialQuery == null,
+      textInputAction: TextInputAction.search,
+      onChanged: _onChanged,
+      onSubmitted: _submit,
+      decoration: InputDecoration(
+        hintText: l10n.searchHint,
+        prefixIcon: const Icon(Icons.search_rounded),
+        suffixIcon: _controller.text.isEmpty
+            ? null
+            : IconButton(
+                tooltip: l10n.clear,
+                icon: const Icon(Icons.close_rounded),
+                onPressed: () {
+                  _controller.clear();
+                  setState(() {
+                    _term = '';
+                    _submitted = false;
+                    _query = null;
+                  });
+                },
+              ),
+        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+      ),
+    );
+    final design = context.design;
+    return FreshScaffold(
+      header: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          FreshHeader(title: l10n.searchTitle, tagline: l10n.freshTaglineSearch),
+          Padding(padding: EdgeInsetsDirectional.fromSTEB(design.gutter, 0, design.gutter, AppSpace.sm), child: field),
+        ],
+      ),
       appBar: AppBar(
         titleSpacing: 0,
         title: Padding(
           padding: const EdgeInsetsDirectional.only(end: AppSpace.md),
-          child: TextField(
-            controller: _controller,
-            autofocus: widget.initialQuery == null,
-            textInputAction: TextInputAction.search,
-            onChanged: _onChanged,
-            onSubmitted: _submit,
-            decoration: InputDecoration(
-              hintText: l10n.searchHint,
-              prefixIcon: const Icon(Icons.search_rounded),
-              suffixIcon: _controller.text.isEmpty
-                  ? null
-                  : IconButton(
-                      tooltip: l10n.clear,
-                      icon: const Icon(Icons.close_rounded),
-                      onPressed: () {
-                        _controller.clear();
-                        setState(() {
-                          _term = '';
-                          _submitted = false;
-                          _query = null;
-                        });
-                      },
-                    ),
-              contentPadding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-          ),
+          child: field,
         ),
       ),
       body: (_query == null && _term.length >= 2 && !_submitted)

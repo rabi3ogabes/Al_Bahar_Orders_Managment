@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/router/footer_config.dart';
+import 'package:albahar_customer/core/theme/design_tokens.dart';
 import 'package:albahar_customer/core/utils/json.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,6 +28,9 @@ class BrandTheme {
     this.bannerTitle,
     this.bannerSubtitle,
     this.footer,
+    this.design = DesignTokens.classic,
+    this.designKey,
+    this.designName,
   });
 
   /// Qatar maroon: what the app shows before the server answers and when it is offline.
@@ -46,6 +50,9 @@ class BrandTheme {
     if (!RegExp(r'^#[0-9a-fA-F]{6}$').hasMatch(s)) return null;
     return Color(int.parse('FF${s.substring(1)}', radix: 16));
   }
+
+  static String? _designName(Map<String, dynamic> d) =>
+      asStringOrNull(d['name']) ?? asStringOrNull(d['name_en']) ?? asStringOrNull(d['name_ar']);
 
   /// Returns null when the payload has no usable colours (the app then keeps its current look).
   static BrandTheme? fromJson(Object? raw) {
@@ -77,6 +84,9 @@ class BrandTheme {
       bannerTitle: asStringOrNull(banner['title']),
       bannerSubtitle: asStringOrNull(banner['subtitle']),
       footer: FooterConfig.fromJson(j['footer']),
+      design: DesignTokens.fromJson(j['layout'], j['tokens']),
+      designKey: asStringOrNull(asMap(j['design'])['key']),
+      designName: _designName(asMap(j['design'])),
     );
   }
 
@@ -98,6 +108,13 @@ class BrandTheme {
   /// The bottom menu chosen in the dashboard; null means the built-in five-tab footer.
   final FooterConfig? footer;
 
+  /// The layout and look switches (classic or fresh). Missing or invalid values mean the classic look.
+  final DesignTokens design;
+
+  /// Which saved design the dashboard picked (for support and analytics); null on older servers.
+  final String? designKey;
+  final String? designName;
+
   bool get isEvent => kind != 'base';
 
   @override
@@ -113,11 +130,26 @@ class BrandTheme {
       other.heroUrl == heroUrl &&
       other.bannerTitle == bannerTitle &&
       other.logoUrl == logoUrl &&
-      other.footer == footer;
+      other.footer == footer &&
+      other.design == design &&
+      other.designKey == designKey;
 
   @override
-  int get hashCode =>
-      Object.hash(key, primary, primarySoft, accent, background, surface, ink, heroUrl, bannerTitle, logoUrl, footer);
+  int get hashCode => Object.hash(
+    key,
+    primary,
+    primarySoft,
+    accent,
+    background,
+    surface,
+    ink,
+    heroUrl,
+    bannerTitle,
+    logoUrl,
+    footer,
+    design,
+    designKey,
+  );
 }
 
 const _kBrandCache = 'brand_theme_payload';

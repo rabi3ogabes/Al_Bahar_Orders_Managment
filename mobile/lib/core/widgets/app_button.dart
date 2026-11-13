@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/design_tokens.dart';
 import '../theme/tokens.dart';
 import '../utils/haptics.dart';
 
@@ -77,6 +78,9 @@ class AppButton extends StatelessWidget {
       _ => context.colors.onSurface,
     };
 
+    // Fresh design: primary and accent buttons are pills that end with an arrow.
+    final arrow =
+        context.design.pillButtons && (variant == AppButtonVariant.primary || variant == AppButtonVariant.accent);
     final child = AnimatedSwitcher(
       duration: AppDurations.fast,
       child: loading
@@ -92,6 +96,7 @@ class AppButton extends StatelessWidget {
               children: [
                 if (icon != null) ...[Icon(icon, size: 20), const Gap(AppSpace.xs)],
                 Flexible(child: Text(label, overflow: TextOverflow.ellipsis, maxLines: 1)),
+                if (arrow) ...[const Gap(AppSpace.xs), const Icon(Icons.arrow_forward_rounded, size: 20)],
               ],
             ),
     );

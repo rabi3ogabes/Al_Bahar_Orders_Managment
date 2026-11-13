@@ -37,6 +37,7 @@ class ThemeIndex extends Component
     public function mount(): void
     {
         abort_unless($this->can('cms.view'), 403);
+        app(ThemeService::class)->seedDesigns();
     }
 
     public function create(): void

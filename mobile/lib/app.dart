@@ -94,6 +94,7 @@ class _AlBaharAppState extends ConsumerState<AlBaharApp> with WidgetsBindingObse
     final locale = Locale(localeCode);
     final themeMode = ref.watch(themeModeProvider);
     final config = ref.watch(appConfigProvider);
+    final brand = ref.watch(brandThemeProvider);
 
     // Register push on sign-in; surface session expiry.
     ref.listen(sessionControllerProvider, (prev, next) {
@@ -119,8 +120,8 @@ class _AlBaharAppState extends ConsumerState<AlBaharApp> with WidgetsBindingObse
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      theme: AppTheme.light(locale, brand: ref.watch(brandThemeProvider)),
-      darkTheme: AppTheme.dark(locale),
+      theme: AppTheme.light(locale, brand: brand),
+      darkTheme: AppTheme.dark(locale, brand: brand),
       themeMode: themeMode,
       builder: (context, child) {
         // Cap extreme text scaling to keep layouts usable while still

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../features/catalog/domain/catalog_models.dart';
 import '../l10n/l10n.dart';
+import '../theme/design_tokens.dart';
 import '../theme/tokens.dart';
 import 'common.dart';
 import 'price_tag.dart';
@@ -34,8 +35,6 @@ class ProductCardView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final palette = context.palette;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final badge = _primaryBadge(l10n, context.colors.primary);
 
     return Semantics(
@@ -48,17 +47,12 @@ class ProductCardView extends StatelessWidget {
       child: SizedBox(
         width: width,
         child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: context.colors.surface,
-            borderRadius: AppRadius.cardAll,
-            boxShadow: isDark ? null : kSoftShadow,
-            border: isDark ? Border.all(color: palette.line) : null,
-          ),
+          decoration: context.cardDecoration(),
           child: Material(
             type: MaterialType.transparency,
             child: InkWell(
               onTap: onTap,
-              borderRadius: AppRadius.cardAll,
+              borderRadius: context.design.cardBorderRadius,
               child: Padding(
                 padding: const EdgeInsets.all(10),
                 child: LayoutBuilder(
@@ -133,14 +127,14 @@ class ProductCardView extends StatelessWidget {
         child: AppNetworkImage(
           url: product.image?.listUrl,
           semanticLabel: product.image?.alt,
-          borderRadius: AppRadius.imageAll,
+          borderRadius: context.design.controlBorderRadius,
           fit: BoxFit.contain,
         ),
       ),
       if (!product.inStock)
         DecoratedBox(
           decoration: BoxDecoration(
-            borderRadius: AppRadius.imageAll,
+            borderRadius: context.design.controlBorderRadius,
             color: context.colors.surface.withValues(alpha: 0.55),
           ),
         ),

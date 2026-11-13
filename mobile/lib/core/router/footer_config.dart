@@ -2,8 +2,19 @@ import 'package:albahar_customer/core/utils/json.dart';
 import 'package:albahar_customer/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 
-/// The five looks of the bottom menu. Chosen in the dashboard (Appearance > App footer).
-enum FooterDesign { classic, floating, minimal, bubble, glass }
+/// The six looks of the bottom menu. Chosen in the dashboard (Appearance > App footer). [centerAction] keeps the middle
+/// item as a raised round button (the "fresh" design); the server spells it `center_action`.
+enum FooterDesign {
+  classic,
+  floating,
+  minimal,
+  bubble,
+  glass,
+  centerAction;
+
+  /// The key the server uses for this design.
+  String get wire => this == centerAction ? 'center_action' : name;
+}
 
 /// One place a footer item can lead to. The server only sends the [key]; the route, the pages that belong to it and the
 /// default icon and word live here.
@@ -203,6 +214,18 @@ class FooterConfig {
     ],
   );
 
+  /// The menu the "fresh" design uses until the dashboard customises the footer: Shop is the raised middle button.
+  static const centerAction = FooterConfig(
+    design: FooterDesign.centerAction,
+    items: [
+      FooterEntry('home'),
+      FooterEntry('auctions'),
+      FooterEntry('categories'),
+      FooterEntry('cart'),
+      FooterEntry('account'),
+    ],
+  );
+
   static const _hex = r'^#[0-9a-fA-F]{6}$';
 
   /// Returns null when the payload cannot be trusted (unknown design, fewer than 3 items, no Home...): the app then
@@ -210,7 +233,7 @@ class FooterConfig {
   static FooterConfig? fromJson(Object? raw) {
     if (raw is! Map) return null;
     final j = asMap(raw);
-    final design = FooterDesign.values.where((d) => d.name == j['design']).firstOrNull;
+    final design = FooterDesign.values.where((d) => d.wire == j['design']).firstOrNull;
     if (design == null) return null;
     final list = j['items'];
     if (list is! List || list.length > 5) return null;

@@ -1,0 +1,25 @@
+<?php
+
+return [
+    'title' => 'Store design',
+    'hint' => 'Pick one complete design for the web store and the mobile app: colours and layout together. Customers see the change within a minute.',
+    'current' => 'Current design',
+    'use' => 'Use this design',
+    'preview' => 'Preview store',
+    'web' => 'Web store',
+    'phone' => 'Mobile app',
+    'confirm_title' => 'Switch the store and apps to :name?',
+    'confirm_body' => 'Customers see the new look within a minute, on the website and in the app. Event looks such as Ramadan still recolour it. You can switch back at any time.',
+    'switch' => 'Switch design',
+    'switched' => 'Design switched',
+    'event_note' => 'The event look ":name" is recolouring the design right now. Colours shown on the cards are the design\'s own; the layout stays as picked.',
+    'event_link' => 'Open Appearance',
+    'layout_classic' => 'Classic layout',
+    'layout_fresh' => 'Fresh layout',
+    'radius_md' => 'Square corners',
+    'radius_lg' => 'Rounded corners',
+    'radius_xl' => 'Very round corners',
+    'nav_classic' => 'Classic menu',
+    'nav_center_action' => 'Centre-button menu',
+    'empty' => 'No designs yet.',
+];

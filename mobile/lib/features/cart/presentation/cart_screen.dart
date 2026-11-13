@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/network/api_exception.dart';
+import 'package:albahar_customer/core/theme/design_tokens.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/widgets/app_button.dart';
 import 'package:albahar_customer/core/widgets/app_text_field.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
+import 'package:albahar_customer/core/widgets/fresh.dart';
 import 'package:albahar_customer/core/widgets/price_tag.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
@@ -27,8 +29,9 @@ class CartScreen extends ConsumerWidget {
     final l10n = context.l10n;
     final signedIn = ref.watch(isAuthenticatedProvider);
     if (!signedIn) {
-      return Scaffold(
+      return FreshScaffold(
         appBar: AppBar(title: Text(l10n.cartTitle)),
+        header: FreshHeader(title: l10n.cartTitle, tagline: l10n.freshTaglineCart),
         body: EmptyState(
           icon: Icons.shopping_bag_outlined,
           title: l10n.signInRequiredTitle,
@@ -39,7 +42,7 @@ class CartScreen extends ConsumerWidget {
       );
     }
     final cart = ref.watch(cartControllerProvider);
-    return Scaffold(
+    return FreshScaffold(
       appBar: AppBar(
         title: Text(l10n.cartTitle),
         actions: const [
@@ -49,6 +52,7 @@ class CartScreen extends ConsumerWidget {
           ),
         ],
       ),
+      header: FreshHeader(title: l10n.cartTitle, tagline: l10n.freshTaglineCart, trailing: const [BranchPill()]),
       body: cart.when(
         skipLoadingOnRefresh: true,
         skipLoadingOnReload: true,
@@ -65,7 +69,7 @@ class CartScreen extends ConsumerWidget {
             : RefreshIndicator(
                 onRefresh: () => ref.read(cartControllerProvider.notifier).revalidate(),
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(AppSpace.gutter, AppSpace.sm, AppSpace.gutter, AppSpace.xl),
+                  padding: EdgeInsets.fromLTRB(context.design.gutter, AppSpace.sm, context.design.gutter, AppSpace.xl),
                   children: [
                     ContentWidth(
                       child: Column(

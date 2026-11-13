@@ -1,9 +1,11 @@
 import 'package:albahar_customer/core/l10n/l10n.dart';
+import 'package:albahar_customer/core/theme/design_tokens.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/phone.dart';
 import 'package:albahar_customer/core/utils/qatar_time.dart';
 import 'package:albahar_customer/core/widgets/app_button.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
+import 'package:albahar_customer/core/widgets/fresh.dart';
 import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
 import 'package:albahar_customer/features/notifications/presentation/state/notifications_controller.dart';
@@ -61,19 +63,28 @@ class AccountScreen extends ConsumerWidget {
       row(Icons.settings_outlined, l10n.settings, '/settings'),
     ];
 
-    return Scaffold(
+    final brand = context.design.brandHeader;
+    return FreshScaffold(
+      header: FreshHeader(title: l10n.accountTitle, tagline: l10n.freshTaglineAccount),
       body: ListView(
         padding: EdgeInsets.zero,
         children: [
-          _Header(signedIn: signedIn, name: user?.name ?? '', phone: user?.phone, since: user?.createdAt),
+          if (brand)
+            _ProfileCard(signedIn: signedIn, name: user?.name ?? '', phone: user?.phone, since: user?.createdAt)
+          else
+            _Header(signedIn: signedIn, name: user?.name ?? '', phone: user?.phone, since: user?.createdAt),
           ContentWidth(
             child: Padding(
-              padding: const EdgeInsetsDirectional.fromSTEB(AppSpace.gutter, 0, AppSpace.gutter, AppSpace.xl),
+              padding: EdgeInsetsDirectional.fromSTEB(context.design.gutter, 0, context.design.gutter, AppSpace.xl),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (signedIn) ...[
-                    Transform.translate(offset: const Offset(0, -26), child: const _StatsCard()),
+                    if (brand)
+                      const _StatsCard()
+                    else
+                      Transform.translate(offset: const Offset(0, -26), child: const _StatsCard()),
+                    if (brand) const Gap(AppSpace.md),
                   ] else
                     const Gap(AppSpace.md),
                   if (!signedIn) ...[
@@ -226,6 +237,62 @@ class _Header extends StatelessWidget {
   }
 }
 
+/// The fresh design's profile block: a soft card with the avatar, name, phone and member-since line (guests see nothing).
+class _ProfileCard extends StatelessWidget {
+  const _ProfileCard({required this.signedIn, required this.name, required this.phone, required this.since});
+  final bool signedIn;
+  final String name;
+  final String? phone;
+  final DateTime? since;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!signedIn) return const SizedBox.shrink();
+    final l10n = context.l10n;
+    final design = context.design;
+    return Padding(
+      padding: EdgeInsetsDirectional.fromSTEB(design.gutter, AppSpace.xs, design.gutter, AppSpace.md),
+      child: ContentWidth(
+        child: SurfaceCard(
+          onTap: () => context.push('/profile/edit'),
+          child: Row(
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: context.colors.primary, shape: BoxShape.circle),
+                child: Text(
+                  name.isNotEmpty ? name.characters.first.toUpperCase() : '•',
+                  style: context.text.headlineSmall?.copyWith(color: context.colors.onPrimary),
+                ),
+              ),
+              const Gap(AppSpace.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: context.text.titleLarge),
+                    if (phone != null)
+                      Text(
+                        QatarPhone.display(phone!),
+                        textDirection: TextDirection.ltr,
+                        style: context.text.bodyMedium,
+                      ),
+                    if (since != null)
+                      Text(l10n.memberSince(QatarTime.date(since!, context.localeCode)), style: context.text.bodySmall),
+                  ],
+                ),
+              ),
+              const IconBubble(icon: Icons.edit_outlined, size: 40),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Points balance and saved products in one white card that overlaps the header.
 class _StatsCard extends ConsumerWidget {
   const _StatsCard();
@@ -278,12 +345,15 @@ class _SettingsRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 11),
       child: Row(
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(color: context.palette.tint, borderRadius: BorderRadius.circular(12)),
-            child: Icon(icon, size: 20, color: context.colors.primary),
-          ),
+          if (context.design.isFresh)
+            IconBubble(icon: icon, size: 40)
+          else
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(color: context.palette.tint, borderRadius: BorderRadius.circular(12)),
+              child: Icon(icon, size: 20, color: context.colors.primary),
+            ),
           const Gap(AppSpace.sm),
           Expanded(
             child: Column(

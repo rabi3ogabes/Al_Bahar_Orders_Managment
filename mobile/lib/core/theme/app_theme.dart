@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'brand_theme.dart';
+import 'contrast.dart';
+import 'design_tokens.dart';
 import 'tokens.dart';
 
 abstract final class AppFonts {
@@ -16,7 +18,10 @@ abstract final class AppFonts {
 abstract final class AppTheme {
   /// [brand] is the look chosen in the dashboard (Qatar events etc.); dark mode keeps its own palette.
   static ThemeData light(Locale locale, {BrandTheme? brand}) => _build(Brightness.light, locale, brand);
-  static ThemeData dark(Locale locale) => _build(Brightness.dark, locale, null);
+
+  /// Dark mode keeps its own palette; only the layout switches (and, for the fresh design, a readable tint of the
+  /// brand colour) come from [brand].
+  static ThemeData dark(Locale locale, {BrandTheme? brand}) => _build(Brightness.dark, locale, brand);
 
   static TextTheme textTheme(Locale locale, Color ink, Color muted) {
     final isArabic = locale.languageCode == 'ar';
@@ -64,6 +69,17 @@ abstract final class AppTheme {
     var bg = isDark ? AppPalette.nightBg : AppPalette.ivory;
     var surface = isDark ? AppPalette.nightSurface : AppPalette.paper;
     var primary = AppPalette.navy;
+    final design = brand?.design ?? DesignTokens.classic;
+    if (isDark && brand != null && design.isFresh) {
+      // Fresh in dark: keep the brand hue but lift it until it reads on the night surfaces (AA).
+      final lifted = Contrast.ensure(brand.primary, AppPalette.nightSurface);
+      ext = ext.copyWith(
+        brass: Contrast.ensure(brand.accent, AppPalette.nightSurface),
+        brassDeep: lifted,
+        primarySoft: Contrast.ensure(brand.primarySoft, AppPalette.nightSurface, min: 3),
+      );
+      primary = lifted;
+    }
     if (!isDark && brand != null) {
       bg = brand.background;
       surface = brand.surface;
@@ -81,8 +97,10 @@ abstract final class AppTheme {
     final surfaceHigh = isDark ? AppPalette.nightSurfaceHigh : ext.tint;
     final ink = ext.ink;
     // Brand primary: deep navy on light, a soft navy tint on dark.
-    final navy = isDark ? AppPalette.nightNavy : primary;
-    final onNavy = isDark ? AppPalette.nightBg : Colors.white;
+    final darkFresh = isDark && brand != null && design.isFresh;
+    final navy = isDark ? (darkFresh ? primary : AppPalette.nightNavy) : primary;
+    final onNavy = isDark ? AppPalette.nightBg : Contrast.onColor(primary);
+    final onSecondary = isDark ? AppPalette.nightBg : Contrast.onColor(ext.brass);
 
     final scheme = ColorScheme(
       brightness: brightness,
@@ -91,7 +109,7 @@ abstract final class AppTheme {
       primaryContainer: isDark ? AppPalette.nightSurfaceHigh : ext.tint,
       onPrimaryContainer: isDark ? AppPalette.nightInk : primary,
       secondary: ext.brass,
-      onSecondary: isDark ? AppPalette.nightBg : ext.ink,
+      onSecondary: onSecondary,
       secondaryContainer: ext.brassTint,
       onSecondaryContainer: isDark ? AppPalette.nightBrass : ext.brassDeep,
       tertiary: ext.info,
@@ -114,7 +132,22 @@ abstract final class AppTheme {
     );
 
     final text = textTheme(locale, ink, ext.muted);
-    const inputRadius = AppRadius.inputAll;
+    final inputRadius = design.controlBorderRadius;
+    final cardShape = RoundedRectangleBorder(
+      borderRadius: design.cardBorderRadius,
+      side: switch (design.card) {
+        DesignCardStyle.outlined => BorderSide(color: ext.line),
+        DesignCardStyle.flat => BorderSide.none,
+        DesignCardStyle.soft => isDark ? BorderSide(color: ext.line) : BorderSide.none,
+      },
+    );
+    final cardElevation = switch (design.card) {
+      DesignCardStyle.soft when !isDark => design.isFresh ? 3.0 : 2.0,
+      _ => 0.0,
+    };
+    final buttonShape = design.pillButtons
+        ? const StadiumBorder()
+        : RoundedRectangleBorder(borderRadius: design.controlBorderRadius);
 
     return ThemeData(
       useMaterial3: true,
@@ -124,12 +157,12 @@ abstract final class AppTheme {
       canvasColor: bg,
       textTheme: text,
       fontFamily: locale.languageCode == 'ar' ? AppFonts.arabic : AppFonts.body,
-      extensions: [ext],
+      extensions: [ext, design],
       splashFactory: InkSparkle.splashFactory,
-      visualDensity: VisualDensity.standard,
+      visualDensity: design.visualDensity,
       materialTapTargetSize: MaterialTapTargetSize.padded,
       appBarTheme: AppBarTheme(
-        backgroundColor: bg,
+        backgroundColor: design.gradientBackground ? Colors.transparent : bg,
         surfaceTintColor: Colors.transparent,
         foregroundColor: ink,
         elevation: 0,
@@ -142,20 +175,17 @@ abstract final class AppTheme {
       cardTheme: CardThemeData(
         color: surface,
         surfaceTintColor: Colors.transparent,
-        shadowColor: const Color(0x33101828),
-        elevation: isDark ? 0 : 2,
+        shadowColor: design.isFresh ? primary.withValues(alpha: 0.22) : const Color(0x33101828),
+        elevation: cardElevation,
         margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.cardAll,
-          side: isDark ? BorderSide(color: ext.line) : BorderSide.none,
-        ),
+        shape: cardShape,
       ),
       dividerTheme: DividerThemeData(color: ext.line, thickness: 1, space: 1),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           minimumSize: const Size(kMinTouchTarget, 54),
           padding: const EdgeInsetsDirectional.symmetric(horizontal: AppSpace.lg),
-          shape: const RoundedRectangleBorder(borderRadius: AppRadius.inputAll),
+          shape: buttonShape,
           textStyle: text.labelLarge?.copyWith(fontSize: 16),
           backgroundColor: scheme.primary,
           foregroundColor: scheme.onPrimary,
@@ -167,7 +197,7 @@ abstract final class AppTheme {
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(kMinTouchTarget, 54),
           padding: const EdgeInsetsDirectional.symmetric(horizontal: AppSpace.lg),
-          shape: const RoundedRectangleBorder(borderRadius: AppRadius.inputAll),
+          shape: buttonShape,
           side: BorderSide(color: navy, width: 1.5),
           foregroundColor: navy,
           textStyle: text.labelLarge?.copyWith(fontSize: 16),
@@ -263,7 +293,7 @@ abstract final class AppTheme {
       dialogTheme: DialogThemeData(
         backgroundColor: surface,
         surfaceTintColor: Colors.transparent,
-        shape: const RoundedRectangleBorder(borderRadius: AppRadius.lgAll),
+        shape: RoundedRectangleBorder(borderRadius: design.isFresh ? design.cardBorderRadius : AppRadius.lgAll),
         titleTextStyle: text.titleLarge,
         contentTextStyle: text.bodyMedium,
       ),
