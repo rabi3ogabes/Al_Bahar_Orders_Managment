@@ -135,6 +135,41 @@ return [
         'max_attempts' => 5,
     ],
 
+    // Maps: the tile provider, the default view and the optional routing service. Editable in Settings → Integrations
+    // (map.* keys); these are the fallbacks. 'osm' is for development: its usage policy forbids heavy production traffic.
+    'map' => [
+        'provider' => 'osm',          // osm | maptiler | stadia | carto | custom
+        'tile_url_light' => null,     // custom provider only: https template with {z}/{x}/{y}
+        'tile_url_dark' => null,
+        'attribution' => null,        // null = the provider's own credit line
+        'retina' => true,
+        'max_zoom' => null,           // null = the provider's maximum
+        'center_lat' => '25.2854',    // Doha
+        'center_lng' => '51.5310',
+        'zoom' => 11,
+        'routing_url' => null,        // OSRM-compatible base URL (https); null = straight-line ETA estimate
+    ],
+
+    // Live tracking rules (deploy-time tuning; not operator settings).
+    'tracking' => [
+        'stale_after_seconds' => 120,       // a marker older than this is shown greyed out
+        'grace_minutes' => 10,              // the customer still sees the final position this long after delivery
+        'max_fix_age_minutes' => 10,        // a GPS fix older than this is refused
+        'future_skew_seconds' => 60,        // clock difference tolerated between phone and server
+        'max_accuracy_m' => 500,            // a coarser fix is not used as the position
+        'duplicate_radius_m' => 5,          // a fix this close to the last stored one is a duplicate...
+        'duplicate_window_seconds' => 45,   // ...unless this long has passed (a stopped driver is still heard from)
+        'service_margin_deg' => 1.0,        // fixes further than this (about 100 km) outside Qatar are refused
+        'eta_road_factor' => 1.35,          // straight line to road distance
+        'eta_speed_kmh' => 28,              // average city speed for the estimate
+        'eta_cache_seconds' => 30,
+        'eta_timeout_seconds' => 3,
+        'route_max_points' => 300,
+        'route_raw_limit' => 5000,
+        'stop_min_seconds' => 120,          // standing still this long counts as a stop
+        'stop_radius_m' => 40,
+    ],
+
     'media' => [
         'disk' => env('MEDIA_DISK', 'public'),
         'max_image_kb' => 8192,

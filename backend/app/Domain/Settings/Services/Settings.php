@@ -4,6 +4,7 @@ namespace App\Domain\Settings\Services;
 
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Settings\Models\SystemSetting;
+use App\Support\MapConfig;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 
@@ -36,6 +37,9 @@ class Settings
             'updated_by' => auth()->id(),
         ])->save();
         Cache::forget(self::CACHE_KEY);
+        if ($group === 'map') {
+            MapConfig::forget();
+        }
 
         app(AuditLogger::class)->log('settings.updated', $setting, ['value' => $old], ['value' => $secret ? '[secret]' : $value], ['key' => $key]);
     }

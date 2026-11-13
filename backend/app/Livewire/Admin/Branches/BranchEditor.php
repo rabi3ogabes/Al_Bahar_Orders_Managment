@@ -71,7 +71,7 @@ class BranchEditor extends Component
 
     public function save(BranchService $svc)
     {
-        $rules = collect(BranchRequest::rulesFor($this->branch?->id))->mapWithKeys(fn ($r, $k) => ['form.'.$k => $r])->all();
+        $rules = collect(BranchRequest::rulesFor($this->branch?->id, false, 'form.'))->mapWithKeys(fn ($r, $k) => ['form.'.$k => $r])->all();
         $data = $this->validate($rules)['form'];
         $data = collect($data)->map(fn ($v) => $v === '' ? null : $v)->all();
         $acl = app(AccessControl::class);

@@ -58,7 +58,12 @@
         @if ($canEdit)
             <div class="flex items-center justify-between gap-4 border-t border-sand-100 bg-sand-50/50 px-5 py-4 sm:px-6 dark:border-ink-800 dark:bg-ink-800/30">
                 <p class="text-xs text-ink-500">{{ __('org_admin.changes_audited') }}</p>
-                <button class="btn-primary" wire:loading.attr="disabled" wire:target="save"><x-icon name="check" class="size-4" />{{ __('admin.save_changes') }}</button>
+                <div class="flex items-center gap-2">
+                    @if ($tab === 'integrations')
+                        <button type="button" class="btn-secondary" wire:click="testTiles" wire:loading.attr="disabled" wire:target="testTiles"><x-icon name="map" class="size-4" />{{ __('org_admin.map_test.button') }}</button>
+                    @endif
+                    <button class="btn-primary" wire:loading.attr="disabled" wire:target="save"><x-icon name="check" class="size-4" />{{ __('admin.save_changes') }}</button>
+                </div>
             </div>
         @endif
     </form>

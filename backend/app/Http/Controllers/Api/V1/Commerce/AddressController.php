@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Commerce;
 use App\Domain\Orders\Models\UserAddress;
 use App\Http\Controllers\Api\V1\ApiController;
 use App\Rules\PhoneNumber;
+use App\Support\Geo;
 use App\Support\Phone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -93,8 +94,10 @@ class AddressController extends ApiController
             'delivery_zone_id' => 'nullable|uuid|exists:delivery_zones,id', 'zone_number' => $loc.'nullable|string|max:8|required_without_all:latitude,delivery_zone_id',
             'street_number' => $loc.'nullable|string|max:16|required_with:zone_number', 'building_number' => $loc.'nullable|string|max:16|required_with:zone_number',
             'unit_number' => 'nullable|string|max:16', 'area' => 'nullable|string|max:120', 'city' => 'nullable|string|max:120', 'landmark' => 'nullable|string|max:255',
-            'instructions' => 'nullable|string|max:500', 'latitude' => 'nullable|numeric|between:24.4,26.3|required_with:longitude',
-            'longitude' => 'nullable|numeric|between:50.7,51.7|required_with:latitude', 'is_default' => 'sometimes|boolean',
+            'instructions' => 'nullable|string|max:500',
+            // The map pin: a pair inside Qatar's bounding box (see Geo::QATAR_BOUNDS).
+            'latitude' => 'nullable|numeric|between:'.Geo::QATAR_BOUNDS[0].','.Geo::QATAR_BOUNDS[1].'|required_with:longitude',
+            'longitude' => 'nullable|numeric|between:'.Geo::QATAR_BOUNDS[2].','.Geo::QATAR_BOUNDS[3].'|required_with:latitude', 'is_default' => 'sometimes|boolean',
         ]);
     }
 

@@ -1,3 +1,4 @@
+import 'package:albahar_customer/core/map/map_geo.dart';
 import 'package:albahar_customer/core/models/money.dart';
 import 'package:albahar_customer/core/utils/json.dart';
 import 'package:albahar_customer/features/checkout/domain/checkout_models.dart';
@@ -297,37 +298,120 @@ const cancelReasonCodes = ['changed_mind', 'ordered_by_mistake', 'delivery_too_l
 const returnReasonCodes = ['damaged', 'wrong_item', 'not_as_described', 'changed_mind', 'other'];
 
 /// Where the driver is right now (`GET /orders/{id}/tracking`); live moves arrive on `private-orders.{id}`.
+///
+/// The server grows this payload over time, so every field but `tracking` is optional and the old shape still reads:
+/// `driver: {name, lat, lng, at}` (first version); the current one inlines the whole fix in `driver` (`name` is the first
+/// name, plus `vehicle`, `status`, `lat`, `lng`, `heading`, `speed_kmh`, `accuracy_m`, `at`, `age_seconds`) beside `live`,
+/// `delivery_status`, `eta: {minutes, distance_m, updated_at}` and `stale_after_seconds`. A separate `position` object is
+/// read too, in case the fix moves there.
+@immutable
 class OrderTracking {
   const OrderTracking({
     required this.tracking,
     this.driverName,
-    this.driver,
+    this.driverFirstName,
+    this.vehicle,
+    this.driverPhone,
+    this.position,
     this.destination,
     this.branch,
+    this.branchName,
     this.status,
+    this.eta,
+    this.deliveredAt,
+    this.hasDriver = false,
+    this.live = false,
+    this.deliveryStatus,
+    this.staleAfter,
   });
 
-  factory OrderTracking.fromJson(Map<String, dynamic> j) {
+  factory OrderTracking.fromJson(Map<String, dynamic> j, {DateTime? receivedAt}) {
     LatLng? pt(Object? o) {
-      if (o is! Map || o['lat'] == null || o['lng'] == null) return null;
-      return LatLng((o['lat'] as num).toDouble(), (o['lng'] as num).toDouble());
+      if (o is! Map) return null;
+      final lat = o['lat'] ?? o['latitude'];
+      final lng = o['lng'] ?? o['longitude'];
+      if (lat is! num || lng is! num || !MapGeo.isFinitePair(lat.toDouble(), lng.toDouble())) return null;
+      return LatLng(lat.toDouble(), lng.toDouble());
     }
 
-    final d = j['driver'];
+    final d = j['driver'] is Map ? Map<String, dynamic>.from(j['driver'] as Map) : null;
+    final name = d == null ? null : asStringOrNull(d['name']);
+    final first = d == null ? null : (asStringOrNull(d['first_name']) ?? name?.trim().split(RegExp(r'\s+')).first);
+    final branch = j['branch'] is Map ? Map<String, dynamic>.from(j['branch'] as Map) : null;
     return OrderTracking(
       tracking: j['tracking'] == true,
-      driverName: d is Map ? d['name']?.toString() : null,
-      driver: pt(d),
+      hasDriver: d != null,
+      driverName: name,
+      driverFirstName: first,
+      vehicle: d == null ? null : asStringOrNull(d['vehicle']),
+      driverPhone: d == null ? null : asStringOrNull(d['phone']),
+      // The current payload nests the fix under `position`; the first version put it on `driver` itself.
+      position: GeoFix.tryParse(j['position'], receivedAt: receivedAt) ?? GeoFix.tryParse(d, receivedAt: receivedAt),
       destination: pt(j['destination']),
-      branch: pt(j['branch']),
-      status: j['status']?.toString(),
+      branch: pt(branch),
+      branchName: branch == null ? null : asStringOrNull(branch['name']),
+      status: asStringOrNull(j['status']),
+      eta: TrackingEta.tryParse(j['eta']),
+      deliveredAt: asDate(j['delivered_at']),
+      live: j['live'] == true,
+      deliveryStatus: asStringOrNull(j['delivery_status']) ?? (d == null ? null : asStringOrNull(d['status'])),
+      staleAfter: j['stale_after_seconds'] is num && (j['stale_after_seconds'] as num) > 0
+          ? Duration(seconds: (j['stale_after_seconds'] as num).round())
+          : null,
     );
   }
 
   final bool tracking;
+
+  /// True when the server named a driver for this order (even before the first position arrives).
+  final bool hasDriver;
   final String? driverName;
-  final LatLng? driver;
+  final String? driverFirstName;
+  final String? vehicle;
+  final String? driverPhone;
+
+  /// The driver's last fix; null until the driver's phone has reported one.
+  final GeoFix? position;
   final LatLng? destination;
   final LatLng? branch;
+  final String? branchName;
+
+  /// Order status code (`out_for_delivery`, `completed` ...).
   final String? status;
+
+  /// Delivery step (`accepted`, `picked_up`, `out_for_delivery`, `delivered`); null before a driver is on the order.
+  final String? deliveryStatus;
+
+  /// True while the order is on the road with a driver sharing a position.
+  final bool live;
+
+  /// How old a position may be before it is shown as "last seen"; the server's setting, null on older servers.
+  final Duration? staleAfter;
+  final TrackingEta? eta;
+  final DateTime? deliveredAt;
+
+  /// The driver's coordinates (kept for callers that only need the point).
+  LatLng? get driver => position?.point;
+}
+
+/// The server's arrival estimate.
+@immutable
+class TrackingEta {
+  const TrackingEta({this.minutes, this.distanceM, this.updatedAt});
+
+  static TrackingEta? tryParse(Object? raw) {
+    if (raw is! Map) return null;
+    final minutes = raw['minutes'];
+    final distance = raw['distance_m'];
+    final eta = TrackingEta(
+      minutes: minutes is num && minutes.isFinite && minutes >= 0 ? minutes.round() : null,
+      distanceM: distance is num && distance.isFinite && distance >= 0 ? distance.toDouble() : null,
+      updatedAt: asDate(raw['updated_at']),
+    );
+    return eta.minutes == null && eta.distanceM == null ? null : eta;
+  }
+
+  final int? minutes;
+  final double? distanceM;
+  final DateTime? updatedAt;
 }

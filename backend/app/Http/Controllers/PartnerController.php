@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Fulfillment\Services\DriverPosition;
 use App\Domain\Orders\Services\LiveOrderFeed;
 use App\Domain\Partners\Services\PartnerAccess;
 use App\Domain\Partners\Services\PartnerReport;
@@ -84,7 +85,7 @@ class PartnerController extends Controller
     {
         $this->guardData($request, $token);
 
-        return $this->json(['drivers' => $this->report->fleet(), 'at' => now()->toIso8601String()]);
+        return $this->json(['drivers' => $this->report->fleet(), 'at' => BusinessTime::iso(now()), 'stale_after_seconds' => DriverPosition::staleAfter()]);
     }
 
     /** New orders and order status changes since the cursor (Unix ms) for the live toasts; without a cursor it only hands one out. */

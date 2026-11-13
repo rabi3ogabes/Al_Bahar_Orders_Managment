@@ -4,6 +4,11 @@ namespace App\Livewire\Admin\Organization;
 
 use App\Domain\Settings\Services\Settings;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
+use App\Rules\MapServiceUrl;
+use App\Rules\MapTileUrl;
+use App\Support\MapConfig;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Http;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
@@ -106,6 +111,17 @@ class SettingsIndex extends Component
                 'ai.anthropic_api_key' => ['type' => 'secret', 'rules' => ['nullable', 'string', 'min:20', 'max:255']],
                 'ai.model' => ['type' => 'text', 'rules' => ['nullable', 'string', 'max:64'], 'dir' => 'ltr'],
                 'payments.sadad.secret_key' => ['type' => 'secret', 'rules' => ['nullable', 'string', 'min:8', 'max:255']],
+                'map.provider' => ['type' => 'select', 'rules' => ['required', 'in:'.implode(',', MapConfig::PROVIDERS)], 'options' => MapConfig::PROVIDERS],
+                'map.api_key' => ['type' => 'secret', 'rules' => ['nullable', 'string', 'min:8', 'max:255']],
+                'map.tile_url_light' => ['type' => 'text', 'rules' => ['nullable', 'string', 'max:500', new MapTileUrl], 'dir' => 'ltr'],
+                'map.tile_url_dark' => ['type' => 'text', 'rules' => ['nullable', 'string', 'max:500', new MapTileUrl], 'dir' => 'ltr'],
+                'map.attribution' => ['type' => 'text', 'rules' => ['nullable', 'string', 'max:300']],
+                'map.retina' => ['type' => 'bool', 'rules' => ['boolean']],
+                'map.max_zoom' => ['type' => 'int', 'rules' => ['nullable', 'integer', 'min:1', 'max:22']],
+                'map.center_lat' => ['type' => 'text', 'rules' => ['nullable', 'numeric', 'between:-85,85', 'required_with:values.integrations.map__center_lng'], 'dir' => 'ltr'],
+                'map.center_lng' => ['type' => 'text', 'rules' => ['nullable', 'numeric', 'between:-180,180', 'required_with:values.integrations.map__center_lat'], 'dir' => 'ltr'],
+                'map.zoom' => ['type' => 'int', 'rules' => ['nullable', 'integer', 'min:3', 'max:19']],
+                'map.routing_url' => ['type' => 'text', 'rules' => ['nullable', 'string', 'max:300', new MapServiceUrl], 'dir' => 'ltr'],
             ],
         ];
     }
@@ -149,6 +165,32 @@ class SettingsIndex extends Component
             }
         }
         $this->toast($changed ? trans_choice('org_admin.settings_saved', $changed, ['count' => $changed]) : __('org_admin.settings_unchanged'));
+    }
+
+    /** Fetches one real tile with the SAVED map settings and says whether the provider answered with an image. */
+    public function testTiles(): void
+    {
+        abort_unless($this->canGlobally('settings.view'), 403);
+        $problem = MapConfig::problem();
+        if ($problem !== null) {
+            $this->toast(__('org_admin.map_test.'.$problem), 'error');
+
+            return;
+        }
+        try {
+            $response = Http::timeout(5)->withUserAgent(config('app.name', 'Al Bahar').' admin tile check')->accept('image/*')->get(MapConfig::sampleTileUrl());
+        } catch (ConnectionException) {
+            $this->toast(__('org_admin.map_test.unreachable'), 'error');
+
+            return;
+        }
+        if (! $response->successful()) {
+            $this->toast(__('org_admin.map_test.refused', ['status' => $response->status()]), 'error');
+
+            return;
+        }
+        $isImage = str_starts_with((string) $response->header('Content-Type'), 'image/');
+        $this->toast($isImage ? __('org_admin.map_test.ok') : __('org_admin.map_test.not_image'), $isImage ? 'success' : 'error');
     }
 
     public function render(Settings $settings)

@@ -8,6 +8,7 @@ use App\Domain\Branches\Models\BranchDeliveryZone;
 use App\Domain\Branches\Models\BranchEmployee;
 use App\Domain\Branches\Models\DeliveryZone;
 use App\Domain\Branches\Services\BranchService;
+use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Fulfillment\Models\DriverProfile;
 use App\Domain\Identity\Models\Role;
@@ -155,4 +156,25 @@ function readyOrder($w): array
     }
 
     return [$f->fresh(), $mgr];
+}
+
+/**
+ * A delivery of branch A walked to $status (assigned | accepted | picked_up | out_for_delivery), with the order's destination
+ * set to $pin. Returns the world, the driver, the branch manager, the delivery and the order id; the session is left as the driver.
+ */
+function deliveryAt(string $status = 'out_for_delivery', array $pin = ['latitude' => 25.30, 'longitude' => 51.50]): object
+{
+    $w = commerceWorld();
+    $driver = driverFor($w->a);
+    [$f, $mgr] = readyOrder($w);
+    test()->postJson("/api/v1/admin/dispatch/fulfillments/{$f->id}/assign", ['driver_id' => $driver->id])->assertOk();
+    $w->address->update($pin);
+    Order::whereKey($f->order_id)->update(['address_snapshot' => json_encode($w->address->fresh()->snapshot())]);
+    $delivery = Delivery::where('order_fulfillment_id', $f->id)->firstOrFail();
+    actingAsStaff($driver);
+    foreach (['assigned' => [], 'accepted' => ['accept'], 'picked_up' => ['accept', 'pickup'], 'out_for_delivery' => ['accept', 'pickup', 'out-for-delivery']][$status] as $step) {
+        test()->postJson("/api/v1/admin/deliveries/{$delivery->id}/{$step}")->assertOk();
+    }
+
+    return (object) ['w' => $w, 'driver' => $driver, 'mgr' => $mgr, 'delivery' => $delivery->fresh(), 'orderId' => $f->order_id, 'customer' => $w->customer];
 }

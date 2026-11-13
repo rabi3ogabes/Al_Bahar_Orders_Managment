@@ -3,6 +3,7 @@
 namespace App\Domain\Branches\Services;
 
 use App\Domain\Branches\Models\Branch;
+use App\Support\Geo;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -39,10 +40,6 @@ class BranchDiscovery
 
     public static function distanceKm(float $lat1, float $lng1, float $lat2, float $lng2): float
     {
-        $dLat = deg2rad($lat2 - $lat1);
-        $dLng = deg2rad($lng2 - $lng1);
-        $a = sin($dLat / 2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
-
-        return 6371 * 2 * atan2(sqrt($a), sqrt(1 - $a));
+        return Geo::distanceKm($lat1, $lng1, $lat2, $lng2);
     }
 }

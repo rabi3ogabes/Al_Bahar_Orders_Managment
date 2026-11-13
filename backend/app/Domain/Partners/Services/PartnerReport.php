@@ -3,11 +3,12 @@
 namespace App\Domain\Partners\Services;
 
 use App\Domain\Fulfillment\Models\Delivery;
-use App\Domain\Fulfillment\Models\DriverLocation;
 use App\Domain\Fulfillment\Services\DispatchService;
+use App\Domain\Fulfillment\Services\RouteHistory;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Settings\Services\Settings;
 use App\Support\BusinessTime;
+use App\Support\Geo;
 use App\Support\Money;
 use Illuminate\Support\Collection;
 
@@ -20,7 +21,7 @@ use Illuminate\Support\Collection;
  */
 class PartnerReport
 {
-    public function __construct(private readonly Settings $settings, private readonly DispatchService $dispatch) {}
+    public function __construct(private readonly Settings $settings, private readonly DispatchService $dispatch, private readonly RouteHistory $routes) {}
 
     /** @return array<string, mixed> */
     public function day(string $date): array
@@ -100,29 +101,43 @@ class PartnerReport
             'items' => $o->items->map(fn ($i) => ['sku' => $i->sku, 'name' => $i->name('en'), 'name_ar' => $i->name_ar, 'variant' => $i->variant_name_en, 'quantity' => (int) $i->quantity,
                 'cancelled' => (int) $i->quantity_cancelled, 'unit_price' => (string) $i->unit_final_price, 'line_total' => (string) $i->line_total, 'image' => $i->image_path])->values(),
             'transactions' => $o->payments->flatMap->transactions->sortBy('created_at')->map(fn ($t) => ['type' => $t->type, 'status' => $t->status, 'reference' => $t->transaction_reference, 'amount' => $t->amount, 'at' => BusinessTime::iso($t->created_at), 'error' => $t->error])->values(),
-            'deliveries' => $deliveries->map(fn (Delivery $d) => [
-                'id' => $d->id, 'status' => $d->status->value, 'driver' => $d->driver?->name, 'assigned_at' => BusinessTime::iso($d->assigned_at), 'picked_up_at' => BusinessTime::iso($d->picked_up_at),
-                'delivered_at' => BusinessTime::iso($d->delivered_at), 'route' => $this->route($d->id),
-            ])->values(),
-            'destination' => isset($o->address_snapshot['latitude'], $o->address_snapshot['longitude']) ? ['lat' => (float) $o->address_snapshot['latitude'], 'lng' => (float) $o->address_snapshot['longitude']] : null,
+            'deliveries' => $deliveries->map(fn (Delivery $d) => $this->deliveryRow($d))->values(),
+            'destination' => Geo::validPoint($o->address_snapshot['latitude'] ?? null, $o->address_snapshot['longitude'] ?? null)
+                ? ['lat' => (float) $o->address_snapshot['latitude'], 'lng' => (float) $o->address_snapshot['longitude']] : null,
         ];
     }
 
-    /** @return Collection<int, array{lat: float, lng: float, at: string|null, speed: float|null}> the recorded path, oldest first (thinned to at most 600 points) */
-    public function route(string $deliveryId): Collection
+    /**
+     * One delivery with its recorded path: route = the breadcrumbs reduced to at most 300 points, stops = where the driver stood still,
+     * distance_m / duration_s / started_at / ended_at describe the whole recording.
+     *
+     * @return array<string, mixed>
+     */
+    private function deliveryRow(Delivery $d): array
     {
-        $points = DriverLocation::where('delivery_id', $deliveryId)->orderBy('recorded_at')->limit(5000)->get(['lat', 'lng', 'recorded_at', 'speed_kmh']);
-        $step = max(1, (int) ceil($points->count() / 600));
+        $r = $this->routes->forDelivery($d->id);
 
-        return $points->values()->filter(fn ($p, $i) => $i % $step === 0 || $i === $points->count() - 1)
-            ->map(fn ($p) => ['lat' => (float) $p->lat, 'lng' => (float) $p->lng, 'at' => BusinessTime::iso($p->recorded_at), 'speed' => $p->speed_kmh !== null ? (float) $p->speed_kmh : null])->values();
+        return [
+            'id' => $d->id, 'status' => $d->status->value, 'driver' => $d->driver?->name, 'assigned_at' => BusinessTime::iso($d->assigned_at), 'picked_up_at' => BusinessTime::iso($d->picked_up_at),
+            'delivered_at' => BusinessTime::iso($d->delivered_at), 'route' => $r['points'], 'stops' => $r['stops'], 'distance_m' => $r['distance_m'], 'duration_s' => $r['duration_s'],
+            'started_at' => $r['started_at'], 'ended_at' => $r['ended_at'],
+        ];
     }
 
-    /** @return Collection<int, array<string, mixed>> */
+    /**
+     * The drivers on duty for the partners' live map: position fields as in every map response (lat, lng, heading, speed_kmh,
+     * accuracy_m, at, age_seconds, stale), the vehicle and the order in hand. No phone numbers, battery or branches.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
     public function fleet(): Collection
     {
-        return $this->dispatch->fleet(null)->map(fn (array $d) => ['id' => $d['id'], 'name' => $d['name'], 'on_duty' => $d['on_duty'], 'lat' => $d['lat'], 'lng' => $d['lng'],
-            'last_seen_at' => $d['last_seen_at'], 'job' => $d['job'] ? ['order_number' => $d['job']['order_number'], 'status' => $d['job']['status']] : null])->values();
+        return $this->dispatch->fleet(null)->map(fn (array $d) => [
+            'id' => $d['id'], 'name' => $d['name'], 'vehicle' => $d['vehicle'], 'on_duty' => $d['on_duty'],
+            'lat' => $d['lat'], 'lng' => $d['lng'], 'heading' => $d['heading'], 'speed_kmh' => $d['speed_kmh'], 'accuracy_m' => $d['accuracy_m'],
+            'at' => $d['at'], 'age_seconds' => $d['age_seconds'], 'stale' => $d['stale'], 'last_seen_at' => $d['last_seen_at'],
+            'job' => $d['job'] ? ['order_number' => $d['job']['order_number'], 'status' => $d['job']['status'], 'destination' => $d['job']['destination']] : null,
+        ])->values();
     }
 
     private function maskPhone(?string $phone): ?string

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Support\Geo;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -13,7 +14,8 @@ class BranchRequest extends FormRequest
         return true;
     }
 
-    public static function rulesFor(?string $ignoreId = null, bool $partial = false): array
+    /** @param  string  $prefix  the attribute prefix the rules are used under (a Livewire form validates "form.latitude"), so the latitude/longitude pair rules find each other */
+    public static function rulesFor(?string $ignoreId = null, bool $partial = false, string $prefix = ''): array
     {
         $req = $partial ? 'sometimes' : 'required';
 
@@ -29,8 +31,9 @@ class BranchRequest extends FormRequest
             'address_ar' => ['nullable', 'string', 'max:255'],
             'area' => ['nullable', 'string', 'max:120'],
             'zone_number' => ['nullable', 'string', 'max:16'],
-            'latitude' => ['nullable', 'numeric', 'between:24.4,26.3'],   // Qatar bounding box
-            'longitude' => ['nullable', 'numeric', 'between:50.7,51.7'],
+            // A map pin is a pair inside Qatar's bounding box.
+            'latitude' => ['nullable', 'numeric', 'between:'.Geo::QATAR_BOUNDS[0].','.Geo::QATAR_BOUNDS[1], 'required_with:'.$prefix.'longitude'],
+            'longitude' => ['nullable', 'numeric', 'between:'.Geo::QATAR_BOUNDS[2].','.Geo::QATAR_BOUNDS[3], 'required_with:'.$prefix.'latitude'],
             'opening_status' => ['sometimes', 'in:open,temporarily_closed'],
             'pickup_enabled' => ['sometimes', 'boolean'],
             'delivery_enabled' => ['sometimes', 'boolean'],

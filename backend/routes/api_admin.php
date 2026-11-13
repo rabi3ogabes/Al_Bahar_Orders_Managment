@@ -76,6 +76,7 @@ Route::controller(V1\Admin\OrderOpsController::class)->group(function () {
     Route::post('payments/{payment}/refunds', 'requestRefund')->middleware('permission:refunds.create')->name('refunds.store');
     Route::post('refunds/{refund}/{action}', 'refundAction')->middleware('permission:refunds.view')->whereIn('action', ['approve', 'reject', 'processed'])->name('refunds.action');
 });
+Route::get('deliveries/{delivery}/route', [V1\Admin\DeliveryRouteController::class, 'show'])->middleware('permission:deliveries.view')->name('deliveries.route');
 
 Route::controller(V1\Admin\AuctionAdminController::class)->prefix('auctions')->name('auctions.')->group(function () {
     Route::post('/', 'store')->middleware('permission:auctions.create')->name('store');

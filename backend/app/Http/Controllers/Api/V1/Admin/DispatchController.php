@@ -8,8 +8,11 @@ use App\Domain\Fulfillment\Services\DispatchService;
 use App\Domain\Identity\Models\User;
 use App\Domain\Orders\Models\OrderFulfillment;
 use App\Http\Controllers\Api\V1\ApiController;
+use App\Domain\Fulfillment\Services\DriverPosition;
 use App\Support\BusinessTime;
 use App\Support\DomainException;
+use App\Support\Geo;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -36,7 +39,7 @@ class DispatchController extends ApiController
         $branches = Branch::whereIn('id', $this->dispatch->driverBranchIds($u))->get();
 
         return response()->json(['data' => [
-            'id' => $u->id, 'name' => $u->name, 'phone' => $u->phone, 'on_duty' => (bool) $p->on_duty,
+            'id' => $u->id, 'name' => $u->name, 'phone' => $u->phone, 'on_duty' => (bool) $p->on_duty, 'vehicle' => $p->vehicle,
             'branches' => $branches->map(fn (Branch $b) => ['id' => $b->id, 'name' => $b->localized('name'), 'dispatch_mode' => $b->dispatch_mode])->values(),
             'open_jobs' => Delivery::where('driver_id', $u->id)->whereIn('status', ['assigned', 'accepted', 'picked_up', 'out_for_delivery', 'rescheduled', 'failed'])->count(),
         ]]);
@@ -44,20 +47,34 @@ class DispatchController extends ApiController
 
     public function duty(Request $request): JsonResponse
     {
-        $d = $request->validate(['on_duty' => 'required|boolean', 'latitude' => 'nullable|numeric|between:-90,90', 'longitude' => 'nullable|numeric|between:-180,180']);
-        $p = $this->dispatch->setDuty($this->user(), (bool) $d['on_duty'], isset($d['latitude']) ? (float) $d['latitude'] : null, isset($d['longitude']) ? (float) $d['longitude'] : null);
+        $d = $request->validate(['on_duty' => 'required|boolean', 'latitude' => 'nullable|numeric|between:-90,90|required_with:longitude', 'longitude' => 'nullable|numeric|between:-180,180|required_with:latitude',
+            'vehicle' => 'nullable|string|max:60']);
+        $lat = isset($d['latitude']) ? (float) $d['latitude'] : null;
+        $lng = isset($d['longitude']) ? (float) $d['longitude'] : null;
+        $this->assertInServiceArea($lat, $lng);
+        $p = $this->dispatch->setDuty($this->user(), (bool) $d['on_duty'], $lat, $lng, array_key_exists('vehicle', $d) ? trim((string) $d['vehicle']) : null);
 
-        return response()->json(['data' => ['on_duty' => $p->on_duty]]);
+        return response()->json(['data' => ['on_duty' => $p->on_duty, 'vehicle' => $p->vehicle]]);
     }
 
+    /**
+     * The driver app's GPS ping. 422 when the fix itself is unusable (outside Qatar, in the future, older than
+     * platform.tracking.max_fix_age_minutes); 200 with recorded=false and a reason when it is fine but not stored
+     * (off_duty, rate_limited, duplicate, low_accuracy, out_of_order), so the app never retries those.
+     */
     public function location(Request $request): JsonResponse
     {
         $d = $request->validate(['latitude' => 'required|numeric|between:-90,90', 'longitude' => 'required|numeric|between:-180,180',
-            'speed_kmh' => 'nullable|numeric|between:0,300', 'heading' => 'nullable|integer|between:0,360', 'accuracy' => 'nullable|integer|between:0,100000']);
+            'speed_kmh' => 'nullable|numeric|between:0,300', 'heading' => 'nullable|integer|between:0,360', 'accuracy' => 'nullable|integer|between:0,32767',
+            'battery' => 'nullable|integer|between:0,100', 'recorded_at' => 'nullable|date']);
         $this->assertDriver($this->user());
-        $this->dispatch->heartbeat($this->user(), (float) $d['latitude'], (float) $d['longitude'], isset($d['speed_kmh']) ? (float) $d['speed_kmh'] : null, $d['heading'] ?? null, $d['accuracy'] ?? null);
+        $lat = (float) $d['latitude'];
+        $lng = (float) $d['longitude'];
+        $this->assertInServiceArea($lat, $lng);
+        $result = $this->dispatch->heartbeat($this->user(), $lat, $lng, isset($d['speed_kmh']) ? (float) $d['speed_kmh'] : null, $d['heading'] ?? null, $d['accuracy'] ?? null,
+            isset($d['recorded_at']) ? $this->fixTime($d['recorded_at']) : null, $d['battery'] ?? null);
 
-        return response()->json(['data' => ['ok' => true]]);
+        return response()->json(['data' => ['ok' => true] + $result]);
     }
 
     /** My jobs: scope=active (default) or history (last 30 finished). */
@@ -75,12 +92,16 @@ class DispatchController extends ApiController
         return response()->json(['data' => $rows->map(fn (Delivery $d) => $this->job($d))->values()]);
     }
 
-    /** Live fleet for the dashboard map and the staff app: drivers with last position and current job (branch-scoped). */
+    /**
+     * Live fleet for the dashboard map and the staff app: the drivers on duty (branch-scoped) with last position, how old it is
+     * (age_seconds / stale) and the job in hand.
+     */
     public function fleet(Request $request): JsonResponse
     {
         $scope = $this->scope('deliveries.view', $request->validate(['branch_id' => 'nullable|uuid'])['branch_id'] ?? null);
 
-        return response()->json(['data' => $this->dispatch->fleet($scope->all ? null : $scope->branchIds)]);
+        return response()->json(['data' => $this->dispatch->fleet($scope->all ? null : $scope->branchIds),
+            'meta' => ['at' => BusinessTime::iso(now()), 'stale_after_seconds' => DriverPosition::staleAfter()]]);
     }
 
     // ── Branch staff app ───────────────────────────────────────────────────
@@ -150,6 +171,31 @@ class DispatchController extends ApiController
         if (! $this->dispatch->isDriver($u)) {
             throw DomainException::make('driver_not_eligible', 403);
         }
+    }
+
+    /** A position far outside Qatar (or the "no fix" pair 0,0) is a GPS glitch, not a delivery. */
+    private function assertInServiceArea(?float $lat, ?float $lng): void
+    {
+        if ($lat === null || $lng === null) {
+            return;
+        }
+        if (! Geo::validPoint($lat, $lng) || ! Geo::inBounds($lat, $lng, Geo::QATAR_BOUNDS, (float) config('platform.tracking.service_margin_deg', 1.0))) {
+            throw DomainException::make('location_out_of_area', 422);
+        }
+    }
+
+    /** The time the phone says it took the fix, refused when it is in the future or too old to be a live position. */
+    private function fixTime(string $value): CarbonImmutable
+    {
+        $at = CarbonImmutable::parse($value);
+        if ($at->greaterThan(now()->addSeconds((int) config('platform.tracking.future_skew_seconds', 60)))) {
+            throw DomainException::make('location_in_future', 422);
+        }
+        if ($at->lessThan(now()->subMinutes((int) config('platform.tracking.max_fix_age_minutes', 10)))) {
+            throw DomainException::make('location_too_old', 422);
+        }
+
+        return $at;
     }
 
     private function branchFor(Request $request, string $permission): Branch
