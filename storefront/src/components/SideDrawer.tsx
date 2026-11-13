@@ -80,7 +80,7 @@ export function SideDrawer({ open, onClose, title, description, children, footer
   return (
     <DrawerCtx.Provider value={{ urlBacked, close: request }}>
       {isPhone ? (
-        <Sheet.Root open={open} onOpenChange={(o) => { if (!o) request(); }} dismissible={!dirty}>
+        <Sheet.Root open={open} onOpenChange={(o) => { if (!o) request(); }}>
           <Sheet.Portal>
             <Sheet.Overlay className="ov-scrim fixed inset-0 z-[80] bg-ink/45 backdrop-blur-[2px]" />
             <Sheet.Content ref={panel} tabIndex={-1} onOpenAutoFocus={onOpenAutoFocus} onCloseAutoFocus={opener.restore} {...(description ? {} : { 'aria-describedby': undefined })}

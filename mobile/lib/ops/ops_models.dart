@@ -60,6 +60,30 @@ class OpsAddress {
   final String? notes;
 }
 
+/// One product line of a parcel (`items` on a delivery job and on a queue order). [quantity] is what is still to be
+/// delivered (cancelled units are already left out); there are no prices.
+@immutable
+class OpsItem {
+  const OpsItem({required this.id, required this.name, required this.quantity, this.variantName, this.sku});
+
+  factory OpsItem.fromJson(JsonMap j) => OpsItem(
+    id: asString(j['id']),
+    name: asString(j['name']),
+    variantName: asStringOrNull(j['variant_name']),
+    sku: asStringOrNull(j['sku']),
+    quantity: asInt(j['quantity'], 1),
+  );
+
+  /// The list from a response; an older server that has no `items` gives an empty list (screens then show the count).
+  static List<OpsItem> listFrom(Object? raw) => mapList(raw, OpsItem.fromJson);
+
+  final String id;
+  final String name;
+  final String? variantName;
+  final String? sku;
+  final int quantity;
+}
+
 /// One delivery job as the driver sees it.
 @immutable
 class DriverJob {
@@ -75,6 +99,7 @@ class DriverJob {
     required this.requiresProof,
     required this.branchName,
     required this.scheduledFor,
+    this.items = const [],
   });
 
   factory DriverJob.fromJson(JsonMap j) => DriverJob(
@@ -89,6 +114,7 @@ class DriverJob {
     requiresProof: asBool(j['requires_proof'], true),
     branchName: asStringOrNull(asMapOrNull(j['branch'])?['name']) ?? '',
     scheduledFor: asDate(j['scheduled_for']),
+    items: OpsItem.listFrom(j['items']),
   );
 
   final String id;
@@ -102,6 +128,9 @@ class DriverJob {
   final bool requiresProof;
   final String branchName;
   final DateTime? scheduledFor;
+
+  /// What is in the parcel; empty when the server did not send it.
+  final List<OpsItem> items;
 
   bool get isCod => paymentMethod == 'cod' && codAmount > 0;
 
@@ -211,6 +240,7 @@ class QueueOrder {
     required this.deliveryId,
     required this.driverName,
     required this.driverId,
+    this.items = const [],
   });
 
   factory QueueOrder.fromJson(JsonMap j) {
@@ -230,6 +260,7 @@ class QueueOrder {
       deliveryId: asStringOrNull(d?['id']),
       driverName: asStringOrNull(driver?['name']),
       driverId: asStringOrNull(driver?['id']),
+      items: OpsItem.listFrom(j['items']),
     );
   }
 
@@ -246,6 +277,9 @@ class QueueOrder {
   final String? deliveryId;
   final String? driverName;
   final String? driverId;
+
+  /// What is in the parcel; empty when the server did not send it (screens then show [itemsCount]).
+  final List<OpsItem> items;
 
   /// Staff step for the order status: accept → start preparing → mark ready; then assign a driver.
   String? get nextStep => switch (status) {

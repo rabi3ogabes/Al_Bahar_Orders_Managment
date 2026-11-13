@@ -286,10 +286,10 @@ class _OrderDetails extends ConsumerWidget {
             ),
           ],
         ),
+        PanelItems(items: o.items, count: o.itemsCount),
         PanelSection(
           title: t.orderSection,
           children: [
-            PanelRow(label: t.itemsLabel, value: t.items(o.itemsCount)),
             PanelRow(label: t.payment, value: cod ? t.paymentCash : t.paymentOnline),
             PanelRow(label: t.total, value: t.money(o.total), emphasize: true),
           ],

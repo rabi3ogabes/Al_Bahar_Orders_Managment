@@ -11,14 +11,14 @@ long lists), centred decision (confirm, never closed by tapping outside when des
 
 | # | App | Flow | Before | After | Why |
 |---|---|---|---|---|---|
-| 1 | Driver | Open a delivery (card tap) | Nothing: the card was the only view, no way to see notes, branch, cash hint or copy the address | **Delivery window**: status and time, customer (name, phone, Call), address with notes and "Pick up from", Navigate, Copy address ("Copied" on the button), Open delivery map, payment (cash to collect in big type, or "nothing to collect"), photo-required note. Step buttons pinned at the bottom | Details the driver needs at the door, without leaving the list; one Back returns |
+| 1 | Driver | Open a delivery (card tap) | Nothing: the card was the only view, no way to see notes, branch, cash hint or copy the address | **Delivery window**: status and time, customer (name, phone, Call), address with notes and "Pick up from", **the items of the parcel** (name, variant under it, "× quantity"), Navigate, Copy address ("Copied" on the button), Open delivery map, payment (cash to collect in big type, or "nothing to collect"), photo-required note. Step buttons pinned at the bottom | Details the driver needs at the door, without leaving the list; one Back returns |
 | 2 | Driver | Step buttons (Accept, Picked up, On my way, Mark delivered, Could not deliver, Return to branch) | Only on the card | Same `JobActionButtons` on the card, under the delivery map and pinned in the window | One implementation; a step is one tap wherever the driver is. "Delivered" is now "Mark delivered" (a verb) |
 | 3 | Driver | Proof of delivery | Dismissible-by-hand bottom sheet with its own layout | **Proof window** (`showSidePanel`, `isForm`): recipient, cash, photo; "Confirm delivery" pinned; scrim tap and swipe never close it; close or Back with input asks "Discard changes?" (Keep editing focused); upload happens inside, so photo and text survive a failed upload | Typed input and a photo must never be lost by a stray tap |
 | 4 | Driver | Reason for a failed delivery | Plain bottom sheet | **Reason window** (list of 6 reasons, one tap) then a centred question "Report as not delivered?" (Cancel focused, verb "Report") | Consistent window; the decision stays a modal |
 | 5 | Driver | Return a failed delivery to the branch | Inline confirm dialog | Centred question "Handed back at the branch?" (Cancel focused, verb "Confirm return"), from the card or the window | One shared `opsConfirm` instead of three copies |
 | 6 | Driver | Delivery map (`driver_job_map.dart`) | Full screen | **Stays full screen.** Back arrow in the app bar, big Navigate pinned at the bottom with the step buttons; the window hands over to it ("Open delivery map") | Live map with GPS trail: big, needs the whole screen |
 | 7 | Driver | History job | Card only | Opens the same window read-only (no buttons, no Call, no Navigate) | See what was delivered, nothing to change |
-| 8 | Staff | Open an order (card tap) | Nothing: the card was the only view | **Order window**: stage and payment chips, customer (name, phone, Call), address and notes, Copy address, Items and Total and payment, delivery (driver, delivery status, Call driver). Step buttons pinned | Staff can read the whole order without losing their tab |
+| 8 | Staff | Open an order (card tap) | Nothing: the card was the only view | **Order window**: stage and payment chips, customer (name, phone, Call), address and notes, Copy address, **the items of the parcel** (name, variant under it, "× quantity"; the "N items" line when the server sends no list), payment and total, delivery (driver, delivery status, Call driver). Step buttons pinned | Staff can read the whole order without losing their tab |
 | 9 | Staff | Order steps (Accept, Start preparing, Mark ready) and Assign / Change driver, Return to branch | Only on the card | Same `OrderActionButtons` on the card and pinned in the window; permissions unchanged (`orders.edit`, `deliveries.assign`, `deliveries.edit`) | Same rules as the card: a window never shows more than the page |
 | 10 | Staff | Assign driver | Bottom sheet with its own layout | **Driver picker window** (above the order window): on-duty drivers first, then least busy; "For order #..." | Long list, needs the end panel on tablets |
 | 11 | Staff | Drivers tab: tap a driver | Nothing | **Driver window**: duty, open jobs, delivery in hand, last seen, vehicle, battery, big Call pinned. Row call button still calls directly | Dispatchers ask "where is he, what is he doing" |
@@ -55,7 +55,7 @@ screen, stock quick view, pickup pass or QR. "Return to branch" is the only retu
 
 ## Tests
 
-`flutter test test/ops`: 263 passed (198 before); full `flutter test`: 855 passed; `flutter analyze`: 0 issues. New: `driver_windows_test.dart` (36), `staff_windows_test.dart` (28), one
+`flutter test test/ops`: 296 passed (198 before); full `flutter test`: 914 passed; `flutter analyze`: 0 issues. New: `driver_windows_test.dart` (36), `staff_windows_test.dart` (28), `items_windows_test.dart` (33: items in a 390 px sheet, a 1024 px panel and Arabic, long names, 20 lines, missing key, empty list, live change), one
 session test. They cover, per converted flow: sheet at 390 px, end panel at 1024 px, left panel in Arabic, Back closes only the top
 window, pinned action works and stays at the bottom, follows the record, closes itself with a message when the record leaves,
 is not fooled by a reload in progress or an order in the middle of a stage change, proof window cannot be dismissed by a tap
@@ -64,8 +64,7 @@ Seen failing once with the protection removed: the "settled list" check and the 
 
 ## Needs the backend or the owner (not done here)
 
-1. **Line items** are not in the driver job or the branch queue responses (`items_count` only), so neither window can list what is
-   in the order. API change: add `items` (name, quantity, image) to `GET /admin/dispatch/driver/jobs` and `GET /admin/dispatch/queue`.
+1. ~~Line items~~ done: `items` (`id`, `name`, `variant_name`, `sku`, `quantity` still to deliver, no prices) is read from `GET /admin/dispatch/driver/jobs` and `GET /admin/dispatch/queue` (`OpsItem` in `ops_models.dart`). A missing key from an older server means an empty list: the staff window then shows the "N items" line, the driver window shows no items section. The list scrolls inside the window; the pinned buttons stay put. `sku` is read but not shown.
 2. **Pickup pass / QR** and click-and-collect hand-over are not in these apps (see `DRIVER_STAFF_APPS_QA.md`, item 2).
 3. `lib/core/widgets/side_panel.dart` now lifts the footer above the keyboard and shows panel toasts; the ops windows rely on both.
    Stacked windows (proof or reason above the delivery window) are used on purpose, so Back peels one at a time and the driver

@@ -282,6 +282,7 @@ class OpsStrings {
   String get customer => _t('Customer', 'العميل');
   String get orderSection => _t('Order', 'الطلب');
   String get itemsLabel => _t('Items', 'القطع');
+  String itemsTitle(int units) => _t('Items · $units', 'القطع · $units');
   String get total => _t('Total', 'الإجمالي');
   String get deliveryTitle => _t('Delivery', 'التوصيل');
   String get deliveryAddress => _t('Delivery address', 'عنوان التوصيل');

@@ -92,45 +92,57 @@ class FakeOps implements OpsRepository {
   );
   var createdProducts = 0;
 
-  static DriverJob job({String id = 'd1', String status = 'assigned', String cod = '303.00', bool proof = true}) =>
-      DriverJob.fromJson({
-        'id': id,
-        'status': status,
-        'order_number': 'AB100008',
-        'customer_name': 'Noura',
-        'customer_phone': '+97455123456',
-        'address': {
-          'zone_number': '24',
-          'street_number': '817',
-          'building_number': '12',
-          'latitude': 25.3,
-          'longitude': 51.5,
-        },
-        'payment_method': 'cod',
-        'cod_amount': cod,
-        'requires_proof': proof,
-        'branch': {'id': 'b1', 'name': 'Al Markhiya'},
-        'scheduled_for': '2026-11-14T12:00:00Z',
-      });
+  static DriverJob job({
+    String id = 'd1',
+    String status = 'assigned',
+    String cod = '303.00',
+    bool proof = true,
+    Object? items,
+  }) => DriverJob.fromJson({
+    'id': id,
+    'status': status,
+    'order_number': 'AB100008',
+    'customer_name': 'Noura',
+    'customer_phone': '+97455123456',
+    'address': {
+      'zone_number': '24',
+      'street_number': '817',
+      'building_number': '12',
+      'latitude': 25.3,
+      'longitude': 51.5,
+    },
+    'payment_method': 'cod',
+    'cod_amount': cod,
+    'requires_proof': proof,
+    'branch': {'id': 'b1', 'name': 'Al Markhiya'},
+    'scheduled_for': '2026-11-14T12:00:00Z',
+    'items': ?items,
+  });
 
-  static QueueOrder order({String id = 'f1', String status = 'ready', String number = 'AB100009', String? driver}) =>
-      QueueOrder.fromJson({
-        'fulfillment_id': id,
-        'status': status,
-        'number': number,
-        'customer_name': 'Hamad',
-        'items_count': 3,
-        'payment_method': 'cod',
-        'grand_total': '120.00',
-        'address': {'zone_number': '24', 'street_number': '9'},
-        'delivery': driver == null
-            ? null
-            : {
-                'id': 'dl-$id',
-                'status': status == 'failed' ? 'failed' : 'assigned',
-                'driver': {'id': 'u1', 'name': driver},
-              },
-      });
+  static QueueOrder order({
+    String id = 'f1',
+    String status = 'ready',
+    String number = 'AB100009',
+    String? driver,
+    Object? items,
+  }) => QueueOrder.fromJson({
+    'fulfillment_id': id,
+    'status': status,
+    'number': number,
+    'customer_name': 'Hamad',
+    'items_count': 3,
+    'payment_method': 'cod',
+    'grand_total': '120.00',
+    'address': {'zone_number': '24', 'street_number': '9'},
+    'delivery': driver == null
+        ? null
+        : {
+            'id': 'dl-$id',
+            'status': status == 'failed' ? 'failed' : 'assigned',
+            'driver': {'id': 'u1', 'name': driver},
+          },
+    'items': ?items,
+  });
 
   @override
   Future<DriverMe> driver() async => me;

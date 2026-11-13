@@ -437,3 +437,62 @@ class PanelRow extends StatelessWidget {
     );
   }
 }
+
+/// What is in a parcel, as a [PanelSection]: one line per product (name, its variant under it in a muted style, and
+/// "× quantity" at the end), long names wrap. With no list (an older server) it falls back to "N items" when the count
+/// is known, and shows nothing when it is not. The window scrolls; its pinned buttons stay where they are.
+class PanelItems extends StatelessWidget {
+  const PanelItems({super.key, required this.items, this.count});
+  final List<OpsItem> items;
+
+  /// The number of items when the server only sent a count.
+  final int? count;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = OpsStrings.of(context);
+    if (items.isEmpty) {
+      final n = count ?? 0;
+      return n == 0
+          ? const SizedBox.shrink()
+          : PanelSection(
+              title: t.itemsLabel,
+              children: [Text(t.items(n), style: context.text.bodyLarge)],
+            );
+    }
+    final units = items.fold<int>(0, (sum, i) => sum + i.quantity);
+    final muted = context.palette.muted;
+    return PanelSection(
+      title: t.itemsTitle(units),
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          if (i > 0) const Divider(height: AppSpace.md * 2),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(items[i].name, style: context.text.bodyLarge),
+                    if (items[i].variantName != null)
+                      Text(items[i].variantName!, style: context.text.bodySmall?.copyWith(color: muted)),
+                  ],
+                ),
+              ),
+              const Gap(AppSpace.sm),
+              // The multiplication sign and the digits read left to right in both languages.
+              Directionality(
+                textDirection: TextDirection.ltr,
+                child: Text(
+                  '× ${items[i].quantity}',
+                  style: context.text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}

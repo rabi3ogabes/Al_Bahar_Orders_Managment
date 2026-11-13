@@ -28,15 +28,17 @@ async function signIn() {
   if (!process.env.E2E_PHONE) return null;
   const r = await fetch(`${API}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ phone: process.env.E2E_PHONE, password: process.env.E2E_PASSWORD, device_name: 'e2e', platform: 'web' }) });
   const tokens = (await r.json()).data.tokens;
-  // start from an empty server cart
-  const h = { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${tokens.access_token}` };
-  const cart = (await (await fetch(`${API}/cart`, { headers: h })).json()).data;
-  for (const i of cart.items) await fetch(`${API}/cart/items/${i.id}`, { method: 'DELETE', headers: h });
-  return { tokens, headers: h };
+  return { tokens, headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${tokens.access_token}` } };
+}
+/** Every run starts from an empty server cart. */
+async function emptyCart(session) {
+  const cart = (await (await fetch(`${API}/cart`, { headers: session.headers })).json()).data;
+  for (const i of cart.items) await fetch(`${API}/cart/items/${i.id}`, { method: 'DELETE', headers: session.headers });
 }
 
 async function run(browser, c, session) {
   const t = TEXT[c.lang];
+  if (session) await emptyCart(session);
   const ctx = await browser.newContext({ viewport: { width: c.w, height: c.h }, hasTouch: !!c.phone, isMobile: !!c.phone });
   await ctx.addInitScript(([lang, tokens]) => { localStorage.setItem('albahar.locale', lang); localStorage.setItem('albahar.theme', 'light'); if (tokens) localStorage.setItem('albahar.tokens', JSON.stringify(tokens)); }, [c.lang, session?.tokens ?? null]);
   await ctx.route('**/api/v1/realtime-config', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { enabled: false, key: null, auth_endpoint: '', path: '' } }) }));

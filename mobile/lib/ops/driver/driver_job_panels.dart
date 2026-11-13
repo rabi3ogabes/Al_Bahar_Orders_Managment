@@ -172,6 +172,7 @@ class _JobDetails extends ConsumerWidget {
             ],
           ],
         ),
+        PanelItems(items: job.items),
         PanelSection(
           title: t.payment,
           children: [
