@@ -28,5 +28,8 @@
     "dependencies": {
         "firebase": "12.19.0",
         "leaflet": "1.9.4"
+    },
+    "overrides": {
+        "@grpc/grpc-js": "^1.14.7"
     }
 }
