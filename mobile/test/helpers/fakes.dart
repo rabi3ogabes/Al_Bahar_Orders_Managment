@@ -209,7 +209,9 @@ class TestHarness {
         sharedPreferencesProvider.overrideWithValue(sp),
         tokenStoreProvider.overrideWithValue(store),
         pushMessagingProvider.overrideWithValue(NoopPushMessaging()),
-        pusherClientProvider.overrideWithValue(IdlePusher()),
+        // A test that brings its own socket replaces this one (a provider can only be overridden once per container).
+        if (!overrides.any((o) => o.origin == pusherClientProvider))
+          pusherClientProvider.overrideWithValue(IdlePusher()),
         localNotifierProvider.overrideWithValue(FakeLocalNotifier()),
         apiClientProvider.overrideWith((ref) {
           final expiry = ref.watch(sessionExpirySignalProvider);
