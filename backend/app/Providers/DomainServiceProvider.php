@@ -3,8 +3,8 @@
 namespace App\Providers;
 
 use App\Domain\Catalog\Contracts\ProductSearch;
-use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Catalog\Services\PostgresProductSearch;
+use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Notifications\Listeners\DomainEventSubscriber;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderFulfillment;

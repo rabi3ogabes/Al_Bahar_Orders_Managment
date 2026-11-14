@@ -1,9 +1,11 @@
 <?php
 
+use App\Domain\Branches\Models\Branch;
+use App\Domain\Identity\Models\User;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Settings\Services\Settings;
 use App\Livewire\Admin\Organization\SettingsIndex;
-use App\Domain\Identity\Models\User;
+use Database\Seeders\RolesAndPermissionsSeeder;
 use Livewire\Livewire;
 
 // Settings → Checkout → "Show the allow split shipment switch" (checkout.show_split_shipment).
@@ -119,7 +121,7 @@ it('applies the same rule to store pickup', function () {
 });
 
 it('lets an admin switch it in Settings → Checkout and keeps the bilingual label and help text', function () {
-    $this->seed(Database\Seeders\RolesAndPermissionsSeeder::class);
+    $this->seed(RolesAndPermissionsSeeder::class);
     $admin = User::factory()->superAdmin()->create();
     $this->actingAs($admin);
 
@@ -140,7 +142,7 @@ it('lets an admin switch it in Settings → Checkout and keeps the bilingual lab
 });
 
 it('only lets staff who may edit settings change it', function () {
-    $this->seed(Database\Seeders\RolesAndPermissionsSeeder::class);
-    $branch = App\Domain\Branches\Models\Branch::factory()->create();
+    $this->seed(RolesAndPermissionsSeeder::class);
+    $branch = Branch::factory()->create();
     $this->actingAs(staffWithRole('pickup_employee', $branch))->get(route('admin.settings.index'))->assertForbidden();
 });

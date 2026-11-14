@@ -3,6 +3,7 @@
 use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Identity\Models\User;
+use App\Domain\Notifications\Models\Notification;
 use App\Domain\Orders\Models\Order;
 use App\Support\AlternatePhone;
 use App\Support\Phone;
@@ -272,7 +273,7 @@ it('puts nothing about it in the order timeline, notifications or logs', functio
     $orderId = quoteAndPlace($this->opts + ['alternate_phone' => ALT])->assertCreated()->json('data.order.id');
     $order = Order::with('history')->findOrFail($orderId);
     expect(json_encode($order->history->toArray()))->not->toContain('987654');
-    expect(json_encode(\App\Domain\Notifications\Models\Notification::all()->toArray()))->not->toContain('987654');
+    expect(json_encode(Notification::all()->toArray()))->not->toContain('987654');
 });
 
 it('only ever stores a normalised Qatar mobile number', function () {

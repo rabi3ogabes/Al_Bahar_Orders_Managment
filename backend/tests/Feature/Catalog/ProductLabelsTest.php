@@ -1,11 +1,13 @@
 <?php
 
+use App\Domain\Branches\Models\Branch;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Identity\Models\User;
 use App\Livewire\Admin\Catalog\ProductEditor;
 use App\Livewire\Admin\Catalog\ProductIndex;
 use App\Livewire\Admin\Catalog\ProductVariants;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Illuminate\Support\Str;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -152,18 +154,18 @@ describe('the printable label sheet', function () {
         $this->actingAs($this->admin);
         $this->get(route('admin.products.labels'))->assertStatus(302); // no ids: validation, back to where you were
         $this->get(route('admin.products.labels', ['ids' => 'not-a-uuid']))->assertNotFound();
-        $this->get(route('admin.products.labels', ['ids' => (string) \Illuminate\Support\Str::uuid()]))->assertNotFound();
+        $this->get(route('admin.products.labels', ['ids' => (string) Str::uuid()]))->assertNotFound();
         $this->get(labelsUrl([$p], ['copies' => 0]))->assertStatus(302);
         $this->get(labelsUrl([$p], ['copies' => 21]))->assertStatus(302);
         $this->get(labelsUrl([$p], ['layout' => 'huge']))->assertStatus(302);
-        $ids = collect(range(1, 101))->map(fn () => (string) \Illuminate\Support\Str::uuid())->implode(',');
+        $ids = collect(range(1, 101))->map(fn () => (string) Str::uuid())->implode(',');
         $this->get(route('admin.products.labels', ['ids' => $ids]))->assertStatus(422);
     });
 
     it('lets a branch manager with catalog.view print labels', function () {
         $p = labelNamed('A', 'ا');
 
-        $this->actingAs(staffWithRole('branch_manager', \App\Domain\Branches\Models\Branch::factory()->create()))->get(labelsUrl([$p]))->assertOk();
+        $this->actingAs(staffWithRole('branch_manager', Branch::factory()->create()))->get(labelsUrl([$p]))->assertOk();
     });
 });
 

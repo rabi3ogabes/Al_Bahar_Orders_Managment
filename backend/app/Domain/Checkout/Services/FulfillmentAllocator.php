@@ -29,8 +29,8 @@ class FulfillmentAllocator
      * @param  array<string, int>  $wanted  variantId → quantity
      * @param  Collection<int, Branch>  $candidates  eligible branches, already ordered by preference (zone priority)
      * @return array{allocations: array<string, array<string, int>>, shortages: array<string, int>, reason: string, stocked_branches: int}
-     *                                                                                                              allocations: branchId → (variantId → qty);
-     *                                                                                                              stocked_branches: candidates holding at least one wanted unit (the switch "allow split shipment" only matters when this is more than one)
+     *                                                                                                                                     allocations: branchId → (variantId → qty);
+     *                                                                                                                                     stocked_branches: candidates holding at least one wanted unit (the switch "allow split shipment" only matters when this is more than one)
      */
     public function allocate(array $wanted, Collection $candidates, ?string $preferredBranchId, bool $allowSplit, ?float $lat = null, ?float $lng = null): array
     {
