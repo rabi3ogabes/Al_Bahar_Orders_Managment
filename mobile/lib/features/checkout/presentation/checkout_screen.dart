@@ -447,7 +447,6 @@ class _AlternatePhoneSectionState extends State<_AlternatePhoneSection> {
           hint: l10n.phoneHint,
           prefix: '+974  ',
           forceLtr: true,
-          enabled: !input.declined,
           keyboardType: TextInputType.phone,
           textInputAction: TextInputAction.done,
           autofillHints: const [AutofillHints.telephoneNumberNational],

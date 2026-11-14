@@ -279,7 +279,7 @@ export default function Checkout() {
 
                 {/* A second number for the driver, in case the main one is not answered: type one, or say there is none. */}
                 <div className="mt-6" data-testid="alt-phone">
-                  <Input label={t('checkout.alt_label')} type="tel" inputMode="tel" autoComplete="tel-national" prefix="+974" placeholder="5522 0011" maxLength={20} disabled={alt.none}
+                  <Input label={t('checkout.alt_label')} type="tel" inputMode="tel" autoComplete="tel-national" prefix="+974" placeholder="5522 0011" maxLength={20}
                     value={alt.text} onChange={(e) => { setAltTouched(true); setAlt({ text: e.target.value, none: false }); if (!e.target.value.trim()) setAltBlurred(false); }} onBlur={() => { if (alt.text.trim()) setAltBlurred(true); }}
                     error={altError} hint={altStatus === 'valid' ? t('checkout.alt_saved_note') : t('checkout.alt_help')} />
                   <div className="mt-3"><Checkbox checked={alt.none} onChange={(v) => { setAltTouched(true); setAltBlurred(false); setAlt({ text: '', none: v }); }}>{t('checkout.alt_none')}</Checkbox></div>
