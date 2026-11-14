@@ -129,7 +129,8 @@ class LiveSync {
       _link = next;
       if (!_links.isClosed) _links.add(next);
     }
-    final shouldPoll = _link != LiveLink.live && _foreground;
+    // A socket nobody has asked to open yet (idle) has not failed: the screen's own first read is all it needs until the socket starts.
+    final shouldPoll = _link != LiveLink.live && _foreground && _socket != RealtimeState.idle;
     if (shouldPoll && _poll == null) {
       _poll = Timer.periodic(pollEvery, (_) {
         if (_online || _link != LiveLink.offline) _fire(LiveResync.poll);
