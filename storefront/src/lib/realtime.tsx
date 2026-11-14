@@ -5,6 +5,7 @@ import { useAuth } from './auth';
 import { useI18n } from './i18n';
 import { useToast } from './toast';
 import { orderToasts } from './webpush-core';
+import { applyOrderEvent, applyOrderEventToCache, createSeqGate, type OrderLiveEvent } from './realtime-core';
 
 /**
  * Live order updates. One socket per signed-in customer (Laravel Reverb, Pusher protocol) on their private channel;
@@ -21,9 +22,9 @@ const subscribe = (f: () => void) => { subs.add(f); return () => { subs.delete(f
 export const useLiveState = (): LiveState => useSyncExternalStore(subscribe, () => state, () => 'off' as LiveState);
 
 /** Polling interval (ms) to use while the socket is not live, or false when updates arrive by push. */
-export const useLivePoll = (everyMs = 20_000): number | false => (useLiveState() === 'live' ? false : everyMs);
+export const useLivePoll = (everyMs = 15_000): number | false => (useLiveState() === 'live' ? false : everyMs);
 
-interface OrderEvent { order_id: string; number: string; status: string; status_label: string; delivery_status: string | null }
+type OrderEvent = OrderLiveEvent & { status_label: string; delivery_status: string | null }
 const changeSubs = new Set<(e: OrderEvent) => void>();
 
 /** Ids of orders that changed in the last few seconds (for a brief highlight). */
@@ -56,7 +57,10 @@ export function LiveOrders() {
     if (!userId) { setState('off'); return; }
     let closed = false;
     let pusher: import('pusher-js').default | null = null;
-    const onVisible = () => { if (document.visibilityState === 'visible') void qc.invalidateQueries({ queryKey: ['orders'] }); };
+    const gate = createSeqGate();
+    // Back in front, or the network is back: read again (and let the socket check itself).
+    const resync = () => { void qc.invalidateQueries({ queryKey: ['orders'] }); void qc.invalidateQueries({ queryKey: ['order'] }); };
+    const onVisible = () => { if (document.visibilityState === 'visible') resync(); };
 
     (async () => {
       try {
@@ -79,11 +83,16 @@ export function LiveOrders() {
           if (closed) return;
           setState(current === 'connected' ? 'live' : current === 'connecting' || current === 'initialized' ? 'connecting' : 'reconnecting');
           // After a reconnect, catch up on anything missed while the socket was down.
-          if (current === 'connected') void qc.invalidateQueries({ queryKey: ['orders'] });
+          if (current === 'connected') resync();
         });
         const join = (retry: boolean) => {
           const ch = pusher!.subscribe(`private-users.${userId}`);
           ch.bind('order.updated', (e: OrderEvent) => {
+            // An older message than what is already known (late, repeated, out of order) changes nothing.
+            if (!gate.accept(e.order_id, e.seq)) return;
+            // The newer one is shown at once; the reads below confirm it.
+            qc.setQueryData(['order', e.order_id], (old: unknown) => (old ? applyOrderEvent(old as never, e) : old));
+            qc.setQueriesData({ queryKey: ['orders'] }, (old: unknown) => applyOrderEventToCache(old, e));
             void qc.invalidateQueries({ queryKey: ['orders'] });
             void qc.invalidateQueries({ queryKey: ['order', e.order_id] });
             void qc.invalidateQueries({ queryKey: ['timeline', e.order_id] });
@@ -100,6 +109,7 @@ export function LiveOrders() {
         };
         join(true);
         document.addEventListener('visibilitychange', onVisible);
+        window.addEventListener('online', resync);
       } catch {
         if (!closed) setState('off');
       }
@@ -108,6 +118,7 @@ export function LiveOrders() {
     return () => {
       closed = true;
       document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', resync);
       pusher?.disconnect();
       setState('off');
     };

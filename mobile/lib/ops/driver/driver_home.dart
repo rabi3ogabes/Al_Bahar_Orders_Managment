@@ -134,7 +134,8 @@ class _DriverHomeState extends ConsumerState<DriverHome> with OpsPolling {
             ],
           ),
           actions: [
-            LiveLinkBadge(link: link, labels: t.liveLabels),
+            // A phone's app bar is narrow: the colour dot alone (the words are its tooltip and its screen-reader label); a tablet shows them.
+            LiveLinkBadge(link: link, labels: t.liveLabels, showLabel: MediaQuery.sizeOf(context).width >= 600),
             const Gap(AppSpace.xxs),
             const OpsAccountMenu(),
           ],
