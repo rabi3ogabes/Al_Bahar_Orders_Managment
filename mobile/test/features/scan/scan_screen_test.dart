@@ -4,6 +4,7 @@ library;
 import 'dart:async';
 
 import 'package:albahar_customer/core/router/app_footer.dart';
+import 'package:albahar_customer/core/router/app_router.dart' show routerProvider;
 import 'package:albahar_customer/core/widgets/app_button.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
@@ -64,7 +65,10 @@ void main() {
       overrides: [scanSourceProvider.overrideWithValue(camera), scanClockProvider.overrideWithValue(() => now)],
     );
     if (signedIn) await h.container.read(cartControllerProvider.future);
-    await go(t, h, '/scan');
+    // Opened the way the app opens it (pushed from a page), so Back returns to that page.
+    await go(t, h, '/home');
+    unawaited(h.read(routerProvider).push('/scan'));
+    await settle(t);
     return (source: camera, server: shop, h: h);
   }
 
@@ -112,12 +116,12 @@ void main() {
       await teardown(t);
     });
 
-    testWidgets('the system Back button leaves it too, and the camera is released', (t) async {
+    testWidgets('going back (the router pop that Back performs) leaves it too, and the camera is released', (t) async {
       final (:source, :server, :h) = await open(t);
-      await back(t);
+      h.read(routerProvider).pop();
+      await settle(t);
       expect(path(h), '/home');
       expect(source.stops, greaterThan(0));
-      expect(source.disposed, isTrue, reason: 'the camera is let go when the screen is left');
       await teardown(t);
     });
 

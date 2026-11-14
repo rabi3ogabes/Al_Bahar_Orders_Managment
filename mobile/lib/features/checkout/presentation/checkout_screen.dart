@@ -181,7 +181,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     slotRequired: quote.issue('slot_required') != null,
                     auto: state.slotAuto,
                     onSwitch: (ref.watch(pickupBranchesProvider).value?.isNotEmpty ?? false)
-                        ? () => controller.update((x) => x.copyWith(fulfillmentType: FulfillmentType.pickup))
+                        ? () => controller.update(
+                            (x) => x.copyWith(
+                              fulfillmentType: FulfillmentType.pickup,
+                              // A showroom is needed for pickup times: the chosen one, else the first that offers pickup.
+                              branchId: () => x.branchId ?? ref.read(pickupBranchesProvider).value?.firstOrNull?.id,
+                            ),
+                          )
                         : null,
                     onSelect: (slot, date) =>
                         controller.selectDeliverySlot(slot, branchId: quote.singleFulfillment!.branch.id, date: date),

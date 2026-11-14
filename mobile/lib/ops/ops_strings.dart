@@ -1,3 +1,4 @@
+import 'package:albahar_customer/core/realtime/live_link_badge.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:flutter/widgets.dart';
 
@@ -161,6 +162,9 @@ class OpsStrings {
   // Live map
   String get mapTab => _t('Live map', 'الخريطة');
   String get liveNow => _t('Live', 'مباشر');
+
+  /// The three words of the small connection badge in the app bar (see LiveLinkBadge).
+  LiveLinkLabels get liveLabels => LiveLinkLabels(live: liveNow, reconnecting: fleetLinkReconnecting, offline: fleetLinkOffline);
   String get noLocationYet => _t('No location yet', 'لا يوجد موقع بعد');
   String get driversFree => _t('Free', 'متاح');
   String get recenter => _t('Show all drivers', 'عرض كل السائقين');

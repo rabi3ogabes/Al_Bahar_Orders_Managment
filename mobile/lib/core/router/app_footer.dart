@@ -88,9 +88,12 @@ class _FooterScopeState extends State<FooterScope> {
 
   @override
   Widget build(BuildContext context) {
-    final path = widget.router.routerDelegate.currentConfiguration.uri.path;
+    final configuration = widget.router.routerDelegate.currentConfiguration;
+    final path = configuration.uri.path;
+    // A page pushed over a tab leaves `uri` on the tab: the full-screen scanner is recognised by the page on top.
+    final top = configuration.matches.isEmpty ? path : configuration.matches.last.matchedLocation;
     final mq = MediaQuery.of(context);
-    if (!showsFooter(path) || mq.viewInsets.bottom > 0) return widget.child;
+    if (!showsFooter(path) || top == '/scan' || mq.viewInsets.bottom > 0) return widget.child;
     // The pages must not add the system bottom inset a second time: the footer already sits on it.
     final page = MediaQuery(data: mq.removePadding(removeBottom: true), child: widget.child);
     return Consumer(

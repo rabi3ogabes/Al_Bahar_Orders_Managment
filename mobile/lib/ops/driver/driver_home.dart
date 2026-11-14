@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:albahar_customer/core/map/map_nav.dart';
+import 'package:albahar_customer/core/realtime/live_link_badge.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/utils/qatar_time.dart';
@@ -40,12 +41,9 @@ class _DriverHomeState extends ConsumerState<DriverHome> with OpsPolling {
     super.initState();
     // Read once here: `ref` cannot be used while the widget is being disposed.
     _tracker = ref.read(driverTrackerProvider);
-    startPolling(every: const Duration(seconds: 60), () {
-      ref.invalidate(driverJobsProvider(false));
-      ref.invalidate(driverMeProvider);
-      // Coming back from the phone settings: pick up a permission or GPS change right away.
-      unawaited(_syncTracking(_onDuty));
-    });
+    // Coming back from the phone settings: pick up a permission or GPS change right away. (The job lists are not read here: the live
+    // orchestrator, driverLiveProvider, reads them on every message, reconnect and return to the foreground, and polls while the socket is down.)
+    startPolling(every: const Duration(seconds: 60), () => unawaited(_syncTracking(_onDuty)));
   }
 
   @override
@@ -114,15 +112,14 @@ class _DriverHomeState extends ConsumerState<DriverHome> with OpsPolling {
     ref.listen(driverMeProvider.select((m) => m.value?.onDuty), (_, on) {
       if (on != null) unawaited(_syncTracking(on));
     });
-    ref.listen(driverEventsProvider, (_, next) {
-      final e = next.value;
-      if (e == null || e.event != 'dispatch.updated') return;
-      ref
-        ..invalidate(driverJobsProvider(false))
-        ..invalidate(driverMeProvider);
-      if (e.data['status'] == 'assigned') {
-        Haptics.success();
-        showInfoSnack(context, t.newJobAlert('${e.data['number'] ?? ''}'));
+    // One orchestrator for the screen (driverLiveProvider): messages move the lists at once, reads confirm them. Here only the alert.
+    final link = ref.watch(driverLiveProvider.select((s) => s.link));
+    ref.listen(driverLiveProvider.select((s) => s.patches), (prev, next) {
+      for (final p in next.values) {
+        if (p.status == 'assigned' && p.assigned && (prev?[p.deliveryId]?.seq ?? -1) < p.seq) {
+          Haptics.success();
+          showInfoSnack(context, t.newJobAlert(p.number));
+        }
       }
     });
     return DefaultTabController(
@@ -136,7 +133,11 @@ class _DriverHomeState extends ConsumerState<DriverHome> with OpsPolling {
               Flexible(child: Text(t.driverApp, overflow: TextOverflow.ellipsis)),
             ],
           ),
-          actions: const [OpsAccountMenu()],
+          actions: [
+            LiveLinkBadge(link: link, labels: t.liveLabels),
+            const Gap(AppSpace.xxs),
+            const OpsAccountMenu(),
+          ],
           bottom: TabBar(
             tabs: [
               Tab(text: t.myJobs),
@@ -248,7 +249,7 @@ class _JobList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = OpsStrings.of(context);
     return OpsAsyncList<DriverJob>(
-      value: ref.watch(driverJobsProvider(history)),
+      value: ref.watch(driverJobsViewProvider(history)),
       onRefresh: () => ref.refresh(driverJobsProvider(history).future),
       onRetry: () => ref.invalidate(driverJobsProvider(history)),
       emptyIcon: Icons.two_wheeler_rounded,
@@ -410,7 +411,7 @@ class _JobMapRoute extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final jobs = ref.watch(driverJobsProvider(false));
+    final jobs = ref.watch(driverJobsViewProvider(false));
     final live = jobs.value?.where((j) => j.id == job.id).firstOrNull;
     if (jobs.hasValue && live == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {

@@ -1,15 +1,16 @@
 // Checkout: the earliest bookable delivery / pickup time is chosen for the customer and kept right.
 // Real screen + real controller against a fake API whose time lists tests can change while the screen is open.
-import 'package:albahar_customer/core/network/api_client.dart';
+import 'dart:async';
+
+import 'package:albahar_customer/core/l10n/l10n.dart';
+import 'package:albahar_customer/core/providers.dart' show supportedLocales;
 import 'package:albahar_customer/core/storage/token_storage.dart';
+import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:albahar_customer/features/checkout/domain/checkout_models.dart';
 import 'package:albahar_customer/features/checkout/presentation/checkout_screen.dart';
 import 'package:albahar_customer/features/checkout/presentation/delivery_slot_section.dart';
 import 'package:albahar_customer/features/checkout/presentation/state/checkout_controller.dart';
 import 'package:albahar_customer/features/checkout/presentation/state/slot_providers.dart';
-import 'package:albahar_customer/core/l10n/l10n.dart';
-import 'package:albahar_customer/core/providers.dart' show supportedLocales;
-import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -104,6 +105,12 @@ Future<TestHarness> _pump(
   );
   await _settle(t);
   return h;
+}
+
+/// Runs [action] (a controller call that talks to the fake API) and pumps frames until it has finished: awaiting it directly would never return inside a widget test.
+Future<void> _run(WidgetTester t, Future<void> action) async {
+  unawaited(action);
+  await _settle(t);
 }
 
 Future<void> _settle(WidgetTester t, {int frames = 24}) async {
@@ -209,7 +216,7 @@ void main() {
       final h = await _pump(t, _backend());
       expect(_state(h).options.deliverySlotId, 's-16');
 
-      await h.read(checkoutControllerProvider.notifier).update((o) => o.copyWith(addressId: () => 'a2'));
+      await _run(t, h.read(checkoutControllerProvider.notifier).update((o) => o.copyWith(addressId: () => 'a2')));
       await _settle(t);
 
       expect(_state(h).options.deliverySlotId, 'b-09');
@@ -223,7 +230,7 @@ void main() {
       final h = await _pump(t, _backend());
       final c = h.read(checkoutControllerProvider.notifier);
 
-      await c.update((o) => o.copyWith(fulfillmentType: FulfillmentType.pickup, branchId: () => 'br1'));
+      await _run(t, c.update((o) => o.copyWith(fulfillmentType: FulfillmentType.pickup, branchId: () => 'br1')));
       await _settle(t);
       var s = _state(h);
       expect(s.options.deliverySlotId, isNull, reason: 'a delivery time means nothing for pickup');
@@ -235,7 +242,7 @@ void main() {
       expect(pickupQuote.containsKey('delivery_slot_id'), isFalse);
       expect(find.text('Earliest available'), findsOneWidget);
 
-      await c.update((o) => o.copyWith(fulfillmentType: FulfillmentType.delivery));
+      await _run(t, c.update((o) => o.copyWith(fulfillmentType: FulfillmentType.delivery)));
       await _settle(t);
       s = _state(h);
       expect(s.options.pickupSlotId, isNull);
@@ -245,14 +252,14 @@ void main() {
     testWidgets('a pickup time the customer chose is kept; a new showroom gets its own earliest time', (t) async {
       final h = await _pump(t, _backend());
       final c = h.read(checkoutControllerProvider.notifier);
-      await c.update((o) => o.copyWith(fulfillmentType: FulfillmentType.pickup, branchId: () => 'br1'));
+      await _run(t, c.update((o) => o.copyWith(fulfillmentType: FulfillmentType.pickup, branchId: () => 'br1')));
       await _settle(t);
       await t.tap(find.byKey(const ValueKey('pickup-slot-p-14')));
       await _settle(t);
       expect(_state(h).options.pickupSlotId, 'p-14');
       expect(_state(h).slotAuto, isFalse);
 
-      await c.update((o) => o.copyWith(branchId: () => 'br2'));
+      await _run(t, c.update((o) => o.copyWith(branchId: () => 'br2')));
       await _settle(t);
       expect(_state(h).options.pickupSlotId, 'q-11');
       expect(_state(h).slotAuto, isTrue);
@@ -296,7 +303,7 @@ void main() {
 
     testWidgets('pickup: an empty state offers delivery instead', (t) async {
       final h = await _pump(t, _backend(pickupTimes: false));
-      await h.read(checkoutControllerProvider.notifier).update((o) => o.copyWith(fulfillmentType: FulfillmentType.pickup, branchId: () => 'br1'));
+      await _run(t, h.read(checkoutControllerProvider.notifier).update((o) => o.copyWith(fulfillmentType: FulfillmentType.pickup, branchId: () => 'br1')));
       await _settle(t);
       expect(find.byKey(const ValueKey('pickup-slots-empty')), findsOneWidget);
       expect(find.text('No pickup times are open right now'), findsOneWidget);
@@ -309,10 +316,10 @@ void main() {
 
     testWidgets('a whole window of full times is empty too', (t) async {
       final backend = _backend();
-      backend.delivery['br1']![qDay(1)]!.forEach((s) {
+      for (final s in backend.delivery['br1']![qDay(1)]!) {
         s['available'] = 0;
         s['is_full'] = true;
-      });
+      }
       final h = await _pump(t, backend);
       expect(find.byKey(const ValueKey('delivery-slots-empty')), findsOneWidget);
       expect(_state(h).options.deliverySlotId, isNull);
