@@ -134,12 +134,15 @@ class PartnerReport
      */
     public function fleet(): Collection
     {
-        return $this->dispatch->fleet(null)->map(/** @return array<string, mixed> */ fn (array $d) => [
+        /** @var Collection<int, array<string, mixed>> $fleet */
+        $fleet = $this->dispatch->fleet(null)->map(fn (array $d) => [
             'id' => $d['id'], 'name' => DriverPosition::firstName($d['name']), 'vehicle' => $d['vehicle'], 'on_duty' => $d['on_duty'],
             'lat' => $d['lat'], 'lng' => $d['lng'], 'heading' => $d['heading'], 'speed_kmh' => $d['speed_kmh'], 'accuracy_m' => $d['accuracy_m'],
             'at' => $d['at'], 'age_seconds' => $d['age_seconds'], 'stale' => $d['stale'], 'last_seen_at' => $d['last_seen_at'],
             'job' => $d['job'] ? ['order_number' => $d['job']['order_number'], 'status' => $d['job']['status'], 'destination' => $d['job']['destination']] : null,
         ])->values();
+
+        return $fleet;
     }
 
     /**

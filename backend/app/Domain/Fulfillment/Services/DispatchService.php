@@ -152,7 +152,8 @@ class DispatchService
         $jobs = Delivery::with('fulfillment.order:id,number,address_snapshot')->whereIn('driver_id', $profiles->keys())->whereIn('status', self::OPEN)->get()->groupBy('driver_id');
         $branches = Branch::whereIn('id', $assignments->pluck('branch_id'))->get()->keyBy('id');
 
-        return User::whereIn('id', $profiles->keys())->orderBy('name')->get()->map(/** @return array<string, mixed> */ function (User $u) use ($profiles, $jobs, $assignments, $branches) {
+        /** @var Collection<int, array<string, mixed>> $fleet */
+        $fleet = User::whereIn('id', $profiles->keys())->orderBy('name')->get()->map(function (User $u) use ($profiles, $jobs, $assignments, $branches) {
             $p = $profiles[$u->id];
             $driverJobs = $jobs->get($u->id) ?? collect();
             // The job to show is the one on the road (most advanced first), else the first open one.
@@ -172,6 +173,8 @@ class DispatchService
                     'destination' => Geo::validPoint($dest['latitude'] ?? null, $dest['longitude'] ?? null) ? ['lat' => (float) $dest['latitude'], 'lng' => (float) $dest['longitude']] : null] : null,
             ];
         })->values();
+
+        return $fleet;
     }
 
     /**
