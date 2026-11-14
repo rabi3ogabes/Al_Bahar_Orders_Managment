@@ -85,7 +85,11 @@ class CheckoutOptions {
     'fulfillment_type': fulfillmentType.api,
     if (fulfillmentType == FulfillmentType.delivery) 'address_id': ?addressId,
     'branch_id': ?branchId,
-    if (fulfillmentType == FulfillmentType.pickup) ...{'pickup_slot_id': ?pickupSlotId, 'pickup_date': ?pickupDate},
+    // The backend wants a slot id and its date together, or neither.
+    if (fulfillmentType == FulfillmentType.pickup && pickupSlotId != null && pickupDate != null) ...{
+      'pickup_slot_id': pickupSlotId,
+      'pickup_date': pickupDate,
+    },
     // The backend wants the slot id and its date together, or neither.
     if (fulfillmentType == FulfillmentType.delivery && deliverySlotId != null && deliveryDate != null) ...{
       'delivery_slot_id': deliverySlotId,
@@ -301,6 +305,7 @@ class Quote {
     this.loyalty,
     this.expiresAt,
     this.currency = 'QAR',
+    this.splitChoice = false,
   });
 
   factory Quote.fromJson(JsonMap json) => Quote(
@@ -308,6 +313,7 @@ class Quote {
     currency: asString(json['currency'], 'QAR'),
     fulfillments: mapList(json['fulfillments'], QuoteFulfillment.fromJson),
     isSplit: asBool(json['is_split']),
+    splitChoice: asBool(json['split_choice']),
     lines: mapList(json['lines'], QuoteLine.fromJson),
     totals: OrderTotals.fromJson(asMap(json['totals'])),
     discounts: mapList(json['discounts'], QuoteDiscount.fromJson),
@@ -323,6 +329,10 @@ class Quote {
   final String currency;
   final List<QuoteFulfillment> fulfillments;
   final bool isSplit;
+
+  /// The server says the "allow split shipments" switch is worth showing: the admin setting is on AND more than one active
+  /// branch holds part of the cart. False (or absent, from an older server) hides the switch.
+  final bool splitChoice;
   final List<QuoteLine> lines;
   final OrderTotals totals;
   final List<QuoteDiscount> discounts;
@@ -348,6 +358,12 @@ class Quote {
   QuoteSlot? get deliverySlot {
     final f = singleFulfillment;
     return f != null && f.type == 'delivery' ? f.slot : null;
+  }
+
+  /// Pickup time the server holds for this quote (non-split only).
+  QuoteSlot? get pickupSlot {
+    final f = singleFulfillment;
+    return f != null && f.type == 'pickup' ? f.slot : null;
   }
 
   QuoteIssue? issue(String code) => [...errors, ...warnings].where((w) => w.code == code).firstOrNull;

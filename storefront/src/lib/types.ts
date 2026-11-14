@@ -36,13 +36,13 @@ export interface Branch {
   opening: { is_open: boolean; reason: string; closes_at: string | null; next_open_at: string | null }
 }
 export interface BranchHours { timezone: string; weekly: { day_of_week: number; is_closed: boolean; opens_at: string | null; closes_at: string | null; break_starts_at: string | null; break_ends_at: string | null }[]; holidays: { date: string; name?: string }[] }
-export interface Slot { id: string; date: string; starts_at: string; ends_at: string; capacity: number; available: number; is_full: boolean }
+export interface Slot { id: string; date: string; starts_at: string; ends_at: string; capacity: number; available: number; is_full: boolean; /** Last moment this time can be booked (its start minus the cutoff); absent from an older server. */ bookable_until?: string | null }
 export interface SlotDay { date: string; available: number; slots: Slot[] }
 
 export interface HomeSection { id: string; type: string; layout: string; title: string | null; subtitle: string | null; items: any[]; [k: string]: unknown }
 
 export interface User {
-  id: string; type: string; name: string; phone: string; email: string | null; phone_verified: boolean; locale: 'en' | 'ar'
+  id: string; type: string; name: string; phone: string; /** Their saved second number (E.164) for the delivery driver. */ alternate_phone?: string | null; email: string | null; phone_verified: boolean; locale: 'en' | 'ar'
   avatar_url: string | null; date_of_birth: string | null; gender: string | null; referral_code: string; marketing_consent: boolean; has_password: boolean; created_at: string
 }
 export interface Tokens { access_token: string; refresh_token: string; token_type: string; expires_in: number; session_id: string }
@@ -67,6 +67,9 @@ export interface Cart {
 export interface QuoteLine { variant_id: string; product_id: string; branch_id: string; name: string; variant_name: string | null; image_url: string | null; quantity: number; unit_price: Price; line_total: Money }
 export interface Quote {
   quote_hash: string; currency: string; fulfillment_type: 'delivery' | 'pickup'; payment_method: string | null; is_split: boolean
+  /** The "allow split shipments" switch is worth showing: the admin setting is on AND more than one active branch holds part of the cart. */
+  split_choice?: boolean
+  errors?: { code?: string; message?: string }[]; can_place_order?: boolean
   fulfillments: { branch: { id: string; name: string; area: string | null }; type: string; items: QuoteLine[]; subtotal: Money; delivery_fee: Money; eta_minutes: number | null; slot: Slot | null; slot_required: boolean; allocation_reason: string }[]
   lines: QuoteLine[]
   totals: { subtotal: Money; discount: Money; delivery_fee: Money; service_fee: Money; cod_fee: Money; tax: Money; loyalty_discount: Money; grand_total: Money }

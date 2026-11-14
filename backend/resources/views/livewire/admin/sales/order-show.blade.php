@@ -269,6 +269,8 @@
                 <p class="font-medium text-ink-900 dark:text-ivory">{{ $o->customer_name }}</p>
                 <div class="mt-2 space-y-1.5 text-sm text-ink-600 dark:text-sand-200">
                     @if ($o->customer_phone)<a href="tel:{{ $o->customer_phone }}" class="flex items-center gap-2 hover:text-brass-600"><x-icon name="phone" class="size-4 text-ink-400" /><span dir="ltr">{{ $o->customer_phone }}</span></a>@endif
+                    {{-- The customer's second number, for the driver; staff with order access see it next to the main one. --}}
+                    @if ($o->alternate_phone)<a href="tel:{{ $o->alternate_phone }}" class="flex items-center gap-2 hover:text-brass-600"><x-icon name="phone" class="size-4 text-ink-400" /><span dir="ltr">{{ $o->alternate_phone }}</span><span class="text-xs text-ink-500">· {{ __('sales_admin.alt_phone') }}</span></a>@endif
                     @if ($o->customer_email)<p class="flex items-center gap-2"><x-icon name="mail" class="size-4 shrink-0 text-ink-400" /><span class="truncate">{{ $o->customer_email }}</span></p>@endif
                     @if ($addr)
                         <p class="flex items-start gap-2"><x-icon name="map-pin" class="mt-0.5 size-4 shrink-0 text-ink-400" />

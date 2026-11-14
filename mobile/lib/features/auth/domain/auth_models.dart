@@ -21,6 +21,7 @@ class AppUser {
     this.marketingConsent = false,
     this.hasPassword = false,
     this.createdAt,
+    this.alternatePhone,
   });
 
   factory AppUser.fromJson(JsonMap json) => AppUser(
@@ -28,6 +29,7 @@ class AppUser {
     type: asString(json['type'], 'customer'),
     name: asString(json['name']),
     phone: asString(json['phone']),
+    alternatePhone: asStringOrNull(json['alternate_phone']),
     email: asStringOrNull(json['email']),
     phoneVerified: asBool(json['phone_verified']),
     locale: asStringOrNull(json['locale']),
@@ -44,6 +46,9 @@ class AppUser {
   final String type;
   final String name;
   final String phone;
+
+  /// Their saved second number (E.164) for the delivery driver, or null: prefills the next checkout.
+  final String? alternatePhone;
   final String? email;
   final bool phoneVerified;
   final String? locale;
@@ -66,6 +71,7 @@ class AppUser {
     'type': type,
     'name': name,
     'phone': phone,
+    'alternate_phone': alternatePhone,
     'email': email,
     'phone_verified': phoneVerified,
     'locale': locale,

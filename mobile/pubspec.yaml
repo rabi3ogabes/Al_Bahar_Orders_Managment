@@ -48,6 +48,9 @@ dependencies:
   flutter_map: ^8.3.2
   latlong2: ^0.10.1
   qr_flutter: ^4.1.0
+  # Scan to add: camera barcode / QR reading (CameraX + ML Kit on Android, AVFoundation + Vision on iOS). Pinned exactly: a camera
+  # plugin is verified on real devices, so it only moves when someone re-tests it there.
+  mobile_scanner: 7.5.0
   image_picker: ^1.2.4
   share_plus: ^13.3.1
   uuid: ^4.6.0

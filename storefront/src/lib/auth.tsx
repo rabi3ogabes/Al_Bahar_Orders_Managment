@@ -10,7 +10,7 @@ interface Auth {
   register: (p: { registration_token: string; name: string; email?: string; password?: string; password_confirmation?: string; marketing_consent?: boolean; referral_code?: string }) => Promise<void>
   passwordLogin: (identifier: string, password: string) => Promise<void>
   logout: () => Promise<void>
-  updateProfile: (p: Partial<Pick<User, 'name' | 'email' | 'locale' | 'marketing_consent' | 'date_of_birth' | 'gender'>>) => Promise<void>
+  updateProfile: (p: Partial<Pick<User, 'name' | 'email' | 'locale' | 'marketing_consent' | 'date_of_birth' | 'gender' | 'alternate_phone'>>) => Promise<void>
   reload: () => Promise<void>
 }
 const Ctx = createContext<Auth>(null as unknown as Auth);

@@ -84,6 +84,12 @@ class OpsItem {
   final int quantity;
 }
 
+/// An empty or blank second number is "none".
+String? _alternatePhone(Object? v) {
+  final s = asStringOrNull(v)?.trim();
+  return s == null || s.isEmpty ? null : s;
+}
+
 /// One delivery job as the driver sees it.
 @immutable
 class DriverJob {
@@ -100,14 +106,20 @@ class DriverJob {
     required this.branchName,
     required this.scheduledFor,
     this.items = const [],
+    this.alternatePhone,
+    this.orderId = '',
+    this.seq = 0,
   });
 
   factory DriverJob.fromJson(JsonMap j) => DriverJob(
+    orderId: asString(j['order_id']),
+    seq: asInt(j['seq']),
     id: asString(j['id']),
     status: asString(j['status']),
     orderNumber: asString(j['order_number']),
     customerName: asString(j['customer_name']),
     customerPhone: asStringOrNull(j['customer_phone']),
+    alternatePhone: _alternatePhone(j['alternate_phone']),
     address: OpsAddress.fromJson(j['address']),
     paymentMethod: asString(j['payment_method']),
     codAmount: double.tryParse(asString(j['cod_amount'], '0')) ?? 0,
@@ -122,6 +134,10 @@ class DriverJob {
   final String orderNumber;
   final String customerName;
   final String? customerPhone;
+
+  /// The customer's second number, to call when the main one is not answered. Null when they gave none, or when an older server does not send it.
+  /// Personal data: shown only in the driver's own job windows, never logged or put in a notification.
+  final String? alternatePhone;
   final OpsAddress address;
   final String paymentMethod;
   final double codAmount;
@@ -131,6 +147,30 @@ class DriverJob {
 
   /// What is in the parcel; empty when the server did not send it.
   final List<OpsItem> items;
+
+  /// The order this job belongs to, and the order's version when this job was read (see SeqGate): a real-time message with a newer
+  /// version replaces what a read showed, an older one is ignored.
+  final String orderId;
+  final int seq;
+
+  /// The same job in another state (a real-time message said it moved).
+  DriverJob withState({String? status, int? seq}) => DriverJob(
+    id: id,
+    status: status ?? this.status,
+    orderNumber: orderNumber,
+    customerName: customerName,
+    customerPhone: customerPhone,
+    address: address,
+    paymentMethod: paymentMethod,
+    codAmount: codAmount,
+    requiresProof: requiresProof,
+    branchName: branchName,
+    scheduledFor: scheduledFor,
+    items: items,
+    alternatePhone: alternatePhone,
+    orderId: orderId,
+    seq: seq ?? this.seq,
+  );
 
   bool get isCod => paymentMethod == 'cod' && codAmount > 0;
 
@@ -221,6 +261,25 @@ class StaffOverview {
   final int waitingForDriver;
   final int driversOnDuty;
   final int driversTotal;
+
+  /// The same counts after some orders moved between stages (a real-time message said so): each number moves by the given amount,
+  /// never below zero. The next read of the server replaces it.
+  StaffOverview shifted({int fresh = 0, int preparing = 0, int ready = 0, int out = 0, int failed = 0, int waitingForDriver = 0}) =>
+      StaffOverview(
+        branchId: branchId,
+        branchName: branchName,
+        autoDispatch: autoDispatch,
+        fresh: _atLeastZero(this.fresh + fresh),
+        preparing: _atLeastZero(this.preparing + preparing),
+        ready: _atLeastZero(this.ready + ready),
+        out: _atLeastZero(this.out + out),
+        failed: _atLeastZero(this.failed + failed),
+        waitingForDriver: _atLeastZero(this.waitingForDriver + waitingForDriver),
+        driversOnDuty: driversOnDuty,
+        driversTotal: driversTotal,
+      );
+
+  static int _atLeastZero(int n) => n < 0 ? 0 : n;
 }
 
 /// A delivery order in the branch queue.
@@ -241,17 +300,23 @@ class QueueOrder {
     required this.driverName,
     required this.driverId,
     this.items = const [],
+    this.alternatePhone,
+    this.orderId = '',
+    this.seq = 0,
   });
 
   factory QueueOrder.fromJson(JsonMap j) {
     final d = asMapOrNull(j['delivery']);
     final driver = asMapOrNull(d?['driver']);
     return QueueOrder(
+      orderId: asString(j['order_id']),
+      seq: asInt(j['seq']),
       fulfillmentId: asString(j['fulfillment_id']),
       status: asString(j['status']),
       number: asString(j['number']),
       customerName: asString(j['customer_name']),
       customerPhone: asStringOrNull(j['customer_phone']),
+      alternatePhone: _alternatePhone(j['alternate_phone']),
       address: OpsAddress.fromJson(j['address']),
       itemsCount: asInt(j['items_count']),
       paymentMethod: asString(j['payment_method']),
@@ -269,6 +334,9 @@ class QueueOrder {
   final String number;
   final String customerName;
   final String? customerPhone;
+
+  /// The customer's second number (see [DriverJob.alternatePhone]); null when none or when an older server omits it.
+  final String? alternatePhone;
   final OpsAddress address;
   final int itemsCount;
   final String paymentMethod;
@@ -277,6 +345,40 @@ class QueueOrder {
   final String? deliveryId;
   final String? driverName;
   final String? driverId;
+
+  /// The order this row belongs to and the order's version when the row was read (see SeqGate).
+  final String orderId;
+  final int seq;
+
+  /// The same row in another state (a real-time message said the part or its delivery moved). The delivery id and the driver are
+  /// replaced together: pass [clearDelivery] when the delivery is gone.
+  QueueOrder withState({
+    String? status,
+    int? seq,
+    String? deliveryStatus,
+    String? deliveryId,
+    String? driverId,
+    String? driverName,
+    bool clearDriver = false,
+  }) => QueueOrder(
+    fulfillmentId: fulfillmentId,
+    status: status ?? this.status,
+    number: number,
+    customerName: customerName,
+    customerPhone: customerPhone,
+    address: address,
+    itemsCount: itemsCount,
+    paymentMethod: paymentMethod,
+    total: total,
+    deliveryStatus: deliveryStatus ?? this.deliveryStatus,
+    deliveryId: deliveryId ?? this.deliveryId,
+    driverName: clearDriver ? null : (driverName ?? this.driverName),
+    driverId: clearDriver ? null : (driverId ?? this.driverId),
+    items: items,
+    alternatePhone: alternatePhone,
+    orderId: orderId,
+    seq: seq ?? this.seq,
+  );
 
   /// What is in the parcel; empty when the server did not send it (screens then show [itemsCount]).
   final List<OpsItem> items;

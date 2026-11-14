@@ -28,14 +28,16 @@ class FulfillmentAllocator
     /**
      * @param  array<string, int>  $wanted  variantId → quantity
      * @param  Collection<int, Branch>  $candidates  eligible branches, already ordered by preference (zone priority)
-     * @return array{allocations: array<string, array<string, int>>, shortages: array<string, int>, reason: string}
-     *                                                                                                              allocations: branchId → (variantId → qty)
+     * @return array{allocations: array<string, array<string, int>>, shortages: array<string, int>, reason: string, stocked_branches: int}
+     *                                                                                                              allocations: branchId → (variantId → qty);
+     *                                                                                                              stocked_branches: candidates holding at least one wanted unit (the switch "allow split shipment" only matters when this is more than one)
      */
     public function allocate(array $wanted, Collection $candidates, ?string $preferredBranchId, bool $allowSplit, ?float $lat = null, ?float $lng = null): array
     {
         $cfg = config('platform.checkout.allocation');
         $variants = ProductVariant::with('product')->whereIn('id', array_keys($wanted))->get()->keyBy('id');
         $supply = $this->supply($variants, $candidates);
+        $stocked = $candidates->filter(fn (Branch $b) => array_sum($supply[$b->id] ?? []) > 0)->count();
 
         $ordered = $candidates->values();
         if ($lat !== null && $lng !== null && ($cfg['prefer_nearest'] ?? true)) {
@@ -46,17 +48,17 @@ class FulfillmentAllocator
         $coversAll = fn (string $branchId) => collect($wanted)->every(fn ($qty, $vid) => ($supply[$branchId][$vid] ?? 0) >= $qty);
 
         if ($preferredBranchId && ($cfg['prefer_selected_branch'] ?? true) && $candidates->contains('id', $preferredBranchId) && $coversAll($preferredBranchId)) {
-            return ['allocations' => [$preferredBranchId => $wanted], 'shortages' => [], 'reason' => 'selected_branch'];
+            return ['allocations' => [$preferredBranchId => $wanted], 'shortages' => [], 'reason' => 'selected_branch', 'stocked_branches' => $stocked];
         }
         if ($cfg['prefer_fewest_branches'] ?? true) {
             foreach ($ordered as $branch) {
                 if ($coversAll($branch->id)) {
-                    return ['allocations' => [$branch->id => $wanted], 'shortages' => [], 'reason' => 'single_branch'];
+                    return ['allocations' => [$branch->id => $wanted], 'shortages' => [], 'reason' => 'single_branch', 'stocked_branches' => $stocked];
                 }
             }
         }
         if (! $allowSplit || ! ($cfg['allow_split'] ?? true)) {
-            return ['allocations' => [], 'shortages' => $this->bestSingleShortages($wanted, $supply, $preferredBranchId ?? $ordered->first()?->id), 'reason' => 'no_single_branch'];
+            return ['allocations' => [], 'shortages' => $this->bestSingleShortages($wanted, $supply, $preferredBranchId ?? $ordered->first()?->id), 'reason' => 'no_single_branch', 'stocked_branches' => $stocked];
         }
 
         // Greedy cover. Start with the preferred branch so the customer's choice is used as much as possible.
@@ -99,6 +101,7 @@ class FulfillmentAllocator
             'allocations' => $allocations,
             'shortages' => array_filter($outstanding),
             'reason' => count($allocations) > 1 ? 'split' : 'single_branch',
+            'stocked_branches' => $stocked,
         ];
     }
 

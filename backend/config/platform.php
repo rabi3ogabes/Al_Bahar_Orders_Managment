@@ -60,6 +60,9 @@ return [
         'cod_reservation_ttl_minutes' => null,   // COD/pay-at-pickup holds until fulfilled/cancelled
         'cart_ttl_days' => 30,
         'max_quantity_per_line' => 50,
+        // Settings → Checkout. Off: orders are never split across branches and the apps/web hide the "allow split shipment" switch.
+        // On (default): the switch appears, but only while more than one active branch holds part of the customer's cart.
+        'show_split_shipment' => true,
         'service_fee' => '0.00',
         'cod_fee' => '10.00',
         'tax_rate_percent' => '0',               // Qatar: no VAT at time of writing; configurable.

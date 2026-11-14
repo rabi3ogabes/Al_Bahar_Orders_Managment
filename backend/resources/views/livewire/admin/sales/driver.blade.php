@@ -66,6 +66,10 @@
                     <a href="{{ $nav($a) }}" target="_blank" rel="noopener" class="flex items-center justify-center gap-2 py-3.5 text-sm font-medium text-sky-soft hover:bg-sand-50 dark:text-sky-300 dark:hover:bg-ink-800"><x-icon name="map" class="size-4" />{{ __('sales_admin.navigate') }}</a>
                     <a href="tel:{{ $o->customer_phone }}" class="flex items-center justify-center gap-2 border-s border-sand-100 py-3.5 text-sm font-medium text-ink-700 hover:bg-sand-50 dark:border-ink-800 dark:text-sand-100 dark:hover:bg-ink-800"><x-icon name="phone" class="size-4" />{{ __('sales_admin.call') }}</a>
                 </div>
+                @if ($o->alternate_phone)
+                    {{-- The customer's second number: for when the main one is not answered. Only this delivery's driver sees it. --}}
+                    <a href="tel:{{ $o->alternate_phone }}" class="flex min-h-12 items-center justify-center gap-2 border-t border-sand-100 py-3.5 text-sm font-medium text-ink-700 hover:bg-sand-50 dark:border-ink-800 dark:text-sand-100 dark:hover:bg-ink-800"><x-icon name="phone" class="size-4" />{{ __('sales_admin.call_alt') }} <span dir="ltr" class="text-xs text-ink-500">{{ $o->alternate_phone }}</span></a>
+                @endif
                 <div class="border-t border-sand-100 p-3 dark:border-ink-800">
                     @switch ($st)
                         @case('assigned')

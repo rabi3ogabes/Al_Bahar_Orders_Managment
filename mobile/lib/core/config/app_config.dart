@@ -27,6 +27,7 @@ class AppConfig {
     required this.reverbHost,
     required this.reverbPort,
     required this.reverbUseTls,
+    this.reverbExplicit = false,
     required this.pushEnabled,
     required this.mapTileUrlTemplate,
     this.appLinkHost = 'albahar.qa',
@@ -46,31 +47,44 @@ class AppConfig {
     const push = String.fromEnvironment('PUSH_ENABLED');
     const tiles = String.fromEnvironment('MAP_TILE_URL');
 
+    // The socket is on the same host as the API unless the build says otherwise: a release build needs no REVERB_* settings at all, and
+    // the live app key comes from the server (see RealtimeSettingsLoader), so the built-in key below is only the last resort.
+    final apiUrl = apiOverride.isNotEmpty
+        ? apiOverride
+        : switch (resolved) {
+            Flavor.dev => 'http://10.0.2.2:8000/api/v1',
+            Flavor.staging => 'https://staging-api.albahar.qa/api/v1',
+            Flavor.prod => 'https://api.albahar.qa/api/v1',
+          };
+    // The web build has a relative API address (/api/v1): its socket is on the page's own host.
+    final parsed = Uri.tryParse(apiUrl);
+    final api = parsed != null && parsed.hasAuthority ? parsed : (kIsWeb ? Uri.base : null);
+    final sameHost = api != null && api.hasAuthority && resolved != Flavor.dev;
+    final tls = sameHost ? api.scheme == 'https' : false;
     final defaults = switch (resolved) {
-      Flavor.dev => (api: 'http://10.0.2.2:8000/api/v1', host: '10.0.2.2', port: 8080, tls: false, key: 'albahar-dev'),
+      Flavor.dev => (host: '10.0.2.2', port: 8080, tls: false, key: 'albahar-dev'),
       Flavor.staging => (
-        api: 'https://staging-api.albahar.qa/api/v1',
-        host: 'staging-ws.albahar.qa',
-        port: 443,
-        tls: true,
+        host: sameHost ? api.host : 'staging-ws.albahar.qa',
+        port: sameHost ? (api.hasPort ? api.port : (tls ? 443 : 80)) : 443,
+        tls: sameHost ? tls : true,
         key: 'albahar-staging',
       ),
       Flavor.prod => (
-        api: 'https://api.albahar.qa/api/v1',
-        host: 'ws.albahar.qa',
-        port: 443,
-        tls: true,
+        host: sameHost ? api.host : 'ws.albahar.qa',
+        port: sameHost ? (api.hasPort ? api.port : (tls ? 443 : 80)) : 443,
+        tls: sameHost ? tls : true,
         key: 'albahar',
       ),
     };
 
     return AppConfig(
       flavor: resolved,
-      apiBaseUrl: apiOverride.isNotEmpty ? apiOverride : defaults.api,
+      apiBaseUrl: apiUrl,
       reverbAppKey: reverbKey.isNotEmpty ? reverbKey : defaults.key,
       reverbHost: reverbHost.isNotEmpty ? reverbHost : defaults.host,
       reverbPort: reverbPort != 0 ? reverbPort : defaults.port,
       reverbUseTls: reverbScheme.isNotEmpty ? reverbScheme == 'wss' || reverbScheme == 'https' : defaults.tls,
+      reverbExplicit: resolved == Flavor.dev || reverbHost.isNotEmpty,
       // Push is opt-out: it is attempted unless PUSH_ENABLED=false. Firebase
       // initialisation itself is defensive (no config files => disabled).
       pushEnabled: push.isEmpty ? true : push == 'true' || push == '1',
@@ -84,6 +98,9 @@ class AppConfig {
   final String reverbHost;
   final int reverbPort;
   final bool reverbUseTls;
+
+  /// True when the build names its own socket (a dev machine or REVERB_HOST): the server's answer then only supplies the app key.
+  final bool reverbExplicit;
   final bool pushEnabled;
   final String mapTileUrlTemplate;
   final String appLinkHost;

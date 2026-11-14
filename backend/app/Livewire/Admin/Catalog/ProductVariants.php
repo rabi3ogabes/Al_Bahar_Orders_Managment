@@ -8,6 +8,7 @@ use App\Domain\Catalog\Models\ProductAttribute;
 use App\Domain\Catalog\Models\ProductAttributeValue;
 use App\Domain\Catalog\Services\ProductService;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
+use App\Rules\ProductBarcode;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Livewire\Component;
@@ -89,7 +90,7 @@ class ProductVariants extends Component
         $this->validate([
             'generated' => 'array|min:1|max:200',
             'generated.*.sku' => ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9\-_.]+$/', 'distinct'],
-            'generated.*.barcode' => ['nullable', 'string', 'max:64', 'distinct'],
+            'generated.*.barcode' => ['nullable', 'string', 'max:64', 'distinct:ignore_case', new ProductBarcode(ownerProductId: $this->product->id)],
             'generated.*.values' => 'array', 'generated.*.values.*' => 'integer|exists:product_attribute_values,id',
         ], [], ['generated.*.sku' => 'SKU', 'generated.*.barcode' => __('catalog_admin.barcode')]);
         $rows = array_values(array_filter($this->generated, fn ($g) => $g['include']));
@@ -135,7 +136,7 @@ class ProductVariants extends Component
         $v = $this->product->variants()->findOrFail($this->edit['id']);
         $data = $this->validate([
             'edit.sku' => ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9\-_.]+$/'],
-            'edit.barcode' => ['nullable', 'string', 'max:64'],
+            'edit.barcode' => ['nullable', 'string', 'max:64', new ProductBarcode(ignoreVariantId: $v->id, ownerProductId: $this->product->id)],
             'edit.name_en' => 'nullable|string|max:255', 'edit.name_ar' => 'nullable|string|max:255',
             'edit.status' => 'required|in:active,inactive', 'edit.is_default' => 'boolean',
             'edit.weight' => 'nullable|numeric|min:0', 'edit.length' => 'nullable|numeric|min:0', 'edit.width' => 'nullable|numeric|min:0', 'edit.height' => 'nullable|numeric|min:0',

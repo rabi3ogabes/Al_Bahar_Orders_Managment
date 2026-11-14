@@ -13,6 +13,7 @@ import 'package:albahar_customer/features/checkout/domain/checkout_models.dart';
 import 'package:albahar_customer/features/checkout/presentation/checkout_screen.dart';
 import 'package:albahar_customer/features/checkout/presentation/delivery_slot_section.dart';
 import 'package:albahar_customer/features/checkout/presentation/state/checkout_controller.dart';
+import 'package:albahar_customer/features/checkout/presentation/state/slot_providers.dart';
 import 'package:albahar_customer/features/orders/domain/order_models.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -145,7 +146,10 @@ Future<(TestHarness, CheckoutController)> _controller(FakeHandler handler) async
   final h = await TestHarness.create(tokens: _signedIn, handler: handler);
   h.container.listen(checkoutControllerProvider, (_, _) {});
   await h.container.read(cartControllerProvider.future);
-  return (h, h.read(checkoutControllerProvider.notifier));
+  final controller = h.read(checkoutControllerProvider.notifier);
+  // These tests are about times, not the driver's second number: answer that question up front.
+  controller.setAlternateDeclined(true);
+  return (h, controller);
 }
 
 ApiClient _client(FakeAdapter adapter) =>
@@ -312,24 +316,25 @@ void main() {
   });
 
   group('Checkout controller', () {
-    test('the date strip needs one request for the whole week, not one per day', () async {
+    test('the date strip needs one request for the next two weeks, not one per day', () async {
       final (h, _) = await _controller(_backend());
-      final dates = await h.read(deliveryDatesProvider('br1').future);
-      expect(dates, [_day(1)]); // only tomorrow has slots in the fake backend
+      final window = await h.read(deliverySlotWindowProvider('br1').future);
+      expect(window.openDates, [_day(1)]); // only tomorrow has slots in the fake backend
       final calls = h.adapter.where('GET', '/branches/br1/delivery-slots');
       expect(calls, hasLength(1));
       expect(calls.single.query['from'], _day(0));
-      expect(calls.single.query['to'], _day(6));
+      expect(calls.single.query['to'], _day(13));
+      expect('${calls.single.query['only_available']}', '1');
       expect(calls.single.query.containsKey('date'), isFalse);
     });
 
-    test('a required slot blocks placing until the customer picks one (no auto-select)', () async {
+    test('a required slot blocks placing until one is chosen (the controller alone never guesses)', () async {
       final (h, c) = await _controller(_backend());
       await c.update((o) => o.copyWith(addressId: () => 'a1'));
 
       var s = h.read(checkoutControllerProvider);
       expect(s.quote!.slotRequired, isTrue);
-      expect(s.options.deliverySlotId, isNull, reason: 'never auto-selected');
+      expect(s.options.deliverySlotId, isNull, reason: 'only the picker on screen chooses the earliest time');
       expect(s.slotMissing, isTrue);
       expect(s.missingRequirement, 'slot');
       expect(s.canPlace, isFalse);
@@ -482,6 +487,8 @@ void main() {
         handler: handler,
         prefs: {'locale': locale.languageCode, 'onboarding_done': true},
       );
+      h.container.listen(checkoutControllerProvider, (_, _) {});
+      h.read(checkoutControllerProvider.notifier).setAlternateDeclined(true);
       await t.pumpWidget(
         UncontrolledProviderScope(
           container: h.container,
@@ -496,7 +503,7 @@ void main() {
 
     Finder placeButton() => find.widgetWithText(FilledButton, 'Place order');
 
-    testWidgets('shows the picker when required; place is disabled until a slot is tapped', (t) async {
+    testWidgets('shows the picker with the earliest time already chosen; tapping another time changes it', (t) async {
       final h = await pump(t, _backend());
       expect(find.text('Delivery time'), findsOneWidget);
       expect(find.byKey(ValueKey('delivery-date-${_day(1)}')), findsOneWidget);
@@ -509,37 +516,47 @@ void main() {
       expect(find.text(_r('16:00', '18:00')), findsOneWidget);
       expect(find.text('2 left'), findsOneWidget);
       expect(find.text('Full'), findsOneWidget);
-      expect(find.text('Choose a delivery time to place your order'), findsOneWidget);
-      expect(find.byKey(const ValueKey('delivery-slot-message')), findsOneWidget, reason: 'slot_required inline');
-      expect(tester(t, placeButton()).onPressed, isNull);
-      expect(h.read(checkoutControllerProvider).options.deliverySlotId, isNull);
+
+      // The earliest bookable time (16:00, the first with a free place) is chosen, marked, and the order can be placed.
+      expect(h.read(checkoutControllerProvider).options.deliverySlotId, 's-16');
+      expect(h.read(checkoutControllerProvider).slotAuto, isTrue);
+      expect(find.text('Earliest available'), findsOneWidget);
+      expect(find.byKey(const ValueKey('delivery-slot-auto-hint')), findsOneWidget);
+      expect(find.byKey(const ValueKey('delivery-slot-message')), findsNothing);
+      expect(find.text('Choose a delivery time to place your order'), findsNothing);
+      expect(tester(t, placeButton()).onPressed, isNotNull);
+      expect(find.byKey(const ValueKey('delivery-slot-summary')), findsOneWidget);
+      expect(find.byKey(const ValueKey('place-order-when')), findsOneWidget);
 
       // A full slot cannot be chosen.
       await t.tap(find.byKey(const ValueKey('delivery-slot-s-20')), warnIfMissed: false);
       await t.pump(const Duration(milliseconds: 200));
-      expect(h.read(checkoutControllerProvider).options.deliverySlotId, isNull);
+      expect(h.read(checkoutControllerProvider).options.deliverySlotId, 's-16');
 
-      await t.tap(find.byKey(const ValueKey('delivery-slot-s-16')));
+      // One tap on another time changes it, and a time the customer picked is no longer called "earliest".
+      await t.tap(find.byKey(const ValueKey('delivery-slot-s-18')));
       for (var i = 0; i < 10; i++) {
         await t.pump(const Duration(milliseconds: 50));
       }
-      expect(h.read(checkoutControllerProvider).options.deliverySlotId, 's-16');
-      expect(find.byKey(const ValueKey('delivery-slot-summary')), findsOneWidget);
-      expect(find.textContaining('Delivery: '), findsOneWidget);
-      expect(find.textContaining(_r('16:00', '18:00')), findsWidgets);
+      final s = h.read(checkoutControllerProvider);
+      expect(s.options.deliverySlotId, 's-18');
+      expect(s.slotAuto, isFalse);
+      expect(find.text('Earliest available'), findsNothing);
+      expect(find.byKey(const ValueKey('delivery-slot-auto-hint')), findsNothing);
       expect(tester(t, placeButton()).onPressed, isNotNull);
-      expect(find.text('Choose a delivery time to place your order'), findsNothing);
     });
 
-    testWidgets('slot_unavailable is shown inline and the selection is cleared', (t) async {
+    testWidgets('a time the server refuses is replaced by the next earliest, and the screen says so', (t) async {
       final h = await pump(t, _backend(bad: {'s-18'}));
       await t.tap(find.byKey(const ValueKey('delivery-slot-s-18')));
-      for (var i = 0; i < 20; i++) {
+      for (var i = 0; i < 30; i++) {
         await t.pump(const Duration(milliseconds: 50));
       }
-      expect(h.read(checkoutControllerProvider).options.deliverySlotId, isNull);
-      expect(find.text('That delivery time is no longer available. Please choose another.'), findsOneWidget);
-      expect(tester(t, placeButton()).onPressed, isNull);
+      final s = h.read(checkoutControllerProvider);
+      expect(s.options.deliverySlotId, 's-16', reason: 'back on the earliest free time, never left with a stale one');
+      expect(s.slotAuto, isTrue);
+      expect(find.text('That time just became unavailable, so we chose the next earliest. Tap another time to change it.'), findsOneWidget);
+      expect(tester(t, placeButton()).onPressed, isNotNull);
     });
 
     testWidgets('no picker for split orders', (t) async {

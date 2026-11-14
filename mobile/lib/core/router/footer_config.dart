@@ -116,6 +116,15 @@ final Map<String, FooterDestination> footerDestinations = {
       parent: 'categories',
     ),
     FooterDestination(
+      key: 'scan',
+      path: '/scan',
+      prefixes: ['/scan'],
+      icon: Icons.qr_code_scanner_rounded,
+      iconOn: Icons.qr_code_scanner_rounded,
+      label: (l) => l.navScan,
+      parent: 'cart',
+    ),
+    FooterDestination(
       key: 'support',
       path: '/support',
       prefixes: ['/support'],
@@ -153,6 +162,7 @@ const Map<String, (IconData, IconData)> footerIcons = {
   'star': (Icons.star_outline_rounded, Icons.star_rounded),
   'store': (Icons.storefront_outlined, Icons.storefront_rounded),
   'gift': (Icons.card_giftcard_outlined, Icons.card_giftcard_rounded),
+  'qr': (Icons.qr_code_scanner_rounded, Icons.qr_code_scanner_rounded),
 };
 
 /// One switched-on item of the footer.

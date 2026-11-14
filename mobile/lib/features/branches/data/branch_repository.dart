@@ -31,6 +31,18 @@ class BranchRepository {
   Future<List<PickupSlot>> pickupSlots(String id, String date) =>
       _api.getList('/branches/$id/pickup-slots', PickupSlot.fromJson, query: {'date': date});
 
+  /// Pickup slots for a span of dates in ONE request (same shape and limits as [deliverySlotDays]).
+  Future<List<SlotDay>> pickupSlotDays(
+    String id, {
+    required String from,
+    required String to,
+    bool onlyAvailable = false,
+  }) => _api.getList(
+    '/branches/$id/pickup-slots',
+    SlotDay.fromJson,
+    query: {'from': from, 'to': to, if (onlyAvailable) 'only_available': 1},
+  );
+
   /// `date` must be today … +29 days (Qatar), otherwise the backend answers 422;
   /// 404 when the branch does not deliver.
   Future<List<DeliverySlot>> deliverySlots(String id, String date) =>

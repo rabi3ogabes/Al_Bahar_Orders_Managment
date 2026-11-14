@@ -2089,6 +2089,72 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get pickupSlotUnavailableError => 'That pickup time is no longer available. Please choose another.';
+
+  @override
+  String get slotEarliestBadge => 'Earliest available';
+
+  @override
+  String get slotAutoHint => 'We chose the earliest time for you. Tap another time to change it.';
+
+  @override
+  String get slotReplacedNotice =>
+      'That time just became unavailable, so we chose the next earliest. Tap another time to change it.';
+
+  @override
+  String get slotsEmptyTitleDelivery => 'No delivery times are open right now';
+
+  @override
+  String get slotsEmptyBodyDelivery =>
+      'Delivery times open up to two weeks ahead and none are free yet. Check again soon, choose store pickup, or contact us.';
+
+  @override
+  String get slotsEmptyTitlePickup => 'No pickup times are open right now';
+
+  @override
+  String get slotsEmptyBodyPickup =>
+      'This showroom has no free pickup time in the next two weeks. Try another showroom, choose delivery, or contact us.';
+
+  @override
+  String get slotsCheckAgain => 'Check again';
+
+  @override
+  String get slotsSwitchToPickup => 'Choose pickup instead';
+
+  @override
+  String get slotsSwitchToDelivery => 'Choose delivery instead';
+
+  @override
+  String pickupSlotSummary(String date, String from, String to) {
+    return 'Pickup: $date, $from – $to';
+  }
+
+  @override
+  String get alternatePhoneLabel => 'Alternative phone number';
+
+  @override
+  String get alternatePhoneHelper => 'So the driver can reach you if your main number isn’t answered.';
+
+  @override
+  String get alternatePhoneNone => 'I don’t have another number';
+
+  @override
+  String get alternatePhoneRequiredHint => 'Add an alternative number, or tick “I don’t have another number”';
+
+  @override
+  String get alternatePhoneInvalid => 'Enter a valid Qatar mobile number: 8 digits starting with 3, 5, 6 or 7.';
+
+  @override
+  String get alternatePhoneSame => 'This is your main number. Enter a different one.';
+
+  @override
+  String get alternatePhoneProfileHelper =>
+      'The driver may call this number if your main number isn’t answered. Leave it empty if you have none.';
+
+  @override
+  String get alternatePhoneSavedNote => 'Saved in your profile for your next order.';
+
+  @override
   String get coloursTitle => 'Colours';
 
   @override
@@ -2587,4 +2653,145 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get keepShopping => 'Keep shopping';
+
+  @override
+  String get scanTitle => 'Scan to add';
+
+  @override
+  String get scanHint => 'Point the camera at a product barcode or QR code.';
+
+  @override
+  String get scanLooking => 'Looking for this product…';
+
+  @override
+  String get scanClose => 'Close scanner';
+
+  @override
+  String get scanTorchOn => 'Turn the light on';
+
+  @override
+  String get scanTorchOff => 'Turn the light off';
+
+  @override
+  String get scanEnterCode => 'Enter a code manually';
+
+  @override
+  String get scanManualTitle => 'Enter a code';
+
+  @override
+  String get scanManualHint => 'Type the number under the barcode, or the product code.';
+
+  @override
+  String get scanManualLabel => 'Barcode or product code';
+
+  @override
+  String get scanManualAdd => 'Find and add';
+
+  @override
+  String get scanManualEmpty => 'Type a code first.';
+
+  @override
+  String get scanUndo => 'Undo';
+
+  @override
+  String get scanRemoved => 'Taken out of your cart';
+
+  @override
+  String get scanKeepScanning => 'Keep scanning';
+
+  @override
+  String get scanNotFoundTitle => 'We couldn\'t find this product';
+
+  @override
+  String get scanNotFoundMessage => 'Try again or search by name.';
+
+  @override
+  String get scanSearchByName => 'Search by name';
+
+  @override
+  String get scanOutOfStockTitle => 'Out of stock';
+
+  @override
+  String scanOutOfStockMessage(String name) {
+    return '$name is out of stock right now.';
+  }
+
+  @override
+  String get scanUnavailableTitle => 'Not available here';
+
+  @override
+  String scanUnavailableMessage(String name) {
+    return '$name isn\'t sold at your branch.';
+  }
+
+  @override
+  String get scanLimitTitle => 'That\'s all we have';
+
+  @override
+  String scanLimitMessage(int max) {
+    String _temp0 = intl.Intl.pluralLogic(
+      max,
+      locale: localeName,
+      other: 'Only $max are available, and they are already in your cart.',
+      one: 'Only 1 is available, and it is already in your cart.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get scanChoiceTitle => 'Choose an option';
+
+  @override
+  String scanChoiceMessage(String name) {
+    return '$name comes in more than one option.';
+  }
+
+  @override
+  String get scanChoiceAction => 'Choose option';
+
+  @override
+  String get scanOfflineTitle => 'You\'re offline';
+
+  @override
+  String get scanOfflineMessage => 'Scanning needs a connection. Nothing was added.';
+
+  @override
+  String get scanSignInTitle => 'Sign in to add this';
+
+  @override
+  String scanSignInMessage(String name) {
+    return '$name was found. Sign in to put it in your cart.';
+  }
+
+  @override
+  String get scanFailedTitle => 'We couldn\'t add this';
+
+  @override
+  String get scanPermissionTitle => 'Camera access is off';
+
+  @override
+  String get scanPermissionMessage => 'Allow the camera in Settings to scan barcodes, or type the code instead.';
+
+  @override
+  String get scanCameraUnavailableTitle => 'The camera isn\'t available';
+
+  @override
+  String get scanCameraUnavailableMessage => 'You can still add a product by typing its code or searching by name.';
+
+  @override
+  String get scanCameraStarting => 'Starting the camera…';
+
+  @override
+  String scanAddedAnnouncement(String name) {
+    return '$name added to your cart';
+  }
+
+  @override
+  String get scanWindowLabel => 'Scanner view. Hold a barcode inside the frame.';
+
+  @override
+  String get scanToAddSubtitle => 'Add items by scanning their barcode.';
+
+  @override
+  String get navScan => 'Scan';
 }

@@ -18,6 +18,9 @@ class Order extends Model
 
     protected $guarded = ['id'];
 
+    /** The customer's second number is for the delivery driver and the order's branch staff only: it never appears in a raw model dump or a customer payload. */
+    protected $hidden = ['alternate_phone'];
+
     protected $casts = ['address_snapshot' => 'array', 'fee_breakdown' => 'array', 'tax_snapshot' => 'array', 'placed_at' => 'immutable_datetime', 'confirmed_at' => 'immutable_datetime', 'completed_at' => 'immutable_datetime', 'cancelled_at' => 'immutable_datetime', 'payment_due_at' => 'immutable_datetime', 'status' => 'App\Domain\Orders\Enums\OrderStatus', 'payment_status' => 'App\Domain\Payments\Enums\PaymentStatus', 'loyalty_points_redeemed' => 'integer'];
 
     /** @return BelongsTo<User, $this> */

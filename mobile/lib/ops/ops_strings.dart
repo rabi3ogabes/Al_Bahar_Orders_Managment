@@ -42,6 +42,9 @@ class OpsStrings {
   );
   String get cod => _t('Collect cash', 'تحصيل نقدي');
   String get call => _t('Call', 'اتصال');
+  String get callAlternative => _t('Call alternative number', 'اتصال بالرقم البديل');
+  String get alternativeNumber => _t('Alternative number', 'رقم بديل');
+  String get alternativeShort => _t('Alternative', 'رقم بديل');
   String get navigate => _t('Navigate', 'الاتجاه');
   String get accept => _t('Accept', 'قبول');
   String get pickedUp => _t('Picked up from branch', 'تم الاستلام من الفرع');

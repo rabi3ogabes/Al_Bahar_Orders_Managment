@@ -3836,6 +3836,126 @@ abstract class AppLocalizations {
   /// **'Delivery: {date}, {from} – {to}'**
   String deliverySlotSummary(String date, String from, String to);
 
+  /// No description provided for @pickupSlotUnavailableError.
+  ///
+  /// In en, this message translates to:
+  /// **'That pickup time is no longer available. Please choose another.'**
+  String get pickupSlotUnavailableError;
+
+  /// No description provided for @slotEarliestBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Earliest available'**
+  String get slotEarliestBadge;
+
+  /// No description provided for @slotAutoHint.
+  ///
+  /// In en, this message translates to:
+  /// **'We chose the earliest time for you. Tap another time to change it.'**
+  String get slotAutoHint;
+
+  /// No description provided for @slotReplacedNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'That time just became unavailable, so we chose the next earliest. Tap another time to change it.'**
+  String get slotReplacedNotice;
+
+  /// No description provided for @slotsEmptyTitleDelivery.
+  ///
+  /// In en, this message translates to:
+  /// **'No delivery times are open right now'**
+  String get slotsEmptyTitleDelivery;
+
+  /// No description provided for @slotsEmptyBodyDelivery.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery times open up to two weeks ahead and none are free yet. Check again soon, choose store pickup, or contact us.'**
+  String get slotsEmptyBodyDelivery;
+
+  /// No description provided for @slotsEmptyTitlePickup.
+  ///
+  /// In en, this message translates to:
+  /// **'No pickup times are open right now'**
+  String get slotsEmptyTitlePickup;
+
+  /// No description provided for @slotsEmptyBodyPickup.
+  ///
+  /// In en, this message translates to:
+  /// **'This showroom has no free pickup time in the next two weeks. Try another showroom, choose delivery, or contact us.'**
+  String get slotsEmptyBodyPickup;
+
+  /// No description provided for @slotsCheckAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Check again'**
+  String get slotsCheckAgain;
+
+  /// No description provided for @slotsSwitchToPickup.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose pickup instead'**
+  String get slotsSwitchToPickup;
+
+  /// No description provided for @slotsSwitchToDelivery.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose delivery instead'**
+  String get slotsSwitchToDelivery;
+
+  /// No description provided for @pickupSlotSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Pickup: {date}, {from} – {to}'**
+  String pickupSlotSummary(String date, String from, String to);
+
+  /// No description provided for @alternatePhoneLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Alternative phone number'**
+  String get alternatePhoneLabel;
+
+  /// No description provided for @alternatePhoneHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'So the driver can reach you if your main number isn’t answered.'**
+  String get alternatePhoneHelper;
+
+  /// No description provided for @alternatePhoneNone.
+  ///
+  /// In en, this message translates to:
+  /// **'I don’t have another number'**
+  String get alternatePhoneNone;
+
+  /// No description provided for @alternatePhoneRequiredHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add an alternative number, or tick “I don’t have another number”'**
+  String get alternatePhoneRequiredHint;
+
+  /// No description provided for @alternatePhoneInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid Qatar mobile number: 8 digits starting with 3, 5, 6 or 7.'**
+  String get alternatePhoneInvalid;
+
+  /// No description provided for @alternatePhoneSame.
+  ///
+  /// In en, this message translates to:
+  /// **'This is your main number. Enter a different one.'**
+  String get alternatePhoneSame;
+
+  /// No description provided for @alternatePhoneProfileHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'The driver may call this number if your main number isn’t answered. Leave it empty if you have none.'**
+  String get alternatePhoneProfileHelper;
+
+  /// No description provided for @alternatePhoneSavedNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved in your profile for your next order.'**
+  String get alternatePhoneSavedNote;
+
   /// No description provided for @coloursTitle.
   ///
   /// In en, this message translates to:
@@ -4711,6 +4831,252 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Keep shopping'**
   String get keepShopping;
+
+  /// No description provided for @scanTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan to add'**
+  String get scanTitle;
+
+  /// No description provided for @scanHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Point the camera at a product barcode or QR code.'**
+  String get scanHint;
+
+  /// No description provided for @scanLooking.
+  ///
+  /// In en, this message translates to:
+  /// **'Looking for this product…'**
+  String get scanLooking;
+
+  /// No description provided for @scanClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close scanner'**
+  String get scanClose;
+
+  /// No description provided for @scanTorchOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn the light on'**
+  String get scanTorchOn;
+
+  /// No description provided for @scanTorchOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn the light off'**
+  String get scanTorchOff;
+
+  /// No description provided for @scanEnterCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a code manually'**
+  String get scanEnterCode;
+
+  /// No description provided for @scanManualTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a code'**
+  String get scanManualTitle;
+
+  /// No description provided for @scanManualHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Type the number under the barcode, or the product code.'**
+  String get scanManualHint;
+
+  /// No description provided for @scanManualLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Barcode or product code'**
+  String get scanManualLabel;
+
+  /// No description provided for @scanManualAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Find and add'**
+  String get scanManualAdd;
+
+  /// No description provided for @scanManualEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Type a code first.'**
+  String get scanManualEmpty;
+
+  /// No description provided for @scanUndo.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get scanUndo;
+
+  /// No description provided for @scanRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'Taken out of your cart'**
+  String get scanRemoved;
+
+  /// No description provided for @scanKeepScanning.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep scanning'**
+  String get scanKeepScanning;
+
+  /// No description provided for @scanNotFoundTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t find this product'**
+  String get scanNotFoundTitle;
+
+  /// No description provided for @scanNotFoundMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again or search by name.'**
+  String get scanNotFoundMessage;
+
+  /// No description provided for @scanSearchByName.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by name'**
+  String get scanSearchByName;
+
+  /// No description provided for @scanOutOfStockTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Out of stock'**
+  String get scanOutOfStockTitle;
+
+  /// No description provided for @scanOutOfStockMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is out of stock right now.'**
+  String scanOutOfStockMessage(String name);
+
+  /// No description provided for @scanUnavailableTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Not available here'**
+  String get scanUnavailableTitle;
+
+  /// No description provided for @scanUnavailableMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} isn\'t sold at your branch.'**
+  String scanUnavailableMessage(String name);
+
+  /// No description provided for @scanLimitTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'That\'s all we have'**
+  String get scanLimitTitle;
+
+  /// No description provided for @scanLimitMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'{max, plural, =1{Only 1 is available, and it is already in your cart.} other{Only {max} are available, and they are already in your cart.}}'**
+  String scanLimitMessage(int max);
+
+  /// No description provided for @scanChoiceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an option'**
+  String get scanChoiceTitle;
+
+  /// No description provided for @scanChoiceMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} comes in more than one option.'**
+  String scanChoiceMessage(String name);
+
+  /// No description provided for @scanChoiceAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose option'**
+  String get scanChoiceAction;
+
+  /// No description provided for @scanOfflineTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re offline'**
+  String get scanOfflineTitle;
+
+  /// No description provided for @scanOfflineMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Scanning needs a connection. Nothing was added.'**
+  String get scanOfflineMessage;
+
+  /// No description provided for @scanSignInTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to add this'**
+  String get scanSignInTitle;
+
+  /// No description provided for @scanSignInMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} was found. Sign in to put it in your cart.'**
+  String scanSignInMessage(String name);
+
+  /// No description provided for @scanFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t add this'**
+  String get scanFailedTitle;
+
+  /// No description provided for @scanPermissionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera access is off'**
+  String get scanPermissionTitle;
+
+  /// No description provided for @scanPermissionMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow the camera in Settings to scan barcodes, or type the code instead.'**
+  String get scanPermissionMessage;
+
+  /// No description provided for @scanCameraUnavailableTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The camera isn\'t available'**
+  String get scanCameraUnavailableTitle;
+
+  /// No description provided for @scanCameraUnavailableMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'You can still add a product by typing its code or searching by name.'**
+  String get scanCameraUnavailableMessage;
+
+  /// No description provided for @scanCameraStarting.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting the camera…'**
+  String get scanCameraStarting;
+
+  /// No description provided for @scanAddedAnnouncement.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} added to your cart'**
+  String scanAddedAnnouncement(String name);
+
+  /// No description provided for @scanWindowLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Scanner view. Hold a barcode inside the frame.'**
+  String get scanWindowLabel;
+
+  /// No description provided for @scanToAddSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add items by scanning their barcode.'**
+  String get scanToAddSubtitle;
+
+  /// No description provided for @navScan.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan'**
+  String get navScan;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

@@ -9,6 +9,7 @@
 ///   albahar://categories/{id}          …/app/categories/{id}
 ///   albahar://payments/{id}/return     …/app/payments/{id}/return
 ///   albahar://support/{ticketId}       …/app/support/{ticketId}
+///   albahar://scan                     …/app/scan
 library;
 
 abstract final class DeepLinks {
@@ -33,6 +34,7 @@ abstract final class DeepLinks {
     RegExp(r'^/wishlist$'),
     RegExp(r'^/cart$'),
     RegExp(r'^/search$'),
+    RegExp(r'^/scan$'),
     RegExp(r'^/home$'),
     RegExp(r'^/pages/[^/]+$'),
   ];

@@ -261,6 +261,9 @@ class _OrderDetails extends ConsumerWidget {
                 ),
               ),
             ],
+            // The customer's second number, so staff can reach the customer when the main one is not answered.
+            if (o.alternatePhone != null)
+              AlternatePhoneCall(key: const ValueKey('call-alternative'), phone: o.alternatePhone!),
           ],
         ),
         PanelSection(

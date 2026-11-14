@@ -5,6 +5,7 @@ import 'package:albahar_customer/core/models/money.dart';
 import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
+import 'package:albahar_customer/core/utils/phone.dart';
 import 'package:albahar_customer/core/utils/qatar_time.dart';
 import 'package:albahar_customer/core/widgets/app_button.dart';
 import 'package:albahar_customer/core/widgets/app_text_field.dart';
@@ -14,7 +15,7 @@ import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/branches/data/branch_repository.dart';
 import 'package:albahar_customer/features/branches/domain/branch_models.dart';
-import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
+import 'package:albahar_customer/features/checkout/domain/alternate_phone.dart';
 import 'package:albahar_customer/features/checkout/domain/checkout_models.dart';
 import 'package:albahar_customer/features/checkout/presentation/delivery_slot_section.dart';
 import 'package:albahar_customer/features/checkout/presentation/payment_flow.dart';
@@ -23,6 +24,7 @@ import 'package:albahar_customer/features/profile/domain/profile_models.dart';
 import 'package:albahar_customer/features/profile/presentation/addresses_screen.dart';
 import 'package:albahar_customer/features/profile/presentation/state/profile_providers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final pickupBranchesProvider = FutureProvider.autoDispose<List<Branch>>((ref) async {
@@ -147,17 +149,24 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   selected: o.fulfillmentType,
                   onChanged: (t) {
                     Haptics.tap();
-                    controller.update((x) => x.copyWith(fulfillmentType: t, pickupSlotId: () => null));
+                    controller.update((x) => x.copyWith(fulfillmentType: t));
                   },
                 ),
                 const Gap(AppSpace.md),
-                if (o.fulfillmentType == FulfillmentType.delivery)
+                if (o.fulfillmentType == FulfillmentType.delivery) ...[
                   _AddressSection(
                     addressId: o.addressId,
                     onChanged: (id) => controller.update((x) => x.copyWith(addressId: () => id)),
-                  )
-                else
-                  _PickupSection(options: o, onChanged: controller.update),
+                  ),
+                  const Gap(AppSpace.md),
+                  _AlternatePhoneSection(
+                    input: state.alternate,
+                    mainPhone: state.mainPhone,
+                    onText: controller.setAlternateText,
+                    onDeclined: controller.setAlternateDeclined,
+                  ),
+                ] else
+                  _PickupSection(state: state, controller: controller),
                 if (o.fulfillmentType == FulfillmentType.delivery &&
                     quote != null &&
                     quote.slotRequired &&
@@ -170,6 +179,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     selectedDate: o.deliveryDate,
                     unavailable: state.slotUnavailable,
                     slotRequired: quote.issue('slot_required') != null,
+                    auto: state.slotAuto,
+                    onSwitch: (ref.watch(pickupBranchesProvider).value?.isNotEmpty ?? false)
+                        ? () => controller.update((x) => x.copyWith(fulfillmentType: FulfillmentType.pickup))
+                        : null,
                     onSelect: (slot, date) =>
                         controller.selectDeliverySlot(slot, branchId: quote.singleFulfillment!.branch.id, date: date),
                   ),
@@ -197,14 +210,19 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 _StepTitle(l10n.orderSummary),
                 _QuoteSummary(state: state, onRetry: controller.refreshQuote),
                 const Gap(AppSpace.md),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: o.allowSplit,
-                  onChanged: (v) => controller.update((x) => x.copyWith(allowSplit: v)),
-                  title: Text(l10n.allowSplit),
-                  subtitle: Text(l10n.allowSplitHint),
-                ),
-                const Gap(AppSpace.sm),
+                // The server decides whether the choice exists: the admin setting is on AND more than one active branch holds
+                // part of this cart. Otherwise the switch would only confuse.
+                if (quote?.splitChoice ?? false) ...[
+                  SwitchListTile(
+                    key: const ValueKey('allow-split-switch'),
+                    contentPadding: EdgeInsets.zero,
+                    value: o.allowSplit,
+                    onChanged: (v) => controller.update((x) => x.copyWith(allowSplit: v)),
+                    title: Text(l10n.allowSplit),
+                    subtitle: Text(l10n.allowSplitHint),
+                  ),
+                  const Gap(AppSpace.sm),
+                ],
                 AppTextField(
                   controller: _notes,
                   label: '${l10n.customerNotes} (${l10n.optional})',
@@ -358,28 +376,114 @@ class _AddressSection extends ConsumerWidget {
   }
 }
 
-class _PickupSection extends ConsumerStatefulWidget {
-  const _PickupSection({required this.options, required this.onChanged});
-  final CheckoutOptions options;
-  final Future<void> Function(CheckoutOptions Function(CheckoutOptions)) onChanged;
+/// The customer's second number for the driver: prefilled from the profile; otherwise they type one or tick "I don't have another
+/// number". The place-order button waits for one of the two, and the bar below says so before they ever press it.
+class _AlternatePhoneSection extends StatefulWidget {
+  const _AlternatePhoneSection({
+    required this.input,
+    required this.mainPhone,
+    required this.onText,
+    required this.onDeclined,
+  });
+  final AlternatePhoneInput input;
+  final String? mainPhone;
+  final ValueChanged<String> onText;
+  final ValueChanged<bool> onDeclined;
 
   @override
-  ConsumerState<_PickupSection> createState() => _PickupSectionState();
+  State<_AlternatePhoneSection> createState() => _AlternatePhoneSectionState();
 }
 
-class _PickupSectionState extends ConsumerState<_PickupSection> {
-  late DateTime _day = DateTime.tryParse(widget.options.pickupDate ?? '') ?? QatarTime.today();
+class _AlternatePhoneSectionState extends State<_AlternatePhoneSection> {
+  late final _text = TextEditingController(text: widget.input.text);
+  final _focus = FocusNode();
+  bool _blurred = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() {
+      if (!_focus.hasFocus && _text.text.trim().isNotEmpty && !_blurred) setState(() => _blurred = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _text.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final locale = context.localeCode;
+    final input = widget.input;
+    // The saved number arrives, or the tick empties the field, from outside: follow it unless the customer is typing.
+    if (_text.text != input.text && !_focus.hasFocus) _text.text = input.text;
+    final status = input.status(mainPhone: widget.mainPhone);
+    final digits = QatarPhone.normalizeDigits(_text.text).replaceAll('+', '');
+    // Never a surprise: a half-typed number is not an error until they leave the field or have typed a whole number.
+    final showError = (status == AlternatePhoneStatus.invalid && (_blurred || digits.length >= 8)) ||
+        status == AlternatePhoneStatus.sameAsMain;
+    final error = switch (status) {
+      AlternatePhoneStatus.sameAsMain => l10n.alternatePhoneSame,
+      AlternatePhoneStatus.invalid when showError => l10n.alternatePhoneInvalid,
+      _ => null,
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AppTextField(
+          key: const ValueKey('alternate-phone-field'),
+          controller: _text,
+          focusNode: _focus,
+          label: l10n.alternatePhoneLabel,
+          hint: l10n.phoneHint,
+          prefix: '+974  ',
+          forceLtr: true,
+          enabled: !input.declined,
+          keyboardType: TextInputType.phone,
+          textInputAction: TextInputAction.done,
+          autofillHints: const [AutofillHints.telephoneNumberNational],
+          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9٠-٩۰-۹+ ]')), LengthLimitingTextInputFormatter(16)],
+          helper: status == AlternatePhoneStatus.valid ? l10n.alternatePhoneSavedNote : l10n.alternatePhoneHelper,
+          errorText: error,
+          onChanged: (v) {
+            if (_blurred && v.trim().isEmpty) setState(() => _blurred = false);
+            widget.onText(v);
+          },
+        ),
+        CheckboxListTile(
+          key: const ValueKey('alternate-phone-none'),
+          contentPadding: EdgeInsets.zero,
+          controlAffinity: ListTileControlAffinity.leading,
+          visualDensity: VisualDensity.compact,
+          value: input.declined,
+          onChanged: (v) {
+            Haptics.tap();
+            widget.onDeclined(v ?? false);
+            if (v ?? false) _focus.unfocus();
+          },
+          title: Text(l10n.alternatePhoneNone),
+        ),
+      ],
+    );
+  }
+}
+
+/// Store pickup: the showroom, then the earliest free pickup time chosen for the customer (one tap to change it).
+class _PickupSection extends ConsumerWidget {
+  const _PickupSection({required this.state, required this.controller});
+  final CheckoutState state;
+  final CheckoutController controller;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     final branches = ref.watch(pickupBranchesProvider);
-    final branchId = widget.options.branchId;
+    final o = state.options;
+    final branchId = o.branchId;
     final branch = branches.value?.where((b) => b.id == branchId).firstOrNull;
-    final today = QatarTime.today();
-    final days = [for (var i = 0; i < 7; i++) today.add(Duration(days: i))];
-    final date = QatarTime.isoDate(_day);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -406,9 +510,8 @@ class _PickupSectionState extends ConsumerState<_PickupSection> {
                 ),
               ),
             );
-            if (chosen != null) {
-              await widget.onChanged((o) => o.copyWith(branchId: () => chosen.id, pickupSlotId: () => null));
-            }
+            // A new showroom has its own times: the old one is dropped and the earliest free one chosen again.
+            if (chosen != null) await controller.update((x) => x.copyWith(branchId: () => chosen.id));
           },
           child: Row(
             children: [
@@ -429,102 +532,18 @@ class _PickupSectionState extends ConsumerState<_PickupSection> {
         ),
         if (branchId != null) ...[
           const Gap(AppSpace.md),
-          Text(l10n.pickupSlot, style: context.text.titleSmall),
-          const Gap(AppSpace.xs),
-          SizedBox(
-            height: 64,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: days.length,
-              separatorBuilder: (_, _) => const Gap(AppSpace.xs),
-              itemBuilder: (_, i) {
-                final d = days[i];
-                final selected = QatarTime.isoDate(d) == date;
-                return _PickChip(
-                  selected: selected,
-                  label: QatarTime.weekdayDate(d.subtract(QatarTime.offset), locale),
-                  onSelected: (_) {
-                    setState(() => _day = d);
-                    widget.onChanged(
-                      (o) => o.copyWith(pickupDate: () => QatarTime.isoDate(d), pickupSlotId: () => null),
-                    );
-                  },
-                );
-              },
-            ),
+          PickupSlotSection(
+            key: ValueKey('pickup-slots-$branchId'),
+            branchId: branchId,
+            selectedSlotId: o.pickupSlotId,
+            selectedDate: o.pickupDate,
+            unavailable: state.slotUnavailable,
+            auto: state.slotAuto,
+            onSwitch: () => controller.update((x) => x.copyWith(fulfillmentType: FulfillmentType.delivery)),
+            onSelect: (slot, date) => controller.selectPickupSlot(slot, date: date),
           ),
-          ref
-              .watch(pickupSlotsProvider((branchId: branchId, date: date)))
-              .when(
-                loading: () => const Skeleton(height: 48),
-                error: (e, _) => ErrorState(error: e, compact: true),
-                data: (slots) => slots.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.all(AppSpace.sm),
-                        child: Text(l10n.noSlots, style: context.text.bodySmall),
-                      )
-                    : Wrap(
-                        spacing: AppSpace.xs,
-                        runSpacing: AppSpace.xs,
-                        children: [
-                          for (final s in slots)
-                            _PickChip(
-                              selected: widget.options.pickupSlotId == s.id,
-                              label:
-                                  '${QatarTime.clock(s.startsAt, locale)}–${QatarTime.clock(s.endsAt, locale)}'
-                                  '${s.isFull ? ' · ${l10n.slotFull}' : (s.available <= 3 ? ' · ${l10n.slotRemaining(s.available)}' : '')}',
-                              onSelected: s.isFull
-                                  ? null
-                                  : (_) => widget.onChanged(
-                                      (o) => o.copyWith(
-                                        pickupSlotId: () => s.id,
-                                        pickupDate: () => s.date.isEmpty ? date : s.date,
-                                      ),
-                                    ),
-                            ),
-                        ],
-                      ),
-              ),
         ],
       ],
-    );
-  }
-}
-
-/// A day or time choice with a clear state: filled with the brand colour and a tick when chosen, a bordered card with
-/// dark text otherwise, and struck-through muted text when it cannot be picked. At least 48dp high.
-class _PickChip extends StatelessWidget {
-  const _PickChip({required this.selected, required this.label, required this.onSelected});
-
-  final bool selected;
-  final String label;
-  final ValueChanged<bool>? onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final enabled = onSelected != null;
-    final Color fg = !enabled ? context.palette.muted : (selected ? colors.onPrimary : colors.onSurface);
-    return ChoiceChip(
-      selected: selected,
-      showCheckmark: true,
-      checkmarkColor: colors.onPrimary,
-      selectedColor: colors.primary,
-      backgroundColor: colors.surface,
-      disabledColor: colors.surface,
-      side: BorderSide(
-        color: selected ? colors.primary : context.palette.muted.withValues(alpha: 0.5),
-        width: selected ? 1.5 : 1,
-      ),
-      labelStyle: context.text.labelLarge?.copyWith(
-        color: fg,
-        fontWeight: FontWeight.w700,
-        decoration: enabled ? null : TextDecoration.lineThrough,
-      ),
-      padding: const EdgeInsetsDirectional.symmetric(horizontal: AppSpace.sm, vertical: AppSpace.sm),
-      materialTapTargetSize: MaterialTapTargetSize.padded,
-      label: Text(label),
-      onSelected: onSelected,
     );
   }
 }
@@ -765,7 +784,8 @@ class _QuoteSummary extends StatelessWidget {
                   ],
                 ),
               ),
-            if (quote.deliverySlot case final slot?) ...[
+            if ((state.options.fulfillmentType == FulfillmentType.pickup ? quote.pickupSlot : quote.deliverySlot)
+                case final slot?) ...[
               Divider(color: context.palette.line, height: AppSpace.lg),
               Row(
                 key: const ValueKey('delivery-slot-summary'),
@@ -775,7 +795,9 @@ class _QuoteSummary extends StatelessWidget {
                   const Gap(AppSpace.xs),
                   Expanded(
                     child: Text(
-                      l10n.deliverySlotSummary(
+                      (state.options.fulfillmentType == FulfillmentType.pickup
+                          ? l10n.pickupSlotSummary
+                          : l10n.deliverySlotSummary)(
                         QatarTime.slotDay(slot.date, context.localeCode),
                         QatarTime.clock(slot.startsAt, context.localeCode),
                         QatarTime.clock(slot.endsAt, context.localeCode),
@@ -841,13 +863,27 @@ class _PlaceOrderBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final missing = state.missingRequirement;
+    final alternate = state.alternate.status(mainPhone: state.mainPhone);
     final hint = switch (missing) {
       'address' => l10n.selectAddressFirst,
       'branch' => l10n.selectBranchFirst,
+      // Why the button waits, in plain words, before the customer ever presses it.
+      'alternate' => switch (alternate) {
+        AlternatePhoneStatus.sameAsMain => l10n.alternatePhoneSame,
+        AlternatePhoneStatus.invalid => l10n.alternatePhoneInvalid,
+        _ => l10n.alternatePhoneRequiredHint,
+      },
       'slot' => l10n.deliverySlotRequiredHint,
       'payment' => l10n.selectPaymentFirst,
       _ => (state.quote != null && !state.quote!.canPlaceOrder) ? l10n.cannotPlaceOrder : null,
     };
+    // Nothing is holding the button back: say which time the order is booked for, so what is about to be placed is plain.
+    final locale = context.localeCode;
+    final delivery = state.options.fulfillmentType == FulfillmentType.delivery;
+    final slot = delivery ? state.quote?.deliverySlot : state.quote?.pickupSlot;
+    final when = hint != null || slot == null
+        ? null
+        : '${QatarTime.slotDay(slot.date, locale)} · ${QatarTime.slotRange(slot.startsAt, slot.endsAt, locale)}';
     return Container(
       decoration: BoxDecoration(
         color: context.colors.surface,
@@ -867,8 +903,32 @@ class _PlaceOrderBar extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: AppSpace.xs),
                     child: Text(
                       hint,
+                      key: const ValueKey('place-order-hint'),
                       textAlign: TextAlign.center,
                       style: context.text.bodySmall?.copyWith(color: context.palette.warning),
+                    ),
+                  )
+                else if (when != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpace.xs),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          delivery ? Icons.local_shipping_outlined : Icons.storefront_outlined,
+                          size: 16,
+                          color: context.palette.brass,
+                        ),
+                        const Gap(AppSpace.xs),
+                        Flexible(
+                          child: Text(
+                            when,
+                            key: const ValueKey('place-order-when'),
+                            textAlign: TextAlign.center,
+                            style: context.text.bodySmall,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 Row(

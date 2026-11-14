@@ -1743,6 +1743,58 @@
       }
     }
   },
+  "pickupSlotUnavailableError": "That pickup time is no longer available. Please choose another.",
+  "@pickupSlotUnavailableError": {},
+  "slotEarliestBadge": "Earliest available",
+  "@slotEarliestBadge": {},
+  "slotAutoHint": "We chose the earliest time for you. Tap another time to change it.",
+  "@slotAutoHint": {},
+  "slotReplacedNotice": "That time just became unavailable, so we chose the next earliest. Tap another time to change it.",
+  "@slotReplacedNotice": {},
+  "slotsEmptyTitleDelivery": "No delivery times are open right now",
+  "@slotsEmptyTitleDelivery": {},
+  "slotsEmptyBodyDelivery": "Delivery times open up to two weeks ahead and none are free yet. Check again soon, choose store pickup, or contact us.",
+  "@slotsEmptyBodyDelivery": {},
+  "slotsEmptyTitlePickup": "No pickup times are open right now",
+  "@slotsEmptyTitlePickup": {},
+  "slotsEmptyBodyPickup": "This showroom has no free pickup time in the next two weeks. Try another showroom, choose delivery, or contact us.",
+  "@slotsEmptyBodyPickup": {},
+  "slotsCheckAgain": "Check again",
+  "@slotsCheckAgain": {},
+  "slotsSwitchToPickup": "Choose pickup instead",
+  "@slotsSwitchToPickup": {},
+  "slotsSwitchToDelivery": "Choose delivery instead",
+  "@slotsSwitchToDelivery": {},
+  "pickupSlotSummary": "Pickup: {date}, {from} – {to}",
+  "@pickupSlotSummary": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "alternatePhoneLabel": "Alternative phone number",
+  "@alternatePhoneLabel": {},
+  "alternatePhoneHelper": "So the driver can reach you if your main number isn’t answered.",
+  "@alternatePhoneHelper": {},
+  "alternatePhoneNone": "I don’t have another number",
+  "@alternatePhoneNone": {},
+  "alternatePhoneRequiredHint": "Add an alternative number, or tick “I don’t have another number”",
+  "@alternatePhoneRequiredHint": {},
+  "alternatePhoneInvalid": "Enter a valid Qatar mobile number: 8 digits starting with 3, 5, 6 or 7.",
+  "@alternatePhoneInvalid": {},
+  "alternatePhoneSame": "This is your main number. Enter a different one.",
+  "@alternatePhoneSame": {},
+  "alternatePhoneProfileHelper": "The driver may call this number if your main number isn’t answered. Leave it empty if you have none.",
+  "@alternatePhoneProfileHelper": {},
+  "alternatePhoneSavedNote": "Saved in your profile for your next order.",
+  "@alternatePhoneSavedNote": {},
   "coloursTitle": "Colours",
   "coloursHint": "Choose how many of each colour",
   "addItemsToBag": "Add {count} to bag",
@@ -2083,5 +2135,111 @@
   "savedToast": "Saved",
   "@savedToast": {},
   "keepShopping": "Keep shopping",
-  "@keepShopping": {}
+  "@keepShopping": {},
+  "scanTitle": "Scan to add",
+  "@scanTitle": {},
+  "scanHint": "Point the camera at a product barcode or QR code.",
+  "@scanHint": {},
+  "scanLooking": "Looking for this product…",
+  "@scanLooking": {},
+  "scanClose": "Close scanner",
+  "@scanClose": {},
+  "scanTorchOn": "Turn the light on",
+  "@scanTorchOn": {},
+  "scanTorchOff": "Turn the light off",
+  "@scanTorchOff": {},
+  "scanEnterCode": "Enter a code manually",
+  "@scanEnterCode": {},
+  "scanManualTitle": "Enter a code",
+  "@scanManualTitle": {},
+  "scanManualHint": "Type the number under the barcode, or the product code.",
+  "@scanManualHint": {},
+  "scanManualLabel": "Barcode or product code",
+  "@scanManualLabel": {},
+  "scanManualAdd": "Find and add",
+  "@scanManualAdd": {},
+  "scanManualEmpty": "Type a code first.",
+  "@scanManualEmpty": {},
+  "scanUndo": "Undo",
+  "@scanUndo": {},
+  "scanRemoved": "Taken out of your cart",
+  "@scanRemoved": {},
+  "scanKeepScanning": "Keep scanning",
+  "@scanKeepScanning": {},
+  "scanNotFoundTitle": "We couldn't find this product",
+  "@scanNotFoundTitle": {},
+  "scanNotFoundMessage": "Try again or search by name.",
+  "@scanNotFoundMessage": {},
+  "scanSearchByName": "Search by name",
+  "@scanSearchByName": {},
+  "scanOutOfStockTitle": "Out of stock",
+  "@scanOutOfStockTitle": {},
+  "scanOutOfStockMessage": "{name} is out of stock right now.",
+  "@scanOutOfStockMessage": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "scanUnavailableTitle": "Not available here",
+  "@scanUnavailableTitle": {},
+  "scanUnavailableMessage": "{name} isn't sold at your branch.",
+  "@scanUnavailableMessage": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "scanLimitTitle": "That's all we have",
+  "@scanLimitTitle": {},
+  "scanLimitMessage": "{max, plural, =1{Only 1 is available, and it is already in your cart.} other{Only {max} are available, and they are already in your cart.}}",
+  "@scanLimitMessage": {
+    "placeholders": {
+      "max": {"type": "int"}
+    }
+  },
+  "scanChoiceTitle": "Choose an option",
+  "@scanChoiceTitle": {},
+  "scanChoiceMessage": "{name} comes in more than one option.",
+  "@scanChoiceMessage": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "scanChoiceAction": "Choose option",
+  "@scanChoiceAction": {},
+  "scanOfflineTitle": "You're offline",
+  "@scanOfflineTitle": {},
+  "scanOfflineMessage": "Scanning needs a connection. Nothing was added.",
+  "@scanOfflineMessage": {},
+  "scanSignInTitle": "Sign in to add this",
+  "@scanSignInTitle": {},
+  "scanSignInMessage": "{name} was found. Sign in to put it in your cart.",
+  "@scanSignInMessage": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "scanFailedTitle": "We couldn't add this",
+  "@scanFailedTitle": {},
+  "scanPermissionTitle": "Camera access is off",
+  "@scanPermissionTitle": {},
+  "scanPermissionMessage": "Allow the camera in Settings to scan barcodes, or type the code instead.",
+  "@scanPermissionMessage": {},
+  "scanCameraUnavailableTitle": "The camera isn't available",
+  "@scanCameraUnavailableTitle": {},
+  "scanCameraUnavailableMessage": "You can still add a product by typing its code or searching by name.",
+  "@scanCameraUnavailableMessage": {},
+  "scanCameraStarting": "Starting the camera…",
+  "@scanCameraStarting": {},
+  "scanAddedAnnouncement": "{name} added to your cart",
+  "@scanAddedAnnouncement": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "scanWindowLabel": "Scanner view. Hold a barcode inside the frame.",
+  "@scanWindowLabel": {},
+  "scanToAddSubtitle": "Add items by scanning their barcode.",
+  "@scanToAddSubtitle": {},
+  "navScan": "Scan",
+  "@navScan": {}
 }

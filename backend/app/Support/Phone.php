@@ -51,6 +51,14 @@ final class Phone
         return self::normalize($input) !== null;
     }
 
+    /** Whether two numbers are one and the same line once both are in E.164 ("55123456" and "+974 5512 3456"). */
+    public static function same(?string $a, ?string $b): bool
+    {
+        $a = self::normalize($a);
+
+        return $a !== null && $a === self::normalize($b);
+    }
+
     /** Masked for logs and admin lists: +974 55•••123 */
     public static function mask(?string $e164): ?string
     {

@@ -3,6 +3,7 @@
 use App\Broadcasting\BranchChannel;
 use App\Broadcasting\DriverChannel;
 use App\Domain\Fulfillment\Events\DispatchUpdated;
+use App\Domain\Fulfillment\Events\DriverJobUpdated;
 use App\Domain\Identity\Models\User;
 use App\Domain\Orders\Events\OrderUpdated;
 use App\Domain\Orders\Models\Order;
@@ -30,18 +31,21 @@ it('pings the customer in real time on private-users when the order or its deliv
         ->and($e->broadcastWith())->toHaveKeys(['order_id', 'number', 'status', 'status_label', 'delivery_status']);
 });
 
-it('tells the branch and the assigned driver in real time, and only them', function () {
+it('tells the branch and the assigned driver in real time, each on its own channel and only them', function () {
     $w = commerceWorld();
     $driver = driverFor($w->a);
     [$f] = readyOrder($w);
-    Event::fake([DispatchUpdated::class]);
+    Event::fake([DispatchUpdated::class, DriverJobUpdated::class]);
     $this->postJson("/api/v1/admin/dispatch/fulfillments/{$f->id}/assign", ['driver_id' => $driver->id])->assertOk();
 
     Event::assertDispatched(DispatchUpdated::class, function ($e) use ($w, $driver) {
         $names = collect($e->broadcastOn())->map->name->all();
 
-        return $e->kind === 'delivery' && $e->status === 'assigned' && in_array('private-branches.'.$w->a->id, $names, true) && in_array('private-drivers.'.$driver->id, $names, true);
+        return $e->kind === 'delivery' && $e->status === 'assigned' && $e->driverId === $driver->id && in_array('private-branches.'.$w->a->id, $names, true)
+            && ! in_array('private-drivers.'.$driver->id, $names, true);
     });
+    Event::assertDispatched(DriverJobUpdated::class, fn (DriverJobUpdated $e) => $e->driverId === $driver->id && $e->broadcastAs() === 'dispatch.updated'
+        && collect($e->broadcastOn())->map->name->all() === ['private-drivers.'.$driver->id] && $e->broadcastWith()['assigned'] === true);
 });
 
 it('authorises branch and driver channels only for the right people', function () {
@@ -51,7 +55,9 @@ it('authorises branch and driver channels only for the right people', function (
     $branch = new BranchChannel;
     $own = new DriverChannel;
 
-    expect($branch->join($driver, $w->a->id))->toBeTrue()
+    // A driver works at the branch but may not see its orders: their jobs come on their own channel, not on the branch's.
+    expect($branch->join($driver, $w->a->id))->toBeFalse()
+        ->and($branch->join(staffWithRole('order_manager', $w->a), $w->a->id))->toBeTrue()
         ->and($branch->join($other, $w->a->id))->toBeFalse()
         ->and($branch->join($other, $w->b->id))->toBeTrue()
         ->and($branch->join(User::factory()->superAdmin()->create(), $w->a->id))->toBeTrue()

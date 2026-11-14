@@ -79,7 +79,7 @@
                                         <td><input type="checkbox" wire:model="generated.{{ $i }}.include" class="checkbox" aria-label="{{ __('catalog_admin.include') }}"></td>
                                         <td><div class="flex flex-wrap gap-1.5">@foreach ($g['values'] as $vid)<span class="badge-neutral">@if ($valueLabels[$vid]->color_hex ?? null)<span class="size-2.5 rounded-full" style="background-color: {{ $valueLabels[$vid]->color_hex }}"></span>@endif{{ $valueLabels[$vid]?->localized('value') }}</span>@endforeach</div></td>
                                         <td><input wire:model="generated.{{ $i }}.sku" class="input py-2 font-mono text-xs uppercase" dir="ltr" aria-label="SKU">@error("generated.$i.sku")<p class="field-error">{{ $message }}</p>@enderror</td>
-                                        <td><input wire:model="generated.{{ $i }}.barcode" class="input py-2 font-mono text-xs" dir="ltr" aria-label="{{ __('catalog_admin.barcode') }}"></td>
+                                        <td><input wire:model="generated.{{ $i }}.barcode" class="input py-2 font-mono text-xs" dir="ltr" maxlength="64" autocomplete="off" spellcheck="false" aria-label="{{ __('catalog_admin.barcode') }}">@error("generated.$i.barcode")<p class="field-error">{{ $message }}</p>@enderror</td>
                                     </tr>
                                 @endforeach
                                 </tbody>
@@ -102,7 +102,7 @@
             <form wire:submit="saveEdit" class="space-y-5">
                 <div class="grid gap-4 sm:grid-cols-2">
                     <x-admin.field label="SKU" for="edit.sku" required><input id="edit.sku" wire:model="edit.sku" class="input font-mono uppercase" dir="ltr"></x-admin.field>
-                    <x-admin.field :label="__('catalog_admin.barcode')" for="edit.barcode"><input id="edit.barcode" wire:model="edit.barcode" class="input font-mono" dir="ltr"></x-admin.field>
+                    <x-admin.field :label="__('catalog_admin.barcode')" for="edit.barcode" :hint="__('catalog_admin.barcode_hint')"><input id="edit.barcode" wire:model="edit.barcode" class="input font-mono" dir="ltr" maxlength="64" autocomplete="off" spellcheck="false" autocapitalize="off"></x-admin.field>
                     <x-admin.field :label="__('catalog_admin.variant_name_en')" for="edit.name_en" :hint="__('catalog_admin.variant_name_hint')"><input id="edit.name_en" wire:model="edit.name_en" class="input" dir="ltr"></x-admin.field>
                     <x-admin.field :label="__('catalog_admin.variant_name_ar')" for="edit.name_ar"><input id="edit.name_ar" wire:model="edit.name_ar" class="input" dir="rtl" lang="ar"></x-admin.field>
                     @foreach ($attributes as $a)

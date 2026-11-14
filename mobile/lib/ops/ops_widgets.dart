@@ -56,6 +56,42 @@ Future<void> dial(BuildContext context, String? phone) async {
   await _launch(context, Uri(scheme: 'tel', path: phone), LaunchMode.platformDefault);
 }
 
+/// "Alternative number +974 5598 7654" and a full-width "Call alternative number" button under the customer's main Call button: the
+/// customer's second number, for when the main one is not answered. The number is always laid out left to right, also in Arabic.
+class AlternatePhoneCall extends StatelessWidget {
+  const AlternatePhoneCall({super.key, required this.phone});
+  final String phone;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = OpsStrings.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Gap(AppSpace.md),
+        Text(t.alternativeNumber, style: context.text.labelMedium?.copyWith(color: context.palette.muted)),
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(phone, key: const ValueKey('alternative-number'), style: context.text.bodyMedium),
+          ),
+        ),
+        const Gap(AppSpace.sm),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => dial(context, phone),
+            icon: const Icon(Icons.phone_forwarded_rounded, size: 18),
+            label: Text(t.callAlternative, maxLines: 1, overflow: TextOverflow.ellipsis),
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(kMinTouchTarget)),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Starts navigation to the coordinates in the phone's navigation app (Google Maps, Apple Maps or Waze: a chooser when
 /// more than one is installed), or opens a maps search for the address text when there is no pin.
 Future<void> openMaps(

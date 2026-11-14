@@ -2123,6 +2123,71 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String get pickupSlotUnavailableError => 'لم يعد موعد الاستلام هذا متاحاً. يرجى اختيار موعد آخر.';
+
+  @override
+  String get slotEarliestBadge => 'أقرب موعد متاح';
+
+  @override
+  String get slotAutoHint => 'اخترنا لك أقرب موعد متاح. اضغط على موعد آخر لتغييره.';
+
+  @override
+  String get slotReplacedNotice => 'لم يعد ذلك الموعد متاحاً، فاخترنا لك أقرب موعد تالٍ. اضغط على موعد آخر لتغييره.';
+
+  @override
+  String get slotsEmptyTitleDelivery => 'لا توجد مواعيد توصيل متاحة حالياً';
+
+  @override
+  String get slotsEmptyBodyDelivery =>
+      'تُتاح مواعيد التوصيل حتى أسبوعين مقدماً ولا يوجد موعد شاغر بعد. أعد المحاولة قريباً، أو اختر الاستلام من المعرض، أو تواصل معنا.';
+
+  @override
+  String get slotsEmptyTitlePickup => 'لا توجد مواعيد استلام متاحة حالياً';
+
+  @override
+  String get slotsEmptyBodyPickup =>
+      'لا يوجد موعد استلام شاغر في هذا المعرض خلال الأسبوعين القادمين. جرّب معرضاً آخر، أو اختر التوصيل، أو تواصل معنا.';
+
+  @override
+  String get slotsCheckAgain => 'إعادة المحاولة';
+
+  @override
+  String get slotsSwitchToPickup => 'اختر الاستلام بدلاً من ذلك';
+
+  @override
+  String get slotsSwitchToDelivery => 'اختر التوصيل بدلاً من ذلك';
+
+  @override
+  String pickupSlotSummary(String date, String from, String to) {
+    return 'الاستلام: $date، $from – $to';
+  }
+
+  @override
+  String get alternatePhoneLabel => 'رقم هاتف بديل';
+
+  @override
+  String get alternatePhoneHelper => 'ليتمكن السائق من الوصول إليك إذا لم يُجَب على رقمك الأساسي.';
+
+  @override
+  String get alternatePhoneNone => 'ليس لدي رقم آخر';
+
+  @override
+  String get alternatePhoneRequiredHint => 'أضف رقماً بديلاً أو اختر «ليس لدي رقم آخر»';
+
+  @override
+  String get alternatePhoneInvalid => 'أدخل رقم جوال قطري صحيحاً: 8 أرقام تبدأ بـ 3 أو 5 أو 6 أو 7.';
+
+  @override
+  String get alternatePhoneSame => 'هذا هو رقمك الأساسي. أدخل رقماً مختلفاً.';
+
+  @override
+  String get alternatePhoneProfileHelper =>
+      'قد يتصل السائق بهذا الرقم إذا لم يُجَب على رقمك الأساسي. اتركه فارغاً إن لم يكن لديك رقم آخر.';
+
+  @override
+  String get alternatePhoneSavedNote => 'محفوظ في ملفك لطلبك القادم.';
+
+  @override
   String get coloursTitle => 'الألوان';
 
   @override
@@ -2622,4 +2687,147 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get keepShopping => 'واصل التسوّق';
+
+  @override
+  String get scanTitle => 'امسح للإضافة';
+
+  @override
+  String get scanHint => 'وجّه الكاميرا نحو باركود المنتج أو رمز QR.';
+
+  @override
+  String get scanLooking => 'جارٍ البحث عن المنتج…';
+
+  @override
+  String get scanClose => 'إغلاق الماسح';
+
+  @override
+  String get scanTorchOn => 'تشغيل الضوء';
+
+  @override
+  String get scanTorchOff => 'إطفاء الضوء';
+
+  @override
+  String get scanEnterCode => 'أدخل الرمز يدويًا';
+
+  @override
+  String get scanManualTitle => 'أدخل الرمز';
+
+  @override
+  String get scanManualHint => 'اكتب الرقم الموجود أسفل الباركود أو رمز المنتج.';
+
+  @override
+  String get scanManualLabel => 'الباركود أو رمز المنتج';
+
+  @override
+  String get scanManualAdd => 'بحث وإضافة';
+
+  @override
+  String get scanManualEmpty => 'اكتب الرمز أولًا.';
+
+  @override
+  String get scanUndo => 'تراجع';
+
+  @override
+  String get scanRemoved => 'تمت إزالته من سلتك';
+
+  @override
+  String get scanKeepScanning => 'تابع المسح';
+
+  @override
+  String get scanNotFoundTitle => 'لم نعثر على هذا المنتج';
+
+  @override
+  String get scanNotFoundMessage => 'حاول مرة أخرى أو ابحث بالاسم.';
+
+  @override
+  String get scanSearchByName => 'ابحث بالاسم';
+
+  @override
+  String get scanOutOfStockTitle => 'غير متوفر';
+
+  @override
+  String scanOutOfStockMessage(String name) {
+    return '$name غير متوفر حاليًا.';
+  }
+
+  @override
+  String get scanUnavailableTitle => 'غير متاح هنا';
+
+  @override
+  String scanUnavailableMessage(String name) {
+    return '$name غير متاح في فرعك.';
+  }
+
+  @override
+  String get scanLimitTitle => 'هذه هي الكمية المتاحة';
+
+  @override
+  String scanLimitMessage(int max) {
+    String _temp0 = intl.Intl.pluralLogic(
+      max,
+      locale: localeName,
+      other: 'المتاح $max قطعة فقط وهي في سلتك بالفعل.',
+      few: 'المتاح $max قطع فقط وهي في سلتك بالفعل.',
+      two: 'المتاح قطعتان فقط وهما في سلتك بالفعل.',
+      one: 'المتاح قطعة واحدة فقط وهي في سلتك بالفعل.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get scanChoiceTitle => 'اختر الخيار';
+
+  @override
+  String scanChoiceMessage(String name) {
+    return '$name متوفر بأكثر من خيار.';
+  }
+
+  @override
+  String get scanChoiceAction => 'اختيار الخيار';
+
+  @override
+  String get scanOfflineTitle => 'لا يوجد اتصال';
+
+  @override
+  String get scanOfflineMessage => 'يحتاج المسح إلى اتصال بالإنترنت. لم تتم إضافة أي شيء.';
+
+  @override
+  String get scanSignInTitle => 'سجّل الدخول للإضافة';
+
+  @override
+  String scanSignInMessage(String name) {
+    return 'تم العثور على $name. سجّل الدخول لإضافته إلى سلتك.';
+  }
+
+  @override
+  String get scanFailedTitle => 'تعذّرت الإضافة';
+
+  @override
+  String get scanPermissionTitle => 'الوصول إلى الكاميرا متوقف';
+
+  @override
+  String get scanPermissionMessage => 'اسمح بالكاميرا من الإعدادات لمسح الباركود، أو اكتب الرمز بدلًا من ذلك.';
+
+  @override
+  String get scanCameraUnavailableTitle => 'الكاميرا غير متاحة';
+
+  @override
+  String get scanCameraUnavailableMessage => 'ما زال بإمكانك إضافة منتج بكتابة رمزه أو البحث بالاسم.';
+
+  @override
+  String get scanCameraStarting => 'جارٍ تشغيل الكاميرا…';
+
+  @override
+  String scanAddedAnnouncement(String name) {
+    return 'تمت إضافة $name إلى سلتك';
+  }
+
+  @override
+  String get scanWindowLabel => 'عرض الماسح. ضع الباركود داخل الإطار.';
+
+  @override
+  String get scanToAddSubtitle => 'أضف المنتجات بمسح الباركود.';
+
+  @override
+  String get navScan => 'مسح';
 }

@@ -39,6 +39,8 @@ return [
     'branches' => 'Branches',
     'building_n' => 'Building :n',
     'call' => 'Call',
+    'alt_phone' => 'Alternative number',
+    'call_alt' => 'Call alternative number',
     'camera_hint' => 'Point the camera at the customer\'s pickup QR code.',
     'camera_unavailable' => 'Camera unavailable. Allow camera access or type the code instead.',
     'cancel_branch_hint' => 'Cancels only this branch\'s part of the order and releases its reserved stock. Refunds are raised separately.',

@@ -50,7 +50,8 @@ class OrderOpsController extends ApiController
     {
         $this->assertCanSee($order);
 
-        return response()->json(['data' => $presenter->detail($order) + [
+        // The customer's second number (for the driver) is shown to staff only, never by the presenter the customer's own app uses.
+        return response()->json(['data' => $presenter->detail($order) + ['alternate_phone' => $order->alternate_phone] + [
             'internal_notes' => $order->notes()->with('author:id,name')->latest()->get(),
             'history' => $order->history()->get(),
             'payments' => Payment::where('order_id', $order->id)->with('refunds', 'collections')->get(),
@@ -163,9 +164,11 @@ class OrderOpsController extends ApiController
     /** Driver's own task list (mobile). */
     public function myDeliveries(Request $request): JsonResponse
     {
-        $rows = Delivery::with(['fulfillment.order:id,number,customer_name,customer_phone,address_snapshot,payment_method,payment_status,grand_total', 'fulfillment.branch:id,name_en,name_ar'])
+        $rows = Delivery::with(['fulfillment.order:id,number,customer_name,customer_phone,alternate_phone,address_snapshot,payment_method,payment_status,grand_total', 'fulfillment.branch:id,name_en,name_ar'])
             ->where('driver_id', $this->user()->id)->whereNotIn('status', ['delivered', 'returned', 'cancelled'])
             ->orderBy('scheduled_for')->get();
+        // Orders hide the second number from raw dumps; the assigned driver is exactly who may see it.
+        $rows->each(fn (Delivery $d) => $d->fulfillment?->order?->makeVisible('alternate_phone'));
 
         return response()->json(['data' => $rows]);
     }

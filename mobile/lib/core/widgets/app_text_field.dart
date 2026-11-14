@@ -9,6 +9,7 @@ class AppTextField extends StatefulWidget {
   const AppTextField({
     super.key,
     this.controller,
+    this.focusNode,
     required this.label,
     this.hint,
     this.helper,
@@ -37,6 +38,7 @@ class AppTextField extends StatefulWidget {
   });
 
   final TextEditingController? controller;
+  final FocusNode? focusNode;
   final String label;
   final String? hint;
   final String? helper;
@@ -76,6 +78,7 @@ class _AppTextFieldState extends State<AppTextField> {
   Widget build(BuildContext context) {
     final field = TextFormField(
       controller: widget.controller,
+      focusNode: widget.focusNode,
       initialValue: widget.controller == null ? widget.initialValue : null,
       obscureText: _obscured,
       autocorrect: !(widget.obscure || widget.forceLtr),

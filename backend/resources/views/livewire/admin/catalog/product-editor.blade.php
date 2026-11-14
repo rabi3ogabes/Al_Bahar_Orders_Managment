@@ -28,7 +28,7 @@
             <div class="space-y-6">
                 <div class="card card-pad space-y-4">
                     <x-admin.field label="SKU" for="form.sku" required :hint="__('catalog_admin.sku_hint')"><input id="form.sku" wire:model="form.sku" class="input font-mono uppercase" dir="ltr"></x-admin.field>
-                    <x-admin.field :label="__('catalog_admin.barcode')" for="form.barcode"><input id="form.barcode" wire:model="form.barcode" class="input font-mono" dir="ltr"></x-admin.field>
+                    <x-admin.field :label="__('catalog_admin.barcode')" for="form.barcode" :hint="__('catalog_admin.barcode_hint')"><input id="form.barcode" wire:model="form.barcode" class="input font-mono" dir="ltr" maxlength="64" autocomplete="off" spellcheck="false" autocapitalize="off"></x-admin.field>
                     <div class="grid grid-cols-2 gap-3">
                         <x-admin.field :label="__('catalog_admin.price')" for="form.price" required><input id="form.price" wire:model="form.price" inputmode="decimal" class="input tabular-nums" dir="ltr" placeholder="0.00"></x-admin.field>
                         <x-admin.field :label="__('catalog_admin.sale_price')" for="form.sale_price"><input id="form.sale_price" wire:model="form.sale_price" inputmode="decimal" class="input tabular-nums" dir="ltr"></x-admin.field>
@@ -120,7 +120,7 @@
                             <select id="form.status" wire:model="form.status" class="input pe-10 rtl:[background-position:left_0.5rem_center]">@foreach (\App\Domain\Catalog\Models\Product::STATUSES as $st)<option value="{{ $st }}">{{ __('status.'.$st) }}</option>@endforeach</select>
                         </x-admin.field>
                         <x-admin.field label="SKU" for="form.sku" required><input id="form.sku" wire:model="form.sku" class="input font-mono uppercase" dir="ltr"></x-admin.field>
-                        <x-admin.field :label="__('catalog_admin.barcode')" for="form.barcode"><input id="form.barcode" wire:model="form.barcode" class="input font-mono" dir="ltr"></x-admin.field>
+                        <x-admin.field :label="__('catalog_admin.barcode')" for="form.barcode" :hint="__('catalog_admin.barcode_hint')"><input id="form.barcode" wire:model="form.barcode" class="input font-mono" dir="ltr" maxlength="64" autocomplete="off" spellcheck="false" autocapitalize="off"></x-admin.field>
                         <x-admin.field :label="__('catalog_admin.category')" for="form.category_id">
                             <select id="form.category_id" wire:model="form.category_id" class="input pe-10 rtl:[background-position:left_0.5rem_center]"><option value="">—</option>@foreach ($categories as $c)<option value="{{ $c->id }}">{{ str_repeat('— ', $c->depth) }}{{ $c->trans('name') }}</option>@endforeach</select>
                         </x-admin.field>

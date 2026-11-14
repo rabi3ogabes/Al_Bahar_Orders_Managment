@@ -34,7 +34,7 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Al Bahar uses your location to find showrooms near you and to pin your delivery address. / يستخدم تطبيق البحر موقعك لإيجاد أقرب صالات العرض وتحديد عنوان التوصيل.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Take photos to include in your product review. / التقاط صور لإرفاقها بتقييمك للمنتج.</string>
+	<string>Al Bahar uses the camera to scan product barcodes so you can add items to your cart, and to take photos for your product reviews. / يستخدم تطبيق البحر الكاميرا لمسح باركود المنتجات وإضافتها إلى سلتك، ولالتقاط صور لتقييماتك.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose photos to include in your product review. / اختيار صور لإرفاقها بتقييمك للمنتج.</string>
 	<key>UIBackgroundModes</key>

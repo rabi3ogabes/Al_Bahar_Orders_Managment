@@ -13,6 +13,7 @@ use App\Domain\Catalog\Services\ProductAi;
 use App\Domain\Catalog\Services\ProductService;
 use App\Http\Requests\Admin\ProductRequest;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
+use App\Rules\ProductBarcode;
 use App\Support\Money;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Url;
@@ -75,6 +76,12 @@ class ProductEditor extends Component
         return array_map(fn ($v) => $v === '' ? null : $v, $data);
     }
 
+    /** Letters and digits only, and not used by another product or variant (the code customers scan and labels print). */
+    private function barcodeRules(): array
+    {
+        return ['nullable', 'string', 'max:64', new ProductBarcode(ignoreProductId: $this->product?->id)];
+    }
+
     private function translationRules(): array
     {
         $base = ProductRequest::rulesFor(true);
@@ -106,7 +113,7 @@ class ProductEditor extends Component
     {
         abort_unless($this->canGlobally('catalog.create'), 403);
         $base = ProductRequest::rulesFor();
-        $rules = ['form.sku' => $base['sku'], 'form.barcode' => $base['barcode'], 'form.category_id' => $base['category_id'], 'form.brand_id' => $base['brand_id'],
+        $rules = ['form.sku' => $base['sku'], 'form.barcode' => $this->barcodeRules(), 'form.category_id' => $base['category_id'], 'form.brand_id' => $base['brand_id'],
             'form.status' => ['required', 'in:draft,active,inactive'], 'form.price' => $base['price'], 'form.sale_price' => ['nullable', 'numeric', 'min:0', 'lte:form.price']] + $this->translationRules();
         $this->validate($rules, [], $this->attributeNames());
 
@@ -127,7 +134,7 @@ class ProductEditor extends Component
         abort_unless($this->canGlobally('catalog.edit'), 403);
         $base = ProductRequest::rulesFor(true);
         $this->validate([
-            'form.sku' => ['required', ...array_slice($base['sku'], 1)], 'form.barcode' => $base['barcode'],
+            'form.sku' => ['required', ...array_slice($base['sku'], 1)], 'form.barcode' => $this->barcodeRules(),
             'form.category_id' => $base['category_id'], 'form.brand_id' => $base['brand_id'], 'form.status' => ['required', 'in:draft,active,inactive,archived'],
             'tagsInput' => 'nullable|string|max:1000',
         ] + $this->translationRules(), [], $this->attributeNames());

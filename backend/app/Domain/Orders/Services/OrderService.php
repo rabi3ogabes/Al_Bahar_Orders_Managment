@@ -4,7 +4,6 @@ namespace App\Domain\Orders\Services;
 
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Branches\Services\SlotService;
-use App\Domain\Fulfillment\Events\DispatchUpdated;
 use App\Domain\Fulfillment\Services\DispatchService;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
@@ -16,7 +15,6 @@ use App\Domain\Marketing\Services\PromotionEngine;
 use App\Domain\Orders\Enums\FulfillmentStatus as FS;
 use App\Domain\Orders\Enums\OrderStatus as OS;
 use App\Domain\Orders\Events\OrderStatusChanged;
-use App\Domain\Orders\Events\OrderUpdated;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderCancellation;
 use App\Domain\Orders\Models\OrderFulfillment;
@@ -107,7 +105,6 @@ class OrderService
             $f->save();
 
             $this->history($order, $f, 'fulfillment', $from->value, $to->value, $actor, $reason, $meta);
-            DB::afterCommit(fn () => rescue(fn () => event(new DispatchUpdated($f->branch_id, $order->number, 'order', $to->value, null, $f->id)), report: true));
             $this->audit->log('order.fulfillment_'.$to->value, $f, ['status' => $from->value], ['status' => $to->value], ['order' => $order->number, 'reason' => $reason], branchId: $f->branch_id, actor: $actor);
             $this->refreshOrderStatus($order, $actor);
             if ($to === FS::Ready && $f->type === 'delivery') {
@@ -166,12 +163,8 @@ class OrderService
             }
             $order->save();
             $this->history($order, null, 'order', $from->value, $to->value, $actor, $reason);
-            DB::afterCommit(function () use ($order, $from, $to) {
-                event(new OrderStatusChanged($order->id, $from->value, $to->value));
-                if ($order->user_id) {
-                    event(new OrderUpdated($order->user_id, $order->id, $order->number, $to->value));
-                }
-            });
+            // The customer's apps hear about the new status from the Order model itself (OrderRealtime), after the commit.
+            DB::afterCommit(fn () => event(new OrderStatusChanged($order->id, $from->value, $to->value)));
         }
 
         return $order;

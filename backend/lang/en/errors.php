@@ -19,6 +19,8 @@ return [
     'otp_hourly_limit' => 'You have requested too many codes. Please try again later.',
     'phone_invalid' => 'Please enter a valid Qatar mobile number.',
     'phone_taken' => 'This mobile number is already registered.',
+    'alternate_phone_invalid' => 'Please enter a valid Qatar mobile number: 8 digits starting with 3, 5, 6 or 7.',
+    'alternate_phone_same' => 'This is your main number. Please give a different number the driver can call.',
     'registration_token_invalid' => 'Your verification session has expired. Please verify your number again.',
     'refresh_invalid' => 'Your session has ended. Please sign in again.',
     'refresh_expired' => 'Your session has expired. Please sign in again.',

@@ -9,8 +9,9 @@ class CheckoutRepository {
   CheckoutRepository(this._api);
   final ApiClient _api;
 
-  Future<Quote> quote(CheckoutOptions options) async =>
-      Quote.fromJson(asMap(await _api.post('/checkout/quote', data: options.toJson())));
+  /// [extra] carries what is not part of the priced options, such as the customer's second phone number for the driver.
+  Future<Quote> quote(CheckoutOptions options, {JsonMap extra = const {}}) async =>
+      Quote.fromJson(asMap(await _api.post('/checkout/quote', data: {...options.toJson(), ...extra})));
 
   /// Throws `ApiException(409, quote_changed)` with `context.quote` when the
   /// totals differ from [quoteHash]. Same [idempotencyKey] ⇒ same order.
@@ -19,11 +20,13 @@ class CheckoutRepository {
     required String quoteHash,
     required String idempotencyKey,
     String? customerNotes,
+    JsonMap extra = const {},
   }) async {
     final data = await _api.post(
       '/checkout/orders',
       data: {
         ...options.toJson(),
+        ...extra,
         'quote_hash': quoteHash,
         if (customerNotes != null && customerNotes.trim().isNotEmpty) 'customer_notes': customerNotes.trim(),
       },

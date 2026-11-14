@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../../../core/providers.dart';
-import '../../../../core/utils/qatar_time.dart';
 import '../../data/branch_repository.dart';
 import '../../domain/branch_models.dart';
 
@@ -69,23 +68,6 @@ final pickupSlotsProvider = FutureProvider.autoDispose.family<List<PickupSlot>, 
 final deliverySlotsProvider = FutureProvider.autoDispose.family<List<DeliverySlot>, ({String branchId, String date})>(
   (ref, args) => ref.watch(branchRepositoryProvider).deliverySlots(args.branchId, args.date),
 );
-
-/// The next 7 days (from today, Qatar) that have at least one selectable
-/// delivery slot, in order — a single span request. A failure is rethrown so
-/// the UI can offer a retry.
-final deliveryDatesProvider = FutureProvider.autoDispose.family<List<String>, String>((ref, branchId) async {
-  const days = 7;
-  final today = QatarTime.today();
-  final from = QatarTime.isoDate(today);
-  final to = QatarTime.isoDate(today.add(const Duration(days: days - 1)));
-  final span = await ref
-      .watch(branchRepositoryProvider)
-      .deliverySlotDays(branchId, from: from, to: to, onlyAvailable: true);
-  return [
-    for (final d in span)
-      if (d.hasSelectable && d.date.compareTo(from) >= 0 && d.date.compareTo(to) <= 0) d.date,
-  ]..sort();
-});
 
 final deliveryZonesProvider = FutureProvider<List<DeliveryZone>>((ref) {
   ref.watch(localeCodeProvider);

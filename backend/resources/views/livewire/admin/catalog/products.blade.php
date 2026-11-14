@@ -49,7 +49,8 @@
                     <select wire:model="bulk.category_id" class="input pe-10 rtl:[background-position:left_0.5rem_center] py-2 sm:w-48" aria-label="{{ __('catalog_admin.category') }}"><option value="">{{ __('catalog_admin.set_category') }}</option>@foreach ($categories as $c)<option value="{{ $c->id }}">{{ str_repeat('— ', $c->depth) }}{{ $c->trans('name') }}</option>@endforeach</select>
                     <select wire:model="bulk.brand_id" class="input pe-10 rtl:[background-position:left_0.5rem_center] py-2 sm:w-40" aria-label="{{ __('catalog_admin.brand') }}"><option value="">{{ __('catalog_admin.set_brand') }}</option>@foreach ($brands as $b)<option value="{{ $b->id }}">{{ $b->localized('name') }}</option>@endforeach</select>
                 </div>
-                <div class="flex gap-2">
+                <div class="flex flex-wrap gap-2">
+                    <a href="{{ route('admin.products.labels', ['ids' => implode(',', array_slice($selected, 0, \App\Http\Controllers\Admin\ProductLabelController::MAX_PRODUCTS))]) }}" target="_blank" rel="noopener" class="btn-secondary btn-sm"><x-icon name="printer" class="size-3.5" />{{ __('catalog_admin.print_labels') }}</a>
                     <button type="button" wire:click="$set('selected', [])" class="btn-ghost btn-sm">{{ __('admin.cancel') }}</button>
                     <button type="button" wire:click="applyBulk" wire:confirm="{{ __('catalog_admin.confirm_bulk') }}" class="btn-primary btn-sm" wire:loading.attr="disabled" wire:target="applyBulk"><x-icon name="check" class="size-3.5" />{{ __('catalog_admin.apply') }}</button>
                 </div>
@@ -106,6 +107,7 @@
                                 <div class="flex justify-end gap-0.5">
                                     @if ($canOrder && $p->status === 'active')<button type="button" wire:click="addToOrder('{{ $p->id }}')" wire:loading.attr="disabled" wire:target="addToOrder('{{ $p->id }}')" class="btn-ghost btn-sm px-2 text-brass-600" aria-label="{{ __('neworder_admin.add_to_order') }}" title="{{ __('neworder_admin.add_to_order') }}"><x-icon name="cart" class="size-4" /></button>@endif
                                     <a href="{{ route('admin.products.edit', $p) }}" wire:navigate class="btn-ghost btn-sm px-2" aria-label="{{ __('drawer_admin.open_full_editor') }}" title="{{ __('drawer_admin.open_full_editor') }}"><x-icon name="edit" class="size-4" /></a>
+                                    <a href="{{ route('admin.products.labels', ['ids' => $p->id]) }}" target="_blank" rel="noopener" class="btn-ghost btn-sm px-2" aria-label="{{ __('catalog_admin.print_label') }}" title="{{ __('catalog_admin.print_label') }}"><x-icon name="printer" class="size-4" /></a>
                                     @if ($canCreate)<button type="button" wire:click="duplicate('{{ $p->id }}')" wire:confirm="{{ __('catalog_admin.confirm_duplicate') }}" class="btn-ghost btn-sm px-2" aria-label="{{ __('catalog_admin.duplicate') }}" title="{{ __('catalog_admin.duplicate') }}"><x-icon name="copy" class="size-4" /></button>@endif
                                     @if ($canDelete && $p->status !== 'archived')<button type="button" wire:click="archive('{{ $p->id }}')" wire:confirm="{{ __('catalog_admin.confirm_archive') }}" class="btn-ghost btn-sm px-2 text-ruby-soft" aria-label="{{ __('catalog_admin.archive') }}" title="{{ __('catalog_admin.archive') }}"><x-icon name="ban" class="size-4" /></button>@endif
                                 </div>

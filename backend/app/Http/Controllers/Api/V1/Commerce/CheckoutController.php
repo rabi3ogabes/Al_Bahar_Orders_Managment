@@ -97,6 +97,8 @@ class CheckoutController extends ApiController
             'pickup_slot_id' => 'nullable|uuid', 'pickup_date' => 'nullable|date_format:Y-m-d', 'delivery_slot_id' => 'nullable|uuid',
             'delivery_date' => 'nullable|date_format:Y-m-d', 'payment_method' => 'nullable|in:sadad,cod,pay_at_pickup', 'coupon_code' => 'nullable|string|max:48',
             'loyalty_points' => 'nullable|integer|min:0', 'allow_split' => 'nullable|boolean', 'express' => 'nullable|boolean',
+            // The customer's second number for the driver (delivery only). Checked and normalised by QuoteService, which answers in plain words.
+            'alternate_phone' => 'nullable|string|max:32', 'no_alternate_phone' => 'nullable|boolean',
             'latitude' => 'nullable|numeric|between:-90,90|required_with:longitude', 'longitude' => 'nullable|numeric|between:-180,180|required_with:latitude',
         ]);
     }

@@ -16,8 +16,8 @@ import 'package:go_router/go_router.dart';
 /// The paths of the built-in five-tab footer: Home, Categories, Auctions, Cart, Account.
 final footerPaths = [for (final k in FooterConfig.fallback.keys) footerDestinations[k]!.path];
 
-/// Screens that cover the whole window without the footer: the first-run flow and sign-in.
-const _noFooterPrefixes = ['/splash', '/language', '/onboarding', '/login'];
+/// Screens that cover the whole window without the footer: the first-run flow, sign-in and the full-screen barcode scanner.
+const _noFooterPrefixes = ['/splash', '/language', '/onboarding', '/login', '/scan'];
 
 bool showsFooter(String path) => path != '/' && !_noFooterPrefixes.any((p) => path == p || path.startsWith('$p/'));
 

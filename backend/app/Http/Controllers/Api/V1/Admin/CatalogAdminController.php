@@ -19,6 +19,7 @@ use App\Domain\Pricing\Services\PriceResolver;
 use App\Domain\Pricing\Services\PricingService;
 use App\Http\Controllers\Api\V1\ApiController;
 use App\Http\Requests\Admin\ProductRequest;
+use App\Rules\ProductBarcode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -94,7 +95,7 @@ class CatalogAdminController extends ApiController
     public function storeVariant(Request $request, Product $product): JsonResponse
     {
         $data = $request->validate([
-            'sku' => 'required|string|max:64|regex:/^[A-Za-z0-9\-_.]+$/', 'barcode' => 'nullable|string|max:64',
+            'sku' => 'required|string|max:64|regex:/^[A-Za-z0-9\-_.]+$/', 'barcode' => ['nullable', 'string', 'max:64', 'regex:'.ProductBarcode::PATTERN],
             'name_en' => 'nullable|string|max:255', 'name_ar' => 'nullable|string|max:255',
             'price' => 'nullable|numeric|min:0', 'sale_price' => 'nullable|numeric|min:0|required_with:price|lte:price',
             'attribute_value_ids' => 'nullable|array', 'attribute_value_ids.*' => 'integer|exists:product_attribute_values,id',
@@ -106,7 +107,7 @@ class CatalogAdminController extends ApiController
     public function updateVariant(Request $request, ProductVariant $variant): JsonResponse
     {
         $data = $request->validate([
-            'sku' => 'sometimes|string|max:64', 'barcode' => 'nullable|string|max:64', 'status' => 'sometimes|in:active,inactive',
+            'sku' => 'sometimes|string|max:64', 'barcode' => ['nullable', 'string', 'max:64', 'regex:'.ProductBarcode::PATTERN], 'status' => 'sometimes|in:active,inactive',
             'name_en' => 'nullable|string|max:255', 'name_ar' => 'nullable|string|max:255',
             'price' => 'nullable|numeric|min:0', 'sale_price' => 'nullable|numeric|min:0', 'is_default' => 'sometimes|boolean',
             'attribute_value_ids' => 'sometimes|array', 'attribute_value_ids.*' => 'integer|exists:product_attribute_values,id',

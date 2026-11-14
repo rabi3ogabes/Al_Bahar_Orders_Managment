@@ -3,15 +3,17 @@
 namespace App\Domain\Orders\Events;
 
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Foundation\Events\Dispatchable;
 
 /**
  * "order.live" for the staff live pages (fleet map): a new order or an order status change, as the small payload built by
  * LiveOrderFeed. Sent on private-live-orders (staff who see orders of every branch) and on private-live-orders.{branchId}
  * for each branch that owns a part of the order, so branch-scoped staff only ever hear their own branches.
+ * Sent straight to the socket server by BroadcastLiveOrder once the response has gone out (no queue worker to wait for).
  */
-class LiveOrderEvent implements ShouldBroadcast
+class LiveOrderEvent implements ShouldBroadcastNow, ShouldDispatchAfterCommit
 {
     use Dispatchable;
 

@@ -26,6 +26,15 @@ final class Quote
 
     public bool $isSplit = false;
 
+    /** The clients may show the "allow split shipment" switch: the admin setting is on AND more than one active branch could supply part of this cart. */
+    public bool $splitChoice = false;
+
+    /** The customer's second number for THIS delivery order (E.164), once validated; null for pickup, "I don't have another number" or none. */
+    public ?string $alternatePhone = null;
+
+    /** The customer typed it for this order (as opposed to the saved profile number being used for a client that does not send the field). */
+    public bool $alternatePhoneGiven = false;
+
     public ?UserAddress $address = null;
 
     public ?DeliveryZone $zone = null;
@@ -176,6 +185,7 @@ final class Quote
             'fulfillment_type' => $this->fulfillmentType,
             'payment_method' => $this->paymentMethod,
             'is_split' => $this->isSplit,
+            'split_choice' => $this->splitChoice,
             'fulfillments' => array_map(fn (FulfillmentPlan $p) => [
                 'branch' => ['id' => $p->branch->id, 'name' => $p->branch->localized('name'), 'area' => $p->branch->area],
                 'type' => $p->type,

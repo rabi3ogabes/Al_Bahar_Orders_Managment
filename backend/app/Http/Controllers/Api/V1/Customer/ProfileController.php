@@ -9,6 +9,8 @@ use App\Domain\Identity\Services\DeviceRegistry;
 use App\Domain\Identity\Services\TokenService;
 use App\Http\Controllers\Api\V1\ApiController;
 use App\Http\Resources\V1\UserResource;
+use App\Rules\AlternatePhoneNumber;
+use App\Support\AlternatePhone;
 use App\Support\BusinessTime;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -39,7 +41,12 @@ class ProfileController extends ApiController
             'date_of_birth' => ['sometimes', 'nullable', 'date', 'before:today'],
             'gender' => ['sometimes', 'nullable', 'in:male,female'],
             'marketing_consent' => ['sometimes', 'boolean'],
+            // The second number the delivery driver may call; null or empty clears it.
+            'alternate_phone' => ['sometimes', 'nullable', 'string', 'max:32', new AlternatePhoneNumber($user->phone)],
         ]);
+        if (array_key_exists('alternate_phone', $data)) {
+            $data['alternate_phone'] = AlternatePhone::check($data['alternate_phone'], $user->phone)[0];
+        }
         if (array_key_exists('marketing_consent', $data)) {
             $data['marketing_consent_at'] = $data['marketing_consent'] ? ($user->marketing_consent_at ?? now()) : null;
             unset($data['marketing_consent']);
@@ -136,6 +143,8 @@ class ProfileController extends ApiController
             'reason' => $request->input('reason'),
             'scheduled_for' => now()->addDays(14),
         ]);
+        // The customer's second number is for delivery calls only: it goes now, not in 14 days.
+        AlternatePhone::erase($user);
         app(AuditLogger::class)->log('account.deletion_requested', $user);
 
         return response()->json(['data' => [

@@ -4,6 +4,7 @@ import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n';
 import { useToast } from '../lib/toast';
 import { cx } from '../lib/format';
+import { altPhoneStatus, nationalDigits, toE164 } from '../lib/altPhone';
 import { Alert, Button, Checkbox, Input } from './ui';
 
 /** Profile and password forms, shared by the /account/profile page and the profile side window. `embedded` drops the card chrome. */
@@ -14,14 +15,18 @@ export function ProfileForm({ embedded, onDirty, onSaved }: { embedded?: boolean
   const [name, setName] = useState(user?.name ?? '');
   const [email, setEmail] = useState(user?.email ?? '');
   const [marketing, setMarketing] = useState(user?.marketing_consent ?? false);
+  // The second number the delivery driver may call: the 8 national digits after +974; empty clears it.
+  const [alt, setAlt] = useState(nationalDigits(user?.alternate_phone));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<ApiError | null>(null);
-  const dirty = !!user && (name !== user.name || email !== (user.email ?? '') || marketing !== user.marketing_consent);
+  const altStatus = altPhoneStatus(alt, false, user?.phone);
+  const altProblem = altStatus === 'invalid' ? t('checkout.alt_invalid') : altStatus === 'same' ? t('checkout.alt_same') : undefined;
+  const dirty = !!user && (name !== user.name || email !== (user.email ?? '') || marketing !== user.marketing_consent || alt.trim() !== nationalDigits(user.alternate_phone));
   useEffect(() => { onDirty?.(dirty); }, [dirty, onDirty]);
   if (!user) return null;
   const save = async (e: React.FormEvent) => {
-    e.preventDefault(); if (busy) return; setBusy(true); setErr(null);
-    try { await updateProfile({ name: name.trim(), email: email.trim() || null, marketing_consent: marketing }); toast.push(t('profile.saved')); onSaved?.(); }
+    e.preventDefault(); if (busy || altProblem) return; setBusy(true); setErr(null);
+    try { await updateProfile({ name: name.trim(), email: email.trim() || null, marketing_consent: marketing, alternate_phone: alt.trim() ? toE164(alt) : null }); toast.push(t('profile.saved')); onSaved?.(); }
     catch (x) { setErr(x instanceof ApiError ? x : null); } finally { setBusy(false); }
   };
   return (
@@ -31,8 +36,9 @@ export function ProfileForm({ embedded, onDirty, onSaved }: { embedded?: boolean
       <Input label={t('auth.name')} value={name} onChange={(e) => setName(e.target.value)} required maxLength={120} autoComplete="name" error={err?.field('name')} />
       <Input label={t('auth.phone')} value={user.phone} disabled hint={t('profile.phone_locked')} />
       <Input label={t('auth.email_optional')} type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" error={err?.field('email')} />
+      <Input label={t('profile.alt_label')} type="tel" inputMode="tel" autoComplete="tel-national" prefix="+974" placeholder="5522 0011" maxLength={20} value={alt} onChange={(e) => setAlt(e.target.value)} hint={t('profile.alt_help')} error={altProblem ?? err?.field('alternate_phone')} />
       <Checkbox checked={marketing} onChange={setMarketing}>{t('auth.marketing')}</Checkbox>
-      <Button type="submit" loading={busy} disabled={!dirty} block={embedded}>{t('action.save')}</Button>
+      <Button type="submit" loading={busy} disabled={!dirty || !!altProblem} block={embedded}>{t('action.save')}</Button>
     </form>
   );
 }

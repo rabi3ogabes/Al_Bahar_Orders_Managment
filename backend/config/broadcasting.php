@@ -43,6 +43,10 @@ return [
             ],
             'client_options' => [
                 // Guzzle client options: https://docs.guzzlephp.org/en/stable/request-options.html
+                // Order messages go to Reverb straight from the request's tail (see OrderRealtime): a socket server that hangs must cost a
+                // second, not the default of "wait forever". The apps re-read from the API whenever they missed something.
+                'connect_timeout' => 1,
+                'timeout' => 3,
             ],
         ],
 

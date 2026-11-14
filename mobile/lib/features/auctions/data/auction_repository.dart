@@ -3,6 +3,7 @@ import 'package:albahar_customer/core/network/api_client.dart';
 import 'package:albahar_customer/core/network/interceptors.dart';
 import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/realtime/pusher_client.dart';
+import 'package:albahar_customer/core/realtime/realtime_settings.dart';
 import 'package:albahar_customer/core/utils/json.dart';
 import 'package:albahar_customer/features/auctions/domain/auction_models.dart';
 import 'package:albahar_customer/features/checkout/domain/checkout_models.dart';
@@ -107,12 +108,24 @@ class AuctionRepository {
 
 final auctionRepositoryProvider = Provider<AuctionRepository>((ref) => AuctionRepository(ref.watch(apiClientProvider)));
 
-/// App-wide realtime client (lazy-connecting).
+/// Where the socket is, asked of the server (see RealtimeSettingsLoader).
+final realtimeSettingsLoaderProvider = Provider<RealtimeSettingsLoader>((ref) {
+  final api = ref.watch(apiClientProvider);
+  return RealtimeSettingsLoader(
+    config: ref.watch(appConfigProvider),
+    fetch: () async => asMap(await api.get('/realtime-config')),
+  );
+});
+
+/// App-wide realtime client (lazy-connecting). It asks the server where its socket is every time it opens a connection, so the build
+/// carries no socket address that could go stale (a missing REVERB_* define in a release build used to leave every app without live
+/// updates).
 final pusherClientProvider = Provider<PusherClient>((ref) {
   final config = ref.watch(appConfigProvider);
   final repo = ref.watch(auctionRepositoryProvider);
+  final settings = ref.watch(realtimeSettingsLoaderProvider);
   final client = PusherClient(
-    uri: config.reverbUri,
+    uriResolver: () async => (await settings.load()).uri,
     authorizer: (socketId, channel) => repo.authorizeChannel(config.broadcastingAuthUrl, socketId, channel),
   );
   ref.onDispose(client.dispose);

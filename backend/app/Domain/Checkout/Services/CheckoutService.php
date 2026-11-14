@@ -130,6 +130,12 @@ class CheckoutService
                 $this->loyalty->redeem($user, $quote->loyaltyPoints, $order->id);
             }
 
+            // The number the customer typed for the driver becomes their saved one, so the next order starts filled in.
+            // (Never from staff placing an order for them: that must not change the customer's profile.)
+            if ($quote->alternatePhoneGiven && ! $staff && $quote->alternatePhone !== $user->alternate_phone) {
+                $user->forceFill(['alternate_phone' => $quote->alternatePhone])->save();
+            }
+
             $payment = $this->payments->createForOrder($order, 'order:'.$order->id.':1');
             $this->orders->history($order, null, 'order', null, $order->status->value, $staff ?? $user, 'placed',
                 ['payment_method' => $order->payment_method] + ($staff ? ['on_behalf_of' => $user->id] : []));
@@ -170,6 +176,7 @@ class CheckoutService
             'grand_total' => $quote->grandTotal()->toDecimal(),
             'customer_name' => $user->name,
             'customer_phone' => $user->phone,
+            'alternate_phone' => $quote->alternatePhone,
             'customer_email' => $user->email,
             'address_snapshot' => $quote->address?->snapshot() ?? ($quote->fulfillmentType === 'pickup' ? ['pickup_branch_id' => $plan0->branch->id, 'pickup_branch' => $plan0->branch->name_en] : null),
             'fee_breakdown' => [

@@ -16,7 +16,7 @@ class SlotService
 {
     public function __construct(private readonly BranchHoursService $hours) {}
 
-    /** @return list<array{id: string, date: string, starts_at: string, ends_at: string, capacity: int, available: int, is_full: bool}> */
+    /** @return list<array{id: string, date: string, starts_at: string, ends_at: string, capacity: int, available: int, is_full: bool, bookable_until: ?string}> */
     public function available(Branch $branch, string $type, string $date): array
     {
         $day = CarbonImmutable::parse($date, BusinessTime::zone());
@@ -68,7 +68,7 @@ class SlotService
     /**
      * @param  iterable<DeliverySlot>  $slots  the branch's active slots for this weekday
      * @param  array<string, int>  $booked  slot id => places already booked on $day
-     * @return list<array{id: string, date: string, starts_at: string, ends_at: string, capacity: int, available: int, is_full: bool}>
+     * @return list<array{id: string, date: string, starts_at: string, ends_at: string, capacity: int, available: int, is_full: bool, bookable_until: ?string}>
      */
     private function rows(Branch $branch, iterable $slots, CarbonImmutable $day, array $booked, CarbonImmutable $now): array
     {
@@ -86,6 +86,8 @@ class SlotService
                 'capacity' => $slot->capacity,
                 'available' => $available,
                 'is_full' => $available === 0,
+                // The last moment this slot can still be booked (its start minus the cutoff), so a screen left open can tell by itself when a time has gone.
+                'bookable_until' => BusinessTime::iso($start->subMinutes($slot->cutoff_minutes)),
             ];
         }
 

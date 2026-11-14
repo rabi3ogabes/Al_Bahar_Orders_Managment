@@ -8,6 +8,7 @@ use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Services\OrderService;
 use App\Support\BusinessTime;
 use App\Support\DomainException;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 /** A delivery slot at the given branch, tomorrow's weekday, 16:00–18:00 (inside default opening hours on every day). */
@@ -228,4 +229,39 @@ it('supports spans for pickup slots too', function () {
 
     $rows = $this->getJson("/api/v1/branches/{$w->a->id}/pickup-slots?from={$day->toDateString()}&to={$day->addDays(6)->toDateString()}")->assertOk()->json('data');
     expect($rows)->toHaveCount(1)->and($rows[0]['date'])->toBe($day->toDateString())->and($rows[0]['slots'][0]['available'])->toBe(5);
+});
+
+it('says until when each slot can be booked, so a screen left open knows by itself when a time has gone', function () {
+    $w = commerceWorld();
+    [$slot, $date] = deliverySlot($w, 2); // 16:00–18:00, cutoff 60 minutes
+
+    $row = $this->getJson("/api/v1/branches/{$w->a->id}/delivery-slots?date={$date}")->assertOk()->json('data.0');
+    expect($row['bookable_until'])->toBe("{$date}T15:00:00+03:00");
+
+    $span = $this->getJson("/api/v1/branches/{$w->a->id}/delivery-slots?from={$date}&to={$date}")->assertOk()->json('data.0.slots.0');
+    expect($span['bookable_until'])->toBe("{$date}T15:00:00+03:00");
+});
+
+it('counts the day in Qatar time: just after midnight there, today is already the new date', function () {
+    $w = commerceWorld();
+    // 00:10 on 15 Nov in Doha is still 14 Nov 21:10 UTC.
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-11-15 00:10:00', 'Asia/Qatar'));
+    try {
+        $slot = DeliverySlot::create(['branch_id' => $w->a->id, 'fulfillment_type' => 'delivery', 'day_of_week' => 0 /* Sunday = 15 Nov 2026 */,
+            'starts_at' => '16:00', 'ends_at' => '18:00', 'capacity' => 2, 'cutoff_minutes' => 60]);
+        $url = "/api/v1/branches/{$w->a->id}/delivery-slots";
+
+        $this->getJson("$url?date=2026-11-15")->assertOk()->assertJsonPath('data.0.available', 2);
+        $this->getJson("$url?date=2026-11-14")->assertStatus(422); // yesterday in Doha, although it is today in UTC
+        $this->getJson("$url?from=2026-11-15&to=2026-11-15&only_available=1")->assertOk()->assertJsonPath('data.0.slots.0.id', $slot->id);
+
+        // The cutoff is 15:00: one minute before it the slot can still be booked, one minute after it cannot.
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-11-15 14:59:00', 'Asia/Qatar'));
+        $this->getJson("$url?date=2026-11-15")->assertJsonPath('data.0.available', 2)->assertJsonPath('data.0.is_full', false);
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-11-15 15:01:00', 'Asia/Qatar'));
+        $this->getJson("$url?date=2026-11-15")->assertJsonPath('data.0.available', 0)->assertJsonPath('data.0.is_full', true)
+            ->assertJsonPath('data.0.bookable_until', '2026-11-15T15:00:00+03:00');
+    } finally {
+        CarbonImmutable::setTestNow();
+    }
 });

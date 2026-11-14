@@ -118,7 +118,7 @@ class DriverConsole extends Component
     public function render()
     {
         $base = Delivery::where('driver_id', auth()->id())
-            ->with(['fulfillment.order:id,number,customer_name,customer_phone,payment_method,payment_status,grand_total,paid_total,address_snapshot,customer_notes', 'fulfillment.items:id,order_fulfillment_id,name_en,name_ar,quantity,quantity_cancelled', 'branch:id,code,name_en,name_ar,latitude,longitude']);
+            ->with(['fulfillment.order:id,number,customer_name,customer_phone,alternate_phone,payment_method,payment_status,grand_total,paid_total,address_snapshot,customer_notes', 'fulfillment.items:id,order_fulfillment_id,name_en,name_ar,quantity,quantity_cancelled', 'branch:id,code,name_en,name_ar,latitude,longitude']);
         $active = (clone $base)->whereNotIn('status', ['delivered', 'returned', 'cancelled', 'returning'])
             ->where(fn ($q) => $q->whereNull('scheduled_for')->orWhere('scheduled_for', '<', now()->endOfDay()))
             ->orderByRaw("CASE status WHEN 'out_for_delivery' THEN 0 WHEN 'picked_up' THEN 1 WHEN 'accepted' THEN 2 WHEN 'assigned' THEN 3 ELSE 4 END")

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, Banknote, Check, CreditCard, Gift, Lock, MapPin, Plus, Store, Tag, Truck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Banknote, Check, CalendarX2, CreditCard, Gift, Lock, MapPin, Plus, RefreshCw, Sparkles, Store, Tag, Truck } from 'lucide-react';
 import { ApiError, get, post, uuid } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useBranch } from '../lib/branch';
@@ -9,10 +9,12 @@ import { useCart } from '../lib/cart';
 import { useI18n } from '../lib/i18n';
 import { useToast } from '../lib/toast';
 import { useDocTitle } from '../lib/hooks';
-import { addDays, cx, isoDate } from '../lib/format';
+import { cx, latinDigits } from '../lib/format';
+import { altPhoneDone, altPhoneFields, altPhoneStatus, nationalDigits } from '../lib/altPhone';
+import { decideSlot, hasFreePlace, isSlotBookable, slotWindowDates } from '../lib/slotPick';
 import type { Address, Branch, OrderDetail, PaymentAction, Quote, SlotDay } from '../lib/types';
 import { useAuthModal } from '../components/AuthModal';
-import { Alert, Button, EmptyState, Input, Pic, Segmented, Skeleton, Spinner, Textarea } from '../components/ui';
+import { Alert, Button, Checkbox, EmptyState, Input, Pic, Segmented, Skeleton, Spinner, Textarea } from '../components/ui';
 import { AddressWindow } from '../components/windows';
 
 type Method = 'sadad' | 'cod' | 'pay_at_pickup';
@@ -28,26 +30,61 @@ function Step({ n, title, done, children }: { n: number; title: string; done?: b
   );
 }
 
-function Slots({ branchId, kind, value, date, onPick, required }: { branchId: string; kind: 'delivery' | 'pickup'; value: string | null; date: string | null; onPick: (id: string | null, date: string | null) => void; required: boolean }) {
+interface PickMeta { /** Chosen by the page as the earliest bookable time (not by the customer). */ auto?: boolean; /** The time that was chosen can no longer be booked: this one replaces it. */ replaced?: boolean }
+
+/**
+ * The time step. Once the times load, the earliest one that can still be booked is chosen for the customer (the rule is in lib/slotPick.ts, the same as the app):
+ * a time the customer picked is never replaced by an earlier one; a time that fills up or passes its cutoff while the page is open is replaced, and the page says so.
+ */
+function Slots({ branchId, kind, value, date, auto, replaced, onPick, required, onSwitch }: { branchId: string; kind: 'delivery' | 'pickup'; value: string | null; date: string | null; auto: boolean; replaced: boolean; onPick: (id: string | null, date: string | null, meta?: PickMeta) => void; required: boolean; onSwitch?: () => void }) {
   const { t, date: fmt } = useI18n();
-  const from = isoDate(addDays(new Date(), 0));
-  const to = isoDate(addDays(new Date(), 13));
+  // The business day is Qatar's, whatever the browser's clock or zone says. Looked at again every half minute: a time can pass its cutoff while the page stays open.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const id = window.setInterval(() => setNow(Date.now()), 30_000); return () => window.clearInterval(id); }, []);
+  const { from, to } = slotWindowDates(now);
   const days = useQuery({ queryKey: ['slots', kind, branchId, from], queryFn: async () => (await get<{ data: SlotDay[] }>(`/branches/${branchId}/${kind}-slots`, { from, to })).data });
+  const list = useMemo(() => (days.data ?? []).filter((d) => d.slots.length > 0), [days.data]);
   const [day, setDay] = useState<string | null>(date);
-  const open = (days.data ?? []).filter((d) => d.slots.length > 0);
-  // Start on the first day that still has a free slot (today's earlier windows are usually gone).
-  useEffect(() => { if (!day && open[0]) setDay((open.find((d) => d.available > 0) ?? open[0]).date); }, [open, day]);
+  useEffect(() => { if (date) setDay(date); }, [date]);
+
+  // Keep the selection right for what is free now.
+  useEffect(() => {
+    if (!days.data) return;
+    const d = decideSlot({ days: list, from, to, selectedId: value, selectedDate: date, nowMs: now });
+    if (d.plan === 'choose' && d.choice) onPick(d.choice.slot.id, d.choice.date, { auto: true, replaced: d.replacedStale });
+    else if (d.plan === 'none' && value) onPick(null, null, { replaced: d.replacedStale });
+    // onPick is a fresh function on every render of the page; the selection and the data are what matter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [days.data, list, from, to, value, date, now]);
+
   if (days.isLoading) return <Skeleton className="h-28" />;
-  if (!open.length) return <Alert tone={required ? 'warning' : 'info'}>{t(required ? 'checkout.no_slots_required' : 'checkout.no_slots')}</Alert>;
-  const current = open.find((d) => d.date === day) ?? open[0];
+  const open = list.filter((d) => d.slots.some(hasFreePlace));
+  if (!list.length && !required) return <Alert tone="info">{t('checkout.no_slots')}</Alert>;
+  if (!open.length) {
+    return (
+      <div className="rounded-2xl border border-line bg-brass-tint/50 p-5" data-testid="slots-empty">
+        <p className="flex items-center gap-2 font-semibold" role="status"><CalendarX2 size={18} className="text-brass-deep" />{t(kind === 'delivery' ? 'checkout.slots_empty_delivery' : 'checkout.slots_empty_pickup')}</p>
+        <p className="mt-1.5 text-sm text-ink-soft">{t(kind === 'delivery' ? 'checkout.slots_empty_delivery_text' : 'checkout.slots_empty_pickup_text')}</p>
+        <div className="mt-4 flex flex-wrap gap-2.5">
+          <Button type="button" variant="outline" onClick={() => void days.refetch()} loading={days.isFetching}><RefreshCw size={16} />{t('checkout.slots_check_again')}</Button>
+          {onSwitch && <Button type="button" variant="brass" onClick={onSwitch}>{t(kind === 'delivery' ? 'checkout.slots_switch_pickup' : 'checkout.slots_switch_delivery')}</Button>}
+        </div>
+      </div>
+    );
+  }
+  const current = open.find((d) => d.date === day) ?? list.find((d) => d.date === day) ?? open[0];
   return (
     <div>
+      {value && replaced && <p className="mb-3 text-sm font-medium text-warning" role="status" data-testid="slot-replaced">{t('checkout.slot_replaced')}</p>}
+      {!value && replaced && <p className="mb-3 text-sm font-medium text-danger" role="alert">{t('checkout.slot_unavailable')}</p>}
+      {value && auto && !replaced && <p className="mb-3 flex items-start gap-2 text-sm text-ink-soft" data-testid="slot-auto-hint"><Sparkles size={15} className="mt-0.5 shrink-0 text-brass-deep" aria-hidden="true" />{t('checkout.slot_auto_hint')}</p>}
       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2" role="tablist" aria-label={t('checkout.pick_day')}>
-        {open.map((d) => {
+        {list.map((d) => {
           const dt = new Date(`${d.date}T12:00:00`);
           const on = current.date === d.date;
+          const free = d.slots.some(hasFreePlace);
           return (
-            <button key={d.date} role="tab" aria-selected={on} onClick={() => { setDay(d.date); onPick(null, null); }} className={cx('flex w-[74px] shrink-0 flex-col items-center rounded-2xl border py-3 transition-colors', on ? 'border-primary bg-primary text-on-primary shadow-soft' : 'border-ink/25 bg-paper text-ink hover:border-primary', !on && d.available === 0 && 'opacity-50')}>
+            <button key={d.date} role="tab" aria-selected={on} onClick={() => setDay(d.date)} className={cx('flex w-[74px] shrink-0 flex-col items-center rounded-2xl border py-3 transition-colors', on ? 'border-primary bg-primary text-on-primary shadow-soft' : 'border-ink/25 bg-paper text-ink hover:border-primary', !on && !free && 'opacity-50')}>
               <span className="text-[11px] uppercase tracking-wider opacity-80">{fmt(dt, { weekday: 'short' })}</span>
               <span className="font-display text-3xl leading-none">{dt.getDate()}</span>
               <span className="text-[11px] opacity-80">{fmt(dt, { month: 'short' })}</span>
@@ -57,12 +94,15 @@ function Slots({ branchId, kind, value, date, onPick, required }: { branchId: st
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3" role="radiogroup" aria-label={t('checkout.pick_time')}>
         {current.slots.map((s) => {
-          const on = value === s.id;
+          // The same time slot repeats every week: the date must match too.
+          const on = value === s.id && date === current.date;
+          const bookable = isSlotBookable(s, current.date, now);
           return (
-            <button key={s.id} role="radio" aria-checked={on} disabled={s.is_full} onClick={() => onPick(s.id, s.date)} className={cx('relative rounded-2xl border px-3 py-3 text-center text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50', on ? 'border-primary bg-primary text-on-primary shadow-soft' : 'border-ink/25 bg-paper text-ink hover:border-primary', s.is_full && 'line-through')}>
+            <button key={s.id} role="radio" aria-checked={on} disabled={!bookable} onClick={() => onPick(s.id, current.date)} className={cx('relative rounded-2xl border px-3 py-3 text-center text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50', on ? 'border-primary bg-primary text-on-primary shadow-soft' : 'border-ink/25 bg-paper text-ink hover:border-primary', !hasFreePlace(s) && 'line-through')}>
               {on && <Check size={14} className="absolute end-2 top-2" aria-hidden="true" />}
               <span className="block font-semibold tabular-nums" dir="ltr">{s.starts_at} – {s.ends_at}</span>
-              <span className={cx('text-[11px]', on ? 'text-on-primary/85' : 'text-ink-soft')}>{s.is_full ? t('checkout.slot_full') : t('checkout.slot_left', { n: s.available })}</span>
+              <span className={cx('text-[11px]', on ? 'text-on-primary/85' : 'text-ink-soft')}>{!hasFreePlace(s) || !bookable ? t('checkout.slot_full') : t('checkout.slot_left', { n: s.available })}</span>
+              {on && auto && <span className="mt-0.5 flex items-center justify-center gap-1 text-[11px] font-medium text-on-primary/90" data-testid="slot-earliest-badge"><Sparkles size={11} aria-hidden="true" />{t('checkout.slot_earliest')}</span>}
             </button>
           );
         })}
@@ -88,6 +128,15 @@ export default function Checkout() {
   const [pickBranch, setPickBranch] = useState<string | null>(pref);
   const [slotId, setSlotId] = useState<string | null>(null);
   const [slotDate, setSlotDate] = useState<string | null>(null);
+  // The time was chosen by the page as the earliest available (not by the customer), and the time that was chosen before it became unavailable.
+  const [slotAuto, setSlotAuto] = useState(false);
+  const [slotReplaced, setSlotReplaced] = useState(false);
+  // How often the page chose a time since the customer (or a new address, showroom or way of receiving) last decided: a server that keeps refusing the earliest time can never make the page loop.
+  const autoPicks = useRef(0);
+  // The second number for the driver: starts from the one saved on the profile; otherwise typed, or "I don't have another number".
+  const [alt, setAlt] = useState({ text: '', none: false });
+  const [altTouched, setAltTouched] = useState(false);
+  const [altBlurred, setAltBlurred] = useState(false);
   const [method, setMethod] = useState<Method | null>(null);
   const [coupon, setCoupon] = useState('');
   const [couponApplied, setCouponApplied] = useState('');
@@ -126,8 +175,25 @@ export default function Checkout() {
 
   // A new quote means a new order intent: a fresh idempotency key.
   useEffect(() => { idem.current = uuid(); }, [q?.quote_hash]);
-  // Reset the slot when the allocation changes.
-  useEffect(() => { setSlotId(null); setSlotDate(null); }, [ful, addressId, pickBranch]);
+  // A new address, showroom or way of receiving has its own times: forget the old one (the earliest of the new ones is chosen when they load).
+  useEffect(() => { setSlotId(null); setSlotDate(null); setSlotAuto(false); setSlotReplaced(false); autoPicks.current = 0; }, [ful, addressId, pickBranch]);
+  const pickSlot = (id: string | null, d: string | null, meta?: PickMeta) => {
+    if (meta?.auto) { if (autoPicks.current >= 4) return; autoPicks.current += 1; } else if (id) autoPicks.current = 0;
+    setSlotId(id); setSlotDate(d); setSlotAuto(!!meta?.auto && !!id); setSlotReplaced(!!meta?.replaced);
+  };
+  // The saved number starts the field, once, as long as the customer has not typed.
+  useEffect(() => { if (user && !altTouched) setAlt({ text: nationalDigits(user.alternate_phone), none: false }); }, [user, altTouched]);
+  const altStatus = altPhoneStatus(alt.text, alt.none, user?.phone);
+  const altOk = ful === 'pickup' || altPhoneDone(altStatus);
+  const altDigits = latinDigits(alt.text).replace(/\D/g, '');
+  // Never a surprise: a half-typed number is not an error until they leave the field or have typed a whole number.
+  const altError = altStatus === 'same' ? t('checkout.alt_same') : altStatus === 'invalid' && (altBlurred || altDigits.length >= 8) ? t('checkout.alt_invalid') : undefined;
+  // The server says the chosen time is not available (full, or its cutoff passed): drop it and look at what is free again; the earliest free one is chosen next.
+  useEffect(() => {
+    if (!q || quote.isPlaceholderData || !slotId || !q.errors?.some((e) => e.code === 'slot_unavailable')) return;
+    setSlotId(null); setSlotDate(null); setSlotAuto(false); setSlotReplaced(true);
+    void qc.invalidateQueries({ queryKey: ['slots'] });
+  }, [q, quote.isPlaceholderData, slotId, qc]);
   // Pick the first available payment method.
   useEffect(() => {
     if (!q) return;
@@ -144,7 +210,7 @@ export default function Checkout() {
   const showSlots = ready && !!slotBranch;
 
   const place = useMutation({
-    mutationFn: async () => (await post<{ data: { order: OrderDetail; payment: PaymentAction } }>('/checkout/orders', { ...options, quote_hash: q!.quote_hash, customer_notes: notes.trim() || undefined, payment_method: method }, { 'Idempotency-Key': idem.current })).data,
+    mutationFn: async () => (await post<{ data: { order: OrderDetail; payment: PaymentAction } }>('/checkout/orders', { ...options, ...(ful === 'delivery' ? altPhoneFields(alt.text, alt.none, user?.phone) : {}), quote_hash: q!.quote_hash, customer_notes: notes.trim() || undefined, payment_method: method }, { 'Idempotency-Key': idem.current })).data,
     onSuccess: async (r) => {
       await qc.invalidateQueries({ queryKey: ['cart'] });
       if (r.payment.action === 'redirect' && r.payment.redirect_url) {
@@ -156,6 +222,8 @@ export default function Checkout() {
     },
     onError: (e) => {
       if (e instanceof ApiError && e.code === 'quote_changed') { toast.push(t('checkout.quote_changed'), 'info'); void quote.refetch(); return; }
+      // Someone took the time meanwhile: the earliest free one is chosen again from fresh lists.
+      if (e instanceof ApiError && e.code === 'slot_unavailable') { setSlotId(null); setSlotDate(null); setSlotAuto(false); setSlotReplaced(true); void qc.invalidateQueries({ queryKey: ['slots'] }); void quote.refetch(); return; }
       setErr(e instanceof ApiError ? e.message : t('error.generic'));
     },
   });
@@ -174,7 +242,10 @@ export default function Checkout() {
     pay_at_pickup: { icon: <Store size={22} />, title: t('pay.pickup'), text: t('pay.pickup_text') },
   };
   const grand = q?.totals.grand_total.formatted;
-  const canPlace = !!q && !!method && !place.isPending && (!slotRequired || !!slotId) && !quote.isFetching && !quoteErr;
+  const quoteErrors = (q?.errors ?? []).filter((e) => e.code !== 'slot_required' && e.code !== 'slot_unavailable');
+  const canPlace = !!q && !!method && !place.isPending && (!slotRequired || !!slotId) && altOk && q.can_place_order !== false && !quote.isFetching && !quoteErr;
+  // Why the button waits, in plain words: shown before it is ever pressed.
+  const holdReason = !q || quote.isFetching ? null : ful === 'delivery' && !altOk ? (altStatus === 'invalid' ? t('checkout.alt_invalid') : altStatus === 'same' ? t('checkout.alt_same') : t('checkout.alt_required_hint')) : slotRequired && !slotId ? t('checkout.slot_required') : null;
 
   return (
     <div className="wrap py-8 md:py-12">
@@ -205,6 +276,14 @@ export default function Checkout() {
                     ))}
                   </div>
                 ) : <button onClick={() => setNewAddr(true)} className="w-full rounded-2xl border border-dashed border-brass bg-brass-tint/50 p-6 text-center text-sm font-medium text-brass-deep">{t('address.add_first')}</button>}
+
+                {/* A second number for the driver, in case the main one is not answered: type one, or say there is none. */}
+                <div className="mt-6" data-testid="alt-phone">
+                  <Input label={t('checkout.alt_label')} type="tel" inputMode="tel" autoComplete="tel-national" prefix="+974" placeholder="5522 0011" maxLength={20} disabled={alt.none}
+                    value={alt.text} onChange={(e) => { setAltTouched(true); setAlt({ text: e.target.value, none: false }); if (!e.target.value.trim()) setAltBlurred(false); }} onBlur={() => { if (alt.text.trim()) setAltBlurred(true); }}
+                    error={altError} hint={altStatus === 'valid' ? t('checkout.alt_saved_note') : t('checkout.alt_help')} />
+                  <div className="mt-3"><Checkbox checked={alt.none} onChange={(v) => { setAltTouched(true); setAltBlurred(false); setAlt({ text: '', none: v }); }}>{t('checkout.alt_none')}</Checkbox></div>
+                </div>
               </div>
             ) : (
               <div className="mt-6">
@@ -223,7 +302,8 @@ export default function Checkout() {
 
           {showSlots && (
             <Step n={2} title={ful === 'delivery' ? t('checkout.when_delivery') : t('checkout.when_pickup')} done={!!slotId || !slotRequired}>
-              <Slots key={`${ful}-${slotBranch}`} branchId={slotBranch} kind={ful} value={slotId} date={slotDate} required={slotRequired} onPick={(id, d) => { setSlotId(id); setSlotDate(d); }} />
+              <Slots key={`${ful}-${slotBranch}`} branchId={slotBranch} kind={ful} value={slotId} date={slotDate} auto={slotAuto} replaced={slotReplaced} required={slotRequired} onPick={pickSlot}
+                onSwitch={ful === 'delivery' ? (anyPickup ? () => setFul('pickup') : undefined) : (anyDelivery ? () => setFul('delivery') : undefined)} />
               {slotRequired && !slotId && <p className="mt-3 text-sm font-medium text-warning">{t('checkout.slot_required')}</p>}
             </Step>
           )}
@@ -282,6 +362,7 @@ export default function Checkout() {
             </ul>
             {quoteErr && <div className="mt-5"><Alert tone="danger">{quoteErr.message}</Alert></div>}
             {q?.warnings?.map((w, i) => <div key={i} className="mt-4"><Alert tone="warning">{w.message ?? w.code}</Alert></div>)}
+            {quoteErrors.map((e, i) => <div key={i} className="mt-4"><Alert tone="danger">{e.message ?? e.code}</Alert></div>)}
             <dl className={cx('mt-5 space-y-2.5 border-t border-line pt-5 text-sm transition-opacity', quote.isFetching && 'opacity-60')}>
               <Row k={t('cart.subtotal')} v={(q?.totals.subtotal ?? cart.subtotal).formatted} />
               {q && parseFloat(q.totals.discount.amount) > 0 && <Row k={t('checkout.discount')} v={`− ${q.totals.discount.formatted}`} good />}
@@ -294,6 +375,7 @@ export default function Checkout() {
             </dl>
             {q && q.loyalty.points_to_earn ? <p className="mt-3 flex items-center gap-2 text-[13px] text-brass-deep"><Gift size={14} />{t('checkout.earn', { n: q.loyalty.points_to_earn })}</p> : null}
             {err && <div className="mt-4"><Alert tone="danger">{err}</Alert></div>}
+            {holdReason && <p className="mt-5 text-center text-sm font-medium text-warning" role="status" data-testid="place-hold-reason">{holdReason}</p>}
             <Button size="lg" block className="mt-6" disabled={!canPlace} loading={place.isPending} onClick={() => { setErr(''); place.mutate(); }}>
               <Lock size={16} />{method === 'sadad' ? t('checkout.pay_now') : t('checkout.place')}{grand ? ` · ${grand}` : ''}
             </Button>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Rules\ProductBarcode;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ProductRequest extends FormRequest
@@ -17,7 +18,7 @@ class ProductRequest extends FormRequest
 
         return [
             'sku' => [$req, 'string', 'max:64', 'regex:/^[A-Za-z0-9\-_.]+$/'],
-            'barcode' => ['nullable', 'string', 'max:64'],
+            'barcode' => ['nullable', 'string', 'max:64', 'regex:'.ProductBarcode::PATTERN],
             'category_id' => ['nullable', 'uuid', 'exists:categories,id'],
             'brand_id' => ['nullable', 'uuid', 'exists:brands,id'],
             'status' => ['sometimes', 'in:draft,active,inactive,archived'],
@@ -51,7 +52,7 @@ class ProductRequest extends FormRequest
             'translations.*.search_keywords' => ['nullable', 'string', 'max:1000'],
             'variants' => ['sometimes', 'array'],
             'variants.*.sku' => ['required_with:variants', 'string', 'max:64', 'distinct'],
-            'variants.*.barcode' => ['nullable', 'string', 'max:64', 'distinct'],
+            'variants.*.barcode' => ['nullable', 'string', 'max:64', 'regex:'.ProductBarcode::PATTERN, 'distinct'],
             'variants.*.price' => ['nullable', 'numeric', 'min:0'],
             'variants.*.sale_price' => ['nullable', 'numeric', 'min:0'],
             'variants.*.name_en' => ['nullable', 'string', 'max:255'],

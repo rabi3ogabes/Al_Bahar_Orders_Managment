@@ -17,6 +17,7 @@ class OrderPresenter
     {
         return [
             'id' => $o->id, 'number' => $o->number, 'status' => $o->status->value, 'status_label' => __('status.'.$o->status->value),
+            'seq' => (int) $o->progress_seq,
             'payment_status' => $o->payment_status->value, 'payment_method' => $o->payment_method, 'fulfillment_type' => $o->fulfillment_type,
             'items_count' => $o->relationLoaded('items') ? $o->items->sum('quantity') : null,
             'grand_total' => Money::of($o->grand_total)->jsonSerialize(), 'placed_at' => BusinessTime::iso($o->placed_at),

@@ -100,7 +100,7 @@ class ProductService
         if (ProductVariant::where('sku', $v['sku'])->exists() || Product::where('sku', $v['sku'])->whereKeyNot($product->id)->exists()) {
             throw DomainException::make('sku_taken');
         }
-        if (! empty($v['barcode']) && (ProductVariant::where('barcode', $v['barcode'])->exists() || Product::where('barcode', $v['barcode'])->whereKeyNot($product->id)->exists())) {
+        if (! empty($v['barcode']) && $this->barcodeTaken($v['barcode'], null, null, $product->id)) {
             throw DomainException::make('barcode_taken');
         }
         if (! empty($v['is_default'])) {
@@ -332,12 +332,20 @@ class ProductService
                 throw DomainException::make('sku_taken');
             }
         }
-        if ($barcode) {
-            $clash = Product::where('barcode', $barcode)->when($ignoreProductId, fn ($q) => $q->whereKeyNot($ignoreProductId))->exists()
-                || ProductVariant::where('barcode', $barcode)->when($ignoreVariantId, fn ($q) => $q->whereKeyNot($ignoreVariantId))->exists();
-            if ($clash) {
-                throw DomainException::make('barcode_taken');
-            }
+        if ($barcode && $this->barcodeTaken($barcode, $ignoreProductId, $ignoreVariantId, $ownerProductId)) {
+            throw DomainException::make('barcode_taken');
         }
+    }
+
+    /**
+     * Is this barcode already printed on another product or variant? Compared without regard to case, because "Scan to add" reads codes
+     * case-insensitively (two codes that differ only by case could not be told apart at the shelf).
+     * A variant may carry its own product's barcode ($ownerProductId), as a single-variant product usually does.
+     */
+    public function barcodeTaken(string $barcode, ?string $ignoreProductId = null, ?string $ignoreVariantId = null, ?string $ownerProductId = null): bool
+    {
+        return Product::whereRaw('lower(barcode) = lower(?)', [$barcode])->when($ignoreProductId, fn ($q) => $q->whereKeyNot($ignoreProductId))
+            ->when($ownerProductId, fn ($q) => $q->whereKeyNot($ownerProductId))->exists()
+            || ProductVariant::whereRaw('lower(barcode) = lower(?)', [$barcode])->when($ignoreVariantId, fn ($q) => $q->whereKeyNot($ignoreVariantId))->exists();
     }
 }

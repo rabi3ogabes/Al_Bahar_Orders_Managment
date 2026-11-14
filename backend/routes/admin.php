@@ -3,6 +3,7 @@
 // Admin dashboard module routes (prefix /admin, name admin., middleware auth + staff).
 
 use App\Http\Controllers\Admin\DocumentController;
+use App\Http\Controllers\Admin\ProductLabelController;
 use App\Http\Controllers\Admin\PushDeviceController;
 use App\Http\Controllers\Api\V1\Admin\DeliveryRouteController;
 use App\Livewire\Admin;
@@ -29,6 +30,8 @@ Route::get('audit', Admin\Organization\AuditIndex::class)->middleware('permissio
 // ── Catalog ───────────────────────────────────────────────────────────────────
 Route::get('products', Admin\Catalog\ProductIndex::class)->middleware('permission:catalog.view')->name('products.index');
 Route::get('products/create', Admin\Catalog\ProductEditor::class)->middleware('permission:catalog.create')->name('products.create');
+// Printable A4 sheet of barcode labels for the products picked in the list (before products/{product}, which would take "labels" for an id).
+Route::get('products/labels', [ProductLabelController::class, 'sheet'])->middleware('permission:catalog.view')->name('products.labels');
 Route::get('products/{product}', Admin\Catalog\ProductEditor::class)->middleware('permission:catalog.view')->name('products.edit');
 Route::get('categories', Admin\Catalog\CategoryIndex::class)->middleware('permission:catalog.view')->name('categories.index');
 Route::get('brands', Admin\Catalog\BrandIndex::class)->middleware('permission:catalog.view')->name('brands.index');

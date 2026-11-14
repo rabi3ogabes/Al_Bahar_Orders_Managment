@@ -1,12 +1,18 @@
+import 'dart:async';
+
 import 'package:albahar_customer/core/models/money.dart';
 import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/network/interceptors.dart';
 import 'package:albahar_customer/core/utils/json.dart';
+import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
 import 'package:albahar_customer/features/branches/domain/branch_models.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
 import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
 import 'package:albahar_customer/features/checkout/data/checkout_repository.dart';
+import 'package:albahar_customer/features/checkout/domain/alternate_phone.dart';
 import 'package:albahar_customer/features/checkout/domain/checkout_models.dart';
+import 'package:albahar_customer/features/checkout/domain/slot_selection.dart';
+import 'package:albahar_customer/features/checkout/presentation/state/slot_providers.dart';
 import 'package:albahar_customer/features/profile/presentation/state/profile_providers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,6 +31,9 @@ class CheckoutState {
     this.notes = '',
     this.slotUnavailable = false,
     this.slotBranchId,
+    this.slotAuto = false,
+    this.alternate = const AlternatePhoneInput(),
+    this.mainPhone,
   });
 
   final CheckoutOptions options;
@@ -47,6 +56,15 @@ class CheckoutState {
   /// Branch the chosen delivery slot belongs to (a slot is only valid there).
   final String? slotBranchId;
 
+  /// The chosen time (delivery or pickup) was picked by the app as the earliest available, not by the customer.
+  final bool slotAuto;
+
+  /// The customer's answer about a second number for the driver (delivery orders only).
+  final AlternatePhoneInput alternate;
+
+  /// The account's main number, so the second one can be refused when it is the same.
+  final String? mainPhone;
+
   /// A single-branch delivery whose branch publishes slots needs one chosen.
   bool get slotMissing =>
       options.fulfillmentType == FulfillmentType.delivery &&
@@ -58,6 +76,7 @@ class CheckoutState {
   String? get missingRequirement {
     if (options.fulfillmentType == FulfillmentType.delivery && options.addressId == null) return 'address';
     if (options.fulfillmentType == FulfillmentType.pickup && options.branchId == null) return 'branch';
+    if (options.fulfillmentType == FulfillmentType.delivery && !alternate.isDone(mainPhone: mainPhone)) return 'alternate';
     if (slotMissing) return 'slot';
     if (options.paymentMethod == null) return 'payment';
     return null;
@@ -77,6 +96,9 @@ class CheckoutState {
     String? notes,
     bool? slotUnavailable,
     String? Function()? slotBranchId,
+    bool? slotAuto,
+    AlternatePhoneInput? alternate,
+    String? Function()? mainPhone,
   }) => CheckoutState(
     options: options ?? this.options,
     quote: quote != null ? quote() : this.quote,
@@ -89,6 +111,9 @@ class CheckoutState {
     notes: notes ?? this.notes,
     slotUnavailable: slotUnavailable ?? this.slotUnavailable,
     slotBranchId: slotBranchId != null ? slotBranchId() : this.slotBranchId,
+    slotAuto: slotAuto ?? this.slotAuto,
+    alternate: alternate ?? this.alternate,
+    mainPhone: mainPhone != null ? mainPhone() : this.mainPhone,
   );
 }
 
@@ -97,12 +122,31 @@ class CheckoutController extends Notifier<CheckoutState> {
   int _quoteSeq = 0;
   final Map<String, String> _idempotencyKeys = {};
 
+  /// Times the app chose a slot since the customer (or a change of address, branch or fulfilment type) last decided: a guard so
+  /// a server that keeps refusing the earliest time can never make the screen loop. The customer picks by hand after that.
+  int _autoPicks = 0;
+  static const _maxAutoPicks = 4;
+
+  /// Times (`slotId|date`) the server refused for the current address / branch / fulfilment type, though its lists still show them:
+  /// never chosen again for the customer, so the next earliest one is tried instead.
+  final Set<String> _refused = {};
+
   @override
   CheckoutState build() {
     final cart = ref.read(cartControllerProvider).value;
     final address = ref.read(defaultAddressProvider);
     final branchId = ref.read(preferredBranchIdProvider);
     final type = FulfillmentType.parse(cart?.fulfillmentType) ?? FulfillmentType.delivery;
+    final user = ref.read(sessionControllerProvider).user;
+    // The saved second number starts the field; the account may only be known a moment later (then it is filled in once, untouched).
+    ref.listen(sessionControllerProvider.select((s) => s.user), (_, user) {
+      if (user == null) return;
+      final untouched = state.alternate == const AlternatePhoneInput();
+      state = state.copyWith(
+        mainPhone: () => user.phone,
+        alternate: untouched ? AlternatePhoneInput.fromSaved(user.alternatePhone) : null,
+      );
+    });
     return CheckoutState(
       options: CheckoutOptions(
         fulfillmentType: type,
@@ -110,10 +154,17 @@ class CheckoutController extends Notifier<CheckoutState> {
         branchId: cart?.branchId ?? branchId,
         couponCode: cart?.couponCode,
       ),
+      alternate: AlternatePhoneInput.fromSaved(user?.alternatePhone),
+      mainPhone: user?.phone,
     );
   }
 
   CheckoutRepository get _repo => ref.read(checkoutRepositoryProvider);
+
+  /// The customer's second number, sent with delivery requests once answered (pickup never asks).
+  JsonMap get _alternateFields => state.options.fulfillmentType == FulfillmentType.delivery
+      ? state.alternate.requestFields(mainPhone: state.mainPhone)
+      : const {};
 
   /// Fetches a fresh quote for the current options. Stale responses (from
   /// superseded option changes) are discarded. If the server's answer makes
@@ -124,7 +175,7 @@ class CheckoutController extends Notifier<CheckoutState> {
     final quotedWith = state.options;
     state = state.copyWith(quoting: true, quoteError: () => null);
     try {
-      final quote = await _repo.quote(quotedWith);
+      final quote = await _repo.quote(quotedWith, extra: _alternateFields);
       if (!ref.mounted || seq != _quoteSeq) return;
       var corrected = _correct(quotedWith, quote);
       var rejected = false;
@@ -133,21 +184,29 @@ class CheckoutController extends Notifier<CheckoutState> {
         if (quote.issue('slot_unavailable') != null) {
           // Invalid or full slot: drop it and refetch what is really free.
           rejected = true;
+          _refused.add('${corrected.deliverySlotId}|${corrected.deliveryDate}');
           corrected = _withoutSlot(corrected);
-          ref.invalidate(deliverySlotsProvider);
+          _refetchSlots();
         } else if (fulfillment == null ||
             fulfillment.type != 'delivery' ||
             (state.slotBranchId != null && fulfillment.branch.id != state.slotBranchId)) {
           // Split order (slot ignored) or the branch changed: the slot no longer applies.
           corrected = _withoutSlot(corrected);
         }
+      } else if (corrected.pickupSlotId != null && quote.issue('slot_unavailable') != null) {
+        rejected = true;
+        _refused.add('${corrected.pickupSlotId}|${corrected.pickupDate}');
+        corrected = _withoutPickupSlot(corrected);
+        _refetchSlots();
       }
+      final noSlot = corrected.deliverySlotId == null && corrected.pickupSlotId == null;
       state = state.copyWith(
         quote: () => quote,
         quoting: false,
         options: corrected,
         slotUnavailable: rejected ? true : null,
         slotBranchId: corrected.deliverySlotId == null ? () => null : null,
+        slotAuto: noSlot ? false : null,
       );
       if (allowCorrection && corrected != quotedWith) await refreshQuote(allowCorrection: false);
     } catch (e) {
@@ -156,8 +215,19 @@ class CheckoutController extends Notifier<CheckoutState> {
     }
   }
 
+  /// A time the server refused (or one that filled up): what is really free has to be fetched again.
+  void _refetchSlots() {
+    ref.invalidate(deliverySlotsProvider);
+    ref.invalidate(pickupSlotsProvider);
+    ref.invalidate(deliverySlotWindowProvider);
+    ref.invalidate(pickupSlotWindowProvider);
+  }
+
   static CheckoutOptions _withoutSlot(CheckoutOptions o) =>
       o.copyWith(deliverySlotId: () => null, deliveryDate: () => null);
+
+  static CheckoutOptions _withoutPickupSlot(CheckoutOptions o) =>
+      o.copyWith(pickupSlotId: () => null, pickupDate: () => null);
 
   static CheckoutOptions _correct(CheckoutOptions options, Quote quote) {
     var next = options;
@@ -178,31 +248,116 @@ class CheckoutController extends Notifier<CheckoutState> {
     final before = state.options;
     var next = change(before);
     if (next == before) return;
-    // A delivery slot belongs to one branch: a new address, branch or
-    // fulfilment type invalidates it (the quote will name the right branch).
+    // A time slot belongs to one branch: a new address, branch or fulfilment type invalidates it (the quote will name the right
+    // branch) and the earliest time is chosen again for the new context.
     final context =
         next.addressId != before.addressId ||
         next.branchId != before.branchId ||
         next.fulfillmentType != before.fulfillmentType;
-    final slotChanged = next.deliverySlotId != before.deliverySlotId;
-    if (context && !slotChanged) next = _withoutSlot(next);
+    final slotChanged = next.deliverySlotId != before.deliverySlotId || next.pickupSlotId != before.pickupSlotId;
+    if (context && !slotChanged) next = _withoutPickupSlot(_withoutSlot(next));
+    if (context) {
+      _autoPicks = 0;
+      _refused.clear();
+    }
     state = state.copyWith(
       options: next,
       quoteChanged: false,
       previousTotal: () => null,
       slotUnavailable: context ? false : null,
       slotBranchId: next.deliverySlotId == null ? () => null : null,
+      slotAuto: context && !slotChanged ? false : null,
     );
     await refreshQuote();
   }
 
-  /// Chooses [slot] of [branchId] (the branch named by the current quote).
-  Future<void> selectDeliverySlot(DeliverySlot slot, {required String branchId, required String date}) async {
-    state = state.copyWith(slotUnavailable: false, slotBranchId: () => branchId);
+  /// The customer chose [slot] of [branchId] (the branch named by the current quote). Never replaced by an earlier time later.
+  Future<void> selectDeliverySlot(
+    DeliverySlot slot, {
+    required String branchId,
+    required String date,
+    bool auto = false,
+  }) async {
+    if (!auto) _autoPicks = 0;
+    state = state.copyWith(slotUnavailable: auto ? null : false, slotBranchId: () => branchId, slotAuto: auto);
     await update((o) => o.copyWith(deliverySlotId: () => slot.id, deliveryDate: () => date));
   }
 
+  /// The customer chose a pickup [slot] (the branch is the one in the options).
+  Future<void> selectPickupSlot(PickupSlot slot, {required String date, bool auto = false}) async {
+    if (!auto) _autoPicks = 0;
+    state = state.copyWith(slotUnavailable: auto ? null : false, slotAuto: auto);
+    await update((o) => o.copyWith(pickupSlotId: () => slot.id, pickupDate: () => date));
+  }
+
+  /// Brings the selected time in line with what [window] says is free right now ([SlotWindow] of delivery or pickup, per [kind]):
+  /// chooses the earliest bookable time when none is chosen, replaces one that has become unavailable (the screen then says so),
+  /// and leaves a still-bookable choice alone, whoever made it. Safe to call as often as the screen likes.
+  Future<void> reconcileSlots({
+    required FulfillmentType kind,
+    required String branchId,
+    required SlotWindow window,
+    DateTime? now,
+  }) async {
+    if (!ref.mounted) return;
+    final o = state.options;
+    if (o.fulfillmentType != kind) return;
+    final delivery = kind == FulfillmentType.delivery;
+    if (!delivery && o.branchId != branchId) return;
+    final id = delivery ? o.deliverySlotId : o.pickupSlotId;
+    final date = delivery ? o.deliveryDate : o.pickupDate;
+    final decision = decideSlot(
+      window: _withoutRefused(window),
+      selectedSlotId: id,
+      selectedDate: date,
+      now: now ?? ref.read(slotClockProvider)(),
+    );
+    switch (decision.plan) {
+      case SlotPlan.keep:
+        return;
+      case SlotPlan.none:
+        if (id == null) return;
+        state = state.copyWith(slotUnavailable: decision.replacedStale ? true : null, slotAuto: false);
+        await update((x) => delivery ? _withoutSlot(x) : _withoutPickupSlot(x));
+      case SlotPlan.choose:
+        if (_autoPicks >= _maxAutoPicks) return;
+        _autoPicks++;
+        final pick = decision.choice!;
+        if (decision.replacedStale) state = state.copyWith(slotUnavailable: true);
+        if (delivery) {
+          await selectDeliverySlot(pick.slot, branchId: branchId, date: pick.date, auto: true);
+        } else {
+          await selectPickupSlot(pick.slot, date: pick.date, auto: true);
+        }
+    }
+  }
+
+  /// [window] without the times the server has refused for this context.
+  SlotWindow _withoutRefused(SlotWindow window) => _refused.isEmpty
+      ? window
+      : SlotWindow(
+          from: window.from,
+          to: window.to,
+          days: [
+            for (final d in window.days)
+              SlotDay(
+                date: d.date,
+                available: d.available,
+                slots: [
+                  for (final s in d.slots)
+                    if (!_refused.contains('${s.id}|${d.date}')) s,
+                ],
+              ),
+          ],
+        );
+
   void setNotes(String notes) => state = state.copyWith(notes: notes);
+
+  /// The customer is typing the second number: no new quote is needed (it never changes the price).
+  void setAlternateText(String text) => state = state.copyWith(alternate: state.alternate.typed(text));
+
+  /// "I don't have another number": ticking empties the field, typing unticks.
+  void setAlternateDeclined(bool declined) => state = state.copyWith(alternate: state.alternate.decline(declined));
 
   /// Clears the "totals changed" banner once the customer has reviewed it.
   void acknowledgeQuoteChange() => state = state.copyWith(quoteChanged: false, previousTotal: () => null);
@@ -222,11 +377,13 @@ class CheckoutController extends Notifier<CheckoutState> {
         quoteHash: quote.quoteHash,
         idempotencyKey: key,
         customerNotes: state.notes,
+        extra: _alternateFields,
       );
       if (!ref.mounted) return placed;
       state = state.copyWith(placing: false);
-      // Cart was converted into the order server-side.
+      // Cart was converted into the order server-side. The saved second number may have changed with it.
       ref.invalidate(cartControllerProvider);
+      unawaited(ref.read(sessionControllerProvider.notifier).refreshUser());
       return placed;
     } on ApiException catch (e) {
       if (!ref.mounted) return null;
@@ -246,13 +403,17 @@ class CheckoutController extends Notifier<CheckoutState> {
         return null;
       }
       if (e.code == 'slot_unavailable') {
-        // Someone took the slot meanwhile: clear it, refetch, re-quote.
-        ref.invalidate(deliverySlotsProvider);
+        // Someone took the slot meanwhile: clear it, refetch, re-quote (the earliest free time is then chosen again).
+        final taken = state.options.deliverySlotId ?? state.options.pickupSlotId;
+        final takenDate = state.options.deliverySlotId != null ? state.options.deliveryDate : state.options.pickupDate;
+        if (taken != null) _refused.add('$taken|$takenDate');
+        _refetchSlots();
         state = state.copyWith(
           placing: false,
-          options: _withoutSlot(state.options),
+          options: _withoutPickupSlot(_withoutSlot(state.options)),
           slotUnavailable: true,
           slotBranchId: () => null,
+          slotAuto: false,
         );
         await refreshQuote();
         return null;

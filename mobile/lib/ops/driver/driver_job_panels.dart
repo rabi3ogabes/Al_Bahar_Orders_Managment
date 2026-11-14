@@ -114,6 +114,9 @@ class _JobDetails extends ConsumerWidget {
                 ),
               ),
             ],
+            // The customer's second number, for when the main one is not answered. Shown only while the job is open.
+            if (!readOnly && job.alternatePhone != null)
+              AlternatePhoneCall(key: const ValueKey('call-alternative'), phone: job.alternatePhone!),
           ],
         ),
         PanelSection(

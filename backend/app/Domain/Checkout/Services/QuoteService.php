@@ -16,7 +16,9 @@ use App\Domain\Orders\Models\Cart;
 use App\Domain\Orders\Models\UserAddress;
 use App\Domain\Pricing\Services\PriceResolver;
 use App\Domain\Settings\Services\Settings;
+use App\Support\AlternatePhone;
 use App\Support\Money;
+use App\Support\Phone;
 use Illuminate\Support\Collection;
 
 /**
@@ -28,6 +30,9 @@ use Illuminate\Support\Collection;
  *    free-delivery threshold; + oversized surcharge if any oversized item; + express fee when requested & offered.
  *  - Zone min/max order limits are checked per fulfillment subtotal.
  *  - COD fee applies only to cash on delivery. Service fee from settings. Tax per configured rate (default 0%).
+ *  - Splitting an order across branches is possible only while the admin setting checkout.show_split_shipment is on; when it is off the
+ *    client's allow_split is ignored (no split). The same setting decides whether clients show the switch (quote.split_choice).
+ *  - A delivery order may carry the customer's second number for the driver (alternate_phone / no_alternate_phone, see alternatePhone()).
  */
 class QuoteService
 {
@@ -44,7 +49,8 @@ class QuoteService
     /**
      * @param  array{fulfillment_type?: string, address_id?: ?string, branch_id?: ?string, payment_method?: ?string, coupon_code?: ?string,
      *               loyalty_points?: int, allow_split?: bool, express?: bool, pickup_slot_id?: ?string, pickup_date?: ?string,
-     *               delivery_slot_id?: ?string, delivery_date?: ?string, latitude?: ?float, longitude?: ?float, restrict_branch_ids?: list<string>}  $o
+     *               delivery_slot_id?: ?string, delivery_date?: ?string, latitude?: ?float, longitude?: ?float, restrict_branch_ids?: list<string>,
+     *               alternate_phone?: ?string, no_alternate_phone?: bool}  $o
      */
     public function quote(User $user, Cart $cart, array $o): Quote
     {
@@ -52,6 +58,9 @@ class QuoteService
         $q->fulfillmentType = $o['fulfillment_type'] ?? $cart->fulfillment_type ?? 'delivery';
         $q->paymentMethod = $o['payment_method'] ?? null;
         $q->couponCode = array_key_exists('coupon_code', $o) ? ($o['coupon_code'] ?: null) : $cart->coupon_code;
+        $this->alternatePhone($user, $q, $o);
+        // The admin switch wins over whatever the client sent: with it off an order is never split.
+        $o['allow_split'] = $this->splitEnabled() && (bool) ($o['allow_split'] ?? true);
         $cart->loadMissing(['items.variant.product.translations', 'items.variant.product.images', 'items.variant.images', 'items.variant.attributeValues.attribute']);
 
         if ($cart->items->isEmpty()) {
@@ -87,13 +96,14 @@ class QuoteService
 
         // 3. Allocate units to branches.
         $preferred = $o['branch_id'] ?? $cart->branch_id;
-        $alloc = $this->allocator->allocate($wanted, $candidates, $preferred, (bool) ($o['allow_split'] ?? true),
+        $alloc = $this->allocator->allocate($wanted, $candidates, $preferred, $o['allow_split'],
             isset($o['latitude']) ? (float) $o['latitude'] : $address?->latitude, isset($o['longitude']) ? (float) $o['longitude'] : $address?->longitude);
         foreach ($alloc['shortages'] as $vid => $missing) {
             $item = $cart->items->firstWhere('product_variant_id', $vid);
             $q->error('insufficient_stock', ['variant_id' => $vid, 'name' => $item?->variant->product->trans('name'), 'requested' => $wanted[$vid], 'available' => $wanted[$vid] - $missing]);
         }
         $q->isSplit = count($alloc['allocations']) > 1;
+        $q->splitChoice = $this->splitEnabled() && $alloc['stocked_branches'] > 1;
 
         // 4. Build priced lines per fulfillment.
         $branches = $candidates->keyBy('id');
@@ -166,6 +176,42 @@ class QuoteService
         return $this->finalize($q, $user, $o);
     }
 
+    /** The admin setting "Settings → Checkout → Show the split shipment switch" (default on). */
+    private function splitEnabled(): bool
+    {
+        return (bool) $this->settings->get('checkout.show_split_shipment', true);
+    }
+
+    /**
+     * The customer's second number, for the driver (delivery orders only; pickup never asks).
+     *  - alternate_phone given: must be a Qatar mobile number other than the main one, otherwise a plain-words error.
+     *  - no_alternate_phone ("I don't have another number"): none, whatever is saved on the profile.
+     *  - a current client always sends one of the two; if it sent neither a value nor the tick, the quote says what is missing.
+     *  - an older client sends neither key: the number saved on the profile (if any) is used and nothing is required of it.
+     */
+    private function alternatePhone(User $user, Quote $q, array $o): void
+    {
+        if ($q->fulfillmentType !== 'delivery') {
+            return;
+        }
+        $asked = array_key_exists('alternate_phone', $o) || array_key_exists('no_alternate_phone', $o);
+        if (! $asked) {
+            $saved = (string) $user->alternate_phone;
+            $q->alternatePhone = $saved !== '' && ! Phone::same($saved, $user->phone) ? $saved : null;
+
+            return;
+        }
+        [$phone, $error] = AlternatePhone::check($o['alternate_phone'] ?? null, $user->phone);
+        if ($error !== null) {
+            $q->error($error);
+        } elseif ($phone !== null) {
+            $q->alternatePhone = $phone;
+            $q->alternatePhoneGiven = true;
+        } elseif (empty($o['no_alternate_phone'])) {
+            $q->error('alternate_phone_required');
+        }
+    }
+
     /** @return array{0: Collection<int, Branch>, 1: array<string, BranchDeliveryZone>, 2: ?UserAddress} */
     private function candidates(User $user, Cart $cart, array $o, Quote $q): array
     {
@@ -178,7 +224,7 @@ class QuoteService
                 return [collect(), [], null];
             }
             $q->pickupBranch = $branch;
-            $others = ($o['allow_split'] ?? true)
+            $others = $o['allow_split']
                 ? Branch::active()->where('pickup_enabled', true)->whereKeyNot($branch->id)->orderBy('sort_order')->get()
                 : collect();
 

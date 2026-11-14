@@ -185,6 +185,7 @@ return [
         'checkout__reservation_ttl_minutes' => 'Stock hold for online payment',
         'checkout__max_quantity_per_line' => 'Maximum quantity per item',
         'checkout__cart_ttl_days' => 'Cart lifetime',
+        'checkout__show_split_shipment' => 'Show "allow split shipment" at checkout',
         'payments__online_payment_window_minutes' => 'Online payment window',
         'pickup__token_ttl_hours' => 'Pickup code validity',
         'orders__default_prep_minutes' => 'Typical preparation time',
@@ -231,6 +232,7 @@ return [
     'setting_hint' => [
         'checkout__tax_rate_percent' => 'Qatar currently has no VAT; leave at 0 unless advised otherwise.',
         'checkout__reservation_ttl_minutes' => 'Unpaid online orders release their stock after this time.',
+        'checkout__show_split_shipment' => 'When on, customers can choose whether an order may be split across branches, but the switch only appears when more than one active branch holds part of their cart. When off, the switch is hidden everywhere (app, web) and an order is never split: it ships from a single branch or cannot be placed. With only one active branch it makes no difference to customers either way.',
         'orders__default_prep_minutes' => 'Used for the arrival time in the live order notification until a driver is on the road: from the branch accepting an order to it being ready.',
         'orders__default_delivery_minutes' => 'Typical drive from the branch to the customer. Added to the preparation time to estimate the arrival window.',
         'auctions__default_extension_window_seconds' => 'A bid placed this close to the end extends the auction.',

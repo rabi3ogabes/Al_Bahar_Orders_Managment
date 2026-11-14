@@ -160,6 +160,7 @@ class BranchSlot {
     required this.available,
     required this.isFull,
     this.capacity = 0,
+    this.bookableUntil,
   });
   factory BranchSlot.fromJson(JsonMap json) => BranchSlot(
     id: asString(json['id']),
@@ -169,8 +170,12 @@ class BranchSlot {
     capacity: asInt(json['capacity']),
     available: asInt(json['available']),
     isFull: asBool(json['is_full']),
+    bookableUntil: asDate(json['bookable_until']),
   );
   final int capacity;
+
+  /// The last moment this slot can be booked (its start minus the branch's cutoff). Null from an older server.
+  final DateTime? bookableUntil;
   bool get selectable => !isFull && available > 0;
   final String id;
   final String date;

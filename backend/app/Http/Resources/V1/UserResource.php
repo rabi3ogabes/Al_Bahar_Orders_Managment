@@ -17,6 +17,8 @@ class UserResource extends JsonResource
             'type' => $this->type->value,
             'name' => $this->name,
             'phone' => $this->phone,
+            // Their own saved second number (for the delivery driver); null when none.
+            'alternate_phone' => $this->alternate_phone,
             'email' => $this->email,
             'phone_verified' => $this->phone_verified_at !== null,
             'locale' => $this->locale,

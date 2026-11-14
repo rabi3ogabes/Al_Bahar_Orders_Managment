@@ -9,6 +9,7 @@ import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
 import 'package:albahar_customer/features/catalog/presentation/product_list_screen.dart';
 import 'package:albahar_customer/features/catalog/presentation/state/catalog_providers.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/search_suggestions_panel.dart';
+import 'package:albahar_customer/features/scan/presentation/widgets/scan_entry.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -95,8 +96,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       decoration: InputDecoration(
         hintText: l10n.searchHint,
         prefixIcon: const Icon(Icons.search_rounded),
+        // Empty: the way to scan a barcode instead of typing. With text: the clear button.
         suffixIcon: _controller.text.isEmpty
-            ? null
+            ? const ScanIconButton()
             : IconButton(
                 tooltip: l10n.clear,
                 icon: const Icon(Icons.close_rounded),

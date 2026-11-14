@@ -359,6 +359,22 @@ class _JobCardState extends ConsumerState<_JobCard> {
                     label: Text(t.call, maxLines: 1, overflow: TextOverflow.ellipsis),
                   ),
                 ),
+                if (job.alternatePhone != null) ...[
+                  const Gap(AppSpace.xs),
+                  Expanded(
+                    child: Semantics(
+                      label: t.callAlternative,
+                      button: true,
+                      excludeSemantics: true,
+                      child: OutlinedButton.icon(
+                        key: const ValueKey('card-call-alternative'),
+                        onPressed: () => dial(context, job.alternatePhone),
+                        icon: const Icon(Icons.phone_forwarded_rounded, size: 18),
+                        label: Text(t.alternativeShort, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                    ),
+                  ),
+                ],
                 if (!widget.embedded) ...[
                   const Gap(AppSpace.xs),
                   Expanded(

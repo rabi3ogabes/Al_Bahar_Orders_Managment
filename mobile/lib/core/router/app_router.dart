@@ -35,6 +35,7 @@ import 'package:albahar_customer/features/profile/presentation/invite_friends_sc
 import 'package:albahar_customer/features/profile/presentation/loyalty_screen.dart';
 import 'package:albahar_customer/features/profile/presentation/notification_prefs_screen.dart';
 import 'package:albahar_customer/features/reviews/presentation/write_review_screen.dart';
+import 'package:albahar_customer/features/scan/presentation/scan_screen.dart';
 import 'package:albahar_customer/features/settings/presentation/delete_account_screen.dart';
 import 'package:albahar_customer/features/settings/presentation/settings_screen.dart';
 import 'package:albahar_customer/features/support/presentation/cms_page_screen.dart';
@@ -256,6 +257,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/search',
         builder: (_, s) => SearchScreen(initialQuery: s.uri.queryParameters['q']),
       ),
+      // Scan to add: a full-screen camera over the app (no footer). Open to guests; adding to a cart asks them to sign in.
+      GoRoute(path: '/scan', builder: (_, _) => const ScanScreen()),
       GoRoute(
         path: '/branches',
         builder: (_, s) => BranchesScreen(pickMode: s.uri.queryParameters['pick'] == '1'),

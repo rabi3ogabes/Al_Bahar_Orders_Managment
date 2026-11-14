@@ -13,6 +13,8 @@ final class Redactor
         'api_key', 'apikey', 'authorization', 'otp', 'code', 'otp_code', 'pin', 'cvv', 'cvc', 'card_number', 'pan',
         'card', 'checksumhash', 'checksum', 'signature', 'secret_key', 'merchant_key', 'private_key', 'two_factor_secret',
         'two_factor_recovery_codes', 'credentials', 'webhook_secret', 'remember_token', 'push_token',
+        // The customer's second number (for the driver and branch staff only) is never written to a log or an audit record.
+        'alternate_phone',
     ];
 
     public static function redact(mixed $data, int $depth = 0): mixed

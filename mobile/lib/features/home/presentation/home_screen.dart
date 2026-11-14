@@ -24,6 +24,7 @@ import 'package:albahar_customer/features/notifications/presentation/notificatio
 import 'package:albahar_customer/features/notifications/presentation/state/notifications_controller.dart';
 import 'package:albahar_customer/features/orders/presentation/state/order_providers.dart';
 import 'package:albahar_customer/features/orders/presentation/widgets/active_order_card.dart';
+import 'package:albahar_customer/features/scan/presentation/widgets/scan_entry.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -243,7 +244,7 @@ class _HomeSearchRow extends StatelessWidget {
                   onTap: () => context.push('/search'),
                   child: Container(
                     height: 52,
-                    padding: const EdgeInsetsDirectional.symmetric(horizontal: AppSpace.md),
+                    padding: const EdgeInsetsDirectional.only(start: AppSpace.md, end: AppSpace.xxs),
                     decoration: BoxDecoration(
                       color: context.colors.surface,
                       borderRadius: radius,
@@ -260,6 +261,8 @@ class _HomeSearchRow extends StatelessWidget {
                             style: context.text.bodyMedium?.copyWith(color: context.palette.muted),
                           ),
                         ),
+                        // Scan to add: its own tap target inside the pill, so a tap on it never opens Search.
+                        const ScanIconButton(),
                       ],
                     ),
                   ),

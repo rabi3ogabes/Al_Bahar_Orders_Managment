@@ -17,6 +17,7 @@ import 'package:albahar_customer/features/cart/domain/cart_models.dart';
 import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/catalog_widgets.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/upsell_widgets.dart';
+import 'package:albahar_customer/features/scan/presentation/widgets/scan_entry.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -60,12 +61,22 @@ class CartScreen extends ConsumerWidget {
         loading: () => const ListSkeleton(count: 3),
         error: (e, _) => ErrorState(error: e, onRetry: () => ref.invalidate(cartControllerProvider)),
         data: (c) => c.isEmpty
-            ? EmptyState(
-                icon: Icons.shopping_bag_outlined,
-                title: l10n.cartEmpty,
-                message: l10n.cartEmptyMessage,
-                actionLabel: l10n.startShopping,
-                onAction: () => context.go('/home'),
+            ? Column(
+                children: [
+                  Expanded(
+                    child: EmptyState(
+                      icon: Icons.shopping_bag_outlined,
+                      title: l10n.cartEmpty,
+                      message: l10n.cartEmptyMessage,
+                      actionLabel: l10n.startShopping,
+                      onAction: () => context.go('/home'),
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(context.design.gutter, 0, context.design.gutter, AppSpace.lg),
+                    child: const ContentWidth(child: ScanToAddTile()),
+                  ),
+                ],
               )
             : RefreshIndicator(
                 onRefresh: () => ref.read(cartControllerProvider.notifier).revalidate(),
@@ -77,6 +88,8 @@ class CartScreen extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           CheckoutSteps(current: 0, labels: [l10n.cartTitle, l10n.delivery, l10n.paymentMethod]),
+                          const Gap(AppSpace.md),
+                          const ScanToAddTile(),
                           const Gap(AppSpace.md),
                           if (c.warnings.isNotEmpty || c.hasIssues) CartWarningsBanner(cart: c),
                           for (final item in c.items) CartLine(item: item),
