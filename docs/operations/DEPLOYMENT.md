@@ -75,6 +75,19 @@ docker compose run --rm app php artisan catalog:rebrand                         
   (`public/storage` link in the image; the web container mounts the same volume read-only).
 - The sample showrooms from `DemoCatalogSeeder`/`DemoSeeder` are for local testing only.
 
+## Releasing to the live server (SixPanel) — `scripts/deploy-live.sh`
+
+```bash
+cd /var/www/_sites/albahar-app/compose/src && scripts/deploy-live.sh <commit>      # on the server
+```
+
+It checks out exactly that commit, computes the version, rebuilds, reloads nginx and waits for `/api/v1/health` (details in the script's header).
+The version appears in the dashboard footer on every page: **Version 1.0.<commits> · <short commit> · Updated <Qatar date and time>**. It comes from
+`bootstrap/build.json`, baked into the image from the build arguments `APP_VERSION`, `APP_COMMIT`, `APP_BUILT_AT`. The server's `compose.yaml`
+must pass them (`x-build: args:` with `${APP_VERSION:-dev}` etc., as in the repository's `docker-compose.yml`); without them the footer shows
+"dev" and the time the front-end assets were built. After a release, ask Cloudflare to empty its cache for the site if a static file such as
+`robots.txt` changed (SixPanel → Cloudflare → purge).
+
 ## Migrations policy
 
 - Migrations must be backward compatible with the previous release (expand → deploy → contract in a later release).

@@ -53,6 +53,13 @@ RUN composer dump-autoload --optimize --classmap-authoritative --no-dev \
  && ln -sfn ../storage/app/public public/storage \
  && mkdir -p storage/app/public \
  && chown -R www-data:www-data storage bootstrap/cache
+# Which version is running and when it was built: shown in the dashboard footer (App\Support\BuildInfo). Passed by the release script
+# (scripts/deploy-live.sh); it is the last layer, so a new value never rebuilds anything above it.
+ARG APP_VERSION=dev
+ARG APP_COMMIT=
+ARG APP_BUILT_AT=
+RUN printf '{"version":"%s","commit":"%s","built_at":"%s"}\n' "$APP_VERSION" "$APP_COMMIT" "$APP_BUILT_AT" > bootstrap/build.json \
+ && chown www-data:www-data bootstrap/build.json
 USER www-data
 HEALTHCHECK --interval=30s --timeout=5s CMD php -r "exit(@fsockopen('127.0.0.1', 9000) ? 0 : 1);"
 CMD ["php-fpm"]

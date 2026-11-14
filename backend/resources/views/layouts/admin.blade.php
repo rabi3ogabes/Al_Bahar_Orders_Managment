@@ -118,6 +118,17 @@
     <main id="main" class="px-4 py-8 sm:px-6 lg:px-10 lg:py-10">
         {{ $slot }}
     </main>
+
+    {{-- Which version is running and when it was last updated (see App\Support\BuildInfo). --}}
+    @php $build = \App\Support\BuildInfo::get(); @endphp
+    <footer class="px-4 pb-6 sm:px-6 lg:px-10" aria-label="{{ __('admin.build_info') }}" data-build-footer>
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-sand-200/70 pt-4 text-xs text-ink-500 dark:border-ink-800 dark:text-ink-400">
+            <span class="font-medium text-ink-600 dark:text-ink-300">{{ $brand }}</span>
+            <span>{{ __('admin.version') }} <span dir="ltr" class="font-mono text-ink-700 dark:text-sand-200">{{ $build['version'] }}</span></span>
+            @if ($build['commit'])<span class="hidden sm:inline" title="{{ __('admin.build') }}">· <span dir="ltr" class="font-mono">{{ $build['commit'] }}</span></span>@endif
+            @if ($build['built_at'])<span>· {{ __('admin.updated') }} <time datetime="{{ $build['built_at']->utc()->toIso8601ZuluString() }}">{{ \App\Support\BusinessTime::display($build['built_at']) }}</time></span>@endif
+        </div>
+    </footer>
 </div>
 
 {{-- Order cart overlay (admin-assisted orders): opened from the header/sidebar button, anywhere in the dashboard. The New order page docks its own. --}}
