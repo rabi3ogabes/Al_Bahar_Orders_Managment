@@ -264,7 +264,7 @@ class JourneyService
         return $cap > 0 && JourneyDelivery::where('user_id', $userId)->where('status', 'sent')->where('sent_at', '>=', now()->subDay())->count() >= $cap;
     }
 
-    private function deliver(JourneyRun $run, JourneyStep $step, string $channel): ?JourneyDelivery
+    private function deliver(JourneyRun $run, JourneyStep $step, string $channel): JourneyDelivery
     {
         $user = $run->user;
         $locale = $user->preferredLocale();
@@ -520,6 +520,7 @@ class JourneyService
     }
 
     /** Orders won back by messages: converted runs with the message that is credited. @return \Illuminate\Database\Eloquent\Builder<JourneyRun> */
+    /** @return Builder<JourneyRun> */
     public function recovered(int $days = 30, ?string $journeyKey = null, ?string $channel = null): Builder
     {
         return JourneyRun::query()->where('status', 'converted')->whereNotNull('order_id')->where('converted_at', '>=', now()->subDays($days))

@@ -234,3 +234,14 @@ it('shows recovered orders to the admin and flags the order page', function () {
     Livewire\Livewire::test(JourneyIndex::class, ['tab' => 'recovered'])->assertSee($order->number)->assertSee('Noor');
     $this->get(route('admin.customers.show', $this->w->customer->id))->assertOk()->assertSee(__('journeys_admin.touches_title'));
 });
+
+it('lists the messages that were sent, with the customer, on the activity tab', function () {
+    $this->seed(RolesAndPermissionsSeeder::class);
+    enable('abandoned_cart');
+    abandonedCart($this->w);
+    app(JourneyService::class)->tick();
+    expect(JourneyDelivery::count())->toBeGreaterThan(0);
+
+    $this->actingAs(staffWithRole('marketing_manager'));
+    Livewire\Livewire::test(JourneyIndex::class, ['tab' => 'activity'])->assertOk()->assertSee('Noor');
+});

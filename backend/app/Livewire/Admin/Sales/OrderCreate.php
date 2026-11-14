@@ -107,7 +107,7 @@ class OrderCreate extends Component
                     'stock' => $available, 'ok' => $price !== null && $available > 0, 'in_cart' => (int) ($inCart[$v->id] ?? 0)];
             });
             $okRows = $rows->where('ok', true);
-            $from = $rows->filter(fn ($r) => $r['price'])->sortBy(fn ($r) => (float) $r['price']->toDecimal())->first();
+            $from = $rows->filter(fn ($r) => $r['price'] !== null)->sortBy(fn ($r) => (float) $r['price']->toDecimal())->first();
 
             return ['product' => $p, 'variants' => $rows, 'multi' => $rows->count() > 1, 'from' => $from['price'] ?? null, 'stock' => $rows->sum('stock'),
                 'orderable' => $okRows->isNotEmpty(), 'in_cart' => $rows->sum('in_cart'), 'image' => $p->images->first()];

@@ -56,7 +56,7 @@ it('shares product links that open the storefront product page', function () {
     $product = Product::factory()->create();
     $detail = app(CatalogPresenter::class)->detail($product->fresh(), null);
 
-    expect($detail['share_url'])->toEndWith('/products/'.$product->slug)->not->toContain('/app/');
+    expect($detail['share_url'])->toEndWith('/products/'.($product->trans('slug') ?: $product->id))->not->toEndWith('/products/')->not->toContain('/app/');
 })->skip(fn () => ! class_exists(Product::class) || ! method_exists(Product::class, 'factory'), 'no product factory');
 
 it('loads the sample catalogue without creating any account, even in production', function () {

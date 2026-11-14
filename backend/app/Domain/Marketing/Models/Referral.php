@@ -8,6 +8,11 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property string|null $referrer_reward_type
+ * @property string|null $referrer_reward_value
+ * @property string|null $referrer_coupon_code
+ */
 class Referral extends Model
 {
     use HasUuids;

@@ -152,7 +152,7 @@ class DispatchService
         $jobs = Delivery::with('fulfillment.order:id,number,address_snapshot')->whereIn('driver_id', $profiles->keys())->whereIn('status', self::OPEN)->get()->groupBy('driver_id');
         $branches = Branch::whereIn('id', $assignments->pluck('branch_id'))->get()->keyBy('id');
 
-        return User::whereIn('id', $profiles->keys())->orderBy('name')->get()->map(function (User $u) use ($profiles, $jobs, $assignments, $branches) {
+        return User::whereIn('id', $profiles->keys())->orderBy('name')->get()->map(/** @return array<string, mixed> */ function (User $u) use ($profiles, $jobs, $assignments, $branches) {
             $p = $profiles[$u->id];
             $driverJobs = $jobs->get($u->id) ?? collect();
             // The job to show is the one on the road (most advanced first), else the first open one.

@@ -105,7 +105,7 @@ class BranchAdminController extends ApiController
         $this->authorizeBranch('employees.view', $branch->id);
         $rows = BranchEmployee::with(['user', 'user.roleAssignments' => fn ($q) => $q->where('branch_id', $branch->id)->with('role')])
             ->where('branch_id', $branch->id)->get()
-            ->map(fn ($a) => [
+            ->map(fn (BranchEmployee $a) => [
                 'user_id' => $a->user_id, 'name' => $a->user->name, 'email' => $a->user->email, 'job_title' => $a->job_title,
                 'is_active' => $a->is_active, 'is_delivery_driver' => $a->is_delivery_driver,
                 'roles' => $a->user->roleAssignments->pluck('role.key'),

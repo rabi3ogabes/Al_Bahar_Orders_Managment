@@ -115,8 +115,8 @@ class ThemeIndex extends Component
         ]);
         foreach (['hero' => 'heroImage', 'banner' => 'bannerImage', 'logo' => 'logoImage', 'splash' => 'splashImage'] as $col => $prop) {
             if ($this->{$prop}) {
-                $this->deleteMedia($t->{$col.'_image_path'} ?? $t->{$col.'_path'});
                 $field = $col === 'logo' ? 'logo_path' : $col.'_image_path';
+                $this->deleteMedia($t->{$field});
                 $t->{$field} = $this->storeMedia($this->{$prop}, 'themes');
             }
         }

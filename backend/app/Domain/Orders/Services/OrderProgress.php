@@ -165,7 +165,7 @@ class OrderProgress
             // Latest arrival over every part still to come; the progress share comes from the part that decides the stage.
             foreach ($parts->reject(fn (array $p) => in_array($p['phase'], [...self::DONE_PHASES, 'ready'], true) || $p['detail'] === 'pending_payment') as $p) {
                 $w = $this->window($order, $p, $remote);
-                if ($w !== null && ($window === null || $w['to']->gt($window['to']))) {
+                if ($window === null || $w['to']->gt($window['to'])) {
                     $window = ['from' => $w['from'], 'to' => $w['to']];
                 }
                 if ($p['fulfillment']->is($f)) {
@@ -217,9 +217,9 @@ class OrderProgress
 
     /**
      * @param  array{rank: int, phase: string, detail: string, fulfillment: OrderFulfillment, delivery: ?Delivery}  $p
-     * @return array{from: CarbonImmutable, to: CarbonImmutable, sub?: float}|null
+     * @return array{from: CarbonImmutable, to: CarbonImmutable, sub?: float}
      */
-    private function window(Order $order, array $p, bool $remote): ?array
+    private function window(Order $order, array $p, bool $remote): array
     {
         $f = $p['fulfillment'];
         $slot = $this->slotWindow($f);
@@ -232,7 +232,7 @@ class OrderProgress
             return $this->fromCache($cached);
         }
         $w = $this->estimate($order, $p, $remote);
-        if ($remote && $w !== null) {
+        if ($remote) {
             Cache::put($key, ['from' => $w['from']->getTimestamp(), 'to' => $w['to']->getTimestamp(), 'point' => $w['point']->getTimestamp(), 'sub' => $w['sub'] ?? null],
                 max(1, (int) config('platform.live_order.estimate_seconds', 15)));
         }
