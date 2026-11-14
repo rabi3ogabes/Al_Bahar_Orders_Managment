@@ -62,20 +62,21 @@ class OrderSummary {
   final int seq;
 
   /// The same row after a real-time message (the status the customer sees changes at once).
-  OrderSummary withLive({required String status, String? statusLabel, String? paymentStatus, required int seq}) => OrderSummary(
-    id: id,
-    number: number,
-    status: status,
-    statusLabel: statusLabel ?? this.statusLabel,
-    paymentStatus: paymentStatus ?? this.paymentStatus,
-    paymentMethod: paymentMethod,
-    fulfillmentType: fulfillmentType,
-    placedAt: placedAt,
-    grandTotal: grandTotal,
-    itemsCount: itemsCount,
-    thumbnails: thumbnails,
-    seq: seq,
-  );
+  OrderSummary withLive({required String status, String? statusLabel, String? paymentStatus, required int seq}) =>
+      OrderSummary(
+        id: id,
+        number: number,
+        status: status,
+        statusLabel: statusLabel ?? this.statusLabel,
+        paymentStatus: paymentStatus ?? this.paymentStatus,
+        paymentMethod: paymentMethod,
+        fulfillmentType: fulfillmentType,
+        placedAt: placedAt,
+        grandTotal: grandTotal,
+        itemsCount: itemsCount,
+        thumbnails: thumbnails,
+        seq: seq,
+      );
 }
 
 @immutable
@@ -232,7 +233,9 @@ class Fulfillment {
     status: status,
     statusLabel: statusLabel ?? this.statusLabel,
     slot: slot,
-    delivery: deliveryStatus == null ? delivery : (delivery?.withStatus(deliveryStatus) ?? DeliveryInfo(status: deliveryStatus)),
+    delivery: deliveryStatus == null
+        ? delivery
+        : (delivery?.withStatus(deliveryStatus) ?? DeliveryInfo(status: deliveryStatus)),
     pickupStatus: pickupStatus,
     pickupTokenExpiresAt: pickupTokenExpiresAt,
   );
@@ -331,7 +334,11 @@ class Order {
         for (final f in fulfillments)
           parts[f.id] == null
               ? f
-              : f.withLive(status: parts[f.id]!.status, statusLabel: parts[f.id]!.statusLabel, deliveryStatus: parts[f.id]!.deliveryStatus),
+              : f.withLive(
+                  status: parts[f.id]!.status,
+                  statusLabel: parts[f.id]!.statusLabel,
+                  deliveryStatus: parts[f.id]!.deliveryStatus,
+                ),
       ],
       canCancel: canCancel && !closed.contains(status) && status != 'out_for_delivery',
       canPay: canPay && status == 'pending_payment',

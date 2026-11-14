@@ -1,4 +1,3 @@
-
 import 'package:albahar_customer/core/realtime/live_gate.dart';
 import 'package:albahar_customer/core/realtime/live_host.dart';
 import 'package:albahar_customer/core/realtime/live_sync.dart';
@@ -12,7 +11,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// What an `order.updated` message said about one order: its state, and the state of each branch part and its delivery.
 @immutable
 class OrderPatch {
-  const OrderPatch({required this.orderId, required this.seq, required this.status, this.statusLabel, this.paymentStatus, this.parts = const {}});
+  const OrderPatch({
+    required this.orderId,
+    required this.seq,
+    required this.status,
+    this.statusLabel,
+    this.paymentStatus,
+    this.parts = const {},
+  });
 
   /// Null when the message names no order.
   static OrderPatch? fromEvent(PusherEvent e) {
@@ -26,7 +32,13 @@ class OrderPatch {
       for (final f in list.whereType<Map<dynamic, dynamic>>()) {
         final fid = text(f['id']);
         final status = text(f['status']);
-        if (fid != null && status != null) parts[fid] = (status: status, statusLabel: text(f['status_label']), deliveryStatus: text(f['delivery_status']));
+        if (fid != null && status != null) {
+          parts[fid] = (
+            status: status,
+            statusLabel: text(f['status_label']),
+            deliveryStatus: text(f['delivery_status']),
+          );
+        }
       }
     }
     return OrderPatch(
@@ -52,7 +64,8 @@ class OrderLiveState {
   const OrderLiveState({required this.link, this.patches = const {}});
   final LiveLink link;
   final Map<String, OrderPatch> patches;
-  OrderLiveState copyWith({LiveLink? link, Map<String, OrderPatch>? patches}) => OrderLiveState(link: link ?? this.link, patches: patches ?? this.patches);
+  OrderLiveState copyWith({LiveLink? link, Map<String, OrderPatch>? patches}) =>
+      OrderLiveState(link: link ?? this.link, patches: patches ?? this.patches);
 }
 
 /// The customer app's ONE real-time orchestrator for orders (alive while an orders screen is open). It follows the customer's own channel
@@ -78,7 +91,13 @@ class OrderLive extends Notifier<OrderLiveState> {
   @visibleForTesting
   void onEvent(PusherEvent e) {
     final patch = OrderPatch.fromEvent(e);
-    if (patch == null || !_gate.accept(patch.orderId, patch.seq)) return;
+    if (patch == null) return;
+    // A message without a version or a state (an older server, a trimmed payload) still says "something changed": read again, but never paint it over the screen.
+    if (patch.seq <= 0 || patch.status.isEmpty) {
+      _sync.eventArrived();
+      return;
+    }
+    if (!_gate.accept(patch.orderId, patch.seq)) return;
     state = state.copyWith(patches: {...state.patches, patch.orderId: patch});
     _sync.eventArrived();
   }
@@ -99,10 +118,17 @@ final orderLiveProvider = NotifierProvider.autoDispose<OrderLive, OrderLiveState
 /// The order as the screens show it: the last read with the newest real-time message laid over it (when it is not older than the read).
 Order liveOrder(Order order, OrderPatch? p) => p == null || p.seq < order.seq
     ? order
-    : order.withLive(seq: p.seq, status: p.status, statusLabel: p.statusLabel, paymentStatus: p.paymentStatus, parts: p.parts);
+    : order.withLive(
+        seq: p.seq,
+        status: p.status,
+        statusLabel: p.statusLabel,
+        paymentStatus: p.paymentStatus,
+        parts: p.parts,
+      );
 
-OrderSummary liveSummary(OrderSummary o, OrderPatch? p) =>
-    p == null || p.seq < o.seq ? o : o.withLive(status: p.status, statusLabel: p.statusLabel, paymentStatus: p.paymentStatus, seq: p.seq);
+OrderSummary liveSummary(OrderSummary o, OrderPatch? p) => p == null || p.seq < o.seq
+    ? o
+    : o.withLive(status: p.status, statusLabel: p.statusLabel, paymentStatus: p.paymentStatus, seq: p.seq);
 
 /// A list of orders with the messages laid over it; rows that no longer belong to [filter] (an active order that completed) drop out.
 List<OrderSummary> liveSummaries(List<OrderSummary> rows, Map<String, OrderPatch> patches, {Set<String>? statuses}) {

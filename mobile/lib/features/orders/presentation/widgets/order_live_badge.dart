@@ -7,7 +7,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// "Live / Reconnecting… / Offline": whether the orders on this screen are following the server in real time. Also keeps the orders'
 /// live orchestrator (orderLiveProvider) running while the screen is open.
 class OrderLiveBadge extends ConsumerWidget {
-  const OrderLiveBadge({super.key});
+  const OrderLiveBadge({super.key, this.showLabel = true});
+
+  /// False in a window's title bar, where there is room for the dot only (the words are read aloud and shown as a tooltip).
+  final bool showLabel;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -15,7 +18,12 @@ class OrderLiveBadge extends ConsumerWidget {
     final link = ref.watch(orderLiveProvider.select((s) => s.link));
     return LiveLinkBadge(
       link: link,
-      labels: LiveLinkLabels(live: l10n.realtimeLive, reconnecting: l10n.realtimeReconnecting, offline: l10n.mapStatusOffline),
+      showLabel: showLabel,
+      labels: LiveLinkLabels(
+        live: l10n.realtimeLive,
+        reconnecting: l10n.realtimeReconnecting,
+        offline: l10n.mapStatusOffline,
+      ),
     );
   }
 }

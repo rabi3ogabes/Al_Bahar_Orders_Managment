@@ -40,7 +40,7 @@ Future<void> showOrderPanel(BuildContext context, String orderId, {String? numbe
     title: number != null ? l10n.orderNumber(number) : l10n.ordersTitle,
     scrollable: false,
     actions: [
-      const OrderLiveBadge(),
+      const OrderLiveBadge(showLabel: false),
       Builder(
         builder: (panelContext) => IconButton(
           tooltip: l10n.openFullPage,

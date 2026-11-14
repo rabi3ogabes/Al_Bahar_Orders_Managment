@@ -7,8 +7,10 @@ import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/network/api_client.dart';
 import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/push/push_service.dart';
+import 'package:albahar_customer/core/realtime/pusher_client.dart';
 import 'package:albahar_customer/core/storage/token_storage.dart';
 import 'package:albahar_customer/core/theme/app_theme.dart';
+import 'package:albahar_customer/features/auctions/data/auction_repository.dart' show pusherClientProvider;
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -163,6 +165,26 @@ Map<String, dynamic> tokens(String access, String refresh) => {
 };
 
 /// Everything needed for provider-level tests.
+/// A socket that never opens and never speaks (state `idle`, so nothing polls and no timer stays behind). Every harness starts with it;
+/// a test that needs messages overrides `pusherClientProvider` with its own.
+class IdlePusher extends PusherClient {
+  IdlePusher() : super(uri: Uri.parse('wss://ws.test/app/key'));
+
+  final _events = StreamController<PusherEvent>.broadcast();
+
+  @override
+  RealtimeState get state => RealtimeState.idle;
+
+  @override
+  Stream<RealtimeState> get states => const Stream<RealtimeState>.empty();
+
+  @override
+  Stream<PusherEvent> channel(String channelName) => _events.stream;
+
+  @override
+  Future<void> dispose() async {}
+}
+
 class TestHarness {
   TestHarness._(this.container, this.adapter, this.tokenStore);
 
@@ -187,6 +209,7 @@ class TestHarness {
         sharedPreferencesProvider.overrideWithValue(sp),
         tokenStoreProvider.overrideWithValue(store),
         pushMessagingProvider.overrideWithValue(NoopPushMessaging()),
+        pusherClientProvider.overrideWithValue(IdlePusher()),
         localNotifierProvider.overrideWithValue(FakeLocalNotifier()),
         apiClientProvider.overrideWith((ref) {
           final expiry = ref.watch(sessionExpirySignalProvider);
