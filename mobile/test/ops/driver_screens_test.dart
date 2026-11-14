@@ -238,7 +238,13 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Confirm return'));
       await settle(tester);
       expect(repo.calls, ['return:d1']);
+      // Handed back: the job leaves "My deliveries" at once (it is in the history), before the server's list is read again.
+      expect(find.text('Try delivery again'), findsNothing);
+    });
 
+    testWidgets('a failed delivery goes out again with one tap', (tester) async {
+      final repo = FakeOps()..jobList = [FakeOps.job(status: 'failed')];
+      await _pump(tester, repo);
       await tester.tap(find.text('Try delivery again'));
       await settle(tester);
       expect(repo.calls.last, 'out-for-delivery:d1');

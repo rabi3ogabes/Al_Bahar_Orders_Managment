@@ -33,7 +33,12 @@ QueueOrder _row(String id, String status, {int seq = 1, String? driver}) => Queu
   'payment_method': 'cod',
   'grand_total': '10',
   'items_count': 1,
-  if (driver != null) 'delivery': {'id': 'd-$id', 'status': 'assigned', 'driver': {'id': 'u1', 'name': driver}},
+  if (driver != null)
+    'delivery': {
+      'id': 'd-$id',
+      'status': 'assigned',
+      'driver': {'id': 'u1', 'name': driver},
+    },
 });
 
 PusherEvent _event(Map<String, dynamic> data) => PusherEvent(channel: 'c', event: 'dispatch.updated', data: data);
@@ -125,54 +130,112 @@ void main() {
   });
 
   group('driver job overlay', () {
-    JobPatch patch(String id, String status, int seq, {bool assigned = true}) =>
-        JobPatch.fromEvent(_event({'delivery_id': id, 'order_id': 'o', 'number': 'AB1', 'status': status, 'seq': seq, 'assigned': assigned}))!;
+    JobPatch patch(String id, String status, int seq, {bool assigned = true}) => JobPatch.fromEvent(
+      _event({'delivery_id': id, 'order_id': 'o', 'number': 'AB1', 'status': status, 'seq': seq, 'assigned': assigned}),
+    )!;
 
     test('a newer message moves the job, a delivered job lands in the history, a stale message changes nothing', () {
       final active = [_job('d1', 'assigned'), _job('d2', 'accepted', seq: 4)];
-      final moved = mergeJobs(active: active, history: const [], patches: {'d1': patch('d1', 'accepted', 2)}, wantHistory: false);
+      final moved = mergeJobs(
+        active: active,
+        history: const [],
+        patches: {'d1': patch('d1', 'accepted', 2)},
+        wantHistory: false,
+      );
       expect(moved.map((j) => j.status), ['accepted', 'accepted']);
 
-      final stale = mergeJobs(active: active, history: const [], patches: {'d2': patch('d2', 'assigned', 3)}, wantHistory: false);
+      final stale = mergeJobs(
+        active: active,
+        history: const [],
+        patches: {'d2': patch('d2', 'assigned', 3)},
+        wantHistory: false,
+      );
       expect(stale.last.status, 'accepted');
 
       final delivered = {'d1': patch('d1', 'delivered', 3)};
-      expect(mergeJobs(active: active, history: const [], patches: delivered, wantHistory: false).map((j) => j.id), ['d2']);
-      expect(mergeJobs(active: active, history: [_job('d0', 'delivered')], patches: delivered, wantHistory: true).map((j) => j.id), ['d1', 'd0']);
+      expect(mergeJobs(active: active, history: const [], patches: delivered, wantHistory: false).map((j) => j.id), [
+        'd2',
+      ]);
+      expect(
+        mergeJobs(
+          active: active,
+          history: [_job('d0', 'delivered')],
+          patches: delivered,
+          wantHistory: true,
+        ).map((j) => j.id),
+        ['d1', 'd0'],
+      );
     });
 
     test('a job taken away leaves every list', () {
       final taken = {'d1': patch('d1', 'unassigned', 3, assigned: false)};
-      expect(mergeJobs(active: [_job('d1', 'assigned')], history: const [], patches: taken, wantHistory: false), isEmpty);
+      expect(
+        mergeJobs(active: [_job('d1', 'assigned')], history: const [], patches: taken, wantHistory: false),
+        isEmpty,
+      );
     });
   });
 
   group('branch queue overlay', () {
-    PartPatch part(String id, String status, int seq, {String? driver}) => PartPatch.fromEvent(_event({
-      'fulfillment_id': id, 'fulfillment_type': 'delivery', 'fulfillment_status': status, 'kind': 'order', 'order_id': 'o', 'number': 'AB1', 'seq': seq,
-      if (driver != null) ...{'driver_id': 'u1', 'driver_name': driver, 'delivery_id': 'dd', 'delivery_status': 'assigned'},
-    }))!;
+    PartPatch part(String id, String status, int seq, {String? driver}) => PartPatch.fromEvent(
+      _event({
+        'fulfillment_id': id,
+        'fulfillment_type': 'delivery',
+        'fulfillment_status': status,
+        'kind': 'order',
+        'order_id': 'o',
+        'number': 'AB1',
+        'seq': seq,
+        if (driver != null) ...{
+          'driver_id': 'u1',
+          'driver_name': driver,
+          'delivery_id': 'dd',
+          'delivery_status': 'assigned',
+        },
+      }),
+    )!;
 
     test('an order moves from one stage to the next at once and the counts follow', () {
-      final byStage = {'new': [_row('f1', 'pending')], 'preparing': <QueueOrder>[], 'ready': [_row('f2', 'ready')]};
+      final byStage = {
+        'new': [_row('f1', 'pending')],
+        'preparing': <QueueOrder>[],
+        'ready': [_row('f2', 'ready')],
+      };
       final patches = {'f1': part('f1', 'accepted', 2), 'f2': part('f2', 'dispatched', 3, driver: 'Omar')};
       expect(mergeStage('new', byStage, patches), isEmpty);
       expect(mergeStage('preparing', byStage, patches).map((r) => r.fulfillmentId), ['f1']);
       expect(mergeStage('ready', byStage, patches), isEmpty);
       expect(mergeStage('out', byStage, patches).single.driverName, 'Omar');
       final o = StaffOverview.fromJson({
-        'branch': {'id': 'b', 'name': 'B', 'dispatch_mode': 'manual'}, 'new': 1, 'preparing': 0, 'ready': 1, 'out_for_delivery': 0, 'failed': 0,
-        'waiting_for_driver': 1, 'drivers_on_duty': 1, 'drivers_total': 1,
+        'branch': {'id': 'b', 'name': 'B', 'dispatch_mode': 'manual'},
+        'new': 1,
+        'preparing': 0,
+        'ready': 1,
+        'out_for_delivery': 0,
+        'failed': 0,
+        'waiting_for_driver': 1,
+        'drivers_on_duty': 1,
+        'drivers_total': 1,
       });
       final adjusted = adjustOverview(o, byStage, patches);
-      expect([adjusted.fresh, adjusted.preparing, adjusted.ready, adjusted.out, adjusted.waitingForDriver], [0, 1, 0, 1, 0]);
+      expect(
+        [adjusted.fresh, adjusted.preparing, adjusted.ready, adjusted.out, adjusted.waitingForDriver],
+        [0, 1, 0, 1, 0],
+      );
     });
 
     test('a finished order leaves every stage; a stale message and a pickup part are ignored', () {
-      final byStage = {'out': [_row('f1', 'out_for_delivery', seq: 5)]};
+      final byStage = {
+        'out': [_row('f1', 'out_for_delivery', seq: 5)],
+      };
       expect(mergeStage('out', byStage, {'f1': part('f1', 'delivered', 6)}), isEmpty);
       expect(mergeStage('out', byStage, {'f1': part('f1', 'failed', 4)}).single.status, 'out_for_delivery');
-      expect(PartPatch.fromEvent(_event({'fulfillment_id': 'f9', 'fulfillment_type': 'pickup', 'fulfillment_status': 'pending'})), isNull);
+      expect(
+        PartPatch.fromEvent(
+          _event({'fulfillment_id': 'f9', 'fulfillment_type': 'pickup', 'fulfillment_status': 'pending'}),
+        ),
+        isNull,
+      );
     });
   });
 
@@ -190,7 +253,10 @@ void main() {
 
     test('takes the key and the address from the server, so a release build needs no REVERB_* settings', () {
       final s = RealtimeSettingsLoader.parse({
-        'enabled': true, 'key': 'live-key', 'poll_seconds': 15, 'socket': {'scheme': 'wss', 'host': 'albahar.atharqatar.net', 'port': 443, 'path': '/app'},
+        'enabled': true,
+        'key': 'live-key',
+        'poll_seconds': 15,
+        'socket': {'scheme': 'wss', 'host': 'albahar.atharqatar.net', 'port': 443, 'path': '/app'},
       }, prod)!;
       expect(s.uri.toString(), startsWith('wss://albahar.atharqatar.net:443/app/live-key?'));
       expect(s.pollInterval, const Duration(seconds: 15));
@@ -199,10 +265,13 @@ void main() {
 
     test('falls back to the build when the server cannot be asked, and asks again next time', () async {
       var calls = 0;
-      final loader = RealtimeSettingsLoader(config: prod, fetch: () async {
-        calls++;
-        throw StateError('down');
-      });
+      final loader = RealtimeSettingsLoader(
+        config: prod,
+        fetch: () async {
+          calls++;
+          throw StateError('down');
+        },
+      );
       final first = await loader.load();
       expect(first.fromServer, isFalse);
       expect(first.uri.host, 'albahar.atharqatar.net');

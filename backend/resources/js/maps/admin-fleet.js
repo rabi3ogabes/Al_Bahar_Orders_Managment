@@ -43,7 +43,13 @@ export function mountAdminFleet(host, boot, wire) {
     };
     offUpdated = wire.on('fleet-updated', onUpdated);
 
-    realtime = connectDriverMoves({ channels: boot.channels, onMove: (frame) => fleet.move(frame), onState: (s) => fleet.setConnection(s) });
+    // A burst of order / delivery messages is one refresh.
+    let dispatchTimer = null;
+    const onDispatch = () => {
+        clearTimeout(dispatchTimer);
+        dispatchTimer = setTimeout(() => fleet.refresh(), 700);
+    };
+    realtime = connectDriverMoves({ channels: boot.channels, onMove: (frame) => fleet.move(frame), onState: (s) => fleet.setConnection(s), onDispatch });
 
     const onShow = (e) => { if (e.persisted) fleet.resume(); };
     const onHide = () => fleet.suspend();
