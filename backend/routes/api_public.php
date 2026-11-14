@@ -31,6 +31,8 @@ Route::controller(V1\Catalog\CatalogController::class)->group(function () {
     Route::get('products/{id}/availability', 'availability')->whereUuid('id')->name('products.availability');
     Route::get('products/{idOrSlug}', 'product')->name('products.show');
     Route::get('branches/{branchId}/products', 'branchProducts')->whereUuid('branchId')->name('branches.products');
+    // "Scan to add": any scanned string (barcode, SKU, store link, deep link, slug). `.+` lets a whole link through as one parameter.
+    Route::get('products/by-code/{code}', 'byCode')->where('code', '.+')->middleware('throttle:product-scan')->name('products.by-code');
 });
 
 // ── Customer commerce (auth: customer) ───────────────────────────────────────

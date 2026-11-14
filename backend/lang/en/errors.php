@@ -142,4 +142,5 @@ return [
     'review_exists' => 'You\'ve already reviewed this product.',
     'upsell_limit' => 'You can suggest up to :max products.',
     'upsell_invalid' => 'This product cannot be suggested.',
+    'product_not_found' => 'We couldn\'t find this product. Try again or search by name.',
 ];

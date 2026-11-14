@@ -9,10 +9,13 @@ use App\Domain\Catalog\Models\Product;
 use App\Domain\Catalog\Models\ProductAttribute;
 use App\Domain\Catalog\Services\CatalogPresenter;
 use App\Domain\Catalog\Services\CategoryService;
+use App\Domain\Catalog\Services\ProductCodeResolver;
 use App\Domain\Catalog\Services\ProductQuery;
+use App\Domain\Catalog\Services\ScanResultPresenter;
 use App\Domain\Catalog\Services\SearchSuggester;
 use App\Domain\Pricing\Services\PriceResolver;
 use App\Http\Controllers\Api\V1\ApiController;
+use App\Support\DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -95,6 +98,22 @@ class CatalogController extends ApiController
         $branch = $this->branch($request->input('branch_id'));
 
         return response()->json(['data' => $this->presenter->detail($product, $branch)]);
+    }
+
+    /**
+     * "Scan to add": a scanned barcode, SKU, store link, `albahar://products/{id}` link or slug → the product card plus the exact variant
+     * to add (variant_id), in_stock, purchasable, max_quantity and needs_choice. 404 `product_not_found` for anything else.
+     */
+    public function byCode(Request $request, string $code, ProductCodeResolver $resolver, ScanResultPresenter $scan): JsonResponse
+    {
+        $request->validate(['branch_id' => 'nullable|uuid']);
+        $branch = $this->branch($request->input('branch_id'));
+        $match = $resolver->resolve($code, $branch?->id);
+        if ($match === null) {
+            throw DomainException::make('product_not_found', 404);
+        }
+
+        return response()->json(['data' => $scan->present($match, $branch)]);
     }
 
     /** Per-branch availability & price for each variant (stock shown capped at 10). */

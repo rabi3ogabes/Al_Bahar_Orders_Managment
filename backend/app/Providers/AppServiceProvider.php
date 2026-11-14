@@ -129,6 +129,11 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('checkout', fn (Request $r) => Limit::perMinute(10)->by('checkout:'.($r->user()?->id ?: $r->ip())));
         RateLimiter::for('bids', fn (Request $r) => Limit::perMinute((int) config('platform.auctions.bid_rate_limit_per_minute'))->by('bid:'.($r->user()?->id ?: $r->ip())));
         RateLimiter::for('webhooks', fn (Request $r) => Limit::perMinute(300)->by('webhook:'.$r->ip()));
+        // Scan to add: a shopper scanning a shelf makes a request every second or two. Signed-in shoppers are counted one by one (in a
+        // shop everyone shares the shop's Wi-Fi address); guests share their address's bucket.
+        RateLimiter::for('product-scan', fn (Request $r) => ($user = $r->user('sanctum'))
+            ? Limit::perMinute(120)->by('scan:u:'.$user->getAuthIdentifier())
+            : Limit::perMinute(60)->by('scan:ip:'.$r->ip()));
         RateLimiter::for('exports', fn (Request $r) => Limit::perHour(30)->by('export:'.$r->user()?->id));
     }
 
