@@ -20,11 +20,13 @@ class OrderSummary {
     this.grandTotal,
     this.itemsCount,
     this.thumbnails = const [],
+    this.seq = 0,
   });
 
   factory OrderSummary.fromJson(JsonMap json) {
     final items = asList(json['items']);
     return OrderSummary(
+      seq: asInt(json['seq']),
       id: asString(json['id']),
       number: asString(json['number']),
       status: asString(json['status']),
@@ -55,6 +57,25 @@ class OrderSummary {
   final Money? grandTotal;
   final int? itemsCount;
   final List<String> thumbnails;
+
+  /// The order's version when it was read (see SeqGate): a real-time message with a newer one replaces what the read showed.
+  final int seq;
+
+  /// The same row after a real-time message (the status the customer sees changes at once).
+  OrderSummary withLive({required String status, String? statusLabel, String? paymentStatus, required int seq}) => OrderSummary(
+    id: id,
+    number: number,
+    status: status,
+    statusLabel: statusLabel ?? this.statusLabel,
+    paymentStatus: paymentStatus ?? this.paymentStatus,
+    paymentMethod: paymentMethod,
+    fulfillmentType: fulfillmentType,
+    placedAt: placedAt,
+    grandTotal: grandTotal,
+    itemsCount: itemsCount,
+    thumbnails: thumbnails,
+    seq: seq,
+  );
 }
 
 @immutable
@@ -150,6 +171,16 @@ class DeliveryInfo {
   final String? driverPhone;
   final DateTime? eta;
   final String? trackingUrl;
+
+  DeliveryInfo withStatus(String? next) => DeliveryInfo(
+    trackingNumber: trackingNumber,
+    status: next ?? status,
+    provider: provider,
+    driverName: driverName,
+    driverPhone: driverPhone,
+    eta: eta,
+    trackingUrl: trackingUrl,
+  );
 }
 
 @immutable
@@ -192,6 +223,20 @@ class Fulfillment {
   final String? pickupStatus;
   final DateTime? pickupTokenExpiresAt;
 
+  /// The same part after a real-time message: its status and its delivery's status (and the words for them) change at once.
+  Fulfillment withLive({required String status, String? statusLabel, String? deliveryStatus}) => Fulfillment(
+    id: id,
+    number: number,
+    branch: branch,
+    type: type,
+    status: status,
+    statusLabel: statusLabel ?? this.statusLabel,
+    slot: slot,
+    delivery: deliveryStatus == null ? delivery : (delivery?.withStatus(deliveryStatus) ?? DeliveryInfo(status: deliveryStatus)),
+    pickupStatus: pickupStatus,
+    pickupTokenExpiresAt: pickupTokenExpiresAt,
+  );
+
   bool get isPickupReady => type == 'pickup' && (status == 'pickup_ready' || status == 'ready');
   bool get isOnTheWay => status == 'dispatched' || status == 'out_for_delivery';
 }
@@ -215,9 +260,11 @@ class Order {
     this.canPay = false,
     this.canReturn = false,
     this.canReview = false,
+    this.seq = 0,
   });
 
   factory Order.fromJson(JsonMap json) => Order(
+    seq: asInt(json['seq']),
     id: asString(json['id']),
     number: asString(json['number']),
     status: asString(json['status']),
@@ -254,6 +301,45 @@ class Order {
   final bool canPay;
   final bool canReturn;
   final bool canReview;
+
+  /// The order's version when it was read (see SeqGate).
+  final int seq;
+
+  /// The same order after a real-time message. The buttons that depend on the state are only ever switched OFF here (an order that
+  /// finished or is awaiting a decision cannot be paid or cancelled); the read that confirms the message switches the right ones on.
+  Order withLive({
+    required int seq,
+    required String status,
+    String? statusLabel,
+    String? paymentStatus,
+    Map<String, ({String status, String? statusLabel, String? deliveryStatus})> parts = const {},
+  }) {
+    const closed = {'completed', 'cancelled', 'partially_cancelled', 'returned', 'cancellation_requested'};
+    return Order(
+      id: id,
+      number: number,
+      status: status,
+      statusLabel: statusLabel ?? this.statusLabel,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
+      paymentMethod: paymentMethod,
+      fulfillmentType: fulfillmentType,
+      placedAt: placedAt,
+      totals: totals,
+      address: address,
+      items: items,
+      fulfillments: [
+        for (final f in fulfillments)
+          parts[f.id] == null
+              ? f
+              : f.withLive(status: parts[f.id]!.status, statusLabel: parts[f.id]!.statusLabel, deliveryStatus: parts[f.id]!.deliveryStatus),
+      ],
+      canCancel: canCancel && !closed.contains(status) && status != 'out_for_delivery',
+      canPay: canPay && status == 'pending_payment',
+      canReturn: canReturn,
+      canReview: canReview || status == 'completed',
+      seq: seq,
+    );
+  }
 
   List<OrderItem> itemsFor(Fulfillment f) => items.where((i) => i.fulfillmentId == f.id).toList();
 }

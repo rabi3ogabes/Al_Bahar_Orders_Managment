@@ -3,52 +3,24 @@ import 'dart:async';
 import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
-import 'package:albahar_customer/features/auctions/presentation/state/auction_providers.dart';
 import 'package:albahar_customer/features/orders/domain/order_models.dart';
 import 'package:albahar_customer/features/orders/presentation/order_detail_screen.dart';
-import 'package:albahar_customer/features/orders/presentation/state/order_providers.dart';
+import 'package:albahar_customer/features/orders/presentation/state/order_live.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// Home widget: the order that is on its way, updating live. Real-time pings (`order.updated`) refresh it at once; a
-/// 30 s refresh is the safety net when the connection drops. Hidden when there is no order in progress.
-class ActiveOrderCard extends ConsumerStatefulWidget {
+/// Home widget: the order that is on its way, updating live. Real-time messages (`order.updated`) change it at once; it reads again
+/// only after a burst of messages, a reconnect, a return to the app and (every 15 s) while the socket is down. Hidden when there is
+/// no order in progress.
+class ActiveOrderCard extends ConsumerWidget {
   const ActiveOrderCard({super.key});
 
   @override
-  ConsumerState<ActiveOrderCard> createState() => _ActiveOrderCardState();
-}
-
-class _ActiveOrderCardState extends ConsumerState<ActiveOrderCard> {
-  Timer? _poll;
-
-  @override
-  void initState() {
-    super.initState();
-    _poll = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted) ref.invalidate(activeOrdersProvider);
-    });
-  }
-
-  @override
-  void dispose() {
-    _poll?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Instant refresh when the server says an order (or its delivery) moved.
-    ref.listen(userAuctionEventsProvider, (_, next) {
-      final e = next.value;
-      if (e != null && e.event == 'order.updated') {
-        ref
-          ..invalidate(activeOrdersProvider)
-          ..invalidate(orderDetailProvider(e.data['order_id']?.toString() ?? ''));
-      }
-    });
-    final orders = ref.watch(activeOrdersProvider).value ?? const <OrderSummary>[];
+  Widget build(BuildContext context, WidgetRef ref) {
+    // The orchestrator (orderLiveProvider) lays the server's messages over the list at once and reads again after a burst, on every
+    // reconnect, return to the foreground and return of the network, and every 15 s only while the socket is down.
+    final orders = ref.watch(activeOrdersViewProvider).value ?? const <OrderSummary>[];
     if (orders.isEmpty) return const SizedBox.shrink();
     final first = orders.first;
     return Padding(

@@ -63,17 +63,21 @@ class _OrderActionButtonsState extends ConsumerState<OrderActionButtons> {
     ref.invalidate(staffDriversProvider);
   }
 
-  Future<void> _run(Future<void> Function() action) async {
+  /// Runs one step. When the server accepted it, the screen shows the new state at once ([shown]); the reads that follow confirm it.
+  Future<void> _run(Future<void> Function() action, {void Function(StaffLive live)? shown}) async {
     if (_busy) return;
     setState(() => _busy = true);
-    await guarded(context, action);
+    final ok = await guarded(context, action);
     if (!mounted) return;
+    if (ok && shown != null) shown(ref.read(staffLiveProvider.notifier));
     _refreshAll();
     setState(() => _busy = false);
   }
 
-  Future<void> _advance(String status) =>
-      _run(() => ref.read(opsRepositoryProvider).advance(widget.order.fulfillmentId, status));
+  Future<void> _advance(String status) => _run(
+    () => ref.read(opsRepositoryProvider).advance(widget.order.fulfillmentId, status),
+    shown: (live) => live.applyOwn(widget.order.fulfillmentId, status: status),
+  );
 
   /// A failed delivery brought back to the branch: stock goes back and the order closes as returned.
   Future<void> _returnToBranch() async {
@@ -82,14 +86,20 @@ class _OrderActionButtonsState extends ConsumerState<OrderActionButtons> {
     final t = OpsStrings.of(context);
     final sure = await opsConfirm(context, title: t.confirmReturnQ, body: t.confirmReturnBody, verb: t.confirmReturn);
     if (!sure || !mounted) return;
-    await _run(() => ref.read(opsRepositoryProvider).returnToBranch(id));
+    await _run(
+      () => ref.read(opsRepositoryProvider).returnToBranch(id),
+      shown: (live) => live.applyOwn(widget.order.fulfillmentId, status: 'returned'),
+    );
   }
 
   Future<void> _assign() async {
     if (_busy) return;
     final driver = await showDriverPicker(context, orderNumber: widget.order.number);
     if (driver == null || !mounted) return;
-    await _run(() => ref.read(opsRepositoryProvider).assign(widget.order.fulfillmentId, driver.id));
+    await _run(
+      () => ref.read(opsRepositoryProvider).assign(widget.order.fulfillmentId, driver.id),
+      shown: (live) => live.applyOwn(widget.order.fulfillmentId, deliveryStatus: 'assigned', driverId: driver.id, driverName: driver.name),
+    );
   }
 
   @override

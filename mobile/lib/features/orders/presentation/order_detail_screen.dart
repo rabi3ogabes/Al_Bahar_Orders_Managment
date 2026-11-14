@@ -12,7 +12,6 @@ import 'package:albahar_customer/core/widgets/fresh.dart';
 import 'package:albahar_customer/core/widgets/side_panel.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
-import 'package:albahar_customer/features/auctions/presentation/state/auction_providers.dart';
 import 'package:albahar_customer/features/cart/presentation/cart_panel.dart';
 import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
 import 'package:albahar_customer/features/checkout/data/checkout_repository.dart';
@@ -20,7 +19,9 @@ import 'package:albahar_customer/features/checkout/presentation/payment_flow.dar
 import 'package:albahar_customer/features/orders/data/order_repository.dart';
 import 'package:albahar_customer/features/orders/domain/order_models.dart';
 import 'package:albahar_customer/features/orders/presentation/order_sections.dart';
+import 'package:albahar_customer/features/orders/presentation/state/order_live.dart';
 import 'package:albahar_customer/features/orders/presentation/state/order_providers.dart';
+import 'package:albahar_customer/features/orders/presentation/widgets/order_live_badge.dart';
 import 'package:albahar_customer/features/reviews/presentation/write_review_screen.dart';
 import 'package:albahar_customer/features/support/presentation/support_screens.dart';
 import 'package:flutter/material.dart';
@@ -39,6 +40,7 @@ Future<void> showOrderPanel(BuildContext context, String orderId, {String? numbe
     title: number != null ? l10n.orderNumber(number) : l10n.ordersTitle,
     scrollable: false,
     actions: [
+      const OrderLiveBadge(),
       Builder(
         builder: (panelContext) => IconButton(
           tooltip: l10n.openFullPage,
@@ -71,7 +73,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> with Orde
     final l10n = context.l10n;
     final orderId = widget.orderId;
     final justPlaced = widget.justPlaced;
-    final order = ref.watch(orderDetailProvider(orderId));
+    final order = ref.watch(orderDetailViewProvider(orderId));
     final title = order.value != null ? l10n.orderNumber(order.value!.number) : l10n.ordersTitle;
     return FreshScaffold(
       header: FreshHeader(
@@ -172,16 +174,12 @@ class _OrderPanelBodyState extends ConsumerState<OrderPanelBody>
   @override
   Widget build(BuildContext context) {
     final id = widget.orderId;
-    // The server pings when an order moves: the window shows the new status and timeline without a pull-to-refresh.
-    ref.listen(userAuctionEventsProvider, (_, next) {
-      final e = next.value;
-      if (e != null && e.event == 'order.updated' && e.data['order_id']?.toString() == id) {
-        ref
-          ..invalidate(orderDetailProvider(id))
-          ..invalidate(orderTimelineProvider(id));
-      }
+    // The server's messages change the window at once (orderDetailViewProvider); the timeline is read again when this order's message
+    // arrives (the orchestrator also reads everything after a burst, a reconnect and a return to the app).
+    ref.listen(orderLiveProvider.select((s) => s.patches[id]?.seq), (prev, next) {
+      if (next != null && next != prev) ref.invalidate(orderTimelineProvider(id));
     });
-    final async = ref.watch(orderDetailProvider(id));
+    final async = ref.watch(orderDetailViewProvider(id));
     return async.when(
       skipLoadingOnRefresh: true,
       skipLoadingOnReload: true,

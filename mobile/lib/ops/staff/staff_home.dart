@@ -1,5 +1,5 @@
+import 'package:albahar_customer/core/realtime/live_link_badge.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
-import 'package:albahar_customer/core/utils/debouncer.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
@@ -25,22 +25,11 @@ class StaffHome extends ConsumerStatefulWidget {
   ConsumerState<StaffHome> createState() => _StaffHomeState();
 }
 
-class _StaffHomeState extends ConsumerState<StaffHome> with OpsPolling {
-  // A burst of real-time pings (several orders at once) becomes one reload.
-  final _reloadSoon = Debouncer(delay: const Duration(milliseconds: 800));
+class _StaffHomeState extends ConsumerState<StaffHome> {
+  // The screen follows the server through ONE orchestrator (staffLiveProvider): a message moves the order at once, a burst is confirmed
+  // by one read, a reconnect / return to the foreground / return of the network reads everything, and a poll runs only while the socket is down.
 
-  @override
-  void initState() {
-    super.initState();
-    startPolling(_reload, every: const Duration(seconds: 60));
-  }
-
-  @override
-  void dispose() {
-    _reloadSoon.dispose();
-    super.dispose();
-  }
-
+  /// The refresh button: read everything now.
   void _reload() {
     ref.invalidate(staffOverviewProvider);
     for (final s in kStaffStages) {
@@ -53,7 +42,8 @@ class _StaffHomeState extends ConsumerState<StaffHome> with OpsPolling {
   @override
   Widget build(BuildContext context) {
     final t = OpsStrings.of(context);
-    final overview = ref.watch(staffOverviewProvider);
+    final overview = ref.watch(staffOverviewViewProvider);
+    final link = ref.watch(staffLiveProvider.select((s) => s.link));
     final o = overview.value;
     final permsAsync = ref.watch(staffPermissionsProvider);
     final perms = permsAsync.value ?? const <String>[];
@@ -62,13 +52,13 @@ class _StaffHomeState extends ConsumerState<StaffHome> with OpsPolling {
     final canEdit = hasPermission(perms, 'orders.edit');
     final canAssign = hasPermission(perms, 'deliveries.assign');
     final canReturn = hasPermission(perms, 'deliveries.edit');
-    ref.listen(staffEventsProvider, (_, next) {
-      final e = next.value;
-      if (e == null || e.event != 'dispatch.updated') return;
-      _reloadSoon(_reload);
-      if (e.data['kind'] == 'order' && e.data['status'] == 'pending') {
-        Haptics.success();
-        showInfoSnack(context, t.newOrderAlert('${e.data['number'] ?? ''}'));
+    // A brand-new order (its first message says "pending"): one alert, however many times the message repeats.
+    ref.listen(staffLiveProvider.select((s) => s.patches), (prev, next) {
+      for (final p in next.values) {
+        if (p.status == 'pending' && prev?[p.fulfillmentId] == null) {
+          Haptics.success();
+          showInfoSnack(context, t.newOrderAlert(p.number));
+        }
       }
     });
     final tabs = <Tab>[
@@ -93,6 +83,8 @@ class _StaffHomeState extends ConsumerState<StaffHome> with OpsPolling {
             ],
           ),
           actions: [
+            LiveLinkBadge(link: link, labels: t.liveLabels),
+            const Gap(AppSpace.xxs),
             if (canAddProduct)
               IconButton(
                 tooltip: t.addProduct,
@@ -192,7 +184,7 @@ class _OrderList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = OpsStrings.of(context);
     return OpsAsyncList<QueueOrder>(
-      value: ref.watch(staffQueueProvider(stage)),
+      value: ref.watch(staffQueueViewProvider(stage)),
       onRefresh: () async {
         ref.invalidate(staffOverviewProvider);
         ref.invalidate(staffQueueProvider(stage));

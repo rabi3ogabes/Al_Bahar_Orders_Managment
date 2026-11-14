@@ -36,20 +36,26 @@ final class OrderRealtimePayload
         };
     }
 
-    /** @return array<string, mixed> */
-    public static function customer(Order $order, ?OrderFulfillment $changed, int $seq): array
+    /**
+     * The labels are in the customer's own language ($locale), so a screen that shows the message at once is not in English for an Arabic customer.
+     *
+     * @return array<string, mixed>
+     */
+    public static function customer(Order $order, ?OrderFulfillment $changed, int $seq, ?string $locale = null): array
     {
         $changed ??= $order->fulfillments->first();
         $delivery = $changed?->activeDelivery();
+        $label = fn (?string $status) => $status === null ? null : __('status.'.$status, [], $locale);
 
         return [
             'order_id' => $order->id, 'number' => $order->number,
-            'status' => $order->status->value, 'status_label' => __('status.'.$order->status->value),
+            'status' => $order->status->value, 'status_label' => $label($order->status->value),
             'payment_status' => $order->payment_status->value,
             'fulfillment_id' => $changed?->id, 'fulfillment_status' => $changed?->status->value,
             'delivery_status' => $delivery?->status->value,
             'fulfillments' => $order->fulfillments->map(fn (OrderFulfillment $f) => [
-                'id' => $f->id, 'type' => $f->type, 'status' => $f->status->value, 'delivery_status' => $f->activeDelivery()?->status->value,
+                'id' => $f->id, 'type' => $f->type, 'status' => $f->status->value, 'status_label' => $label($f->status->value),
+                'delivery_status' => $f->activeDelivery()?->status->value, 'delivery_status_label' => $label($f->activeDelivery()?->status->value),
             ])->values()->all(),
             'seq' => $seq, 'at' => self::at(),
         ];

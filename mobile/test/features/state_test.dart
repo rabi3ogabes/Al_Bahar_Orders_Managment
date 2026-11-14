@@ -103,6 +103,7 @@ void main() {
       h.container.listen(checkoutControllerProvider, (_, _) {});
       await h.container.read(cartControllerProvider.future);
       final c = h.read(checkoutControllerProvider.notifier);
+      c.setAlternateDeclined(true); // this test is about the quote, not the driver's second number
       await c.update((o) => o.copyWith(addressId: () => 'a1'));
 
       var s = h.read(checkoutControllerProvider);

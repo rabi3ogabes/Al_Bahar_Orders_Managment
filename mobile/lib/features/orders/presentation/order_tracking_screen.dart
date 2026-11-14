@@ -16,6 +16,7 @@ import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/auctions/data/auction_repository.dart';
 import 'package:albahar_customer/features/orders/domain/order_models.dart';
 import 'package:albahar_customer/features/orders/domain/tracking_state.dart';
+import 'package:albahar_customer/features/orders/presentation/state/order_live.dart';
 import 'package:albahar_customer/features/orders/presentation/state/order_providers.dart';
 import 'package:albahar_customer/features/orders/presentation/tracking_panel.dart';
 import 'package:albahar_customer/features/orders/presentation/tracking_view_model.dart';
@@ -222,6 +223,10 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> with 
     final id = widget.orderId;
     final async = ref.watch(orderTrackingProvider(id));
     final online = ref.watch(onlineProvider);
+    // This order's message (picked up, on its way, delivered …) reads the tracking at once instead of waiting for the safety-net refresh.
+    ref.listen(orderLiveProvider.select((s) => s.patches[id]?.seq), (prev, next) {
+      if (next != null && next != prev) _refresh();
+    });
     return FreshScaffold(
       appBar: AppBar(title: Text(l10n.trackTitle)),
       header: FreshHeader(title: l10n.trackTitle, tagline: l10n.freshTaglineTrack),

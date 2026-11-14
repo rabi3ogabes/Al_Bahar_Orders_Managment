@@ -10,7 +10,9 @@ import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/orders/domain/order_models.dart';
 import 'package:albahar_customer/features/orders/presentation/order_detail_screen.dart';
+import 'package:albahar_customer/features/orders/presentation/state/order_live.dart';
 import 'package:albahar_customer/features/orders/presentation/state/order_providers.dart';
+import 'package:albahar_customer/features/orders/presentation/widgets/order_live_badge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -28,6 +30,10 @@ class OrdersScreen extends StatelessWidget {
         header: FreshHeader(title: l10n.ordersTitle, tagline: l10n.freshTaglineOrders),
         body: Column(
           children: [
+            const Padding(
+              padding: EdgeInsetsDirectional.only(end: AppSpace.gutter, top: AppSpace.xxs),
+              child: Align(alignment: AlignmentDirectional.centerEnd, child: OrderLiveBadge()),
+            ),
             _SegmentedTabs(labels: [l10n.filterAll, l10n.filterActive, l10n.filterCompleted, l10n.filterCancelled]),
             Expanded(
               child: TabBarView(children: [for (final f in OrderFilter.values) _OrdersList(filter: f)]),
@@ -106,12 +112,15 @@ class _OrdersList extends ConsumerWidget {
     final l10n = context.l10n;
     final provider = ordersProvider(filter);
     final orders = ref.watch(provider);
+    // Real-time messages are laid over the list: an order changes status (or leaves this tab) the moment the message arrives.
+    final patches = ref.watch(orderLiveProvider.select((s) => s.patches));
     return orders.when(
       skipLoadingOnRefresh: true,
       loading: () => const ListSkeleton(),
       error: (e, _) => ErrorState(error: e, onRetry: () => ref.invalidate(provider)),
       data: (state) {
-        if (state.items.isEmpty) {
+        final items = liveSummaries(state.items, patches, statuses: filter.statuses);
+        if (items.isEmpty) {
           return EmptyState(
             icon: Icons.receipt_long_outlined,
             title: l10n.noOrders,
@@ -126,13 +135,13 @@ class _OrdersList extends ConsumerWidget {
             onNotification: (n) => handleLoadMoreScroll(n, () => ref.read(provider.notifier).loadMore()),
             child: ListView.separated(
               padding: const EdgeInsets.all(AppSpace.gutter),
-              itemCount: state.items.length + 1,
+              itemCount: items.length + 1,
               separatorBuilder: (_, _) => const Gap(AppSpace.sm),
               itemBuilder: (context, i) {
-                if (i == state.items.length) {
+                if (i == items.length) {
                   return LoadMoreFooter(state: state, onLoadMore: () => ref.read(provider.notifier).loadMore());
                 }
-                return OrderCard(order: state.items[i]);
+                return OrderCard(order: items[i]);
               },
             ),
           ),

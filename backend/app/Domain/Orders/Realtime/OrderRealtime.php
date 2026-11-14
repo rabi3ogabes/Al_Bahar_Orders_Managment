@@ -84,7 +84,7 @@ class OrderRealtime
     /** @param list<array{kind: string, fulfillment: ?string, delivery: ?string, previous_driver: ?string}> $changes */
     private function publish(string $orderId, array $changes): void
     {
-        $order = Order::with(['fulfillments.deliveries.driver:id,name'])->find($orderId);
+        $order = Order::with(['fulfillments.deliveries.driver:id,name', 'user:id,locale'])->find($orderId);
         if ($order === null) {
             return;
         }
@@ -93,7 +93,7 @@ class OrderRealtime
         $touched = collect($changes)->pluck('fulfillment')->filter()->map(fn (string $id) => $parts->get($id))->filter()->last();
 
         if ($order->user_id) {
-            $customer = OrderRealtimePayload::customer($order, $touched, $seq);
+            $customer = OrderRealtimePayload::customer($order, $touched, $seq, $order->user?->locale);
             rescue(fn () => event(new OrderUpdated($order->user_id, $order->id, $order->number, $order->status->value, $customer['delivery_status'], $customer)), report: true);
         }
 

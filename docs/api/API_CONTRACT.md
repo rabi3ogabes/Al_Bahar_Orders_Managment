@@ -189,8 +189,16 @@ CheckoutOptions:
 { "fulfillment_type":"delivery|pickup", "address_id":"uuid (delivery)", "branch_id":"uuid (pickup branch / preferred)",
   "pickup_slot_id":"uuid?", "pickup_date":"YYYY-MM-DD?", "delivery_slot_id":"uuid?", "delivery_date":"YYYY-MM-DD?",
   "payment_method":"sadad|cod|pay_at_pickup", "coupon_code":"?", "loyalty_points":0,
-  "allow_split":true, "express":false, "latitude":null, "longitude":null }
+  "allow_split":true, "express":false, "latitude":null, "longitude":null,
+  "alternate_phone":"+97455987654|null", "no_alternate_phone":false }
 ```
+`allow_split` is honoured only while the admin setting `checkout.show_split_shipment` is on; with it off the server never splits and ignores
+the field. The quote answers `split_choice` (bool): true only when that setting is on AND more than one active branch holds part of the
+cart, so clients show the "allow split shipments" switch only then. `alternate_phone` / `no_alternate_phone` (delivery only; pickup ignores
+them) carry the customer's second number for the driver: send one of the two once the customer answered; omit both for older clients (the
+number saved on the profile is then used). Errors `alternate_phone_required|invalid|same` come back as quote errors. `PATCH /me` accepts
+`alternate_phone` (null or empty clears it) and `GET /me` returns it to its owner only. Slot rows carry `bookable_until` (ISO-8601, +03:00): the
+last moment the time can be booked.
 **Delivery slots.** When a single-branch delivery order is quoted and that branch publishes delivery slots, a slot is
 required: the fulfillment carries `slot_required: true` and, until `delivery_slot_id` + `delivery_date` are sent, the
 quote has error `slot_required` (`can_place_order: false`). Pick the slot from

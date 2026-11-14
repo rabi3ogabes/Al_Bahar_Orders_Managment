@@ -252,11 +252,13 @@ class _JobActionButtonsState extends ConsumerState<JobActionButtons> {
       ..invalidate(driverMeProvider);
   }
 
-  Future<void> _run(Future<void> Function() action) async {
+  /// Runs one step. When the server accepted it, the job shows its new state at once ([becomes]); the reads that follow confirm it.
+  Future<void> _run(Future<void> Function() action, {String? becomes}) async {
     if (_busy) return;
     setState(() => _busy = true);
-    await guarded(context, action);
+    final ok = await guarded(context, action);
     if (!mounted) return;
+    if (ok && becomes != null) ref.read(driverLiveProvider.notifier).applyOwnStep(widget.job.id, becomes);
     _refresh();
     setState(() => _busy = false);
   }
@@ -268,12 +270,18 @@ class _JobActionButtonsState extends ConsumerState<JobActionButtons> {
           ? await location.currentPosition().timeout(const Duration(seconds: 4), onTimeout: () => null)
           : null;
       await ref.read(opsRepositoryProvider).jobStep(widget.job.id, action, lat: pos?.lat, lng: pos?.lng);
+    }, becomes: switch (action) {
+      'accept' => 'accepted',
+      'pickup' => 'picked_up',
+      'out-for-delivery' => 'out_for_delivery',
+      _ => null,
     });
   }
 
   Future<void> _deliver() async {
     final done = await showDeliverPanel(context, widget.job);
     if (done != true || !mounted) return;
+    ref.read(driverLiveProvider.notifier).applyOwnStep(widget.job.id, 'delivered');
     // Tell the window first: when the job leaves the list it closes with the right message.
     final onDelivered = widget.onDelivered;
     if (onDelivered != null) {
@@ -295,14 +303,14 @@ class _JobActionButtonsState extends ConsumerState<JobActionButtons> {
       verb: t.reportVerb,
     );
     if (!sure || !mounted) return;
-    await _run(() => ref.read(opsRepositoryProvider).fail(widget.job.id, reason));
+    await _run(() => ref.read(opsRepositoryProvider).fail(widget.job.id, reason), becomes: 'failed');
   }
 
   Future<void> _returnToBranch() async {
     final t = OpsStrings.of(context);
     final sure = await opsConfirm(context, title: t.confirmReturnQ, body: t.confirmReturnBody, verb: t.confirmReturn);
     if (!sure || !mounted) return;
-    await _run(() => ref.read(opsRepositoryProvider).returnToBranch(widget.job.id));
+    await _run(() => ref.read(opsRepositoryProvider).returnToBranch(widget.job.id), becomes: 'returned');
   }
 
   @override

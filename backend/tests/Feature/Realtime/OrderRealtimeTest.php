@@ -83,7 +83,7 @@ it('tells the customer, the branch and the driver at every step, one growing ver
     expect($heard['customer'])->toHaveCount(1)->and($heard['branch'])->toHaveCount(1)->and($heard['driver'])->toBeEmpty();
     $c = $heard['customer'][0]->broadcastWith();
     expect($c)->toMatchArray(['order_id' => $orderId, 'number' => $order->number, 'status' => 'confirmed', 'fulfillment_id' => $f->id, 'fulfillment_status' => 'pending', 'delivery_status' => null, 'seq' => 1])
-        ->and($c['fulfillments'])->toBe([['id' => $f->id, 'type' => 'delivery', 'status' => 'pending', 'delivery_status' => null]])
+        ->and($c['fulfillments'])->toBe([['id' => $f->id, 'type' => 'delivery', 'status' => 'pending', 'status_label' => 'Pending', 'delivery_status' => null, 'delivery_status_label' => null]])
         ->and($heard['customer'][0]->broadcastOn()[0]->name)->toBe('private-users.'.$w->customer->id);
     $b = $heard['branch'][0];
     expect($b->broadcastOn()[0]->name)->toBe('private-branches.'.$w->a->id)->and($b->broadcastAs())->toBe('dispatch.updated')
