@@ -11,6 +11,7 @@ import 'package:albahar_customer/core/widgets/app_button.dart';
 import 'package:albahar_customer/core/widgets/app_text_field.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/dirty_form_guard.dart';
+import 'package:albahar_customer/core/widgets/language_switch.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/auth/data/auth_repository.dart';
 import 'package:albahar_customer/features/auth/domain/auth_models.dart';
@@ -43,7 +44,8 @@ class RegisterArgs {
 
 String _q(String? from) => from == null ? '' : '?from=${Uri.encodeComponent(from)}';
 
-/// Shared frame for the auth flow: brand mark, title, scrollable form.
+/// Shared frame for the auth flow: brand mark, title, scrollable form, and the language switch (a customer can change the
+/// language here, before signing in, without losing what they typed).
 class _AuthScaffold extends StatelessWidget {
   const _AuthScaffold({
     required this.title,
@@ -64,24 +66,26 @@ class _AuthScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screen = Scaffold(
-      appBar: AppBar(automaticallyImplyLeading: showBack),
+      appBar: AppBar(automaticallyImplyLeading: showBack, actions: const [LanguageSwitch(), Gap(AppSpace.sm)]),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(AppSpace.lg, AppSpace.xs, AppSpace.lg, AppSpace.xl),
-          child: ContentWidth(
-            maxWidth: 480,
-            child: AutofillGroup(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Center(child: BrandMark(size: 0.8)),
-                  const Gap(AppSpace.xl),
-                  Semantics(header: true, child: Text(title, style: context.text.headlineLarge)),
-                  const Gap(AppSpace.xs),
-                  Text(subtitle, style: context.text.bodyMedium?.copyWith(color: context.palette.muted)),
-                  const Gap(AppSpace.lg),
-                  ...children,
-                ],
+        child: LanguageTransition(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(AppSpace.lg, AppSpace.xs, AppSpace.lg, AppSpace.xl),
+            child: ContentWidth(
+              maxWidth: 480,
+              child: AutofillGroup(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Center(child: BrandMark(size: 0.8)),
+                    const Gap(AppSpace.xl),
+                    Semantics(header: true, child: Text(title, style: context.text.headlineLarge)),
+                    const Gap(AppSpace.xs),
+                    Text(subtitle, style: context.text.bodyMedium?.copyWith(color: context.palette.muted)),
+                    const Gap(AppSpace.lg),
+                    ...children,
+                  ],
+                ),
               ),
             ),
           ),
@@ -101,10 +105,13 @@ class PhoneLoginScreen extends ConsumerStatefulWidget {
   ConsumerState<PhoneLoginScreen> createState() => _PhoneLoginScreenState();
 }
 
-class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
+class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> with ClearsOnLanguageChange<PhoneLoginScreen> {
   final _phone = TextEditingController();
   String? _error;
   bool _busy = false;
+
+  @override
+  void onLanguageChanged() => _error = null;
 
   @override
   void dispose() {
@@ -221,13 +228,16 @@ class OtpScreen extends ConsumerStatefulWidget {
   ConsumerState<OtpScreen> createState() => _OtpScreenState();
 }
 
-class _OtpScreenState extends ConsumerState<OtpScreen> {
+class _OtpScreenState extends ConsumerState<OtpScreen> with ClearsOnLanguageChange<OtpScreen> {
   final _code = TextEditingController();
   Timer? _timer;
   late int _resendIn = widget.args.result.resendIn;
   String? _error;
   bool _busy = false;
   bool _resending = false;
+
+  @override
+  void onLanguageChanged() => _error = null;
 
   @override
   void initState() {
@@ -373,7 +383,7 @@ class RegisterScreen extends ConsumerStatefulWidget {
   ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends ConsumerState<RegisterScreen> {
+class _RegisterScreenState extends ConsumerState<RegisterScreen> with ClearsOnLanguageChange<RegisterScreen> {
   final _form = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _email = TextEditingController();
@@ -381,7 +391,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _referral = TextEditingController();
   bool _marketing = false;
   bool _busy = false;
+  bool _checked = false;
   ApiException? _error;
+
+  @override
+  void onLanguageChanged() {
+    _error = null;
+    // Field errors are kept by the form: check the fields again so any error shown is worded in the new language.
+    if (_checked) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _form.currentState?.validate();
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -392,7 +414,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _submit() async {
-    if (_busy || !_form.currentState!.validate()) return;
+    if (_busy) return;
+    _checked = true;
+    if (!_form.currentState!.validate()) return;
     setState(() {
       _busy = true;
       _error = null;
@@ -523,12 +547,19 @@ class PasswordLoginScreen extends ConsumerStatefulWidget {
   ConsumerState<PasswordLoginScreen> createState() => _PasswordLoginScreenState();
 }
 
-class _PasswordLoginScreenState extends ConsumerState<PasswordLoginScreen> {
+class _PasswordLoginScreenState extends ConsumerState<PasswordLoginScreen>
+    with ClearsOnLanguageChange<PasswordLoginScreen> {
   final _id = TextEditingController();
   final _password = TextEditingController();
   bool _busy = false;
   String? _error;
   String? _idError;
+
+  @override
+  void onLanguageChanged() {
+    _error = null;
+    _idError = null;
+  }
 
   @override
   void dispose() {
@@ -617,7 +648,8 @@ class PasswordResetScreen extends ConsumerStatefulWidget {
   ConsumerState<PasswordResetScreen> createState() => _PasswordResetScreenState();
 }
 
-class _PasswordResetScreenState extends ConsumerState<PasswordResetScreen> {
+class _PasswordResetScreenState extends ConsumerState<PasswordResetScreen>
+    with ClearsOnLanguageChange<PasswordResetScreen> {
   final _phone = TextEditingController();
   final _code = TextEditingController();
   final _password = TextEditingController();
@@ -629,6 +661,12 @@ class _PasswordResetScreenState extends ConsumerState<PasswordResetScreen> {
   bool _busy = false;
   ApiException? _error;
   String? _localError;
+
+  @override
+  void onLanguageChanged() {
+    _error = null;
+    _localError = null;
+  }
 
   @override
   void dispose() {

@@ -13,6 +13,7 @@ import '../realtime/pusher_client.dart';
 import '../storage/app_preferences.dart';
 import '../theme/brand_theme.dart';
 import '../utils/json.dart';
+import '../utils/platform.dart';
 import 'live_order.dart';
 import 'live_order_api.dart';
 import 'live_order_platform.dart';
@@ -375,7 +376,13 @@ class LiveOrderController {
 
 // ---- providers ------------------------------------------------------------------------------------------------------
 
-final liveOrderPlatformProvider = Provider<LiveOrderPlatform>((ref) => MethodChannelLiveOrderPlatform());
+final liveOrderPlatformProvider = Provider<LiveOrderPlatform>((ref) {
+  final native = MethodChannelLiveOrderPlatform();
+  // The iPhone has no live card, but it has the notification question: it is asked through the messaging SDK.
+  return !kIsWeb && platformCode() == 'ios'
+      ? MessagingPermissionPlatform(native, ref.watch(pushMessagingProvider))
+      : native;
+});
 
 final liveOrderApiProvider = Provider<LiveOrderApi>(
   (ref) => RestLiveOrderApi(ref.watch(apiClientProvider), ref.watch(orderRepositoryProvider)),

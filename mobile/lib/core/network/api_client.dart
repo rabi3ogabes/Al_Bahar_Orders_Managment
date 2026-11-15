@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -106,8 +107,22 @@ class ApiClient {
       );
       return Uint8List.fromList(response.data ?? const []);
     } on DioException catch (e) {
-      throw ApiException.fromDio(e);
+      throw ApiException.fromDio(_readErrorBody(e));
     }
+  }
+
+  /// A failed download still carries the server's JSON error (`{message, code}`), but as raw bytes: read it, so the message
+  /// and the request id reach the person like any other error's.
+  static DioException _readErrorBody(DioException e) {
+    final response = e.response;
+    final body = response?.data;
+    if (response == null || body is! List<int>) return e;
+    try {
+      response.data = jsonDecode(utf8.decode(body));
+    } catch (_) {
+      response.data = null;
+    }
+    return e;
   }
 
   Future<dynamic> _guard(Future<Response<dynamic>> Function() call) async {

@@ -20,8 +20,10 @@ class AppPreferences {
   static const _kPushPrefs = 'push_category_prefs';
   static const _kInstallId = 'install_id';
   static const _kPushToken = 'registered_push_token';
+  static const _kLastPushToken = 'last_push_token';
   static const _kLiveOrders = 'live_order_active';
   static const _kLivePermissionPrompt = 'live_order_permission_prompt';
+  static const _kPublicConfig = 'public_config';
 
   String? get localeCode => _prefs.getString(_kLocale);
   Future<void> setLocaleCode(String code) => _prefs.setString(_kLocale, code);
@@ -77,6 +79,11 @@ class AppPreferences {
   Future<void> setRegisteredPushToken(String? token) =>
       token == null ? _prefs.remove(_kPushToken) : _prefs.setString(_kPushToken, token);
 
+  /// The last push token this install had, kept across sign-out: the token belongs to the install, not to the person, so the
+  /// next person who signs in on this phone can register it again even when the messaging SDK has nothing new to report.
+  String? get lastPushToken => _prefs.getString(_kLastPushToken);
+  Future<void> setLastPushToken(String token) => _prefs.setString(_kLastPushToken, token);
+
   /// Orders with a live notification right now (`{orderId: seq}`), so a restart picks them up again.
   Map<String, int> get liveOrders {
     final raw = _prefs.getString(_kLiveOrders);
@@ -106,4 +113,17 @@ class AppPreferences {
 
   Future<void> setLivePermissionPrompt(DateTime at, int count) =>
       _prefs.setString(_kLivePermissionPrompt, jsonEncode({'at': at.millisecondsSinceEpoch, 'count': count}));
+
+  /// The last good `GET /app-config` answer (the dashboard's public settings), so the first screen shows it at once and offline.
+  JsonMap? get publicConfig {
+    final raw = _prefs.getString(_kPublicConfig);
+    if (raw == null) return null;
+    try {
+      return asMap(jsonDecode(raw));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> setPublicConfig(JsonMap config) => _prefs.setString(_kPublicConfig, jsonEncode(config));
 }

@@ -37,8 +37,22 @@ final class NotificationCatalog
 
     public const CHANNELS = ['push', 'sms', 'whatsapp', 'email', 'in_app'];
 
+    /**
+     * The order events the customer's live order card already announces on every phone (see PushNotifier / OrderProgress): a second,
+     * classic push for the same change would ring twice, so while the card can reach the customer these go to the inbox, SMS and e-mail only.
+     */
+    public const LIVE_CARD_EVENTS = ['order.created', 'order.confirmed', 'order.ready_for_pickup', 'order.out_for_delivery', 'order.completed', 'order.cancelled'];
+
+    /**
+     * Events sent outside the catalog by staff (`staff.message`) and by the customer journeys (`journey.*`) are marketing, like the
+     * in-app entries they create, so the app files their banners under the offers preference and the offers Android channel.
+     */
     public static function category(string $event): string
     {
+        if ($event === 'staff.message' || str_starts_with($event, 'journey.')) {
+            return 'marketing';
+        }
+
         return self::EVENTS[$event][0] ?? 'transactional';
     }
 

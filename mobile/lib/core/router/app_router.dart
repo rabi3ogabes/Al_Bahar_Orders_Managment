@@ -1,4 +1,3 @@
-import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/router/app_shell.dart';
 import 'package:albahar_customer/core/router/deep_links.dart';
 import 'package:albahar_customer/features/auctions/presentation/auction_detail_screen.dart';
@@ -86,12 +85,7 @@ bool isProtectedPath(String path) {
 }
 
 /// Pure redirect logic (unit-tested). Returns a new location or null.
-String? resolveRedirect({
-  required Uri uri,
-  required bool localeChosen,
-  required bool onboardingDone,
-  required bool authenticated,
-}) {
+String? resolveRedirect({required Uri uri, required bool onboardingDone, required bool authenticated}) {
   // 1. External links (custom scheme / universal link / "/app" prefix).
   if (uri.scheme.isNotEmpty || uri.path.startsWith(DeepLinks.webPrefix)) {
     return DeepLinks.toLocation(uri) ?? '/home';
@@ -101,9 +95,8 @@ String? resolveRedirect({
   if (path == '/') return '/splash';
   String withFrom(String target) => '$target?from=${Uri.encodeComponent(here)}';
 
-  const preAuth = {'/splash', '/language', '/onboarding'};
-  if (!localeChosen && path != '/splash' && path != '/language') return withFrom('/language');
-  if (!onboardingDone && !preAuth.contains(path)) return withFrom('/onboarding');
+  // The language is never a gate: the app starts in the device's language and the intro and sign-in screens carry a switch.
+  if (!onboardingDone && path != '/splash' && path != '/onboarding') return withFrom('/onboarding');
   if (!authenticated && isProtectedPath(path)) return withFrom('/login');
   if (authenticated && path.startsWith('/login')) {
     final from = uri.queryParameters['from'];
@@ -117,7 +110,6 @@ class RouterRefreshNotifier extends ChangeNotifier {
   RouterRefreshNotifier(Ref ref) {
     ref
       ..listen(isAuthenticatedProvider, (_, _) => notifyListeners())
-      ..listen(localeControllerProvider, (_, _) => notifyListeners())
       ..listen(onboardingDoneProvider, (_, _) => notifyListeners());
   }
 }
@@ -133,17 +125,12 @@ final routerProvider = Provider<GoRouter>((ref) {
     debugLogDiagnostics: false,
     redirect: (context, state) => resolveRedirect(
       uri: state.uri,
-      localeChosen: ref.read(localeControllerProvider) != null,
       onboardingDone: ref.read(onboardingDoneProvider),
       authenticated: ref.read(isAuthenticatedProvider),
     ),
     errorBuilder: (context, state) => const NotFoundScreen(),
     routes: [
       GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
-      GoRoute(
-        path: '/language',
-        builder: (_, s) => LanguageScreen(from: s.uri.queryParameters['from']),
-      ),
       GoRoute(
         path: '/onboarding',
         builder: (_, s) => OnboardingScreen(from: s.uri.queryParameters['from']),

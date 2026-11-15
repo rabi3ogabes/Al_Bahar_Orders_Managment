@@ -71,7 +71,9 @@ Deviations from the first brief, on purpose:
   6:35pm-6:55pm") and only the window in `eta_label`. Order of preference: `title`, `eta_label`, a window built from
   `eta_from/eta_to`, "Order #number". Finished orders always say "Delivered at <time of the card>".
 - **No permission dialog at sign-in in the customer app** (`PushService.askPermissionOnRegister` is false for `/me/devices`; the
-  driver and staff apps still ask). The token is registered anyway; data pushes arrive and show once permission is granted.
+  driver and staff apps still ask). The token is registered anyway; data pushes arrive and show once permission is granted. On an
+  iPhone the app asks for *provisional* authorization at sign-in (quiet delivery, no dialog) and the same rationale sheet after the first
+  order asks for real alerts (`MessagingPermissionPlatform`, `lib/core/live_order/live_order_platform.dart`).
 
 ## 3. Rules
 
@@ -136,6 +138,14 @@ standard alert; the Dart controller and payload are already what a Live Activity
 6. Arabic: right to left, scooter faces left, times in the app language even when the phone is English. Font size largest: no clipping.
 7. Turn notifications off in the system settings and place an order: the settings variant of the sheet, "Open settings" opens them.
 8. With Firebase connected: kill the app, move the order, the card updates; the Dart handler must not add a second card.
+9. One alert per change: with a phone registered, moving the order through its stages produces the card only; no second
+   "Order confirmed / out for delivery" notification next to it (iPhone: one alert per stage).
+10. Android system settings, Al Bahar, Notifications: three channels in the phone's language ("Orders and updates", "Auctions",
+    "Offers and news", الطلبات والتحديثات / المزادات / العروض والأخبار). Mute "Offers and news": order updates still arrive.
+11. iPhone, fresh install, sign in: no dialog. Place an order: the sheet, then the system dialog. Say no: the next order offers the
+    settings, never another dialog. Allow notifications later in the iPhone settings, come back to the app: pushes arrive.
+12. Switch the app language in Settings: the next card and push arrive in the new language without restarting the app.
+13. Sign out, sign in as another customer on the same phone: the first customer's pushes stop; the second's arrive.
 
 ## 7. Known limits and follow-ups
 

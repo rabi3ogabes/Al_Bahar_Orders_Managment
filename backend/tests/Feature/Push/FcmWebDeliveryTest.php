@@ -63,7 +63,7 @@ it('sends a browser token a web push message with a notification, icons, ttl and
         ->and($m['webpush']['headers'])->toBe(['TTL' => '86400', 'Urgency' => 'normal'])
         ->and($m['webpush']['notification'])->toMatchArray(['title' => 'Order ready', 'body' => 'AB100 is ready', 'icon' => 'https://albahar.example/mobile-web/icons/Icon-192.png'])
         ->and($m['webpush']['fcm_options'])->toBe(['link' => 'https://albahar.example/orders/abc'])
-        ->and($m['data'])->toBe(['event' => 'order.ready', 'deep_link' => '/orders/abc']);
+        ->and($m['data'])->toBe(['event' => 'order.ready', 'deep_link' => '/orders/abc', 'category' => 'transactional']);
 });
 
 it('routes the link of the web version of the mobile app after its hash', function () {

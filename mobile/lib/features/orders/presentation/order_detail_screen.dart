@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:albahar_customer/core/l10n/l10n.dart';
+import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/network/interceptors.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
@@ -16,6 +17,7 @@ import 'package:albahar_customer/features/cart/presentation/cart_panel.dart';
 import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
 import 'package:albahar_customer/features/checkout/data/checkout_repository.dart';
 import 'package:albahar_customer/features/checkout/presentation/payment_flow.dart';
+import 'package:albahar_customer/features/orders/data/invoice_delivery.dart';
 import 'package:albahar_customer/features/orders/data/order_repository.dart';
 import 'package:albahar_customer/features/orders/domain/order_models.dart';
 import 'package:albahar_customer/features/orders/presentation/order_sections.dart';
@@ -28,7 +30,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:share_plus/share_plus.dart';
 
 /// Opens an order in a side window: status, live timeline, items, totals and the next action pinned at the bottom.
 /// The full page (`/orders/:id`) stays for links, notifications and "Open full page".
@@ -222,12 +223,21 @@ mixin OrderActionsMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   /// The page behind the window (the window's opener); on the full page, the page itself.
   BuildContext get host => context;
 
-  Future<void> _run(String key, Future<void> Function() action) async {
+  /// Runs one action with its button showing progress. A second tap on the same button while it runs does nothing, so a double
+  /// tap never starts the action twice. [messageFor] words a failure itself; without it the standard error message shows.
+  Future<void> _run(String key, Future<void> Function() action, {String Function(Object error)? messageFor}) async {
+    if (_busy == key) return;
     setState(() => _busy = key);
     try {
       await action();
     } catch (e) {
-      if (mounted) showErrorSnack(context, e);
+      if (mounted) {
+        if (messageFor == null) {
+          showErrorSnack(context, e);
+        } else {
+          showInfoSnack(context, messageFor(e));
+        }
+      }
     } finally {
       if (mounted) setState(() => _busy = null);
     }
@@ -291,16 +301,39 @@ mixin OrderActionsMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
     _then((page) => unawaited(showCartPanel(page, notice: notice)));
   });
 
+  /// Downloads the invoice as a PDF: the browser saves it on the web, and a phone opens its own sheet (Files, a PDF viewer, print,
+  /// WhatsApp).
   Future<void> _invoice(Order o) => _run('invoice', () async {
+    final l10n = context.l10n;
     final bytes = await ref.read(orderRepositoryProvider).invoice(o.id);
-    final name = 'AlBahar-${o.number}.pdf';
-    await SharePlus.instance.share(
-      ShareParams(
-        files: [XFile.fromData(bytes, mimeType: 'application/pdf', name: name)],
-        fileNameOverrides: [name],
-      ),
-    );
-  });
+    final delivered = await ref.read(invoiceDeliveryProvider)(bytes, invoiceFileName(o.number));
+    if (!mounted) return;
+    Haptics.success();
+    if (delivered == InvoiceDelivered.downloaded) showInfoSnack(context, l10n.invoiceSaved);
+  }, messageFor: (e) => _invoiceMessage(context.l10n, e));
+
+  /// Plain words for a failed invoice: not paid yet, offline, or "try again".
+  static String _invoiceMessage(AppLocalizations l10n, Object error) {
+    if (error is ApiException) {
+      switch (error.kind) {
+        case ApiErrorKind.conflict:
+          return l10n.invoiceNotReady;
+        case ApiErrorKind.offline:
+        case ApiErrorKind.timeout:
+        case ApiErrorKind.rateLimited:
+        case ApiErrorKind.unauthorized:
+          return describeError(l10n, error);
+        case ApiErrorKind.forbidden:
+        case ApiErrorKind.notFound:
+        case ApiErrorKind.validation:
+        case ApiErrorKind.server:
+        case ApiErrorKind.cancelled:
+        case ApiErrorKind.unknown:
+          return l10n.invoiceFailed;
+      }
+    }
+    return l10n.invoiceFailed;
+  }
 
   Future<void> _pay(Order o) => _run('pay', () async {
     _payKey ??= Idempotency.newKey();
@@ -322,7 +355,17 @@ mixin OrderActionsMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
     );
     if (result == null || result.items.isEmpty) return;
     await _run('return', () async {
-      await ref.read(orderRepositoryProvider).requestReturn(o.id, items: result.items, reasonCode: result.code);
+      try {
+        await ref.read(orderRepositoryProvider).requestReturn(o.id, items: result.items, reasonCode: result.code);
+      } on ApiException catch (e) {
+        // The shop turned returns off (or this order no longer qualifies) after this page was read: say so, and read the order
+        // again so the button goes away.
+        if (e.kind != ApiErrorKind.forbidden) rethrow;
+        if (!mounted) return;
+        showInfoSnack(context, l10n.returnsUnavailable);
+        _refresh(o.id);
+        return;
+      }
       if (!mounted) return;
       showInfoSnack(context, l10n.returnRequested);
       _refresh(o.id);
@@ -367,68 +410,62 @@ mixin OrderActionsMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   Widget buildActions(Order o, {OrderPrimary? hide}) {
     final l10n = context.l10n;
     final firstProduct = o.items.where((i) => i.productId != null).firstOrNull;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (o.canPay && hide != OrderPrimary.pay) ...[
-          AppButton.accent(
-            label: l10n.payNow,
-            icon: Icons.credit_card_rounded,
-            loading: _busy == 'pay',
-            onPressed: () => _pay(o),
-          ),
-          const Gap(AppSpace.sm),
-        ],
-        if (hide != OrderPrimary.reorder) ...[
-          AppButton.secondary(
-            label: l10n.reorder,
-            icon: Icons.replay_rounded,
-            loading: _busy == 'reorder',
-            onPressed: () => _reorder(o),
-          ),
-          const Gap(AppSpace.sm),
-        ],
+    final actions = <Widget>[
+      if (o.canPay && hide != OrderPrimary.pay)
+        AppButton.accent(
+          label: l10n.payNow,
+          icon: Icons.credit_card_rounded,
+          loading: _busy == 'pay',
+          onPressed: () => _pay(o),
+        ),
+      if (hide != OrderPrimary.reorder)
+        AppButton.secondary(
+          label: l10n.reorder,
+          icon: Icons.replay_rounded,
+          loading: _busy == 'reorder',
+          onPressed: () => _reorder(o),
+        ),
+      if (o.hasInvoice)
         AppButton.secondary(
           label: l10n.downloadInvoice,
           icon: Icons.picture_as_pdf_outlined,
           loading: _busy == 'invoice',
           onPressed: () => _invoice(o),
         ),
-        if (o.canReturn) ...[
-          const Gap(AppSpace.sm),
-          AppButton.secondary(
-            label: l10n.requestReturn,
-            icon: Icons.assignment_return_outlined,
-            loading: _busy == 'return',
-            onPressed: () => _return(o),
-          ),
-        ],
-        if (o.canReview && firstProduct != null) ...[
-          const Gap(AppSpace.sm),
-          AppButton.secondary(
-            label: l10n.writeReview,
-            icon: Icons.rate_review_outlined,
-            onPressed: () => _then(
-              (page) =>
-                  unawaited(showReviewPanel(page, productId: firstProduct.productId!, productName: firstProduct.name)),
-            ),
-          ),
-        ],
-        const Gap(AppSpace.sm),
-        AppButton.ghost(
-          label: l10n.contactSupport,
-          icon: Icons.support_agent_outlined,
-          expand: true,
-          onPressed: () => _then((page) => unawaited(showNewTicketPanel(page, orderId: o.id))),
+      // The server decides whether this order can be returned (the shop can turn returns off): the button follows it.
+      if (o.canReturn)
+        AppButton.secondary(
+          label: l10n.requestReturn,
+          icon: Icons.assignment_return_outlined,
+          loading: _busy == 'return',
+          onPressed: () => _return(o),
         ),
-        if (o.canCancel) ...[
-          const Gap(AppSpace.sm),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: context.palette.danger),
-            onPressed: _busy == null ? () => _cancel(o) : null,
-            child: Text(l10n.cancelOrder),
+      if (o.canReview && firstProduct != null)
+        AppButton.secondary(
+          label: l10n.writeReview,
+          icon: Icons.rate_review_outlined,
+          onPressed: () => _then(
+            (page) =>
+                unawaited(showReviewPanel(page, productId: firstProduct.productId!, productName: firstProduct.name)),
           ),
-        ],
+        ),
+      AppButton.ghost(
+        label: l10n.contactSupport,
+        icon: Icons.support_agent_outlined,
+        expand: true,
+        onPressed: () => _then((page) => unawaited(showNewTicketPanel(page, orderId: o.id))),
+      ),
+      if (o.canCancel)
+        TextButton(
+          style: TextButton.styleFrom(foregroundColor: context.palette.danger),
+          onPressed: _busy == null ? () => _cancel(o) : null,
+          child: Text(l10n.cancelOrder),
+        ),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < actions.length; i++) ...[if (i > 0) const Gap(AppSpace.sm), actions[i]],
       ],
     );
   }

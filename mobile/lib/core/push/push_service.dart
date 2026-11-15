@@ -26,11 +26,34 @@ class PushMessage {
   final String? body;
 }
 
+/// Where notification permission stands, as the messaging SDK reports it.
+enum PushPermission {
+  granted,
+
+  /// iPhone: pushes arrive quietly in the notification centre until the person allows alerts.
+  provisional,
+
+  /// iPhone: the system question has not been asked yet.
+  notDetermined,
+
+  /// Off, and only the system settings can turn it on (iPhone: the question was answered no; Android: switched off there).
+  denied,
+
+  /// Firebase is not running, so there is nothing to ask for.
+  unavailable,
+}
+
 /// Adapter over the messaging SDK (Firebase in production, fakes in tests).
 abstract class PushMessaging {
   /// Returns false when push is unavailable (e.g. no Firebase config).
   Future<bool> initialize();
-  Future<bool> requestPermission();
+
+  /// Shows the system question when it can still be shown; true when pushes may be delivered afterwards. [provisional]
+  /// (iPhone) asks for quiet delivery instead, which needs no question at all.
+  Future<bool> requestPermission({bool provisional = false});
+
+  /// Where permission stands right now, without asking.
+  Future<PushPermission> permissionStatus();
   Future<String?> getToken();
   Stream<String> get onTokenRefresh;
   Stream<PushMessage> get onForegroundMessage;
@@ -85,12 +108,26 @@ class FirebasePushMessaging implements PushMessaging {
   }
 
   @override
-  Future<bool> requestPermission() async {
+  Future<bool> requestPermission({bool provisional = false}) async {
     final fm = _fm;
     if (fm == null) return false;
-    final settings = await fm.requestPermission();
+    final settings = await fm.requestPermission(provisional: provisional);
     return settings.authorizationStatus == AuthorizationStatus.authorized ||
         settings.authorizationStatus == AuthorizationStatus.provisional;
+  }
+
+  @override
+  Future<PushPermission> permissionStatus() async {
+    final fm = _fm;
+    if (fm == null) return PushPermission.unavailable;
+    final settings = await fm.getNotificationSettings();
+    return switch (settings.authorizationStatus) {
+      AuthorizationStatus.authorized => PushPermission.granted,
+      AuthorizationStatus.provisional => PushPermission.provisional,
+      AuthorizationStatus.notDetermined => PushPermission.notDetermined,
+      // iPhone: `denied` is final (the system never asks twice). Android is handled by the live order channel, not by this.
+      AuthorizationStatus.denied || AuthorizationStatus.deniedPermanently => PushPermission.denied,
+    };
   }
 
   /// firebase_messaging 17 registers the installation and reports the
@@ -100,7 +137,13 @@ class FirebasePushMessaging implements PushMessaging {
     final fm = _fm;
     if (fm == null) return null;
     final first = fm.onRegistered.first.timeout(const Duration(seconds: 20));
-    await fm.register();
+    try {
+      await fm.register();
+    } catch (_) {
+      // Nobody waits for the answer any more: its time-out must not surface later as an error nobody catches.
+      unawaited(first.then<void>((_) {}, onError: (Object _) {}));
+      rethrow;
+    }
     try {
       return await first;
     } on TimeoutException {
@@ -133,7 +176,9 @@ class NoopPushMessaging implements PushMessaging {
   @override
   Future<bool> initialize() async => false;
   @override
-  Future<bool> requestPermission() async => false;
+  Future<bool> requestPermission({bool provisional = false}) async => false;
+  @override
+  Future<PushPermission> permissionStatus() async => PushPermission.unavailable;
   @override
   Future<String?> getToken() async => null;
   @override
@@ -154,17 +199,79 @@ abstract class LocalNotifier {
   Future<String?> launchPayload();
 }
 
+/// The Android notification channels of the customer app. Created natively when the app starts (PushChannels.kt, named in the phone's
+/// language) and chosen by the server for every push (FcmClient::channel): orders and payments ring, auctions ring, offers stay quiet, so
+/// each can be muted on its own in the system settings.
+abstract final class PushChannels {
+  static const defaults = 'albahar_default';
+  static const offers = 'albahar_offers';
+  static const auctions = 'albahar_auctions';
+
+  /// The channel for a preference category (`transactional`, `marketing`, `auction`).
+  static String forCategory(String category) => switch (category) {
+    'auction' => auctions,
+    'marketing' => offers,
+    _ => defaults,
+  };
+}
+
+/// The preference category of a push: the one the server names, else worked out from the event (older servers).
+String pushCategory(Map<String, dynamic> data) {
+  final named = data['category']?.toString();
+  if (named == 'transactional' || named == 'marketing' || named == 'auction') return named!;
+  return notificationCategory(data['event']?.toString());
+}
+
+/// What identifies one notification across repeated deliveries: the inbox entry, else the delivery or the send. Null when the push
+/// carries none of them (a test push), which is then never treated as a repeat.
+String? pushKey(Map<String, dynamic> data) {
+  for (final name in const ['notification_id', 'delivery_id', 'log_id']) {
+    final v = data[name]?.toString();
+    if (v != null && v.isNotEmpty) return '$name:$v';
+  }
+  return null;
+}
+
+/// A notification id made from a key, the same on every run (String.hashCode is not promised to be): FNV-1a, kept positive.
+@visibleForTesting
+int stableId(String key) {
+  var h = 0x811c9dc5;
+  for (final unit in key.codeUnits) {
+    h = ((h ^ unit) * 0x01000193) & 0x7fffffff;
+  }
+  return h;
+}
+
 class FlutterLocalNotifier implements LocalNotifier {
   final _plugin = FlutterLocalNotificationsPlugin();
   bool _ready = false;
 
-  static const _channel = AndroidNotificationDetails(
-    'albahar_default',
-    'Al Bahar',
-    channelDescription: 'Orders, payments, deliveries and auctions',
-    importance: Importance.high,
-    priority: Priority.high,
-  );
+  static AndroidNotificationDetails _android(String category) {
+    final channel = PushChannels.forCategory(category);
+    return switch (channel) {
+      PushChannels.offers => const AndroidNotificationDetails(
+        PushChannels.offers,
+        'Offers and news',
+        channelDescription: 'Offers, back in stock and news from Al Bahar',
+        importance: Importance.defaultImportance,
+        priority: Priority.defaultPriority,
+      ),
+      PushChannels.auctions => const AndroidNotificationDetails(
+        PushChannels.auctions,
+        'Auctions',
+        channelDescription: 'Bids, outbids and results of the auctions you follow',
+        importance: Importance.high,
+        priority: Priority.high,
+      ),
+      _ => const AndroidNotificationDetails(
+        PushChannels.defaults,
+        'Orders and updates',
+        channelDescription: 'Orders, payments, deliveries and messages from Al Bahar',
+        importance: Importance.high,
+        priority: Priority.high,
+      ),
+    };
+  }
 
   @override
   Future<void> initialize(void Function(String? payload) onTap) async {
@@ -190,11 +297,16 @@ class FlutterLocalNotifier implements LocalNotifier {
   @override
   Future<void> show(PushMessage message) async {
     if (!_ready) return;
+    final key = pushKey(message.data);
     await _plugin.show(
-      id: DateTime.now().millisecondsSinceEpoch.remainder(1 << 31),
+      // The same notification delivered twice replaces the first card instead of stacking a second one.
+      id: key == null ? DateTime.now().millisecondsSinceEpoch.remainder(1 << 31) : stableId(key),
       title: message.title,
       body: message.body,
-      notificationDetails: const NotificationDetails(android: _channel, iOS: DarwinNotificationDetails()),
+      notificationDetails: NotificationDetails(
+        android: _android(pushCategory(message.data)),
+        iOS: const DarwinNotificationDetails(),
+      ),
       payload: jsonEncode(message.data),
     );
   }
@@ -224,8 +336,11 @@ class PushService {
     required this.enabled,
     this.devicesPath = customerDevicesPath,
     this.askPermissionOnRegister = true,
+    this.localeCode,
+    String Function()? platform,
     DateTime Function()? now,
-  }) : _now = now ?? DateTime.now;
+  }) : _platform = platform ?? platformCode,
+       _now = now ?? DateTime.now;
 
   /// Where the customer app registers its push token.
   static const customerDevicesPath = '/me/devices';
@@ -233,6 +348,9 @@ class PushService {
   /// When Firebase could not start (its settings are not on the server yet, no network), the app tries again, but not
   /// more often than this.
   static const retryInterval = Duration(minutes: 10);
+
+  /// How many recent notifications are remembered to tell a repeated delivery from a new message.
+  static const _rememberLast = 40;
 
   final PushMessaging messaging;
   final LocalNotifier local;
@@ -243,9 +361,13 @@ class PushService {
   /// Where the push token is registered: `/me/devices` (customers) or `/admin/devices` (driver and staff apps).
   final String devicesPath;
 
-  /// Whether [register] shows the system notification dialog on Android. The customer app turns it off: it asks in
-  /// context, with a rationale, when the first order is placed (see core/live_order/notification_permission.dart).
+  /// Whether [register] shows the system notification dialog. The customer app turns it off: it asks in context, with a rationale,
+  /// when the first order is placed (see core/live_order/notification_permission.dart); on an iPhone it asks for quiet delivery,
+  /// which needs no dialog, until then.
   final bool askPermissionOnRegister;
+
+  /// The app's language (`en` | `ar`), sent with the token so the server writes the live order card and the messages in it.
+  final String Function()? localeCode;
 
   /// Receives `order_progress` pushes that reach the app while it is open (the live order notification); without it
   /// they are drawn as a plain progress notification.
@@ -257,15 +379,25 @@ class PushService {
   /// Called when a notification is opened (used to mark it read).
   void Function(String notificationId)? onOpened;
 
+  /// Called when a push (other than an order card) reaches the app while it is open: the server has put it in the inbox, so the
+  /// unread badge is out of date.
+  void Function()? onReceived;
+
+  final String Function() _platform;
   final DateTime Function() _now;
   bool _available = false;
   Future<void>? _startFuture;
   Future<void>? _retrying;
+  Future<void>? _registering;
   DateTime? _lastAttempt;
 
   /// [register] ran while push was unavailable: finish it as soon as push starts.
   bool _registerWanted = false;
+
+  /// Someone is signed in on this phone and wants pushes: set by [register], cleared by [unregister] and [onSignedOut].
+  bool _signedIn = false;
   String? _pendingLocation;
+  final _recent = <String>[];
   final _subs = <StreamSubscription<Object?>>[];
   StreamSubscription<String>? _tokenRefreshSub;
 
@@ -325,34 +457,67 @@ class PushService {
   }
 
   /// The app is back on screen: if push could not start earlier, try again (throttled) and finish a [register] that
-  /// was waiting for it.
+  /// was waiting for it. A signed-in person whose phone has no token yet (they had said no to notifications and have now
+  /// switched them on in the system settings) is registered now, without any question.
   Future<void> onResumed() async {
-    if (!enabled || _available || _startFuture == null) return;
-    await start();
-    if (_available && _registerWanted) await register();
+    if (!enabled || _startFuture == null) return;
+    if (!_available) {
+      await start();
+      if (_available && _registerWanted) await register();
+      return;
+    }
+    if (_signedIn && prefs.registeredPushToken == null && await _mayRegisterWithoutAsking()) await register();
   }
 
-  /// Registers this device for the signed-in customer.
-  Future<void> register() async {
+  /// The customer app never shows a dialog from [register], so it may always try again. The staff apps ask in [register]; they try
+  /// again on their own only once the permission is on (a refused question is not asked at every return to the app).
+  Future<bool> _mayRegisterWithoutAsking() async {
+    if (!askPermissionOnRegister) return true;
+    final status = await messaging.permissionStatus();
+    return status == PushPermission.granted || status == PushPermission.provisional;
+  }
+
+  /// Registers this device for the signed-in customer. Calls that overlap share one registration.
+  Future<void> register() => _registering ??= _register().whenComplete(() => _registering = null);
+
+  Future<void> _register() async {
+    _signedIn = true;
     await start();
     if (!_available) {
       _registerWanted = enabled;
       return;
     }
     _registerWanted = false;
-    // A token can be registered without the permission; data messages then arrive and show once it is granted.
-    if (askPermissionOnRegister || platformCode() != 'android') {
-      final granted = await messaging.requestPermission();
-      if (!granted) return;
+    if (!await _permitted()) return;
+    // The SDK reports the token when the registration finishes; if it has nothing new to say, the install's last token is still right.
+    final token = await messaging.getToken() ?? prefs.lastPushToken;
+    try {
+      if (token != null) await _send(token);
+    } finally {
+      // Listening even when this send failed (no network): a later token refresh must not be lost with it.
+      await _tokenRefreshSub?.cancel();
+      _tokenRefreshSub = messaging.onTokenRefresh.listen((t) => unawaited(_send(t).catchError((Object _) {})));
     }
-    final token = await messaging.getToken();
-    if (token != null) await _send(token);
-    await _tokenRefreshSub?.cancel();
-    _tokenRefreshSub = messaging.onTokenRefresh.listen((t) => unawaited(_send(t).catchError((Object _) {})));
+  }
+
+  /// Whether pushes may be delivered, asking where that is the right moment. The driver and staff apps ask at once (an alert is the
+  /// point of them). The customer app on Android asks nothing here (a token needs no permission; the explanation sheet comes with the
+  /// first order); on an iPhone it asks for quiet delivery, which shows no dialog and lets order news arrive from the first minute.
+  Future<bool> _permitted() async {
+    if (askPermissionOnRegister) return messaging.requestPermission();
+    return switch (_platform()) {
+      'android' => true,
+      'ios' => messaging.requestPermission(provisional: true),
+      _ => messaging.requestPermission(),
+    };
   }
 
   Future<void> unregister() async {
     _registerWanted = false;
+    _signedIn = false;
+    await _tokenRefreshSub?.cancel();
+    _tokenRefreshSub = null;
+    await prefs.setPushCategoryPrefs(const {});
     final token = prefs.registeredPushToken;
     if (token == null) return;
     try {
@@ -360,6 +525,24 @@ class PushService {
     } finally {
       await prefs.setRegisteredPushToken(null);
     }
+  }
+
+  /// The person is no longer signed in (signed out, or the session ended and the server cannot be asked any more): nothing of theirs
+  /// stays on this phone. Their banner preferences must not decide what the next person sees, and the phone stops reporting its token.
+  Future<void> onSignedOut() async {
+    _registerWanted = false;
+    _signedIn = false;
+    await _tokenRefreshSub?.cancel();
+    _tokenRefreshSub = null;
+    await prefs.setPushCategoryPrefs(const {});
+    await prefs.setRegisteredPushToken(null);
+  }
+
+  /// The app's language changed: the server writes the live order card and its messages in the language each phone reports.
+  Future<void> onLocaleChanged() async {
+    final token = prefs.registeredPushToken;
+    if (!_signedIn || !_available || token == null) return;
+    await _send(token);
   }
 
   Future<void> _send(String token) async {
@@ -373,11 +556,19 @@ class PushService {
       final info = await PackageInfo.fromPlatform();
       version = '${info.version}+${info.buildNumber}';
     } catch (_) {}
+    final locale = localeCode?.call();
     await api.post(
       devicesPath,
-      data: {'platform': platformCode(), 'push_token': token, 'device_id': deviceId, 'app_version': ?version},
+      data: {
+        'platform': _platform(),
+        'push_token': token,
+        'device_id': deviceId,
+        'app_version': ?version,
+        'locale': ?locale,
+      },
     );
     await prefs.setRegisteredPushToken(token);
+    await prefs.setLastPushToken(token);
   }
 
   void _handleForeground(PushMessage message) {
@@ -390,10 +581,22 @@ class PushService {
       }
       return;
     }
-    final category = notificationCategory(message.data['event']?.toString());
-    final allowed = prefs.pushCategoryPrefs[category] ?? true;
+    // The server has put this message in the inbox already: the unread badge catches up, whatever the banner does.
+    onReceived?.call();
+    if (_isRepeat(message.data)) return;
+    final allowed = prefs.pushCategoryPrefs[pushCategory(message.data)] ?? true;
     if (!allowed) return;
     unawaited(local.show(message));
+  }
+
+  /// True when this notification was already shown (FCM delivers a message twice now and then); remembers it otherwise.
+  bool _isRepeat(Map<String, dynamic> data) {
+    final key = pushKey(data);
+    if (key == null) return false;
+    if (_recent.contains(key)) return true;
+    _recent.add(key);
+    if (_recent.length > _rememberLast) _recent.removeAt(0);
+    return false;
   }
 
   void _handleTap(Map<String, dynamic> data) {
@@ -455,6 +658,7 @@ final pushServiceProvider = Provider<PushService>((ref) {
     enabled: ref.watch(appConfigProvider).pushEnabled,
     devicesPath: ref.watch(pushDevicesPathProvider),
     askPermissionOnRegister: ref.watch(pushDevicesPathProvider) != PushService.customerDevicesPath,
+    localeCode: () => ref.read(localeCodeProvider),
   );
   ref.onDispose(service.dispose);
   return service;

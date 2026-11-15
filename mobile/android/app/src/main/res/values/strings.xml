@@ -3,6 +3,14 @@
     <string name="app_name">Al Bahar</string>
     <string name="default_notification_channel_id">albahar_default</string>
 
+    <!-- Notification channels of the server's pushes (PushChannels.kt): named in the system settings, so they follow the phone's language. -->
+    <string name="push_channel_default_name">Orders and updates</string>
+    <string name="push_channel_default_description">Orders, payments, deliveries and messages about your account</string>
+    <string name="push_channel_auctions_name">Auctions</string>
+    <string name="push_channel_auctions_description">Bids, outbids and results of the auctions you follow</string>
+    <string name="push_channel_offers_name">Offers and news</string>
+    <string name="push_channel_offers_description">Offers, back in stock and news from Al Bahar</string>
+
     <!-- Live order notification (qa.albahar.customer.liveorder). Mirrors the Dart strings in lib/l10n/app_*.arb. -->
     <string name="live_order_channel_name">Live order tracking</string>
     <string name="live_order_channel_description">Status and arrival time of your order, updated in real time</string>

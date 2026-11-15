@@ -125,10 +125,11 @@ class MessageDelivery
         [$title, $body] = $this->texts($content, $locale, $user, $coupon);
         $link = $content['deep_link'] ?: ($batch->kind === 'reminder' ? 'albahar://cart' : 'albahar://home');
         $meta = ['in_app' => false, 'devices' => 0, 'pushed' => 0];
+        $inboxId = null;
 
         if ($inApp) {
-            Notification::create(['user_id' => $user->id, 'event' => 'staff.message', 'category' => 'marketing', 'title' => $title, 'body' => $body,
-                'data' => array_filter(['deep_link' => $link, 'coupon' => $coupon?->code])]);
+            $inboxId = Notification::create(['user_id' => $user->id, 'event' => 'staff.message', 'category' => 'marketing', 'title' => $title, 'body' => $body,
+                'data' => array_filter(['deep_link' => $link, 'coupon' => $coupon?->code])])->id;
             $meta['in_app'] = true;
         }
         $pushConfigured = $this->fcm->configured();
@@ -136,7 +137,8 @@ class MessageDelivery
             foreach ($user->devices()->whereNull('disabled_at')->get() as $device) {
                 $meta['devices']++;
                 [$t, $b] = $this->texts($content, $device->locale ?: $locale, $user, $coupon); // the app language on that phone
-                $res = $this->fcm->send($device->push_token, $t, $b, array_filter(['event' => 'staff.message', 'deep_link' => $link, 'coupon' => $coupon?->code, 'delivery_id' => $row->id]), $device);
+                // `notification_id`: opening the push marks the same message read in the customer's inbox.
+                $res = $this->fcm->send($device->push_token, $t, $b, array_filter(['event' => 'staff.message', 'deep_link' => $link, 'coupon' => $coupon?->code, 'delivery_id' => $row->id, 'notification_id' => $inboxId]), $device);
                 if ($res['unregistered'] ?? false) {
                     $device->update(['disabled_at' => now()]);
                 }

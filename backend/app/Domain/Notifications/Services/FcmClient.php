@@ -9,10 +9,26 @@ use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use RuntimeException;
 
 /** Firebase Cloud Messaging HTTP v1 using a service-account JWT (RS256) — no SDK dependency. */
 class FcmClient
 {
+    /** Longest title and body sent (characters). FCM refuses a message above 4 KB and a phone shows far less than this anyway. */
+    public const TITLE_MAX = 120;
+
+    public const BODY_MAX = 500;
+
+    /** An undelivered notification is dropped after a day: "your order is out for delivery" must not arrive on the third day. */
+    private const TTL_SECONDS = 86400;
+
+    /** The Android notification channels the customer app creates at start (android/app/src/main/.../PushChannels.kt). */
+    public const CHANNEL_DEFAULT = 'albahar_default';
+
+    public const CHANNEL_OFFERS = 'albahar_offers';
+
+    public const CHANNEL_AUCTIONS = 'albahar_auctions';
+
     /** Switched on in the dashboard (or set up with the old server variables) and a project + service-account key exist. */
     public function configured(): bool
     {
@@ -21,25 +37,46 @@ class FcmClient
 
     /**
      * One notification to one phone or browser. Pass the device so a web token gets a web push message (platform "web") instead of
-     * the Android/iOS one; without it the token is treated as a phone token, as before.
+     * the Android/iOS one; without it the token is treated as a phone token, as before. Never throws: a network or Google problem comes
+     * back as `ok: false` with `retry: true` when trying again later can work (see {@see outcome()}).
      *
-     * @return array{ok: bool, unregistered?: bool, status?: int, error?: ?string}
+     * @param  array<string, mixed>  $data  only strings reach the phone: null values are left out, arrays are sent as JSON
+     * @return array{ok: bool, unregistered: bool, retry: bool, status: int, error: ?string}
      */
     public function send(string $token, string $title, string $body, array $data = [], ?UserDevice $device = null): array
     {
+        $title = $this->fit($title, self::TITLE_MAX);
+        $body = $this->fit($body, self::BODY_MAX);
+        $event = (string) ($data['event'] ?? '');
+        if ($event !== '' && ! isset($data['category'])) {
+            $data['category'] = NotificationCatalog::category($event); // the app files the banner under the right preference
+        }
         if ($device?->platform === 'web') {
             return $this->sendWeb($token, $title, $body, $data, $device->app);
         }
-        $res = Http::withToken($this->accessToken())->timeout(10)
-            ->post($this->endpoint(), ['message' => [
-                'token' => $token,
-                'notification' => ['title' => $title, 'body' => $body],
-                'data' => array_map('strval', $data),
-                'android' => ['priority' => 'high', 'notification' => ['channel_id' => 'orders']],
-                'apns' => ['payload' => ['aps' => ['sound' => 'default']]],
-            ]]);
+        $expires = (string) (now()->getTimestamp() + self::TTL_SECONDS);
 
-        return $this->outcome($res);
+        return $this->deliver(['message' => [
+            'token' => $token,
+            'notification' => ['title' => $title, 'body' => $body],
+            'data' => $this->strings($data),
+            'android' => ['priority' => 'high', 'ttl' => self::TTL_SECONDS.'s', 'notification' => ['channel_id' => $this->channel($event)]],
+            'apns' => ['headers' => ['apns-expiration' => $expires], 'payload' => ['aps' => ['sound' => 'default']]],
+        ]]);
+    }
+
+    /**
+     * The Android channel a notification is shown in, so the customer can mute offers without muting order updates: auctions are time
+     * critical, offers and news are quiet, everything else (orders, payments, support, the driver and staff apps) is the default.
+     * A channel the installed app does not know yet falls back to the manifest default, so an older build still shows the push.
+     */
+    private function channel(string $event): string
+    {
+        return match (NotificationCatalog::category($event)) {
+            'auction' => self::CHANNEL_AUCTIONS,
+            'marketing' => self::CHANNEL_OFFERS,
+            default => self::CHANNEL_DEFAULT,
+        };
     }
 
     /**
@@ -54,7 +91,7 @@ class FcmClient
      * A web token (pass its device) gets the same data-only message through Web Push; the service worker draws the card.
      *
      * @param  array<string, mixed>  $data
-     * @return array{ok: bool, unregistered?: bool, status?: int, error?: ?string}
+     * @return array{ok: bool, unregistered: bool, retry: bool, status: int, error: ?string}
      */
     public function sendProgress(string $token, string $title, string $body, array $data, ?UserDevice $device = null): array
     {
@@ -66,18 +103,15 @@ class FcmClient
         $quiet = in_array($data['quiet'] ?? null, ['1', 1, true], true);
         $aps = ['alert' => ['title' => $title, 'body' => $body], 'thread-id' => $order, 'interruption-level' => $quiet ? 'passive' : 'active'] + ($quiet ? [] : ['sound' => 'default']);
 
-        $res = Http::withToken($this->accessToken())->timeout(10)
-            ->post($this->endpoint(), ['message' => [
-                'token' => $token,
-                'data' => $this->strings($data + ['title' => $title, 'body' => $body]),
-                'android' => ['priority' => 'high', 'collapse_key' => $order, 'ttl' => $ttl.'s'],
-                'apns' => [
-                    'headers' => ['apns-push-type' => 'alert', 'apns-priority' => $quiet ? '5' : '10', 'apns-collapse-id' => $order, 'apns-expiration' => (string) (now()->getTimestamp() + $ttl)],
-                    'payload' => ['aps' => $aps],
-                ],
-            ]]);
-
-        return $this->outcome($res);
+        return $this->deliver(['message' => [
+            'token' => $token,
+            'data' => $this->strings($data + ['title' => $title, 'body' => $body]),
+            'android' => ['priority' => 'high', 'collapse_key' => $order, 'ttl' => $ttl.'s'],
+            'apns' => [
+                'headers' => ['apns-push-type' => 'alert', 'apns-priority' => $quiet ? '5' : '10', 'apns-collapse-id' => $order, 'apns-expiration' => (string) (now()->getTimestamp() + $ttl)],
+                'payload' => ['aps' => $aps],
+            ],
+        ]]);
     }
 
     /** FCM `data` accepts string values only. @return array<string, string> */
@@ -93,16 +127,21 @@ class FcmClient
         return $out;
     }
 
-    /** The OAuth token for the saved service-account key, kept for 50 minutes per key (a new key gets a new token at once). */
+    /**
+     * The OAuth token for the saved service-account key, kept for 50 minutes per key (a new key gets a new token at once). Google answering
+     * without a token is an error, never cached (a null in the cache would be read as "none yet" and ask Google again on every message).
+     *
+     * @throws RequestException|ConnectionException|RuntimeException
+     */
     private function accessToken(bool $fresh = false): string
     {
-        $sa = app(FirebaseConfig::class)->serviceAccount() ?? throw new \RuntimeException('Firebase service account is not configured.');
+        $sa = app(FirebaseConfig::class)->serviceAccount() ?? throw new RuntimeException('Firebase service account is not configured.');
         $key = 'fcm:access_token:'.substr(hash('sha256', $sa['client_email'].'|'.($sa['private_key_id'] ?? hash('sha256', $sa['private_key']))), 0, 24);
         if ($fresh) {
             Cache::forget($key);
         }
 
-        return Cache::remember($key, 3000, function () use ($sa) {
+        $token = Cache::remember($key, 3000, function () use ($sa) {
             $b64 = fn ($v) => rtrim(strtr(base64_encode($v), '+/', '-_'), '=');
             $now = time();
             $unsigned = $b64(json_encode(['alg' => 'RS256', 'typ' => 'JWT'])).'.'.$b64(json_encode([
@@ -116,6 +155,48 @@ class FcmClient
                 'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer', 'assertion' => $jwt,
             ])->throw()->json('access_token');
         });
+        if (! is_string($token) || $token === '') {
+            Cache::forget($key);
+
+            throw new RuntimeException('Google returned no access token.');
+        }
+
+        return $token;
+    }
+
+    /**
+     * Posts one message and says what happened, without ever throwing: a network problem, a refused key or a missing key come back as a
+     * failed result, so one bad moment never stops a whole send loop (and never repeats the devices that already got the message).
+     * An expired or revoked OAuth token (401) is replaced once and the message sent again.
+     *
+     * @param  array{message: array<string, mixed>}  $payload
+     * @return array{ok: bool, unregistered: bool, retry: bool, status: int, error: ?string}
+     */
+    private function deliver(array $payload): array
+    {
+        $send = fn (string $token) => Http::withToken($token)->timeout(10)->connectTimeout(5)->post($this->endpoint(), $payload);
+        try {
+            $res = $send($this->accessToken());
+            if ($res->status() === 401) {
+                $res = $send($this->accessToken(fresh: true));
+            }
+        } catch (ConnectionException) {
+            return $this->failure(0, 'UNAVAILABLE', retry: true);
+        } catch (RequestException $e) { // Google's token service refused the key
+            $status = $e->response->status();
+
+            return $this->failure($status, 'UNAUTHENTICATED', retry: $status === 429 || $status >= 500);
+        } catch (RuntimeException) { // no key saved any more, or Google gave no token
+            return $this->failure(0, 'UNAUTHENTICATED', retry: false);
+        }
+
+        return $this->outcome($res);
+    }
+
+    /** @return array{ok: false, unregistered: false, retry: bool, status: int, error: string} */
+    private function failure(int $status, string $error, bool $retry): array
+    {
+        return ['ok' => false, 'unregistered' => false, 'retry' => $retry, 'status' => $status, 'error' => $error];
     }
 
     /**
@@ -124,7 +205,7 @@ class FcmClient
      *
      * @param  array<string, mixed>  $data  `deep_link` may be an app link (albahar://orders/1), a path or a link on this site
      * @param  string|null  $app  store | mobile-web | admin: the Flutter web app lives under /mobile-web/ with hash routes
-     * @return array{ok: bool, unregistered?: bool, status?: int, error?: ?string}
+     * @return array{ok: bool, unregistered: bool, retry: bool, status: int, error: ?string}
      */
     public function sendWeb(string $token, string $title, string $body, array $data = [], ?string $app = null): array
     {
@@ -137,10 +218,8 @@ class FcmClient
         if (str_starts_with($this->absolute($link), 'https://')) { // FCM accepts only https links here
             $webpush['fcm_options'] = ['link' => $this->absolute($link)];
         }
-        $res = Http::withToken($this->accessToken())->timeout(10)
-            ->post($this->endpoint(), ['message' => ['token' => $token, 'data' => $this->strings(array_merge($data, ['deep_link' => $link])), 'webpush' => $webpush]]);
 
-        return $this->outcome($res);
+        return $this->deliver(['message' => ['token' => $token, 'data' => $this->strings(array_merge($data, ['deep_link' => $link])), 'webpush' => $webpush]]);
     }
 
     /**
@@ -149,7 +228,7 @@ class FcmClient
      * for a browser that was offline, like `collapse_key` does for Android.
      *
      * @param  array<string, mixed>  $data
-     * @return array{ok: bool, unregistered?: bool, status?: int, error?: ?string}
+     * @return array{ok: bool, unregistered: bool, retry: bool, status: int, error: ?string}
      */
     public function sendWebProgress(string $token, string $title, string $body, array $data, ?string $app = null): array
     {
@@ -161,10 +240,8 @@ class FcmClient
             $headers['Topic'] = $topic;
         }
         $payload = $this->strings(array_merge($data, ['title' => $title, 'body' => $body, 'deep_link' => $this->webLink($data['deep_link'] ?? null, $app)]));
-        $res = Http::withToken($this->accessToken())->timeout(10)
-            ->post($this->endpoint(), ['message' => ['token' => $token, 'data' => $payload, 'webpush' => ['headers' => $headers]]]);
 
-        return $this->outcome($res);
+        return $this->deliver(['message' => ['token' => $token, 'data' => $payload, 'webpush' => ['headers' => $headers]]]);
     }
 
     /**
@@ -219,17 +296,23 @@ class FcmClient
     }
 
     /**
-     * What happened to one send. `unregistered` is true only when FCM says this token is dead (UNREGISTERED, or INVALID_ARGUMENT that
-     * blames the token itself), never for a wrong project or a bad payload, so a configuration mistake cannot switch off every device.
+     * What happened to one send.
+     *  - `unregistered`: FCM says this token can never work again (UNREGISTERED, INVALID_ARGUMENT that blames the token itself, or
+     *    SENDER_ID_MISMATCH: the token was made for another Firebase project), so the device is switched off. Never set for a wrong project
+     *    on our side, a refused key or a bad payload, so a configuration mistake cannot switch off every device.
+     *  - `retry`: trying again later can work (Google is down or busy: 429, 5xx, UNAVAILABLE, INTERNAL, QUOTA_EXCEEDED, or no connection).
      *
-     * @return array{ok: bool, unregistered: bool, status: int, error: ?string}
+     * @return array{ok: bool, unregistered: bool, retry: bool, status: int, error: ?string}
      */
     private function outcome(Response $res): array
     {
         $error = $res->json('error.status');
-        $deadToken = str_contains($res->body(), 'UNREGISTERED') || ($error === 'INVALID_ARGUMENT' && $this->blamesToken($res));
+        $body = $res->body();
+        $deadToken = str_contains($body, 'UNREGISTERED') || str_contains($body, 'SENDER_ID_MISMATCH') || ($error === 'INVALID_ARGUMENT' && $this->blamesToken($res));
+        $retry = ! $res->successful() && ($res->status() === 429 || $res->status() >= 500
+            || in_array($error, ['UNAVAILABLE', 'INTERNAL', 'RESOURCE_EXHAUSTED'], true) || str_contains($body, 'QUOTA_EXCEEDED'));
 
-        return ['ok' => $res->successful(), 'unregistered' => ! $res->successful() && $deadToken, 'status' => $res->status(), 'error' => is_string($error) ? $error : null];
+        return ['ok' => $res->successful(), 'unregistered' => ! $res->successful() && $deadToken, 'retry' => $retry, 'status' => $res->status(), 'error' => is_string($error) ? $error : null];
     }
 
     private function blamesToken(Response $res): bool
@@ -270,6 +353,14 @@ class FcmClient
     private function absolute(string $path): string
     {
         return rtrim((string) config('app.url'), '/').$path;
+    }
+
+    /** A title or body no longer than [$max] characters (an ellipsis marks the cut), counted in characters so Arabic and emoji are not split. */
+    private function fit(string $text, int $max): string
+    {
+        $text = trim($text);
+
+        return mb_strlen($text) > $max ? rtrim(mb_substr($text, 0, $max - 1)).'…' : $text;
     }
 
     private function clip(mixed $text): ?string

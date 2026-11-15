@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../push/push_service.dart';
 import '../utils/platform.dart';
 import 'live_order.dart';
 
@@ -140,4 +142,76 @@ class MethodChannelLiveOrderPlatform implements LiveOrderPlatform {
 
   @override
   Future<bool> openSettings() async => await _call<bool>('openSettings') ?? false;
+}
+
+/// The iPhone: it has no live order card of its own (every call but the permission goes to [inner], which answers "unsupported"), but
+/// it does have the notification question, and it lives in the messaging SDK. Until the customer is asked (at the first order, with the
+/// same explanation sheet as on Android) pushes arrive quietly in the notification centre; this is the question that makes them alerts.
+class MessagingPermissionPlatform implements LiveOrderPlatform {
+  MessagingPermissionPlatform(this._inner, this._messaging, {Future<bool> Function()? openSettingsPage})
+    : _openSettingsPage = openSettingsPage ?? _openAppSettings;
+
+  final LiveOrderPlatform _inner;
+  final PushMessaging _messaging;
+  final Future<bool> Function() _openSettingsPage;
+
+  static Future<bool> _openAppSettings() async {
+    try {
+      return await launchUrl(Uri.parse('app-settings:'));
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// What the customer can still do about notifications. With no Firebase running there are no pushes to be allowed, so nothing is
+  /// asked (a sheet promising them would be a lie).
+  static LiveOrderPermission standing(PushPermission status) => switch (status) {
+    PushPermission.granted || PushPermission.unavailable => LiveOrderPermission.granted,
+    PushPermission.provisional || PushPermission.notDetermined => LiveOrderPermission.denied,
+    PushPermission.denied => LiveOrderPermission.blocked,
+  };
+
+  Future<LiveOrderPermission> _current() async {
+    try {
+      return standing(await _messaging.permissionStatus());
+    } catch (_) {
+      return LiveOrderPermission.granted;
+    }
+  }
+
+  @override
+  Future<LiveOrderPermission> permission() => _current();
+
+  @override
+  Future<LiveOrderPermission> requestPermission() async {
+    try {
+      // Only a question that can still be answered is asked (the system never asks an iPhone twice).
+      final now = await _current();
+      if (now != LiveOrderPermission.denied) return now;
+      await _messaging.requestPermission();
+    } catch (_) {
+      // The answer is read below, whatever went wrong.
+    }
+    return _current();
+  }
+
+  @override
+  Future<bool> openSettings() => _openSettingsPage();
+
+  @override
+  Future<LiveOrderShowResult> show(
+    LiveOrder order, {
+    required String locale,
+    bool force = false,
+    bool arabicDigits = false,
+  }) => _inner.show(order, locale: locale, force: force, arabicDigits: arabicDigits);
+
+  @override
+  Future<void> cancel(String orderId) => _inner.cancel(orderId);
+
+  @override
+  Future<void> cancelAll() => _inner.cancelAll();
+
+  @override
+  Future<bool> areEnabled() => _inner.areEnabled();
 }

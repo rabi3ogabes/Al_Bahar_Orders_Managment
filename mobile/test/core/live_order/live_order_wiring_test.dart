@@ -48,7 +48,7 @@ class _FakeMessaging extends NoopPushMessaging {
   @override
   Future<bool> initialize() async => true;
   @override
-  Future<bool> requestPermission() async {
+  Future<bool> requestPermission({bool provisional = false}) async {
     permissionRequests++;
     return allow;
   }

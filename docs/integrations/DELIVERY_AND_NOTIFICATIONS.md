@@ -16,12 +16,15 @@ webhook to `POST /webhooks/delivery/{code}`.
 | Channel | Implementation | Required configuration |
 |---|---|---|
 | In-app | `notifications` table, `/api/v1/me/notifications` | — |
-| Push | FCM HTTP v1 (`FcmClient`, service-account JWT) | `FCM_PROJECT_ID`, `FCM_CREDENTIALS_PATH` (file outside repo) |
+| Push | FCM HTTP v1 (`FcmClient`, service-account JWT) | Dashboard, Organization, Push notifications ([FIREBASE_PUSH.md](../guides/FIREBASE_PUSH.md)); the old `FCM_PROJECT_ID` + `FCM_CREDENTIALS_PATH` still work as a fallback |
 | SMS | `SmsSender` contract: `null` (default, never logs bodies) or generic `http` gateway | `SMS_DRIVER=http`, `SMS_HTTP_*` |
 | WhatsApp | WhatsApp Business Cloud API | `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_ACCESS_TOKEN`; marketing templates must be pre-approved |
 | Email | Laravel Mail | `MAIL_*` |
 
 All external sends are queued (`notifications` queue) with 5 attempts and exponential backoff (10s, 1m, 5m, 15m),
-logged in `notification_logs` with masked recipients and redacted responses. Marketing requires consent
+logged in `notification_logs` with masked recipients and redacted responses. A push that could not be delivered to any device because
+Firebase was unreachable or busy is retried the same way; once one device has it, it is not sent again. Each phone gets the message in
+the language of its own app. The six order-change events (created, confirmed, ready for pickup, out for delivery, completed, cancelled)
+are not also sent as a classic push while the customer's live order card can reach a device (the card is the alert). Marketing requires consent
 (`users.marketing_consent_at`) and honours per-channel/category opt-outs. Templates: `notification_templates`
 (event × channel × locale) override the defaults in `lang/{en,ar}/notifications.php`.

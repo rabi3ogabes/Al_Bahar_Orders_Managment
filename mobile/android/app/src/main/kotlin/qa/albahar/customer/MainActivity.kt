@@ -9,6 +9,8 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        // The channels the server's pushes are shown in (orders, auctions, offers), before the first push can arrive.
+        PushChannels.ensure(this)
         // The live order notification (customer app): `albahar/live_order`, see lib/core/live_order.
         liveOrder = LiveOrderChannel(this).also { it.register(flutterEngine.dartExecutor.binaryMessenger) }
     }

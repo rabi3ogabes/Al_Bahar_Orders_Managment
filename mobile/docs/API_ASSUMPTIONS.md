@@ -61,6 +61,7 @@ All are overridable with `--dart-define` (see README). Hostnames are placeholder
 
 | Item | Status |
 |---|---|
+| `GET /app-config` (public, no sign-in) → `{designed_by: {en, ar}, returns_enabled}` | The intro's "Designed by" line. The app asks once while the splash shows (6 s limit), keeps the last good answer on the device (instant on the next launch, works offline), shows the line in the customer's language (or the other language when its own is empty) and hides it when both are empty. Any failure is silent. `returns_enabled` is not read: the order's own `can_return` already follows it. |
 | Every product has ≥ 1 variant | ✓ verified earlier (out of scope here) |
 | `ProductDetail.fulfillment: {delivery, pickup}` | **backend gap.** Not sent. The app shows both chips, and the server decides at checkout. |
 | Product card/detail/variant/availability fields | ✓ verified (`CatalogPresenter::card/detail`, `CatalogController::availability`). The card also has `purchasable`. Attribute value ids are integers (coerced to strings). |
@@ -101,7 +102,8 @@ All are overridable with `--dart-define` (see README). Hostnames are placeholder
 | `POST /orders/{id}/reorder` → `{cart, skipped: [{name, sku}]}` | ✓ verified |
 | `Fulfillment.delivery.tracking_url` | **backend gap** (optional). Not sent, so the app hides the "Track" action. Delivery is `{tracking_number, status, status_label, provider, driver_name, eta}`. |
 | Pickup pass only for `pickup_ready`/`ready` → `{qr_payload, expires_at, status, branch: {id, name}, fulfillment_number}` (409 if not ready) | ✓ verified |
-| Invoice `GET /orders/{id}/invoice` returns a PDF (409 while `pending_payment`) | ✓ verified |
+| Invoice `GET /orders/{id}/invoice` returns a PDF (409 while `pending_payment`) | ✓ verified. The app offers "Download invoice (PDF)" for every order except `pending_payment` and `cancelled`, saves it as `AlBahar-<number>.pdf` (the system share sheet on a phone, a normal download in the browser) and words a 409 as "ready once the order is paid". |
+| `can_return` on the order | The Return button follows it (the dashboard can turn returns off). A `403` from `POST /orders/{id}/returns` shows "Returns aren't available for this order right now" and re-reads the order. |
 | Order statuses for the tabs, fulfilment statuses | ✓ verified (`OrderStatus`, `FulfillmentStatus` enums) |
 
 ## 7. Auctions

@@ -63,7 +63,7 @@ void main() {
     expect(footerIndexFor('/checkout'), 3);
     expect(footerIndexFor('/orders/9/track'), 4);
     expect(footerIndexFor('/settings/delete-account'), 4);
-    for (final p in ['/splash', '/language', '/onboarding', '/login', '/login/password', '/']) {
+    for (final p in ['/splash', '/onboarding', '/login', '/login/password', '/']) {
       expect(showsFooter(p), isFalse, reason: p);
     }
     for (final p in ['/home', '/products/abc', '/checkout', '/orders/1', '/branches', '/pages/terms']) {

@@ -3,6 +3,7 @@
 namespace App\Domain\Notifications\Jobs;
 
 use App\Domain\Identity\Models\User;
+use App\Domain\Identity\Models\UserDevice;
 use App\Domain\Notifications\Contracts\SmsSender;
 use App\Domain\Notifications\Models\NotificationLog;
 use App\Domain\Notifications\Services\FcmClient;
@@ -14,6 +15,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Mail;
+use RuntimeException;
 use Throwable;
 
 /** Delivers one queued message on one channel, with exponential backoff and a redacted provider log. */
@@ -23,7 +25,11 @@ class SendNotificationJob implements ShouldQueue
 
     public int $tries = 5;
 
-    public function __construct(public readonly string $logId, public readonly string $subject, public readonly string $body, public readonly ?string $deepLink = null, public readonly ?string $notificationId = null)
+    /**
+     * @param  array<string, array{subject: string, body: string}>|null  $texts  the same message in the other languages (push only), so each phone
+     *                                                                           gets the language of its own app, not only the account's
+     */
+    public function __construct(public readonly string $logId, public readonly string $subject, public readonly string $body, public readonly ?string $deepLink = null, public readonly ?string $notificationId = null, public readonly ?array $texts = null)
     {
         $this->onQueue('notifications');
     }
@@ -87,21 +93,45 @@ class SendNotificationJob implements ShouldQueue
         return ['sent', Redactor::maskEmail($user->email), null, [], config('mail.default')];
     }
 
+    /**
+     * One message to each of the person's phones and browsers, each in the language of its own app. A phone FCM no longer knows is switched
+     * off. When nothing was delivered and Google was only busy or unreachable the job fails, so the queue tries again later with backoff;
+     * once at least one device has the message it is done, so a retry never rings the devices that already got it a second time.
+     */
     private function push(FcmClient $fcm, ?User $user, NotificationLog $log): array
     {
         $devices = $user?->devices()->whereNull('disabled_at')->get() ?? collect();
         if ($devices->isEmpty() || ! $fcm->configured()) {
             return ['skipped', null, null, ['reason' => $devices->isEmpty() ? 'no_devices' : 'not_configured'], 'fcm'];
         }
-        $ok = 0;
+        $delivered = $removed = $busy = 0;
+        $last = null;
         foreach ($devices as $device) {
-            $res = $fcm->send($device->push_token, $this->subject, $this->body, ['event' => $log->event, 'deep_link' => (string) $this->deepLink, 'notification_id' => (string) $this->notificationId, 'log_id' => $log->id], $device);
+            [$title, $body] = $this->textFor($device);
+            $res = $fcm->send($device->push_token, $title, $body, ['event' => $log->event, 'deep_link' => (string) $this->deepLink, 'notification_id' => (string) $this->notificationId, 'log_id' => $log->id], $device);
             if ($res['unregistered'] ?? false) {
                 $device->update(['disabled_at' => now()]); // stale token
+                $removed++;
             }
-            $ok += ($res['ok'] ?? false) ? 1 : 0;
+            if ($res['ok'] ?? false) {
+                $delivered++;
+            } elseif ($res['retry'] ?? false) {
+                $busy++;
+                $last = $res;
+            }
+        }
+        if ($delivered === 0 && $busy > 0) {
+            throw new RuntimeException('FCM unavailable: HTTP '.($last['status'] ?? 0).' '.($last['error'] ?? '')); // the queue tries again later
         }
 
-        return [$ok > 0 ? 'sent' : 'failed', $devices->count().' device(s)', null, ['delivered_to' => $ok], 'fcm'];
+        return [$delivered > 0 ? 'sent' : 'failed', $devices->count().' device(s)', null, ['delivered_to' => $delivered, 'removed' => $removed], 'fcm'];
+    }
+
+    /** @return array{0: string, 1: string} title and body in the language of the phone's app (the account's language when that one is unknown) */
+    private function textFor(UserDevice $device): array
+    {
+        $text = $this->texts[substr((string) $device->locale, 0, 2)] ?? null;
+
+        return $text ? [$text['subject'], $text['body']] : [$this->subject, $this->body];
     }
 }

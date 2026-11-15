@@ -64,17 +64,17 @@ void main() {
   });
 
   group('router redirects', () {
-    String? r(String uri, {bool locale = true, bool onboarding = true, bool auth = false}) =>
-        resolveRedirect(uri: Uri.parse(uri), localeChosen: locale, onboardingDone: onboarding, authenticated: auth);
+    String? r(String uri, {bool onboarding = true, bool auth = false}) =>
+        resolveRedirect(uri: Uri.parse(uri), onboardingDone: onboarding, authenticated: auth);
 
     test('custom scheme links are normalised', () {
       expect(r('albahar://products/1'), '/products/1');
       expect(r('/app/orders/2'), '/orders/2');
       expect(r('albahar://nope'), '/home');
     });
-    test('language → onboarding → auth gates', () {
-      expect(r('/home', locale: false), '/language?from=%2Fhome');
+    test('onboarding → auth gates (the language is never a gate)', () {
       expect(r('/home', onboarding: false), '/onboarding?from=%2Fhome');
+      expect(r('/onboarding', onboarding: false), isNull);
       expect(r('/orders/5'), '/login?from=%2Forders%2F5');
       expect(r('/products/5/reviews/new'), startsWith('/login'));
       expect(r('/products/5'), isNull, reason: 'catalog is public');
@@ -181,7 +181,7 @@ class _FakeMessaging extends NoopPushMessaging {
   @override
   Future<bool> initialize() async => true;
   @override
-  Future<bool> requestPermission() async => true;
+  Future<bool> requestPermission({bool provisional = false}) async => true;
   @override
   Future<String?> getToken() async => token;
 }

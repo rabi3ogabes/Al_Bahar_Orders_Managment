@@ -1,14 +1,20 @@
 import 'dart:async';
 
 import 'package:albahar_customer/core/l10n/l10n.dart';
-import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/router/app_router.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/widgets/app_button.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
+import 'package:albahar_customer/core/widgets/language_switch.dart';
 import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
+import 'package:albahar_customer/features/onboarding/presentation/art/doha_scene.dart';
+import 'package:albahar_customer/features/onboarding/presentation/art/majlis_scene.dart';
+import 'package:albahar_customer/features/onboarding/presentation/art/qatar_map_scene.dart';
+import 'package:albahar_customer/features/onboarding/presentation/designed_by_line.dart';
+import 'package:albahar_customer/features/onboarding/presentation/intro_page.dart';
 import 'package:albahar_customer/features/onboarding/presentation/state/onboarding_state.dart';
+import 'package:albahar_customer/features/public_config/presentation/state/public_config_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -29,17 +35,17 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
   void initState() {
     super.initState();
     unawaited(_c.forward());
+    // The first launch ends in the intro, whose footer line comes from the server: ask while the splash is showing, so the
+    // answer is usually there by the time the intro opens. It never delays the splash.
+    if (!ref.read(onboardingDoneProvider)) ref.read(publicConfigProvider);
     _timer = Timer(const Duration(milliseconds: 1500), _next);
   }
 
   void _next() {
     if (!mounted) return;
-    final localeChosen = ref.read(localeControllerProvider) != null;
     final onboarded = ref.read(onboardingDoneProvider);
     final launch = ref.read(launchLocationProvider.notifier).take();
-    if (!localeChosen) {
-      context.go('/language');
-    } else if (!onboarded) {
+    if (!onboarded) {
       context.go('/onboarding');
     } else {
       context.go('/home');
@@ -80,103 +86,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
   }
 }
 
-/// First-launch language choice; also reachable from Settings.
-class LanguageScreen extends ConsumerWidget {
-  const LanguageScreen({super.key, this.from});
-  final String? from;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = context.l10n;
-    final current = ref.watch(localeCodeProvider);
-
-    Future<void> choose(String code) async {
-      Haptics.tap();
-      await ref.read(localeControllerProvider.notifier).setLocale(Locale(code));
-      if (ref.read(isAuthenticatedProvider)) {
-        unawaited(
-          ref
-              .read(sessionControllerProvider.notifier)
-              .updateProfile({'locale': code})
-              .then((_) {}, onError: (Object _) {}),
-        );
-      }
-      if (!context.mounted) return;
-      final done = ref.read(onboardingDoneProvider);
-      context.go(done ? (from ?? '/home') : '/onboarding${from != null ? '?from=${Uri.encodeComponent(from!)}' : ''}');
-    }
-
-    Widget option(String code, String label, String sample) {
-      final selected = current == code;
-      return Semantics(
-        selected: selected,
-        button: true,
-        child: SurfaceCard(
-          onTap: () => choose(code),
-          color: selected ? context.palette.brassTint : null,
-          padding: const EdgeInsetsDirectional.symmetric(horizontal: AppSpace.lg, vertical: AppSpace.lg),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: context.text.headlineSmall?.copyWith(
-                        fontFamily: code == 'ar' ? 'IBMPlexSansArabic' : 'Inter',
-                      ),
-                    ),
-                    const Gap(AppSpace.xxs),
-                    Text(sample, style: context.text.bodySmall),
-                  ],
-                ),
-              ),
-              AnimatedSwitcher(
-                duration: AppDurations.fast,
-                child: selected
-                    ? Icon(Icons.check_circle_rounded, key: const ValueKey(true), color: context.palette.brass)
-                    : Icon(Icons.circle_outlined, key: const ValueKey(false), color: context.palette.line),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Scaffold(
-      body: SafeArea(
-        child: ContentWidth(
-          maxWidth: 520,
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpace.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Spacer(),
-                const BrandMark(),
-                const Gap(AppSpace.xxl),
-                Text(l10n.chooseLanguageTitle, textAlign: TextAlign.center, style: context.text.headlineMedium),
-                const Gap(AppSpace.xs),
-                Text(
-                  l10n.chooseLanguageSubtitle,
-                  textAlign: TextAlign.center,
-                  style: context.text.bodyMedium?.copyWith(color: context.palette.muted),
-                ),
-                const Gap(AppSpace.xl),
-                option('ar', 'العربية', 'مرحبًا بك في البحر'),
-                const Gap(AppSpace.md),
-                option('en', 'English', 'Welcome to Al Bahar'),
-                const Spacer(flex: 2),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
+/// The first-run intro: three illustrated pages about Qatar, the branches and the auctions. The language can be switched
+/// from the corner at any time, and the "Designed by" line comes from the dashboard.
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key, this.from});
   final String? from;
@@ -209,93 +120,92 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final pages = [
-      (Icons.weekend_outlined, l10n.onboardingTitle1, l10n.onboardingBody1),
-      (Icons.storefront_outlined, l10n.onboardingTitle2, l10n.onboardingBody2),
-      (Icons.gavel_rounded, l10n.onboardingTitle3, l10n.onboardingBody3),
+    final reduce = MediaQuery.disableAnimationsOf(context);
+    final slides = [
+      IntroSlide(
+        title: l10n.onboardingTitle1,
+        body: l10n.onboardingBody1,
+        artLabel: l10n.onboardingArtLabel1,
+        layers: DohaScene.layers,
+      ),
+      IntroSlide(
+        title: l10n.onboardingTitle2,
+        body: l10n.onboardingBody2,
+        artLabel: l10n.onboardingArtLabel2,
+        layers: QatarMapScene.layers,
+      ),
+      IntroSlide(
+        title: l10n.onboardingTitle3,
+        body: l10n.onboardingBody3,
+        artLabel: l10n.onboardingArtLabel3,
+        layers: MajlisScene.layers,
+      ),
     ];
-    final last = _index == pages.length - 1;
+    final last = _index == slides.length - 1;
 
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: TextButton(onPressed: () => _finish(signIn: false), child: Text(l10n.skip)),
+            // The language switch sits at the start, Skip at the end.
+            Padding(
+              padding: const EdgeInsetsDirectional.only(start: AppSpace.md, end: AppSpace.xs, top: AppSpace.xxs),
+              child: Row(
+                children: [
+                  const LanguageSwitch(),
+                  const Spacer(),
+                  TextButton(onPressed: () => _finish(signIn: false), child: Text(l10n.skip)),
+                ],
+              ),
             ),
             Expanded(
               child: PageView.builder(
                 controller: _page,
-                itemCount: pages.length,
+                itemCount: slides.length,
                 onPageChanged: (i) {
                   Haptics.tap();
                   setState(() => _index = i);
                 },
-                itemBuilder: (context, i) {
-                  final (icon, title, body) = pages[i];
-                  return ContentWidth(
-                    maxWidth: 520,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpace.xl),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 180,
-                            height: 220,
-                            decoration: BoxDecoration(
-                              color: context.palette.brassTint,
-                              borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(90),
-                                bottom: Radius.circular(AppRadius.lg),
-                              ),
-                            ),
-                            child: Icon(icon, size: 72, color: context.palette.brass),
-                          ),
-                          const Gap(AppSpace.xxl),
-                          Text(title, textAlign: TextAlign.center, style: context.text.displaySmall),
-                          const Gap(AppSpace.md),
-                          Text(
-                            body,
-                            textAlign: TextAlign.center,
-                            style: context.text.bodyLarge?.copyWith(color: context.palette.muted),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+                itemBuilder: (context, i) => IntroPage(slide: slides[i], index: i, controller: _page),
               ),
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (var i = 0; i < pages.length; i++)
-                  AnimatedContainer(
-                    duration: AppDurations.medium,
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: i == _index ? 22 : 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: i == _index ? context.palette.brass : context.palette.line,
-                      borderRadius: BorderRadius.circular(4),
+            Semantics(
+              container: true,
+              label: '${_index + 1} / ${slides.length}',
+              excludeSemantics: true,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (var i = 0; i < slides.length; i++)
+                    AnimatedContainer(
+                      duration: reduce ? Duration.zero : AppDurations.medium,
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      width: i == _index ? 22 : 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: i == _index ? context.palette.brass : context.palette.line,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
             Padding(
-              padding: const EdgeInsets.all(AppSpace.lg),
+              padding: const EdgeInsets.fromLTRB(AppSpace.lg, AppSpace.md, AppSpace.lg, 0),
               child: ContentWidth(
                 maxWidth: 520,
                 child: AppButton(
                   label: last ? l10n.getStarted : l10n.next,
                   onPressed: last
                       ? _finish
-                      : () => _page.nextPage(duration: AppDurations.slow, curve: Curves.easeOutCubic),
+                      : () => _page.nextPage(
+                          duration: reduce ? Duration.zero : AppDurations.slow,
+                          curve: Curves.easeOutCubic,
+                        ),
                 ),
               ),
             ),
+            const DesignedByLine(),
           ],
         ),
       ),

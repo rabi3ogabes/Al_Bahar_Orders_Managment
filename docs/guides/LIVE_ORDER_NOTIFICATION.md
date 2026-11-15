@@ -133,7 +133,11 @@ every delivery step (assigned, accepted, picked up, out for delivery, delivered,
 
 - A finished order stops being updated **30 minutes after it finished** (and drops out of `active-progress`).
 - Everything runs on the `notifications` queue; the order flow never waits for it and never sees an error from it. If Firebase fails the card is simply sent again at the next change.
-- Each device gets the card in **its own language** (`user_devices.locale`: `en`, `ar`, `ar_QA` ...; anything else falls back to English).
+- Each device gets the card in **its own language** (`user_devices.locale`: `en`, `ar`, `ar_QA` ...; anything else falls back to English). The customer app
+  reports its language at every registration and again when the customer switches language.
+- The card is an **"order updates" push**: a customer who switched transactional push notifications off in the app, or whose account is not active, gets no card.
+- The classic push of the same order events (`order.created`, `.confirmed`, `.ready_for_pickup`, `.out_for_delivery`, `.completed`, `.cancelled`) is **not sent while the card can
+  reach a device**, so one change is one alert (the inbox, SMS and e-mail still get theirs). See [FIREBASE_PUSH.md](FIREBASE_PUSH.md#one-alert-per-change).
 - Driver and staff pushes (new delivery, order ready, delivery failed) are unchanged.
 
 ## 5. The FCM message

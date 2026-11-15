@@ -18,7 +18,10 @@ class NotificationService
 {
     public function __construct(private readonly TemplateRenderer $templates) {}
 
-    /** @param array<string, scalar|null> $data placeholders; 'deep_link' is passed to push payloads */
+    /**
+     * @param  array<string, mixed>  $data  placeholders; 'deep_link' is passed to push payloads; 'by_locale' (locale => placeholders) overrides
+     *                                      placeholders per language, for content that exists in several languages (campaigns)
+     */
     public function notify(User $user, string $event, array $data = [], ?array $channels = null, ?string $campaignId = null): array
     {
         if (! $user->isActive()) {
@@ -38,6 +41,9 @@ class NotificationService
             if (! $this->allowed($user, $channel, $category)) {
                 continue;
             }
+            if ($channel === 'push' && $this->liveCardCovers($user, $event)) {
+                continue; // the live order card on the phone says the same thing: one alert, not two
+            }
             $msg = $this->templates->render($event, $channel, $locale, $data);
             if ($channel === 'in_app') {
                 $inAppId = Notification::create(['user_id' => $user->id, 'event' => $event, 'category' => $category, 'title' => $msg['subject'],
@@ -47,11 +53,36 @@ class NotificationService
                 continue;
             }
             $log = NotificationLog::create(['user_id' => $user->id, 'event' => $event, 'channel' => $channel, 'status' => 'queued', 'campaign_id' => $campaignId]);
-            DB::afterCommit(fn () => SendNotificationJob::dispatch($log->id, $msg['subject'], $msg['body'], $data['deep_link'] ?? null, $inAppId));
+            // A push also carries every language, because each of the person's phones is sent the language of its own app.
+            $texts = $channel === 'push' ? $this->inEveryLanguage($event, $channel, $data) : null;
+            DB::afterCommit(fn () => SendNotificationJob::dispatch($log->id, $msg['subject'], $msg['body'], $data['deep_link'] ?? null, $inAppId, $texts));
             $sent[] = $channel;
         }
 
         return array_values(array_intersect($channels, $sent)); // report in the caller's channel order
+    }
+
+    /** @return array<string, array{subject: string, body: string}> the message rendered once per supported language */
+    private function inEveryLanguage(string $event, string $channel, array $data): array
+    {
+        $out = [];
+        $byLocale = is_array($data['by_locale'] ?? null) ? $data['by_locale'] : [];
+        foreach ((array) config('platform.supported_locales') as $locale) {
+            $out[$locale] = $this->templates->render($event, $channel, $locale, array_merge($data, (array) ($byLocale[$locale] ?? [])));
+        }
+
+        return $out;
+    }
+
+    /**
+     * True when this order event is already announced by the customer's live order card: push is set up and the person has a phone or
+     * browser that takes it. The card follows the same "order updates" push preference as the classic push (see PushNotifier).
+     */
+    private function liveCardCovers(User $user, string $event): bool
+    {
+        return in_array($event, NotificationCatalog::LIVE_CARD_EVENTS, true)
+            && app(FcmClient::class)->configured()
+            && $user->devices()->whereNull('disabled_at')->exists();
     }
 
     /** Consent rules: marketing needs marketing consent + opt-in; every category honours explicit opt-outs. OTP is never blocked. */

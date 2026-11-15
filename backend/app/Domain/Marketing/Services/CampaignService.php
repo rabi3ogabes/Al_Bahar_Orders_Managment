@@ -44,10 +44,15 @@ class CampaignService
         $n = 0;
         $this->audience($campaign->segment ?? [])->chunkById(500, function ($users) use ($campaign, &$n) {
             foreach ($users as $user) {
-                $ar = $user->preferredLocale() === 'ar';
-                $this->notify->notify($user, 'campaign', ['title' => $ar ? $campaign->title_ar : $campaign->title_en, 'body' => $ar ? $campaign->body_ar : $campaign->body_en,
-                    'deep_link' => $campaign->deep_link], $campaign->channels, $campaign->id);
-                $n++;
+                try {
+                    $ar = $user->preferredLocale() === 'ar';
+                    $this->notify->notify($user, 'campaign', ['title' => $ar ? $campaign->title_ar : $campaign->title_en, 'body' => $ar ? $campaign->body_ar : $campaign->body_en,
+                        'deep_link' => $campaign->deep_link,
+                        'by_locale' => ['ar' => ['title' => $campaign->title_ar, 'body' => $campaign->body_ar], 'en' => ['title' => $campaign->title_en, 'body' => $campaign->body_en]]], $campaign->channels, $campaign->id);
+                    $n++;
+                } catch (\Throwable $e) {
+                    report($e); // one customer's problem must not leave the other 999 without the campaign and the campaign stuck on "sending"
+                }
             }
         });
         $campaign->update(['status' => 'sent', 'sent_at' => now(), 'recipients_count' => $n]);

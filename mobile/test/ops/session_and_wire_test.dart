@@ -607,7 +607,10 @@ class _SlowMessaging implements PushMessaging {
   }
 
   @override
-  Future<bool> requestPermission() async => true;
+  Future<bool> requestPermission({bool provisional = false}) async => true;
+
+  @override
+  Future<PushPermission> permissionStatus() async => PushPermission.granted;
 
   @override
   Future<String?> getToken() async => 'tok-1';

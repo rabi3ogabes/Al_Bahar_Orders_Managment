@@ -4,6 +4,7 @@ namespace App\Domain\Notifications\Services;
 
 use App\Domain\Branches\Models\BranchEmployee;
 use App\Domain\Fulfillment\Events\DispatchUpdated;
+use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Models\UserDevice;
 use App\Domain\Orders\Events\OrderUpdated;
 use App\Domain\Orders\Models\Order;
@@ -75,6 +76,11 @@ class PushNotifier
     {
         $order = Order::find($orderId);
         if ($order === null || $order->user_id === null) {
+            return;
+        }
+        // The card is an "order updates" push: a customer who switched those off in the app never gets it, like the classic push.
+        $customer = User::find($order->user_id);
+        if ($customer === null || ! $customer->isActive() || ! app(NotificationService::class)->allowed($customer, 'push', 'transactional')) {
             return;
         }
         $devices = UserDevice::where('user_id', $order->user_id)->whereNull('disabled_at')->get();
@@ -159,7 +165,11 @@ class PushNotifier
     {
         $prev = App::getLocale();
         UserDevice::where('user_id', $userId)->whereNull('disabled_at')->get()->each(function (UserDevice $d) use ($fn) {
-            $this->retireIfGone($d, $fn($d));
+            try {
+                $this->retireIfGone($d, $fn($d));
+            } catch (Throwable $e) {
+                report($e); // one bad device must not stop the others
+            }
         });
         App::setLocale($prev);
     }

@@ -9,6 +9,9 @@
 ///   albahar://categories/{id}          …/app/categories/{id}
 ///   albahar://payments/{id}/return     …/app/payments/{id}/return
 ///   albahar://support/{ticketId}       …/app/support/{ticketId}
+///   albahar://referral (or invite)     …/app/invite
+///   albahar://loyalty                  …/app/loyalty
+///   albahar://my-auctions              …/app/my-auctions
 ///   albahar://scan                     …/app/scan
 library;
 
@@ -30,6 +33,9 @@ abstract final class DeepLinks {
     RegExp(r'^/payments/[^/]+/return$'),
     RegExp(r'^/support/[^/]+$'),
     RegExp(r'^/support$'),
+    RegExp(r'^/invite$'),
+    RegExp(r'^/loyalty$'),
+    RegExp(r'^/my-auctions$'),
     RegExp(r'^/notifications$'),
     RegExp(r'^/wishlist$'),
     RegExp(r'^/cart$'),
@@ -55,6 +61,8 @@ abstract final class DeepLinks {
       return null;
     }
     path = _normalisePath(path);
+    // The server calls the invite-a-friend screen "referral" (the reward push links to albahar://referral).
+    if (path == '/referral') path = '/invite';
     if (path == '/' || path.isEmpty) return '/home';
     if (!_patterns.any((p) => p.hasMatch(path))) return null;
     final query = uri.query.isEmpty ? '' : '?${uri.query}';
@@ -105,9 +113,12 @@ String notificationLocation(Map<String, dynamic> data) {
 /// Notification preference category for an event name.
 String notificationCategory(String? event) {
   final e = event ?? '';
-  // Mirrors backend NotificationCatalog: `stock.*`, `cart.abandoned` and
-  // `campaign` are marketing; `auction.*` is auction; everything else transactional.
+  // Mirrors backend NotificationCatalog: `stock.*`, `cart.abandoned`, `campaign`, the messages staff send by hand (`staff.message`)
+  // and the customer journeys (`journey.*`) are marketing; `auction.*` is auction; everything else transactional. The server also
+  // names the category in every push (`data.category`), which wins (see pushCategory).
   if (e == 'campaign' ||
+      e == 'staff.message' ||
+      e.startsWith('journey.') ||
       e.startsWith('campaign.') ||
       e.startsWith('stock.') ||
       e.startsWith('cart.') ||

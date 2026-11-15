@@ -191,31 +191,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navNotifications => 'Alerts';
 
   @override
-  String get onboardingTitle1 => 'Living, beautifully considered';
+  String get onboardingTitle1 => 'Made for homes across Qatar';
 
   @override
-  String get onboardingBody1 => 'Furniture, décor and essentials curated for homes across Qatar.';
+  String get onboardingBody1 =>
+      'Furniture, décor and everyday essentials chosen for the way Qatar lives, from West Bay apartments to family villas.';
 
   @override
-  String get onboardingTitle2 => 'Your branch, your price';
+  String get onboardingTitle2 => 'From our branches to your door';
 
   @override
-  String get onboardingBody2 => 'See live stock and prices at the showroom nearest you, then deliver or pick up.';
+  String get onboardingBody2 =>
+      'Pick a delivery slot that suits you, or collect from the branch nearest to you. Live stock, live prices.';
 
   @override
-  String get onboardingTitle3 => 'Bid on exceptional pieces';
+  String get onboardingTitle3 => 'Live auctions and curated living';
 
   @override
-  String get onboardingBody3 => 'Join live auctions for one-of-a-kind finds, with real-time bidding.';
+  String get onboardingBody3 =>
+      'Bid in real time on one-of-a-kind pieces, and discover collections styled for the majlis and beyond.';
 
   @override
   String get getStarted => 'Get started';
-
-  @override
-  String get chooseLanguageTitle => 'Choose your language';
-
-  @override
-  String get chooseLanguageSubtitle => 'You can change this any time in Settings.';
 
   @override
   String get languageArabic => 'العربية';
@@ -1189,7 +1186,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get downloadInvoice => 'Invoice (PDF)';
+  String get downloadInvoice => 'Download invoice (PDF)';
 
   @override
   String get pickupPass => 'Pickup pass';
@@ -2794,4 +2791,30 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get navScan => 'Scan';
+
+  @override
+  String switchLanguageTo(String language) {
+    return 'Switch language to $language';
+  }
+
+  @override
+  String get onboardingArtLabel1 => 'Illustration of the Doha skyline at dusk, with a traditional dhow on the water';
+
+  @override
+  String get onboardingArtLabel2 => 'Illustration of a map of Qatar with branch pins and a delivery route to a home';
+
+  @override
+  String get onboardingArtLabel3 => 'Illustration of a majlis with a coffee dallah, sadu cushions and an auction gavel';
+
+  @override
+  String get invoiceNotReady => 'Your invoice is ready once the order is paid.';
+
+  @override
+  String get invoiceFailed => 'We couldn’t prepare your invoice. Please try again.';
+
+  @override
+  String get invoiceSaved => 'Invoice downloaded.';
+
+  @override
+  String get returnsUnavailable => 'Returns aren’t available for this order right now.';
 }

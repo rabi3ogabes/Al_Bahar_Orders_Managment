@@ -449,37 +449,37 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingTitle1.
   ///
   /// In en, this message translates to:
-  /// **'Living, beautifully considered'**
+  /// **'Made for homes across Qatar'**
   String get onboardingTitle1;
 
   /// No description provided for @onboardingBody1.
   ///
   /// In en, this message translates to:
-  /// **'Furniture, décor and essentials curated for homes across Qatar.'**
+  /// **'Furniture, décor and everyday essentials chosen for the way Qatar lives, from West Bay apartments to family villas.'**
   String get onboardingBody1;
 
   /// No description provided for @onboardingTitle2.
   ///
   /// In en, this message translates to:
-  /// **'Your branch, your price'**
+  /// **'From our branches to your door'**
   String get onboardingTitle2;
 
   /// No description provided for @onboardingBody2.
   ///
   /// In en, this message translates to:
-  /// **'See live stock and prices at the showroom nearest you, then deliver or pick up.'**
+  /// **'Pick a delivery slot that suits you, or collect from the branch nearest to you. Live stock, live prices.'**
   String get onboardingBody2;
 
   /// No description provided for @onboardingTitle3.
   ///
   /// In en, this message translates to:
-  /// **'Bid on exceptional pieces'**
+  /// **'Live auctions and curated living'**
   String get onboardingTitle3;
 
   /// No description provided for @onboardingBody3.
   ///
   /// In en, this message translates to:
-  /// **'Join live auctions for one-of-a-kind finds, with real-time bidding.'**
+  /// **'Bid in real time on one-of-a-kind pieces, and discover collections styled for the majlis and beyond.'**
   String get onboardingBody3;
 
   /// No description provided for @getStarted.
@@ -487,18 +487,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Get started'**
   String get getStarted;
-
-  /// No description provided for @chooseLanguageTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Choose your language'**
-  String get chooseLanguageTitle;
-
-  /// No description provided for @chooseLanguageSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'You can change this any time in Settings.'**
-  String get chooseLanguageSubtitle;
 
   /// No description provided for @languageArabic.
   ///
@@ -2177,7 +2165,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadInvoice.
   ///
   /// In en, this message translates to:
-  /// **'Invoice (PDF)'**
+  /// **'Download invoice (PDF)'**
   String get downloadInvoice;
 
   /// No description provided for @pickupPass.
@@ -5077,6 +5065,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Scan'**
   String get navScan;
+
+  /// No description provided for @switchLanguageTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch language to {language}'**
+  String switchLanguageTo(String language);
+
+  /// No description provided for @onboardingArtLabel1.
+  ///
+  /// In en, this message translates to:
+  /// **'Illustration of the Doha skyline at dusk, with a traditional dhow on the water'**
+  String get onboardingArtLabel1;
+
+  /// No description provided for @onboardingArtLabel2.
+  ///
+  /// In en, this message translates to:
+  /// **'Illustration of a map of Qatar with branch pins and a delivery route to a home'**
+  String get onboardingArtLabel2;
+
+  /// No description provided for @onboardingArtLabel3.
+  ///
+  /// In en, this message translates to:
+  /// **'Illustration of a majlis with a coffee dallah, sadu cushions and an auction gavel'**
+  String get onboardingArtLabel3;
+
+  /// No description provided for @invoiceNotReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Your invoice is ready once the order is paid.'**
+  String get invoiceNotReady;
+
+  /// No description provided for @invoiceFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn’t prepare your invoice. Please try again.'**
+  String get invoiceFailed;
+
+  /// No description provided for @invoiceSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoice downloaded.'**
+  String get invoiceSaved;
+
+  /// No description provided for @returnsUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Returns aren’t available for this order right now.'**
+  String get returnsUnavailable;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

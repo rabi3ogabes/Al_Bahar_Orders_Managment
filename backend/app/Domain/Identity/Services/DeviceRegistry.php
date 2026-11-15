@@ -17,7 +17,7 @@ class DeviceRegistry
     {
         $web = $data['platform'] === 'web';
 
-        return UserDevice::updateOrCreate(['push_token' => $data['push_token']], [
+        $device = UserDevice::updateOrCreate(['push_token' => $data['push_token']], [
             'user_id' => $user->id,
             'platform' => $data['platform'],
             'app' => $web ? ($data['app'] ?? null) : null,
@@ -28,6 +28,23 @@ class DeviceRegistry
             'last_seen_at' => now(),
             'disabled_at' => null,
         ]);
+        $this->retireOlderTokens($device);
+
+        return $device;
+    }
+
+    /**
+     * A phone gets a new token now and then (Firebase rotates it, the app data is cleared) and registers the new one under the same install
+     * id. The old token can stay valid at Google for a while, so keeping both would ring the phone twice: only the newest one stays on.
+     * Browsers are left alone: one browser holds several tokens (the store and the dashboard have their own worker scope).
+     */
+    private function retireOlderTokens(UserDevice $device): void
+    {
+        if ($device->platform === 'web' || $device->device_id === null || $device->device_id === '') {
+            return;
+        }
+        UserDevice::where('device_id', $device->device_id)->where('platform', $device->platform)->whereKeyNot($device->id)
+            ->whereNull('disabled_at')->update(['disabled_at' => now()]);
     }
 
     /** Turns off one of the user's own tokens (a token of somebody else is never touched). */

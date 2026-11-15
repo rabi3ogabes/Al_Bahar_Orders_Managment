@@ -2,9 +2,11 @@
 
 The owner sets Firebase up in the dashboard, with no server file or variable to edit: **Dashboard, Organization, Push notifications**
 (`/admin/push`; needs the `settings.view` permission to look and `settings.edit` to change). It covers desktop browsers, Android Chrome,
-iPhone/iPad Safari 16.4+ (installed to the Home Screen), the web store and the Flutter web app (`/mobile-web/`). The phone apps use the
+iPhone/iPad Safari 16.4+ (installed to the Home Screen) and the web store. The phone apps use the
 same server key and, since the phone-app settings below, **start Firebase from values typed in the dashboard** (no `google-services.json` or
-`GoogleService-Info.plist` has to be built into the apps).
+`GoogleService-Info.plist` has to be built into the apps). The server can also send to the web build of the mobile app (`app = mobile-web`,
+worker at `/mobile-web/firebase-messaging-sw.js`), but the Flutter app does not start push on the web yet (`FirebaseStarter` answers "not
+available" there), so today only the store registers browsers.
 
 ## Owner steps
 
@@ -106,6 +108,21 @@ idempotent (same token = same row, refreshed and switched back on) and a token r
 minute per person. `POST /api/v1/auth/logout` also accepts `push_token` (that device stops getting pushes), `logout-all` switches off all
 of the person's devices.
 
+- **One active token per phone.** `device_id` is the install id the app makes once. When a phone registers a *new* token under the same
+  `device_id` (Firebase rotated it, app data was cleared) every older active token with that `device_id` is switched off, because the old
+  token can stay valid at Google for a while and the phone would ring twice. Browsers are exempt (one browser holds several tokens: the
+  store and the dashboard have their own worker scope).
+- **Language per phone.** `locale` is the app's language (`en` or `ar`; without it the request's `Accept-Language`). The customer app sends
+  it with every registration and **again whenever the customer switches language**, so the live order card, journeys and staff messages
+  follow the app, not only the account. Every queued push (`SendNotificationJob`) carries the message rendered in each supported language and
+  each phone gets its own; campaigns carry both the Arabic and the English title/body.
+- **Stale tokens.** `php artisan push:prune-devices` (daily 03:45 Qatar time, `--days=60`) switches off tokens whose app has not registered
+  for 60 days (the apps register at every start, the store at least weekly). Rows are kept (the referral shared-device check reads them).
+  FCM answers `UNREGISTERED`, an invalid token or `SENDER_ID_MISMATCH` (a token made for another Firebase project) switch a device off at once.
+- A signed-out phone: the app asks the server to remove its token on sign-out. When the session simply ends (expired, revoked) the server
+  cannot be asked; the phone forgets its token and banner preferences locally, and the next person who signs in on it moves the token to
+  themselves. Until then, the 60-day clean-up is the backstop.
+
 The worker (`resources/push/firebase-messaging-sw.js`, template filled by `App\Support\FirebaseWorkerScript`) imports the Firebase compat
 scripts from `https://www.gstatic.com/firebasejs/<version>/` where `<version>` is `FirebaseWorkerScript::SDK_VERSION`, kept equal to the
 `firebase` npm version (a test checks `package.json`). The public settings are injected as one JSON value escaped for script context. It
@@ -127,8 +144,61 @@ unchanged).
   TTL as the phones, `Topic` = the order id without dashes (the push service keeps only the newest update for an offline browser).
 - Links: `albahar://orders/1` becomes `/orders/1`; own-site https links keep their path; anything else becomes `/`. Devices registered
   with `app = mobile-web` get `/mobile-web/#/orders/1` (the Flutter web app routes after the hash).
-- A token FCM reports as `UNREGISTERED`, or `INVALID_ARGUMENT` blaming `message.token`, is switched off (`disabled_at`). A wrong
-  project or a bad payload never disables devices.
+- A token FCM reports as `UNREGISTERED`, as `SENDER_ID_MISMATCH`, or `INVALID_ARGUMENT` blaming `message.token`, is switched off
+  (`disabled_at`). A wrong project, a refused key or a bad payload never disables devices.
+
+## What `FcmClient::send()` puts in a push (phones)
+
+`send($token, $title, $body, $data, $device)` never throws. It answers `{ok, unregistered, retry, status, error}`.
+
+| Part | Value | Why |
+|---|---|---|
+| `notification` | title (max 120 characters) and body (max 500), cut with an ellipsis | FCM refuses a message above 4 KB; Arabic and emoji are counted in characters, never split |
+| `data` | every value a string (`null` left out, arrays as JSON) plus `category` (`transactional` / `marketing` / `auction`) | FCM accepts strings only; the app files a banner under the right preference |
+| `android.priority`, `android.ttl` | `high`, 86400 s | an update must not arrive on the third day |
+| `android.notification.channel_id` | `albahar_default` (orders, payments, support, staff/driver pushes), `albahar_auctions`, `albahar_offers` (campaigns, stock, cart, journeys, staff messages) | the customer can mute offers without muting order updates; an older app without a channel falls back to the manifest default |
+| `apns.headers.apns-expiration` | now + 86400 s | same |
+
+Data keys the apps read: `event`, `category`, `deep_link`, `notification_id` (the inbox entry: opening the push marks it read), `log_id` /
+`delivery_id` (identify one send: a repeated delivery is shown once), `kind = order_progress` (the live card, see
+[LIVE_ORDER_NOTIFICATION.md](LIVE_ORDER_NOTIFICATION.md)). `coupon` and `number` are informational.
+
+What happens when Google is not having a good day:
+
+- An expired OAuth token (HTTP 401) is replaced once and the message sent again; a token service that answers without a token is an
+  error and is never cached. OAuth is cached 50 minutes per key.
+- A timeout, a connection error, 429, 5xx, `UNAVAILABLE`, `INTERNAL` or `QUOTA_EXCEEDED` comes back as `retry: true`.
+  `SendNotificationJob` then **fails the job when nothing at all was delivered** (the queue retries with backoff 10 s, 1 min, 5 min, 15 min,
+  5 attempts), and **finishes as sent when at least one device has the message** (a retry would ring that device a second time).
+- A bulk send (campaign) is one queued job per customer: one customer's error or one slow phone never stops the others.
+
+## Android channels, icons and colour (customer app)
+
+`android/app/src/main/kotlin/qa/albahar/customer/PushChannels.kt` creates three channels when the app starts: **Orders and updates**
+(`albahar_default`, high, also the manifest default), **Auctions** (`albahar_auctions`, high), **Offers and news** (`albahar_offers`,
+default importance, no pop-up). Names and descriptions are `push_channel_*` strings, translated in `values-ar`, so the system settings
+show them in the phone's language. The ids are mirrored in `FcmClient` (`CHANNEL_*`) and `lib/core/push/push_service.dart`
+(`PushChannels`); change all three together. The small icon is `ic_stat_notify` (one per app flavour) and the accent colour
+`notification_accent`, both in the manifest `meta-data`.
+
+## Permission and the first notification (customer app)
+
+- **Android 13+**: a token needs no permission, so the app registers without asking. The explanation sheet ("Follow your order live") is
+  shown after the first order, with the system dialog behind it; if the system dialog is gone for good the sheet opens the settings. It
+  waits two weeks between "not now" answers and appears three times at most (see `notificationPromptFor`).
+- **iPhone**: the app asks for **provisional** authorization at sign-in, which shows no dialog and lets order news arrive quietly in the
+  notification centre from the first minute. The same explanation sheet after the first order then asks for real alerts (the system dialog
+  appears behind it); a customer who answered no to the system is offered the settings instead, never a second dialog.
+- A customer who allows notifications in the system settings later is registered when the app next comes to the front. The driver and
+  staff apps ask the normal question at sign-in and do not ask again until the permission is on.
+
+## One alert per change
+
+The live order card announces every order change (`order.created`, `.confirmed`, `.ready_for_pickup`, `.out_for_delivery`, `.completed`,
+`.cancelled`) on Android and iPhone. While push is set up and the customer has an active device, `NotificationService` therefore leaves
+the classic **push** of those six events out (in-app, SMS and e-mail are unchanged); otherwise the classic push is sent as before. The card
+follows the customer's "order updates" (transactional) push preference like the classic push does. To change this, edit
+`NotificationCatalog::LIVE_CARD_EVENTS`.
 
 ## Notes per platform
 
@@ -154,12 +224,21 @@ unchanged).
 | Test connection: "key not accepted" | The key was deleted or revoked, or the server clock is wrong (JWT time). Download a new key and check NTP. |
 | Test says "removed" for a device | FCM no longer knows that token (browser data cleared, app uninstalled). It was switched off; enable the browser again. |
 | Nothing arrives although the test works | The master switch is off, the person has no active device, or notification preferences block the channel. |
+| A phone gets nothing after not being opened for two months | `push:prune-devices` switched its token off; opening the app registers it again. |
+| Pushes show under "Miscellaneous" on Android | The app build predates `PushChannels.kt`; update the app. |
+| A queued push stays "queued" with an `FCM unavailable` error | Google was unreachable or busy; the queue retries (see above). Check `notification_logs.error`. |
+| `SENDER_ID_MISMATCH` in a log, devices switched off | The tokens were made for another Firebase project (the project or the phone apps' settings changed). The apps register again at their next start. |
 | CSP blocks something | See the Content-Security-Policy note above. |
 
 ## Checks
 
 `php artisan test tests/Feature/Push` (settings, key validation, endpoints, worker script and escaping, device registration, FCM web
-delivery, the admin page), `node --test tests/js` (the worker and the dashboard helpers), and the browser run
+delivery, the admin page, and `PushDeliveryTest`: channels, message size, OAuth refresh, busy or unreachable Firebase, language per phone,
+one alert per change, one token per install, stale tokens, bulk sends), in the app `flutter test test/core/push` (registration, language,
+permission, sign-out and account switch, repeated delivery, iPhone permission sheet, deep links) and `test/core/live_order`,
+`node --test tests/js` (the worker and the dashboard helpers), and the browser run
 `tests/e2e-push/admin.mjs` (needs a running app and Chromium; the real Firebase SDK and the real worker run with Google's endpoints stubbed).
 Not provable without a real Firebase project: Google accepting the key, and a real push reaching a device. The owner does that with
-**Test connection** and **Send a test notification**.
+**Test connection** and **Send a test notification**. Also not provable without a phone: that Android creates the three channels
+(`PushChannels.kt` is not built by the Flutter tests), that the iPhone shows no dialog for provisional authorization, and that the
+messaging SDK reports the token again when a second person signs in on the same install (the app falls back to the install's last token).

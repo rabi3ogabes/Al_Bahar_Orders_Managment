@@ -24,6 +24,7 @@ Artisan::command('loyalty:expire-points', fn (LoyaltyService $l) => $this->info(
     ->purpose('Expire loyalty points past their expiry date');
 
 Schedule::command('drivers:prune-locations')->dailyAt('03:30')->timezone('Asia/Qatar')->onOneServer();
+Schedule::command('push:prune-devices')->dailyAt('03:45')->timezone('Asia/Qatar')->onOneServer();
 Schedule::command('orders:expire-unpaid')->everyMinute()->withoutOverlapping()->onOneServer();
 Schedule::command('inventory:expire-reservations')->everyMinute()->withoutOverlapping()->onOneServer();
 Schedule::command('payments:reconcile-pending')->everyFiveMinutes()->withoutOverlapping()->onOneServer();

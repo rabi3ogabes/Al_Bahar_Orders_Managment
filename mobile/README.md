@@ -105,7 +105,7 @@ Rules the code follows:
 
 ## 4. Screens
 
-Splash · language · onboarding · phone OTP (request → verify → register if `registration_required`)
+Splash · Qatar-themed onboarding (language switch in the corner, "Designed by" line from the dashboard) · phone OTP (request → verify → register if `registration_required`)
 · password login · password reset · home (server-driven sections, unknown types ignored) ·
 categories (nested) · category listing · search (debounced, recent) · product listing (filters
 sheet, sort, infinite scroll) · product detail (zoomable gallery with hero, variant swatches/chips,
@@ -139,9 +139,12 @@ flutter test integration_test/app_smoke_test.dart -d <device-id> \
 | Suite | Covers |
 |---|---|
 | `test/core/network_test.dart` | error-envelope mapping (401/403/404/409/422/429/5xx/offline/timeout), headers, Laravel query encoding, **single-flight refresh** (3 concurrent 401s → 1 refresh), refresh failure → logout, retry-once, offline refresh keeps session, log redaction |
-| `test/core/routing_test.dart` | deep-link parsing, redirects (language → onboarding → auth guard), notification payload → route, push foreground preference filtering, device register/unregister |
+| `test/core/routing_test.dart` | deep-link parsing, redirects (onboarding → auth guard; the language is never a gate), notification payload → route, push foreground preference filtering, device register/unregister |
 | `test/features/repositories_test.dart` | repositories via `http_mock_adapter` and a recording adapter (auth, catalog, home unknown sections, branches, cart, checkout idempotency, orders, auctions) |
 | `test/features/state_test.dart` | checkout `quote_changed` flow + idempotency, payment-method/points correction, cart optimistic rollback, **branch switching**, session sign-in/out/expiry, live lot sequencing (dedupe, gap replay), server-time offset, bid idempotency, paging |
+| `test/features/intro_and_language_test.dart` | first launch without a language page, the language switch on the intro and every sign-in screen (in place, typed text kept, errors re-worded, reduced motion), the intro under every phone, tablet, language, theme and text size |
+| `test/features/public_config_test.dart` | `GET /app-config` (cached, offline, slow, malformed) and the "Designed by" line (language fallback, hidden when empty) |
+| `test/features/order_invoice_test.dart` | the invoice button per status, progress and double taps, every failure message, and returns that follow the server (`can_return`, 403) |
 | `test/widgets/*` | design-system widgets in LTR and **RTL**, localisation (both locales, plurals, ARB parity), app boot smoke (EN/AR, deep link guard) |
 
 ## 6. Firebase (push) setup

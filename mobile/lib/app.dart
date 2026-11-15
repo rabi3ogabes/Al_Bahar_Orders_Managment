@@ -63,13 +63,27 @@ class _AlBaharAppState extends ConsumerState<AlBaharApp> with WidgetsBindingObse
       }
     };
     push.onOpened = (id) {
-      if (ref.read(isAuthenticatedProvider)) {
-        unawaited(ref.read(notificationsRepositoryProvider).markRead(id).catchError((Object _) {}));
-      }
+      if (ref.read(isAuthenticatedProvider)) unawaited(_markOpened(id));
+    };
+    // A push that arrives while the app is open is already in the inbox on the server: the unread badge and a list on screen catch up.
+    push.onReceived = () {
+      if (!ref.read(isAuthenticatedProvider)) return;
+      unawaited(ref.read(unreadCountProvider.notifier).refresh());
+      ref.invalidate(notificationsProvider);
     };
     final pending = push.takePendingLocation();
     if (pending != null) ref.read(launchLocationProvider.notifier).set(pending);
     if (ref.read(isAuthenticatedProvider)) unawaited(push.register().catchError((Object _) {}));
+  }
+
+  /// A notification was opened from the tray: mark it read, then fix the badge (the number is read after the server has the change).
+  Future<void> _markOpened(String id) async {
+    try {
+      await ref.read(notificationsRepositoryProvider).markRead(id);
+    } catch (_) {}
+    if (!mounted) return;
+    await ref.read(unreadCountProvider.notifier).refresh();
+    ref.invalidate(notificationsProvider);
   }
 
   @override
@@ -101,15 +115,24 @@ class _AlBaharAppState extends ConsumerState<AlBaharApp> with WidgetsBindingObse
     // The live order notification follows sign-in, the realtime channel, the network and the language.
     ref.watch(liveOrderBootProvider);
 
-    // Register push on sign-in; surface session expiry.
+    // Register push on sign-in, forget the person on sign-out (also when the session just ended); surface session expiry.
     ref.listen(sessionControllerProvider, (prev, next) {
       if (next.isAuthenticated && !(prev?.isAuthenticated ?? false)) {
         unawaited(ref.read(pushServiceProvider).register().catchError((Object _) {}));
+      }
+      if (!next.isAuthenticated && (prev?.isAuthenticated ?? false)) {
+        unawaited(ref.read(pushServiceProvider).onSignedOut().catchError((Object _) {}));
       }
       if (!next.isAuthenticated && next.expired && (prev?.isAuthenticated ?? false)) {
         final l10n = lookupAppLocalizations(locale);
         scaffoldMessengerKey.currentState?.showSnackBar(SnackBar(content: Text(l10n.errorSessionExpired)));
       }
+    });
+
+    // The language of this phone is what the server writes live order cards and messages in.
+    ref.listen(localeCodeProvider, (prev, next) {
+      if (prev == null || prev == next) return;
+      unawaited(ref.read(pushServiceProvider).onLocaleChanged().catchError((Object _) {}));
     });
 
     return MaterialApp.router(

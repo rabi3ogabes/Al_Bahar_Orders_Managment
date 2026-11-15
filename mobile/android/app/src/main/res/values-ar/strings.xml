@@ -2,6 +2,14 @@
 <resources>
     <string name="app_name">البحر</string>
 
+    <!-- قنوات إشعارات الخادم (PushChannels.kt): تظهر أسماؤها في إعدادات النظام وتتبع لغة الهاتف. -->
+    <string name="push_channel_default_name">الطلبات والتحديثات</string>
+    <string name="push_channel_default_description">الطلبات والمدفوعات والتوصيل والرسائل الخاصة بحسابك</string>
+    <string name="push_channel_auctions_name">المزادات</string>
+    <string name="push_channel_auctions_description">المزايدات والمزايدات الأعلى ونتائج المزادات التي تتابعها</string>
+    <string name="push_channel_offers_name">العروض والأخبار</string>
+    <string name="push_channel_offers_description">العروض وتوفر المنتجات وأخبار البحر</string>
+
     <!-- إشعار الطلب المباشر (qa.albahar.customer.liveorder). يطابق نصوص Dart في lib/l10n/app_*.arb. -->
     <string name="live_order_channel_name">تتبع الطلب المباشر</string>
     <string name="live_order_channel_description">حالة طلبك ووقت وصوله لحظة بلحظة</string>

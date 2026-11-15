@@ -191,31 +191,27 @@ class AppLocalizationsAr extends AppLocalizations {
   String get navNotifications => 'الإشعارات';
 
   @override
-  String get onboardingTitle1 => 'عيشٌ بجمالٍ مدروس';
+  String get onboardingTitle1 => 'لكل بيت في قطر';
 
   @override
-  String get onboardingBody1 => 'أثاث وديكور ومستلزمات مختارة لمنازل قطر.';
+  String get onboardingBody1 =>
+      'أثاث وديكور ومستلزمات يومية اخترناها بعناية لتناسب أسلوب الحياة في قطر، من شقق الخليج الغربي إلى فلل العائلة.';
 
   @override
-  String get onboardingTitle2 => 'فرعك المفضّل وأسعاره';
+  String get onboardingTitle2 => 'من فروعنا إلى باب بيتك';
 
   @override
-  String get onboardingBody2 => 'اطّلع على المخزون والأسعار في أقرب صالة عرض إليك، ثم اختر التوصيل أو الاستلام.';
+  String get onboardingBody2 =>
+      'اختر موعد التوصيل الذي يناسبك، أو استلم طلبك من أقرب فرع إليك، مع مخزون وأسعار محدّثة لحظةً بلحظة.';
 
   @override
-  String get onboardingTitle3 => 'زايِد على قطعٍ استثنائية';
+  String get onboardingTitle3 => 'مزادات مباشرة وقطع منتقاة';
 
   @override
-  String get onboardingBody3 => 'شارك في المزادات المباشرة واقتنِ قطعًا فريدة بمزايدة لحظية.';
+  String get onboardingBody3 => 'زايِد لحظةً بلحظة على قطع فريدة، واكتشف تشكيلات منسّقة للمجلس ولبقية البيت.';
 
   @override
   String get getStarted => 'ابدأ الآن';
-
-  @override
-  String get chooseLanguageTitle => 'اختر لغتك';
-
-  @override
-  String get chooseLanguageSubtitle => 'يمكنك تغييرها في أي وقت من الإعدادات.';
 
   @override
   String get languageArabic => 'العربية';
@@ -1212,7 +1208,7 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get downloadInvoice => 'الفاتورة (PDF)';
+  String get downloadInvoice => 'تحميل الفاتورة (PDF)';
 
   @override
   String get pickupPass => 'تصريح الاستلام';
@@ -2830,4 +2826,30 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get navScan => 'مسح';
+
+  @override
+  String switchLanguageTo(String language) {
+    return 'تغيير اللغة إلى $language';
+  }
+
+  @override
+  String get onboardingArtLabel1 => 'رسم لأفق الدوحة عند الغروب مع سفينة شراعية تقليدية على الماء';
+
+  @override
+  String get onboardingArtLabel2 => 'رسم لخريطة قطر مع علامات الفروع ومسار توصيل إلى منزل';
+
+  @override
+  String get onboardingArtLabel3 => 'رسم لمجلس مع دلّة قهوة ووسائد سدو ومطرقة مزاد';
+
+  @override
+  String get invoiceNotReady => 'تصبح الفاتورة جاهزة بعد دفع الطلب.';
+
+  @override
+  String get invoiceFailed => 'تعذّر تجهيز فاتورتك. يُرجى المحاولة مرة أخرى.';
+
+  @override
+  String get invoiceSaved => 'تم تحميل الفاتورة.';
+
+  @override
+  String get returnsUnavailable => 'الإرجاع غير متاح لهذا الطلب حاليًا.';
 }

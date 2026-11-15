@@ -349,6 +349,10 @@ class Order {
   }
 
   List<OrderItem> itemsFor(Fulfillment f) => items.where((i) => i.fulfillmentId == f.id).toList();
+
+  /// An invoice exists once the order is placed and paid for: not while it waits for payment (the server refuses with a
+  /// conflict) and not after it was cancelled.
+  bool get hasInvoice => status != 'pending_payment' && status != 'cancelled';
 }
 
 @immutable
