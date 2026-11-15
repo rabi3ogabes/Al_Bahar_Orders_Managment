@@ -5,6 +5,7 @@ namespace App\Domain\Orders\Services;
 use App\Domain\Orders\Enums\FulfillmentStatus as FS;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderFulfillment;
+use App\Domain\Settings\Services\Settings;
 use App\Support\BusinessTime;
 use App\Support\Money;
 use Illuminate\Support\Facades\Storage;
@@ -51,7 +52,7 @@ class OrderPresenter
             'fulfillments' => $o->fulfillments->map(fn (OrderFulfillment $f) => $this->fulfillment($f))->values(),
             'can_cancel' => ! $o->status->isTerminal() && ! $handedOver && $o->status->value !== 'cancellation_requested',
             'can_pay' => $o->status->value === 'pending_payment' && $o->payment_method === 'sadad' && ! $o->payment_due_at?->isPast(),
-            'can_return' => $o->fulfillments->contains(fn ($f) => self::returnWindowOpen($f)),
+            'can_return' => self::returnsEnabled() && $o->fulfillments->contains(fn ($f) => self::returnWindowOpen($f)),
             'can_review' => $o->fulfillments->contains(fn ($f) => in_array($f->status, [FS::Delivered, FS::PickedUp], true)),
             'payment_due_at' => BusinessTime::iso($o->payment_due_at),
             // The live order card (null for an order with nothing to show); never waits on the routing server.
@@ -61,6 +62,12 @@ class OrderPresenter
 
     /** Days after delivery/collection during which a customer may ask to return goods. */
     public const RETURN_WINDOW_DAYS = 14;
+
+    /** The dashboard switch (Settings → Checkout & fees): off hides "Return order" everywhere and the API refuses new requests. */
+    public static function returnsEnabled(): bool
+    {
+        return (bool) app(Settings::class)->get('returns.enabled', true);
+    }
 
     /** True while a delivered/collected fulfillment is still inside the return window (the API enforces it, the app only shows it). */
     public static function returnWindowOpen(OrderFulfillment $f): bool

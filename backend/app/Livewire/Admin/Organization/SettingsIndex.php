@@ -66,6 +66,8 @@ class SettingsIndex extends Component
                 'contact.support_phone' => ['type' => 'text', 'rules' => ['nullable', 'string', 'max:32'], 'dir' => 'ltr'],
                 'contact.support_email' => ['type' => 'text', 'rules' => ['nullable', 'email', 'max:191'], 'dir' => 'ltr'],
                 'contact.whatsapp' => ['type' => 'text', 'rules' => ['nullable', 'string', 'max:32'], 'dir' => 'ltr'],
+                'customer_app.designed_by_en' => ['type' => 'text', 'rules' => ['nullable', 'string', 'max:80'], 'dir' => 'ltr'],
+                'customer_app.designed_by_ar' => ['type' => 'text', 'rules' => ['nullable', 'string', 'max:80'], 'dir' => 'rtl'],
             ],
             'checkout' => [
                 'checkout.service_fee' => ['type' => 'money', 'rules' => $money],
@@ -75,6 +77,7 @@ class SettingsIndex extends Component
                 'checkout.max_quantity_per_line' => ['type' => 'int', 'rules' => $int(1, 999)],
                 'checkout.cart_ttl_days' => ['type' => 'int', 'rules' => $int(1, 365), 'suffix' => 'days'],
                 'checkout.show_split_shipment' => ['type' => 'bool', 'rules' => ['boolean']],
+                'returns.enabled' => ['type' => 'bool', 'rules' => ['boolean']],
                 'payments.online_payment_window_minutes' => ['type' => 'int', 'rules' => $int(5, 1440), 'suffix' => 'min'],
                 'pickup.token_ttl_hours' => ['type' => 'int', 'rules' => $int(1, 720), 'suffix' => 'hours'],
                 'orders.default_prep_minutes' => ['type' => 'int', 'rules' => $int(1, 240), 'suffix' => 'min'],

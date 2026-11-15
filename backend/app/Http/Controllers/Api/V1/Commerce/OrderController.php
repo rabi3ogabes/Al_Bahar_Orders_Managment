@@ -132,6 +132,7 @@ class OrderController extends ApiController
     public function requestReturn(Request $request, string $id): JsonResponse
     {
         $order = $this->own($id);
+        abort_unless(OrderPresenter::returnsEnabled(), 403, __('checkout.returns_disabled'));
         $data = $request->validate(['items' => 'required|array|min:1|max:50', 'items.*.order_item_id' => 'required|uuid|distinct', 'items.*.quantity' => 'required|integer|min:1|max:100000',
             'reason_code' => 'required|in:damaged,wrong_item,not_as_described,changed_mind,other', 'reason' => 'nullable|string|max:1000']);
 

@@ -35,5 +35,6 @@ return [
     'invoice_unavailable' => 'The invoice will be available after payment.',
     'payment_failed' => 'The payment wasn\'t completed. You can try again.',
     'pickup_not_ready' => 'Your pickup pass will appear when the order is ready.',
+    'returns_disabled' => 'Returns are not available right now. Please contact support and we will help.',
     'return_not_allowed' => 'These items can\'t be returned.',
 ];

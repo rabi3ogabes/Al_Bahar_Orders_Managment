@@ -20,7 +20,7 @@
 | Delivery zones & fees | Organization › Zones, then each branch › Zones | A zone can be served by several branches with different fees/priorities. Add **delivery slots** (day, time window, capacity) per branch under Branches › Slots: once a branch has delivery slots, customers must pick one at checkout |
 | Staff | Organization › Employees | Create the account, assign it to branches with **branch roles**; company-wide roles (finance, marketing) are separate |
 | Roles | Organization › Roles | Module × action matrix. System roles cannot be deleted; Super Admin is locked |
-| Settings | Organization › Settings | Payment window, COD fee, loyalty, auction defaults, contact details. Secret values are write-only |
+| Settings | Organization › Settings | Payment window, COD fee, loyalty, auction defaults, contact details, the "Designed by" line of the customer app intro (General & brand) and the **Let customers return orders** switch (Checkout & fees: off hides "Return order" in the app and the web store and refuses new requests). Secret values are write-only |
 
 **Least privilege:** give each person only the roles they need, only in their branches. Nobody can grant permissions
 they don't hold, or change their own roles or status.

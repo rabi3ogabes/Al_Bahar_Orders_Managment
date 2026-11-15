@@ -73,17 +73,29 @@ export function useReorder(id: string) {
     onError: (e) => toast.push(failMsg(e, t('error.generic')), 'error'),
   });
 }
-export function useInvoice(id: string) {
+/** Orders that can have an invoice: everything except an unpaid online order and a cancelled one (the server refuses the same). */
+export const invoiceAvailable = (o: { status: string }) => !['pending_payment', 'cancelled'].includes(o.status);
+
+/** Downloads the invoice PDF as a file named AlBahar-<number>.pdf (a second click while it is loading is ignored). */
+export function useInvoice(id: string, number?: string) {
   const { t } = useI18n();
   const toast = useToast();
+  const busy = useRef(false);
   return async () => {
+    if (busy.current) return;
+    busy.current = true;
     try {
-      const res = await fetch(`/api/v1/orders/${id}/invoice`, { headers: { Authorization: `Bearer ${JSON.parse(localStorage.getItem('albahar.tokens') || '{}').access_token}`, Accept: 'application/pdf,text/html' } });
+      const res = await fetch(`/api/v1/orders/${id}/invoice`, { headers: { Authorization: `Bearer ${JSON.parse(localStorage.getItem('albahar.tokens') || '{}').access_token}`, Accept: 'application/pdf' } });
       if (!res.ok) throw new Error();
       const url = URL.createObjectURL(await res.blob());
-      window.open(url, '_blank', 'noopener');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `AlBahar-${number ?? id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch { toast.push(t('order.invoice_unavailable'), 'error'); }
+    } catch { toast.push(t('order.invoice_unavailable'), 'error'); } finally { busy.current = false; }
   };
 }
 

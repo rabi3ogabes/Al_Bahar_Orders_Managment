@@ -20,6 +20,7 @@ Route::get('theme', [V1\Cms\ThemeController::class, 'show'])->name('theme');
 Route::get('realtime-config', [V1\RealtimeConfigController::class, 'show'])->name('realtime-config');
 Route::get('map-config', [V1\MapConfigController::class, 'show'])->name('map-config');
 Route::get('push-config', [V1\PushConfigController::class, 'show'])->name('push-config');
+Route::get('app-config', [V1\AppConfigController::class, 'show'])->name('app-config');
 
 Route::controller(V1\Catalog\CatalogController::class)->group(function () {
     Route::get('categories', 'categories')->name('categories.index');

@@ -74,6 +74,18 @@ return [
         ],
     ],
 
+    // Settings → Checkout & fees: whether customers see (and can use) "Return order". Off hides the button in the apps and the web store and
+    // the API refuses new return requests; requests already made are still handled in the dashboard.
+    'returns' => [
+        'enabled' => true,
+    ],
+
+    // Texts the customer app shows on its intro screens, edited in Settings → General & brand. Empty hides the line.
+    'customer_app' => [
+        'designed_by_en' => 'Designed by Athar Qatar',
+        'designed_by_ar' => 'تصميم أثر قطر',
+    ],
+
     'pickup' => [
         'token_ttl_hours' => 72,
         'alternate_collector_enabled' => true,

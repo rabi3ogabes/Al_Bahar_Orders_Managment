@@ -8,7 +8,7 @@ import { cx } from '../lib/format';
 import type { OrderDetail } from '../lib/types';
 import { useAuthModal } from './AuthModal';
 import { DrawerLink } from './drawerLink';
-import { CancelOrderDialog, FulfillmentCard, ReturnForm, TimelineCard, TotalsCard, statusTone, useInvoice, usePay, useReorder, useOrderQuery } from './OrderParts';
+import { CancelOrderDialog, FulfillmentCard, ReturnForm, TimelineCard, TotalsCard, invoiceAvailable, statusTone, useInvoice, usePay, useReorder, useOrderQuery } from './OrderParts';
 import { SideDrawer } from './SideDrawer';
 import { Alert, Badge, Button, EmptyState, Skeleton } from './ui';
 
@@ -27,7 +27,7 @@ export default function OrderDrawer({ id, open, onClose }: { id: string; open: b
   const o = order.data;
   const pay = usePay(id);
   const reorder = useReorder(id);
-  const invoice = useInvoice(id);
+  const invoice = useInvoice(id, o?.number);
   useEffect(() => { setStep('order'); setCancelOpen(false); }, [id]);
 
   const Back = dir === 'rtl' ? ArrowRight : ArrowLeft;
@@ -77,10 +77,9 @@ function OrderError({ error, retry }: { error: unknown; retry: () => void }) {
 /** Secondary actions (the primary one is pinned in the footer). */
 function OrderActions({ o, onInvoice, onReturn, onCancel }: { o: OrderDetail; onInvoice: () => void; onReturn: () => void; onCancel: () => void }) {
   const { t } = useI18n();
-  const paid = o.payment_status === 'paid';
   return (
     <div className="grid gap-2.5 pb-2">
-      {paid && <Button variant="outline" onClick={onInvoice}><Download size={16} />{t('order.invoice')}</Button>}
+      {invoiceAvailable(o) && <Button variant="outline" onClick={onInvoice}><Download size={16} />{t('order.invoice')}</Button>}
       {o.can_return && <Button variant="outline" onClick={onReturn}><RotateCcw size={16} />{t('return.title')}</Button>}
       {o.can_cancel && <Button variant="ghost" className="text-danger hover:bg-danger/10" onClick={onCancel}><XCircle size={16} />{t('order.cancel')}</Button>}
       <DrawerLink to="/account/support" className="flex h-11 items-center justify-center rounded-full text-sm font-medium text-ink-soft transition-colors hover:bg-sand">{t('order.help')}</DrawerLink>

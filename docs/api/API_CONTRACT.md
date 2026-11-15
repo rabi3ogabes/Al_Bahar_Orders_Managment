@@ -105,6 +105,7 @@ Create/update body: same fields (`delivery_zone_id` instead of the object). `rec
 | | `/branches/{id}/{pickup,delivery}-slots?from=YYYY-MM-DD&to=YYYY-MM-DD[&only_available=1]` | **a span in one call**: `{data:[{date, available, slots:[slot…]}], meta:{from,to}}`, one entry per date that has slots; `only_available=1` drops dates with no free place. Dates run today … +29 days, span ≤ 30 days, `date` and `from/to` can't be combined (422) |
 | | `/delivery-zones` | `[{id, name, zone_numbers[]}]` |
 | | `/map-config` | `{provider, tiles{light_url,dark_url,attribution,attribution_text,subdomains,max_zoom,retina}, center{lat,lng}, zoom, stale_after_seconds}`: the map provider chosen in Settings; cacheable 5 min (see [MAPS.md](../guides/MAPS.md)) |
+| | `/app-config` | `{designed_by{en,ar}, returns_enabled}`: the "Designed by" lines of the customer app intro (Settings → General & brand; an empty string means hide) and whether customers may return orders (Settings → Checkout & fees); public, cacheable 1 min |
 
 Branch:
 ```json
