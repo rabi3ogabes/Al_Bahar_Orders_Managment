@@ -6,7 +6,6 @@ use Illuminate\Support\Facades\Cache;
 use Livewire\Livewire;
 
 /** Settings → Checkout & fees → "Staff and driver apps: how to change an order status" (buttons | slide), served by GET /api/v1/app-config. */
-
 it('serves buttons until the admin chooses otherwise', function () {
     $this->getJson('/api/v1/app-config')->assertOk()->assertJsonPath('data.ops.status_style', 'buttons');
     expect(config('platform.ops.status_style'))->toBe('buttons');

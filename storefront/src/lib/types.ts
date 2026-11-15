@@ -83,12 +83,15 @@ export interface OrderSummary {
   id: string; number: string; status: string; status_label: string; payment_status: string; payment_method: string; fulfillment_type: string
   items_count: number; grand_total: Money; placed_at: string; thumbnail_url: string | null
 }
-export interface OrderItem { id: string; product_id: string; variant_id: string; sku: string; name: string; variant_name: string | null; image_url: string | null; quantity: number; quantity_cancelled?: number; quantity_returned?: number; fulfillment_id?: string | null; unit_price: Money; line_total: Money }
+export interface OrderItem { id: string; product_id: string; variant_id: string; sku: string; name: string; variant_name: string | null; image_url: string | null; quantity: number; quantity_cancelled?: number; quantity_returned?: number; fulfillment_id?: string | null; unit_price: Money; line_total: Money; adjustment?: ItemAdjustment | null }
+/** What the branch did to one line while preparing the order (see docs/api/ORDER_ADJUSTMENTS.md). */
+export interface ItemAdjustment { kind: 'reduced' | 'removed' | 'replaced' | 'replacement'; original_quantity: number; original_name?: string | null; reason_code?: string | null; reason_label?: string | null; replaces_name?: string | null; replaced_by_name?: string | null }
+export interface OrderRevision { number: number; at: string; reason_label?: string | null; note?: string | null; branch?: string | null; lines?: { text?: string | null }[]; total_before?: Money | null; total_after?: Money | null; order_cancelled?: boolean }
 export interface OrderDetail extends OrderSummary {
   totals: Record<string, Money>; discounts: unknown[]; address: Record<string, string | null> | null; customer_notes: string | null
   items: OrderItem[]
   fulfillments: { id: string; number: string; type: string; status: string; status_label: string; branch: { id: string; name: string; phone: string | null; latitude: number | null; longitude: number | null }; subtotal: Money; delivery_fee: Money; slot: Slot | null; delivery: Record<string, unknown> | null; pickup: { status: string; token_expires_at: string | null } | null; timestamps: Record<string, string | null> }[]
-  can_cancel: boolean; can_pay?: boolean; can_return?: boolean; payment_due_at?: string | null
+  can_cancel: boolean; can_pay?: boolean; can_return?: boolean; payment_due_at?: string | null; was_adjusted?: boolean; revisions?: OrderRevision[]
   [k: string]: unknown
 }
 export interface TimelineEvent { kind: string; status: string; label: string; fulfillment_id: string | null; at: string }

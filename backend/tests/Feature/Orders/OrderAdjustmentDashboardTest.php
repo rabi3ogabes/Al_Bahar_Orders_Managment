@@ -10,7 +10,6 @@ use App\Livewire\Admin\Sales\OrderShow;
 use Livewire\Livewire;
 
 /** The dashboard's "Adjust items": the same service as the staff app, so the same rules, the same messages, the same refund. */
-
 function adjustWindow(object $a, $user = null)
 {
     return Livewire::actingAs($user ?? $a->mgr)->test(OrderAdjust::class, ['fulfillmentId' => $a->f->id]);

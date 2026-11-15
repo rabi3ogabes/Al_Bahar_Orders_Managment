@@ -58,7 +58,7 @@ it('sends nothing for a preview, and one message per adjustment', function () {
     Queue::assertNothingPushed();
 
     postAdjust($a, [['order_item_id' => $a->l1->id, 'action' => 'reduce', 'new_quantity' => 2]])->assertOk();
-    postAdjust($a, [['order_item_id' => $a->l1->id, 'action' => 'reduce', 'new_quantity' => 2]])->assertStatus(422); // a repeat: no second message
+    postAdjust($a, [['order_item_id' => $a->l1->id, 'action' => 'reduce', 'new_quantity' => 2]])->assertOk()->assertJsonPath('data.replayed', true); // a repeat: the same answer, no second message
     postAdjust($a, [['order_item_id' => $a->l2->id, 'action' => 'remove']], 'damaged')->assertOk();
     expect(Notification::where('event', 'order.items_changed')->count())->toBe(2);
 });

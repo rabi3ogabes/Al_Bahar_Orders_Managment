@@ -9,7 +9,7 @@ import { useLivePoll } from '../lib/realtime';
 import { useToast } from '../lib/toast';
 import { cx, mapsHref, telHref } from '../lib/format';
 import type { OrderDetail, PaymentAction, TimelineEvent } from '../lib/types';
-import { Badge, Pic, QtyStepper, Select, Skeleton, Textarea } from './ui';
+import { Alert, Badge, Pic, QtyStepper, Select, Skeleton, Textarea } from './ui';
 import { Button } from './ui';
 import { ConfirmDialog } from './Dialogs';
 
@@ -126,6 +126,46 @@ export function CancelOrderDialog({ id, open, onClose }: { id: string; open: boo
 
 const card = (compact?: boolean) => (compact ? 'rounded-3xl border border-line bg-paper p-4' : 'rounded-[28px] border border-line bg-paper p-6');
 
+/** One item of the parcel; lines the branch removed or swapped out stay visible, struck through, so nothing changes silently. */
+function ItemRow({ i, compact }: { i: OrderDetail['items'][number]; compact?: boolean }) {
+  const { t } = useI18n();
+  const a = i.adjustment ?? null;
+  const gone = !!a && (a.kind === 'removed' || a.kind === 'replaced' || i.quantity <= 0);
+  return (
+    <li className={cx('flex gap-4 py-4', gone && 'opacity-60')}>
+      <div className={compact ? 'w-16 shrink-0' : 'w-20 shrink-0'}><Pic src={i.image_url} alt={i.name} ratio="1/1" className={cx('rounded-2xl', gone && 'grayscale')} /></div>
+      <div className="min-w-0 flex-1">
+        <p className={cx('font-display leading-tight', compact ? 'text-lg' : 'text-xl', gone && 'line-through')}>{i.name}</p>
+        {i.variant_name && <p className="text-sm text-muted">{i.variant_name}</p>}
+        {gone
+          ? <p className="text-sm font-medium text-warning">{a?.kind === 'replaced' && a.replaced_by_name ? t('order.replaced_by', { n: a.replaced_by_name }) : t('order.not_available')}</p>
+          : <p className="text-sm text-muted">{i.quantity} × {i.unit_price.formatted}</p>}
+        {!gone && a?.kind === 'reduced' && <p className="text-sm font-medium text-warning">{t('order.reduced_from', { n: a.original_quantity })}</p>}
+        {!gone && a?.kind === 'replacement' && <p className="text-sm font-medium text-brass-deep">{a.replaces_name ? t('order.replaces', { n: a.replaces_name }) : t('order.replacement')}</p>}
+      </div>
+      {!gone && <p className="font-semibold tabular-nums">{i.line_total.formatted}</p>}
+    </li>
+  );
+}
+
+/** "Your order was updated by the branch": what changed, why, and the new total; shown only for adjusted orders. */
+export function OrderChangesNotice({ o }: { o: OrderDetail }) {
+  const { t } = useI18n();
+  if (!o.was_adjusted || !o.revisions?.length) return null;
+  const last = o.revisions[o.revisions.length - 1];
+  const lines = (last.lines ?? []).map((l) => l.text).filter(Boolean) as string[];
+  return (
+    <Alert tone="warning">
+      <p className="font-semibold">{t('order.changed_title')}</p>
+      {last.reason_label && <p className="mt-0.5">{t('order.changed_reason', { r: last.reason_label })}</p>}
+      {last.note && <p className="mt-0.5 italic">“{last.note}”</p>}
+      {lines.length > 0 && <ul className="mt-2 list-disc space-y-0.5 ps-5">{lines.map((l, k) => <li key={k}>{l}</li>)}</ul>}
+      {last.total_after && !last.order_cancelled && <p className="mt-2 font-medium">{t('order.changed_total', { t: last.total_after.formatted })}{last.total_before ? <> <span className="font-normal opacity-80">({t('order.changed_was', { b: last.total_before.formatted })})</span></> : null}</p>}
+      <p className="mt-1 opacity-80">{t('order.changed_invoice')}</p>
+    </Alert>
+  );
+}
+
 export function FulfillmentCard({ o, f, compact }: { o: OrderDetail; f: OrderDetail['fulfillments'][number]; compact?: boolean }) {
   const { t } = useI18n();
   return (
@@ -136,13 +176,7 @@ export function FulfillmentCard({ o, f, compact }: { o: OrderDetail; f: OrderDet
       </div>
       {f.slot && <p className="mt-2 flex items-center gap-2 text-sm text-ink-soft"><Clock size={15} className="text-brass" /><bdi>{f.slot.date} · {f.slot.starts_at}–{f.slot.ends_at}</bdi></p>}
       <ul className="mt-4 divide-y divide-line">
-        {o.items.filter((i) => i.fulfillment_id === f.id).map((i) => (
-          <li key={i.id} className="flex gap-4 py-4">
-            <div className={compact ? 'w-16 shrink-0' : 'w-20 shrink-0'}><Pic src={i.image_url} alt={i.name} ratio="1/1" className="rounded-2xl" /></div>
-            <div className="min-w-0 flex-1"><p className={cx('font-display leading-tight', compact ? 'text-lg' : 'text-xl')}>{i.name}</p>{i.variant_name && <p className="text-sm text-muted">{i.variant_name}</p>}<p className="text-sm text-muted">{i.quantity} × {i.unit_price.formatted}</p></div>
-            <p className="font-semibold tabular-nums">{i.line_total.formatted}</p>
-          </li>
-        ))}
+        {o.items.filter((i) => i.fulfillment_id === f.id).map((i) => <ItemRow key={i.id} i={i} compact={compact} />)}
       </ul>
       <div className="mt-1 flex flex-wrap gap-x-5 text-sm">
         {f.branch.phone && <a href={telHref(f.branch.phone)} className="flex min-h-11 items-center gap-1.5 text-brass-deep hover:underline"><Phone size={14} /><bdi>{f.branch.phone}</bdi></a>}

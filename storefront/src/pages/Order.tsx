@@ -7,7 +7,7 @@ import { useI18n } from '../lib/i18n';
 import { useDocTitle } from '../lib/hooks';
 import { useAuthModal } from '../components/AuthModal';
 import { PushPrompt } from '../components/PushUI';
-import { CancelOrderDialog, FulfillmentCard, ReturnForm, TimelineCard, TotalsCard, invoiceAvailable, statusTone, useInvoice, useOrderQuery, usePay, useReorder } from '../components/OrderParts';
+import { CancelOrderDialog, FulfillmentCard, ReturnForm, TimelineCard, TotalsCard, OrderChangesNotice, invoiceAvailable, statusTone, useInvoice, useOrderQuery, usePay, useReorder } from '../components/OrderParts';
 import { SideDrawer } from '../components/SideDrawer';
 import { Alert, Badge, Button, EmptyState, LinkButton, Skeleton, Spinner } from '../components/ui';
 
@@ -68,6 +68,8 @@ export default function Order() {
         <div className="flex flex-wrap gap-2"><Badge tone={statusTone(o.status)}>{o.status_label}</Badge><Badge tone={statusTone(o.payment_status)}>{t(`payment.${o.payment_status}`)}</Badge></div>
       </div>
 
+      {o.was_adjusted && <div className="mt-6"><OrderChangesNotice o={o} /></div>}
+
       {(awaiting || failed) && o.can_pay !== false && (
         <div className="mt-6"><Alert tone="warning"><div className="flex flex-wrap items-center justify-between gap-3"><span>{t('order.unpaid')}</span><Button size="sm" loading={pay.isPending} onClick={() => pay.mutate()}><CreditCard size={15} />{t('order.pay_now')}</Button></div></Alert></div>
       )}
@@ -81,7 +83,7 @@ export default function Order() {
         <aside className="h-fit space-y-4">
           <TotalsCard o={o} />
           <div className="grid gap-2.5">
-            {invoiceAvailable(o) && <Button variant="outline" onClick={() => void invoice()}><Download size={16} />{t('order.invoice')}</Button>}
+            {invoiceAvailable(o) && <Button variant="outline" onClick={() => void invoice()}><Download size={16} />{o.was_adjusted ? t('order.invoice_updated') : t('order.invoice')}</Button>}
             <Button variant="outline" loading={reorder.isPending} onClick={() => reorder.mutate()}><RotateCcw size={16} />{t('order.reorder')}</Button>
             {o.can_return && <Button variant="outline" onClick={() => setReturnOpen(true)}><RotateCcw size={16} />{t('return.title')}</Button>}
             {o.can_cancel && <Button variant="ghost" className="text-danger hover:bg-danger/10" onClick={() => setCancelOpen(true)}><XCircle size={16} />{t('order.cancel')}</Button>}

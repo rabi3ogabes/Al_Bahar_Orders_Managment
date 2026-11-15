@@ -57,7 +57,8 @@ it('applies one request once when it is sent many times at the same moment', fun
 
     $codes = raceAdjust(6, fn () => app(OrderAdjustmentService::class)->adjust($a->f->fresh(), $a->mgr, $changes, 'out_of_stock'));
 
-    expect(array_count_values($codes))->toEqual([0 => 1, 2 => 5]) // one applied, five told "nothing to change"
+    // one applied; the other five waited for it under the lock and were answered with its result (a replay), not with an error
+    expect(array_count_values($codes))->toEqual([0 => 6])
         ->and(OrderRevision::where('order_id', $a->order->id)->count())->toBe(1)
         ->and($a->order->fresh()->adjustment_count)->toBe(1)
         ->and(Refund::where('order_id', $a->order->id)->count())->toBe(1)

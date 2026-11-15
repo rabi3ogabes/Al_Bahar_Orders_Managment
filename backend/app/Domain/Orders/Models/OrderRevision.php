@@ -6,6 +6,7 @@ use App\Domain\Branches\Models\Branch;
 use App\Domain\Identity\Models\User;
 use App\Domain\Payments\Models\Refund;
 use App\Support\Money;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -32,7 +33,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $loyalty_points_returned
  * @property bool $fulfillment_cancelled
  * @property bool $order_cancelled
- * @property \Carbon\CarbonImmutable $created_at
+ * @property CarbonImmutable $created_at
  */
 class OrderRevision extends Model
 {

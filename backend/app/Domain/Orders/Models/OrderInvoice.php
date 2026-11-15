@@ -2,6 +2,7 @@
 
 namespace App\Domain\Orders\Models;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $number
  * @property int $revision
  * @property array<string, mixed> $snapshot
- * @property \Carbon\CarbonImmutable $issued_at
+ * @property CarbonImmutable $issued_at
  */
 class OrderInvoice extends Model
 {

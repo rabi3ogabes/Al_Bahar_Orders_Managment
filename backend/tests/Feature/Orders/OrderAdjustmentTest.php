@@ -3,21 +3,25 @@
 require_once __DIR__.'/AdjustmentFixtures.php';
 
 use App\Domain\Audit\Models\AuditLog;
+use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Inventory\Models\StockReservation;
+use App\Domain\Inventory\Services\ReservationService;
 use App\Domain\Marketing\Models\CouponUsage;
 use App\Domain\Marketing\Models\LoyaltyTransaction;
 use App\Domain\Marketing\Models\OrderCoupon;
+use App\Domain\Marketing\Services\LoyaltyService;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderItem;
 use App\Domain\Orders\Models\OrderRevision;
 use App\Domain\Orders\Models\OrderStatusHistory;
+use App\Domain\Orders\Services\OrderAdjustmentService;
 use App\Domain\Payments\Models\Payment;
 use App\Domain\Payments\Models\Refund;
+use App\Domain\Payments\Services\RefundService;
 use App\Support\Money;
 use Illuminate\Support\Str;
 
 /** Money and lines: what an adjustment does to the order, exactly. Delivery 15 and the cash-on-delivery fee 10 stay whatever happens. */
-
 it('reduces a line: totals follow the line, fees stay, and everything is recorded', function () {
     $a = adjustmentWorld();
     $r = postAdjust($a, [['order_item_id' => $a->l1->id, 'action' => 'reduce', 'new_quantity' => 1]], 'out_of_stock', ['note' => 'Only one left on the shelf'])->assertOk();
@@ -166,20 +170,20 @@ it('numbers revisions per order and keeps every one', function () {
 it('never lets the total go below zero when loyalty points can no longer be absorbed, and hands the unused points back', function () {
     $a = adjustmentWorld(['qty' => [0, 4], 'loyalty' => 6000]); // 4 lamps 1000, 30% = 300 off by 6000 points, + 15 delivery + 10 cod = 725
     expect($a->order->loyalty_discount)->toBe('300.00')->and($a->order->grand_total)->toBe('725.00')->and($a->order->loyalty_points_redeemed)->toBe(6000);
-    $balance = app(App\Domain\Marketing\Services\LoyaltyService::class)->account($a->customer)->fresh()->balance;
+    $balance = app(LoyaltyService::class)->account($a->customer)->fresh()->balance;
 
     $r = postAdjust($a, [['order_item_id' => $a->l2->id, 'action' => 'reduce', 'new_quantity' => 1]])->assertOk();
     // 250 + 15 = 265 payable before points: 5300 points (265.00) stay, 700 go back; only the cash-on-delivery fee is left to pay
     $r->assertJsonPath('data.after.grand_total.amount', '10.00')->assertJsonPath('data.loyalty_points_returned', 700);
     $o = $a->order->fresh();
     expect($o->loyalty_discount)->toBe('265.00')->and($o->loyalty_points_redeemed)->toBe(5300)->and((float) $o->grand_total)->toBeGreaterThanOrEqual(0)
-        ->and(app(App\Domain\Marketing\Services\LoyaltyService::class)->account($a->customer)->fresh()->balance)->toBe($balance + 700)
+        ->and(app(LoyaltyService::class)->account($a->customer)->fresh()->balance)->toBe($balance + 700)
         ->and(LoyaltyTransaction::where('order_id', $o->id)->where('type', 'adjust')->sum('points'))->toBe(700);
 });
 
 it('returns only the redeemed points still on the order when it is cancelled after points were handed back', function () {
     $a = adjustmentWorld(['qty' => [0, 4], 'loyalty' => 6000]);
-    $loyalty = app(App\Domain\Marketing\Services\LoyaltyService::class);
+    $loyalty = app(LoyaltyService::class);
     $start = $loyalty->account($a->customer)->fresh()->balance; // after redeeming 6000
     postAdjust($a, [['order_item_id' => $a->l2->id, 'action' => 'reduce', 'new_quantity' => 1]])->assertOk(); // 700 back
     expect($loyalty->account($a->customer)->fresh()->balance)->toBe($start + 700);
@@ -370,16 +374,129 @@ it('accepts an Arabic or emoji note, up to 500 characters, and shows it to the c
 
 // ─── Repeats and races ──────────────────────────────────────────────────────────────────────────────────────────────────
 
-it('answers a repeated request with no_change and applies nothing twice', function () {
+/** Everything that moves when an adjustment is applied: if none of it moves, nothing was written. */
+function adjustmentFootprint(object $a): array
+{
+    return [DB::table('stock_movements')->count(), DB::table('stock_reservations')->orderBy('id')->get()->toJson(), DB::table('branch_inventory')->orderBy('id')->get()->toJson(),
+        DB::table('refunds')->count(), DB::table('notifications')->count(), DB::table('notification_logs')->count(), DB::table('order_revisions')->count(),
+        DB::table('order_revision_lines')->count(), DB::table('order_status_history')->count(), DB::table('audit_logs')->count(), DB::table('order_invoices')->count(),
+        DB::table('orders')->where('id', $a->order->id)->get()->toJson(), DB::table('order_items')->orderBy('id')->get()->toJson(), DB::table('payments')->get()->toJson()];
+}
+
+it('answers an identical repeat of an applied request with the original result, writing and telling nobody again', function () {
+    $a = adjustmentWorld(['payment' => 'sadad']);
+    [, $v] = substituteFor($a->w, '100.00');
+    $changes = [['order_item_id' => $a->l1->id, 'action' => 'reduce', 'new_quantity' => 1], ['order_item_id' => $a->l2->id, 'action' => 'replace', 'variant_id' => $v->id, 'quantity' => 1]];
+    $first = postAdjust($a, $changes, 'out_of_stock', ['note' => 'Only one left'])->assertOk()->assertJsonPath('data.replayed', false)->json('data');
+    $footprint = adjustmentFootprint($a);
+    $movements = DB::table('stock_movements')->count();
+
+    // the app never saw the answer and taps again (even with the changes listed in another order and the note spelt with spaces)
+    $second = postAdjust($a, array_reverse($changes), 'out_of_stock', ['note' => '  Only one left '])->assertOk()->assertJsonPath('data.replayed', true)->assertJsonPath('data.applied', true)
+        ->assertJsonPath('data.preview', false)->assertJsonPath('data.revision.number', 1)->json('data');
+
+    expect($second['revision'])->toBe($first['revision'])->and($second['revision']['id'])->not->toBeNull();
+    foreach (['lines', 'before', 'after', 'difference', 'refund', 'fulfillment_cancelled', 'order_cancelled', 'customer_notified', 'invoice_revision', 'loyalty_points_returned'] as $key) {
+        expect($second[$key])->toEqual($first[$key]); // the very same answer
+    }
+    expect(adjustmentFootprint($a))->toBe($footprint)                       // nothing written: no revision, line, history, audit, refund, stock movement, notification, invoice
+        ->and(DB::table('stock_movements')->count())->toBe($movements)->and(OrderRevision::count())->toBe(1)->and(Refund::count())->toBe(1)
+        ->and(DB::table('notifications')->where('event', 'order.items_changed')->count())->toBe(1);
+
+    // and again, as often as it takes
+    postAdjust($a, $changes, 'out_of_stock', ['note' => 'Only one left'])->assertOk()->assertJsonPath('data.replayed', true);
+    expect(adjustmentFootprint($a))->toBe($footprint);
+});
+
+it('stores a hash of the normalised request on the revision and nothing else about it', function () {
+    $a = adjustmentWorld();
+    postAdjust($a, [['order_item_id' => $a->l1->id, 'action' => 'reduce', 'new_quantity' => 1]], 'damaged', ['note' => 'x'])->assertOk();
+    $hash = OrderRevision::first()->request_hash;
+    expect($hash)->toMatch('/^[0-9a-f]{64}$/');
+    // another request, another hash
+    postAdjust($a, [['order_item_id' => $a->l2->id, 'action' => 'remove']], 'damaged', ['note' => 'x'])->assertOk();
+    expect(OrderRevision::orderBy('number')->get()->pluck('request_hash')->unique())->toHaveCount(2);
+});
+
+it('answers a replay with the original even after the parcel moved on to ready, while the order is as the revision left it', function () {
+    $a = adjustmentWorld();
+    $changes = [['order_item_id' => $a->l1->id, 'action' => 'reduce', 'new_quantity' => 1]];
+    $first = postAdjust($a, $changes)->assertOk()->json('data');
+    $this->postJson("/api/v1/admin/fulfillments/{$a->f->id}/transition", ['status' => 'ready'])->assertOk();
+    postAdjust($a, $changes)->assertOk()->assertJsonPath('data.replayed', true)->assertJsonPath('data.revision.id', $first['revision']['id']);
+    // a request that is NOT a repeat still meets the status rule
+    postAdjust($a, [['order_item_id' => $a->l2->id, 'action' => 'remove']])->assertStatus(409)->assertJsonPath('code', 'adjustment_not_allowed');
+});
+
+it('does not replay for another person, other changes, another reason or note, or once the window has passed', function () {
+    $a = adjustmentWorld();
+    $changes = [['order_item_id' => $a->l1->id, 'action' => 'reduce', 'new_quantity' => 1]];
+    postAdjust($a, $changes, 'out_of_stock', ['note' => 'n'])->assertOk();
+    $footprint = adjustmentFootprint($a);
+
+    // a colleague of the same branch sending the same thing: it is already in place, they are told so
+    actingAsStaff(staffWithRole('order_manager', $a->w->a));
+    postAdjust($a, $changes, 'out_of_stock', ['note' => 'n'])->assertStatus(422)->assertJsonPath('code', 'no_change');
+    actingAsStaff($a->mgr);
+    // the same changes with another reason, or another note: not the same request
+    postAdjust($a, $changes, 'damaged', ['note' => 'n'])->assertStatus(422)->assertJsonPath('code', 'no_change');
+    postAdjust($a, $changes, 'out_of_stock', ['note' => 'other'])->assertStatus(422)->assertJsonPath('code', 'no_change');
+    postAdjust($a, $changes)->assertStatus(422)->assertJsonPath('code', 'no_change');
+    // the window
+    $this->travel(OrderAdjustmentService::REPLAY_WINDOW_MINUTES + 1)->minutes();
+    postAdjust($a, $changes, 'out_of_stock', ['note' => 'n'])->assertStatus(422)->assertJsonPath('code', 'no_change');
+    $this->travelBack();
+    expect(adjustmentFootprint($a))->toBe($footprint);
+});
+
+it('does not replay once the order has moved on since: a stale repeat meets the normal rules', function () {
+    $a = adjustmentWorld(['qty' => [3, 1]]);
+    $first = [['order_item_id' => $a->l1->id, 'action' => 'reduce', 'new_quantity' => 2]];
+    postAdjust($a, $first)->assertOk();
+    postAdjust($a, [['order_item_id' => $a->l2->id, 'action' => 'remove']], 'damaged')->assertOk(); // revision 2
+    postAdjust($a, $first)->assertStatus(422)->assertJsonPath('code', 'no_change'); // not the latest revision any more
+    expect(OrderRevision::count())->toBe(2);
+
+    // a change to the money made some other way also ends the replay
+    $b = OrderRevision::where('number', 2)->first();
+    $a->order->forceFill(['grand_total' => '1.00'])->save();
+    postAdjust($a, [['order_item_id' => $a->l2->id, 'action' => 'remove']], 'damaged')->assertStatus(422)->assertJsonPath('code', 'no_change');
+    expect($b->number)->toBe(2);
+});
+
+it('replays a request that cancelled the order and answers with its refund', function () {
+    $a = adjustmentWorld(['payment' => 'sadad']);
+    $changes = [['order_item_id' => $a->l1->id, 'action' => 'remove'], ['order_item_id' => $a->l2->id, 'action' => 'remove']];
+    $first = postAdjust($a, $changes, 'quality')->assertOk()->assertJsonPath('data.order_cancelled', true)->json('data');
+    $footprint = adjustmentFootprint($a);
+    $second = postAdjust($a, $changes, 'quality')->assertOk()->assertJsonPath('data.replayed', true)->json('data');
+    expect($second['order_cancelled'])->toBeTrue()->and($second['refund'])->toEqual($first['refund'])->and($second['refund']['amount']['amount'])->toBe('2265.00')->and(adjustmentFootprint($a))->toBe($footprint);
+});
+
+it('never replays a preview, and a preview after an apply still says what would change now', function () {
+    $a = adjustmentWorld();
+    $changes = [['order_item_id' => $a->l1->id, 'action' => 'reduce', 'new_quantity' => 1]];
+    postAdjust($a, $changes)->assertOk();
+    postAdjust($a, $changes, 'out_of_stock', ['preview' => true])->assertStatus(422)->assertJsonPath('code', 'no_change');
+    postAdjust($a, [['order_item_id' => $a->l2->id, 'action' => 'remove']], 'out_of_stock', ['preview' => true])->assertOk()->assertJsonPath('data.preview', true)->assertJsonPath('data.replayed', false);
+});
+
+it('answers another request of the same order that is not a repeat with the normal rules (a different line after a replay)', function () {
+    $a = adjustmentWorld(['qty' => [3, 1]]);
+    $c1 = [['order_item_id' => $a->l1->id, 'action' => 'reduce', 'new_quantity' => 2]];
+    postAdjust($a, $c1)->assertOk();
+    postAdjust($a, $c1)->assertOk()->assertJsonPath('data.replayed', true);
+    postAdjust($a, [['order_item_id' => $a->l1->id, 'action' => 'reduce', 'new_quantity' => 1]])->assertOk()->assertJsonPath('data.replayed', false)->assertJsonPath('data.revision.number', 2);
+    expect(OrderRevision::count())->toBe(2);
+});
+
+it('still refuses a repeat that is not the same request, and the removed line again, with no_change', function () {
     $a = adjustmentWorld(['payment' => 'sadad']);
     $changes = [['order_item_id' => $a->l1->id, 'action' => 'reduce', 'new_quantity' => 1], ['order_item_id' => $a->l2->id, 'action' => 'remove']];
     postAdjust($a, $changes)->assertOk();
-    $after = [stockOf($a->w->a, $a->w->v1), Refund::count(), DB::table('notifications')->count(), OrderStatusHistory::where('kind', 'items_changed')->count(), $a->order->fresh()->grand_total];
-
-    postAdjust($a, $changes)->assertStatus(422)->assertJsonPath('code', 'no_change');
-    postAdjust($a, [$changes[1]])->assertStatus(422)->assertJsonPath('code', 'no_change'); // the removed line again
-    expect([stockOf($a->w->a, $a->w->v1), Refund::count(), DB::table('notifications')->count(), OrderStatusHistory::where('kind', 'items_changed')->count(), $a->order->fresh()->grand_total])->toBe($after)
-        ->and(OrderRevision::count())->toBe(1);
+    $footprint = adjustmentFootprint($a);
+    postAdjust($a, [$changes[1]])->assertStatus(422)->assertJsonPath('code', 'no_change'); // the removed line alone: a different request
+    expect(adjustmentFootprint($a))->toBe($footprint)->and(OrderRevision::count())->toBe(1);
 });
 
 // ─── Money already paid, and cash still to collect ──────────────────────────────────────────────────────────────────────
@@ -405,8 +522,8 @@ it('asks for a refund of the difference on a paid online order, for finance to a
     // finance approves (someone other than the requester): only then does money move
     $finance = staffWithRole('super_admin');
     actingAsStaff($finance);
-    app(App\Domain\Payments\Services\RefundService::class)->approve($refund->fresh(), $finance);
-    app(App\Domain\Payments\Services\RefundService::class)->markProcessed($refund->fresh(), $finance, 'BANK-1');
+    app(RefundService::class)->approve($refund->fresh(), $finance);
+    app(RefundService::class)->markProcessed($refund->fresh(), $finance, 'BANK-1');
     expect($a->order->fresh()->refunded_total)->toBe('1000.00')->and($payment->fresh()->status->value)->toBe('partially_refunded');
 });
 
@@ -423,7 +540,7 @@ it('asks for no refund when the order is not paid yet: the amount to collect dro
 
 it('moves the cash the driver collects to the new total', function () {
     $a = adjustmentWorld();
-    $delivery = App\Domain\Fulfillment\Models\Delivery::create(['order_fulfillment_id' => $a->f->id, 'branch_id' => $a->f->branch_id, 'mode' => 'internal', 'status' => 'pending',
+    $delivery = Delivery::create(['order_fulfillment_id' => $a->f->id, 'branch_id' => $a->f->branch_id, 'mode' => 'internal', 'status' => 'pending',
         'tracking_number' => 'ABDTEST1', 'quoted_fee' => '15.00', 'cod_amount' => '2275.00', 'requires_proof' => true]);
     postAdjust($a, [['order_item_id' => $a->l1->id, 'action' => 'reduce', 'new_quantity' => 1]])->assertOk();
     expect($delivery->fresh()->cod_amount)->toBe('1275.00');
@@ -500,7 +617,7 @@ it('lists the substitutes the branch really has, searchable, without what the pa
     $p->update(['status' => 'active']);
     [$p2, $v2] = substituteFor($a->w, '300.00', 0); // no stock
     $reserved = substituteFor($a->w, '200.00', 1)[1];
-    app(App\Domain\Inventory\Services\ReservationService::class)->reserve([['branch_id' => $a->w->a->id, 'variant_id' => $reserved->id, 'quantity' => 1, 'reference_type' => 'test', 'reference_id' => 'x']]);
+    app(ReservationService::class)->reserve([['branch_id' => $a->w->a->id, 'variant_id' => $reserved->id, 'quantity' => 1, 'reference_type' => 'test', 'reference_id' => 'x']]);
 
     $rows = $this->getJson(adjustUrl($a, 'substitutes'))->assertOk()->json('data');
     $ids = collect($rows)->pluck('variant_id');

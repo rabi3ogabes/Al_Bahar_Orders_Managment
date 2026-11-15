@@ -23,6 +23,7 @@ class NotificationTemplateIndex extends Component
     public const SAMPLE = [
         'number' => 'AB-260412-0042', 'reference' => 'AB-260412-0042', 'name' => 'Noor', 'customer_name' => 'Noor Al-Mansoori', 'amount' => 'QAR 4,490.00',
         'branch' => 'West Bay Showroom', 'code' => '482913', 'minutes' => '5', 'title' => 'Ramadan Collection', 'body' => 'Up to 30% off selected majlis sets.',
+        'order_number' => 'AB100123', 'changes' => 'Oslo sofa: 2 → 1; Oslo lamp removed', 'reason' => 'Out of stock', 'outcome' => ' New total: QAR 1,275.00.', 'total' => 'QAR 1,275.00',
         'lot' => 'Carved Cedar Chest', 'product' => 'Arabesque Sofa', 'price' => 'QAR 3,990.00', 'due' => '12 Apr, 18:00', 'deep_link' => 'albahar://orders/…',
     ];
 

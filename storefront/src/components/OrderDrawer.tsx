@@ -8,7 +8,7 @@ import { cx } from '../lib/format';
 import type { OrderDetail } from '../lib/types';
 import { useAuthModal } from './AuthModal';
 import { DrawerLink } from './drawerLink';
-import { CancelOrderDialog, FulfillmentCard, ReturnForm, TimelineCard, TotalsCard, invoiceAvailable, statusTone, useInvoice, usePay, useReorder, useOrderQuery } from './OrderParts';
+import { CancelOrderDialog, FulfillmentCard, ReturnForm, TimelineCard, TotalsCard, OrderChangesNotice, invoiceAvailable, statusTone, useInvoice, usePay, useReorder, useOrderQuery } from './OrderParts';
 import { SideDrawer } from './SideDrawer';
 import { Alert, Badge, Button, EmptyState, Skeleton } from './ui';
 
@@ -55,6 +55,7 @@ export default function OrderDrawer({ id, open, onClose }: { id: string; open: b
               <div className="flex flex-wrap items-center gap-2"><Badge tone={statusTone(o.status)}>{o.status_label}</Badge><Badge tone={statusTone(o.payment_status)}>{t(`payment.${o.payment_status}`)}</Badge><LivePill /></div>
               <p className="mt-2 text-sm text-muted">{t('order.placed_on', { d: date(o.placed_at) })}</p>
             </div>
+            <OrderChangesNotice o={o} />
             {unpaid && <Alert tone="warning">{t('order.unpaid')}</Alert>}
             <TimelineCard events={timeline.data} loading={timeline.isLoading} compact />
             {o.fulfillments.map((f) => <FulfillmentCard key={f.id} o={o} f={f} compact />)}
@@ -79,7 +80,7 @@ function OrderActions({ o, onInvoice, onReturn, onCancel }: { o: OrderDetail; on
   const { t } = useI18n();
   return (
     <div className="grid gap-2.5 pb-2">
-      {invoiceAvailable(o) && <Button variant="outline" onClick={onInvoice}><Download size={16} />{t('order.invoice')}</Button>}
+      {invoiceAvailable(o) && <Button variant="outline" onClick={onInvoice}><Download size={16} />{o.was_adjusted ? t('order.invoice_updated') : t('order.invoice')}</Button>}
       {o.can_return && <Button variant="outline" onClick={onReturn}><RotateCcw size={16} />{t('return.title')}</Button>}
       {o.can_cancel && <Button variant="ghost" className="text-danger hover:bg-danger/10" onClick={onCancel}><XCircle size={16} />{t('order.cancel')}</Button>}
       <DrawerLink to="/account/support" className="flex h-11 items-center justify-center rounded-full text-sm font-medium text-ink-soft transition-colors hover:bg-sand">{t('order.help')}</DrawerLink>

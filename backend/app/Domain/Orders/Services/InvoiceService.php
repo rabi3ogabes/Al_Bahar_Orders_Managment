@@ -77,9 +77,9 @@ class InvoiceService
                 // Only what the customer receives: lines the branch removed or swapped out are listed under "Order changes" instead.
                 'items' => $order->items->filter(fn (OrderItem $i) => $i->quantity > 0)->map(fn (OrderItem $i) => $i->only(['sku', 'name_en', 'name_ar', 'variant_name_en', 'variant_name_ar', 'quantity', 'unit_final_price',
                     'discount_amount', 'tax_amount', 'line_total', 'adjustment_kind', 'original_quantity']) + [
-                    'replaces_name_en' => $i->replaces_order_item_id ? $ids->get($i->replaces_order_item_id)?->name_en : null,
-                    'replaces_name_ar' => $i->replaces_order_item_id ? $ids->get($i->replaces_order_item_id)?->name_ar : null,
-                ])->values()->all(),
+                        'replaces_name_en' => $i->replaces_order_item_id ? $ids->get($i->replaces_order_item_id)?->name_en : null,
+                        'replaces_name_ar' => $i->replaces_order_item_id ? $ids->get($i->replaces_order_item_id)?->name_ar : null,
+                    ])->values()->all(),
                 'branches' => $order->fulfillments->map(fn ($f) => ['number' => $f->number, 'name_en' => $f->branch->name_en, 'name_ar' => $f->branch->name_ar])->all(),
                 'discounts' => $order->coupons->map->only(['label_en', 'label_ar', 'code', 'discount_amount'])->all(),
                 'company' => ['name_en' => config('platform.brand.name_en'), 'name_ar' => config('platform.brand.name_ar')],

@@ -9,6 +9,16 @@ Quick, task-based instructions for showroom, warehouse and driver staff. You onl
 **Prepare an order** — Sales › Orders › filter *Needs action* → open → **Accept** → **Preparing** → **Ready** (or **Ready for pickup**).
 Online-paid orders appear only after payment succeeds.
 
+**An item is missing while you prepare** — open the order (staff app: the order card › **Missing an item**; dashboard: the branch's part of the order › **Adjust items**). It works while the order is *Accepted* or *Preparing*, not before and not once it is *Ready*.
+1. For each item choose **Keep**, **Fewer** (the new quantity), **Replace** (search what *your* branch has in stock; the customer pays the replacement's price, never more than the original item's price) or **Remove**.
+2. Choose the **reason** (out of stock, not found, damaged, quality, other) and, if it helps, a short **note** the customer will read.
+3. Check the new total in the preview, then **Confirm**. Nothing is saved before that.
+- The customer is told at once (notification, the order page, a revised invoice PDF). You do not need to call them.
+- Stock: the missing units are released; when the reason is *out of stock* or *not found* your branch's count is also corrected, so the shop stops selling the missing piece. For *damaged* record the damage under Inventory › Adjustments as usual.
+- Money: delivery and service fees do not change. Cash on delivery: the amount to collect drops, the driver sees the new amount. Paid online: a refund of the difference is requested for finance to approve (you do not pay anything back yourself).
+- If nothing is left of your branch's part the part is cancelled (and the whole order if yours was the only branch).
+- Tapped twice or lost the connection? Confirming the same change again does nothing twice. A different change after that is a new revision; the order page keeps the full history (who, when, why, what, the refund).
+
 **Hand over a pickup**
 1. Sales › Pickup › **Scan** (allow the camera) — or type the code under the customer's QR.
 2. Check the name and the customer's ID; the screen shows exactly what to hand over.
@@ -44,6 +54,16 @@ dispatched can't be cancelled; register a return instead.
 ## المعرض / أمين الصندوق
 **تجهيز طلب** — المبيعات › الطلبات › تصفية *بحاجة لإجراء* ← افتح ← **قبول** ← **قيد التجهيز** ← **جاهز** (أو **جاهز للاستلام**).
 الطلبات المدفوعة إلكترونياً تظهر فقط بعد نجاح الدفع.
+
+**نقص في صنف أثناء التجهيز** — افتح الطلب (تطبيق الموظفين: بطاقة الطلب ‹ **صنف ناقص**؛ لوحة التحكم: حصة الفرع من الطلب ‹ **تعديل الأصناف**). يعمل أثناء حالة *مقبول* أو *قيد التجهيز* فقط، لا قبلها ولا بعد *جاهز*.
+١. لكل صنف اختر **إبقاء** أو **تقليل** (الكمية الجديدة) أو **استبدال** (ابحث في مخزون *فرعك*؛ يدفع العميل سعر البديل ولا يزيد أبداً عن سعر الصنف الأصلي) أو **إزالة**.
+٢. اختر **السبب** (نفد من المخزون، لم يُعثر عليه، تالف، الجودة، آخر) وأضف **ملاحظة** قصيرة يقرؤها العميل إن لزم.
+٣. راجع الإجمالي الجديد في المعاينة ثم **تأكيد**. لا يُحفظ شيء قبل ذلك.
+- يُبلَّغ العميل فوراً (إشعار، صفحة الطلب، فاتورة PDF معدّلة). لا حاجة للاتصال به.
+- المخزون: تُحرَّر الوحدات الناقصة؛ وعند السبب *نفد من المخزون* أو *لم يُعثر عليه* يُصحَّح عدد فرعك أيضاً حتى لا يستمر بيع القطعة الناقصة. أما *تالف* فسجّله في المخزون ‹ التسويات كالمعتاد.
+- المال: لا تتغير رسوم التوصيل والخدمة. الدفع عند الاستلام: ينخفض المبلغ المطلوب ويرى السائق المبلغ الجديد. الدفع الإلكتروني: يُطلب استرداد الفرق ليعتمده القسم المالي (لا تردّ أنت أي مبلغ).
+- إذا لم يتبقَّ شيء من حصة فرعك تُلغى الحصة (ويُلغى الطلب كله إن كان فرعك الوحيد).
+- ضغطت مرتين أو انقطع الاتصال؟ تأكيد التعديل نفسه مرة أخرى لا يُنفَّذ مرتين. أما تعديل مختلف بعده فهو تعديل جديد، وتحتفظ صفحة الطلب بالسجل كاملاً (من، متى، لماذا، ماذا، والاسترداد).
 
 **تسليم طلب استلام**
 ١. المبيعات › الاستلام › **مسح** (اسمح بالكاميرا) أو أدخل الرمز المكتوب أسفل رمز QR.

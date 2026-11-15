@@ -7,6 +7,7 @@ use App\Domain\Marketing\Models\Coupon;
 use App\Domain\Marketing\Models\Promotion;
 use App\Domain\Marketing\Services\LoyaltyService;
 use App\Domain\Orders\Models\Order;
+use App\Domain\Orders\Models\OrderFulfillment;
 use App\Domain\Orders\Models\OrderItem;
 use App\Domain\Payments\Models\Payment;
 use App\Domain\Payments\Services\PaymentService;
@@ -100,7 +101,7 @@ function postAdjust(object $a, array $changes, string $reason = 'out_of_stock', 
 /**
  * Another order in the same world (the customer places it, the branch manager accepts it and starts preparing it); the manager is signed in again.
  *
- * @return array{0: Order, 1: App\Domain\Orders\Models\OrderFulfillment}
+ * @return array{0: Order, 1: OrderFulfillment}
  */
 function anotherPreparedOrder(object $a, int $sofas = 1, int $lamps = 1): array
 {
