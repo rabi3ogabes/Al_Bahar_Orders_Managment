@@ -65,7 +65,7 @@ return [
     'two_factor_enabled' => 'Two-factor authentication is now active.',
     'two_factor_disabled' => 'Two-factor authentication has been disabled.',
     'two_factor_enrolment_required' => 'Two-factor authentication is required for staff accounts. Enable it to continue.',
-    'two_factor_mandatory' => 'Two-factor authentication is mandatory for staff accounts and cannot be disabled.',
+    'two_factor_mandatory' => 'Two-factor sign-in is required for the whole team. An administrator can turn the requirement off in Settings → Security.',
     'good_morning' => 'Good morning',
     'good_afternoon' => 'Good afternoon',
     'good_evening' => 'Good evening',

@@ -86,9 +86,9 @@ class Profile extends Component
         $this->dispatch('toast', type: 'success', message: __('admin.two_factor_enabled'));
     }
 
-    public function disableTwoFactor(AuditLogger $audit): void
+    public function disableTwoFactor(AuditLogger $audit, TwoFactorService $tfa): void
     {
-        if (config('platform.auth.staff_two_factor_required')) {
+        if ($tfa->required()) {
             $this->dispatch('toast', type: 'error', message: __('admin.two_factor_mandatory'));
 
             return;

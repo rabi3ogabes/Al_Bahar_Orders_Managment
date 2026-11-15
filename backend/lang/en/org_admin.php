@@ -103,6 +103,13 @@ return [
     'reset_password_hint' => 'Sets a new password and signs the employee out of all mobile sessions.',
     'confirm_reset_password' => 'Reset this employee’s password now?',
     'password_reset_done' => 'Password reset. Share the new password securely.',
+    'two_factor_title' => 'Two-factor sign-in',
+    'two_factor_is_on' => 'On: this employee signs in with a code from an authenticator app.',
+    'two_factor_is_off' => 'Off: this employee signs in with a password only.',
+    'turn_off_two_factor' => 'Turn off two-factor',
+    'confirm_turn_off_two_factor' => 'Turn off two-factor for this employee? Use this when their phone is lost or replaced. They can set it up again from their profile.',
+    'two_factor_turned_off' => 'Two-factor turned off for this employee.',
+    'two_factor_already_off' => 'Two-factor is already off for this employee.',
     'no_activity' => 'No recorded activity yet',
 
     // Roles
@@ -164,6 +171,7 @@ return [
         'auctions' => 'Auctions',
         'notifications' => 'Notifications',
         'integrations' => 'Integrations',
+        'security' => 'Security',
     ],
     'settings_tab_hint' => [
         'general' => 'How the brand appears to customers, and how they can reach you.',
@@ -172,6 +180,7 @@ return [
         'auctions' => 'Defaults applied to new auctions.',
         'notifications' => 'Limits that keep customer messaging respectful.',
         'integrations' => 'Payment gateway, messaging, AI and map settings. Secrets are encrypted and never displayed.',
+        'security' => 'How the team signs in to the dashboard.',
     ],
     'setting' => [
         'brand__name_en' => 'Brand name (English)',
@@ -186,6 +195,7 @@ return [
         'checkout__max_quantity_per_line' => 'Maximum quantity per item',
         'checkout__cart_ttl_days' => 'Cart lifetime',
         'checkout__show_split_shipment' => 'Show "allow split shipment" at checkout',
+        'auth__staff_two_factor_required' => 'Require two-factor sign-in for the team',
         'payments__online_payment_window_minutes' => 'Online payment window',
         'pickup__token_ttl_hours' => 'Pickup code validity',
         'orders__default_prep_minutes' => 'Typical preparation time',
@@ -230,6 +240,7 @@ return [
         'map__routing_url' => 'Routing service URL (delivery time estimate)',
     ],
     'setting_hint' => [
+        'auth__staff_two_factor_required' => 'When on, every dashboard user must sign in with a 6-digit code from an authenticator app and cannot turn it off. When off, each person decides for themselves (Profile → Two-factor) and an administrator can turn it off for anyone from Employees. Turning it on asks anyone without it to set it up at their next page.',
         'checkout__tax_rate_percent' => 'Qatar currently has no VAT; leave at 0 unless advised otherwise.',
         'checkout__reservation_ttl_minutes' => 'Unpaid online orders release their stock after this time.',
         'checkout__show_split_shipment' => 'When on, customers can choose whether an order may be split across branches, but the switch only appears when more than one active branch holds part of their cart. When off, the switch is hidden everywhere (app, web) and an order is never split: it ships from a single branch or cannot be placed. With only one active branch it makes no difference to customers either way.',
@@ -299,6 +310,7 @@ return [
         'employee__global_roles_updated' => 'Company-wide roles changed',
         'employee__status_changed' => 'Account status changed',
         'employee__password_reset' => 'Password reset by an administrator',
+        'employee__two_factor_turned_off' => 'Two-factor turned off by an administrator',
         'role__created' => 'Role created',
         'role__updated' => 'Role renamed',
         'role__permissions_updated' => 'Role permissions changed',

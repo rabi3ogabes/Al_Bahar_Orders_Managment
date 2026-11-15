@@ -190,6 +190,14 @@
                         <button class="btn-primary w-full" wire:confirm="{{ __('org_admin.confirm_reset_password') }}" wire:loading.attr="disabled" wire:target="resetPassword"><x-icon name="key" class="size-4" />{{ __('org_admin.reset_password') }}</button>
                     @endif
                 </form>
+
+                <div class="card card-pad h-fit space-y-4">
+                    <h2 class="font-display text-xl font-semibold">{{ __('org_admin.two_factor_title') }}</h2>
+                    <p class="text-sm text-ink-500">{{ $employee->hasTwoFactorEnabled() ? __('org_admin.two_factor_is_on') : __('org_admin.two_factor_is_off') }}</p>
+                    @if ($canManage && $employee->hasTwoFactorEnabled())
+                        <button type="button" wire:click="turnOffTwoFactor" wire:confirm="{{ __('org_admin.confirm_turn_off_two_factor') }}" wire:loading.attr="disabled" wire:target="turnOffTwoFactor" class="btn-secondary w-full"><x-icon name="shield" class="size-4" />{{ __('org_admin.turn_off_two_factor') }}</button>
+                    @endif
+                </div>
             </div>
 
         @else

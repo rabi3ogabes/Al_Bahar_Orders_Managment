@@ -1,5 +1,5 @@
 @php
-    $tabIcons = ['general' => 'sparkles', 'checkout' => 'cart', 'loyalty' => 'gift', 'auctions' => 'gavel', 'notifications' => 'bell', 'integrations' => 'key'];
+    $tabIcons = ['general' => 'sparkles', 'checkout' => 'cart', 'loyalty' => 'gift', 'auctions' => 'gavel', 'notifications' => 'bell', 'integrations' => 'key', 'security' => 'shield'];
     $tabs = collect($schema)->keys()->mapWithKeys(fn ($g) => [$g => [$tabIcons[$g], __('org_admin.settings_tab.'.$g)]])->all();
 @endphp
 <div class="mx-auto max-w-5xl">

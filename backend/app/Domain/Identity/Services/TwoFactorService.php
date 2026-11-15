@@ -3,6 +3,7 @@
 namespace App\Domain\Identity\Services;
 
 use App\Domain\Identity\Models\User;
+use App\Domain\Settings\Services\Settings;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
@@ -14,6 +15,12 @@ use Illuminate\Support\Str;
 class TwoFactorService
 {
     private const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+    /** Whether staff must use two-factor sign-in: the admin's setting (Settings → Security), else the STAFF_2FA_REQUIRED default. */
+    public function required(): bool
+    {
+        return (bool) app(Settings::class)->get('auth.staff_two_factor_required', true);
+    }
 
     public function generateSecret(): string
     {

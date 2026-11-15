@@ -80,6 +80,9 @@ class SettingsIndex extends Component
                 'orders.default_prep_minutes' => ['type' => 'int', 'rules' => $int(1, 240), 'suffix' => 'min'],
                 'orders.default_delivery_minutes' => ['type' => 'int', 'rules' => $int(1, 240), 'suffix' => 'min'],
             ],
+            'security' => [
+                'auth.staff_two_factor_required' => ['type' => 'bool', 'rules' => ['boolean']],
+            ],
             'loyalty' => [
                 'loyalty.enabled' => ['type' => 'bool', 'rules' => ['boolean']],
                 'loyalty.points_per_qar' => ['type' => 'int', 'rules' => $int(0, 1000)],

@@ -187,6 +187,21 @@ class EmployeeEditor extends Component
         $this->toast(__('org_admin.password_reset_done'));
     }
 
+    /** Turns two-factor off for this employee (a lost or replaced phone); they can enrol again from their profile. Written to the audit log. */
+    public function turnOffTwoFactor(AuditLogger $audit): void
+    {
+        abort_unless($this->canManage(), 403);
+        if (! $this->employee->hasTwoFactorEnabled()) {
+            $this->toast(__('org_admin.two_factor_already_off'));
+
+            return;
+        }
+        $this->employee->forceFill(['two_factor_secret' => null, 'two_factor_recovery_codes' => null, 'two_factor_confirmed_at' => null])->save();
+        $audit->log('employee.two_factor_turned_off', $this->employee);
+        $this->employee->refresh();
+        $this->toast(__('org_admin.two_factor_turned_off'));
+    }
+
     public function editAssignment(string $branchId): void
     {
         $a = BranchEmployee::where('user_id', $this->employee->id)->where('branch_id', $branchId)->firstOrFail();

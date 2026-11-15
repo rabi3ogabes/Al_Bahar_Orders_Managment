@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Domain\Identity\Services\TwoFactorService;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -35,7 +36,7 @@ class EnsureStaff
             return redirect()->route('admin.two-factor.challenge');
         }
 
-        if (! $isApiToken && ! $user->hasTwoFactorEnabled() && config('platform.auth.staff_two_factor_required')
+        if (! $isApiToken && ! $user->hasTwoFactorEnabled() && app(TwoFactorService::class)->required()
             && ! $request->routeIs('admin.profile') && ! $request->hasHeader('X-Livewire')) {
             return redirect()->route('admin.profile')
                 ->with('toast', ['type' => 'warning', 'message' => __('admin.two_factor_enrolment_required')]);
