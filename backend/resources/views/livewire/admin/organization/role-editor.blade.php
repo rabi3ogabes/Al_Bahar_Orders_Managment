@@ -1,17 +1,13 @@
-@php $isNew = ! $role; $ar = app()->getLocale() === 'ar'; @endphp
-<div class="mx-auto max-w-7xl">
-    <a href="{{ route('admin.roles.index') }}" wire:navigate class="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-brass-600"><x-icon name="chevron-left" class="size-4 rtl-flip" />{{ __('nav.roles') }}</a>
-    <x-admin.page-header :title="$isNew ? __('org_admin.new_role') : $role->localized('name')" :eyebrow="$isNew ? __('nav.organization') : $role->key" :description="__('org_admin.role_editor_hint')">
-        <x-slot:actions>
-            @unless ($isNew)
-                @if ($role->is_system)<span class="badge-neutral"><x-icon name="lock" class="size-3" />{{ __('org_admin.system_role') }}</span>@endif
-                <span class="{{ $role->scope === 'global' ? 'badge-info' : 'badge-neutral' }}">{{ __('org_admin.scope_'.$role->scope) }}</span>
-            @endunless
-            @if ($canDelete)
-                <button type="button" wire:click="delete" wire:confirm="{{ __('org_admin.confirm_delete_role') }}" class="btn-ghost text-ruby-soft"><x-icon name="trash" class="size-4" />{{ __('admin.delete') }}</button>
-            @endif
-        </x-slot:actions>
-    </x-admin.page-header>
+@php $isNew = ! $role; $ar = app()->getLocale() === 'ar'; $wide = ! $embedded; @endphp
+<div @class(['mx-auto max-w-7xl' => $wide, 'embedded-editor' => $embedded])>
+    @if ($wide)
+        <a href="{{ route('admin.roles.index') }}" wire:navigate class="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-brass-600"><x-icon name="chevron-left" class="size-4 rtl-flip" />{{ __('nav.roles') }}</a>
+        <x-admin.page-header :title="$isNew ? __('org_admin.new_role') : $role->localized('name')" :eyebrow="$isNew ? __('nav.organization') : $role->key" :description="__('org_admin.role_editor_hint')">
+            <x-slot:actions>@include('livewire.admin.organization.partials.role-actions')</x-slot:actions>
+        </x-admin.page-header>
+    @else
+        @if ($canDelete)<div class="mb-5 flex flex-wrap items-center justify-end gap-2">@include('livewire.admin.organization.partials.role-actions')</div>@endif
+    @endif
 
     @if ($locked)
         <div class="mb-6 flex items-start gap-3 rounded-2xl border border-brass-300/40 bg-brass-50/60 p-4 text-sm text-ink-700 dark:bg-brass-500/10 dark:text-sand-200">
@@ -20,8 +16,8 @@
     @endif
 
     <form wire:submit="save" class="space-y-6">
-        <div class="grid gap-6 [&>*]:min-w-0 lg:grid-cols-3">
-            <div class="min-w-0 card card-pad space-y-5 lg:col-span-2">
+        <div class="grid gap-6 [&>*]:min-w-0 {{ $wide ? 'lg:grid-cols-3' : '' }}">
+            <div class="min-w-0 card card-pad space-y-5 {{ $wide ? 'lg:col-span-2' : '' }}">
                 <h2 class="font-display text-xl font-semibold">{{ __('org_admin.role_identity') }}</h2>
                 <fieldset class="space-y-5" @disabled(! $canSave)>
                     <div class="grid gap-5 sm:grid-cols-2">

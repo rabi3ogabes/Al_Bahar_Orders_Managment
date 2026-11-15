@@ -18,7 +18,8 @@ class StorefrontController extends Controller
 {
     public function show(Request $request, StorefrontSeo $seo): Response
     {
-        $shell = public_path('store/index.html');
+        // The built storefront's HTML shell. Tests point `platform.storefront_shell` at a throw-away file so parallel test processes never share it.
+        $shell = (string) (config('platform.storefront_shell') ?? public_path('store/index.html'));
         if (! is_file($shell)) {
             return redirect('/admin');
         }

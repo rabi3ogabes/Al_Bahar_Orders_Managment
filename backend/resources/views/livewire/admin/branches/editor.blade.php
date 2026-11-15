@@ -1,14 +1,11 @@
-@php $isNew = ! $branch; @endphp
-<div class="mx-auto max-w-6xl">
-    <a href="{{ route('admin.branches.index') }}" wire:navigate class="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-brass-600"><x-icon name="chevron-left" class="size-4 rtl-flip" />{{ __('nav.branches') }}</a>
-    <x-admin.page-header :title="$isNew ? __('branches.new') : $branch->localized('name')" :eyebrow="$isNew ? __('nav.organization') : $branch->code">
-        <x-slot:actions>
-            @unless ($isNew)
-                @if ($status['is_open'])<span class="badge-success">{{ __('branches.open_now') }}</span>@else<span class="badge-neutral">{{ __('branches.closed_reason.'.$status['reason']) }}</span>@endif
-                <x-admin.status :value="$branch->status" />
-            @endunless
-        </x-slot:actions>
-    </x-admin.page-header>
+@php $isNew = ! $branch; $wide = ! $embedded; @endphp
+<div @class(['mx-auto max-w-6xl' => $wide, 'embedded-editor' => $embedded])>
+    @if ($wide)
+        <a href="{{ route('admin.branches.index') }}" wire:navigate class="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-brass-600"><x-icon name="chevron-left" class="size-4 rtl-flip" />{{ __('nav.branches') }}</a>
+        <x-admin.page-header :title="$isNew ? __('branches.new') : $branch->localized('name')" :eyebrow="$isNew ? __('nav.organization') : $branch->code">
+            <x-slot:actions>@include('livewire.admin.branches.partials.status-badges')</x-slot:actions>
+        </x-admin.page-header>
+    @endif
 
     @unless ($isNew)
         <nav class="mb-6 flex gap-1 overflow-x-auto rounded-2xl border border-sand-200/70 bg-white p-1 dark:border-ink-700 dark:bg-ink-900" role="tablist">
@@ -22,8 +19,8 @@
     @endunless
 
     @if ($isNew || $tab === 'details')
-        <form wire:submit="save" class="grid gap-6 lg:grid-cols-3">
-            <div class="card card-pad space-y-5 lg:col-span-2">
+        <form wire:submit="save" class="grid gap-6 {{ $wide ? 'lg:grid-cols-3' : '' }}">
+            <div class="card card-pad space-y-5 {{ $wide ? 'lg:col-span-2' : '' }}">
                 <h2 class="font-display text-xl font-semibold">{{ __('branches.identity') }}</h2>
                 <div class="grid gap-5 sm:grid-cols-3">
                     <x-admin.field :label="__('branches.code')" for="form.code" required :hint="__('branches.code_hint')">
@@ -119,8 +116,8 @@
             @if ($canEdit)<div class="flex justify-end border-t border-sand-100 p-4 dark:border-ink-800"><button class="btn-primary">{{ __('branches.save_hours') }}</button></div>@endif
         </form>
     @elseif ($tab === 'holidays')
-        <div class="grid gap-6 lg:grid-cols-3">
-            <div class="card lg:col-span-2">
+        <div class="grid gap-6 {{ $wide ? 'lg:grid-cols-3' : '' }}">
+            <div class="card {{ $wide ? 'lg:col-span-2' : '' }}">
                 <div class="p-5 sm:p-6"><h2 class="font-display text-xl font-semibold">{{ __('branches.holidays_closures') }}</h2></div>
                 @forelse ($branch->holidays as $h)
                     <div class="flex items-center gap-4 border-t border-sand-100 px-6 py-4 dark:border-ink-800" wire:key="h-{{ $h->id }}">
@@ -147,8 +144,8 @@
             @endif
         </div>
     @elseif ($tab === 'zones')
-        <div class="grid gap-6 lg:grid-cols-3">
-            <div class="card overflow-hidden lg:col-span-2">
+        <div class="grid gap-6 {{ $wide ? 'lg:grid-cols-3' : '' }}">
+            <div class="card overflow-hidden {{ $wide ? 'lg:col-span-2' : '' }}">
                 <div class="p-5 sm:p-6"><h2 class="font-display text-xl font-semibold">{{ __('branches.served_zones') }}</h2><p class="mt-1 text-sm text-ink-500">{{ __('branches.zones_hint') }}</p></div>
                 @if ($branch->zoneConfigs->isEmpty())
                     <x-admin.empty :title="__('branches.no_zones')" icon="map" />
@@ -187,8 +184,8 @@
             @endif
         </div>
     @elseif ($tab === 'slots')
-        <div class="grid gap-6 lg:grid-cols-3">
-            <div class="card overflow-hidden lg:col-span-2">
+        <div class="grid gap-6 {{ $wide ? 'lg:grid-cols-3' : '' }}">
+            <div class="card overflow-hidden {{ $wide ? 'lg:col-span-2' : '' }}">
                 <div class="p-5 sm:p-6"><h2 class="font-display text-xl font-semibold">{{ __('branches.slots') }}</h2><p class="mt-1 text-sm text-ink-500">{{ __('branches.slots_hint') }}</p></div>
                 @if ($branch->slots->isEmpty())
                     <x-admin.empty :title="__('branches.no_slots')" icon="clock" />
@@ -217,8 +214,8 @@
             @endif
         </div>
     @elseif ($tab === 'team')
-        <div class="grid gap-6 lg:grid-cols-3">
-            <div class="card overflow-hidden lg:col-span-2">
+        <div class="grid gap-6 {{ $wide ? 'lg:grid-cols-3' : '' }}">
+            <div class="card overflow-hidden {{ $wide ? 'lg:col-span-2' : '' }}">
                 <div class="p-5 sm:p-6"><h2 class="font-display text-xl font-semibold">{{ __('branches.team') }}</h2></div>
                 @if ($branch->employeeAssignments->isEmpty())
                     <x-admin.empty :title="__('branches.no_team')" icon="users" />

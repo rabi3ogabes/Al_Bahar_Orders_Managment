@@ -5,13 +5,14 @@ namespace App\Livewire\Admin\Organization;
 use App\Domain\Identity\Models\Role;
 use App\Domain\Identity\Support\PermissionRegistry;
 use App\Livewire\Admin\Concerns\WithAdminTable;
+use App\Livewire\Admin\Concerns\WithRecordEditor;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /** Roles are company-level configuration: only staff holding roles.* company-wide may see or change them. */
 class RoleIndex extends Component
 {
-    use WithAdminTable;
+    use WithAdminTable, WithRecordEditor;
 
     #[Url(except: '')]
     public string $filterScope = '';
@@ -19,6 +20,17 @@ class RoleIndex extends Component
     public function mount(): void
     {
         abort_unless($this->canGlobally('roles.view'), 403);
+    }
+
+    /** Roles are company-level: whoever may open the list may open any role (the page's own rule), but only an id that exists. */
+    protected function editable(string $id): bool
+    {
+        return ctype_digit($id) && $this->canGlobally('roles.view') && Role::whereKey((int) $id)->exists();
+    }
+
+    protected function creatable(): bool
+    {
+        return $this->canGlobally('roles.create');
     }
 
     public function render()
@@ -34,6 +46,8 @@ class RoleIndex extends Component
             'roles' => $roles->paginate($this->perPage),
             'totalPermissions' => count(PermissionRegistry::permissions()),
             'canCreate' => $this->canGlobally('roles.create'),
+            'editing' => $this->editing(),
+            'editRole' => ($id = $this->editing()) ? Role::find((int) $id) : null,
         ])->title(__('nav.roles'));
     }
 }

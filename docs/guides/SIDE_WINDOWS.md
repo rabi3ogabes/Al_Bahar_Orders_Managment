@@ -38,6 +38,30 @@ Phones (< 768 px): a side window becomes a tall bottom sheet (max 92 % of the sc
 (a direct child `div` of the `form` holding `.btn-primary`) is pinned by `.drawer-body` in `resources/css/app.css`.
 An optional `<x-slot:footer>` is pinned too. Nested decisions use `variant="modal"`; Esc and Back close only the top one.
 
+## Edit in a side window, or open the full page (Employees, Roles, Branches)
+
+The three Organization lists whose records have a big editor (Employees, Roles, Branches) offer both ways to edit, from the same row:
+
+- **A click on the row (or its arrow) opens the editor in the side window** beside the list: the search, filters and scroll position behind it stay.
+  The window has the record's name and status on top, an **Open full page** link, and the editor itself. On phones it is a bottom sheet.
+- **Ctrl/⌘-click, "open in new tab" and a visit without JavaScript** go to the full page (`/admin/employees/{id}`, `/admin/roles/{id}`, `/admin/branches/{id}`), which keeps working for links, e-mails and notifications.
+- **The "New …" button** opens an empty editor in the window, with the same "Open full page" link to the page that creates it.
+- `?edit=<id>` and `?new=1` keep an open window in the URL: reload, share and Back work (Back closes only the window).
+- Closing a window with unsaved input asks "Discard your changes?"; saving shows the usual toast and the row behind refreshes at once.
+- After a new employee/role/branch is created the window switches to that record (an employee lands on *Branches & roles*, their first job).
+
+How it is built (so the next list can do the same):
+
+| Piece | What it does |
+|---|---|
+| `App\Livewire\Admin\Concerns\WithRecordEditor` | on the list: `?edit=` / `?new=1`, `openEditor()`, `openCreate()`, closes, the `record-created` / `record-changed` / `record-deleted` events. The list supplies `editable($id)` and `creatable()`: the **same access rule as the full page** (a branch manager still only opens their own branch; a bad, foreign or tampered id never opens). |
+| `<x-admin.record-editor>` | the two windows (edit, new) with the top bar and "Open full page" link; renders the page's own Livewire editor with `embedded = true`. |
+| `<x-admin.open-editor>` | the row link: a real `href` to the page, a plain click opens the window. |
+| The editors (`EmployeeEditor`, `RoleEditor`, `BranchEditor`) | one component for page and window. `embedded` (locked, the browser cannot change it) only switches the layout to one column, drops the page header and keeps every action inside the window (no redirects): a created record, a change and a delete are announced to the list with events. |
+
+Rules stay in the editor, so the window can never allow more than the page: tests in `tests/Feature/Admin/RecordEditorWindowsTest.php`.
+Zones already edit in a window (they are a small form with no page of their own); Settings, App updates and Push notifications are single pages.
+
 ## Apps (Flutter)
 
 `lib/core/widgets/side_panel.dart` — `showSidePanel<T>(context:, title:, builder:, footer:, …)` is a bottom sheet on phones and an

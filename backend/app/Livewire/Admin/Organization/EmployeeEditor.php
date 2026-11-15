@@ -15,6 +15,7 @@ use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
@@ -28,6 +29,10 @@ class EmployeeEditor extends Component
     use InteractsWithAdmin;
 
     public ?User $employee = null;
+
+    /** Shown in a side window beside the employees list (the layout is single-column; saves tell the list; nothing navigates away). */
+    #[Locked]
+    public bool $embedded = false;
 
     #[Url]
     public string $tab = 'profile';
@@ -56,20 +61,28 @@ class EmployeeEditor extends Component
         }
     }
 
-    /** Global viewers see every staff member; branch viewers only staff assigned to one of their branches. */
-    private function canView(User $employee): bool
+    /** Global viewers see every staff member; branch viewers only staff assigned to one of their branches. The list's side window asks the same question. */
+    public static function viewableBy(User $actor, User $employee): bool
     {
         $acl = app(AccessControl::class);
-        if ($acl->allowsGlobally(auth()->user(), 'employees.view') || $employee->is(auth()->user())) {
+        if (! $employee->isStaff()) {
+            return false;
+        }
+        if ($acl->allowsGlobally($actor, 'employees.view') || $employee->is($actor)) {
             return true;
         }
-        $scope = $acl->scope(auth()->user(), 'employees.view');
+        $scope = $acl->scope($actor, 'employees.view');
         if (BranchEmployee::where('user_id', $employee->id)->whereIn('branch_id', $scope->branchIds)->exists()) {
             return true;
         }
 
         // Newly created staff with no branch or role yet are visible to anyone who can assign them somewhere.
-        return $acl->allows(auth()->user(), 'employees.assign') && self::unassigned($employee);
+        return $acl->allows($actor, 'employees.assign') && self::unassigned($employee);
+    }
+
+    private function canView(User $employee): bool
+    {
+        return self::viewableBy(auth()->user(), $employee);
     }
 
     private static function unassigned(User $employee): bool
@@ -139,6 +152,14 @@ class EmployeeEditor extends Component
 
         $user = $this->attempt(fn () => $svc->create(auth()->user(), $data));
         if ($user instanceof User) {
+            if ($this->embedded) {
+                $this->dispatch('toast', type: 'success', message: __('org_admin.employee_created'));
+
+                // The list closes this window and opens the new employee's, straight on the access tab (their first job: a branch and a role).
+                $this->dispatch('record-created', id: $user->id, tab: 'access');
+
+                return null;
+            }
             session()->flash('toast', ['type' => 'success', 'message' => __('org_admin.employee_created')]);
 
             return $this->redirectRoute('admin.employees.edit', ['employee' => $user, 'tab' => 'access'], navigate: true);

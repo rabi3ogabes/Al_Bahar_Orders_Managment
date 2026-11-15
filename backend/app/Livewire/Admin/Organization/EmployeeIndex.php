@@ -5,12 +5,14 @@ namespace App\Livewire\Admin\Organization;
 use App\Domain\Identity\Models\Role;
 use App\Domain\Identity\Models\User;
 use App\Livewire\Admin\Concerns\WithAdminTable;
+use App\Livewire\Admin\Concerns\WithRecordEditor;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
 class EmployeeIndex extends Component
 {
-    use WithAdminTable;
+    use WithAdminTable, WithRecordEditor;
 
     #[Url(except: '')]
     public string $filterStatus = '';
@@ -21,6 +23,19 @@ class EmployeeIndex extends Component
     public function mount(): void
     {
         abort_unless($this->can('employees.view'), 403);
+    }
+
+    /** The side window shows the full page's editor, so it opens exactly what that page would (the same access rule). */
+    protected function editable(string $id): bool
+    {
+        $employee = Str::isUuid($id) ? User::find($id) : null;
+
+        return $employee !== null && EmployeeEditor::viewableBy(auth()->user(), $employee);
+    }
+
+    protected function creatable(): bool
+    {
+        return $this->can('employees.create');
     }
 
     public function render()
@@ -52,6 +67,8 @@ class EmployeeIndex extends Component
             'branches' => $this->scopedBranches('employees.view'),
             'roles' => Role::orderBy('scope')->orderBy('name_en')->get(),
             'canCreate' => $this->can('employees.create'),
+            'editing' => $this->editing(),
+            'editEmployee' => ($id = $this->editing()) ? User::find($id) : null,
         ])->title(__('nav.employees'));
     }
 }

@@ -1,11 +1,11 @@
-@php $isNew = ! $employee; @endphp
-<div class="mx-auto max-w-6xl">
-    <a href="{{ route('admin.employees.index') }}" wire:navigate class="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-brass-600"><x-icon name="chevron-left" class="size-4 rtl-flip" />{{ __('nav.employees') }}</a>
+@php $isNew = ! $employee; $wide = ! $embedded; @endphp
+<div @class(['mx-auto max-w-6xl' => $wide, 'embedded-editor' => $embedded])>
+    @if ($wide)<a href="{{ route('admin.employees.index') }}" wire:navigate class="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-brass-600"><x-icon name="chevron-left" class="size-4 rtl-flip" />{{ __('nav.employees') }}</a>@endif
 
     @if ($isNew)
-        <x-admin.page-header :title="__('org_admin.new_employee')" :eyebrow="__('nav.organization')" :description="__('org_admin.new_employee_hint')" />
-        <form wire:submit="create" class="grid gap-6 [&>*]:min-w-0 lg:grid-cols-3">
-            <div class="min-w-0 card card-pad space-y-5 lg:col-span-2">
+        @if ($wide)<x-admin.page-header :title="__('org_admin.new_employee')" :eyebrow="__('nav.organization')" :description="__('org_admin.new_employee_hint')" />@endif
+        <form wire:submit="create" class="grid gap-6 [&>*]:min-w-0 {{ $wide ? 'lg:grid-cols-3' : '' }}">
+            <div class="min-w-0 card card-pad space-y-5 {{ $wide ? 'lg:col-span-2' : '' }}">
                 <h2 class="font-display text-xl font-semibold">{{ __('admin.personal_details') }}</h2>
                 <div class="grid gap-5 sm:grid-cols-2">
                     <x-admin.field :label="__('admin.name')" for="form.name" required class="sm:col-span-2"><input id="form.name" wire:model="form.name" class="input" autocomplete="off"></x-admin.field>
@@ -32,6 +32,7 @@
             </div>
         </form>
     @else
+        @if ($wide)
         <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div class="flex min-w-0 items-center gap-4">
                 <span class="grid size-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-sand-100 to-sand-200 font-display text-2xl font-semibold text-ink-700 dark:from-ink-800 dark:to-ink-700 dark:text-sand-100">{{ mb_substr($employee->name, 0, 1) }}</span>
@@ -47,6 +48,7 @@
                 <x-admin.status :value="$employee->status->value" />
             </div>
         </div>
+        @endif
 
         @if ($isSelf)
             <div class="mb-6 flex items-start gap-3 rounded-2xl border border-amber-soft/20 bg-amber-soft/5 p-4 text-sm text-ink-700 dark:text-sand-200">
@@ -58,7 +60,7 @@
         <x-admin.tabs :current="$tab" :tabs="['profile' => ['user', __('org_admin.tab_profile')], 'access' => ['shield', __('org_admin.tab_access')], 'security' => ['lock', __('org_admin.tab_security')], 'activity' => ['history', __('org_admin.tab_activity')]]" />
 
         @if ($tab === 'profile')
-            <form wire:submit="saveProfile" class="card card-pad max-w-3xl space-y-5">
+            <form wire:submit="saveProfile" class="card card-pad {{ $wide ? 'max-w-3xl' : '' }} space-y-5">
                 <h2 class="font-display text-xl font-semibold">{{ __('admin.personal_details') }}</h2>
                 <fieldset class="grid gap-5 sm:grid-cols-2" @disabled(! $canManage)>
                     <x-admin.field :label="__('admin.name')" for="form.name" required class="sm:col-span-2"><input id="form.name" wire:model="form.name" class="input"></x-admin.field>
@@ -77,8 +79,8 @@
             </form>
 
         @elseif ($tab === 'access')
-            <div class="grid gap-6 [&>*]:min-w-0 lg:grid-cols-3">
-                <div class="min-w-0 space-y-6 lg:col-span-2">
+            <div class="grid gap-6 [&>*]:min-w-0 {{ $wide ? 'lg:grid-cols-3' : '' }}">
+                <div class="min-w-0 space-y-6 {{ $wide ? 'lg:col-span-2' : '' }}">
                     <div class="card overflow-hidden">
                         <div class="p-5 sm:p-6"><h2 class="font-display text-xl font-semibold">{{ __('org_admin.branch_assignments') }}</h2><p class="mt-1 text-sm text-ink-500">{{ __('org_admin.branch_assignments_hint') }}</p></div>
                         @if ($employee->branchAssignments->isEmpty())
@@ -133,7 +135,7 @@
                 </div>
 
                 @if (! $isSelf && $assignableBranches->isNotEmpty())
-                    <form wire:submit="saveAssignment" class="card card-pad h-fit space-y-4 lg:sticky lg:top-24">
+                    <form wire:submit="saveAssignment" class="card card-pad h-fit space-y-4 {{ $wide ? 'lg:sticky lg:top-24' : '' }}">
                         <h3 class="font-display text-lg font-semibold">{{ $assign['branch_id'] && $employee->branchAssignments->contains('branch_id', $assign['branch_id']) ? __('org_admin.update_assignment') : __('org_admin.assign_to_branch') }}</h3>
                         <x-admin.field :label="__('admin.branch')" for="assign.branch_id" required>
                             <select id="assign.branch_id" wire:model="assign.branch_id" class="input pe-10 rtl:[background-position:left_0.5rem_center]">
@@ -160,7 +162,7 @@
             </div>
 
         @elseif ($tab === 'security')
-            <div class="grid gap-6 [&>*]:min-w-0 lg:grid-cols-2">
+            <div class="grid gap-6 [&>*]:min-w-0 {{ $wide ? 'lg:grid-cols-2' : '' }}">
                 <div class="card card-pad space-y-4">
                     <h2 class="font-display text-xl font-semibold">{{ __('org_admin.account_status') }}</h2>
                     <p class="text-sm text-ink-500">{{ __('org_admin.account_status_hint') }}</p>

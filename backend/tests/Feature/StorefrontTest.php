@@ -11,13 +11,17 @@ use Illuminate\Support\Facades\File;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 beforeEach(function () {
-    $this->shell = public_path('store/index.html');
-    $this->hadShell = is_file($this->shell);
-    $this->backup = $this->hadShell ? file_get_contents($this->shell) : null;
+    // A throw-away public folder per test: parallel test processes (and the real storefront build) never share the shell file.
+    $this->publicDir = sys_get_temp_dir().'/albahar-public-'.getmypid().'-'.bin2hex(random_bytes(4));
+    File::ensureDirectoryExists($this->publicDir);
+    config(['platform.storefront_shell' => $this->publicDir.'/index.html']);
+    $this->shell = $this->publicDir.'/index.html';
+    $this->hadShell = false;
+    $this->backup = null;
 });
 
 afterEach(function () {
-    $this->hadShell ? file_put_contents($this->shell, $this->backup) : File::delete($this->shell);
+    File::deleteDirectory($this->publicDir);
 });
 
 it('serves the storefront shell for the web root and client-side routes', function () {

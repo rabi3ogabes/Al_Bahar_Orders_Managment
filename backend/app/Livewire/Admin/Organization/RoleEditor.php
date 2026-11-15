@@ -11,6 +11,7 @@ use App\Domain\Identity\Support\PermissionRegistry;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /**
@@ -22,6 +23,10 @@ class RoleEditor extends Component
     use InteractsWithAdmin;
 
     public ?Role $role = null;
+
+    /** Shown in a side window beside the roles list (single column; saves tell the list; nothing navigates away). */
+    #[Locked]
+    public bool $embedded = false;
 
     public array $form = [];
 
@@ -160,6 +165,12 @@ class RoleEditor extends Component
         app(AccessControl::class)->forget();
 
         if (! $this->role) {
+            if ($this->embedded) {
+                $this->dispatch('toast', type: 'success', message: __('org_admin.role_created'));
+                $this->dispatch('record-created', id: (string) $role->id);
+
+                return null;
+            }
             session()->flash('toast', ['type' => 'success', 'message' => __('org_admin.role_created')]);
 
             return $this->redirectRoute('admin.roles.edit', $role, navigate: true);
@@ -184,6 +195,12 @@ class RoleEditor extends Component
         $this->role->delete();
         $audit->log('role.deleted', 'Role', $snapshot);
         app(AccessControl::class)->forget();
+        if ($this->embedded) {
+            $this->dispatch('toast', type: 'success', message: __('org_admin.role_deleted'));
+            $this->dispatch('record-deleted');
+
+            return null;
+        }
         session()->flash('toast', ['type' => 'success', 'message' => __('org_admin.role_deleted')]);
 
         return $this->redirectRoute('admin.roles.index', navigate: true);

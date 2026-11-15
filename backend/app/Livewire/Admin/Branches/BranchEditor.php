@@ -20,6 +20,7 @@ use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use App\Support\BusinessTime;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
@@ -28,6 +29,10 @@ class BranchEditor extends Component
     use InteractsWithAdmin;
 
     public ?Branch $branch = null;
+
+    /** Shown in a side window beside the branches list (single column; saves tell the list; nothing navigates away). */
+    #[Locked]
+    public bool $embedded = false;
 
     #[Url]
     public string $tab = 'details';
@@ -86,6 +91,12 @@ class BranchEditor extends Component
             $data['hours'] = $this->week;
             $branch = $this->attempt(fn () => $svc->create($data));
             if ($branch) {
+                if ($this->embedded) {
+                    $this->dispatch('toast', type: 'success', message: __('branches.created'));
+                    $this->dispatch('record-created', id: $branch->id);
+
+                    return null;
+                }
                 session()->flash('toast', ['type' => 'success', 'message' => __('branches.created')]);
 
                 return $this->redirectRoute('admin.branches.edit', $branch, navigate: true);

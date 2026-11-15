@@ -2,7 +2,7 @@
     <x-admin.page-header :title="__('nav.employees')" :eyebrow="__('nav.organization')" :description="__('org_admin.employees_hint')">
         <x-slot:actions>
             @if ($canCreate)
-                <a href="{{ route('admin.employees.create') }}" wire:navigate class="btn-primary"><x-icon name="plus" class="size-4" />{{ __('org_admin.new_employee') }}</a>
+                <x-admin.open-editor create :id="''" :href="route('admin.employees.create')" class="btn-primary"><x-icon name="plus" class="size-4" />{{ __('org_admin.new_employee') }}</x-admin.open-editor>
             @endif
         </x-slot:actions>
     </x-admin.page-header>
@@ -44,7 +44,7 @@
                         @endphp
                         <tr wire:key="e-{{ $e->id }}">
                             <td>
-                                <a href="{{ route('admin.employees.edit', $e) }}" wire:navigate class="group flex items-center gap-3">
+                                <x-admin.open-editor :id="$e->id" :href="route('admin.employees.edit', $e)" class="group flex items-center gap-3">
                                     <span class="grid size-10 shrink-0 place-items-center rounded-full bg-sand-100 text-sm font-semibold text-ink-700 dark:bg-ink-800 dark:text-sand-200">{{ mb_substr($e->name, 0, 1) }}</span>
                                     <span class="min-w-0">
                                         <span class="flex items-center gap-2 truncate font-medium text-ink-900 group-hover:text-brass-600 dark:text-ivory">{{ $e->name }}
@@ -54,7 +54,7 @@
                                         <span class="block truncate text-xs text-ink-500" dir="ltr">{{ $e->email }}</span>
                                         @if ($e->job_title)<span class="block truncate text-xs text-ink-400">{{ $e->job_title }}</span>@endif
                                     </span>
-                                </a>
+                                </x-admin.open-editor>
                             </td>
                             <td>
                                 <div class="flex max-w-sm flex-wrap gap-1.5">
@@ -75,7 +75,7 @@
                             </td>
                             <td class="whitespace-nowrap text-xs text-ink-500 tabular-nums">{{ $e->last_login_at ? \App\Support\BusinessTime::display($e->last_login_at) : __('org_admin.never') }}</td>
                             <td><x-admin.status :value="$e->status->value" /></td>
-                            <td><a href="{{ route('admin.employees.edit', $e) }}" wire:navigate class="btn-ghost btn-sm" aria-label="{{ __('admin.edit') }}"><x-icon name="chevron-right" class="size-4 rtl-flip" /></a></td>
+                            <td><x-admin.open-editor :id="$e->id" :href="route('admin.employees.edit', $e)" class="btn-ghost btn-sm" aria-label="{{ __('admin.edit') }}"><x-icon name="chevron-right" class="size-4 rtl-flip" /></x-admin.open-editor></td>
                         </tr>
                     @endforeach
                     </tbody>
@@ -84,4 +84,19 @@
             @if ($employees->hasPages())<div class="border-t border-sand-100 p-4 dark:border-ink-800">{{ $employees->links('components.admin.pagination') }}</div>@endif
         @endif
     </div>
+
+    {{-- Edit (or add) an employee beside the list; the same editor opens as a full page from the window's "Open full page". --}}
+    <x-admin.record-editor editor="admin.organization.employee-editor" param="employee" max-width="max-w-4xl"
+        :editing="$editing" :record="$editEmployee" :landing="$landing" :creating="$creating"
+        :title="$editEmployee?->name" :description="$editEmployee ? $editEmployee->email.($editEmployee->job_title ? ' · '.$editEmployee->job_title : '') : null"
+        :full-url="$editEmployee ? route('admin.employees.edit', $editEmployee) : null"
+        :new-title="__('org_admin.new_employee')" :new-description="__('org_admin.new_employee_hint')" :new-url="$canCreate ? route('admin.employees.create') : null">
+        @if ($editEmployee)
+            <x-slot:badges>
+                @if ($editEmployee->is_super_admin)<span class="badge-brass"><x-icon name="crown" class="size-3" />{{ __('admin.super_admin') }}</span>@endif
+                @if ($editEmployee->hasTwoFactorEnabled())<span class="badge-success"><x-icon name="lock" class="size-3" />2FA</span>@endif
+                <x-admin.status :value="$editEmployee->status->value" />
+            </x-slot:badges>
+        @endif
+    </x-admin.record-editor>
 </div>

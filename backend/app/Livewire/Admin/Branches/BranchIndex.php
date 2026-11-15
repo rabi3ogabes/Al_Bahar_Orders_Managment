@@ -6,12 +6,14 @@ use App\Domain\Branches\Models\Branch;
 use App\Domain\Branches\Services\BranchHoursService;
 use App\Domain\Identity\Services\AccessControl;
 use App\Livewire\Admin\Concerns\WithAdminTable;
+use App\Livewire\Admin\Concerns\WithRecordEditor;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
 class BranchIndex extends Component
 {
-    use WithAdminTable;
+    use WithAdminTable, WithRecordEditor;
 
     #[Url(except: '')]
     public string $filterStatus = '';
@@ -19,6 +21,17 @@ class BranchIndex extends Component
     public function mount(): void
     {
         abort_unless($this->can('branches.view'), 403);
+    }
+
+    /** The branch the full page would open for this person (branch-scoped staff only open their own branches). */
+    protected function editable(string $id): bool
+    {
+        return Str::isUuid($id) && Branch::whereKey($id)->exists() && app(AccessControl::class)->allows(auth()->user(), 'branches.view', $id);
+    }
+
+    protected function creatable(): bool
+    {
+        return app(AccessControl::class)->allowsGlobally(auth()->user(), 'branches.create');
     }
 
     public function render()
@@ -34,6 +47,8 @@ class BranchIndex extends Component
             'branches' => $q->paginate($this->perPage),
             'canCreate' => app(AccessControl::class)->allowsGlobally(auth()->user(), 'branches.create'),
             'hours' => app(BranchHoursService::class),
+            'editing' => $this->editing(),
+            'editBranch' => ($id = $this->editing()) ? Branch::find($id) : null,
         ])->title(__('nav.branches'));
     }
 }

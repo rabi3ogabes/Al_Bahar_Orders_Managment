@@ -2,7 +2,7 @@
     <x-admin.page-header :title="__('nav.branches')" :eyebrow="__('nav.organization')" :description="__('branches.index_hint')">
         <x-slot:actions>
             @if ($canCreate)
-                <a href="{{ route('admin.branches.create') }}" wire:navigate class="btn-primary"><x-icon name="plus" class="size-4" />{{ __('branches.new') }}</a>
+                <x-admin.open-editor create :id="''" :href="route('admin.branches.create')" class="btn-primary"><x-icon name="plus" class="size-4" />{{ __('branches.new') }}</x-admin.open-editor>
             @endif
         </x-slot:actions>
     </x-admin.page-header>
@@ -21,7 +21,7 @@
 
         @if ($branches->isEmpty())
             <x-admin.empty :title="__('branches.empty_title')" :description="__('branches.empty_hint')" icon="store">
-                @if ($canCreate)<a href="{{ route('admin.branches.create') }}" wire:navigate class="btn-brass"><x-icon name="plus" class="size-4" />{{ __('branches.new') }}</a>@endif
+                @if ($canCreate)<x-admin.open-editor create :id="''" :href="route('admin.branches.create')" class="btn-brass"><x-icon name="plus" class="size-4" />{{ __('branches.new') }}</x-admin.open-editor>@endif
             </x-admin.empty>
         @else
             <div class="table-wrap">
@@ -35,11 +35,11 @@
                         @php $st = $hours->status($b); @endphp
                         <tr wire:key="b-{{ $b->id }}">
                             <td>
-                                <a href="{{ route('admin.branches.edit', $b) }}" wire:navigate class="group flex items-center gap-3">
+                                <x-admin.open-editor :id="$b->id" :href="route('admin.branches.edit', $b)" class="group flex items-center gap-3">
                                     <span class="grid size-10 shrink-0 place-items-center rounded-xl bg-sand-100 font-mono text-xs font-semibold text-ink-700 dark:bg-ink-800 dark:text-sand-200">{{ $b->code }}</span>
                                     <span class="min-w-0"><span class="block truncate font-medium text-ink-900 group-hover:text-brass-600 dark:text-ivory">{{ $b->localized('name') }}</span>
                                         <span class="block truncate text-xs text-ink-500" dir="ltr">{{ $b->phone }}</span></span>
-                                </a>
+                                </x-admin.open-editor>
                             </td>
                             <td class="text-ink-600">{{ $b->area ?: '—' }}</td>
                             <td>@if ($st['is_open'])<span class="badge-success"><span class="size-1.5 rounded-full bg-current"></span>{{ __('branches.open_now') }}</span>@else<span class="badge-neutral">{{ __('branches.closed_reason.'.$st['reason']) }}</span>@endif</td>
@@ -50,7 +50,7 @@
                             </div></td>
                             <td class="text-end tabular-nums">{{ $b->employee_assignments_count }}</td>
                             <td><x-admin.status :value="$b->status" /></td>
-                            <td><a href="{{ route('admin.branches.edit', $b) }}" wire:navigate class="btn-ghost btn-sm" aria-label="{{ __('admin.edit') }}"><x-icon name="chevron-right" class="size-4 rtl-flip" /></a></td>
+                            <td><x-admin.open-editor :id="$b->id" :href="route('admin.branches.edit', $b)" class="btn-ghost btn-sm" aria-label="{{ __('admin.edit') }}"><x-icon name="chevron-right" class="size-4 rtl-flip" /></x-admin.open-editor></td>
                         </tr>
                     @endforeach
                     </tbody>
@@ -59,4 +59,19 @@
             <div class="border-t border-sand-100 p-4 dark:border-ink-800">{{ $branches->links('components.admin.pagination') }}</div>
         @endif
     </div>
+
+    {{-- Edit (or add) a branch beside the list; the same editor opens as a full page from the window's "Open full page". --}}
+    <x-admin.record-editor editor="admin.branches.branch-editor" param="branch" max-width="max-w-5xl"
+        :editing="$editing" :record="$editBranch" :creating="$creating"
+        :title="$editBranch?->localized('name')" :description="$editBranch?->code"
+        :full-url="$editBranch ? route('admin.branches.edit', $editBranch) : null"
+        :new-title="__('branches.new')" :new-url="$canCreate ? route('admin.branches.create') : null">
+        @if ($editBranch)
+            @php $editStatus = $hours->status($editBranch); @endphp
+            <x-slot:badges>
+                @if ($editStatus['is_open'])<span class="badge-success">{{ __('branches.open_now') }}</span>@else<span class="badge-neutral">{{ __('branches.closed_reason.'.$editStatus['reason']) }}</span>@endif
+                <x-admin.status :value="$editBranch->status" />
+            </x-slot:badges>
+        @endif
+    </x-admin.record-editor>
 </div>

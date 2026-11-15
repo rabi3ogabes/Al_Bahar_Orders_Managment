@@ -26,6 +26,10 @@ trait InteractsWithAdmin
     protected function toast(string $message, string $type = 'success'): void
     {
         $this->dispatch('toast', type: $type, message: $message);
+        // An editor in a side window (see WithRecordEditor): a saved change must show in the list row behind it.
+        if ($type === 'success' && ($this->embedded ?? false)) {
+            $this->dispatch('record-changed');
+        }
     }
 
     /** Run a domain action, turning DomainExceptions into a friendly toast instead of an error page. */

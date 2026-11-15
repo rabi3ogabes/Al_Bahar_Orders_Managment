@@ -12,16 +12,20 @@ use Illuminate\Support\Facades\File;
  */
 
 beforeEach(function () {
-    $this->shell = public_path('store/index.html');
-    $this->hadShell = is_file($this->shell);
-    $this->backup = $this->hadShell ? file_get_contents($this->shell) : null;
+    // A throw-away public folder per test: parallel test processes (and the real storefront build) never share the shell file.
+    $this->publicDir = sys_get_temp_dir().'/albahar-public-'.getmypid().'-'.bin2hex(random_bytes(4));
+    File::ensureDirectoryExists($this->publicDir);
+    config(['platform.storefront_shell' => $this->publicDir.'/index.html']);
+    $this->shell = $this->publicDir.'/index.html';
+    $this->hadShell = false;
+    $this->backup = null;
     File::ensureDirectoryExists(dirname($this->shell));
     file_put_contents($this->shell, '<!doctype html><html><head><meta charset="UTF-8" /><meta name="description" content="Base description" /><title>Al Bahar Home &amp; Living</title></head><body><div id="root"></div></body></html>');
     config(['app.url' => 'https://shop.example']);
 });
 
 afterEach(function () {
-    $this->hadShell ? file_put_contents($this->shell, $this->backup) : File::delete($this->shell);
+    File::deleteDirectory($this->publicDir);
 });
 
 /** All JSON-LD blocks of a page, decoded. */
