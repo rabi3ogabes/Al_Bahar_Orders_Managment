@@ -19,11 +19,13 @@ use App\Domain\Inventory\Services\ReservationService;
 use App\Domain\Marketing\Models\CouponUsage;
 use App\Domain\Marketing\Models\OrderCoupon;
 use App\Domain\Marketing\Services\LoyaltyService;
+use App\Domain\Notifications\Models\Notification;
 use App\Domain\Notifications\Services\NotificationService;
 use App\Domain\Orders\Enums\FulfillmentStatus as FS;
 use App\Domain\Orders\Enums\OrderStatus as OS;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderFulfillment;
+use App\Domain\Orders\Models\OrderInvoice;
 use App\Domain\Orders\Models\OrderItem;
 use App\Domain\Orders\Models\OrderRevision;
 use App\Domain\Orders\Models\OrderRevisionLine;
@@ -58,6 +60,9 @@ class OrderAdjustmentService
 {
     /** At most this many item changes in one request. */
     public const MAX_CHANGES = 50;
+
+    /** A retry of a request whose answer was lost is answered with the revision it created for this long (see replayOf()). */
+    public const REPLAY_WINDOW_MINUTES = 10;
 
     public function __construct(
         private readonly ReservationService $reservations,
@@ -162,13 +167,19 @@ class OrderAdjustmentService
             return $this->present($this->plan($fulfillment->id, $actor, $changes, $reasonCode, lock: false), null);
         }
 
+        $hash = $this->requestHash($fulfillment->id, $changes, $reasonCode, $note);
+
         // Three attempts: a deadlock with a customer's cancellation (which takes the same rows in the other order) retries; the loser then finds the fulfillment cancelled.
-        return DB::transaction(fn () => $this->apply($fulfillment->id, $actor, $changes, $reasonCode, $note), 3);
+        return DB::transaction(fn () => $this->apply($fulfillment->id, $actor, $changes, $reasonCode, $note, $hash), 3);
     }
 
     /** @return array<string, mixed> */
-    private function apply(string $fulfillmentId, User $actor, array $changes, string $reasonCode, ?string $note): array
+    private function apply(string $fulfillmentId, User $actor, array $changes, string $reasonCode, ?string $note, string $hash): array
     {
+        // The same request again, soon after it was applied (the app never saw the answer): the answer it already earned, nothing written, nobody told twice.
+        if (($replay = $this->replayOf($fulfillmentId, $actor, $hash)) !== null) {
+            return $replay;
+        }
         $plan = $this->plan($fulfillmentId, $actor, $changes, $reasonCode, lock: true);
         /** @var Order $order */
         $order = $plan['order'];
@@ -238,7 +249,7 @@ class OrderAdjustmentService
         $revision = new OrderRevision([
             'order_id' => $order->id, 'order_fulfillment_id' => $f->id, 'branch_id' => $f->branch_id, 'number' => $number, 'actor_id' => $actor->id,
             'reason_code' => $reasonCode, 'note' => $note, 'before' => $this->totalsArray($plan['before']), 'after' => $this->totalsArray($plan['after_totals']),
-            'difference' => $plan['difference']->toDecimal(), 'refund_id' => $refundId, 'refund_amount' => $refundAmount?->toDecimal(),
+            'difference' => $plan['difference']->toDecimal(), 'refund_id' => $refundId, 'refund_amount' => $refundAmount?->toDecimal(), 'request_hash' => $hash,
             'loyalty_points_returned' => $plan['loyalty_returned'], 'fulfillment_cancelled' => $plan['fulfillment_empty'], 'order_cancelled' => $plan['order_cancelled'],
         ]);
         $revision->forceFill(['id' => $revisionId]);
@@ -270,6 +281,78 @@ class OrderAdjustmentService
         $plan['refund'] = $refundAmount ? ['amount' => $refundAmount, 'needs_approval' => true] : null;
 
         return $this->present($plan, $revision, $notified, $invoice?->revision);
+    }
+
+    /**
+     * Replay safety. The staff app taps again when it never saw the answer. An identical request (same actor, same parcel, same changes, reason and note)
+     * made within REPLAY_WINDOW_MINUTES of the revision it created, while the order still is exactly what that revision left, is answered with that
+     * revision's result: 200, `replayed: true`, nothing written, nobody notified again. Anything else (another person, other changes, later, or the order
+     * moved on) is a new request and meets the normal rules, so `no_change` still says "this is already in place". Runs under the same locks as plan(),
+     * so a retry that overtakes its own first attempt waits for it and is answered with it.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function replayOf(string $fulfillmentId, User $actor, string $hash): ?array
+    {
+        $f = OrderFulfillment::whereKey($fulfillmentId)->lockForUpdate()->firstOrFail();
+        $order = Order::whereKey($f->order_id)->lockForUpdate()->firstOrFail();
+        if ($order->adjustment_count < 1) {
+            return null;
+        }
+        $revision = OrderRevision::with('lines')->where('order_id', $order->id)->where('number', $order->adjustment_count)->first();
+        if ($revision === null || $revision->order_fulfillment_id !== $f->id || $revision->actor_id !== $actor->id || $revision->request_hash !== $hash
+            || $revision->created_at->lt(now()->subMinutes(self::REPLAY_WINDOW_MINUTES)) || ! $this->orderStillAsLeftBy($revision, $order)) {
+            return null;
+        }
+
+        return $this->presentReplay($revision, $order);
+    }
+
+    /** The order's money (or, for a revision that cancelled it, its status) is still what the revision made it. */
+    private function orderStillAsLeftBy(OrderRevision $revision, Order $order): bool
+    {
+        if ($revision->order_cancelled) {
+            return $order->status === OS::Cancelled;
+        }
+        foreach (['subtotal', 'discount_total', 'tax_total', 'grand_total', 'loyalty_discount'] as $field) {
+            if (! Money::of($order->{$field})->equals(Money::of($revision->after[$field] ?? '0'))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** The result the first request got, rebuilt from the revision (names in the caller's language). @return array<string, mixed> */
+    private function presentReplay(OrderRevision $revision, Order $order): array
+    {
+        $m = fn (mixed $v) => Money::of((string) ($v ?? '0'))->jsonSerialize();
+        $totals = fn (array $t) => ['subtotal' => $m($t['subtotal'] ?? null), 'discount_total' => $m($t['discount_total'] ?? null), 'tax_total' => $m($t['tax_total'] ?? null), 'grand_total' => $m($t['grand_total'] ?? null)];
+
+        return [
+            'applied' => true, 'preview' => false, 'replayed' => true,
+            'revision' => ['id' => $revision->id, 'number' => $revision->number],
+            'lines' => $revision->lines->map(fn (OrderRevisionLine $l) => ['order_item_id' => $l->order_item_id, 'action' => $l->action, 'name' => $l->name(), 'variant_name' => $l->variantName(),
+                'from_quantity' => $l->from_quantity, 'to_quantity' => $l->to_quantity,
+                'replacement' => $l->replacement === null ? null : ['variant_id' => $l->replacement['variant_id'] ?? null, 'name' => $l->replacementName(), 'variant_name' => $l->replacementVariantName(),
+                    'quantity' => (int) ($l->replacement['quantity'] ?? 0), 'unit_price' => $m($l->replacement['unit_price'] ?? null)]])->values()->all(),
+            'before' => $totals($revision->before), 'after' => $totals($revision->after), 'difference' => $m($revision->difference),
+            'refund' => $revision->refund_amount !== null ? ['amount' => $m($revision->refund_amount), 'needs_approval' => true] : null,
+            'fulfillment_cancelled' => $revision->fulfillment_cancelled, 'order_cancelled' => $revision->order_cancelled,
+            'customer_notified' => $order->user_id !== null && Notification::where('user_id', $order->user_id)->where('event', 'order.items_changed')
+                ->where('data->reference', $order->id)->where('created_at', '>=', $revision->created_at)->exists(),
+            'invoice_revision' => OrderInvoice::where('order_id', $order->id)->where('revision', '>', 1)->where('issued_at', '>=', $revision->created_at)->min('revision'),
+            'loyalty_points_returned' => $revision->loyalty_points_returned,
+        ];
+    }
+
+    /** Identifies a request regardless of the order its changes were listed in or how it was spelt (a trimmed note, an integer sent as text). */
+    private function requestHash(string $fulfillmentId, array $changes, string $reasonCode, ?string $note): string
+    {
+        $rows = collect($changes)->map(fn (array $c) => [strtolower((string) $c['order_item_id']), (string) $c['action'], isset($c['new_quantity']) ? (int) $c['new_quantity'] : null,
+            isset($c['variant_id']) ? strtolower((string) $c['variant_id']) : null, isset($c['quantity']) ? (int) $c['quantity'] : null])->sortBy(0)->values()->all();
+
+        return hash('sha256', json_encode([$fulfillmentId, $rows, $reasonCode, $note], JSON_THROW_ON_ERROR));
     }
 
     // ─── Planning (reads and decides, never writes) ─────────────────────────────────────────────────────────────────
@@ -562,7 +645,7 @@ class OrderAdjustmentService
         $shares = $itemDiscount->allocate($items->mapWithKeys(fn (OrderCoupon $c) => [$c->id => max(0, Money::of($c->discount_amount)->minor)])->all());
         foreach ($coupons as $c) {
             $new = $c->free_delivery ? $deliveryDiscount : $shares[$c->id];
-            if (false) {
+            if (! Money::of($c->discount_amount)->equals($new)) {
                 $c->forceFill(['discount_amount' => $new->toDecimal()])->save();
                 CouponUsage::where('order_id', $order->id)->where('promotion_id', $c->promotion_id)->update(['discount_amount' => $new->toDecimal()]);
             }
@@ -636,7 +719,7 @@ class OrderAdjustmentService
         $totals = fn (array $t) => ['subtotal' => $m($t['subtotal']), 'discount_total' => $m($t['discount_total']), 'tax_total' => $m($t['tax_total']), 'grand_total' => $m($t['grand_total'])];
 
         return [
-            'applied' => $revision !== null, 'preview' => $revision === null,
+            'applied' => $revision !== null, 'preview' => $revision === null, 'replayed' => false,
             'revision' => ['id' => $revision?->id, 'number' => $plan['number']],
             'lines' => collect($plan['changes'])->map(function (array $c) {
                 /** @var OrderItem $i */

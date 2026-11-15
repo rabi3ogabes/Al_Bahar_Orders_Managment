@@ -48,6 +48,7 @@ return new class extends Migration
             $table->decimal('difference', 12, 2);                             // after − before (zero or negative)
             $table->foreignUuid('refund_id')->nullable()->constrained('refunds')->nullOnDelete();
             $table->decimal('refund_amount', 12, 2)->nullable();
+            $table->char('request_hash', 64)->nullable();                     // sha256 of the normalised request: a lost-response retry of it is answered with this revision
             $table->unsignedSmallInteger('loyalty_points_returned')->default(0);
             $table->boolean('fulfillment_cancelled')->default(false);
             $table->boolean('order_cancelled')->default(false);

@@ -28,6 +28,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $difference
  * @property ?string $refund_id
  * @property ?string $refund_amount
+ * @property ?string $request_hash
  * @property int $loyalty_points_returned
  * @property bool $fulfillment_cancelled
  * @property bool $order_cancelled

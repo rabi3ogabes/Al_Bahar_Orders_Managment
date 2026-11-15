@@ -7,6 +7,7 @@ use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Fulfillment\Services\DispatchService;
 use App\Domain\Fulfillment\Services\DriverPosition;
 use App\Domain\Identity\Models\User;
+use App\Domain\Orders\Enums\FulfillmentStatus as FS;
 use App\Domain\Orders\Models\OrderFulfillment;
 use App\Domain\Orders\Models\OrderItem;
 use App\Http\Controllers\Api\V1\ApiController;
@@ -142,7 +143,10 @@ class DispatchController extends ApiController
                 'fulfillment_id' => $f->id, 'order_id' => $f->order_id, 'seq' => (int) $f->order->progress_seq, 'status' => $f->status->value, 'number' => $f->order->number, 'placed_at' => BusinessTime::iso($f->order->placed_at),
                 'customer_name' => $f->order->customer_name, 'customer_phone' => $f->order->customer_phone, 'alternate_phone' => $f->order->alternate_phone,
                 'address' => $f->order->address_snapshot,
-                'items_count' => (int) $f->items->sum('quantity'), 'items' => $this->itemRows($f->items), 'payment_method' => $f->order->payment_method, 'grand_total' => $f->order->grand_total,
+                // Only what is still to be prepared and delivered (lines the branch removed or swapped out are not listed); the counters tell the app the order was changed.
+                'items_count' => (int) $f->items->sum(fn ($i) => max(0, (int) $i->quantity - (int) $i->quantity_cancelled)), 'items' => $this->itemRows($f->items),
+                'was_adjusted' => $f->order->wasAdjusted(), 'adjustment_count' => (int) $f->order->adjustment_count, 'can_adjust' => in_array($f->status, [FS::Accepted, FS::Preparing], true),
+                'payment_method' => $f->order->payment_method, 'grand_total' => $f->order->grand_total,
                 'scheduled_for' => BusinessTime::iso($f->slot_date ?? null),
                 'delivery' => $d ? ['id' => $d->id, 'status' => $d->status->value, 'driver' => $d->driver ? ['id' => $d->driver->id, 'name' => $d->driver->name] : null] : null,
             ];
@@ -232,14 +236,17 @@ class DispatchController extends ApiController
 
     /**
      * What is in the parcel, for the driver's and the branch staff's order windows: name, variant, SKU and the quantity still to deliver
-     * (cancelled units left out). No prices: they are not the driver's business.
+     * (cancelled units and lines the branch removed or swapped out left out). `order_item_id` is the line's id for the adjustments API (same value as `id`);
+     * `adjustment` says what the branch did to the line (null: nothing). No prices: they are not the driver's business.
      *
      * @param  Collection<int, OrderItem>  $items
-     * @return list<array{id: string, name: string, variant_name: ?string, sku: ?string, quantity: int}>
+     * @return list<array{id: string, order_item_id: string, name: string, variant_name: ?string, sku: ?string, quantity: int, adjustment: ?array{kind: string, original_quantity: int}}>
      */
     private function itemRows($items): array
     {
-        return $items->map(fn ($i) => ['id' => $i->id, 'name' => $i->name(), 'variant_name' => $i->variantName(), 'sku' => $i->sku,
-            'quantity' => max(0, (int) $i->quantity - (int) $i->quantity_cancelled)])->filter(fn (array $r) => $r['quantity'] > 0)->values()->all();
+        return $items->map(fn ($i) => ['id' => $i->id, 'order_item_id' => $i->id, 'name' => $i->name(), 'variant_name' => $i->variantName(), 'sku' => $i->sku,
+            'quantity' => max(0, (int) $i->quantity - (int) $i->quantity_cancelled),
+            'adjustment' => $i->adjustment_kind ? ['kind' => $i->adjustment_kind, 'original_quantity' => (int) ($i->original_quantity ?? $i->quantity)] : null])
+            ->filter(fn (array $r) => $r['quantity'] > 0)->values()->all();
     }
 }
