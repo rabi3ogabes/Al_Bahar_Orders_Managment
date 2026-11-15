@@ -29,7 +29,7 @@ logo of its own. (Before, the content also drew a 40 dp tile of the app icon, so
 - **countdown:** while the driver is on the road the header counts down to the arrival (mm:ss) by itself. When it reaches zero a one-shot, inexact alarm
   (`LiveOrderCountdownReceiver`) draws the card again without the chronometer, so it never counts below zero; a newer estimate moves the alarm;
 - **Android 16 (API 36) Live Updates:** `compileSdk`/`targetSdk` are the Flutter 3.47 defaults, 36, so `LiveOrderPromoted` uses the platform's `Notification.ProgressStyle`
-  (three 100-unit legs, the tracker icon is the current stage as a round badge) and asks for promotion (`setRequestPromotedOngoing`, with
+  (three 100-unit legs, the tracker icon is the current stage as a round badge) and asks for promotion (the `android.requestPromotedOngoing` extra, with
   `POST_PROMOTED_NOTIFICATIONS` in the manifest): a status-bar chip (the countdown, else the arrival time via `setShortCriticalText`) and the rich lock-screen card. It has
   no custom views (a promoted notification may not), the same title, text, actions, group and timeouts, and falls back to the custom card on any failure; older Android
   keeps the custom card. minSdk is unchanged (24, from Flutter's default with the app's own floor of 23);
@@ -145,7 +145,7 @@ iOS Live Activities / Dynamic Island (widget extension, ActivityKit, Apple push)
   was confirmed `@RemotableViewMethod`; EN/AR strings have the same keys and format arguments; the bar geometry was rendered in a
   Python port to check proportions, colours, RTL and dark mode against the reference.
 - Kotlin, the second pass (logo removal, lock screen, countdown end, Android 16): the same `-Werror` compile of every `.kt` against the Android 14 jar with the
-  regenerated `R` (every new `R.id` / `R.drawable` exists); the Android 16 platform calls (`Notification.ProgressStyle`, `setRequestPromotedOngoing`,
+  regenerated `R` (every new `R.id` / `R.drawable` exists); the Android 16 platform calls (`Notification.ProgressStyle`, the `android.requestPromotedOngoing` extra,
   `setShortCriticalText`) are **not in that jar** and were type-checked only against stand-ins written from the API 36 reference, so they are the one part the
   CI build can still reject; the JVM checks now also cover the JSON round trip of a stored card (`LiveOrder.toMap` and `LiveOrderPayload`), the Android 16 progress
   mapping (`LiveOrderPromoted.progress`) and the contrast of the brand colours in light and dark; the XML (layouts, vector small icon, chip shape, manifest) is well formed.

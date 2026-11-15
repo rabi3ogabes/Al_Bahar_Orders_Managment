@@ -4,6 +4,7 @@ import android.annotation.TargetApi
 import android.app.Notification
 import android.content.Context
 import android.graphics.drawable.Icon
+import android.os.Bundle
 import android.util.Log
 import kotlin.math.roundToInt
 
@@ -27,6 +28,9 @@ internal object LiveOrderPromoted {
     const val MIN_SDK = 36
 
     private const val LOG_TAG = "LiveOrder"
+
+    /** `Notification.EXTRA_REQUEST_PROMOTED_ONGOING`. */
+    private const val EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing"
 
     /** Each leg of the bar is 100 units long, so a progress of 150 is half way through the second leg. */
     private const val LEG = 100
@@ -59,7 +63,8 @@ internal object LiveOrderPromoted {
             // The chip counts down to the arrival while the driver is on the road (the notifier set the chronometer),
             // otherwise it shows the arrival time. A finished order is a plain, dismissable notification.
             chipText(order, texts, now)?.let { builder.setShortCriticalText(it) }
-            builder.setRequestPromotedOngoing(true)
+            // The builder method of the same name is not in every API 36 SDK, so the request is made the way the platform reads it: the extra.
+            builder.addExtras(Bundle().apply { putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true) })
         }
         true
     } catch (t: Throwable) {
