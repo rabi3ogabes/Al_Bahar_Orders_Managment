@@ -34,6 +34,7 @@ return [
     'marketing' => 'Marketing',
     'promotions' => 'Promotions & coupons',
     'journeys' => 'Customer journeys',
+    'customer_messages' => 'Customer messages',
     'campaigns' => 'Campaigns',
     'referrals' => 'Referrals',
     'loyalty' => 'Loyalty & referrals',

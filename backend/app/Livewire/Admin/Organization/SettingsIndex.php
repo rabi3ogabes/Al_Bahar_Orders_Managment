@@ -103,6 +103,9 @@ class SettingsIndex extends Component
                 'notifications.abandoned_cart_max_messages' => ['type' => 'int', 'rules' => $int(0, 10)],
                 'notifications.abandoned_cart_min_interval_hours' => ['type' => 'int', 'rules' => $int(1, 720), 'suffix' => 'hours'],
                 'notifications.max_attempts' => ['type' => 'int', 'rules' => $int(1, 20)],
+                'messaging.cooldown_hours' => ['type' => 'int', 'rules' => $int(0, 720), 'suffix' => 'hours'],
+                'messaging.whatsapp_per_minute' => ['type' => 'int', 'rules' => $int(1, 600)],
+                'messaging.bulk_max' => ['type' => 'int', 'rules' => $int(1, 5000)],
             ],
             'integrations' => [
                 'payments.sadad.enabled' => ['type' => 'bool', 'rules' => ['boolean']],

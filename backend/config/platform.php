@@ -159,6 +159,13 @@ return [
         'share_message_ar' => 'تسوّق من تطبيق البحر باستخدام رمزي {{code}}. {{reward}} {{link}}',
     ],
 
+    // Messages staff send to customers by hand from the customers pages (Settings → Messaging; these are the fallbacks).
+    'messaging' => [
+        'cooldown_hours' => 24,        // minimum gap between two marketing messages to the same customer (this feature and the automatic journeys); 0 = no guard
+        'whatsapp_per_minute' => 40,   // how fast a bulk send hands WhatsApp messages to n8n
+        'bulk_max' => 1000,            // most customers one send may reach
+    ],
+
     'notifications' => [
         'abandoned_cart_after_minutes' => 120,
         'abandoned_cart_max_messages' => 2,

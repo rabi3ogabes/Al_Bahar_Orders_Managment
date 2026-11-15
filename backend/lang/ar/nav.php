@@ -34,6 +34,7 @@ return [
     'marketing' => 'التسويق',
     'promotions' => 'العروض والقسائم',
     'journeys' => 'رحلات العملاء',
+    'customer_messages' => 'رسائل العملاء',
     'campaigns' => 'الحملات',
     'referrals' => 'الإحالات',
     'loyalty' => 'الولاء والإحالات',

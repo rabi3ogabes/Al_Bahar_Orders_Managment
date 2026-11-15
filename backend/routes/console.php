@@ -42,3 +42,5 @@ Schedule::command('marketing:abandoned-carts')->everyFifteenMinutes()->onOneServ
 Schedule::command('marketing:send-scheduled')->everyMinute()->withoutOverlapping()->onOneServer();
 
 Schedule::command('journeys:tick')->everyMinute()->withoutOverlapping(5)->onOneServer();
+
+Schedule::command('messaging:dispatch-due')->everyMinute()->withoutOverlapping(5)->onOneServer();

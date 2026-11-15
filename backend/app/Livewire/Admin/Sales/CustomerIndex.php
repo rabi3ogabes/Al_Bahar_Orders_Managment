@@ -3,9 +3,7 @@
 namespace App\Livewire\Admin\Sales;
 
 use App\Domain\Identity\Models\User;
-use App\Domain\Identity\Services\AccessControl;
-use App\Domain\Orders\Models\Order;
-use App\Domain\Orders\Models\OrderFulfillment;
+use App\Domain\Messaging\Services\CustomerScope;
 use App\Livewire\Admin\Concerns\WithAdminTable;
 use App\Livewire\Admin\Sales\Concerns\HasRecordWindow;
 use App\Livewire\Admin\Sales\Concerns\PeeksAtOrder;
@@ -51,13 +49,7 @@ class CustomerIndex extends Component
     /** Customers visible to the viewer (global: all; branch-scoped: ordered from one of their branches). */
     public static function visibleTo(User $viewer): Builder
     {
-        $scope = app(AccessControl::class)->scope($viewer, 'customers.view');
-        $q = User::query()->where('type', 'customer');
-        if (! $scope->all) {
-            $q->whereIn('id', Order::query()->select('user_id')->whereIn('id', $scope->apply(OrderFulfillment::query()->select('order_id')->getQuery(), 'branch_id')));
-        }
-
-        return $q;
+        return CustomerScope::for($viewer);
     }
 
     public static function maskEmail(?string $email): ?string

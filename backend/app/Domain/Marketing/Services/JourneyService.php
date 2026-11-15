@@ -9,6 +9,8 @@ use App\Domain\Marketing\Models\JourneyDelivery;
 use App\Domain\Marketing\Models\JourneyRun;
 use App\Domain\Marketing\Models\JourneyStep;
 use App\Domain\Marketing\Models\JourneyTemplate;
+use App\Domain\Messaging\Services\ContactHistory;
+use App\Domain\Messaging\Services\CustomerMessaging;
 use App\Domain\Notifications\Models\Notification;
 use App\Domain\Notifications\Services\FcmClient;
 use App\Domain\Notifications\Services\N8nClient;
@@ -303,6 +305,10 @@ class JourneyService
         }
         if (! $this->notify->allowed($user, $channel, 'marketing')) {
             return $channel === 'whatsapp' ? 'no_whatsapp_optin' : 'opted_out';
+        }
+        // Staff just messaged this customer by hand (customers pages): do not pile an automatic message on top of it.
+        if (app(ContactHistory::class)->recentManualMessage((string) $user->id, app(CustomerMessaging::class)->limits()['cooldown_hours'])) {
+            return 'recently_contacted';
         }
 
         return null;
