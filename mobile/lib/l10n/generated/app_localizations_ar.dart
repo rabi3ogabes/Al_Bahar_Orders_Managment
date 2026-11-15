@@ -2852,4 +2852,96 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get returnsUnavailable => 'الإرجاع غير متاح لهذا الطلب حاليًا.';
+
+  @override
+  String get orderUpdatedTitle => 'تم تحديث طلبك من قِبل الفرع';
+
+  @override
+  String get orderUpdatedReasonOutOfStock => 'نفدت بعض المنتجات من مخزون الفرع.';
+
+  @override
+  String get orderUpdatedReasonNotFound => 'لم يتمكن الفرع من العثور على بعض منتجاتك.';
+
+  @override
+  String get orderUpdatedReasonDamaged => 'وُجدت بعض المنتجات تالفة.';
+
+  @override
+  String get orderUpdatedReasonQuality => 'لم تجتز بعض المنتجات فحص الجودة لدى الفرع.';
+
+  @override
+  String get orderUpdatedReasonOther => 'اضطر الفرع إلى تعديل بعض منتجاتك.';
+
+  @override
+  String orderUpdatedNote(String note) {
+    return 'ملاحظة من الفرع: «$note»';
+  }
+
+  @override
+  String get orderUpdatedWhatChanged => 'ما الذي تغيّر';
+
+  @override
+  String orderUpdatedLineReduced(String name, int from, int to) {
+    return '$name: خُفّضت الكمية من $from إلى $to';
+  }
+
+  @override
+  String orderUpdatedLineRemoved(String name) {
+    return 'تم حذف $name';
+  }
+
+  @override
+  String orderUpdatedLineReplaced(String name, String replacement) {
+    return 'تم استبدال $name بـ $replacement';
+  }
+
+  @override
+  String orderUpdatedLineReplacedPlain(String name) {
+    return 'تم استبدال $name';
+  }
+
+  @override
+  String get orderUpdatedNewTotal => 'الإجمالي الجديد';
+
+  @override
+  String orderUpdatedBefore(String amount) {
+    return 'قبل التحديث: $amount';
+  }
+
+  @override
+  String get orderUpdatedInvoice => 'تم تحديث فاتورتك أيضًا.';
+
+  @override
+  String orderUpdatedRevision(int number) {
+    return 'التحديث $number';
+  }
+
+  @override
+  String get orderUpdatedCancelled => 'كل المنتجات غير متوفرة، لذلك أُلغي الطلب.';
+
+  @override
+  String get orderItemNotAvailable => 'غير متوفر';
+
+  @override
+  String orderItemReplacedBy(String name) {
+    return 'تم استبداله بـ $name';
+  }
+
+  @override
+  String get orderItemReplacement => 'بديل';
+
+  @override
+  String orderItemReplaces(String name) {
+    return 'بديل لـ $name';
+  }
+
+  @override
+  String orderItemReducedFrom(int count) {
+    return 'خُفّضت من $count';
+  }
+
+  @override
+  String get orderUpdatedChip => 'تم التحديث';
+
+  @override
+  String get downloadUpdatedInvoice => 'تنزيل الفاتورة المحدّثة (PDF)';
 }

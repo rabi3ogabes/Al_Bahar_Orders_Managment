@@ -124,7 +124,8 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
       await settle(tester);
       expect(find.text('Enter your email and password.'), findsOneWidget);
-      expect(h.adapter.requests, isEmpty);
+      // Nothing is sent but the public look-up of how a status is changed (buttons or slide), made on start-up.
+      expect(h.adapter.requests.where((r) => r.path != '/app-config'), isEmpty);
     });
 
     testWidgets('a staff member signs in: email trimmed, the branch app opens, the token is kept', (tester) async {

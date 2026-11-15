@@ -100,7 +100,7 @@ class PartnerReport
         $deliveries = $o->fulfillments->flatMap->deliveries;
 
         return $row + [
-            'items' => $o->items->map(fn ($i) => ['sku' => $i->sku, 'name' => $i->name('en'), 'name_ar' => $i->name_ar, 'variant' => $i->variant_name_en, 'quantity' => (int) $i->quantity,
+            'items' => $o->items->where('quantity', '>', 0)->map(fn ($i) => ['sku' => $i->sku, 'name' => $i->name('en'), 'name_ar' => $i->name_ar, 'variant' => $i->variant_name_en, 'quantity' => (int) $i->quantity,
                 'cancelled' => (int) $i->quantity_cancelled, 'unit_price' => (string) $i->unit_final_price, 'line_total' => (string) $i->line_total, 'image' => $i->image_path])->values(),
             'transactions' => $o->payments->flatMap->transactions->sortBy('created_at')->map(fn ($t) => ['type' => $t->type, 'status' => $t->status, 'reference' => $t->transaction_reference, 'amount' => $t->amount, 'at' => BusinessTime::iso($t->created_at), 'error' => $t->error])->values(),
             'deliveries' => $deliveries->map(fn (Delivery $d) => $this->deliveryRow($d))->values(),

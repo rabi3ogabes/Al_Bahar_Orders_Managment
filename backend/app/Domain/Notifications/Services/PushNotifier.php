@@ -6,6 +6,7 @@ use App\Domain\Branches\Models\BranchEmployee;
 use App\Domain\Fulfillment\Events\DispatchUpdated;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Models\UserDevice;
+use App\Domain\Notifications\Models\LiveActivityToken;
 use App\Domain\Orders\Events\OrderUpdated;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderFulfillment;
@@ -20,7 +21,9 @@ use Throwable;
 /**
  * Real-time push for the three apps, sent from the same events that drive the live sockets.
  *  - customer: the live order card ("order_progress", see OrderProgress): sent whenever the order's state really changes
- *    or its arrival window moves by 5+ minutes, in each device's language, and updated in place per order;
+ *    or its arrival window moves by 5+ minutes, in each device's language, and updated in place per order. An iPhone that
+ *    runs a Live Activity for the order (lock screen, Dynamic Island) gets the same card straight from Apple's servers too
+ *    (see LiveActivityPusher), whether or not Firebase is set up;
  *  - driver: "new delivery" when a job is assigned; branch employees: "ready, needs a driver" and failed deliveries.
  * Never throws into the order flow: the customer card is wrapped here, the driver/staff pushes by their callers' rescue().
  */
@@ -29,7 +32,11 @@ class PushNotifier
     /** Cache key of what was last pushed for an order: the state fingerprint and the window end. */
     private const LAST = 'order_progress:last:';
 
-    public function __construct(private readonly FcmClient $fcm, private readonly OrderProgress $progress) {}
+    public function __construct(
+        private readonly FcmClient $fcm,
+        private readonly OrderProgress $progress,
+        private readonly LiveActivityPusher $activities,
+    ) {}
 
     public function orderUpdated(OrderUpdated $e): void
     {
@@ -38,17 +45,17 @@ class PushNotifier
 
     public function dispatchUpdated(DispatchUpdated $e): void
     {
-        if (! $this->fcm->configured()) {
-            return;
-        }
-        if ($e->kind === 'delivery' && $e->status === 'assigned' && $e->driverId) {
-            $this->plain($e->driverId, 'push.driver_new_job', $e->orderNumber, 'dispatch.updated');
-        }
-        if ($e->kind === 'delivery' && $e->status === 'failed') {
-            $this->branch($e->branchId, 'push.staff_failed', $e->orderNumber);
-        }
-        if ($e->kind === 'order' && $e->status === 'ready') {
-            $this->branch($e->branchId, 'push.staff_ready', $e->orderNumber);
+        // Driver and staff pushes are Firebase's; the customer's card below also feeds the iPhone Live Activity, which needs no Firebase.
+        if ($this->fcm->configured()) {
+            if ($e->kind === 'delivery' && $e->status === 'assigned' && $e->driverId) {
+                $this->plain($e->driverId, 'push.driver_new_job', $e->orderNumber, 'dispatch.updated');
+            }
+            if ($e->kind === 'delivery' && $e->status === 'failed') {
+                $this->branch($e->branchId, 'push.staff_failed', $e->orderNumber);
+            }
+            if ($e->kind === 'order' && $e->status === 'ready') {
+                $this->branch($e->branchId, 'push.staff_ready', $e->orderNumber);
+            }
         }
         if ($e->kind === 'order' && $e->fulfillmentId !== null && Str::isUuid($e->fulfillmentId)) {
             // A branch part moved (accepted, preparing, ready) without necessarily changing the order's status: the customer's card follows.
@@ -66,13 +73,19 @@ class PushNotifier
      */
     public function refreshOrder(string $orderId): void
     {
-        if (! $this->fcm->configured() || ! Str::isUuid($orderId)) {
+        if (! Str::isUuid($orderId)) {
             return;
         }
-        rescue(fn () => $this->pushProgress($orderId), report: true);
+        $fcm = $this->fcm->configured();
+        $live = $this->activities->configured();
+        if (! $fcm && ! $live) {
+            return;
+        }
+        rescue(fn () => $this->pushProgress($orderId, $fcm, $live), report: true);
     }
 
-    private function pushProgress(string $orderId): void
+    /** @param  bool  $fcm  Firebase may send the card to the customer's phones and browsers; @param  bool  $live  Apple may update their Live Activities */
+    private function pushProgress(string $orderId, bool $fcm, bool $live): void
     {
         $order = Order::find($orderId);
         if ($order === null || $order->user_id === null) {
@@ -83,27 +96,32 @@ class PushNotifier
         if ($customer === null || ! $customer->isActive() || ! app(NotificationService::class)->allowed($customer, 'push', 'transactional')) {
             return;
         }
-        $devices = UserDevice::where('user_id', $order->user_id)->whereNull('disabled_at')->get();
-        if ($devices->isEmpty()) {
+        /** @var Collection<int, UserDevice> $devices */
+        $devices = $fcm ? UserDevice::where('user_id', $order->user_id)->whereNull('disabled_at')->get() : new Collection;
+        /** @var Collection<int, LiveActivityToken> $tokens */
+        $tokens = $live ? $this->activities->tokensFor($order->id, $order->user_id) : new Collection;
+        if ($devices->isEmpty() && $tokens->isEmpty()) {
             return;
         }
-        $built = $this->progress->build($order, $devices->map(fn (UserDevice $d) => (string) $d->locale)->all());
+        $locales = [...$devices->map(fn (UserDevice $d) => (string) $d->locale)->all(), ...$tokens->map(fn (LiveActivityToken $t) => (string) $t->locale)->all()];
+        $built = $this->progress->build($order, $locales);
         if ($built === null || $built['expired']) {
             return;
         }
         try {
             // Two events for one change (order + dispatch) may be handled at the same moment: the second finds the first's record and stops.
-            Cache::lock('order_progress:push:'.$orderId, 20)->block(5, fn () => $this->sendIfChanged($orderId, $devices, $built['payloads']));
+            Cache::lock('order_progress:push:'.$orderId, 20)->block(5, fn () => $this->sendIfChanged($orderId, $devices, $tokens, $built['payloads']));
         } catch (LockTimeoutException) {
             // Another worker is sending this order's update right now.
         }
     }
 
     /**
-     * @param  Collection<int, UserDevice>  $devices
+     * @param  Collection<int, UserDevice>  $devices  the phones and browsers Firebase sends the card to
+     * @param  Collection<int, LiveActivityToken>  $tokens  the customer's Live Activities for this order (Apple sends these)
      * @param  array<string, array<string, mixed>>  $payloads  by language
      */
-    private function sendIfChanged(string $orderId, Collection $devices, array $payloads): void
+    private function sendIfChanged(string $orderId, Collection $devices, Collection $tokens, array $payloads): void
     {
         $first = reset($payloads);
         $state = md5((string) json_encode([$first['phase'], $first['detail'], $first['step'], $first['driver_name'], $first['done']]));
@@ -143,6 +161,10 @@ class PushNotifier
             }
             $this->retireIfGone($device, $res);
             $delivered += ($res['ok'] ?? false) ? 1 : 0;
+        }
+        // The Live Activity: a stage change at Apple's high priority, a bar or countdown move at the low one; a finished order ends it.
+        if ($tokens->isNotEmpty()) {
+            $delivered += $this->activities->push($orderId, $tokens, $payloads, $silent);
         }
         if ($delivered > 0) {
             Cache::put(self::LAST.$orderId, ['state' => $state, 'eta_to' => $etaTo, 'eta_at' => $etaAt, 'fill' => $fill, 'at' => now()->getTimestamp()], now()->addDay());

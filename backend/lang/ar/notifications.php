@@ -49,4 +49,6 @@ return [
     'referral.friend_rewarded.body' => 'شكراً على أول طلب. مكافأتك: {{reward}}',
     'campaign.title' => '{{title}}',
     'campaign.body' => '{{body}}',
+    'order.items_changed.title' => 'تم تحديث طلبك',
+    'order.items_changed.body' => 'تم تحديث الطلب {{order_number}}: {{changes}}. السبب: {{reason}}.{{outcome}}',
 ];

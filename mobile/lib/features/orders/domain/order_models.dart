@@ -21,12 +21,14 @@ class OrderSummary {
     this.itemsCount,
     this.thumbnails = const [],
     this.seq = 0,
+    this.wasAdjusted = false,
   });
 
   factory OrderSummary.fromJson(JsonMap json) {
     final items = asList(json['items']);
     return OrderSummary(
       seq: asInt(json['seq']),
+      wasAdjusted: asBool(json['was_adjusted']),
       id: asString(json['id']),
       number: asString(json['number']),
       status: asString(json['status']),
@@ -61,6 +63,9 @@ class OrderSummary {
   /// The order's version when it was read (see SeqGate): a real-time message with a newer one replaces what the read showed.
   final int seq;
 
+  /// True when the branch changed what is in the order (a missing item was reduced, replaced or removed): the list shows "Updated".
+  final bool wasAdjusted;
+
   /// The same row after a real-time message (the status the customer sees changes at once).
   OrderSummary withLive({required String status, String? statusLabel, String? paymentStatus, required int seq}) =>
       OrderSummary(
@@ -76,7 +81,54 @@ class OrderSummary {
         itemsCount: itemsCount,
         thumbnails: thumbnails,
         seq: seq,
+        wasAdjusted: wasAdjusted,
       );
+}
+
+/// What the branch did to one line of an order while preparing it (`adjustment` of an item): `reduced` (fewer than ordered), `removed`,
+/// `replaced` (swapped out: quantity 0) or `replacement` (this line took the place of [replacesName]). Everything but [kind] is optional:
+/// an older server sends none of it.
+@immutable
+class ItemAdjustment {
+  const ItemAdjustment({
+    required this.kind,
+    this.originalQuantity,
+    this.originalName,
+    this.reasonCode,
+    this.reasonLabel,
+    this.replacesName,
+    this.replacedByName,
+  });
+
+  static ItemAdjustment? maybe(Object? json) {
+    if (json is! Map) return null;
+    final m = asMap(json);
+    final kind = asString(m['kind']);
+    if (kind.isEmpty) return null;
+    return ItemAdjustment(
+      kind: kind,
+      originalQuantity: asIntOrNull(m['original_quantity']),
+      originalName: asStringOrNull(m['original_name']),
+      reasonCode: asStringOrNull(m['reason_code']),
+      reasonLabel: asStringOrNull(m['reason_label']),
+      replacesName: asStringOrNull(m['replaces_name']),
+      replacedByName: asStringOrNull(m['replaced_by_name']),
+    );
+  }
+
+  final String kind;
+
+  /// How many were ordered.
+  final int? originalQuantity;
+  final String? originalName;
+  final String? reasonCode;
+
+  /// The reason in the customer's language, as the server words it.
+  final String? reasonLabel;
+
+  /// For a `replacement`: the name of the line it replaced. For a `replaced` line: [replacedByName] is the item that took its place.
+  final String? replacesName;
+  final String? replacedByName;
 }
 
 @immutable
@@ -94,6 +146,7 @@ class OrderItem {
     this.lineTotal,
     this.branchId,
     this.fulfillmentId,
+    this.adjustment,
   });
   factory OrderItem.fromJson(JsonMap json) => OrderItem(
     id: asString(json['id']),
@@ -108,6 +161,7 @@ class OrderItem {
     lineTotal: Money.maybe(json['line_total']),
     branchId: asStringOrNull(json['branch_id']),
     fulfillmentId: asStringOrNull(json['fulfillment_id']),
+    adjustment: ItemAdjustment.maybe(json['adjustment']),
   );
   final String id;
   final String? productId;
@@ -121,6 +175,127 @@ class OrderItem {
   final Money? lineTotal;
   final String? branchId;
   final String? fulfillmentId;
+
+  /// What the branch did to this line, or null when nothing (and for every order from a server that does not send it).
+  final ItemAdjustment? adjustment;
+
+  /// A line the branch took out (removed, or swapped for another item): it stays in the list, struck through, with nothing to pay.
+  bool get isGone =>
+      adjustment != null && (adjustment!.kind == 'removed' || adjustment!.kind == 'replaced' || quantity <= 0);
+
+  /// A line that is now smaller than what was ordered.
+  bool get isReduced => !isGone && adjustment?.kind == 'reduced';
+
+  /// A line that took the place of another item.
+  bool get isReplacement => !isGone && adjustment?.kind == 'replacement';
+}
+
+/// One change of a revision, in the server's words (`lines` of a revision): [text] is the sentence the customer also gets in the
+/// notification and on the invoice ("Oslo sofa (Grey): 2 → 1"); the pieces are kept to build one in the app when it is missing.
+@immutable
+class OrderRevisionLine {
+  const OrderRevisionLine({
+    required this.action,
+    required this.name,
+    required this.fromQuantity,
+    required this.toQuantity,
+    this.orderItemId,
+    this.variantName,
+    this.replacementName,
+    this.replacementVariantName,
+    this.replacementQuantity,
+    this.text,
+  });
+
+  factory OrderRevisionLine.fromJson(JsonMap json) {
+    final r = asMapOrNull(json['replacement']);
+    return OrderRevisionLine(
+      orderItemId: asStringOrNull(json['order_item_id']),
+      action: asString(json['action']),
+      name: asString(json['name']),
+      variantName: asStringOrNull(json['variant_name']),
+      fromQuantity: asInt(json['from_quantity']),
+      toQuantity: asInt(json['to_quantity']),
+      replacementName: asStringOrNull(r?['name']),
+      replacementVariantName: asStringOrNull(r?['variant_name']),
+      replacementQuantity: asIntOrNull(r?['quantity']),
+      text: asStringOrNull(json['text']),
+    );
+  }
+
+  final String? orderItemId;
+
+  /// `reduce`, `remove` or `replace`.
+  final String action;
+  final String name;
+  final String? variantName;
+  final int fromQuantity;
+  final int toQuantity;
+  final String? replacementName;
+  final String? replacementVariantName;
+  final int? replacementQuantity;
+  final String? text;
+
+  /// The name with its variant ("Oslo sofa (Grey)").
+  String get fullName => variantName == null ? name : '$name ($variantName)';
+
+  String? get replacementFullName => replacementName == null
+      ? null
+      : (replacementVariantName == null ? replacementName : '$replacementName ($replacementVariantName)');
+}
+
+String? _trimmed(Object? v) {
+  final t = asString(v).trim();
+  return t.isEmpty ? null : t;
+}
+
+/// One correction the branch made to the order (`revisions` of an order): when, why, which branch, what changed and what it did to
+/// the total. Revisions are numbered 1, 2, ... in the order they happened.
+@immutable
+class OrderRevision {
+  const OrderRevision({
+    required this.number,
+    required this.lines,
+    this.at,
+    this.reasonCode,
+    this.reasonLabel,
+    this.note,
+    this.branch,
+    this.difference,
+    this.totalBefore,
+    this.totalAfter,
+    this.orderCancelled = false,
+  });
+
+  factory OrderRevision.fromJson(JsonMap json) => OrderRevision(
+    number: asInt(json['number']),
+    at: asDate(json['at']),
+    reasonCode: asStringOrNull(json['reason_code']),
+    reasonLabel: asStringOrNull(json['reason_label']),
+    note: _trimmed(json['note']),
+    branch: asStringOrNull(json['branch']),
+    lines: mapList(json['lines'], OrderRevisionLine.fromJson),
+    difference: Money.maybe(json['difference']),
+    totalBefore: Money.maybe(json['total_before']),
+    totalAfter: Money.maybe(json['total_after']),
+    orderCancelled: asBool(json['order_cancelled']),
+  );
+
+  final int number;
+  final DateTime? at;
+  final String? reasonCode;
+  final String? reasonLabel;
+
+  /// What the branch wrote to the customer, if anything.
+  final String? note;
+  final String? branch;
+  final List<OrderRevisionLine> lines;
+
+  /// After minus before: zero or negative.
+  final Money? difference;
+  final Money? totalBefore;
+  final Money? totalAfter;
+  final bool orderCancelled;
 }
 
 @immutable
@@ -264,9 +439,16 @@ class Order {
     this.canReturn = false,
     this.canReview = false,
     this.seq = 0,
+    this.wasAdjusted = false,
+    this.revisions = const [],
   });
 
-  factory Order.fromJson(JsonMap json) => Order(
+  factory Order.fromJson(JsonMap json) {
+    final revisions = mapList(json['revisions'], OrderRevision.fromJson)..sort((a, b) => a.number.compareTo(b.number));
+    return Order._read(json, revisions);
+  }
+
+  factory Order._read(JsonMap json, List<OrderRevision> revisions) => Order(
     seq: asInt(json['seq']),
     id: asString(json['id']),
     number: asString(json['number']),
@@ -284,6 +466,8 @@ class Order {
     canPay: asBool(json['can_pay']),
     canReturn: asBool(json['can_return']),
     canReview: asBool(json['can_review']),
+    wasAdjusted: asBoolOrNull(json['was_adjusted']) ?? revisions.isNotEmpty,
+    revisions: revisions,
   );
 
   final String id;
@@ -307,6 +491,13 @@ class Order {
 
   /// The order's version when it was read (see SeqGate).
   final int seq;
+
+  /// True when the branch changed what is in the order while preparing it (an item was reduced, replaced or removed): the order page
+  /// says so, shows what changed, and the invoice is the updated one.
+  final bool wasAdjusted;
+
+  /// The corrections, oldest first; empty when the order was never changed (and for a server that does not send them).
+  final List<OrderRevision> revisions;
 
   /// The same order after a real-time message. The buttons that depend on the state are only ever switched OFF here (an order that
   /// finished or is awaiting a decision cannot be paid or cancelled); the read that confirms the message switches the right ones on.
@@ -345,7 +536,28 @@ class Order {
       canReturn: canReturn,
       canReview: canReview || status == 'completed',
       seq: seq,
+      wasAdjusted: wasAdjusted,
+      revisions: revisions,
     );
+  }
+
+  /// The name of the item that took the place of a line that was swapped out, or null (not swapped, or the server did not say).
+  String? replacedByFor(OrderItem item) {
+    final named = item.adjustment?.replacedByName;
+    if (named != null) return named;
+    if (item.adjustment?.kind != 'replaced') return null;
+    for (final other in items) {
+      final a = other.adjustment;
+      if (a != null && a.kind == 'replacement' && (a.replacesName == item.name || a.originalName == item.name)) {
+        return other.name;
+      }
+    }
+    for (final r in revisions.reversed) {
+      for (final l in r.lines) {
+        if (l.action == 'replace' && l.orderItemId == item.id && l.replacementName != null) return l.replacementName;
+      }
+    }
+    return null;
   }
 
   List<OrderItem> itemsFor(Fulfillment f) => items.where((i) => i.fulfillmentId == f.id).toList();

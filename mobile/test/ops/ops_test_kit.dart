@@ -144,6 +144,74 @@ class FakeOps implements OpsRepository {
     'items': ?items,
   });
 
+  /// What `GET /app-config` says about how a status is changed (buttons or slide), and how often it was asked.
+  OpsStatusStyle style = OpsStatusStyle.buttons;
+  Object? styleError;
+  int styleLoads = 0;
+
+  @override
+  Future<OpsStatusStyle> statusStyle() async {
+    styleLoads++;
+    if (styleError != null) throw styleError!;
+    return style;
+  }
+
+  // Missing items ("Missing an item?"): the parcel's lines, what the branch has to offer instead, and what the server answers.
+  Map<String, dynamic> adjustContextBody = adjustContextJson();
+  Object? adjustContextError;
+  int adjustContextLoads = 0;
+  List<Map<String, dynamic>> substituteBodies = [
+    substituteJson('s1', 'Oslo lamp (large)', '300.00', 3),
+    substituteJson('s2', 'Brass lamp', '200.00', 1),
+  ];
+  Object? substitutesError;
+  final substituteSearches = <String>[];
+  Completer<void>? substitutesGate;
+  Object? adjustError;
+  Object? previewError;
+  Completer<void>? adjustGate;
+  Map<String, dynamic>? adjustAnswer;
+  final adjustRequests =
+      <({String fulfillmentId, List<Map<String, dynamic>> changes, String reason, String? note, bool preview})>[];
+
+  @override
+  Future<AdjustContext> adjustContext(String fulfillmentId) async {
+    adjustContextLoads++;
+    if (adjustContextError != null) throw adjustContextError!;
+    return AdjustContext.fromJson(adjustContextBody);
+  }
+
+  @override
+  Future<List<Substitute>> substitutes(String fulfillmentId, {String search = '', int limit = 20}) async {
+    substituteSearches.add(search);
+    await substitutesGate?.future;
+    if (substitutesError != null) throw substitutesError!;
+    final q = search.toLowerCase();
+    return [
+      for (final b in substituteBodies)
+        if (q.isEmpty || '${b['name']}'.toLowerCase().contains(q)) Substitute.fromJson(b),
+    ];
+  }
+
+  @override
+  Future<AdjustResult> adjust(
+    String fulfillmentId, {
+    required List<AdjustChange> changes,
+    required String reasonCode,
+    String? note,
+    bool preview = false,
+  }) async {
+    final sent = [for (final c in changes) c.toJson()];
+    adjustRequests.add((fulfillmentId: fulfillmentId, changes: sent, reason: reasonCode, note: note, preview: preview));
+    if (preview) {
+      if (previewError != null) throw previewError!;
+    } else {
+      await adjustGate?.future;
+      if (adjustError != null) throw adjustError!;
+    }
+    return AdjustResult.fromJson(adjustAnswer ?? adjustResultJson(adjustContextBody, sent, preview: preview));
+  }
+
   @override
   Future<DriverMe> driver() async => me;
 
@@ -474,3 +542,143 @@ ApiException apiError(
 
 ApiException conflict([String message = 'Already moved']) =>
     apiError(ApiErrorKind.conflict, 409, code: 'invalid_state_transition', message: message);
+
+Map<String, dynamic> _m(String amount) => {'amount': amount, 'currency': 'QAR'};
+
+/// `GET …/adjustments/context` of a parcel of three lines: 2 sofas, 1 lamp, 4 cushions.
+Map<String, dynamic> adjustContextJson({
+  bool canAdjust = true,
+  String? blocked,
+  String payment = 'cod',
+  List<Map<String, dynamic>>? items,
+}) => {
+  'can_adjust': canAdjust,
+  'blocked_reason': blocked ?? (canAdjust ? null : 'status'),
+  'reasons': ['out_of_stock', 'not_found', 'damaged', 'quality', 'other'],
+  'items':
+      items ??
+      [
+        adjustItemJson('i1', 'Oslo sofa', 2, '1000.00', variant: 'Grey'),
+        adjustItemJson('i2', 'Oslo lamp', 1, '250.00'),
+        adjustItemJson('i3', 'Linen cushion', 4, '50.00', variant: 'Sand'),
+      ],
+  'totals': {'grand_total': _m('2475.00'), 'payment_method': payment, 'payment_status': 'pending'},
+};
+
+Map<String, dynamic> adjustItemJson(
+  String id,
+  String name,
+  int qty,
+  String unit, {
+  String? variant,
+  Object? adjustment,
+}) => {
+  'order_item_id': id,
+  'product_id': 'p-$id',
+  'variant_id': 'v-$id',
+  'sku': 'SKU-$id',
+  'name': name,
+  'variant_name': variant,
+  'image_url': null,
+  'quantity': qty,
+  'unit_price': _m(unit),
+  'line_total': _m((double.parse(unit) * qty).toStringAsFixed(2)),
+  'adjustment': adjustment,
+};
+
+Map<String, dynamic> substituteJson(String id, String name, String price, int available, {String? variant}) => {
+  'variant_id': id,
+  'product_id': 'p-$id',
+  'name': name,
+  'variant_name': variant,
+  'sku': 'SKU-$id',
+  'image_url': null,
+  'unit_price': _m(price),
+  'available': available,
+};
+
+/// What the server would answer to [changes] over [context] (a simple stand-in: the real maths is the server's).
+Map<String, dynamic> adjustResultJson(
+  Map<String, dynamic> context,
+  List<Map<String, dynamic>> changes, {
+  bool preview = false,
+  String payment = 'cod',
+  bool online = false,
+}) {
+  final items = {
+    for (final i in (context['items'] as List).cast<Map<String, dynamic>>()) i['order_item_id'] as String: i,
+  };
+  final before = double.parse(((context['totals'] as Map)['grand_total'] as Map)['amount'] as String);
+  var less = 0.0;
+  final lines = <Map<String, dynamic>>[];
+  var left = items.values.fold<int>(0, (n, i) => n + (i['quantity'] as int));
+  for (final c in changes) {
+    final item = items[c['order_item_id']]!;
+    final qty = item['quantity'] as int;
+    final unit = double.parse((item['unit_price'] as Map)['amount'] as String);
+    switch (c['action']) {
+      case 'reduce':
+        final to = c['new_quantity'] as int;
+        less += unit * (qty - to);
+        left -= qty - to;
+        lines.add({
+          'order_item_id': c['order_item_id'],
+          'action': 'reduce',
+          'name': item['name'],
+          'variant_name': item['variant_name'],
+          'from_quantity': qty,
+          'to_quantity': to,
+          'replacement': null,
+        });
+      case 'remove':
+        less += unit * qty;
+        left -= qty;
+        lines.add({
+          'order_item_id': c['order_item_id'],
+          'action': 'remove',
+          'name': item['name'],
+          'variant_name': item['variant_name'],
+          'from_quantity': qty,
+          'to_quantity': 0,
+          'replacement': null,
+        });
+      default:
+        left -= qty;
+        lines.add({
+          'order_item_id': c['order_item_id'],
+          'action': 'replace',
+          'name': item['name'],
+          'variant_name': item['variant_name'],
+          'from_quantity': qty,
+          'to_quantity': 0,
+          'replacement': {
+            'variant_id': c['variant_id'],
+            'name': 'Replacement',
+            'variant_name': null,
+            'quantity': c['quantity'],
+            'unit_price': _m(unit.toStringAsFixed(2)),
+          },
+        });
+    }
+  }
+  final after = before - less;
+  Map<String, dynamic> totals(double grand) => {
+    'subtotal': _m(grand.toStringAsFixed(2)),
+    'discount_total': _m('0.00'),
+    'tax_total': _m('0.00'),
+    'grand_total': _m(grand.toStringAsFixed(2)),
+  };
+  return {
+    'applied': !preview,
+    'preview': preview,
+    'revision': preview ? null : {'id': 'rev-1', 'number': 1},
+    'lines': lines,
+    'before': totals(before),
+    'after': totals(after),
+    'difference': _m((after - before).toStringAsFixed(2)),
+    'refund': online && less > 0 ? {'amount': _m(less.toStringAsFixed(2)), 'needs_approval': true} : null,
+    'fulfillment_cancelled': left <= 0,
+    'order_cancelled': left <= 0,
+    'customer_notified': !preview,
+  };
+}

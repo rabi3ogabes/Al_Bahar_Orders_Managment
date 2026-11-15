@@ -35,6 +35,10 @@ Route::prefix('v1')->name('api.v1.')->middleware('throttle:api')->group(function
         Route::put('password', 'changePassword')->middleware('throttle:10,60')->name('password');
         Route::post('devices', 'registerDevice')->middleware('throttle:20,1,devices')->name('devices.store');
         Route::delete('devices', 'unregisterDevice')->name('devices.destroy');
+        // iPhone Live Activity tokens (the order on the lock screen and in the Dynamic Island).
+        Route::post('live-activities', [V1\Customer\LiveActivityController::class, 'store'])->middleware('throttle:30,1,live-activities')->name('live-activities.store');
+        Route::post('live-activities/start-token', [V1\Customer\LiveActivityController::class, 'storeStartToken'])->middleware('throttle:10,1,live-activities-start')->name('live-activities.start-token');
+        Route::delete('live-activities', [V1\Customer\LiveActivityController::class, 'destroy'])->middleware('throttle:30,1,live-activities-off')->name('live-activities.destroy');
         Route::get('sessions', 'sessions')->name('sessions');
         Route::delete('sessions/{id}', 'revokeSession')->name('sessions.destroy');
         Route::post('deletion-request', 'requestDeletion')->name('deletion.store');

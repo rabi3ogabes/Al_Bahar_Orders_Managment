@@ -110,7 +110,7 @@ class OrderOpsController extends ApiController
             'reservation_id' => $res['reservation']?->id,
             'order' => $f ? ['number' => $f->order->number, 'customer_name' => $f->order->customer_name, 'payment_method' => $f->order->payment_method,
                 'payment_status' => $f->order->payment_status->value, 'amount_due' => Money::of($f->order->grand_total)->minus(Money::of($f->order->paid_total))->jsonSerialize()] : null,
-            'items' => $f ? $f->items->map(fn ($i) => ['id' => $i->id, 'name' => $i->name(), 'variant' => $i->variantName(), 'sku' => $i->sku,
+            'items' => $f ? $f->items->where('quantity', '>', 0)->map(fn ($i) => ['id' => $i->id, 'name' => $i->name(), 'variant' => $i->variantName(), 'sku' => $i->sku,
                 'quantity' => $i->activeQuantity(), 'handed_over' => $i->quantity_handed_over]) : [],
         ]], $res['result'] === 'success' ? 200 : 422);
     }

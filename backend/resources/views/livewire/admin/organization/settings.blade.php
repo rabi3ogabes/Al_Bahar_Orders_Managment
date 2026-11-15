@@ -49,7 +49,7 @@
                         @endswitch
                         @error($path)<p class="field-error" role="alert">{{ $message }}</p>@enderror
                         @if ($def['type'] !== 'secret' && $default !== null && ! is_array($default))
-                            <p class="mt-1.5 text-xs text-ink-400">{{ __('org_admin.default_value', ['value' => is_bool($default) ? ($default ? __('admin.yes') : __('admin.no')) : $default]) }}</p>
+                            <p class="mt-1.5 text-xs text-ink-400">{{ __('org_admin.default_value', ['value' => is_bool($default) ? ($default ? __('admin.yes') : __('admin.no')) : ($def['type'] === 'select' && \Illuminate\Support\Facades\Lang::has('org_admin.option.'.$default) ? __('org_admin.option.'.$default) : $default)]) }}</p>
                         @endif
                     </div>
                 </div>

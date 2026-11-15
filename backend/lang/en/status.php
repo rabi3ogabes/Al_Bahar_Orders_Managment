@@ -21,6 +21,7 @@ return [
     'cancellation_requested' => 'Cancellation requested',
     'cancelled' => 'Cancelled',
     'partially_cancelled' => 'Partially cancelled',
+    'items_changed' => 'Items updated',
     'returned' => 'Returned',
     'pending' => 'Pending',
     'accepted' => 'Accepted',

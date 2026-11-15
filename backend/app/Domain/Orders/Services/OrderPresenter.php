@@ -5,9 +5,12 @@ namespace App\Domain\Orders\Services;
 use App\Domain\Orders\Enums\FulfillmentStatus as FS;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderFulfillment;
+use App\Domain\Orders\Models\OrderItem;
+use App\Domain\Orders\Models\OrderRevision;
 use App\Domain\Settings\Services\Settings;
 use App\Support\BusinessTime;
 use App\Support\Money;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -22,13 +25,20 @@ class OrderPresenter
             'payment_status' => $o->payment_status->value, 'payment_method' => $o->payment_method, 'fulfillment_type' => $o->fulfillment_type,
             'items_count' => $o->relationLoaded('items') ? $o->items->sum('quantity') : null,
             'grand_total' => Money::of($o->grand_total)->jsonSerialize(), 'placed_at' => BusinessTime::iso($o->placed_at),
-            'thumbnail_url' => $o->relationLoaded('items') ? $this->imageUrl($o->items->first()?->image_path) : null,
+            'thumbnail_url' => $o->relationLoaded('items') ? $this->imageUrl(($o->items->firstWhere('quantity', '>', 0) ?? $o->items->first())?->image_path) : null,
+            // The branch changed what is in the order (an item was short): the apps show a "changed" badge, the detail says exactly what changed.
+            'was_adjusted' => $o->wasAdjusted(),
         ];
     }
 
     public function detail(Order $o): array
     {
         $o->loadMissing(['items', 'fulfillments.branch', 'fulfillments.pickup', 'fulfillments.deliveries.driver', 'fulfillments.slot', 'coupons']);
+        if ($o->wasAdjusted()) {
+            $o->loadMissing(['revisions.lines', 'revisions.branch']);
+        }
+        $byId = $o->items->keyBy('id');
+        $replacedBy = $o->items->whereNotNull('replaces_order_item_id')->keyBy('replaces_order_item_id');
         $m = fn (string $f) => Money::of($o->{$f} ?? '0')->jsonSerialize();
         $handedOver = $o->fulfillments->contains(fn ($f) => $f->status->stockHandedOver());
 
@@ -42,13 +52,16 @@ class OrderPresenter
                 'amount' => Money::of($c->discount_amount)->jsonSerialize(), 'free_delivery' => $c->free_delivery])->values(),
             'address' => $o->address_snapshot,
             'customer_notes' => $o->customer_notes,
-            'items' => $o->items->map(fn ($i) => [
+            'items' => $this->orderedItems($o)->map(fn ($i) => [
                 'id' => $i->id, 'product_id' => $i->product_id, 'variant_id' => $i->product_variant_id, 'sku' => $i->sku,
                 'name' => $i->name(), 'variant_name' => $i->variantName(), 'image_url' => $this->imageUrl($i->image_path),
                 'quantity' => $i->quantity, 'quantity_cancelled' => $i->quantity_cancelled, 'quantity_returned' => $i->quantity_returned,
                 'unit_price' => Money::of($i->unit_final_price)->jsonSerialize(), 'discount' => Money::of($i->discount_amount)->jsonSerialize(),
                 'line_total' => Money::of($i->line_total)->jsonSerialize(), 'branch_id' => $i->branch_id, 'fulfillment_id' => $i->order_fulfillment_id,
+                'adjustment' => $this->adjustment($i, $byId, $replacedBy),
             ])->values(),
+            'was_adjusted' => $o->wasAdjusted(),
+            'revisions' => $o->wasAdjusted() ? $o->revisions->map(fn ($r) => $this->revision($r))->values() : [],
             'fulfillments' => $o->fulfillments->map(fn (OrderFulfillment $f) => $this->fulfillment($f))->values(),
             'can_cancel' => ! $o->status->isTerminal() && ! $handedOver && $o->status->value !== 'cancellation_requested',
             'can_pay' => $o->status->value === 'pending_payment' && $o->payment_method === 'sadad' && ! $o->payment_due_at?->isPast(),
@@ -107,7 +120,76 @@ class OrderPresenter
         ];
     }
 
-    private function imageUrl(?string $path): ?string
+    /**
+     * The order's lines in a reading order: each substitute right after the line it replaced (the creation order puts it last).
+     * An order nobody adjusted keeps the order its lines came in.
+     *
+     * @return Collection<int, OrderItem>
+     */
+    private function orderedItems(Order $o): Collection
+    {
+        if (! $o->wasAdjusted()) {
+            return $o->items;
+        }
+        $items = $o->items->sortBy('id')->values();
+        $substitutes = $items->whereNotNull('replaces_order_item_id')->groupBy('replaces_order_item_id');
+        $out = collect();
+        $walk = function (OrderItem $i) use (&$walk, $substitutes, $out): void {
+            $out->push($i);
+            foreach ($substitutes->get($i->id, []) as $s) {
+                $walk($s);
+            }
+        };
+        foreach ($items->whereNull('replaces_order_item_id') as $i) {
+            $walk($i);
+        }
+
+        return $out->values();
+    }
+
+    /**
+     * What happened to a line, for the order page (null: nothing). `replaced` = swapped out (quantity 0); `replacement` = this line took the place of
+     * `original_name`. The reason is translated; original_quantity is what was ordered.
+     *
+     * @param  Collection<string, OrderItem>  $byId
+     * @param  Collection<string, OrderItem>  $replacedBy  keyed by the id of the line each substitute replaced
+     * @return array<string, mixed>|null
+     */
+    private function adjustment(OrderItem $i, Collection $byId, Collection $replacedBy): ?array
+    {
+        if ($i->adjustment_kind === null) {
+            return null;
+        }
+        $replaced = $i->replaces_order_item_id ? $byId->get($i->replaces_order_item_id) : null;
+        $substitute = $replacedBy->get($i->id);
+
+        return [
+            'kind' => $i->adjustment_kind, 'original_quantity' => $i->original_quantity ?? $i->quantity,
+            'original_name' => ($replaced ?? $i)->name(), 'reason_code' => $i->adjustment_reason, 'reason_label' => $i->adjustment_reason ? __('adjustments.reason.'.$i->adjustment_reason) : null,
+            'replaces_name' => $replaced?->name(), 'replaced_by_name' => $substitute?->name(),
+        ];
+    }
+
+    /** @return array<string, mixed> one revision as the customer reads it: when, why, which branch, each change as a sentence, the money. */
+    private function revision(OrderRevision $r): array
+    {
+        $locale = app()->getLocale();
+
+        return [
+            'number' => $r->number, 'at' => BusinessTime::iso($r->created_at), 'reason_code' => $r->reason_code, 'reason_label' => AdjustmentText::reason($r->reason_code, $locale),
+            'note' => $r->note, 'branch' => $r->branch?->localized('name'),
+            'lines' => $r->lines->map(fn ($l) => [
+                'order_item_id' => $l->order_item_id, 'action' => $l->action, 'name' => $l->name(), 'variant_name' => $l->variantName(),
+                'from_quantity' => $l->from_quantity, 'to_quantity' => $l->to_quantity, 'text' => AdjustmentText::line($l, $locale),
+                'replacement' => $l->replacement === null ? null : ['variant_id' => $l->replacement['variant_id'] ?? null, 'name' => $l->replacementName(), 'variant_name' => $l->replacementVariantName(),
+                    'quantity' => (int) ($l->replacement['quantity'] ?? 0), 'unit_price' => Money::of($l->replacement['unit_price'] ?? '0')->jsonSerialize()],
+            ])->values(),
+            'difference' => Money::of($r->difference)->jsonSerialize(), 'total_before' => Money::of($r->before['grand_total'] ?? '0')->jsonSerialize(),
+            'total_after' => Money::of($r->after['grand_total'] ?? '0')->jsonSerialize(), 'order_cancelled' => $r->order_cancelled,
+        ];
+    }
+
+    public function imageUrl(?string $path): ?string
     {
         if (! $path) {
             return null;

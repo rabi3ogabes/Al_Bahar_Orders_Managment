@@ -80,6 +80,12 @@ return [
         'enabled' => true,
     ],
 
+    // Settings → Checkout & fees → "Staff and driver apps: how to change an order status". `buttons` = a button per next step (as always);
+    // `slide` = slide to confirm. Served to the apps by GET /api/v1/app-config (ops.status_style); anything else is read as `buttons`.
+    'ops' => [
+        'status_style' => 'buttons',
+    ],
+
     // Texts the customer app shows on its intro screens, edited in Settings → General & brand. Empty hides the line.
     'customer_app' => [
         'designed_by_en' => 'Designed by Athar Qatar',
@@ -117,6 +123,13 @@ return [
         'ttl_seconds' => 14400,             // how long FCM/APNs hold an undelivered update (4 h)
         'max_active' => 10,                 // orders returned by GET /orders/active-progress
         'max_age_days' => 7,                // an order placed longer ago is never listed there
+        // iPhone Live Activity (the order on the lock screen and in the Dynamic Island), sent straight to Apple: see docs/guides/IOS_LIVE_ACTIVITY.md.
+        'activity_ttl_seconds' => 3600,     // Apple drops an update it cannot deliver within this long (the next card replaces it anyway)
+        'activity_stale_minutes' => 30,     // the activity is marked stale when it has had no update for this long
+        'activity_remote_start' => false,   // start the activity through the phone's push-to-start token when the app is closed (iOS 17.2+): switch on after a device test
+        'activity_token_keep_days' => 2,    // switched-off tokens older than this are deleted (an activity lasts hours, not days)
+        'apns_retries' => 2,                // a Live Activity push is retried this many times when Apple is busy or unreachable
+        'apns_backoff_ms' => 250,           // pause before a retry, times the attempt number
     ],
 
     'payments' => [

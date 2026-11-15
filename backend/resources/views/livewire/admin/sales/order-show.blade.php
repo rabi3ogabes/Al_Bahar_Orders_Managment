@@ -95,10 +95,10 @@
                         {{-- Narrow window: one readable row per line instead of a five-column table. --}}
                         <ul class="divide-y divide-sand-100 border-t border-sand-100 dark:divide-ink-800 dark:border-ink-800">
                             @foreach ($f->items as $it)
-                                <li class="flex items-start gap-3 px-5 py-3.5" wire:key="it-{{ $it->id }}">
+                                <li @class(['flex items-start gap-3 px-5 py-3.5', 'opacity-60' => $it->quantity === 0]) wire:key="it-{{ $it->id }}">
                                     <div class="min-w-0 flex-1">
-                                        <span class="block font-medium text-ink-900 dark:text-ivory">{{ $it->name() }}</span>
-                                        <span class="flex flex-wrap items-center gap-x-2 text-xs text-ink-500"><span class="font-mono" dir="ltr">{{ $it->sku }}</span>@if ($it->variantName())<span>· {{ $it->variantName() }}</span>@endif
+                                        <span @class(['block font-medium text-ink-900 dark:text-ivory', 'line-through' => $it->quantity === 0])>{{ $it->name() }}</span>
+                                        <span class="flex flex-wrap items-center gap-x-2 text-xs text-ink-500"><span class="font-mono" dir="ltr">{{ $it->sku }}</span>@if ($it->variantName())<span>· {{ $it->variantName() }}</span>@endif @include('livewire.admin.sales.partials.order-line-badges', ['it' => $it])
                                             @if ($it->quantity_cancelled)<span class="text-ruby-soft">· {{ __('sales_admin.n_cancelled', ['n' => $it->quantity_cancelled]) }}</span>@endif
                                             @if ($it->quantity_returned)<span class="text-amber-soft">· {{ __('sales_admin.n_returned', ['n' => $it->quantity_returned]) }}</span>@endif
                                         </span>
@@ -114,10 +114,10 @@
                             <thead><tr><th>{{ __('sales_admin.item') }}</th><th class="!text-end">{{ __('admin.quantity') }}</th><th class="!text-end">{{ __('sales_admin.handed_over') }}</th><th class="!text-end">{{ __('sales_admin.unit_price') }}</th><th class="!text-end">{{ __('admin.total') }}</th></tr></thead>
                             <tbody>
                             @foreach ($f->items as $it)
-                                <tr wire:key="it-{{ $it->id }}">
+                                <tr @class(['opacity-60' => $it->quantity === 0]) wire:key="it-{{ $it->id }}">
                                     <td class="max-w-[18rem]">
-                                        <span class="block truncate font-medium text-ink-900 dark:text-ivory">{{ $it->name() }}</span>
-                                        <span class="flex flex-wrap items-center gap-x-2 text-xs text-ink-500"><span class="font-mono" dir="ltr">{{ $it->sku }}</span>@if ($it->variantName())<span>· {{ $it->variantName() }}</span>@endif
+                                        <span @class(['block truncate font-medium text-ink-900 dark:text-ivory', 'line-through' => $it->quantity === 0])>{{ $it->name() }}</span>
+                                        <span class="flex flex-wrap items-center gap-x-2 text-xs text-ink-500"><span class="font-mono" dir="ltr">{{ $it->sku }}</span>@if ($it->variantName())<span>· {{ $it->variantName() }}</span>@endif @include('livewire.admin.sales.partials.order-line-badges', ['it' => $it])
                                             @if ($it->quantity_cancelled)<span class="text-ruby-soft">· {{ __('sales_admin.n_cancelled', ['n' => $it->quantity_cancelled]) }}</span>@endif
                                             @if ($it->quantity_returned)<span class="text-amber-soft">· {{ __('sales_admin.n_returned', ['n' => $it->quantity_returned]) }}</span>@endif
                                         </span>
@@ -164,10 +164,11 @@
                         </div>
                     @endif
 
-                    @if ($act['steps'] || $act['cancel'] || $act['return'])
+                    @if ($act['steps'] || $act['cancel'] || $act['return'] || $act['adjust'])
                         <div class="flex flex-col gap-2 border-t border-sand-100 p-4 sm:flex-row sm:flex-wrap sm:items-center sm:px-6 dark:border-ink-800">
-                            @if ($act['cancel'])<button type="button" wire:click="open('cancel_fulfillment', '{{ $f->id }}')" class="btn-ghost min-h-11 text-ruby-soft sm:me-auto"><x-icon name="x" class="size-4" />{{ __('sales_admin.cancel_branch_part') }}</button>@endif
+                            @if ($act['cancel'])<button type="button" wire:click="open('cancel_fulfillment', '{{ $f->id }}')" @class(['btn-ghost min-h-11 text-ruby-soft', 'sm:me-auto' => ! $act['adjust']])><x-icon name="x" class="size-4" />{{ __('sales_admin.cancel_branch_part') }}</button>@endif
                             @if ($act['return'])<button type="button" wire:click="open('return_fulfillment', '{{ $f->id }}')" class="btn-ghost min-h-11 sm:me-auto"><x-icon name="refund" class="size-4" />{{ __('sales_admin.mark_returned') }}</button>@endif
+                            @if ($act['adjust'])<div class="sm:me-auto"><livewire:admin.sales.order-adjust :fulfillment-id="$f->id" :drawer="$drawer" :key="'adj-'.$f->id" /></div>@endif
                             @foreach ($act['steps'] as $s)
                                 @if ($s['action'] === 'transition')
                                     <button type="button" wire:click="advance('{{ $f->id }}', '{{ $s['to'] }}')" wire:loading.attr="disabled" wire:target="advance" class="{{ $loop->last ? 'btn-primary' : 'btn-secondary' }} min-h-11"><x-icon :name="$stepMeta[$s['to']][0]" class="size-4" />{{ $stepMeta[$s['to']][1] }}</button>
@@ -183,6 +184,11 @@
                     @endif
                 </section>
             @endforeach
+
+            {{-- Item changes: what the branch changed while preparing, why, what it did to the money and the customer --}}
+            @if ($o->revisions->isNotEmpty())
+                @include('livewire.admin.sales.partials.order-revisions', ['o' => $o, 'drawer' => $drawer])
+            @endif
 
             {{-- Payments --}}
             <section class="card overflow-hidden {{ $drawer ? 'order-4' : '' }}">
@@ -290,6 +296,7 @@
                     @endforeach
                     @foreach ($o->coupons as $c)<div class="flex justify-between gap-4 text-xs"><dt class="text-ink-500">{{ app()->getLocale() === 'ar' ? $c->label_ar : $c->label_en }} @if ($c->code)<span class="font-mono" dir="ltr">({{ $c->code }})</span>@endif</dt><dd>−<x-admin.money :value="$c->discount_amount" /></dd></div>@endforeach
                     <div class="flex justify-between gap-4 border-t border-sand-100 pt-3 text-base font-semibold dark:border-ink-800"><dt>{{ __('admin.total') }}</dt><dd><x-admin.money :value="$o->grand_total" /></dd></div>
+                    @if ($o->revisions->isNotEmpty())<div class="flex justify-between gap-4 text-xs"><dt class="text-ink-500">{{ __('adjust_admin.was_total') }}</dt><dd class="text-ink-500 line-through"><x-admin.money :value="$o->revisions->first()->before['grand_total'] ?? $o->grand_total" /></dd></div>@endif
                     <div class="flex justify-between gap-4"><dt class="text-ink-500">{{ __('sales_admin.sum_paid') }}</dt><dd class="text-emerald-soft"><x-admin.money :value="$o->paid_total" /></dd></div>
                     @if ((float) $o->refunded_total > 0)<div class="flex justify-between gap-4"><dt class="text-ink-500">{{ __('sales_admin.refunded') }}</dt><dd class="text-ruby-soft"><x-admin.money :value="$o->refunded_total" /></dd></div>@endif
                 </dl>

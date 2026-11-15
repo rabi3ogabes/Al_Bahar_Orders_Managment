@@ -5,8 +5,11 @@ A Talabat-style card in the customer's notification shade: a four-segment progre
 place on every meaningful change, in the language of each phone.
 
 The server builds the card (`App\Domain\Orders\Services\OrderProgress`) and sends it as a Firebase push
-(`PushNotifier` → `FcmClient::sendProgress`). The Android app draws the card itself from the push data; iOS shows a normal
-alert. The same object is available over the API, so the app can rebuild its cards after a restart.
+(`PushNotifier` → `FcmClient::sendProgress`). The Android app draws the card itself from the push data (one brand mark, the system's
+small icon and app name; a status-bar chip and rich lock-screen card on Android 16). On an iPhone the same card is an ActivityKit
+**Live Activity** on the lock screen and in the Dynamic Island, updated straight from Apple's servers
+([IOS_LIVE_ACTIVITY.md](IOS_LIVE_ACTIVITY.md)); the normal iOS alert is still sent. The same object is available over the API, so the
+app can rebuild its cards after a restart.
 
 | Where | What |
 |---|---|
@@ -121,6 +124,10 @@ The window never starts in the past and is at least 5 minutes wide. Estimates ar
 - **the bar moved:** the fill of the current stage crossed one of `platform.live_order.progress_steps` steps (default 20, so every 5 %); or
 - **the countdown moved:** the driver's arrival moment (`eta_at`) shifted by `platform.live_order.countdown_shift_seconds` (default 60 s) or more.
 
+The same cards, with the same triggers, also go to the iPhone **Live Activity** of that order (an `update`, or an `end` when the order is final), through
+the customer's reported Live Activity tokens and Apple's push service; the quiet ones are sent at Apple's low priority. This needs only the Apple
+key in the dashboard, not Firebase ([IOS_LIVE_ACTIVITY.md](IOS_LIVE_ACTIVITY.md)).
+
 The last three are marked `quiet = "1"` (no sound, no new heads-up; iOS: passive) and are never sent closer together than
 `platform.live_order.min_push_seconds` (default 15 s) per order. Setting `progress_steps` or `countdown_shift_seconds` to 0 turns that trigger off.
 Between pushes the Android card keeps counting down on its own, so it is live to the second, not only to the push.
@@ -159,7 +166,8 @@ One HTTP v1 message carries both platforms' instructions.
 - `collapse_key` / `apns-collapse-id`: a phone that was offline gets only the newest update per order. (FCM keeps at most 4 collapse keys per phone at a time; with more than 4 orders in progress the oldest ones may be dropped while offline. The app recovers them from `active-progress`.)
 - `ttl` 4 hours: an update that cannot be delivered within 4 hours is discarded.
 - iOS: alert with `thread-id`, so the cards of one order stack together. A `quiet` update uses `apns-priority 5`, `interruption-level passive` and no sound.
-- Android must not alert twice for the same order: set `onlyAlertOnce` on the notification (client side) and treat `quiet = "1"` as a silent update.
+- Android must not alert twice for the same order: the app alerts (heads-up and the channel's sound) when the card first appears and when the order moves to another stage
+  (a `quiet = "1"` push never changes the stage), and posts every other update with `onlyAlertOnce`, so quiet updates are always silent.
 - Web tokens (`user_devices.platform = web`) get the same data through Web Push when the web push setup is present.
 
 ## 6. The API
@@ -210,12 +218,18 @@ The server skips push silently until Firebase is connected (`FcmClient::configur
 - The card is built for, and sent to, the customer who placed the order only; the API lists only the caller's own orders.
 - The driver appears by **first name**. The **driver's phone number** is included (so the card can offer "Call driver") only while that customer's delivery is active, and is dropped as soon as it is delivered or fails. It travels through Firebase like any push data. If the business prefers not to share it, return `null` for `driver_phone` in `OrderProgress::present()`; nothing else depends on it.
 - No address, no totals and no items are in the card.
+- **Lock screen.** On Android the active card is posted as *private* with a public version that holds only the stage and the arrival time: a phone that
+  hides sensitive content shows that, never the driver's name or the status line (which can name him). The iPhone Live Activity never carries the driver's
+  phone number, vehicle or address at all (first name only).
 
 ## 9. Tests
 
 `backend/tests/Feature/Commerce/LiveOrderProgressTest.php` (stages, texts, times, ETA, driver, `seq`), `LiveOrderProgressApiTest.php` (endpoint, authorisation, language, order detail),
 `LiveOrderPushTest.php` (FCM shape, devices and languages, when it sends, throttling, failures, events, the whole journey), and the older `RealtimePushTest.php` (driver and staff pushes).
 
+The iPhone Live Activity has its own tests in `backend/tests/Feature/Push/`: `ApnsClientTest.php` (the Apple client), `LiveActivityTokensTest.php` (the token endpoints),
+`LiveActivityPushTest.php` (the card reaching an activity) and `PushAdminApnsTest.php` (the dashboard section).
+
 ```bash
-cd backend && php artisan test --filter='LiveOrder|RealtimePush'
+cd backend && php artisan test --filter='LiveOrder|RealtimePush|Apns|LiveActivity'
 ```

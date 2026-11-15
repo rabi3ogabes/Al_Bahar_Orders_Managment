@@ -29,7 +29,16 @@ internal class LiveOrderText private constructor(private val res: Resources, pri
         }
     }
 
-    fun subtitle(o: LiveOrder): String = o.subtitle ?: o.body ?: res.getString(
+    /** The status line: the server's wording (it may name the driver or the branch), else the plain sentence for the stage. */
+    fun subtitle(o: LiveOrder): String = o.subtitle ?: o.body ?: status(o)
+
+    /**
+     * The status line for the lock screen's public version: only the stage, never the server's wording, which can name the
+     * driver ("Ahmed is heading to ...") or the branch.
+     */
+    fun publicSubtitle(o: LiveOrder): String = status(o)
+
+    private fun status(o: LiveOrder): String = res.getString(
         when (o.phase) {
             LivePhase.PLACED -> R.string.live_order_status_placed
             LivePhase.PREPARING -> R.string.live_order_status_preparing
@@ -42,10 +51,10 @@ internal class LiveOrderText private constructor(private val res: Resources, pri
         },
     )
 
-    /** "Driver: Ahmed · Motorbike" while the order is on the road; null otherwise. */
+    /** The driver chip: "Driver: Ahmed · White Toyota Hilux" once a driver is on an active order; null otherwise. */
     fun detail(o: LiveOrder): String? {
         val name = o.driverName ?: return null
-        if (o.phase != LivePhase.ON_THE_WAY) return null
+        if (o.isFinal) return null
         val vehicle = o.vehicle
         return if (vehicle == null) res.getString(R.string.live_order_driver, name)
         else res.getString(R.string.live_order_driver_vehicle, name, vehicle)

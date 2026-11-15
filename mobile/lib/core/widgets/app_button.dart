@@ -18,6 +18,7 @@ class AppButton extends StatelessWidget {
     this.expand = true,
     this.haptic = true,
     this.semanticLabel,
+    this.labelMaxLines = 1,
   });
 
   const AppButton.accent({
@@ -29,7 +30,8 @@ class AppButton extends StatelessWidget {
     this.expand = true,
     this.haptic = true,
     this.semanticLabel,
-  }) : variant = AppButtonVariant.accent;
+  }) : variant = AppButtonVariant.accent,
+       labelMaxLines = 1;
 
   const AppButton.secondary({
     super.key,
@@ -40,6 +42,7 @@ class AppButton extends StatelessWidget {
     this.expand = true,
     this.haptic = false,
     this.semanticLabel,
+    this.labelMaxLines = 1,
   }) : variant = AppButtonVariant.secondary;
 
   const AppButton.ghost({
@@ -51,7 +54,8 @@ class AppButton extends StatelessWidget {
     this.expand = false,
     this.haptic = false,
     this.semanticLabel,
-  }) : variant = AppButtonVariant.ghost;
+  }) : variant = AppButtonVariant.ghost,
+       labelMaxLines = 1;
 
   final String label;
   final VoidCallback? onPressed;
@@ -61,6 +65,9 @@ class AppButton extends StatelessWidget {
   final bool expand;
   final bool haptic;
   final String? semanticLabel;
+
+  /// How many lines the label may take before it is cut with an ellipsis (one, unless a long label must stay readable on a small phone).
+  final int labelMaxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -95,7 +102,14 @@ class AppButton extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (icon != null) ...[Icon(icon, size: 20), const Gap(AppSpace.xs)],
-                Flexible(child: Text(label, overflow: TextOverflow.ellipsis, maxLines: 1)),
+                Flexible(
+                  child: Text(
+                    label,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: labelMaxLines,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
                 if (arrow) ...[const Gap(AppSpace.xs), const Icon(Icons.arrow_forward_rounded, size: 20)],
               ],
             ),

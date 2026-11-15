@@ -427,7 +427,10 @@ mixin OrderActionsMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
         ),
       if (o.hasInvoice)
         AppButton.secondary(
-          label: l10n.downloadInvoice,
+          // The server serves the newest revision: an order the branch changed says "updated".
+          label: o.wasAdjusted ? l10n.downloadUpdatedInvoice : l10n.downloadInvoice,
+          // The longer "updated" label wraps on a small phone instead of being cut.
+          labelMaxLines: 2,
           icon: Icons.picture_as_pdf_outlined,
           loading: _busy == 'invoice',
           onPressed: () => _invoice(o),

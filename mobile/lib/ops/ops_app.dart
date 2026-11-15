@@ -10,6 +10,7 @@ import 'package:albahar_customer/core/update/app_update.dart';
 import 'package:albahar_customer/ops/driver/driver_home.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_session.dart';
+import 'package:albahar_customer/ops/ops_status_style.dart';
 import 'package:albahar_customer/ops/ops_strings.dart';
 import 'package:albahar_customer/ops/staff/staff_home.dart';
 import 'package:flutter/material.dart';
@@ -35,9 +36,15 @@ class _OpsAppState extends ConsumerState<OpsApp> {
     super.initState();
     // A saved session starts signed in: the push token must be (re)registered on every launch, not only after a sign-in.
     if (ref.read(opsSessionProvider) == OpsAuth.signedIn) _registerPush();
-    // Back on screen: push that could not start earlier (settings not on the server yet) is tried again.
+    // Start with the status style the phone last saw (the buttons when it saw none); the server's answer follows in the background.
+    ref.read(opsStatusStyleProvider);
+    // Back on screen: push that could not start earlier (settings not on the server yet) is tried again, and the dashboard's choice
+    // of buttons or slide is read again, so a change there reaches a phone that stayed open.
     _lifecycle = AppLifecycleListener(
-      onResume: () => unawaited(ref.read(pushServiceProvider).onResumed().catchError((Object _) {})),
+      onResume: () {
+        unawaited(ref.read(pushServiceProvider).onResumed().catchError((Object _) {}));
+        unawaited(ref.read(opsStatusStyleProvider.notifier).refresh());
+      },
     );
   }
 

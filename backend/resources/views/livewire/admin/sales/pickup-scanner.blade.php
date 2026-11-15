@@ -109,7 +109,7 @@
                     <table class="table">
                         <thead><tr><th>{{ __('sales_admin.item') }}</th><th class="!text-end">{{ __('sales_admin.outstanding') }}</th><th class="w-32">{{ __('sales_admin.hand_over_now') }}</th></tr></thead>
                         <tbody>
-                        @foreach ($r->fulfillment->items as $it)
+                        @foreach ($r->fulfillment->items->where('quantity', '>', 0) as $it)
                             @php $out = max(0, $it->activeQuantity() - $it->quantity_handed_over); @endphp
                             <tr wire:key="ho-{{ $it->id }}">
                                 <td class="max-w-[16rem]"><span class="block truncate font-medium text-ink-900 dark:text-ivory">{{ $it->name() }}</span><span class="text-xs text-ink-500"><span class="font-mono" dir="ltr">{{ $it->sku }}</span>@if ($it->variantName()) · {{ $it->variantName() }}@endif</span></td>

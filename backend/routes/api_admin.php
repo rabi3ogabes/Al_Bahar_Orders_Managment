@@ -76,6 +76,12 @@ Route::controller(V1\Admin\OrderOpsController::class)->group(function () {
     Route::post('payments/{payment}/refunds', 'requestRefund')->middleware('permission:refunds.create')->name('refunds.store');
     Route::post('refunds/{refund}/{action}', 'refundAction')->middleware('permission:refunds.view')->whereIn('action', ['approve', 'reject', 'processed'])->name('refunds.action');
 });
+// Missing items found while preparing (docs/api/ORDER_ADJUSTMENTS.md): the branch's own fulfillment only, checked again in the service.
+Route::controller(V1\Admin\OrderAdjustmentController::class)->prefix('fulfillments/{fulfillment}')->middleware('permission:orders.edit')->group(function () {
+    Route::get('adjustments/context', 'show')->name('fulfillments.adjustments.context');
+    Route::get('substitutes', 'substitutes')->name('fulfillments.substitutes');
+    Route::post('adjustments', 'store')->middleware('throttle:60,1')->name('fulfillments.adjustments.store');
+});
 Route::get('deliveries/{delivery}/route', [V1\Admin\DeliveryRouteController::class, 'show'])->middleware('permission:deliveries.view')->name('deliveries.route');
 
 Route::controller(V1\Admin\AuctionAdminController::class)->prefix('auctions')->name('auctions.')->group(function () {

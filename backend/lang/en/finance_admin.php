@@ -166,6 +166,7 @@ return [
     'refunds_empty_closed' => 'No rejected or failed refunds',
     'rrc_customer_request' => 'Customer request',
     'rrc_order_cancelled' => 'Order cancelled',
+    'rrc_order_adjustment' => 'Items changed by the branch',
     'rrc_damaged' => 'Damaged goods',
     'rrc_goodwill' => 'Goodwill gesture',
     'rrc_duplicate_charge' => 'Duplicate charge',

@@ -1,0 +1,98 @@
+<?php
+
+return [
+    'title' => 'iPhone live activity',
+    'hint' => 'Shows the order on the iPhone lock screen and in the Dynamic Island, updated live like a match score. The server sends the updates straight to Apple, so it needs an Apple push key. This is separate from the Firebase key above.',
+
+    'master' => 'iPhone live activity',
+    'switched_on' => 'iPhone live activity is on.',
+    'switched_off' => 'iPhone live activity is off.',
+    'need_setup' => 'Save the Team ID, the Key ID and the key first, then turn it on.',
+
+    'status' => [
+        'key' => 'Apple key',
+        'sending' => 'Sending',
+        'activities' => 'Live activities',
+        'missing' => 'Not set up yet',
+        'off' => 'Off',
+        'on' => 'On, for :bundle',
+        'running' => 'running',
+        'starters' => 'phones that can start one',
+    ],
+
+    'steps_title' => 'How to set it up',
+    'steps_hint' => 'Done once in your Apple Developer account (the paid membership that publishes the iPhone app). It takes about five minutes.',
+    'steps' => [
+        1 => ['title' => 'Open your Apple Developer account', 'body' => 'Go to developer.apple.com/account and sign in with the Apple ID that owns the app. Your Team ID is on the Membership details page: 10 letters and digits, for example ABCDE12345.'],
+        2 => ['title' => 'Check the app ID', 'body' => 'Certificates, Identifiers & Profiles, Identifiers, open qa.albahar.customer. Under Capabilities, Push Notifications must be ticked. Xcode does this when the capability is added, so this is usually already done.'],
+        3 => ['title' => 'Create the key', 'body' => 'Certificates, Identifiers & Profiles, Keys, the + button. Name it "Al Bahar push", tick Apple Push Notifications service (APNs), then Continue, Register and Download. Apple lets you download the .p8 file only once: keep it safe.'],
+        4 => ['title' => 'Note the Key ID', 'body' => 'The key page shows its Key ID (10 letters and digits). It is also part of the file name: AuthKey_<Key ID>.p8.'],
+        5 => ['title' => 'Paste it here', 'body' => 'Enter the Team ID and the Key ID, leave the bundle ID as qa.albahar.customer and the environment on Automatic, then upload the .p8 file (or paste its text) and press Save changes.'],
+        6 => ['title' => 'Test and switch on', 'body' => 'Press Test. It signs in to Apple with the saved key and asks for a push to a phone that does not exist: "Connected" means the key, the team and the bundle ID are right, and nothing is sent to anybody. Then turn the switch on. The iPhone app also needs the live activity part added in Xcode: see docs/guides/IOS_LIVE_ACTIVITY.md.'],
+    ],
+    'keep_private' => 'The key lets anyone send iPhone notifications as you. It is stored sealed and is never shown again.',
+
+    'field' => [
+        'team_id' => 'Team ID',
+        'key_id' => 'Key ID',
+        'bundle_id' => 'iPhone app bundle ID',
+        'environment' => 'Apple environment',
+        'key' => 'Push key (.p8 file)',
+    ],
+    'hint_field' => [
+        'team_id' => 'Developer account, Membership details. 10 capital letters and digits.',
+        'key_id' => 'Keys, the key you created. 10 capital letters and digits.',
+        'bundle_id' => 'The iPhone app\'s ID. For the customer app: qa.albahar.customer.',
+        'environment' => 'Automatic is right for almost everyone: apps installed from Xcode use Apple\'s test servers and TestFlight or App Store apps use the real ones, and each phone says which. Choose one only to force it.',
+    ],
+    'example' => [
+        'team_id' => 'ABCDE12345',
+        'key_id' => 'FGHIJ67890',
+        'bundle_id' => 'qa.albahar.customer',
+        'key' => 'MIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQg…',
+    ],
+    'environment' => ['auto' => 'Automatic (recommended)', 'production' => 'Always the real Apple servers', 'sandbox' => 'Always Apple\'s test servers'],
+    'err' => [
+        'required' => 'The Team ID and the Key ID are needed together with the key.',
+        'team_id' => 'The Team ID is 10 capital letters and digits, for example ABCDE12345.',
+        'key_id' => 'The Key ID is 10 capital letters and digits, for example FGHIJ67890.',
+        'bundle_id' => 'Use the app\'s bundle ID, for example qa.albahar.customer.',
+        'environment' => 'Choose Automatic, production or sandbox.',
+    ],
+    'key_error' => [
+        'empty' => 'Paste the .p8 file or upload it.',
+        'too_large' => 'This file is too big to be a push key.',
+        'bad_key' => 'This is not a readable key. Upload the AuthKey_….p8 file that Apple gave you.',
+        'not_p256' => 'This key is not an Apple push key. Create a key with "Apple Push Notifications service (APNs)" ticked and use that .p8 file.',
+    ],
+    'key_ok' => 'Saved',
+    'key_replace' => 'Replace key',
+    'key_remove' => 'Remove key',
+    'key_upload' => 'Upload the .p8 file',
+    'key_or_paste' => 'or paste its text',
+    'key_new_hint' => 'Checked when you save. It is stored sealed and never shown again.',
+    'key_cancel_replace' => 'Keep the current key',
+    'key_remove_q' => 'Remove the Apple key?',
+    'key_remove_body' => 'The server can no longer update the order on iPhone lock screens until you add a key again. Normal notifications are not affected.',
+    'key_remove_yes' => 'Remove key',
+    'key_removed' => 'Apple key removed.',
+
+    'saved' => 'Saved. iPhone live activity settings updated.',
+    'unchanged' => 'Nothing to save.',
+
+    'test' => 'Test',
+    'conn_ok' => 'Connected. Apple accepted the key, the team and the bundle ID.',
+    'conn' => [
+        'not_configured' => 'Save the Team ID, the Key ID and the key first.',
+        'key_unreadable' => 'The saved key cannot be used to sign in. Replace it with the .p8 file from Apple.',
+        'key_rejected' => 'Apple did not accept the key, the Key ID or the Team ID. Check that they belong together: the Key ID is on the key\'s page, the Team ID on the Membership page.',
+        'clock' => 'Apple says the sign-in has expired. The server clock is probably wrong: correct it and try again.',
+        'topic' => 'Apple does not allow this key for this app. Check the bundle ID, and that the key has Apple Push Notifications service (APNs) ticked.',
+        'rate_limited' => 'Apple says there were too many requests. Wait a minute and try again.',
+        'apns_down' => 'Apple is having trouble right now. Try again in a few minutes.',
+        'unreachable' => 'The server could not reach Apple. Check the server\'s internet access and try again.',
+        'no_http2' => 'This server\'s PHP cannot speak HTTP/2, which Apple requires. Ask your host for a PHP whose curl is built with HTTP/2 (nghttp2).',
+        'rejected' => 'Apple refused the test. Details are below.',
+    ],
+    'conn_detail' => 'Apple said',
+];

@@ -54,4 +54,12 @@ class Payment extends Model
     {
         return Money::of($this->captured_amount)->minus(Money::of($this->refunded_amount));
     }
+
+    /** What can still be asked back: the captured amount less every refund already asked for (waiting for approval, approved, in progress or paid out). */
+    public function refundableNow(): Money
+    {
+        $committed = Money::of((string) ($this->refunds()->whereIn('status', ['requested', 'approved', 'processing', 'processed'])->sum('amount') ?: '0'));
+
+        return Money::of($this->captured_amount)->minus($committed);
+    }
 }

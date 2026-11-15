@@ -21,7 +21,7 @@ class Order extends Model
     /** The customer's second number is for the delivery driver and the order's branch staff only: it never appears in a raw model dump or a customer payload. */
     protected $hidden = ['alternate_phone'];
 
-    protected $casts = ['address_snapshot' => 'array', 'fee_breakdown' => 'array', 'tax_snapshot' => 'array', 'placed_at' => 'immutable_datetime', 'confirmed_at' => 'immutable_datetime', 'completed_at' => 'immutable_datetime', 'cancelled_at' => 'immutable_datetime', 'payment_due_at' => 'immutable_datetime', 'status' => 'App\Domain\Orders\Enums\OrderStatus', 'payment_status' => 'App\Domain\Payments\Enums\PaymentStatus', 'loyalty_points_redeemed' => 'integer'];
+    protected $casts = ['address_snapshot' => 'array', 'fee_breakdown' => 'array', 'tax_snapshot' => 'array', 'placed_at' => 'immutable_datetime', 'confirmed_at' => 'immutable_datetime', 'completed_at' => 'immutable_datetime', 'cancelled_at' => 'immutable_datetime', 'payment_due_at' => 'immutable_datetime', 'status' => 'App\Domain\Orders\Enums\OrderStatus', 'payment_status' => 'App\Domain\Payments\Enums\PaymentStatus', 'loyalty_points_redeemed' => 'integer', 'adjustment_count' => 'integer'];
 
     /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
@@ -65,10 +65,27 @@ class Order extends Model
         return $this->hasMany(OrderCancellation::class);
     }
 
-    /** @return HasOne<OrderInvoice, $this> */
+    /** @return HasOne<OrderInvoice, $this> the latest revision of the invoice */
     public function invoice(): HasOne
     {
-        return $this->hasOne(OrderInvoice::class);
+        return $this->hasOne(OrderInvoice::class)->ofMany('revision', 'max');
+    }
+
+    /** @return HasMany<OrderInvoice, $this> every revision, oldest first */
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(OrderInvoice::class)->orderBy('revision');
+    }
+
+    /** @return HasMany<OrderRevision, $this> item adjustments made while the order was prepared, oldest first */
+    public function revisions(): HasMany
+    {
+        return $this->hasMany(OrderRevision::class)->orderBy('number');
+    }
+
+    public function wasAdjusted(): bool
+    {
+        return (int) $this->adjustment_count > 0;
     }
 
     /** @return HasMany<Payment, $this> */

@@ -37,6 +37,13 @@
 	<string>Al Bahar uses the camera to scan product barcodes so you can add items to your cart, and to take photos for your product reviews. / يستخدم تطبيق البحر الكاميرا لمسح باركود المنتجات وإضافتها إلى سلتك، ولالتقاط صور لتقييماتك.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose photos to include in your product review. / اختيار صور لإرفاقها بتقييمك للمنتج.</string>
+	<!-- Live Activity (the order on the lock screen and in the Dynamic Island, docs/guides/IOS_LIVE_ACTIVITY.md). The keys only declare
+	     support: without the widget extension in the project nothing starts. Frequent updates lift Apple's hourly budget of high-priority
+	     pushes, which the live bar and countdown can use up on a long delivery. -->
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
+	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

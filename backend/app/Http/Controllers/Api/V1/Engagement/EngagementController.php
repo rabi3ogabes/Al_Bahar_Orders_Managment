@@ -125,7 +125,7 @@ class EngagementController extends ApiController
         $rows = DB::table('order_items as oi')->join('orders as o', 'o.id', '=', 'oi.order_id')
             ->where('o.user_id', $this->user()->id)
             ->whereNotIn('o.status', ['pending_payment', 'cancelled', 'cancellation_requested', 'returned'])
-            ->whereNotNull('oi.product_id')
+            ->whereNotNull('oi.product_id')->where('oi.quantity', '>', 0)
             ->selectRaw('oi.product_id, count(distinct oi.order_id) as times, max(o.placed_at) as last_at')
             ->groupBy('oi.product_id')->orderByDesc('times')->orderByDesc('last_at')->limit($limit * 2)->get();
         if ($rows->isEmpty()) {
@@ -135,7 +135,7 @@ class EngagementController extends ApiController
             ->with(['translations', 'brand', 'images' => fn ($i) => $i->limit(1), 'variants' => fn ($v) => $v->where('status', 'active')])->get()->keyBy('id');
         $last = DB::table('order_items as oi')->join('orders as o', 'o.id', '=', 'oi.order_id')
             ->where('o.user_id', $this->user()->id)->whereIn('oi.product_id', $products->keys())
-            ->whereNotIn('o.status', ['pending_payment', 'cancelled', 'cancellation_requested', 'returned'])
+            ->whereNotIn('o.status', ['pending_payment', 'cancelled', 'cancellation_requested', 'returned'])->where('oi.quantity', '>', 0)
             ->orderByDesc('o.placed_at')->get(['oi.product_id', 'oi.product_variant_id', 'oi.quantity'])->unique('product_id')->keyBy('product_id');
         $branch = $request->query('branch_id') ? Branch::active()->find($request->query('branch_id')) : null;
         $ordered = $rows->filter(fn ($r) => $products->has($r->product_id))->take($limit);

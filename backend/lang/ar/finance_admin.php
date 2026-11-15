@@ -166,6 +166,7 @@ return [
     'refunds_empty_closed' => 'لا توجد مبالغ مستردة مرفوضة أو فاشلة',
     'rrc_customer_request' => 'طلب العميل',
     'rrc_order_cancelled' => 'إلغاء الطلب',
+    'rrc_order_adjustment' => 'تعديل الأصناف من الفرع',
     'rrc_damaged' => 'بضاعة تالفة',
     'rrc_goodwill' => 'بادرة حسن نية',
     'rrc_duplicate_charge' => 'خصم مكرر',

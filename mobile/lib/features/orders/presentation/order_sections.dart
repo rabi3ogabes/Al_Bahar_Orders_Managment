@@ -32,13 +32,15 @@ class OrderSections extends StatelessWidget {
         if (justPlaced) _PlacedBanner(number: o.number),
         _Header(order: o),
         const Gap(AppSpace.lg),
+        // The branch changed what is in the order: say so first, in calm words, with what changed and the new total.
+        if (o.wasAdjusted) ...[OrderUpdatedBanner(order: o), const Gap(AppSpace.xs)],
         for (final f in o.fulfillments) ...[_FulfillmentCard(order: o, fulfillment: f), const Gap(AppSpace.sm)],
         const Gap(AppSpace.md),
         _Timeline(orderId: o.id),
         const Gap(AppSpace.lg),
         if (o.fulfillments.isEmpty) ...[
           Text(l10n.orderItems, style: context.text.titleLarge),
-          for (final i in o.items) _ItemRow(item: i),
+          for (final i in o.items) _ItemRow(item: i, order: o),
         ],
         if (o.address != null) ...[_AddressBlock(address: o.address!), const Gap(AppSpace.lg)],
         if (o.totals != null) _Totals(order: o),
@@ -193,7 +195,7 @@ class _FulfillmentCard extends StatelessWidget {
                 style: context.text.bodySmall,
               ),
             ),
-          for (final i in shown) _ItemRow(item: i),
+          for (final i in shown) _ItemRow(item: i, order: order),
           if (f.delivery != null) _DeliveryTracking(info: f.delivery!),
           if (f.isPickupReady) ...[
             const Gap(AppSpace.sm),
@@ -268,36 +270,325 @@ class _DeliveryTracking extends StatelessWidget {
 }
 
 class _ItemRow extends StatelessWidget {
-  const _ItemRow({required this.item});
+  const _ItemRow({required this.item, required this.order});
   final OrderItem item;
+  final Order order;
 
   @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: item.productId == null ? null : () => context.push('/products/${item.productId}'),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
-      child: Row(
-        children: [
-          AppNetworkImage(url: item.imageUrl, width: 52, height: 60, borderRadius: BorderRadius.circular(8)),
-          const Gap(AppSpace.sm),
-          Expanded(
-            child: Column(
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final p = context.palette;
+    final gone = item.isGone;
+    final a = item.adjustment;
+    // What the branch did to this line: a removed or swapped line stays in the list, struck through, with nothing to pay.
+    final replacedBy = gone ? order.replacedByFor(item) : null;
+    final note = !gone
+        ? null
+        : (replacedBy != null ? l10n.orderItemReplacedBy(replacedBy) : l10n.orderItemNotAvailable);
+    return InkWell(
+      onTap: item.productId == null ? null : () => context.push('/products/${item.productId}'),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Opacity(
+              opacity: gone ? 0.45 : 1,
+              child: AppNetworkImage(url: item.imageUrl, width: 52, height: 60, borderRadius: BorderRadius.circular(8)),
+            ),
+            const Gap(AppSpace.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.text.bodyMedium?.copyWith(
+                      decoration: gone ? TextDecoration.lineThrough : null,
+                      color: gone ? p.muted : null,
+                    ),
+                  ),
+                  if (note != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        note,
+                        style: context.text.bodySmall?.copyWith(
+                          color: replacedBy != null ? p.info : p.warning,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    )
+                  else
+                    Text(
+                      [if (item.variantName != null) item.variantName!, '× ${item.quantity}'].join(' · '),
+                      style: context.text.bodySmall,
+                    ),
+                  if (item.isReduced && a?.originalQuantity != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        l10n.orderItemReducedFrom(a!.originalQuantity!),
+                        style: context.text.bodySmall?.copyWith(color: p.warning, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  if (item.isReplacement)
+                    Padding(
+                      padding: const EdgeInsets.only(top: AppSpace.xxs),
+                      child: Wrap(
+                        spacing: AppSpace.xs,
+                        runSpacing: 2,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          StatusChip(label: l10n.orderItemReplacement, tone: StatusTone.info, dense: true),
+                          if (a?.replacesName != null)
+                            Text(l10n.orderItemReplaces(a!.replacesName!), style: context.text.bodySmall),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (item.lineTotal != null && !gone) Text(item.lineTotal!.formatted, style: context.text.titleSmall),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// "Your order was updated by the branch": why (in plain words, with the branch's note), what changed line by line, the new total and
+/// a word that the invoice was updated too. One block per correction, newest first; the total is the order's own, from the server.
+class OrderUpdatedBanner extends StatelessWidget {
+  const OrderUpdatedBanner({super.key, required this.order});
+  final Order order;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final p = context.palette;
+    final revisions = order.revisions.reversed.toList();
+    final total = order.totals?.grandTotal ?? revisions.firstOrNull?.totalAfter;
+    final before = revisions.isEmpty ? null : revisions.last.totalBefore;
+    final cancelled = revisions.any((r) => r.orderCancelled);
+    return Semantics(
+      container: true,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: AppSpace.sm),
+        padding: const EdgeInsets.all(AppSpace.md),
+        decoration: BoxDecoration(
+          color: p.tint,
+          borderRadius: AppRadius.cardAll,
+          border: Border.all(color: p.brass.withValues(alpha: 0.28)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: context.text.bodyMedium),
-                Text(
-                  [if (item.variantName != null) item.variantName!, '× ${item.quantity}'].join(' · '),
-                  style: context.text.bodySmall,
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: p.brass.withValues(alpha: 0.16)),
+                  child: Icon(Icons.edit_note_rounded, size: 22, color: p.brassDeep),
+                ),
+                const Gap(AppSpace.sm),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Semantics(
+                      header: true,
+                      child: Text(
+                        l10n.orderUpdatedTitle,
+                        style: context.text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
-          ),
-          if (item.lineTotal != null) Text(item.lineTotal!.formatted, style: context.text.titleSmall),
+            if (revisions.isEmpty)
+              ..._changesFromItems(context)
+            else
+              for (var n = 0; n < revisions.length; n++)
+                _RevisionBlock(revision: revisions[n], showHeader: revisions.length > 1, first: n == 0),
+            if (cancelled)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpace.sm),
+                child: Text(
+                  l10n.orderUpdatedCancelled,
+                  style: context.text.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ),
+            if (total != null) ...[
+              const Gap(AppSpace.sm),
+              Divider(color: p.brass.withValues(alpha: 0.25)),
+              const Gap(AppSpace.xxs),
+              Row(
+                children: [
+                  Expanded(child: Text(l10n.orderUpdatedNewTotal, style: context.text.bodyMedium)),
+                  Text(total.formatted, style: context.text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                ],
+              ),
+              if (before != null && before.amount != total.amount)
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: Text(
+                    l10n.orderUpdatedBefore(before.formatted),
+                    style: context.text.bodySmall?.copyWith(color: p.muted),
+                  ),
+                ),
+            ],
+            if (order.hasInvoice)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpace.sm),
+                child: Row(
+                  children: [
+                    Icon(Icons.picture_as_pdf_outlined, size: 18, color: p.brassDeep),
+                    const Gap(AppSpace.xs),
+                    Expanded(child: Text(l10n.orderUpdatedInvoice, style: context.text.bodySmall)),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// An older server sends no revisions: what changed is read from the lines themselves.
+  List<Widget> _changesFromItems(BuildContext context) {
+    final l10n = context.l10n;
+    final lines = <String>[
+      for (final i in order.items)
+        if (i.adjustment != null && i.adjustment!.kind != 'replacement')
+          switch (i.adjustment!.kind) {
+            'reduced' => l10n.orderUpdatedLineReduced(i.name, i.adjustment!.originalQuantity ?? i.quantity, i.quantity),
+            'replaced' => switch (order.replacedByFor(i)) {
+              final String r => l10n.orderUpdatedLineReplaced(i.name, r),
+              _ => l10n.orderUpdatedLineReplacedPlain(i.name),
+            },
+            _ => l10n.orderUpdatedLineRemoved(i.name),
+          },
+    ];
+    final code = order.items.map((i) => i.adjustment?.reasonCode).whereType<String>().firstOrNull;
+    return [
+      if (code != null)
+        Padding(
+          padding: const EdgeInsets.only(top: AppSpace.sm),
+          child: Text(_reasonText(l10n, code, null), style: context.text.bodyMedium),
+        ),
+      if (lines.isNotEmpty) ..._changeList(context, [for (final t in lines) (Icons.swap_horiz_rounded, t)]),
+    ];
+  }
+}
+
+/// One correction inside the banner: its number and time (only when there are several), why, the branch's note, and each change.
+class _RevisionBlock extends StatelessWidget {
+  const _RevisionBlock({required this.revision, required this.showHeader, required this.first});
+  final OrderRevision revision;
+  final bool showHeader;
+  final bool first;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final p = context.palette;
+    final r = revision;
+    final reason = r.reasonCode == null && r.reasonLabel == null
+        ? null
+        : _reasonText(l10n, r.reasonCode, r.reasonLabel);
+    return Padding(
+      padding: EdgeInsets.only(top: first ? AppSpace.sm : AppSpace.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (showHeader)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpace.xxs),
+              child: Text(
+                [
+                  l10n.orderUpdatedRevision(r.number),
+                  if (r.at != null) QatarTime.dateTime(r.at, context.localeCode),
+                ].join(' · '),
+                style: context.text.labelLarge?.copyWith(color: p.brassDeep),
+              ),
+            ),
+          if (reason != null) Text(reason, style: context.text.bodyMedium),
+          if (r.note != null)
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpace.xxs),
+              child: Text(
+                l10n.orderUpdatedNote(r.note!),
+                style: context.text.bodyMedium?.copyWith(fontStyle: FontStyle.italic, color: p.muted),
+              ),
+            ),
+          if (r.lines.isNotEmpty)
+            ..._changeList(context, [for (final l in r.lines) (_iconFor(l.action), _lineText(l10n, l))]),
         ],
       ),
-    ),
-  );
+    );
+  }
 }
+
+IconData _iconFor(String action) => switch (action) {
+  'reduce' => Icons.remove_circle_outline_rounded,
+  'replace' => Icons.swap_horiz_rounded,
+  _ => Icons.remove_shopping_cart_outlined,
+};
+
+/// The change as a sentence: the server's own words when it sent them (the same sentence as the notification and the invoice), else
+/// one built here.
+String _lineText(AppLocalizations l10n, OrderRevisionLine l) {
+  if (l.text != null) return l.text!;
+  return switch (l.action) {
+    'reduce' => l10n.orderUpdatedLineReduced(l.fullName, l.fromQuantity, l.toQuantity),
+    'replace' =>
+      l.replacementFullName == null
+          ? l10n.orderUpdatedLineReplacedPlain(l.fullName)
+          : l10n.orderUpdatedLineReplaced(l.fullName, l.replacementFullName!),
+    _ => l10n.orderUpdatedLineRemoved(l.fullName),
+  };
+}
+
+/// "What changed" and one row per change: a small icon and the sentence.
+List<Widget> _changeList(BuildContext context, List<(IconData, String)> lines) {
+  final p = context.palette;
+  return [
+    Padding(
+      padding: const EdgeInsets.only(top: AppSpace.sm, bottom: AppSpace.xxs),
+      child: Text(context.l10n.orderUpdatedWhatChanged, style: context.text.labelLarge?.copyWith(color: p.muted)),
+    ),
+    for (final (icon, text) in lines)
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Icon(icon, size: 18, color: p.brassDeep),
+            ),
+            const Gap(AppSpace.xs),
+            Expanded(child: Text(text, style: context.text.bodyMedium)),
+          ],
+        ),
+      ),
+  ];
+}
+
+/// The reason in plain words: ours for the reasons we know, the server's own label for any other.
+String _reasonText(AppLocalizations l10n, String? code, String? label) => switch (code) {
+  'out_of_stock' => l10n.orderUpdatedReasonOutOfStock,
+  'not_found' => l10n.orderUpdatedReasonNotFound,
+  'damaged' => l10n.orderUpdatedReasonDamaged,
+  'quality' => l10n.orderUpdatedReasonQuality,
+  'other' => l10n.orderUpdatedReasonOther,
+  _ => label ?? l10n.orderUpdatedReasonOther,
+};
 
 class _Timeline extends ConsumerWidget {
   const _Timeline({required this.orderId});
@@ -339,9 +630,11 @@ class _TimelineRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tone = toneForStatus(entry.status);
-    final failed = tone == StatusTone.danger;
-    final fill = failed ? context.palette.danger : context.colors.primary;
-    final onFill = failed ? Colors.white : context.colors.onPrimary;
+    // The branch changed what is in the order: its own mark (a pencil on the brand's warm colour), not a tick.
+    final changed = entry.kind == 'items_changed';
+    final failed = !changed && tone == StatusTone.danger;
+    final fill = failed ? context.palette.danger : (changed ? context.palette.brass : context.colors.primary);
+    final onFill = failed ? Colors.white : (changed ? Colors.white : context.colors.onPrimary);
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -359,7 +652,11 @@ class _TimelineRow extends StatelessWidget {
                     shape: BoxShape.circle,
                     boxShadow: last ? [BoxShadow(color: fill.withValues(alpha: 0.18), spreadRadius: 5)] : null,
                   ),
-                  child: Icon(failed ? Icons.close_rounded : Icons.check_rounded, size: 14, color: onFill),
+                  child: Icon(
+                    failed ? Icons.close_rounded : (changed ? Icons.edit_rounded : Icons.check_rounded),
+                    size: 14,
+                    color: onFill,
+                  ),
                 ),
                 Expanded(child: Container(width: 2, color: last ? Colors.transparent : fill)),
               ],

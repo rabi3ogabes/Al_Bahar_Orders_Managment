@@ -338,8 +338,9 @@ class PaymentService
         foreach (Payment::where('order_id', $order->id)->lockForUpdate()->get() as $p) {
             if (in_array($p->status, [PS::Pending, PS::Processing, PS::Authorized], true)) {
                 $this->setStatus($p, PS::Cancelled, 'order_cancelled');
-            } elseif ($p->status->isSettled() && $p->refundable()->isPositive()) {
-                app(RefundService::class)->request($p, $p->refundable(), 'order_cancelled', $reason, $actor, 'cancel:'.$order->id.':'.$p->id, system: true);
+            } elseif ($p->status->isSettled() && $p->refundableNow()->isPositive()) {
+                // Refunds already asked for (an item adjustment's, say) are not asked twice: only what is left of the captured amount.
+                app(RefundService::class)->request($p, $p->refundableNow(), 'order_cancelled', $reason, $actor, 'cancel:'.$order->id.':'.$p->id, system: true);
             }
         }
         if (! $order->payment_status->isSettled()) {

@@ -175,6 +175,17 @@ class OrderCard extends StatelessWidget {
                     dense: true,
                   ),
                 ),
+                if (order.wasAdjusted) ...[
+                  const Gap(AppSpace.xs),
+                  Flexible(
+                    child: StatusChip(
+                      label: l10n.orderUpdatedChip,
+                      tone: StatusTone.accent,
+                      icon: Icons.edit_note_rounded,
+                      dense: true,
+                    ),
+                  ),
+                ],
                 const Gap(AppSpace.xs),
                 Expanded(
                   child: Text(

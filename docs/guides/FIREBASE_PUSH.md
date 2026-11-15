@@ -85,6 +85,10 @@ owner switches it explicitly); a value saved in the dashboard always wins over t
 | `push.firebase.app_id_android_customer` / `_driver` / `_staff`, `push.firebase.app_id_ios_customer` | text | public; one Firebase app per package / bundle ID |
 | `push.firebase.service_account` | **secret** JSON | sealed, write-only; reduced to `type, project_id, private_key_id, private_key, client_email, client_id` |
 
+The same page has a separate section, **iPhone live activity**, for the Apple push key (`push.apns.*`: Team ID, Key ID, bundle ID, environment and the sealed
+`.p8`) that lets the server update the order on iPhone lock screens and in the Dynamic Island, with its own switch, Save and Test. It does not use Firebase;
+see [IOS_LIVE_ACTIVITY.md](IOS_LIVE_ACTIVITY.md).
+
 `App\Domain\Notifications\Services\FirebaseConfig` is the only reader (`enabled()`, `configured()`, `hasServerCredentials()`,
 `serviceAccount()`, `webConfig()`, `publicConfig()`, `status()`). `FcmClient` takes the project id and the key from it. The OAuth token is
 cached per key, so a replaced key is used at once. Every save is audited (`settings.updated` with `[secret]` for the key, plus

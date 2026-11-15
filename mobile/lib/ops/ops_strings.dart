@@ -164,7 +164,8 @@ class OpsStrings {
   String get liveNow => _t('Live', 'مباشر');
 
   /// The three words of the small connection badge in the app bar (see LiveLinkBadge).
-  LiveLinkLabels get liveLabels => LiveLinkLabels(live: liveNow, reconnecting: fleetLinkReconnecting, offline: fleetLinkOffline);
+  LiveLinkLabels get liveLabels =>
+      LiveLinkLabels(live: liveNow, reconnecting: fleetLinkReconnecting, offline: fleetLinkOffline);
   String get noLocationYet => _t('No location yet', 'لا يوجد موقع بعد');
   String get driversFree => _t('Free', 'متاح');
   String get recenter => _t('Show all drivers', 'عرض كل السائقين');
@@ -328,6 +329,152 @@ class OpsStrings {
     'failed' => stageFailed,
     _ => status,
   };
+
+  // Slide to confirm (the dashboard can ask for it instead of buttons)
+  String get slideAcceptOrder => _t('Slide to accept order', 'اسحب لقبول الطلب');
+  String get slideStartPreparing => _t('Slide to start preparing', 'اسحب لبدء التحضير');
+  String get slideMarkReady => _t('Slide to mark ready', 'اسحب عند جاهزية الطلب');
+  String get slideAccept => _t('Slide to accept', 'اسحب للقبول');
+  String get slidePickedUp => _t('Slide: picked up', 'اسحب: تم الاستلام');
+  String get slideOnTheWay => _t('Slide: on my way', 'اسحب: في الطريق');
+  String get slideRetryDelivery => _t('Slide to try again', 'اسحب للمحاولة مرة أخرى');
+  String get slideConfirmDelivery => _t('Slide to confirm delivery', 'اسحب لتأكيد التسليم');
+  String get updating => _t('Updating…', 'جارٍ التحديث…');
+
+  /// The slide's words for a staff step (the order status it moves to).
+  String slideStaffStep(String step) => switch (step) {
+    'accepted' => slideAcceptOrder,
+    'preparing' => slideStartPreparing,
+    _ => slideMarkReady,
+  };
+
+  /// The slide's words for a driver step (the delivery action it takes).
+  String slideDriverStep(String action, {required bool retry}) => switch (action) {
+    'accept' => slideAccept,
+    'pickup' => slidePickedUp,
+    _ => retry ? slideRetryDelivery : slideOnTheWay,
+  };
+
+  // Missing items: the branch finds a product short while preparing and tells the customer
+  String get missingItem => _t('Missing an item?', 'نقص في منتج؟');
+  String get missingIntro => _t(
+    'Tap the item that is short and choose what to do. The customer is told, and gets an updated invoice.',
+    'اضغط على المنتج الناقص واختر الإجراء. سيتم إبلاغ العميل وإرسال فاتورة محدّثة.',
+  );
+  String get reduceQty => _t('Reduce quantity', 'تقليل الكمية');
+  String get replaceItem => _t('Replace with another item', 'استبداله بمنتج آخر');
+  String get removeItem => _t('Remove item', 'حذف المنتج');
+  String get newQuantity => _t('New quantity', 'الكمية الجديدة');
+  String get undo => _t('Undo', 'تراجع');
+  String chipReduced(int from, int to) => _t('Reduced $from → $to', 'تقليل من $from إلى $to');
+  String get chipReplaced => _t('Replaced', 'تم الاستبدال');
+  String get chipRemoved => _t('Removed', 'تم الحذف');
+  String alreadyReduced(int from) => _t('Already reduced from $from', 'سبق تقليله من $from');
+  String changesCount(int n) => ar
+      ? switch (n) {
+          1 => 'تغيير واحد',
+          2 => 'تغييران',
+          >= 3 && <= 10 => '$n تغييرات',
+          _ => '$n تغييرًا',
+        }
+      : (n == 1 ? '1 change' : '$n changes');
+  String continueWithChanges(int n) => _t('Continue · ${changesCount(n)}', 'متابعة · ${changesCount(n)}');
+  String get nothingChosenYet =>
+      _t('Choose at least one change to continue.', 'اختر تغييرًا واحدًا على الأقل للمتابعة.');
+
+  // Replace with another item
+  String get replaceTitle => _t('Replace item', 'استبدال المنتج');
+  String replacing(String name) => _t('Replacing: $name', 'استبدال: $name');
+  String get searchSubstitutes => _t('Search items in your branch', 'ابحث في منتجات فرعك');
+  String get noSubstitutes => _t('No items found. Try another word.', 'لا توجد منتجات. جرّب كلمة أخرى.');
+  String get substitutesFailed => _t('Could not load items. Try again.', 'تعذّر تحميل المنتجات. حاول مرة أخرى.');
+  String availableCount(int n) => _t('$n available', 'متوفر $n');
+  String get quantityLabel => _t('Quantity', 'الكمية');
+  String priceCapped(String price) => _t(
+    'More than the original item, so the customer pays the original price: ${money(price)} each.',
+    'سعره أعلى من المنتج الأصلي، لذلك يدفع العميل السعر الأصلي: ${money(price)} للقطعة.',
+  );
+  String priceLower(String price) => _t(
+    'Cheaper than the original: the customer pays ${money(price)} each.',
+    'أرخص من الأصلي: يدفع العميل ${money(price)} للقطعة.',
+  );
+  String priceSame(String price) =>
+      _t('Same price as the original: ${money(price)} each.', 'نفس سعر الأصلي: ${money(price)} للقطعة.');
+  String get useThisItem => _t('Use this item', 'استخدام هذا المنتج');
+  String replacedBy(String name, int qty) => _t('Replaced by $name × $qty', 'استبدال بـ $name × $qty');
+
+  // Reason, review and done
+  String get whyMissing => _t('Why is it missing?', 'لماذا هو ناقص؟');
+  String adjustReason(String code) => switch (code) {
+    'out_of_stock' => _t('Out of stock', 'نفد من المخزون'),
+    'not_found' => _t("Couldn't find it", 'لم نجده'),
+    'damaged' => _t('Damaged', 'تالف'),
+    'quality' => _t('Quality', 'جودة غير مناسبة'),
+    _ => _t('Other', 'أخرى'),
+  };
+  String get adjustNoteLabel => _t('Note for the customer (optional)', 'ملاحظة للعميل (اختيارية)');
+  String get adjustNoteHint => _t('The customer sees this note in their order.', 'يرى العميل هذه الملاحظة في طلبه.');
+  String get chooseReasonFirst => _t('Choose a reason.', 'اختر السبب.');
+  String get reviewChanges => _t('Review changes', 'مراجعة التغييرات');
+  String get reviewTitle => _t('Check before sending', 'راجع قبل الإرسال');
+  String get orderTotal => _t('Order total', 'إجمالي الطلب');
+  String customerPaysLess(String amount) =>
+      _t('Customer pays ${money(amount)} less', 'سيدفع العميل ${money(amount)} أقل');
+  String get totalUnchanged => _t('The total stays the same.', 'يبقى الإجمالي كما هو.');
+  String refundNeedsApproval(String amount) => _t(
+    'A refund of ${money(amount)} will be sent to finance for approval.',
+    'سيُرسل طلب استرداد بمبلغ ${money(amount)} إلى المالية للموافقة.',
+  );
+  String refundIssued(String amount) =>
+      _t('A refund of ${money(amount)} will be made.', 'سيتم استرداد مبلغ ${money(amount)}.');
+  String codDrops(String amount) => _t(
+    'Cash on delivery: the driver collects ${money(amount)} less.',
+    'الدفع عند الاستلام: سيحصّل السائق ${money(amount)} أقل.',
+  );
+  String get cancelsParcel => _t(
+    'Every item of this branch is removed, so this part of the order will be cancelled.',
+    'تمت إزالة كل منتجات هذا الفرع، لذلك سيُلغى هذا الجزء من الطلب.',
+  );
+  String get cancelsOrder => _t(
+    'Every item is removed, so the whole order will be cancelled.',
+    'تمت إزالة كل المنتجات، لذلك سيُلغى الطلب بالكامل.',
+  );
+  String get customerWillBeTold =>
+      _t('The customer gets a notification and an updated invoice.', 'سيصل العميل إشعار وفاتورة محدّثة.');
+  String get updateAndNotify => _t('Update order & notify customer', 'تحديث الطلب وإبلاغ العميل');
+  String get cancelAndNotify => _t('Cancel order & notify customer', 'إلغاء الطلب وإبلاغ العميل');
+  String get confirmCancelOrderQ => _t('Cancel this order?', 'إلغاء هذا الطلب؟');
+  String get confirmCancelOrderBody => _t(
+    'Removing every item cancels the order. The customer is told. This cannot be undone.',
+    'حذف كل المنتجات يلغي الطلب. سيتم إبلاغ العميل. لا يمكن التراجع عن ذلك.',
+  );
+  String get customerNotified => _t('Customer notified', 'تم إبلاغ العميل');
+  String adjustDone(String number) => _t('Order #$number was updated.', 'تم تحديث الطلب #$number بنجاح.');
+  String newTotalIs(String amount) => _t('New total: ${money(amount)}', 'الإجمالي الجديد: ${money(amount)}');
+  String get orderWasCancelled => _t('The order was cancelled.', 'تم إلغاء الطلب.');
+  String get notNotified => _t(
+    'The order was updated. The customer could not be notified, so call them.',
+    'تم تحديث الطلب، لكن تعذّر إبلاغ العميل. اتصل به.',
+  );
+
+  // Missing items: what the server refused
+  String get adjustNotAllowed => _t(
+    'This order can no longer be changed: it is not being prepared any more.',
+    'لم يعد بالإمكان تعديل هذا الطلب: لم يعد قيد التحضير.',
+  );
+  String get adjustBackToOrder => _t('Back to the order', 'العودة إلى الطلب');
+  String get adjustSubstituteGone =>
+      _t('A replacement just ran out. Choose another item.', 'نفد أحد البدائل للتو. اختر منتجًا آخر.');
+  String get adjustNoChange =>
+      _t('Nothing was changed. Change at least one item.', 'لم يتغيّر شيء. غيّر منتجًا واحدًا على الأقل.');
+  String get adjustQuantityExceeds => _t(
+    'That is more than the order has. The list was refreshed, please check the numbers.',
+    'هذه الكمية أكبر مما في الطلب. تم تحديث القائمة، راجع الأرقام.',
+  );
+  String get adjustChanged => _t(
+    'The order changed meanwhile. The list was refreshed, please check it.',
+    'تغيّر الطلب في الأثناء. تم تحديث القائمة، راجعها.',
+  );
 
   String get language => _t('العربية', 'English');
 }

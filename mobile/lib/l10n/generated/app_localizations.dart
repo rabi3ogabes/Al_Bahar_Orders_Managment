@@ -5113,6 +5113,150 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Returns aren’t available for this order right now.'**
   String get returnsUnavailable;
+
+  /// No description provided for @orderUpdatedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your order was updated by the branch'**
+  String get orderUpdatedTitle;
+
+  /// No description provided for @orderUpdatedReasonOutOfStock.
+  ///
+  /// In en, this message translates to:
+  /// **'Some items ran out of stock at the branch.'**
+  String get orderUpdatedReasonOutOfStock;
+
+  /// No description provided for @orderUpdatedReasonNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'The branch couldn’t find some of your items.'**
+  String get orderUpdatedReasonNotFound;
+
+  /// No description provided for @orderUpdatedReasonDamaged.
+  ///
+  /// In en, this message translates to:
+  /// **'Some items were found damaged.'**
+  String get orderUpdatedReasonDamaged;
+
+  /// No description provided for @orderUpdatedReasonQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'Some items didn’t pass the branch’s quality check.'**
+  String get orderUpdatedReasonQuality;
+
+  /// No description provided for @orderUpdatedReasonOther.
+  ///
+  /// In en, this message translates to:
+  /// **'The branch had to change some of your items.'**
+  String get orderUpdatedReasonOther;
+
+  /// No description provided for @orderUpdatedNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Note from the branch: “{note}”'**
+  String orderUpdatedNote(String note);
+
+  /// No description provided for @orderUpdatedWhatChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'What changed'**
+  String get orderUpdatedWhatChanged;
+
+  /// No description provided for @orderUpdatedLineReduced.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}: reduced from {from} to {to}'**
+  String orderUpdatedLineReduced(String name, int from, int to);
+
+  /// No description provided for @orderUpdatedLineRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} was removed'**
+  String orderUpdatedLineRemoved(String name);
+
+  /// No description provided for @orderUpdatedLineReplaced.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} was replaced by {replacement}'**
+  String orderUpdatedLineReplaced(String name, String replacement);
+
+  /// No description provided for @orderUpdatedLineReplacedPlain.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} was replaced'**
+  String orderUpdatedLineReplacedPlain(String name);
+
+  /// No description provided for @orderUpdatedNewTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'New total'**
+  String get orderUpdatedNewTotal;
+
+  /// No description provided for @orderUpdatedBefore.
+  ///
+  /// In en, this message translates to:
+  /// **'Before: {amount}'**
+  String orderUpdatedBefore(String amount);
+
+  /// No description provided for @orderUpdatedInvoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Your invoice was updated too.'**
+  String get orderUpdatedInvoice;
+
+  /// No description provided for @orderUpdatedRevision.
+  ///
+  /// In en, this message translates to:
+  /// **'Update {number}'**
+  String orderUpdatedRevision(int number);
+
+  /// No description provided for @orderUpdatedCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Every item was unavailable, so the order was cancelled.'**
+  String get orderUpdatedCancelled;
+
+  /// No description provided for @orderItemNotAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Not available'**
+  String get orderItemNotAvailable;
+
+  /// No description provided for @orderItemReplacedBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Replaced by {name}'**
+  String orderItemReplacedBy(String name);
+
+  /// No description provided for @orderItemReplacement.
+  ///
+  /// In en, this message translates to:
+  /// **'Replacement'**
+  String get orderItemReplacement;
+
+  /// No description provided for @orderItemReplaces.
+  ///
+  /// In en, this message translates to:
+  /// **'Replaces {name}'**
+  String orderItemReplaces(String name);
+
+  /// No description provided for @orderItemReducedFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'Reduced from {count}'**
+  String orderItemReducedFrom(int count);
+
+  /// No description provided for @orderUpdatedChip.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated'**
+  String get orderUpdatedChip;
+
+  /// No description provided for @downloadUpdatedInvoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Download updated invoice (PDF)'**
+  String get downloadUpdatedInvoice;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

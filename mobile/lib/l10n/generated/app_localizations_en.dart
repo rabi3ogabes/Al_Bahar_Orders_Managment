@@ -2817,4 +2817,96 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get returnsUnavailable => 'Returns aren’t available for this order right now.';
+
+  @override
+  String get orderUpdatedTitle => 'Your order was updated by the branch';
+
+  @override
+  String get orderUpdatedReasonOutOfStock => 'Some items ran out of stock at the branch.';
+
+  @override
+  String get orderUpdatedReasonNotFound => 'The branch couldn’t find some of your items.';
+
+  @override
+  String get orderUpdatedReasonDamaged => 'Some items were found damaged.';
+
+  @override
+  String get orderUpdatedReasonQuality => 'Some items didn’t pass the branch’s quality check.';
+
+  @override
+  String get orderUpdatedReasonOther => 'The branch had to change some of your items.';
+
+  @override
+  String orderUpdatedNote(String note) {
+    return 'Note from the branch: “$note”';
+  }
+
+  @override
+  String get orderUpdatedWhatChanged => 'What changed';
+
+  @override
+  String orderUpdatedLineReduced(String name, int from, int to) {
+    return '$name: reduced from $from to $to';
+  }
+
+  @override
+  String orderUpdatedLineRemoved(String name) {
+    return '$name was removed';
+  }
+
+  @override
+  String orderUpdatedLineReplaced(String name, String replacement) {
+    return '$name was replaced by $replacement';
+  }
+
+  @override
+  String orderUpdatedLineReplacedPlain(String name) {
+    return '$name was replaced';
+  }
+
+  @override
+  String get orderUpdatedNewTotal => 'New total';
+
+  @override
+  String orderUpdatedBefore(String amount) {
+    return 'Before: $amount';
+  }
+
+  @override
+  String get orderUpdatedInvoice => 'Your invoice was updated too.';
+
+  @override
+  String orderUpdatedRevision(int number) {
+    return 'Update $number';
+  }
+
+  @override
+  String get orderUpdatedCancelled => 'Every item was unavailable, so the order was cancelled.';
+
+  @override
+  String get orderItemNotAvailable => 'Not available';
+
+  @override
+  String orderItemReplacedBy(String name) {
+    return 'Replaced by $name';
+  }
+
+  @override
+  String get orderItemReplacement => 'Replacement';
+
+  @override
+  String orderItemReplaces(String name) {
+    return 'Replaces $name';
+  }
+
+  @override
+  String orderItemReducedFrom(int count) {
+    return 'Reduced from $count';
+  }
+
+  @override
+  String get orderUpdatedChip => 'Updated';
+
+  @override
+  String get downloadUpdatedInvoice => 'Download updated invoice (PDF)';
 }

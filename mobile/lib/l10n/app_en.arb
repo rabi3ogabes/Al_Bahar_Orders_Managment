@@ -2257,5 +2257,122 @@
   "invoiceSaved": "Invoice downloaded.",
   "@invoiceSaved": {},
   "returnsUnavailable": "Returns aren’t available for this order right now.",
-  "@returnsUnavailable": {}
+  "@returnsUnavailable": {},
+  "orderUpdatedTitle": "Your order was updated by the branch",
+  "@orderUpdatedTitle": {},
+  "orderUpdatedReasonOutOfStock": "Some items ran out of stock at the branch.",
+  "@orderUpdatedReasonOutOfStock": {},
+  "orderUpdatedReasonNotFound": "The branch couldn’t find some of your items.",
+  "@orderUpdatedReasonNotFound": {},
+  "orderUpdatedReasonDamaged": "Some items were found damaged.",
+  "@orderUpdatedReasonDamaged": {},
+  "orderUpdatedReasonQuality": "Some items didn’t pass the branch’s quality check.",
+  "@orderUpdatedReasonQuality": {},
+  "orderUpdatedReasonOther": "The branch had to change some of your items.",
+  "@orderUpdatedReasonOther": {},
+  "orderUpdatedNote": "Note from the branch: “{note}”",
+  "@orderUpdatedNote": {
+    "placeholders": {
+      "note": {
+        "type": "String"
+      }
+    }
+  },
+  "orderUpdatedWhatChanged": "What changed",
+  "@orderUpdatedWhatChanged": {},
+  "orderUpdatedLineReduced": "{name}: reduced from {from} to {to}",
+  "@orderUpdatedLineReduced": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "from": {
+        "type": "int"
+      },
+      "to": {
+        "type": "int"
+      }
+    }
+  },
+  "orderUpdatedLineRemoved": "{name} was removed",
+  "@orderUpdatedLineRemoved": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "orderUpdatedLineReplaced": "{name} was replaced by {replacement}",
+  "@orderUpdatedLineReplaced": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "replacement": {
+        "type": "String"
+      }
+    }
+  },
+  "orderUpdatedLineReplacedPlain": "{name} was replaced",
+  "@orderUpdatedLineReplacedPlain": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "orderUpdatedNewTotal": "New total",
+  "@orderUpdatedNewTotal": {},
+  "orderUpdatedBefore": "Before: {amount}",
+  "@orderUpdatedBefore": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "orderUpdatedInvoice": "Your invoice was updated too.",
+  "@orderUpdatedInvoice": {},
+  "orderUpdatedRevision": "Update {number}",
+  "@orderUpdatedRevision": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "orderUpdatedCancelled": "Every item was unavailable, so the order was cancelled.",
+  "@orderUpdatedCancelled": {},
+  "orderItemNotAvailable": "Not available",
+  "@orderItemNotAvailable": {},
+  "orderItemReplacedBy": "Replaced by {name}",
+  "@orderItemReplacedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "orderItemReplacement": "Replacement",
+  "@orderItemReplacement": {},
+  "orderItemReplaces": "Replaces {name}",
+  "@orderItemReplaces": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "orderItemReducedFrom": "Reduced from {count}",
+  "@orderItemReducedFrom": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "orderUpdatedChip": "Updated",
+  "@orderUpdatedChip": {},
+  "downloadUpdatedInvoice": "Download updated invoice (PDF)",
+  "@downloadUpdatedInvoice": {}
 }

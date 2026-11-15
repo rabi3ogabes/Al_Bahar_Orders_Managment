@@ -43,3 +43,15 @@ class LiveOrderDismissReceiver : BroadcastReceiver() {
         LiveOrderNotifier.onDismissed(context, orderId)
     }
 }
+
+/** The driver's expected arrival has passed: the card drops its countdown so it never counts below zero (see [LiveOrderNotifier.onCountdownEnd]). */
+class LiveOrderCountdownReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        val orderId = intent.getStringExtra(LiveOrderNotifier.EXTRA_ORDER_ID) ?: return
+        try {
+            LiveOrderNotifier.onCountdownEnd(context, orderId)
+        } catch (t: Throwable) {
+            Log.w("LiveOrder", "Could not end the countdown", t)
+        }
+    }
+}

@@ -15,8 +15,10 @@ import 'package:albahar_customer/ops/ops_input.dart';
 import 'package:albahar_customer/ops/ops_live.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_repository.dart';
+import 'package:albahar_customer/ops/ops_status_style.dart';
 import 'package:albahar_customer/ops/ops_strings.dart';
 import 'package:albahar_customer/ops/ops_widgets.dart';
+import 'package:albahar_customer/ops/slide_to_confirm.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -328,6 +330,9 @@ class _JobActionButtonsState extends ConsumerState<JobActionButtons> {
     };
     final panel = widget.inPanel;
     if (label == null && !job.canReturn) return const SizedBox.shrink();
+    // The dashboard chooses how a step is taken. "Mark delivered" stays a button even then: it opens the proof window, whose last
+    // action (Confirm delivery) is the one that is slid.
+    final slide = ref.watch(opsStatusStyleProvider) == OpsStatusStyle.slide && next != null && next != 'deliver';
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -337,19 +342,27 @@ class _JobActionButtonsState extends ConsumerState<JobActionButtons> {
           Row(
             children: [
               Expanded(
-                child: FilledButton(
-                  onPressed: _busy ? null : () => next == 'deliver' ? _deliver() : _step(next!),
-                  child: _busy
-                      ? SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.2,
-                            color: Theme.of(context).colorScheme.onPrimary,
-                          ),
-                        )
-                      : Text(label, textAlign: TextAlign.center),
-                ),
+                child: slide
+                    ? SlideToConfirm(
+                        key: ValueKey('slide-${job.id}-${job.status}'),
+                        label: t.slideDriverStep(next, retry: retry),
+                        busyLabel: t.updating,
+                        loading: _busy,
+                        onConfirmed: () => _step(next),
+                      )
+                    : FilledButton(
+                        onPressed: _busy ? null : () => next == 'deliver' ? _deliver() : _step(next!),
+                        child: _busy
+                            ? SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.2,
+                                  color: Theme.of(context).colorScheme.onPrimary,
+                                ),
+                              )
+                            : Text(label, textAlign: TextAlign.center),
+                      ),
               ),
               if (job.canFail && !panel) ...[
                 const Gap(AppSpace.xs),
@@ -543,19 +556,29 @@ class _DeliverFormState extends ConsumerState<_DeliverForm> {
                   child: Text(_error!, style: TextStyle(color: p.danger)),
                 ),
               ),
-            FilledButton(
-              onPressed: _busy ? null : _submit,
-              child: _busy
-                  ? SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.4,
-                        color: Theme.of(context).colorScheme.onPrimary,
-                      ),
-                    )
-                  : Text(t.confirmDelivery),
-            ),
+            if (ref.watch(opsStatusStyleProvider) == OpsStatusStyle.slide)
+              // Recording a delivery (and the cash) is the step that must not happen by a stray tap: slide it. A missing photo or
+              // amount springs the thumb back with the message above.
+              SlideToConfirm(
+                label: t.slideConfirmDelivery,
+                busyLabel: t.updating,
+                loading: _busy,
+                onConfirmed: _submit,
+              )
+            else
+              FilledButton(
+                onPressed: _busy ? null : _submit,
+                child: _busy
+                    ? SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.4,
+                          color: Theme.of(context).colorScheme.onPrimary,
+                        ),
+                      )
+                    : Text(t.confirmDelivery),
+              ),
           ],
         ),
         child: Column(

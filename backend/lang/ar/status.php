@@ -21,6 +21,7 @@ return [
     'cancellation_requested' => 'طلب إلغاء',
     'cancelled' => 'ملغي',
     'partially_cancelled' => 'ملغي جزئياً',
+    'items_changed' => 'تم تعديل الأصناف',
     'returned' => 'مرتجع',
     'pending' => 'قيد الانتظار',
     'accepted' => 'مقبول',

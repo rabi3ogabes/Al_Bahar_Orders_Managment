@@ -24,7 +24,8 @@ function deliveredOrder(): array
 
 it('serves the small public app config: designed-by lines and the returns switch', function () {
     $r = $this->getJson('/api/v1/app-config')->assertOk()
-        ->assertJsonPath('data.designed_by.en', 'Designed by Athar Qatar')->assertJsonPath('data.designed_by.ar', 'تصميم أثر قطر')->assertJsonPath('data.returns_enabled', true);
+        ->assertJsonPath('data.designed_by.en', 'Designed by Athar Qatar')->assertJsonPath('data.designed_by.ar', 'تصميم أثر قطر')->assertJsonPath('data.returns_enabled', true)
+        ->assertJsonPath('data.ops.status_style', 'buttons');
     expect($r->headers->get('Cache-Control'))->toContain('public')->toContain('max-age=60');
 
     $s = app(Settings::class);
@@ -32,7 +33,7 @@ it('serves the small public app config: designed-by lines and the returns switch
     $s->set('customer_app.designed_by_ar', null);
     $s->set('returns.enabled', false);
     $this->getJson('/api/v1/app-config')->assertOk()->assertJsonPath('data.designed_by.en', 'Designed by Studio X')->assertJsonPath('data.designed_by.ar', '')
-        ->assertJsonPath('data.returns_enabled', false);
+        ->assertJsonPath('data.returns_enabled', false)->assertJsonPath('data.ops.status_style', 'buttons');
 });
 
 it('lets the admin edit the designed-by lines and the returns switch in Settings, and clear a line to hide it', function () {

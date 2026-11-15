@@ -14,6 +14,8 @@ import '../storage/app_preferences.dart';
 import '../theme/brand_theme.dart';
 import '../utils/json.dart';
 import '../utils/platform.dart';
+import 'live_activity_platform.dart';
+import 'live_activity_registrar.dart';
 import 'live_order.dart';
 import 'live_order_api.dart';
 import 'live_order_platform.dart';
@@ -32,6 +34,10 @@ typedef LiveOrderBrand = ({Color primary, Color accent});
 /// needs no Firebase at all. A state replaces the last one only when it is newer (version, then time, never backwards),
 /// is drawn by the native renderer (or the plain progress notification where there is none) and is forgotten when the
 /// order ends. Polling stops when no order is active.
+///
+/// On an iPhone the order is also a Live Activity (lock screen and Dynamic Island): the same state is handed to
+/// [activity], which starts, updates and ends it, and [activityTokens] reports Apple's tokens to the server (for the
+/// signed-in customer only) so the server can keep the activity moving while the app is closed.
 class LiveOrderController {
   LiveOrderController({
     required this.platform,
@@ -39,6 +45,8 @@ class LiveOrderController {
     required this.prefs,
     required this.localeCode,
     this.fallback,
+    this.activity,
+    this.activityTokens,
     this.brand,
     this.arabicDigits = false,
     this.resyncInterval = const Duration(seconds: 60),
@@ -55,6 +63,12 @@ class LiveOrderController {
 
   /// Draws the plain progress notification when the platform has no native renderer.
   final LocalNotifier? fallback;
+
+  /// The iPhone Live Activity of the order; null (or "unavailable") where there is none.
+  final LiveActivityPlatform? activity;
+
+  /// Reports the Live Activity tokens to the server while somebody is signed in.
+  final LiveActivityRegistrar? activityTokens;
 
   /// The look chosen in the dashboard; the card is tinted with it.
   final LiveOrderBrand? Function()? brand;
@@ -113,6 +127,7 @@ class LiveOrderController {
       ..clear()
       ..addAll(prefs.liveOrders);
     _updateTimer();
+    activityTokens?.onSignedIn();
     unawaited(resync(force: true));
   }
 
@@ -130,6 +145,9 @@ class LiveOrderController {
       _tracked.clear();
       await prefs.setLiveOrders(const {});
       await platform.cancelAll();
+      // Nothing of this customer stays on an iPhone lock screen, and the server forgets this phone's tokens.
+      await _safely(() async => activity?.endAll());
+      await _safely(() async => activityTokens?.onSignedOut());
     });
   }
 
@@ -139,11 +157,15 @@ class LiveOrderController {
     _events = events?.listen(_onEvent, onError: (Object _) {});
   }
 
-  void onResumed() => unawaited(resync());
+  void onResumed() {
+    unawaited(resync());
+    unawaited(activityTokens?.flush());
+  }
 
   void onOnline() {
     _online = true;
     unawaited(resync(force: true));
+    unawaited(activityTokens?.flush());
   }
 
   void onOffline() => _online = false;
@@ -153,6 +175,8 @@ class LiveOrderController {
     for (final o in active) {
       await _render(o, force: true);
     }
+    // The server writes each Live Activity in the language its token was reported with.
+    unawaited(activityTokens?.onLocaleChanged());
   });
 
   /// Notification permission has just been granted: the cards that could not be drawn before are drawn now.
@@ -163,6 +187,7 @@ class LiveOrderController {
     _timer?.cancel();
     unawaited(_events?.cancel());
     _events = null;
+    unawaited(activityTokens?.dispose());
   }
 
   // ---- sources ------------------------------------------------------------------------------------------------------
@@ -330,6 +355,7 @@ class LiveOrderController {
     _tracked.remove(orderId);
     await prefs.setLiveOrders(Map.of(_tracked));
     await platform.cancel(orderId);
+    await _safely(() async => activity?.end(orderId));
     _updateTimer();
   }
 
@@ -356,14 +382,38 @@ class LiveOrderController {
   Future<void> _render(LiveOrder o, {bool force = false}) async {
     final shown = _present(o);
     final code = localeCode();
+    final texts = LiveOrderTexts.forLocale(code, arabicDigits: arabicDigits);
+    // The iPhone Live Activity first: when it carries the order, the plain notification below would only say the same thing twice.
+    final onLockScreen = await _showActivity(shown, code, texts.stage(shown));
     try {
       final result = await platform.show(shown, locale: code, force: force, arabicDigits: arabicDigits);
-      if (result == LiveOrderShowResult.unsupported) {
-        final texts = LiveOrderTexts.forLocale(code, arabicDigits: arabicDigits);
+      if (result == LiveOrderShowResult.unsupported && !onLockScreen) {
         await fallback?.showProgress(shown.toLegacyProgress(stageLabel: texts.stage(shown)));
       }
     } catch (e) {
       debugPrint('Live order notification failed: ${e.runtimeType}');
+    }
+  }
+
+  /// True when an iPhone Live Activity now shows (or has just shown, for a finished order) this order.
+  Future<bool> _showActivity(LiveOrder shown, String code, String stageLabel) async {
+    final platform = activity;
+    if (platform == null) return false;
+    try {
+      final result = await platform.show(shown, locale: code, stageLabel: stageLabel);
+      return result != LiveActivityResult.unavailable;
+    } catch (e) {
+      debugPrint('Live activity failed: ${e.runtimeType}');
+      return false;
+    }
+  }
+
+  /// A Live Activity problem must never reach the order flow.
+  Future<void> _safely(Future<void> Function() job) async {
+    try {
+      await job();
+    } catch (e) {
+      debugPrint('Live activity call failed: ${e.runtimeType}');
     }
   }
 
@@ -388,12 +438,30 @@ final liveOrderApiProvider = Provider<LiveOrderApi>(
   (ref) => RestLiveOrderApi(ref.watch(apiClientProvider), ref.watch(orderRepositoryProvider)),
 );
 
+/// The iPhone Live Activity (lock screen and Dynamic Island). Answers "unavailable" everywhere but an iPhone whose build has the widget.
+final liveActivityPlatformProvider = Provider<LiveActivityPlatform>((ref) => MethodChannelLiveActivityPlatform());
+
+final liveActivityApiProvider = Provider<LiveActivityApi>((ref) => RestLiveActivityApi(ref.watch(apiClientProvider)));
+
+final liveActivityRegistrarProvider = Provider<LiveActivityRegistrar>((ref) {
+  final registrar = LiveActivityRegistrar(
+    platform: ref.watch(liveActivityPlatformProvider),
+    api: ref.watch(liveActivityApiProvider),
+    prefs: ref.watch(appPreferencesProvider),
+    localeCode: () => ref.read(localeCodeProvider),
+  );
+  ref.onDispose(registrar.dispose);
+  return registrar;
+});
+
 final liveOrderControllerProvider = Provider<LiveOrderController>((ref) {
   final controller = LiveOrderController(
     platform: ref.watch(liveOrderPlatformProvider),
     api: ref.watch(liveOrderApiProvider),
     prefs: ref.watch(appPreferencesProvider),
     fallback: ref.watch(localNotifierProvider),
+    activity: ref.watch(liveActivityPlatformProvider),
+    activityTokens: ref.watch(liveActivityRegistrarProvider),
     localeCode: () => ref.read(localeCodeProvider),
     brand: () {
       final b = ref.read(brandThemeProvider);

@@ -1,78 +1,78 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Live order notification, expanded content: brand tile, headline, status line, the four-stage segmented progress bar
-    (drawn by LiveOrderBarRenderer) and an optional driver line. Actions ("Track order", "Call driver") are system
-    action buttons, which guarantees 48dp touch targets. Only classes that RemoteViews may inflate.
+    Live order notification, expanded content: headline, status line, the four-stage segmented progress bar (drawn by
+    LiveOrderBarRenderer) and, once a driver is on the job, a driver chip. The actions ("Track order", "Call driver")
+    are system action buttons, which guarantees 48 dp touch targets. No logo: the system header carries the one brand
+    mark (small icon + app name). Spacing is on a 4 dp grid. Only classes that RemoteViews may inflate.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/live_root"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:paddingTop="2dp"
     android:paddingBottom="4dp">
 
-    <LinearLayout
+    <TextView
+        android:id="@+id/live_headline"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:ellipsize="end"
+        android:maxLines="2"
+        android:textAlignment="viewStart"
+        android:textColor="?android:attr/textColorPrimary"
+        android:textSize="16sp"
+        android:textStyle="bold" />
 
-        <ImageView
-            android:id="@+id/live_logo"
-            android:layout_width="52dp"
-            android:layout_height="52dp"
-            android:layout_marginEnd="12dp"
-            android:importantForAccessibility="no"
-            android:scaleType="fitCenter" />
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/live_headline"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:maxLines="2"
-                android:textAlignment="viewStart"
-                android:textColor="?android:attr/textColorPrimary"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/live_subtitle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:ellipsize="end"
-                android:maxLines="2"
-                android:textAlignment="viewStart"
-                android:textColor="?android:attr/textColorSecondary"
-                android:textSize="14sp" />
-        </LinearLayout>
-    </LinearLayout>
+    <TextView
+        android:id="@+id/live_subtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:ellipsize="end"
+        android:maxLines="2"
+        android:textAlignment="viewStart"
+        android:textColor="?android:attr/textColorSecondary"
+        android:textSize="14sp" />
 
     <ImageView
         android:id="@+id/live_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="14dp"
+        android:layout_marginTop="12dp"
         android:adjustViewBounds="true"
         android:scaleType="fitCenter" />
 
-    <TextView
-        android:id="@+id/live_detail"
-        android:layout_width="match_parent"
+    <LinearLayout
+        android:id="@+id/live_driver_chip"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:textAlignment="viewStart"
-        android:textColor="?android:attr/textColorSecondary"
-        android:textSize="12sp"
-        android:visibility="gone" />
+        android:layout_marginTop="12dp"
+        android:background="@drawable/live_chip_bg"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="8dp"
+        android:paddingTop="4dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="4dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_marginEnd="4dp"
+            android:importantForAccessibility="no"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_live_scooter"
+            android:tint="?android:attr/textColorSecondary" />
+
+        <TextView
+            android:id="@+id/live_driver"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textAlignment="viewStart"
+            android:textColor="?android:attr/textColorSecondary"
+            android:textSize="12sp" />
+    </LinearLayout>
 </LinearLayout>

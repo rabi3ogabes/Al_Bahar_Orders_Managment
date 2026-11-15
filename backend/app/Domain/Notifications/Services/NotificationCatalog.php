@@ -17,6 +17,8 @@ final class NotificationCatalog
         'order.out_for_delivery' => ['transactional', ['push', 'in_app', 'sms']],
         'order.completed' => ['transactional', ['push', 'in_app']],
         'order.cancelled' => ['transactional', ['push', 'in_app', 'email']],
+        // The branch changed what is in the order (an item was short): not a live-card event, so the customer always hears it as a push too.
+        'order.items_changed' => ['transactional', ['push', 'in_app']],
         'payment.link' => ['transactional', ['push', 'in_app']],
         'payment.succeeded' => ['transactional', ['push', 'in_app']],
         'payment.failed' => ['transactional', ['push', 'in_app']],

@@ -93,6 +93,40 @@ data class LiveOrder(
     fun snapshot() = LiveSnapshot(seq, updatedMs, phase, step, signature)
 
     /**
+     * The state in the keys [fromMap] reads (milliseconds for the times), so it can be kept in the store and drawn again
+     * later (the countdown that has run out) without asking Dart or the server.
+     */
+    fun toMap(): Map<String, Any?> = mapOf(
+        "kind" to "order_progress",
+        "order_id" to orderId,
+        "number" to number,
+        "type" to if (pickup) "pickup" else "delivery",
+        "phase" to phase.wire,
+        "step" to step,
+        "total" to STAGES,
+        "sub" to sub,
+        "title" to title,
+        "body" to body,
+        "eta_label" to etaLabel,
+        "headline" to headline,
+        "subtitle" to subtitle,
+        "eta_from_ms" to etaFromMs,
+        "eta_to_ms" to etaToMs,
+        "eta_at_ms" to etaAtMs,
+        "driver_name" to driverName,
+        "driver_phone" to driverPhone,
+        "vehicle" to vehicle,
+        "seq" to seq,
+        "updated_at_ms" to updatedMs,
+        "deep_link" to deepLink,
+        "brand_primary" to brandPrimary,
+        "locale" to locale,
+        "arabic_digits" to arabicDigits,
+        "stage_labels" to stageLabels,
+        "progress_description" to progressDescription,
+    )
+
+    /**
      * True when this update should replace [prev]. Versioned updates (`seq`, then `updated_at`) are ordered by their
      * version; unversioned ones never move an order backwards and never reopen a finished one. A finished order stays
      * as it first finished: a re-read would only restamp its time.

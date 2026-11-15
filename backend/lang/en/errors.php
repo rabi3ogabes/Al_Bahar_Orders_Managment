@@ -145,4 +145,10 @@ return [
     'upsell_limit' => 'You can suggest up to :max products.',
     'upsell_invalid' => 'This product cannot be suggested.',
     'product_not_found' => 'We couldn\'t find this product. Try again or search by name.',
+    'adjustment_not_allowed' => 'Items can only be changed while the branch is accepting or preparing the order.',
+    'no_change' => 'That change is already in place: nothing to update.',
+    'quantity_exceeds' => 'The new quantity must be between 0 and the quantity now on the order.',
+    'duplicate_item' => 'Each item can appear only once in a change.',
+    'substitute_unavailable' => 'This item cannot be offered as a replacement: it is not in stock at this branch.',
+    'item_not_in_fulfillment' => 'This item is not part of this branch\'s order.',
 ];

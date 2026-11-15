@@ -13,7 +13,7 @@ class OrderItem extends Model
 
     protected $guarded = ['id'];
 
-    protected $casts = ['variant_attributes' => 'array', 'quantity' => 'integer', 'quantity_cancelled' => 'integer', 'quantity_returned' => 'integer', 'quantity_handed_over' => 'integer'];
+    protected $casts = ['variant_attributes' => 'array', 'quantity' => 'integer', 'quantity_cancelled' => 'integer', 'quantity_returned' => 'integer', 'quantity_handed_over' => 'integer', 'original_quantity' => 'integer'];
 
     /** @return BelongsTo<Order, $this> */
     public function order(): BelongsTo
@@ -31,6 +31,18 @@ class OrderItem extends Model
     public function variant(): BelongsTo
     {
         return $this->belongsTo(ProductVariant::class, 'product_variant_id');
+    }
+
+    /** @return BelongsTo<OrderItem, $this> the line this one replaced (order adjustments) */
+    public function replaces(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'replaces_order_item_id');
+    }
+
+    /** A line staff removed or swapped out while the order was prepared: it stays on the order at quantity 0 so the customer sees it struck through. */
+    public function isGone(): bool
+    {
+        return $this->quantity === 0;
     }
 
     public function activeQuantity(): int

@@ -49,4 +49,6 @@ return [
     'referral.friend_rewarded.body' => 'Thanks for your first order. Your reward: {{reward}}',
     'campaign.title' => '{{title}}',
     'campaign.body' => '{{body}}',
+    'order.items_changed.title' => 'Your order was updated',
+    'order.items_changed.body' => 'Order {{order_number}} was updated: {{changes}}. Reason: {{reason}}.{{outcome}}',
 ];

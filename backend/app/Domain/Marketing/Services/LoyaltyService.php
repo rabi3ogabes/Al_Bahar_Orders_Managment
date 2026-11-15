@@ -22,6 +22,9 @@ use Illuminate\Support\Facades\DB;
  */
 class LoyaltyService
 {
+    /** Reference type of the "adjust" rows that give redeemed points back on an adjusted order. */
+    public const RETURNED_ON_ORDER = 'order_points_returned';
+
     public function __construct(private readonly Settings $settings) {}
 
     public function enabled(): bool
@@ -137,6 +140,24 @@ class LoyaltyService
         });
     }
 
+    /**
+     * Hand back redeemed points an adjusted (smaller) order can no longer absorb. Recorded against the order so a later cancellation
+     * returns only what is still redeemed on it (see reverseForOrder). Returns the points actually credited.
+     */
+    public function returnRedeemed(User $user, int $points, string $orderId, string $reason = 'Order items changed'): int
+    {
+        if ($points <= 0) {
+            return 0;
+        }
+
+        return DB::transaction(function () use ($user, $points, $orderId, $reason) {
+            $account = LoyaltyAccount::whereKey($this->account($user)->id)->lockForUpdate()->first();
+            $this->write($account, 'adjust', $points, $orderId, $reason, now()->addDays(90), $points, self::RETURNED_ON_ORDER, $orderId);
+
+            return $points;
+        });
+    }
+
     /** Return redeemed points and claw back earned points for an order (idempotent). */
     public function reverseForOrder(User $user, string $orderId, string $reason = 'Order cancelled/refunded'): void
     {
@@ -145,7 +166,9 @@ class LoyaltyService
             if (LoyaltyTransaction::where('order_id', $orderId)->where('type', 'reverse')->exists()) {
                 return;
             }
-            $redeemed = (int) -LoyaltyTransaction::where('order_id', $orderId)->where('type', 'redeem')->sum('points');
+            // Points an item adjustment already handed back are not returned twice.
+            $handedBack = (int) LoyaltyTransaction::where('order_id', $orderId)->where('type', 'adjust')->where('reference_type', self::RETURNED_ON_ORDER)->sum('points');
+            $redeemed = max(0, (int) -LoyaltyTransaction::where('order_id', $orderId)->where('type', 'redeem')->sum('points') - $handedBack);
             $earned = (int) LoyaltyTransaction::where('order_id', $orderId)->where('type', 'earn')->sum('points');
             $delta = $redeemed - min($earned, $account->balance + $redeemed);
             if ($delta === 0 && $redeemed === 0 && $earned === 0) {

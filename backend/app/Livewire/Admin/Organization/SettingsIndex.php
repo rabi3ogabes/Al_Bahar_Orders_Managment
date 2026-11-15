@@ -78,6 +78,7 @@ class SettingsIndex extends Component
                 'checkout.cart_ttl_days' => ['type' => 'int', 'rules' => $int(1, 365), 'suffix' => 'days'],
                 'checkout.show_split_shipment' => ['type' => 'bool', 'rules' => ['boolean']],
                 'returns.enabled' => ['type' => 'bool', 'rules' => ['boolean']],
+                'ops.status_style' => ['type' => 'select', 'rules' => ['required', 'in:buttons,slide'], 'options' => ['buttons', 'slide']],
                 'payments.online_payment_window_minutes' => ['type' => 'int', 'rules' => $int(5, 1440), 'suffix' => 'min'],
                 'pickup.token_ttl_hours' => ['type' => 'int', 'rules' => $int(1, 720), 'suffix' => 'hours'],
                 'orders.default_prep_minutes' => ['type' => 'int', 'rules' => $int(1, 240), 'suffix' => 'min'],

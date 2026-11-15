@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
-import android.graphics.Path
 import android.graphics.RectF
 import qa.albahar.customer.R
 import kotlin.math.max
@@ -13,9 +12,12 @@ import kotlin.math.roundToInt
 
 /**
  * Draws the pictures of the notification: the four-stage segmented progress bar (check, store, scooter or bag, pin),
- * a slim version of it for the collapsed card, and the rounded brand tile. A RemoteViews layout cannot size a view by
- * a fraction or tint a shape per call, so the bar is one bitmap, drawn at the density of the phone (capped, because the
- * whole notification must stay well under the 1 MB binder limit).
+ * a slim version of it for the collapsed card, and the current-stage badge for the Android 16 progress style. There is
+ * deliberately no logo here: the system header already shows the small brand icon and the app name, and a second brand
+ * mark inside the card made the notification look as if it carried two logos.
+ *
+ * A RemoteViews layout cannot size a view by a fraction or tint a shape per call, so the bar is one bitmap, drawn at
+ * the density of the phone (capped, because the whole notification must stay well under the 1 MB binder limit).
  */
 internal object LiveOrderBarRenderer {
     private const val MAX_SCALE = 2.75f
@@ -24,10 +26,17 @@ internal object LiveOrderBarRenderer {
     private const val ICON_DP = 24f
     private const val SEGMENT_DP = 4f
     private const val GAP_DP = 6f
-    private const val COMPACT_HEIGHT_DP = 6f
+    private const val COMPACT_HEIGHT_DP = 4f
     private const val COMPACT_GAP_DP = 4f
 
-    private var cachedTile: Pair<Int, Bitmap>? = null
+    /**
+     * The ring around the current stage. It needs 2 dp (gap + stroke) around the 24 dp circle: the bar is 28 dp high for
+     * that, and [EDGE_DP] keeps the first and last circle (and their ring) inside the bitmap sideways.
+     */
+    private const val RING_GAP_DP = 0.5f
+    private const val RING_STROKE_DP = 1.5f
+    private const val RING_ALPHA = 0x59
+    private const val EDGE_DP = 2f
 
     private fun scale(context: Context): Float = min(context.resources.displayMetrics.density, MAX_SCALE)
 
@@ -47,11 +56,12 @@ internal object LiveOrderBarRenderer {
         val d = ICON_DP * s
         val t = SEGMENT_DP * s
         val gap = GAP_DP * s
-        val seg = max((w - 4 * d - 6 * gap) / 3f, t * 2)
+        val edge = EDGE_DP * s
+        val seg = max((w - 2 * edge - 4 * d - 6 * gap) / 3f, t * 2)
         val cy = h / 2f
         val pitch = d + 2 * gap + seg
-        // Left edge of a shape of width [width] that starts [x] from the leading edge.
-        fun place(x: Float, width: Float) = if (rtl) w - x - width else x
+        // Left edge of a shape of width [width] that starts [x] from the leading edge (inside the [edge] margin).
+        fun place(x: Float, width: Float) = if (rtl) w - edge - x - width else edge + x
 
         val trackPaint = paint(colors.track)
         val fillPaint = paint(colors.fill)
@@ -87,31 +97,12 @@ internal object LiveOrderBarRenderer {
         return bitmap
     }
 
-    /** The app icon in a rounded square (the brand logo tile of the reference design). */
-    @Synchronized
-    fun logoTile(context: Context, sizeDp: Float): Bitmap {
-        val px = (sizeDp * scale(context)).roundToInt()
-        cachedTile?.let { if (it.first == px) return it.second }
+    /** One stage as a round badge on a transparent square: the tracker icon of the Android 16 progress style. */
+    fun stageBadge(context: Context, order: LiveOrder, colors: LiveOrderColors.Palette, sizeDp: Float, rtl: Boolean): Bitmap {
+        val px = (sizeDp * scale(context)).roundToInt().coerceAtLeast(1)
         val bitmap = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        val radius = px * 0.22f
-        val rect = RectF(0f, 0f, px.toFloat(), px.toFloat())
-        val clip = Path().apply { addRoundRect(rect, radius, radius, Path.Direction.CW) }
-        canvas.save()
-        canvas.clipPath(clip)
-        canvas.drawColor(0xFFFFFFFF.toInt())
-        try {
-            val icon = context.packageManager.getApplicationIcon(context.applicationInfo)
-            icon.setBounds(0, 0, px, px)
-            icon.draw(canvas)
-        } catch (_: Exception) {
-            // No icon to draw: the plain tile still reads as a logo slot.
-        }
-        canvas.restore()
-        val inset = px * 0.005f
-        val border = paint(0x1F000000, Paint.Style.STROKE).apply { strokeWidth = max(1f, px * 0.01f) }
-        canvas.drawRoundRect(RectF(inset, inset, px - inset, px - inset), radius, radius, border)
-        cachedTile = px to bitmap
+        val half = px / 2f
+        drawStage(context, Canvas(bitmap), order, colors, order.step, half, half, px.toFloat(), rtl, ring = false)
         return bitmap
     }
 
@@ -148,6 +139,7 @@ internal object LiveOrderBarRenderer {
         cy: Float,
         diameter: Float,
         rtl: Boolean,
+        ring: Boolean = true,
     ) {
         val done = order.isFinal && !order.isStopped || index < order.step
         val current = index == order.step && !done
@@ -158,6 +150,15 @@ internal object LiveOrderBarRenderer {
                 glyph(context, canvas, R.drawable.ic_live_check, cx, cy, diameter * 0.62f, colors.onFill, false)
             }
             current -> {
+                // A soft ring marks where the order is now (not for a stopped order: grey says enough).
+                if (ring && !order.isStopped) {
+                    val r = diameter / 2 + RING_GAP_DP * scale(context) + RING_STROKE_DP * scale(context) / 2
+                    val ringPaint = paint(colors.fill, Paint.Style.STROKE).apply {
+                        strokeWidth = RING_STROKE_DP * scale(context)
+                        alpha = RING_ALPHA
+                    }
+                    canvas.drawCircle(cx, cy, r, ringPaint)
+                }
                 canvas.drawCircle(cx, cy, diameter / 2, circlePaint)
                 val icon = if (order.isStopped) R.drawable.ic_live_close else stageGlyph(index, order.pickup)
                 // The scooter faces the way the order travels, which is leftwards in a right-to-left layout.

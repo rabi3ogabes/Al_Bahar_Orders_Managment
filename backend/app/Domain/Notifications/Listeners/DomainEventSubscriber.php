@@ -74,7 +74,9 @@ class DomainEventSubscriber
             }
             if (in_array($e->to, ['completed', 'partially_cancelled'], true)) {
                 // Loyalty: earn on the net amount actually paid for goods (excluding delivery), once per order.
-                $net = Money::of($order->paid_total ?: $order->grand_total)->minus(Money::of($order->refunded_total))->minus(Money::of($order->delivery_fee_total));
+                // Never more than the order's current total: an item adjustment lowers it before its refund is paid out.
+                $paid = Money::of($order->paid_total ?: $order->grand_total)->minus(Money::of($order->refunded_total));
+                $net = $paid->min(Money::of($order->grand_total))->minus(Money::of($order->delivery_fee_total));
                 app(LoyaltyService::class)->earnForOrder($order->user, $net, $order->id);
                 app(ReferralService::class)->qualify($order);
             }

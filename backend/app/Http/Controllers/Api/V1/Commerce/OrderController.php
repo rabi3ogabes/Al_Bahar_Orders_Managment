@@ -81,7 +81,8 @@ class OrderController extends ApiController
     {
         $order = $this->own($id)->load('items.variant.product');
         $skipped = [];
-        foreach ($order->items as $item) {
+        // Lines the branch removed or swapped out (quantity 0) are not part of what the customer received: a replacement is, and is added.
+        foreach ($order->items->where('quantity', '>', 0) as $item) {
             try {
                 if (! $item->variant) {
                     throw new DomainException('item_unavailable_simple');

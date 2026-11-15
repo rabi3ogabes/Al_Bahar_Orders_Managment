@@ -1,6 +1,7 @@
 package qa.albahar.customer.liveorder
 
 import android.content.Context
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -10,7 +11,14 @@ import org.json.JSONObject
 internal class LiveOrderStore(context: Context) {
     private val prefs = context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
 
-    data class Entry(val snapshot: LiveSnapshot, val dismissed: Boolean, val touchedMs: Long, val expiresMs: Long)
+    /** [payload] is the last drawn state as JSON (see [LiveOrderPayload]); null for an order the customer dismissed. */
+    data class Entry(
+        val snapshot: LiveSnapshot,
+        val dismissed: Boolean,
+        val touchedMs: Long,
+        val expiresMs: Long,
+        val payload: String? = null,
+    )
 
     fun get(orderId: String): Entry? {
         val raw = prefs.getString(KEY + orderId, null) ?: return null
@@ -22,6 +30,7 @@ internal class LiveOrderStore(context: Context) {
                 dismissed = json.optBoolean("dismissed", false),
                 touchedMs = json.optLong("touched", 0L),
                 expiresMs = json.optLong("expires", 0L),
+                payload = json.optString("payload", "").ifEmpty { null },
             )
         } catch (_: Exception) {
             null
@@ -43,17 +52,21 @@ internal class LiveOrderStore(context: Context) {
             .put("dismissed", entry.dismissed)
             .put("touched", entry.touchedMs)
             .put("expires", entry.expiresMs)
+            .put("payload", entry.payload ?: "")
             .toString()
     }
 
     fun markDismissed(orderId: String, now: Long) {
         val entry = get(orderId) ?: return
-        put(orderId, entry.copy(dismissed = true, touchedMs = now, expiresMs = 0L))
+        put(orderId, entry.copy(dismissed = true, touchedMs = now, expiresMs = 0L, payload = null))
     }
 
     fun remove(orderId: String) {
         prefs.edit().remove(KEY + orderId).apply()
     }
+
+    /** The ids of every order remembered here. */
+    fun ids(): List<String> = prefs.all.keys.filter { it.startsWith(KEY) }.map { it.removePrefix(KEY) }
 
     /** Forgets every order (sign-out); the "permission asked" flag belongs to the device and stays. */
     fun clear() {
@@ -95,5 +108,33 @@ internal class LiveOrderStore(context: Context) {
         const val KEY = "order."
         const val PERMISSION_ASKED = "permission_asked"
         const val KEEP_MS = 48L * 60 * 60 * 1000
+    }
+}
+
+/**
+ * The last drawn state of an order as JSON, kept in the store so a card can be drawn again later (the countdown that has
+ * run out) without asking Dart or the server. Only the keys [LiveOrder.fromMap] reads; nothing else is kept.
+ */
+internal object LiveOrderPayload {
+    fun encode(order: LiveOrder): String = JSONObject(order.toMap()).toString()
+
+    /** The order kept in [payload], or null when there is none or it cannot be read. */
+    fun decode(payload: String?): LiveOrder? {
+        if (payload.isNullOrEmpty()) return null
+        return try {
+            val json = JSONObject(payload)
+            val map = HashMap<String, Any?>()
+            for (key in json.keys()) {
+                val value = json.opt(key)
+                map[key] = when {
+                    value === JSONObject.NULL -> null
+                    value is JSONArray -> (0 until value.length()).mapNotNull { value.opt(it)?.toString() }
+                    else -> value
+                }
+            }
+            LiveOrder.fromMap(map)
+        } catch (_: Exception) {
+            null
+        }
     }
 }

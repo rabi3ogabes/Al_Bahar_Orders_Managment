@@ -1,5 +1,6 @@
 package qa.albahar.customer.liveorder
 
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -19,14 +20,22 @@ import qa.albahar.customer.R
 import kotlin.math.min
 
 /**
- * One live notification per order, updated in place for the whole order: brand tile, headline ("Arrives at ..."),
- * status line and the four-stage progress bar, inside the system's decorated notification so the shade theme, header and
- * action buttons stay native. No foreground service: the card is posted when something changes and the system keeps it.
+ * One live notification per order, updated in place for the whole order: headline ("Arrives at ..."), status line, the
+ * four-stage progress bar and, once a driver is on the job, a driver chip, inside the system's decorated notification so
+ * the shade theme, the header (the one brand mark: small icon and app name) and the action buttons stay native. On Android
+ * 16 (API 36) the platform's own progress style is used instead, promoted to a status-bar chip and a rich lock-screen card
+ * ([LiveOrderPromoted]); older Android keeps the custom card. No foreground service: the card is posted when something
+ * changes and the system keeps it.
  *
  *  - ongoing while the order is active, a normal swipeable card once it is delivered, collected, cancelled or failed;
- *  - loud only the first time (heads-up), silent afterwards; a card the customer swiped away is not brought back;
+ *  - on the lock screen: the full card when the phone shows everything, else a public version with only the stage and the
+ *    arrival time (no driver, no phone number, no address: the card never carries an address);
+ *  - alerts (heads-up, sound per the channel) when the card first appears and when the order moves to another stage,
+ *    silent for everything else (bar movement, a shifted window, the countdown); a card the customer swiped away is not
+ *    brought back;
  *  - two or more active orders are grouped under one summary;
- *  - times out by itself: 30 minutes after the end of the order, 12 hours as a safety net for an active one.
+ *  - times out by itself: 30 minutes after the end of the order, 12 hours as a safety net for an active one; the countdown
+ *    in the header is replaced by the plain time as soon as it reaches zero, so it never counts below zero.
  */
 internal object LiveOrderNotifier {
     const val CHANNEL_ID = "albahar_order_live"
@@ -39,8 +48,11 @@ internal object LiveOrderNotifier {
     private const val ACTIVE_TIMEOUT_MS = 12L * 60 * 60 * 1000
     private const val FINAL_TIMEOUT_MS = 30L * 60 * 1000
     private const val SUMMARY_TIMEOUT_MS = 6L * 60 * 60 * 1000
-    private const val LOGO_DP = 56f
     private const val MAX_FONT_SCALE_FOR_COMPACT_BAR = 1.15f
+
+    /** The countdown is redrawn this long after it reaches zero (an inexact alarm may fire a little later still). */
+    private const val COUNTDOWN_GRACE_MS = 1_500L
+    private const val COUNTDOWN_ACTION = "qa.albahar.customer.LIVE_ORDER_COUNTDOWN"
 
     enum class Outcome(val wire: String) {
         /** Drawn or updated. */
@@ -74,13 +86,16 @@ internal object LiveOrderNotifier {
         if (!LiveOrderPermissions.areEnabled(app)) return Outcome.DISABLED
         // A re-read that says what the card already says only moves the version on (so older updates stay refused).
         if (prev != null && !order.force && order.signature == prev.snapshot.signature && isShowing(nm, order.orderId)) {
-            store.put(order.orderId, prev.copy(snapshot = order.snapshot(), touchedMs = now))
+            store.put(order.orderId, prev.copy(snapshot = order.snapshot(), touchedMs = now, payload = LiveOrderPayload.encode(order)))
             return Outcome.SKIPPED
         }
 
+        // Alert when the card appears and when the order moves to another stage; everything else changes quietly.
+        val alert = prev == null || prev.snapshot.phase != order.phase || !isShowing(nm, order.orderId)
         val expires = now + if (order.isFinal) FINAL_TIMEOUT_MS else ACTIVE_TIMEOUT_MS
-        nm.notify(TAG, notificationId(order.orderId), build(app, order, now, expires))
-        store.put(order.orderId, LiveOrderStore.Entry(order.snapshot(), false, now, expires))
+        nm.notify(TAG, notificationId(order.orderId), build(app, order, now, expires, alert))
+        store.put(order.orderId, LiveOrderStore.Entry(order.snapshot(), false, now, expires, LiveOrderPayload.encode(order)))
+        scheduleCountdownEnd(app, order, now)
         syncSummary(app, nm)
         return Outcome.POSTED
     }
@@ -90,6 +105,7 @@ internal object LiveOrderNotifier {
         val app = context.applicationContext
         val nm = manager(app)
         nm.cancel(TAG, notificationId(orderId))
+        cancelCountdownEnd(app, orderId)
         LiveOrderStore(app).remove(orderId)
         syncSummary(app, nm)
     }
@@ -104,7 +120,9 @@ internal object LiveOrderNotifier {
             Log.w(LOG_TAG, "Could not list notifications", e)
         }
         nm.cancel(TAG, SUMMARY_ID)
-        LiveOrderStore(app).clear()
+        val store = LiveOrderStore(app)
+        store.ids().forEach { cancelCountdownEnd(app, it) }
+        store.clear()
     }
 
     /** The customer swiped the card away: remember it and stop bringing it back. */
@@ -112,7 +130,60 @@ internal object LiveOrderNotifier {
     fun onDismissed(context: Context, orderId: String) {
         val app = context.applicationContext
         LiveOrderStore(app).markDismissed(orderId, System.currentTimeMillis())
+        cancelCountdownEnd(app, orderId)
         syncSummary(app, manager(app))
+    }
+
+    /**
+     * The driver's expected arrival has passed with no newer estimate: draw the card again without the countdown, so the
+     * header shows the plain time instead of a timer running below zero. Silent. Nothing to do when the card is gone,
+     * swiped away, finished, or has been given a later estimate in the meantime.
+     */
+    @Synchronized
+    fun onCountdownEnd(context: Context, orderId: String) {
+        val app = context.applicationContext
+        val store = LiveOrderStore(app)
+        val entry = store.get(orderId) ?: return
+        if (entry.dismissed) return
+        val order = LiveOrderPayload.decode(entry.payload) ?: return
+        val now = System.currentTimeMillis()
+        if (order.isFinal || order.etaAtMs <= 0L || order.etaAtMs > now) return
+        val nm = manager(app)
+        if (!isShowing(nm, orderId)) return
+        val calm = order.copy(etaAtMs = 0L)
+        val expires = entry.expiresMs.takeIf { it > now } ?: (now + ACTIVE_TIMEOUT_MS)
+        nm.notify(TAG, notificationId(orderId), build(app, calm, now, expires, alert = false))
+        store.put(orderId, entry.copy(payload = LiveOrderPayload.encode(calm)))
+    }
+
+    private fun scheduleCountdownEnd(context: Context, order: LiveOrder, now: Long) {
+        try {
+            val alarms = context.getSystemService(AlarmManager::class.java) ?: return
+            val pending = countdownIntent(context, order.orderId)
+            if (order.phase == LivePhase.ON_THE_WAY && !order.isFinal && order.etaAtMs > now) {
+                // Not exact and not waking: a second or two of delay is fine, and no special permission is needed.
+                alarms.set(AlarmManager.RTC, order.etaAtMs + COUNTDOWN_GRACE_MS, pending)
+            } else {
+                alarms.cancel(pending)
+            }
+        } catch (e: Exception) {
+            Log.w(LOG_TAG, "Could not schedule the end of the countdown", e)
+        }
+    }
+
+    private fun cancelCountdownEnd(context: Context, orderId: String) {
+        try {
+            context.getSystemService(AlarmManager::class.java)?.cancel(countdownIntent(context, orderId))
+        } catch (e: Exception) {
+            Log.w(LOG_TAG, "Could not cancel the end of the countdown", e)
+        }
+    }
+
+    private fun countdownIntent(context: Context, orderId: String): PendingIntent {
+        val intent = Intent(context, LiveOrderCountdownReceiver::class.java)
+            .setAction(COUNTDOWN_ACTION)
+            .putExtra(EXTRA_ORDER_ID, orderId)
+        return PendingIntent.getBroadcast(context, notificationId(orderId), intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
 
     private fun isShowing(nm: NotificationManager, orderId: String): Boolean = try {
@@ -149,58 +220,27 @@ internal object LiveOrderNotifier {
             Notification.Builder(context).setPriority(Notification.PRIORITY_HIGH).setDefaults(Notification.DEFAULT_ALL)
         }
 
-    private fun build(context: Context, order: LiveOrder, now: Long, expires: Long): Notification {
+    /**
+     * The notification for [order]. [alert] lets this post make a sound / heads-up (the first card and a new stage);
+     * every other update is silent.
+     */
+    private fun build(context: Context, order: LiveOrder, now: Long, expires: Long, alert: Boolean): Notification {
         val texts = LiveOrderText.forOrder(context, order)
         val rtl = texts.isRtl
         val brand = brandColor(context, order)
         val palette = LiveOrderColors.palette(brand, order.isStopped, isNight(context))
-        val widthDp = barWidthDp(context)
         val headline = texts.headline(order, now)
         val subtitle = texts.subtitle(order)
-        val description = texts.progressDescription(order)
-        val logo = LiveOrderBarRenderer.logoTile(context, LOGO_DP)
         val id = notificationId(order.orderId)
         val open = viewIntent(context, deepLink(order), id)
 
-        val expanded = RemoteViews(context.packageName, R.layout.live_order_expanded).apply {
-            setImageViewBitmap(R.id.live_logo, logo)
-            setTextViewText(R.id.live_headline, headline)
-            setTextViewText(R.id.live_subtitle, subtitle)
-            setImageViewBitmap(R.id.live_bar, LiveOrderBarRenderer.bar(context, order, palette, widthDp, rtl))
-            setContentDescription(R.id.live_bar, description)
-            val detail = texts.detail(order)
-            if (detail != null) {
-                setTextViewText(R.id.live_detail, detail)
-                setViewVisibility(R.id.live_detail, View.VISIBLE)
-            }
-            if (rtl) setInt(R.id.live_root, "setLayoutDirection", View.LAYOUT_DIRECTION_RTL)
-        }
-        val collapsed = RemoteViews(context.packageName, R.layout.live_order_collapsed).apply {
-            setImageViewBitmap(R.id.live_logo, logo)
-            setTextViewText(R.id.live_headline, headline)
-            setTextViewText(R.id.live_subtitle, subtitle)
-            // The collapsed card is at most 48dp tall: with very large text there is no room left for the slim bar.
-            if (context.resources.configuration.fontScale <= MAX_FONT_SCALE_FOR_COMPACT_BAR) {
-                setImageViewBitmap(R.id.live_bar_compact, LiveOrderBarRenderer.compactBar(context, order, palette, widthDp, rtl))
-                setContentDescription(R.id.live_bar_compact, description)
-            } else {
-                setViewVisibility(R.id.live_bar_compact, View.GONE)
-            }
-            if (rtl) setInt(R.id.live_root, "setLayoutDirection", View.LAYOUT_DIRECTION_RTL)
-        }
-
         val builder = newBuilder(context)
-            .setSmallIcon(R.drawable.ic_stat_notify)
+            .setSmallIcon(R.drawable.ic_stat_notify) // the one brand mark: the system header draws it (tinted) next to the app name
             .setColor(brand)
             .setContentTitle(headline)
             .setContentText(subtitle)
-            .setStyle(Notification.DecoratedCustomViewStyle())
-            .setCustomContentView(collapsed)
-            .setCustomBigContentView(expanded)
-            .setCustomHeadsUpContentView(collapsed)
             .setCategory(if (order.isFinal) Notification.CATEGORY_STATUS else Notification.CATEGORY_PROGRESS)
-            .setVisibility(Notification.VISIBILITY_PUBLIC)
-            .setOnlyAlertOnce(true)
+            .setOnlyAlertOnce(!alert)
             .setOngoing(!order.isFinal)
             .setAutoCancel(order.isFinal)
             .setShowWhen(true)
@@ -212,18 +252,116 @@ internal object LiveOrderNotifier {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) builder.setTimeoutAfter(expires - now)
         countdown(builder, order, now)
 
+        // Lock screen. A finished order has nothing private in it. An active one is "private": a phone that hides
+        // sensitive content shows the public version (stage and arrival time only) instead of the driver and the status
+        // line, which can name him.
+        if (order.isFinal) {
+            builder.setVisibility(Notification.VISIBILITY_PUBLIC)
+        } else {
+            builder.setVisibility(Notification.VISIBILITY_PRIVATE).setPublicVersion(publicVersion(context, order, texts, palette, brand, headline))
+        }
+
         val phone = order.driverPhone?.filter { it.isDigit() || it == '+' }?.takeIf { it.length in 5..20 }
-        if (order.phase == LivePhase.ON_THE_WAY && phone != null) {
+        if (!order.isFinal && phone != null) {
             val dial = Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", phone, null))
             val call = PendingIntent.getActivity(context, id, dial, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
             builder.addAction(action(context, texts.callDriverLabel(), call))
         }
+
+        // Android 16: the platform's progress style, promoted by the system. Anything it cannot do falls back to the card.
+        val promoted = Build.VERSION.SDK_INT >= LiveOrderPromoted.MIN_SDK &&
+            LiveOrderPromoted.apply(context, builder, order, texts, palette, rtl, now)
+        if (!promoted) applyCard(context, builder, order, texts, palette, rtl, headline, subtitle)
         return builder.build()
+    }
+
+    /** The custom card (Android 7 to 15): collapsed, heads-up and expanded content inside the decorated notification. */
+    private fun applyCard(
+        context: Context,
+        builder: Notification.Builder,
+        order: LiveOrder,
+        texts: LiveOrderText,
+        palette: LiveOrderColors.Palette,
+        rtl: Boolean,
+        headline: String,
+        subtitle: String,
+    ) {
+        val widthDp = barWidthDp(context)
+        val description = texts.progressDescription(order)
+        // The bars are drawn left to right or right to left, so the layout must follow the app's language, not the phone's.
+        val direction = if (rtl) View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
+
+        val expanded = RemoteViews(context.packageName, R.layout.live_order_expanded).apply {
+            setTextViewText(R.id.live_headline, headline)
+            setTextViewText(R.id.live_subtitle, subtitle)
+            setImageViewBitmap(R.id.live_bar, LiveOrderBarRenderer.bar(context, order, palette, widthDp, rtl))
+            setContentDescription(R.id.live_bar, description)
+            val driver = texts.detail(order)
+            if (driver != null) {
+                setTextViewText(R.id.live_driver, driver)
+                setViewVisibility(R.id.live_driver_chip, View.VISIBLE)
+            }
+            setInt(R.id.live_root, "setLayoutDirection", direction)
+        }
+        val collapsed = collapsedView(context, order, palette, headline, subtitle, rtl, widthDp, description)
+
+        builder
+            .setStyle(Notification.DecoratedCustomViewStyle())
+            .setCustomContentView(collapsed)
+            .setCustomBigContentView(expanded)
+            .setCustomHeadsUpContentView(collapsed)
+    }
+
+    private fun collapsedView(
+        context: Context,
+        order: LiveOrder,
+        palette: LiveOrderColors.Palette,
+        headline: String,
+        subtitle: String,
+        rtl: Boolean,
+        widthDp: Float,
+        description: String,
+    ): RemoteViews = RemoteViews(context.packageName, R.layout.live_order_collapsed).apply {
+        setTextViewText(R.id.live_headline, headline)
+        setTextViewText(R.id.live_subtitle, subtitle)
+        // The collapsed card is at most 48 dp tall: with very large text there is no room left for the slim bar.
+        if (context.resources.configuration.fontScale <= MAX_FONT_SCALE_FOR_COMPACT_BAR) {
+            setImageViewBitmap(R.id.live_bar_compact, LiveOrderBarRenderer.compactBar(context, order, palette, widthDp, rtl))
+            setContentDescription(R.id.live_bar_compact, description)
+        } else {
+            setViewVisibility(R.id.live_bar_compact, View.GONE)
+        }
+        setInt(R.id.live_root, "setLayoutDirection", if (rtl) View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR)
+    }
+
+    /** What a locked phone shows when it hides sensitive content: the arrival time, the stage and the bar, nothing more. */
+    private fun publicVersion(
+        context: Context,
+        order: LiveOrder,
+        texts: LiveOrderText,
+        palette: LiveOrderColors.Palette,
+        brand: Int,
+        headline: String,
+    ): Notification {
+        val subtitle = texts.publicSubtitle(order)
+        val collapsed = collapsedView(context, order, palette, headline, subtitle, texts.isRtl, barWidthDp(context), texts.progressDescription(order))
+        return newBuilder(context)
+            .setSmallIcon(R.drawable.ic_stat_notify)
+            .setColor(brand)
+            .setContentTitle(headline)
+            .setContentText(subtitle)
+            .setStyle(Notification.DecoratedCustomViewStyle())
+            .setCustomContentView(collapsed)
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setShowWhen(true)
+            .setWhen(order.updatedMs.takeIf { it > 0 } ?: System.currentTimeMillis())
+            .build()
     }
 
     /**
      * While the driver is on the road the card's header counts down to the expected arrival (mm:ss), ticking by itself
-     * every second with no push and no running service. A new estimate (a push or a re-read) moves the target.
+     * every second with no push and no running service. A new estimate (a push or a re-read) moves the target; when the
+     * target is reached [onCountdownEnd] draws the card again without it.
      */
     private fun countdown(builder: Notification.Builder, order: LiveOrder, now: Long) {
         if (order.phase != LivePhase.ON_THE_WAY || order.etaAtMs <= now || Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return

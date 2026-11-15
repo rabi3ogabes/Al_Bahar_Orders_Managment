@@ -5,8 +5,11 @@ import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/ops/ops_live.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_repository.dart';
+import 'package:albahar_customer/ops/ops_status_style.dart';
 import 'package:albahar_customer/ops/ops_strings.dart';
 import 'package:albahar_customer/ops/ops_widgets.dart';
+import 'package:albahar_customer/ops/slide_to_confirm.dart';
+import 'package:albahar_customer/ops/staff/adjust_flow.dart';
 import 'package:albahar_customer/ops/staff/fleet_map_tab.dart';
 import 'package:albahar_customer/ops/staff/staff_providers.dart';
 import 'package:flutter/material.dart';
@@ -98,7 +101,12 @@ class _OrderActionButtonsState extends ConsumerState<OrderActionButtons> {
     if (driver == null || !mounted) return;
     await _run(
       () => ref.read(opsRepositoryProvider).assign(widget.order.fulfillmentId, driver.id),
-      shown: (live) => live.applyOwn(widget.order.fulfillmentId, deliveryStatus: 'assigned', driverId: driver.id, driverName: driver.name),
+      shown: (live) => live.applyOwn(
+        widget.order.fulfillmentId,
+        deliveryStatus: 'assigned',
+        driverId: driver.id,
+        driverName: driver.name,
+      ),
     );
   }
 
@@ -118,6 +126,8 @@ class _OrderActionButtonsState extends ConsumerState<OrderActionButtons> {
     final showAssign = OrderActionButtons._canAssign(o, widget.canAssign);
     if (stepLabel == null && !showAssign && !showReturn) return const SizedBox.shrink();
     final gap = widget.inPanel ? 0.0 : AppSpace.sm;
+    // The dashboard chooses how a step is taken: a button, or "slide to confirm" (a step then cannot be taken by a stray tap).
+    final slide = ref.watch(opsStatusStyleProvider) == OpsStatusStyle.slide;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -134,7 +144,17 @@ class _OrderActionButtonsState extends ConsumerState<OrderActionButtons> {
           Gap(gap),
           Row(
             children: [
-              if (stepLabel != null)
+              if (stepLabel != null && slide)
+                Expanded(
+                  child: SlideToConfirm(
+                    key: ValueKey('slide-${o.fulfillmentId}-${o.status}'),
+                    label: t.slideStaffStep(step!),
+                    busyLabel: t.updating,
+                    loading: _busy,
+                    onConfirmed: () => _advance(step),
+                  ),
+                )
+              else if (stepLabel != null)
                 Expanded(
                   child: FilledButton(
                     onPressed: _busy ? null : () => _advance(step!),
@@ -199,15 +219,16 @@ Future<void> showOrderPanel(
                 inPanel: true,
               )
             : null,
-        child: _OrderDetails(order: current),
+        child: _OrderDetails(order: current, canEdit: canEdit),
       ),
     ),
   );
 }
 
 class _OrderDetails extends ConsumerWidget {
-  const _OrderDetails({required this.order});
+  const _OrderDetails({required this.order, required this.canEdit});
   final QueueOrder order;
+  final bool canEdit;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -300,6 +321,8 @@ class _OrderDetails extends ConsumerWidget {
           ],
         ),
         PanelItems(items: o.items, count: o.itemsCount),
+        // Something is short on the shelf: only while the branch is accepting or preparing the order, and only for those who may edit it.
+        if (canEdit && AdjustEntry.appliesTo(o)) AdjustEntry(order: o),
         PanelSection(
           title: t.orderSection,
           children: [
@@ -343,6 +366,65 @@ class _OrderDetails extends ConsumerWidget {
             ],
           ),
       ],
+    );
+  }
+}
+
+/// "Missing an item?" under the items of an order that is being accepted or prepared. The server decides whether the parcel can still
+/// be corrected (`can_adjust`): once it says no the button is gone. While that answer is on its way, or when it could not be read,
+/// the button is there and a tap asks again.
+class AdjustEntry extends ConsumerStatefulWidget {
+  const AdjustEntry({super.key, required this.order});
+  final QueueOrder order;
+
+  /// Only these two stages of a branch part can be corrected.
+  static bool appliesTo(QueueOrder o) => o.status == 'accepted' || o.status == 'preparing';
+
+  @override
+  ConsumerState<AdjustEntry> createState() => _AdjustEntryState();
+}
+
+class _AdjustEntryState extends ConsumerState<AdjustEntry> {
+  bool _busy = false;
+
+  Future<void> _open() async {
+    if (_busy) return;
+    final id = widget.order.fulfillmentId;
+    setState(() => _busy = true);
+    final provider = adjustContextProvider(id);
+    // An answer that could not be read is asked for again on this tap.
+    if (ref.read(provider).hasError) ref.invalidate(provider);
+    AdjustContext? data;
+    try {
+      data = await ref.read(provider.future);
+    } catch (e) {
+      if (mounted) showErrorSnack(context, e);
+    }
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (data == null) return;
+    if (!data.canAdjust) {
+      showInfoSnack(context, OpsStrings.of(context).adjustNotAllowed);
+      return;
+    }
+    final changed = await showAdjustFlow(context, order: widget.order, data: data);
+    if (changed == true && mounted) ref.invalidate(adjustContextProvider(id));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = OpsStrings.of(context);
+    final known = ref.watch(adjustContextProvider(widget.order.fulfillmentId));
+    if (known.value?.canAdjust == false) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpace.md),
+      child: OutlinedButton.icon(
+        onPressed: _busy ? null : _open,
+        icon: _busy
+            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+            : const Icon(Icons.remove_shopping_cart_outlined, size: 20),
+        label: Text(t.missingItem, maxLines: 1, overflow: TextOverflow.ellipsis),
+      ),
     );
   }
 }

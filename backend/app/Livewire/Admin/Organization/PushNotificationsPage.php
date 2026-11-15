@@ -4,7 +4,11 @@ namespace App\Livewire\Admin\Organization;
 
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Identity\Models\UserDevice;
+use App\Domain\Notifications\Models\LiveActivityToken;
 use App\Domain\Notifications\Models\NotificationLog;
+use App\Domain\Notifications\Services\ApnsClient;
+use App\Domain\Notifications\Services\ApnsConfig;
+use App\Domain\Notifications\Services\ApnsKey;
 use App\Domain\Notifications\Services\FcmClient;
 use App\Domain\Notifications\Services\FirebaseConfig;
 use App\Domain\Notifications\Services\ServiceAccountKey;
@@ -19,6 +23,8 @@ use Throwable;
  * Dashboard page for Firebase push: the master switch (acts at once), the setup checklist, the guided steps, the Firebase form with
  * the sealed server key, "Test connection", and the signed-in person's own browsers ("Enable on this browser" + a real test push).
  * Every value is saved through the Settings service (audited there); the server key is write-only and never sent back to the page.
+ * A separate section, "iPhone live activity", holds the Apple key (.p8, sealed the same way) that lets the server update the order on the
+ * lock screen and in the Dynamic Island, with its own switch, save and Test button (see ApnsConfig, ApnsClient).
  */
 class PushNotificationsPage extends Component
 {
@@ -61,6 +67,34 @@ class PushNotificationsPage extends Component
     /** @var array{ok: bool, code: string, detail: ?string}|null */
     public ?array $connection = null;
 
+    /** iPhone live activity (Apple push): the Team ID, Key ID, bundle ID and environment; the .p8 typed or uploaded in this visit; never shown again once saved. */
+    public bool $apnsEnabled = false;
+
+    public string $apnsTeamId = '';
+
+    public string $apnsKeyId = '';
+
+    public string $apnsBundleId = '';
+
+    public string $apnsEnvironment = 'auto';
+
+    public string $apnsKeyText = '';
+
+    public bool $replacingApnsKey = false;
+
+    public bool $confirmRemoveApnsKey = false;
+
+    /** @var array{ok: bool, code: string, detail: ?string}|null */
+    public ?array $apnsConnection = null;
+
+    /** setting key => form property of the iPhone live activity section */
+    private const APNS_FIELDS = [
+        ApnsConfig::TEAM_ID => 'apnsTeamId',
+        ApnsConfig::KEY_ID => 'apnsKeyId',
+        ApnsConfig::BUNDLE_ID => 'apnsBundleId',
+        ApnsConfig::ENVIRONMENT => 'apnsEnvironment',
+    ];
+
     /** @var list<array{label: string, outcome: string, detail: ?string}> */
     public array $testResults = [];
 
@@ -88,13 +122,46 @@ class PushNotificationsPage extends Component
         'appIdIosCustomer' => ['ios', 'customer'],
     ];
 
-    public function mount(Settings $settings, FirebaseConfig $config): void
+    public function mount(Settings $settings, FirebaseConfig $config, ApnsConfig $apns): void
     {
         abort_unless($this->canGlobally('settings.view'), 403);
         $this->enabled = $config->enabled();
         foreach (self::FIELDS as $key => $prop) {
             $this->{$prop} = (string) $settings->get($key);
         }
+        $this->apnsEnabled = $apns->enabled();
+        foreach (self::APNS_FIELDS as $key => $prop) {
+            $this->{$prop} = (string) $settings->get($key);
+        }
+        $this->apnsBundleId = $apns->bundleId();
+        $this->apnsEnvironment = $apns->environment();
+    }
+
+    /** @return array<string, list<string>> */
+    protected function apnsRules(): array
+    {
+        return [
+            'apnsTeamId' => ['nullable', 'regex:/^[A-Z0-9]{10}$/', 'required_with:apnsKeyId,apnsKeyText'],
+            'apnsKeyId' => ['nullable', 'regex:/^[A-Z0-9]{10}$/', 'required_with:apnsTeamId,apnsKeyText'],
+            'apnsBundleId' => ['required', 'regex:/^[A-Za-z0-9]+(\.[A-Za-z0-9-]+)+$/', 'max:155'],
+            'apnsEnvironment' => ['required', 'in:'.implode(',', ApnsConfig::ENVIRONMENTS)],
+            'apnsKeyText' => ['nullable', 'string', 'max:'.ApnsKey::MAX_BYTES],
+        ];
+    }
+
+    /** @return array<string, string> */
+    protected function apnsMessages(): array
+    {
+        $out = [];
+        foreach (['apnsTeamId' => 'team_id', 'apnsKeyId' => 'key_id', 'apnsBundleId' => 'bundle_id', 'apnsEnvironment' => 'environment'] as $prop => $lang) {
+            $out["$prop.regex"] = __('push_apns.err.'.$lang);
+            $out["$prop.in"] = __('push_apns.err.'.$lang);
+            $out["$prop.required"] = __('push_apns.err.'.$lang);
+            $out["$prop.required_with"] = __('push_apns.err.required');
+        }
+        $out['apnsKeyText.max'] = __('push_apns.key_error.too_large');
+
+        return $out;
     }
 
     /** @return array<string, list<string>> */
@@ -137,6 +204,17 @@ class PushNotificationsPage extends Component
     /** Shows a field's format problem as soon as the person leaves it (or pastes the file). */
     public function updated(string $name): void
     {
+        if (array_key_exists($name, $this->apnsRules())) {
+            if ($name !== 'apnsKeyText') {
+                $this->{$name} = trim($this->{$name});
+            }
+            $this->validateOnly($name, $this->apnsRules(), $this->apnsMessages());
+            if ($name === 'apnsKeyText' && trim($this->apnsKeyText) !== '') {
+                $this->checkApnsKeyFile();
+            }
+
+            return;
+        }
         if (! array_key_exists($name, $this->rules())) {
             return;
         }
@@ -304,6 +382,117 @@ class PushNotificationsPage extends Component
         $this->toast(__('push_admin.device_removed'));
     }
 
+    // ── iPhone live activity (Apple push) ────────────────────────────────────────────────────────────────────────────
+
+    /** The switch acts at once. It cannot be turned on before the Team ID, the Key ID and the key are saved. */
+    public function toggleApns(Settings $settings, ApnsConfig $apns): void
+    {
+        abort_unless($this->canGlobally('settings.edit'), 403);
+        $on = ! $this->apnsEnabled;
+        if ($on && ! $apns->hasCredentials()) {
+            $this->toast(__('push_apns.need_setup'), 'error');
+
+            return;
+        }
+        $settings->set(ApnsConfig::ENABLED, $on);
+        $this->apnsEnabled = $on;
+        app(AuditLogger::class)->log($on ? 'push.apns_switched_on' : 'push.apns_switched_off', 'push');
+        $this->toast($on ? __('push_apns.switched_on') : __('push_apns.switched_off'));
+    }
+
+    public function saveApns(Settings $settings, ApnsConfig $apns): void
+    {
+        abort_unless($this->canGlobally('settings.edit'), 403);
+        foreach (self::APNS_FIELDS as $prop) {
+            $this->{$prop} = trim($this->{$prop});
+        }
+        $this->validate($this->apnsRules(), $this->apnsMessages());
+
+        $newKey = null;
+        if (trim($this->apnsKeyText) !== '') {
+            $newKey = $this->checkApnsKeyFile();
+            if ($newKey === null) {
+                return;
+            }
+        }
+
+        $changed = 0;
+        foreach (self::APNS_FIELDS as $key => $prop) {
+            $value = $this->{$prop} === '' ? null : $this->{$prop};
+            // A bundle ID or environment left at its default is stored as typed, so the page and the server always agree.
+            if ((string) $settings->get($key) !== (string) $value) {
+                $settings->set($key, $value);
+                $changed++;
+            }
+        }
+        if ($newKey !== null) {
+            $settings->set(ApnsConfig::PRIVATE_KEY, $newKey, secret: true);
+            app(AuditLogger::class)->log('push.apns_key_replaced', 'push', [], [], ['key_id' => $this->apnsKeyId !== '' ? $this->apnsKeyId : $apns->keyId()]);
+            $changed++;
+        }
+        $this->reset('apnsKeyText', 'replacingApnsKey');
+        $this->apnsConnection = null;
+        $this->toast($changed ? __('push_apns.saved') : __('push_apns.unchanged'));
+    }
+
+    public function removeApnsKey(Settings $settings, ApnsConfig $apns): void
+    {
+        abort_unless($this->canGlobally('settings.edit'), 403);
+        $this->confirmRemoveApnsKey = false;
+        if ($apns->privateKey() === null) {
+            return;
+        }
+        $settings->set(ApnsConfig::PRIVATE_KEY, null, secret: true);
+        if ($apns->enabled()) { // nothing can be sent without the key: the switch goes off with it
+            $settings->set(ApnsConfig::ENABLED, false);
+            $this->apnsEnabled = false;
+        }
+        app(AuditLogger::class)->log('push.apns_key_removed', 'push', [], [], ['key_id' => $apns->keyId()]);
+        $this->apnsConnection = null;
+        $this->toast(__('push_apns.key_removed'));
+    }
+
+    /** Signs a token with the SAVED key and asks Apple to deliver a Live Activity push to a device that cannot exist: nothing reaches a phone. */
+    public function testApns(ApnsClient $apns): void
+    {
+        abort_unless($this->canGlobally('settings.edit'), 403);
+        try {
+            $result = $apns->check();
+        } catch (Throwable $e) {
+            report($e);
+            $result = ['ok' => false, 'code' => 'rejected', 'status' => null, 'detail' => null];
+        }
+        $this->apnsConnection = ['ok' => $result['ok'], 'code' => $result['code'], 'detail' => $result['detail'] ?? null];
+        app(AuditLogger::class)->log('push.apns_tested', 'push', [], [], ['ok' => $result['ok'], 'result' => $result['code'], 'status' => $result['status'] ?? null]);
+        $this->toast($result['ok'] ? __('push_apns.conn_ok') : __('push_apns.conn.'.$result['code']), $result['ok'] ? 'success' : 'error');
+    }
+
+    /** Validates the pasted/uploaded .p8; returns the complete PEM or null after showing why not. */
+    private function checkApnsKeyFile(): ?string
+    {
+        $this->resetErrorBag('apnsKeyText');
+        $check = ApnsKey::check($this->apnsKeyText);
+        if (! $check['ok']) {
+            $this->addError('apnsKeyText', __('push_apns.key_error.'.$check['error']));
+
+            return null;
+        }
+
+        return $check['pem'];
+    }
+
+    private function apnsDirty(ApnsConfig $apns): bool
+    {
+        $saved = ['apnsTeamId' => (string) $apns->teamId(), 'apnsKeyId' => (string) $apns->keyId(), 'apnsBundleId' => $apns->bundleId(), 'apnsEnvironment' => $apns->environment()];
+        foreach ($saved as $prop => $value) {
+            if (trim($this->{$prop}) !== $value) {
+                return true;
+            }
+        }
+
+        return trim($this->apnsKeyText) !== '';
+    }
+
     /** Every app ID carries the project number (1:<number>:android:…): they must all match each other and the sender ID. */
     private function projectNumbersAgree(): bool
     {
@@ -360,7 +549,7 @@ class PushNotificationsPage extends Component
         return trim($this->serviceAccountJson) !== '';
     }
 
-    public function render(Settings $settings, FirebaseConfig $config)
+    public function render(Settings $settings, FirebaseConfig $config, ApnsConfig $apns)
     {
         $status = $config->status();
         $mine = UserDevice::where('user_id', auth()->id())->whereNull('disabled_at')->orderByDesc('last_seen_at')->limit(20)->get();
@@ -383,6 +572,10 @@ class PushNotificationsPage extends Component
                 'done' => __('push_admin.enabled_browser'),
             ],
             'allReady' => $status['server'] && $status['web'] && $this->enabled,
+            'apns' => $apns->status(),
+            'apnsDirty' => $this->apnsDirty($apns),
+            'apnsActivities' => LiveActivityToken::where('kind', LiveActivityToken::KIND_ACTIVITY)->whereNull('disabled_at')->count(),
+            'apnsStarters' => LiveActivityToken::where('kind', LiveActivityToken::KIND_START)->whereNull('disabled_at')->count(),
         ])->title(__('push_admin.title'));
     }
 }

@@ -65,7 +65,8 @@ class StaffLive extends Notifier<StaffLiveState> {
     _gate.seen(patch.fulfillmentId, row?.seq);
     if (!_gate.accept(patch.fulfillmentId, patch.seq)) return;
     state = state.copyWith(
-      patches: {...state.patches, patch.fulfillmentId: patch}..removeWhere((id, p) => rows.any((r) => r.fulfillmentId == id && r.seq > p.seq)),
+      patches: {...state.patches, patch.fulfillmentId: patch}
+        ..removeWhere((id, p) => rows.any((r) => r.fulfillmentId == id && r.seq > p.seq)),
     );
     // An order this phone has never seen (just placed): its row comes from the server now, not after the burst.
     if (row == null && patch.stage != 'done') _reload(LiveResync.event);
@@ -110,7 +111,10 @@ final staffQueueViewProvider = Provider.autoDispose.family<AsyncValue<List<Queue
   final own = ref.watch(staffQueueProvider(stage));
   final patches = ref.watch(staffLiveProvider.select((s) => s.patches));
   if (patches.isEmpty || !own.hasValue) return own;
-  final byStage = {for (final s in kStaffStages) s: s == stage ? own.value! : ref.watch(staffQueueProvider(s)).value ?? const <QueueOrder>[]};
+  final byStage = {
+    for (final s in kStaffStages)
+      s: s == stage ? own.value! : ref.watch(staffQueueProvider(s)).value ?? const <QueueOrder>[],
+  };
   return own.whenData((_) => mergeStage(stage, byStage, patches));
 });
 
@@ -170,3 +174,9 @@ bool hasPermission(List<String> perms, String key) {
   final dot = key.indexOf('.');
   return dot > 0 && perms.contains('${key.substring(0, dot)}.*');
 }
+
+/// Whether a parcel can still be corrected ("Missing an item?"), read from the server when its window opens. The window hides the
+/// entry point once the server says no.
+final adjustContextProvider = FutureProvider.autoDispose.family<AdjustContext, String>(
+  (ref, fulfillmentId) => ref.watch(opsRepositoryProvider).adjustContext(fulfillmentId),
+);

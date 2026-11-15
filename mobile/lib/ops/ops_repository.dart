@@ -36,6 +36,17 @@ class OpsRepository {
     await _api.post('/auth/logout');
   }
 
+  /// How this app should ask for a status change (`ops.status_style` of the public `GET /app-config`: `buttons` or `slide`). A server
+  /// that does not send the setting means the plain buttons; an answer that is not the dashboard's JSON (a captive portal's page)
+  /// throws, so it can never replace the last good one.
+  Future<OpsStatusStyle> statusStyle() async {
+    final data = await _api
+        .get('/app-config', options: Options(extra: {RequestFlags.skipAuth: true}))
+        .timeout(const Duration(seconds: 6));
+    if (data is! Map) throw const FormatException('The app configuration is not an object.');
+    return OpsStatusStyle.fromCode(asMap(asMap(data)['ops'])['status_style']);
+  }
+
   /// Permission keys of the signed-in staff member.
   Future<List<String>> permissions() async {
     final data = asMap(await _api.get('/admin/me'));
@@ -206,6 +217,41 @@ class OpsRepository {
 
   Future<void> advance(String fulfillmentId, String status) async {
     await _api.post('/admin/fulfillments/$fulfillmentId/transition', data: {'status': status});
+  }
+
+  // Missing items found while preparing (see docs/api/ORDER_ADJUSTMENTS.md)
+
+  /// Whether this parcel can still be corrected (only while it is accepted or being prepared), the reasons to choose from and its lines.
+  Future<AdjustContext> adjustContext(String fulfillmentId) =>
+      _api.getObject('/admin/fulfillments/$fulfillmentId/adjustments/context', AdjustContext.fromJson);
+
+  /// What the branch has in stock that can replace a line (never what is already in the parcel). [search] narrows it by name or SKU.
+  Future<List<Substitute>> substitutes(String fulfillmentId, {String search = '', int limit = 20}) => _api.getList(
+    '/admin/fulfillments/$fulfillmentId/substitutes',
+    Substitute.fromJson,
+    query: {'search': search.trim(), 'limit': limit},
+  );
+
+  /// Corrects the parcel: one request is one revision (any number of line changes, one reason, one notification to the customer, one
+  /// revised invoice). With [preview] the server works everything out and writes nothing.
+  Future<AdjustResult> adjust(
+    String fulfillmentId, {
+    required List<AdjustChange> changes,
+    required String reasonCode,
+    String? note,
+    bool preview = false,
+  }) async {
+    final text = note?.trim() ?? '';
+    final data = await _api.post(
+      '/admin/fulfillments/$fulfillmentId/adjustments',
+      data: {
+        'changes': [for (final c in changes) c.toJson()],
+        'reason_code': reasonCode,
+        if (text.isNotEmpty) 'note': text,
+        'preview': preview,
+      },
+    );
+    return AdjustResult.fromJson(asMap(data));
   }
 }
 

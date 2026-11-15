@@ -1,55 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Live order notification, collapsed (and heads-up) content. Shown inside the system's decorated notification, so the
-    header (icon, app name, time) and the theme colours come from the shade. Only classes that RemoteViews may inflate.
+    Live order notification, collapsed (and heads-up, and lock-screen) content: headline, status line and the slim
+    progress bar. It sits inside the system's decorated notification, so the header (small brand icon, app name, time or
+    countdown) and the theme colours come from the shade: this layout has no logo of its own, a second brand mark next
+    to the header icon made the card look as if it carried two logos. Spacing is on a 4 dp grid. Only classes that
+    RemoteViews may inflate.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/live_root"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:gravity="center_vertical"
-    android:orientation="horizontal">
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/live_headline"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textAlignment="viewStart"
+        android:textColor="?android:attr/textColorPrimary"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/live_subtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textAlignment="viewStart"
+        android:textColor="?android:attr/textColorSecondary"
+        android:textSize="13sp" />
 
     <ImageView
-        android:id="@+id/live_logo"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:layout_marginEnd="12dp"
-        android:importantForAccessibility="no"
-        android:scaleType="fitCenter" />
-
-    <LinearLayout
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:orientation="vertical">
-
-        <TextView
-            android:id="@+id/live_headline"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:textAlignment="viewStart"
-            android:textColor="?android:attr/textColorPrimary"
-            android:textSize="14sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/live_subtitle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:textAlignment="viewStart"
-            android:textColor="?android:attr/textColorSecondary"
-            android:textSize="13sp" />
-
-        <ImageView
-            android:id="@+id/live_bar_compact"
-            android:layout_width="match_parent"
-            android:layout_height="6dp"
-            android:layout_marginTop="4dp"
-            android:scaleType="fitXY" />
-    </LinearLayout>
+        android:id="@+id/live_bar_compact"
+        android:layout_width="match_parent"
+        android:layout_height="4dp"
+        android:layout_marginTop="4dp"
+        android:importantForAccessibility="yes"
+        android:scaleType="fitXY" />
 </LinearLayout>

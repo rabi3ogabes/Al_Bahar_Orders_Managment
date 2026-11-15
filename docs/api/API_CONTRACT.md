@@ -77,6 +77,7 @@ Phone input accepts `55123456`, `+974 5512 3456`, Arabic digits; the server norm
 | GET/PATCH | `/me` | PATCH `{name?, email?, locale?, date_of_birth?, gender?: male\|female, marketing_consent?}` |
 | PUT | `/me/password` | `{current_password?, password, password_confirmation}` |
 | POST/DELETE | `/me/devices` | `{platform, push_token, device_id?, app_version?}` / `{push_token}` |
+| POST | `/me/live-activities` · `/me/live-activities/start-token` · DELETE `/me/live-activities` | iPhone Live Activity tokens (the order on the lock screen / Dynamic Island): `{order_id, push_token, environment?: production\|sandbox, device_id?, locale?, app_version?}` (own order only, else 404) / `{push_token, ...}` / `{push_token? \| order_id? \| device_id?}`. See [IOS_LIVE_ACTIVITY.md](../guides/IOS_LIVE_ACTIVITY.md) |
 | GET | `/me/sessions` · DELETE `/me/sessions/{id}` | |
 | POST/DELETE | `/me/deletion-request` | `{reason?}` → `{id, status, scheduled_for}` (14-day grace, then anonymised) |
 | GET/POST | `/me/addresses` · GET/PATCH/DELETE `/me/addresses/{id}` · POST `/me/addresses/{id}/default` | Address below |

@@ -18,6 +18,7 @@ use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderCancellation;
 use App\Domain\Orders\Models\OrderFulfillment;
 use App\Domain\Orders\Models\ReturnRequest;
+use App\Domain\Orders\Services\OrderAdjustmentService;
 use App\Domain\Orders\Services\OrderService;
 use App\Domain\Payments\Models\Payment;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
@@ -27,6 +28,7 @@ use App\Support\MapConfig;
 use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 /**
@@ -220,10 +222,20 @@ class OrderShow extends Component
         }
     }
 
-    public function render()
+    /** The "Adjust items" window changed the order (or found it already changed): show what it is now, and tell the list behind a side window. */
+    #[On('order-adjusted')]
+    public function adjusted(): void
+    {
+        if ($this->drawer) {
+            $this->dispatch('record-changed');
+        }
+    }
+
+    public function render(OrderAdjustmentService $adjustments)
     {
         $o = Order::with(['placedBy:id,name', 'items', 'fulfillments.branch', 'fulfillments.items', 'fulfillments.pickup', 'fulfillments.deliveries.driver:id,name', 'fulfillments.deliveries.provider:id,name',
-            'notes.author:id,name', 'cancellations.requester:id,name', 'coupons', 'user:id,name,phone,email,status'])->findOrFail($this->orderId);
+            'notes.author:id,name', 'cancellations.requester:id,name', 'coupons', 'user:id,name,phone,email,status',
+            'revisions.lines', 'revisions.branch:id,name_en,name_ar', 'revisions.actor:id,name', 'revisions.refund:id,number,status,amount'])->findOrFail($this->orderId);
         $u = auth()->user();
         $acl = app(AccessControl::class);
         $at = fn (string $perm, string $branch) => $acl->allows($u, $perm, $branch);
@@ -247,6 +259,7 @@ class OrderShow extends Component
                 $a[] = ['action' => 'delivery'];
             }
             $actions[$f->id] = [
+                'adjust' => $at('orders.edit', $f->branch_id) && $adjustments->blockedReason($f, $o) === null,
                 'steps' => $a,
                 'cancel' => $next->contains(FS::Cancelled) && $at('orders.approve', $f->branch_id) && $o->fulfillments->count() > 1,
                 'return' => in_array($f->status, [FS::Delivered, FS::PickedUp], true) && $at('orders.edit', $f->branch_id),
@@ -260,7 +273,7 @@ class OrderShow extends Component
 
         $people = User::whereIn('id', $o->history->pluck('actor_id')->filter()->unique())->pluck('name', 'id');
         $timeline = $o->history->reverse()->values()->map(fn ($h) => [
-            'label' => $this->historyLabel($h->kind, $h->to_status, $o->fulfillments->firstWhere('id', $h->order_fulfillment_id)?->branch?->code),
+            'label' => $this->historyLabel($h->kind, $h->to_status, $o->fulfillments->firstWhere('id', $h->order_fulfillment_id)?->branch?->code, $h->metadata),
             'at' => BusinessTime::display($h->created_at),
             'by' => $h->actor_id ? ($people[$h->actor_id] ?? null) : ($h->actor_type === 'system' ? __('sales_admin.system') : null),
             'reason' => isset($h->metadata['on_behalf_of']) ? __('neworder_admin.on_behalf') : ($h->reason ? self::reasonLabel($h->reason) : null),
@@ -340,11 +353,13 @@ class OrderShow extends Component
         return preg_match('/^[a-z_]+$/', $reason) ? Str::headline($reason) : $reason;
     }
 
-    private function historyLabel(string $kind, string $to, ?string $branch): string
+    /** @param  array<string, mixed>|null  $meta */
+    private function historyLabel(string $kind, string $to, ?string $branch, ?array $meta = null): string
     {
         $status = Lang::has('status.'.$to) ? __('status.'.$to) : Str::headline($to);
 
         return match ($kind) {
+            'items_changed' => __('sales_admin.hist_items_changed', ['branch' => $branch ?? '—', 'n' => $meta['revision'] ?? '']),
             'payment' => __('sales_admin.hist_payment', ['status' => $status]),
             'fulfillment' => __('sales_admin.hist_fulfillment', ['branch' => $branch ?? '—', 'status' => $status]),
             'return' => __('sales_admin.hist_return', ['status' => $status]),

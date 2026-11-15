@@ -97,6 +97,28 @@ class ReservationService
     }
 
     /**
+     * Give back $quantity units of an active reservation and KEEP the rest reserved (an order line was reduced). The reservation row
+     * keeps the smaller quantity; reducing it to nothing releases it. Returns false (no-op) when it is not active or $quantity is invalid.
+     */
+    public function reduce(StockReservation|string $reservation, int $quantity, string $reason = 'order_adjustment', ?string $actorId = null): bool
+    {
+        return DB::transaction(function () use ($reservation, $quantity, $reason, $actorId) {
+            $r = StockReservation::whereKey(is_string($reservation) ? $reservation : $reservation->id)->lockForUpdate()->first();
+            if (! $r || $r->status !== 'active' || $quantity <= 0 || $quantity > $r->quantity) {
+                return false;
+            }
+            if ($quantity === $r->quantity) {
+                return $this->release($r, $reason, actorId: $actorId);
+            }
+            $this->ledger->apply($r->branch_id, $r->product_variant_id, MovementType::ReservationRelease, 0, -$quantity,
+                'stock_reservation', $r->id, $reason, $actorId);
+            $r->update(['quantity' => $r->quantity - $quantity]);
+
+            return true;
+        });
+    }
+
+    /**
      * Consume (ship/hand over) $quantity of an active reservation: on_hand and reserved both decrease.
      * Any unconsumed remainder is released. Returns false if not active.
      */

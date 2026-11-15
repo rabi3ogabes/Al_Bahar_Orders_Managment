@@ -190,7 +190,10 @@
         @endif
     </form>
 
-    {{-- 5 · This browser --}}
+    {{-- 5 · iPhone live activity (Apple push key) --}}
+    @include('livewire.admin.organization.partials.push-apns')
+
+    {{-- 6 · This browser --}}
     <section class="card card-pad" aria-labelledby="push-browser" x-data="pushBrowser">
         <div wire:key="push-boot" x-ref="boot" data-boot="{{ json_encode($boot) }}" hidden></div>
         <h2 id="push-browser" class="font-display text-xl font-semibold">{{ __('push_admin.browser_title') }}</h2>
