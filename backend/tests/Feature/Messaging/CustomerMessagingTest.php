@@ -456,3 +456,46 @@ it('spreads WhatsApp over minutes when sending in bulk', function () {
         ->map(fn ($d) => $d ? (int) round(now()->diffInMinutes($d, false)) : 0)->sort()->values()->all();
     expect($delays)->toBe([0, 0, 1, 1, 2]);
 });
+
+it('re-queues a send whose jobs were lost, once, and the scheduler command runs', function () {
+    $c = optedInCustomer();
+    $batch = $this->svc->send($this->staff, composed([$c->id]));
+    // simulate lost jobs: the message is still waiting and the send started long ago
+    CustomerMessage::query()->update(['status' => 'queued', 'sent_at' => null]);
+    $batch->forceFill(['status' => 'sending', 'completed_at' => null, 'started_at' => now()->subHour()])->save();
+    $batch->refreshCounts();
+    Notification::query()->delete();
+
+    $this->artisan('messaging:dispatch-due')->expectsOutputToContain('resumed: 1')->assertSuccessful();
+    expect(CustomerMessage::first()->status)->toBe('sent')->and(Notification::count())->toBe(1);
+    $this->artisan('messaging:dispatch-due')->expectsOutputToContain('resumed: 0')->assertSuccessful();
+});
+
+it('says "failed" instead of leaving a message waiting forever when the job gives up', function () {
+    $c = optedInCustomer();
+    $batch = $this->svc->send($this->staff, composed([$c->id]));
+    CustomerMessage::query()->update(['status' => 'queued', 'sent_at' => null]);
+    $batch->forceFill(['status' => 'sending', 'completed_at' => null])->save();
+
+    (new \App\Domain\Messaging\Jobs\SendCustomerMessageJob($batch->id, $c->id))->failed(new RuntimeException('boom'));
+
+    expect(CustomerMessage::first())->status->toBe('failed')->reason->toBe('job_failed');
+    expect($batch->fresh())->status->toBe('done')->failed_count->toBe(1);
+});
+
+it('makes the automatic journeys step aside for a customer the team just messaged', function () {
+    $w = commerceWorld();
+    $w->customer->update(['marketing_consent_at' => now(), 'locale' => 'en', 'phone' => '+97455123456']);
+    $svc = app(\App\Domain\Marketing\Services\JourneyService::class);
+    $svc->ensureDefaults();
+    \App\Domain\Marketing\Models\Journey::where('key', 'abandoned_cart')->update(['is_enabled' => true, 'settings' => ['max_per_day' => 10]]);
+    $cart = Cart::create(['user_id' => $w->customer->id, 'status' => 'active', 'last_activity_at' => now()->subMinutes(45)]);
+    CartItem::create(['cart_id' => $cart->id, 'product_variant_id' => $w->v1->id, 'quantity' => 1]);
+
+    $this->svc->send($this->staff, composed([$w->customer->id]));
+    $before = Notification::where('user_id', $w->customer->id)->count();
+    $svc->tick();
+
+    expect(Notification::where('user_id', $w->customer->id)->count())->toBe($before)
+        ->and(\App\Domain\Marketing\Models\JourneyDelivery::pluck('reason')->unique()->all())->toBe(['recently_contacted']);
+});

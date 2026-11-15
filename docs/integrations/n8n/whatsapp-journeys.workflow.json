@@ -1,5 +1,5 @@
 {
-  "name": "Al Bahar - WhatsApp journeys",
+  "name": "Al Bahar - WhatsApp (journeys and messages sent by hand)",
   "nodes": [
     {
       "parameters": { "httpMethod": "POST", "path": "bahar-whatsapp", "responseMode": "responseNode", "options": { "rawBody": true } },
