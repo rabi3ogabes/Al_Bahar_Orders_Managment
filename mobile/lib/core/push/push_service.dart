@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -14,6 +13,8 @@ import '../providers.dart';
 import '../router/deep_links.dart';
 import '../storage/app_preferences.dart';
 import '../utils/platform.dart';
+import 'firebase_options_source.dart';
+import 'firebase_starter.dart';
 import 'order_progress.dart';
 
 /// Platform-neutral push message.
@@ -38,6 +39,10 @@ abstract class PushMessaging {
 }
 
 /// Background handler must be a top-level function.
+///
+/// It must not call any Firebase API (no `Firebase.initializeApp()`): it runs in its own isolate, where Firebase is not
+/// started, and a build without `google-services.json` / `GoogleService-Info.plist` gets its options from the server
+/// at run time, so a call here without options would throw. Drawing the card needs only flutter_local_notifications.
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Notification messages are displayed by the OS; data handling happens
@@ -53,19 +58,27 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 }
 
 class FirebasePushMessaging implements PushMessaging {
+  FirebasePushMessaging({required this.starter});
+
+  /// Starts Firebase from the native config files, else from the options the server hands out.
+  final FirebaseStarter starter;
+
   FirebaseMessaging? _fm;
 
   @override
   Future<bool> initialize() async {
     try {
-      if (Firebase.apps.isEmpty) await Firebase.initializeApp();
+      if (!await starter.start()) {
+        debugPrint('Push unavailable: Firebase is not configured yet');
+        _fm = null;
+        return false;
+      }
       _fm = FirebaseMessaging.instance;
       if (!kIsWeb) FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
       await _fm!.setForegroundNotificationPresentationOptions(alert: false, badge: true, sound: false);
       return true;
     } catch (e) {
-      // google-services.json / GoogleService-Info.plist missing → no push.
-      debugPrint('Push disabled: Firebase not configured (${e.runtimeType})');
+      debugPrint('Push disabled: Firebase could not start (${e.runtimeType})');
       _fm = null;
       return false;
     }
@@ -211,10 +224,15 @@ class PushService {
     required this.enabled,
     this.devicesPath = customerDevicesPath,
     this.askPermissionOnRegister = true,
-  });
+    DateTime Function()? now,
+  }) : _now = now ?? DateTime.now;
 
   /// Where the customer app registers its push token.
   static const customerDevicesPath = '/me/devices';
+
+  /// When Firebase could not start (its settings are not on the server yet, no network), the app tries again, but not
+  /// more often than this.
+  static const retryInterval = Duration(minutes: 10);
 
   final PushMessaging messaging;
   final LocalNotifier local;
@@ -239,37 +257,89 @@ class PushService {
   /// Called when a notification is opened (used to mark it read).
   void Function(String notificationId)? onOpened;
 
+  final DateTime Function() _now;
   bool _available = false;
   Future<void>? _startFuture;
+  Future<void>? _retrying;
+  DateTime? _lastAttempt;
+
+  /// [register] ran while push was unavailable: finish it as soon as push starts.
+  bool _registerWanted = false;
   String? _pendingLocation;
   final _subs = <StreamSubscription<Object?>>[];
   StreamSubscription<String>? _tokenRefreshSub;
 
   bool get available => _available;
 
-  /// Starts once; every caller (including [register]) waits for the same start-up to finish.
-  Future<void> start() => _startFuture ??= _start();
+  /// Starts once; every caller (including [register]) waits for the same start-up to finish. A start that left push
+  /// unavailable is tried again by a later call, at most every [retryInterval]; a start that worked is never repeated.
+  Future<void> start() async {
+    await (_startFuture ??= _start());
+    await _retryStart();
+  }
 
   Future<void> _start() async {
     if (!enabled) return;
-    _available = await messaging.initialize();
+    _available = await _connect();
     await local.initialize((payload) => _handleTap(_decode(payload)));
     if (!_available) return;
 
-    _subs
-      ..add(messaging.onMessageOpenedApp.listen((m) => _handleTap(m.data)))
-      ..add(messaging.onForegroundMessage.listen(_handleForeground));
-
+    _subscribe();
     final initial = await messaging.getInitialMessage();
     if (initial != null) _handleTap(initial.data);
     final launch = await local.launchPayload();
     if (launch != null) _handleTap(_decode(launch));
   }
 
+  /// One attempt to start the messaging SDK; never throws.
+  Future<bool> _connect() async {
+    _lastAttempt = _now();
+    try {
+      return await messaging.initialize();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _subscribe() {
+    _subs
+      ..add(messaging.onMessageOpenedApp.listen((m) => _handleTap(m.data)))
+      ..add(messaging.onForegroundMessage.listen(_handleForeground));
+  }
+
+  /// A later attempt after a failed start. A notification that opened the app earlier is not replayed.
+  Future<void> _retryStart() {
+    if (!enabled || _available) return Future.value();
+    final running = _retrying;
+    if (running != null) return running;
+    final last = _lastAttempt;
+    if (last == null) return Future.value();
+    final elapsed = _now().difference(last);
+    if (!elapsed.isNegative && elapsed < retryInterval) return Future.value();
+    return _retrying = _retry().whenComplete(() => _retrying = null);
+  }
+
+  Future<void> _retry() async {
+    _available = await _connect();
+    if (_available) _subscribe();
+  }
+
+  /// The app is back on screen: if push could not start earlier, try again (throttled) and finish a [register] that
+  /// was waiting for it.
+  Future<void> onResumed() async {
+    if (!enabled || _available || _startFuture == null) return;
+    await start();
+    if (_available && _registerWanted) await register();
+  }
+
   /// Registers this device for the signed-in customer.
   Future<void> register() async {
     await start();
-    if (!_available) return;
+    if (!_available) {
+      _registerWanted = enabled;
+      return;
+    }
+    _registerWanted = false;
     // A token can be registered without the permission; data messages then arrive and show once it is granted.
     if (askPermissionOnRegister || platformCode() != 'android') {
       final granted = await messaging.requestPermission();
@@ -282,6 +352,7 @@ class PushService {
   }
 
   Future<void> unregister() async {
+    _registerWanted = false;
     final token = prefs.registeredPushToken;
     if (token == null) return;
     try {
@@ -367,7 +438,10 @@ class PushService {
   }
 }
 
-final pushMessagingProvider = Provider<PushMessaging>((ref) => FirebasePushMessaging());
+final pushMessagingProvider = Provider<PushMessaging>(
+  (ref) =>
+      FirebasePushMessaging(starter: FirebaseStarter(options: FirebaseOptionsSource.api(ref.watch(apiClientProvider)))),
+);
 final localNotifierProvider = Provider<LocalNotifier>((ref) => FlutterLocalNotifier());
 
 final pushDevicesPathProvider = Provider<String>((ref) => '/me/devices');

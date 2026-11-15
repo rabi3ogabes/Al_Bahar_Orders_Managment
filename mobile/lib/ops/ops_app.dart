@@ -28,12 +28,23 @@ class OpsApp extends ConsumerStatefulWidget {
 
 class _OpsAppState extends ConsumerState<OpsApp> {
   final _navigator = GlobalKey<NavigatorState>();
+  late final AppLifecycleListener _lifecycle;
 
   @override
   void initState() {
     super.initState();
     // A saved session starts signed in: the push token must be (re)registered on every launch, not only after a sign-in.
     if (ref.read(opsSessionProvider) == OpsAuth.signedIn) _registerPush();
+    // Back on screen: push that could not start earlier (settings not on the server yet) is tried again.
+    _lifecycle = AppLifecycleListener(
+      onResume: () => unawaited(ref.read(pushServiceProvider).onResumed().catchError((Object _) {})),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
   }
 
   void _registerPush() => unawaited(ref.read(pushServiceProvider).register().catchError((Object _) {}));

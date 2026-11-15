@@ -75,6 +75,7 @@ class _AlBaharAppState extends ConsumerState<AlBaharApp> with WidgetsBindingObse
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      unawaited(ref.read(pushServiceProvider).onResumed().catchError((Object _) {}));
       unawaited(ref.read(unreadCountProvider.notifier).refresh());
       ref.read(pusherClientProvider).reconnectNow();
       unawaited(ref.read(brandThemeProvider.notifier).refresh());
