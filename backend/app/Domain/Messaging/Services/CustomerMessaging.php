@@ -279,7 +279,7 @@ class CustomerMessaging
         $waIndex = 0;
         CustomerMessage::query()->where('batch_id', $batch->id)->where('status', 'queued')->groupBy('user_id')
             ->selectRaw("user_id, bool_or(channel = 'whatsapp') as wa")->orderBy('user_id')->get()->each(function ($row) use ($batch, $perMinute, &$waIndex) {
-                $minutes = $row->wa ? intdiv($waIndex++, $perMinute) : 0;
+                $minutes = $row->getAttribute('wa') ? intdiv($waIndex++, $perMinute) : 0;
                 $job = SendCustomerMessageJob::dispatch($batch->id, (string) $row->user_id);
                 if ($minutes > 0) {
                     $job->delay(now()->addMinutes($minutes));

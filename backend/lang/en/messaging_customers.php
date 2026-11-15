@@ -31,6 +31,6 @@ return [
         'all_selected' => 'All :total customers matching your filters are selected.',
         'some_selected' => ':count of :total customers matching your filters are selected.',
         'clear' => 'Clear selection',
-        'too_many' => 'One send reaches up to :max customers.',
+        'too_many' => 'Up to :max customers per send.',
     ],
 ];

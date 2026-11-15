@@ -15,6 +15,7 @@ use App\Livewire\Admin\Sales\CustomerShow;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
@@ -376,6 +377,15 @@ describe('sending now', function () {
             ->and(CustomerMessage::where('user_id', $c->id)->value('title'))->toBe('Hello Noor')
             ->and(Notification::where('user_id', $c->id)->value('title'))->toBe('Hello Noor');
         $comp->assertSee(__('messaging_composer.done_sent'))->assertSeeHtml('data-testid="result"')->assertSeeHtml('data-testid="see-history"');
+    });
+
+    it('says the message is on its way while the queue still holds it', function () {
+        Queue::fake();
+        $c = mcCustomer();
+
+        $comp = mcOpen([$c->id])->call('requestSend')->assertSet('step', 'sent');
+        expect($comp->get('result'))->toMatchArray(['pending' => true, 'reached' => 1, 'scheduled' => false])->and(MessageBatch::firstOrFail()->status)->toBe('sending');
+        $comp->assertSee(__('messaging_composer.done_sending'))->assertSee(__('messaging_composer.done_pending_hint'));
     });
 
     it('asks first before sending to several customers, then records skipped ones with their reason', function () {

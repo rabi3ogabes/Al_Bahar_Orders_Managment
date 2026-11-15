@@ -132,7 +132,7 @@
                         <div class="mt-3 grid gap-2.5 @md:grid-cols-2">
                             @foreach ([['notification', 'bell', true], ['whatsapp', 'whatsapp', $waOn]] as [$ch, $icon, $usable])
                                 <label class="group relative flex min-h-11 items-start gap-3 rounded-2xl border border-sand-200 bg-white p-3.5 transition has-[:checked]:border-brass-500 has-[:checked]:bg-brass-50 has-[:checked]:ring-2 has-[:checked]:ring-brass-500/30 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-brass-500 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-55 dark:border-ink-700 dark:bg-ink-800/50 dark:has-[:checked]:bg-brass-500/10 {{ $usable ? 'cursor-pointer hover:border-brass-400' : '' }}">
-                                    <input type="checkbox" value="{{ $ch }}" wire:model.live="channels" @disabled(! $usable) class="sr-only" data-testid="channel-{{ $ch }}">
+                                    <input type="checkbox" value="{{ $ch }}" wire:model.live.debounce.250ms="channels" @disabled(! $usable) class="sr-only" data-testid="channel-{{ $ch }}">
                                     <span class="grid size-10 shrink-0 place-items-center rounded-xl {{ $ch === 'whatsapp' ? 'bg-emerald-soft/10 text-emerald-soft dark:text-emerald-300' : 'bg-sand-100 text-brass-600 dark:bg-ink-800 dark:text-brass-300' }}"><x-icon :name="$icon" class="size-5" /></span>
                                     <span class="min-w-0 flex-1"><span class="block text-sm font-semibold text-ink-900 dark:text-ivory">{{ __('messaging_admin.channel.'.$ch) }}</span><span class="mt-1 block text-xs leading-relaxed text-ink-500 dark:text-ink-400">{{ __('messaging_composer.'.$ch.'_hint') }}</span></span>
                                     <span class="mt-0.5 grid size-5 shrink-0 place-items-center rounded-md border border-sand-300 text-transparent transition group-has-[:checked]:border-brass-500 group-has-[:checked]:bg-brass-500 group-has-[:checked]:text-ink-950 dark:border-ink-600" aria-hidden="true"><x-icon name="check" class="size-3.5" /></span>
@@ -312,7 +312,7 @@
                     </section>
 
                     {{-- ───────── 4. Who will get it ───────── --}}
-                    <section aria-labelledby="mc-plan" data-no-dirty wire:loading.class="opacity-60" wire:target="channels,ignoreCooldown,choose" data-testid="plan">
+                    <section aria-labelledby="mc-plan" aria-live="polite" data-no-dirty wire:loading.class="opacity-60" wire:target="channels,ignoreCooldown,choose" data-testid="plan">
                         <h3 id="mc-plan" class="flex items-center gap-2.5 font-display text-lg font-semibold text-ink-900 dark:text-ivory">
                             <span class="grid size-6 place-items-center rounded-full bg-ink-900 text-xs text-ivory dark:bg-brass-500 dark:text-ink-950" aria-hidden="true">4</span>{{ __('messaging_composer.plan') }}
                         </h3>
@@ -404,7 +404,7 @@
             @if ($step === 'sent')
                 <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                     @if ($historyUrl)<a href="{{ $historyUrl }}" wire:navigate class="btn-secondary min-h-11" data-testid="see-history"><x-icon name="history" class="size-4" />{{ __('messaging_composer.see_history') }}</a>@endif
-                    <button type="button" class="btn-primary min-h-11" @click="requestClose()" data-testid="done"><x-icon name="check" class="size-4" />{{ __('messaging_composer.done') }}</button>
+                    <button type="button" class="btn-primary min-h-11" @click="requestClose()" x-init="$nextTick(() => $el.focus({ preventScroll: true }))" data-testid="done"><x-icon name="check" class="size-4" />{{ __('messaging_composer.done') }}</button>
                 </div>
             @else
                 <p x-show="note || summary" x-cloak class="mb-2.5 flex items-start gap-2 text-xs text-ink-500 dark:text-ink-400" role="status" data-testid="footer-note"><x-icon name="info" class="mt-0.5 size-3.5 shrink-0" /><span x-text="note || summary"></span></p>

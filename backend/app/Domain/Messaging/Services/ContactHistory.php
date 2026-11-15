@@ -54,7 +54,7 @@ class ContactHistory
     /**
      * The customer's contact history, newest first, manual and automatic together.
      *
-     * @return Collection<int, array{key: string, at: CarbonImmutable, source: string, channel: string, kind: ?string, template: ?string, title: ?string, body: ?string, status: string, reason: ?string, coupon: ?string, staff: ?string, batch_id: ?string}>
+     * @return Collection<int, array{key: string, at: CarbonImmutable, source: string, channel: string, kind: ?string, template: ?string, title: ?string, body: ?string, status: string, reason: ?string, coupon: ?string, staff: ?string, batch_id: ?string, journey: ?string}>
      */
     public function timeline(string $userId, int $limit = 30, ?CarbonImmutable $before = null): Collection
     {
@@ -63,7 +63,7 @@ class ContactHistory
             ->map(fn (CustomerMessage $m) => [
                 'key' => 'm-'.$m->id, 'at' => CarbonImmutable::instance($m->sent_at ?? $m->created_at), 'source' => 'manual', 'channel' => $m->channel,
                 'kind' => $m->batch?->kind, 'template' => $m->batch?->template_name, 'title' => $m->title, 'body' => $m->body, 'status' => $m->status,
-                'reason' => $m->reason, 'coupon' => $m->coupon_code, 'staff' => $m->batch?->creator?->name, 'batch_id' => $m->batch_id,
+                'reason' => $m->reason, 'coupon' => $m->coupon_code, 'staff' => $m->batch?->creator?->name, 'batch_id' => $m->batch_id, 'journey' => null,
             ]);
         $auto = DB::table('journey_deliveries as d')
             ->leftJoin('journey_runs as r', 'r.id', '=', 'd.run_id')->leftJoin('journeys as j', 'j.id', '=', 'r.journey_id')
@@ -72,9 +72,10 @@ class ContactHistory
             ->orderByDesc('d.created_at')->limit($limit)
             ->get(['d.id', 'd.channel', 'd.status', 'd.reason', 'd.coupon_code', 'd.created_at', 'd.sent_at', 'j.key as journey', 't.name as template', 't.kind as kind'])
             ->map(fn ($d) => [
-                'key' => 'j-'.$d->id, 'at' => CarbonImmutable::parse($d->sent_at ?? $d->created_at), 'source' => 'journey', 'channel' => $d->channel === 'push' || $d->channel === 'in_app' ? 'notification' : $d->channel,
-                'kind' => $d->kind, 'template' => $d->template, 'title' => null, 'body' => null, 'status' => $d->status, 'reason' => $d->reason, 'coupon' => $d->coupon_code, 'staff' => null,
-                'batch_id' => null, 'journey' => $d->journey,
+                'key' => 'j-'.$d->id, 'at' => CarbonImmutable::parse($d->sent_at ?? $d->created_at), 'source' => 'journey', 'channel' => in_array($d->channel, ['push', 'in_app'], true) ? 'notification' : (string) $d->channel,
+                'kind' => $d->kind !== null ? (string) $d->kind : null, 'template' => $d->template !== null ? (string) $d->template : null, 'title' => null, 'body' => null,
+                'status' => (string) $d->status, 'reason' => $d->reason !== null ? (string) $d->reason : null, 'coupon' => $d->coupon_code !== null ? (string) $d->coupon_code : null, 'staff' => null,
+                'batch_id' => null, 'journey' => $d->journey !== null ? (string) $d->journey : null,
             ]);
 
         return $manual->concat($auto)->sortByDesc(fn ($r) => $r['at']->getTimestamp())->values()->take($limit);
