@@ -82,7 +82,6 @@ jobs:
           --build-name=${{ steps.v.outputs.name }} --build-number=${{ steps.v.outputs.build }}
           --dart-define=FLAVOR=prod
           --dart-define=API_BASE_URL=https://albahar.atharqatar.net/api/v1
-          --dart-define=PUSH_ENABLED=false
           --dart-define=BUILD_SHA=${{ steps.v.outputs.sha }}
 
       - name: Build app bundle (Play Store)
@@ -92,7 +91,6 @@ jobs:
           --build-name=${{ steps.v.outputs.name }} --build-number=${{ steps.v.outputs.build }}
           --dart-define=FLAVOR=prod
           --dart-define=API_BASE_URL=https://albahar.atharqatar.net/api/v1
-          --dart-define=PUSH_ENABLED=false
           --dart-define=BUILD_SHA=${{ steps.v.outputs.sha }}
 
       - name: Name the file

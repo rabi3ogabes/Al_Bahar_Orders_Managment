@@ -28,6 +28,28 @@ class FirebaseConfig
 
     public const SERVICE_ACCOUNT = 'push.firebase.service_account';
 
+    /** The platform API keys of the phone apps (Android and iPhone keys differ in Firebase; the web key cannot be used on a phone). */
+    public const API_KEY_ANDROID = 'push.firebase.api_key_android';
+
+    public const API_KEY_IOS = 'push.firebase.api_key_ios';
+
+    /** The phone apps that exist, per platform: every Android app has its own package, the iPhone app is the customer app. */
+    public const NATIVE_APPS = ['android' => ['customer', 'driver', 'staff'], 'ios' => ['customer']];
+
+    /** The package name (Android) and bundle ID (iPhone) each app must be registered under in Firebase. */
+    public const PACKAGES = ['customer' => 'qa.albahar.customer', 'driver' => 'qa.albahar.driver', 'staff' => 'qa.albahar.staff'];
+
+    /** The settings key of one phone app's Firebase app ID, e.g. push.firebase.app_id_android_driver. */
+    public static function nativeAppKey(string $platform, string $app): string
+    {
+        return "push.firebase.app_id_{$platform}_{$app}";
+    }
+
+    public static function nativeApiKey(string $platform): string
+    {
+        return $platform === 'ios' ? self::API_KEY_IOS : self::API_KEY_ANDROID;
+    }
+
     public function __construct(private readonly Settings $settings) {}
 
     /** The master switch. Never touched in the dashboard → on only for servers that were set up with the old variables. */
@@ -106,18 +128,45 @@ class FirebaseConfig
         ];
     }
 
-    /** What the public endpoint and the service worker may show: nothing at all while push is off or the server key is missing. */
-    public function publicConfig(): array
+    /**
+     * What one phone app needs to start Firebase without the google-services.json / GoogleService-Info.plist files: null unless push is on
+     * and that app has its platform key and app ID. The messaging sender ID is the project number inside the app ID.
+     *
+     * @return array{projectId: string, messagingSenderId: string, apiKey: string, appId: string}|null public values only
+     */
+    public function native(string $platform, string $app): ?array
     {
-        $on = $this->configured();
+        if (! in_array($app, self::NATIVE_APPS[$platform] ?? [], true) || ! $this->configured()) {
+            return null;
+        }
+        $project = $this->projectId();
+        $apiKey = $this->text(self::nativeApiKey($platform));
+        $appId = $this->text(self::nativeAppKey($platform, $app));
+        $sender = $this->text(self::SENDER_ID) ?? ($appId !== null && preg_match('/^1:(\d+):/', $appId, $m) ? $m[1] : null);
+        if ($project === null || $apiKey === null || $appId === null || $sender === null) {
+            return null;
+        }
 
-        return ['enabled' => $on, 'web' => $on ? $this->webConfig() : null];
+        return ['projectId' => $project, 'messagingSenderId' => $sender, 'apiKey' => $apiKey, 'appId' => $appId];
     }
 
-    /** @return array{enabled: bool, server: bool, source: ?string, client_email: ?string, project_id: ?string, web: bool, vapid: bool} for the setup checklist */
+    /** What the public endpoint and the service worker may show: nothing at all while push is off or the server key is missing. */
+    public function publicConfig(?string $platform = null, ?string $app = null): array
+    {
+        $on = $this->configured();
+        $out = ['enabled' => $on, 'web' => $on ? $this->webConfig() : null];
+        if ($platform !== null && $app !== null) {
+            $out['native'] = $this->native($platform, $app);
+        }
+
+        return $out;
+    }
+
+    /** @return array{enabled: bool, server: bool, source: ?string, client_email: ?string, project_id: ?string, web: bool, vapid: bool, android: int, android_total: int, ios: bool} for the setup checklist */
     public function status(): array
     {
         $key = $this->serviceAccount();
+        $ready = fn (string $platform, string $app) => $this->text(self::nativeApiKey($platform)) !== null && $this->text(self::nativeAppKey($platform, $app)) !== null;
 
         return [
             'enabled' => $this->enabled(),
@@ -127,6 +176,9 @@ class FirebaseConfig
             'project_id' => $this->projectId(),
             'web' => $this->webConfig() !== null,
             'vapid' => $this->text(self::VAPID_KEY) !== null,
+            'android' => count(array_filter(self::NATIVE_APPS['android'], fn (string $app) => $ready('android', $app))),
+            'android_total' => count(self::NATIVE_APPS['android']),
+            'ios' => $ready('ios', 'customer'),
         ];
     }
 

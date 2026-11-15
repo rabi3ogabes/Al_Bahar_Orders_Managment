@@ -196,28 +196,8 @@ The server skips push silently until Firebase is connected (`FcmClient::configur
    Instead of the two variables you can use the admin dashboard: **Push notifications** page → switch on, enter the project id and paste the service-account JSON (it is stored sealed and never shown again). A value saved there wins over the variables.
 
    The queue worker must run with the `notifications` queue (the `docker-compose.yml` worker does: `queue:work redis --queue=default,notifications,exports`), because pushes are sent by queued jobs.
-5. **Build the apps with push on.** CI builds currently pass `--dart-define=PUSH_ENABLED=false` because the runner has no `google-services.json`. To switch it on:
-   1. Encode the file: `base64 -w0 mobile/android/app/src/prod/google-services.json` and save the output as a GitHub secret named `GOOGLE_SERVICES_JSON_BASE64` (repository → Settings → Secrets and variables → Actions → New repository secret).
-   2. In `.github/workflows/android-apk.yml` add this step before *Build APK*:
-
-      ```yaml
-      - name: Firebase config
-        env:
-          GS_B64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
-        run: |
-          if [ -n "$GS_B64" ]; then
-            echo "$GS_B64" | base64 -d > android/app/src/prod/google-services.json
-            echo "PUSH=true" >> "$GITHUB_ENV"
-          else
-            echo "::warning::GOOGLE_SERVICES_JSON_BASE64 is not set: building without push."
-            echo "PUSH=false" >> "$GITHUB_ENV"
-          fi
-      ```
-
-   3. In both build steps (*Build APK* and *Build app bundle*) change `--dart-define=PUSH_ENABLED=false` to `--dart-define=PUSH_ENABLED=${{ env.PUSH }}`.
-
-   For a local build nothing is needed beyond the file from step 3 (`flutter run --flavor customerDev -t lib/main_dev.dart`).
-6. **iOS** (when the iOS app is built): add the iOS app in Firebase, upload an APNs key (Project settings → Cloud Messaging → Apple app configuration), and add `GoogleService-Info.plist` to the Runner target.
+5. **The apps start Firebase from the dashboard (no build change).** Open **Dashboard → Organization → Push notifications**, section *Phone apps (Android and iPhone)*, and enter the Android API key, the iPhone API key and each app's Firebase App ID (steps 6 and 7 on that page, `docs/guides/FIREBASE_PUSH.md`). The apps ask the server for these values when they start (`GET /api/v1/push-config?platform=android&app=customer`), so CI builds need no `google-services.json` and no `PUSH_ENABLED` flag any more (push is attempted by default and simply stays off until the dashboard is set up). If a build does include the Firebase files, those are used first.
+6. **iOS**: register the iOS app in Firebase with bundle ID `qa.albahar.customer`, enter its App ID and API key in the dashboard, and upload an APNs authentication key (Project settings → Cloud Messaging → Apple app configuration). Without the APNs key an iPhone receives nothing.
 7. **Check it.** Place a test order in the customer app with a registered device, then in the admin move it through *Accepted → Preparing → Ready*, assign a driver and run the driver's steps. A card should appear within seconds and update in place.
    On the server, `php artisan tinker` → `app(\App\Domain\Notifications\Services\FcmClient::class)->configured()` must return `true`.
 

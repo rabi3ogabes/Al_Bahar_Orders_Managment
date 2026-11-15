@@ -3,11 +3,12 @@
 The owner sets Firebase up in the dashboard, with no server file or variable to edit: **Dashboard, Organization, Push notifications**
 (`/admin/push`; needs the `settings.view` permission to look and `settings.edit` to change). It covers desktop browsers, Android Chrome,
 iPhone/iPad Safari 16.4+ (installed to the Home Screen), the web store and the Flutter web app (`/mobile-web/`). The phone apps use the
-same server key.
+same server key and, since the phone-app settings below, **start Firebase from values typed in the dashboard** (no `google-services.json` or
+`GoogleService-Info.plist` has to be built into the apps).
 
 ## Owner steps
 
-All six steps are also on the page itself (open by default until everything is ready).
+All eight steps are also on the page itself (open by default until everything is ready).
 
 1. **Create a Firebase project.** console.firebase.google.com, Create a project (or open the one you use). Skip Google Analytics.
 2. **Add a Web app.** Project overview, the `</>` (Web) icon, name it, Register app. No Firebase Hosting needed.
@@ -17,9 +18,20 @@ All six steps are also on the page itself (open by default until everything is r
    Paste the long public "Key pair" into "Web Push key (VAPID)".
 5. **Download the server key.** Project settings, Service accounts tab, Generate new private key. On the Cloud Messaging tab make sure
    "Firebase Cloud Messaging API (V1)" says Enabled (if not: its menu, Manage API in Google Cloud Console, Enable).
-6. **Upload the `.json` file** (or paste its text) in "Server key", press **Save changes**, then **Test connection**. Then press
+6. **Add the three Android apps.** Project overview, the Android icon. Register one app per package name: `qa.albahar.customer`
+   (customer app), `qa.albahar.driver` (driver app), `qa.albahar.staff` (staff app). For each, download `google-services.json`, open it in a
+   text editor and copy `mobilesdk_app_id` into the matching "Android app ID" field and `current_key` into "Android API key" (one key serves
+   all three). The file itself is not needed in the app.
+7. **Add the iPhone app.** Register an iOS app with bundle ID `qa.albahar.customer`. From its `GoogleService-Info.plist` copy `GOOGLE_APP_ID`
+   into "iPhone app ID" and `API_KEY` into "iPhone API key". Then **Project settings, Cloud Messaging tab, Apple app configuration, APNs
+   authentication key, Upload**: the `.p8` key from the Apple Developer account (Certificates, Identifiers and Profiles, Keys) with its Key
+   ID and the Team ID. **Without the APNs key an iPhone never receives a push.**
+8. **Upload the `.json` file** (or paste its text) in "Server key", press **Save changes**, then **Test connection**. Then press
    **Enable on this browser** and **Send a test notification**. Finally turn on the **Push notifications** switch at the top and delete
    the `.json` file from your computer.
+
+Only the iPhone customer app exists today (the driver and staff apps are Android only). The page checklist shows "Android apps n of 3 ready"
+and "iPhone app ready".
 
 What each field must look like (the form checks it and says what is wrong):
 
@@ -31,7 +43,14 @@ What each field must look like (the form checks it and says what is wrong):
 | Messaging sender ID | digits | `123456789012` |
 | Web app ID | `1:<digits>:web:<hex>` (the **Web** app, not Android/iOS) | `1:123456789012:web:0a1b2c3d4e5f6a7b8c9d0e` |
 | Web Push key | 87 characters, starts with `B` (a trailing `=` is dropped) | `BAswVXqfxOkOM1h9osf...` |
+| Android API key | `AIza` + 35 characters (`current_key` in `google-services.json`) | `AIzaSyB2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R` |
+| iPhone API key | `AIza` + 35 characters (`API_KEY` in `GoogleService-Info.plist`) | `AIzaSyC3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8S` |
+| Android app ID (customer, driver, staff) | `1:<digits>:android:<hex>` (`mobilesdk_app_id`) | `1:123456789012:android:0a1b2c3d4e5f6a7b8c9d0e` |
+| iPhone app ID (customer) | `1:<digits>:ios:<hex>` (`GOOGLE_APP_ID`) | `1:123456789012:ios:0a1b2c3d4e5f6a7b8c9d0e` |
 | Server key | the service-account JSON, same project as the Project ID | `{ "type": "service_account", ... }` |
+
+The number after `1:` in every app ID is the project number: all of them must match each other and the Messaging sender ID (the page
+refuses a mix). A phone app does not need the Web fields: the sender ID is taken from its app ID.
 
 The server key is checked on save (valid JSON, `type` = `service_account`, `project_id` equals the Project ID, `client_email` and a private
 key OpenSSL can read), stored **sealed** (encrypted like every other secret setting) and never shown again: the page only says
@@ -60,6 +79,8 @@ owner switches it explicitly); a value saved in the dashboard always wins over t
 | `push.firebase.messaging_sender_id` | text | public |
 | `push.firebase.app_id_web` | text | public |
 | `push.firebase.vapid_key` | text | public (Web Push public key) |
+| `push.firebase.api_key_android` / `push.firebase.api_key_ios` | text | public; one per platform |
+| `push.firebase.app_id_android_customer` / `_driver` / `_staff`, `push.firebase.app_id_ios_customer` | text | public; one Firebase app per package / bundle ID |
 | `push.firebase.service_account` | **secret** JSON | sealed, write-only; reduced to `type, project_id, private_key_id, private_key, client_email, client_id` |
 
 `App\Domain\Notifications\Services\FirebaseConfig` is the only reader (`enabled()`, `configured()`, `hasServerCredentials()`,
@@ -72,7 +93,7 @@ cached per key, so a replaced key is used at once. Every save is audited (`setti
 
 | What | Route | Notes |
 |---|---|---|
-| Public config | `GET /api/v1/push-config` (route `api.v1.push-config`) | `{"data": {"enabled": bool, "web": {apiKey, authDomain, projectId, messagingSenderId, appId, vapidKey} \| null}}`; `web` only while push is on and the server key exists; `Cache-Control: public, max-age=300`; no cookies |
+| Public config | `GET /api/v1/push-config` (route `api.v1.push-config`); with `?platform=android\|ios&app=customer\|driver\|staff` it also returns `native`: `{projectId, messagingSenderId, apiKey, appId}` for that phone app, or `null` |  `{"data": {"enabled": bool, "web": {apiKey, authDomain, projectId, messagingSenderId, appId, vapidKey} \| null}}`; `web` only while push is on and the server key exists; `Cache-Control: public, max-age=300`; no cookies |
 | Worker | `GET /firebase-messaging-sw.js` and `GET /mobile-web/firebase-messaging-sw.js` | same script; `text/javascript`, `Service-Worker-Allowed: /`, `Cache-Control: no-cache`; no session, no cookies |
 | Register a token (customer) | `POST /api/v1/me/devices` (`api.v1.me.devices.store`) | see below |
 | Remove a token (customer) | `DELETE /api/v1/me/devices` (`api.v1.me.devices.destroy`) | `{push_token}`; only the caller's own token |

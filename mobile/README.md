@@ -41,7 +41,7 @@ in both files (a test enforces this).
 | `FLAVOR` | `dev` \| `staging` \| `prod` (only for `main.dart`) | `dev` |
 | `API_BASE_URL` | REST base incl. `/api/v1` | per flavour (table above) |
 | `REVERB_APP_KEY`, `REVERB_HOST`, `REVERB_PORT`, `REVERB_SCHEME` (`ws`/`wss`) | Laravel Reverb (Pusher protocol) for live auctions | per flavour |
-| `PUSH_ENABLED` | `false` disables Firebase entirely | `true` (auto-disabled if Firebase is not configured) |
+| `PUSH_ENABLED` | `false` disables Firebase entirely | `true` (the apps read their Firebase settings from the server, set in Dashboard → Push notifications; push stays off until that is filled in) |
 | `MAP_TILE_URL` | Map tile template (`{z}/{x}/{y}`) | OpenStreetMap — **replace for production** (OSM tile policy) |
 
 Use a file per environment: `cp config/dev.example.json config/dev.json`, then

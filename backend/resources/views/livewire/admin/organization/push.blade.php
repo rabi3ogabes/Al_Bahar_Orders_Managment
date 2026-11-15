@@ -46,6 +46,15 @@
                 <p class="mt-2 text-sm text-ink-500">{{ $status['vapid'] ? __('push_admin.status.ok_vapid') : __('push_admin.status.missing_vapid') }}</p>
             </div>
             <div class="card card-pad">
+                @php($androidReady = $status['android'] > 0)
+                <div class="flex items-center gap-2 text-sm font-medium"><span class="grid size-6 place-items-center rounded-full {{ $tone($androidReady) }}"><x-icon :name="$androidReady ? 'check' : 'alert'" class="size-3.5" /></span>{{ __('push_admin.status.android') }}</div>
+                <p class="mt-2 text-sm text-ink-500">{{ $androidReady ? __('push_admin.status.ok_android', ['ready' => $status['android'], 'total' => $status['android_total']]) : __('push_admin.status.missing_android') }}</p>
+            </div>
+            <div class="card card-pad">
+                <div class="flex items-center gap-2 text-sm font-medium"><span class="grid size-6 place-items-center rounded-full {{ $tone($status['ios']) }}"><x-icon :name="$status['ios'] ? 'check' : 'alert'" class="size-3.5" /></span>{{ __('push_admin.status.ios') }}</div>
+                <p class="mt-2 text-sm text-ink-500">{{ $status['ios'] ? __('push_admin.status.ok_ios') : __('push_admin.status.missing_ios') }}</p>
+            </div>
+            <div class="card card-pad">
                 <div class="flex items-center gap-2 text-sm font-medium"><x-icon name="phone" class="size-4 text-ink-500" />{{ __('push_admin.status.devices') }}</div>
                 <ul class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-600 dark:text-ink-300">
                     @foreach (['web', 'android', 'ios'] as $p)<li><span class="font-semibold tabular-nums">{{ number_format($counts[$p] ?? 0) }}</span> <span class="text-ink-500">{{ __('push_admin.status.platform.'.$p) }}</span></li>@endforeach
@@ -127,6 +136,30 @@
                     <p class="field-hint">{{ __('push_admin.key_new_hint') }}</p>
                     @error('serviceAccountJson')<p class="field-error" role="alert">{{ $message }}</p>@enderror
                 @endif
+            </div>
+        </fieldset>
+
+        {{-- Phone apps: the Android and iPhone apps start Firebase from these values (no google-services.json / GoogleService-Info.plist in the build) --}}
+        <fieldset class="space-y-4 border-t border-sand-100 p-5 sm:p-6 dark:border-ink-800" @disabled(! $canEdit)>
+            <div>
+                <legend class="font-display text-lg font-semibold">{{ __('push_admin.phone_title') }}</legend>
+                <p class="mt-1 text-sm text-ink-500">{{ __('push_admin.phone_hint') }}</p>
+            </div>
+            <div class="grid gap-5 sm:grid-cols-2">
+                @foreach ([
+                    ['apiKeyAndroid', 'api_key_android', null],
+                    ['apiKeyIos', 'api_key_ios', null],
+                    ['appIdAndroidCustomer', 'app_id_android', 'customer'],
+                    ['appIdAndroidDriver', 'app_id_android', 'driver'],
+                    ['appIdAndroidStaff', 'app_id_android', 'staff'],
+                    ['appIdIosCustomer', 'app_id_ios', 'customer'],
+                ] as [$prop, $lang, $app])
+                    @php($package = $app ? \App\Domain\Notifications\Services\FirebaseConfig::PACKAGES[$app] : '')
+                    <x-admin.field :label="__('push_admin.field.'.$lang, ['app' => $app ? __('push_admin.phone_app.'.$app) : ''])" :for="$prop" :hint="__('push_admin.hint_field.'.$lang, ['package' => $package])">
+                        <input id="{{ $prop }}" wire:model.live.debounce.700ms="{{ $prop }}" class="input font-mono text-[0.8125rem] @error($prop) input-error @enderror" dir="ltr" spellcheck="false" autocapitalize="off" autocomplete="off"
+                               placeholder="{{ __('push_admin.example.'.$lang) }}" @if ($errors->has($prop)) aria-invalid="true" @endif>
+                    </x-admin.field>
+                @endforeach
             </div>
         </fieldset>
 

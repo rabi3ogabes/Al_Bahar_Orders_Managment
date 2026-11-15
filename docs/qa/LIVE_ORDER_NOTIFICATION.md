@@ -95,7 +95,7 @@ settings, once, once more after 30 days. Never at cold start, never blocks navig
 
 ## 4. What works without Firebase, and with it
 
-| | No Firebase (today: CI builds `PUSH_ENABLED=false`, no `google-services.json`) | With Firebase |
+| | No Firebase (push not set up in the dashboard yet) | With Firebase (set up in Dashboard → Push notifications; the apps start it from the server) |
 |---|---|---|
 | Card right after placing an order | yes (local, optimistic, native renderer) | yes |
 | Updates while the app process lives | yes: Reverb events and the 60 s re-read | yes |

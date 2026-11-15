@@ -38,6 +38,19 @@ class PushNotificationsPage extends Component
 
     public string $vapidKey = '';
 
+    /** Phone apps: one API key per platform and one Firebase app ID per app (an Android app per package, the iPhone app is the customer app). */
+    public string $apiKeyAndroid = '';
+
+    public string $apiKeyIos = '';
+
+    public string $appIdAndroidCustomer = '';
+
+    public string $appIdAndroidDriver = '';
+
+    public string $appIdAndroidStaff = '';
+
+    public string $appIdIosCustomer = '';
+
     /** The service-account file typed or uploaded in this visit; cleared after every save. */
     public string $serviceAccountJson = '';
 
@@ -59,6 +72,20 @@ class PushNotificationsPage extends Component
         FirebaseConfig::SENDER_ID => 'senderId',
         FirebaseConfig::APP_ID => 'appId',
         FirebaseConfig::VAPID_KEY => 'vapidKey',
+        FirebaseConfig::API_KEY_ANDROID => 'apiKeyAndroid',
+        FirebaseConfig::API_KEY_IOS => 'apiKeyIos',
+        'push.firebase.app_id_android_customer' => 'appIdAndroidCustomer',
+        'push.firebase.app_id_android_driver' => 'appIdAndroidDriver',
+        'push.firebase.app_id_android_staff' => 'appIdAndroidStaff',
+        'push.firebase.app_id_ios_customer' => 'appIdIosCustomer',
+    ];
+
+    /** The phone app IDs: property => [platform, app], for the checks that only make sense together. */
+    private const NATIVE_FIELDS = [
+        'appIdAndroidCustomer' => ['android', 'customer'],
+        'appIdAndroidDriver' => ['android', 'driver'],
+        'appIdAndroidStaff' => ['android', 'staff'],
+        'appIdIosCustomer' => ['ios', 'customer'],
     ];
 
     public function mount(Settings $settings, FirebaseConfig $config): void
@@ -74,12 +101,18 @@ class PushNotificationsPage extends Component
     protected function rules(): array
     {
         return [
-            'projectId' => ['nullable', 'string', 'regex:/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/', 'required_with:apiKey,senderId,appId,vapidKey,serviceAccountJson'],
+            'projectId' => ['nullable', 'string', 'regex:/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/', 'required_with:apiKey,senderId,appId,vapidKey,serviceAccountJson,apiKeyAndroid,apiKeyIos,appIdAndroidCustomer,appIdAndroidDriver,appIdAndroidStaff,appIdIosCustomer'],
             'apiKey' => ['nullable', 'regex:/^AIza[0-9A-Za-z_-]{35}$/', 'required_with:senderId,appId,vapidKey'],
             'authDomain' => ['nullable', 'regex:/^(?=.{4,100}$)[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i'],
             'senderId' => ['nullable', 'regex:/^\d{6,20}$/', 'required_with:apiKey,appId,vapidKey'],
             'appId' => ['nullable', 'regex:/^1:\d{6,20}:web:[0-9a-f]{8,40}$/i', 'required_with:apiKey,senderId,vapidKey'],
             'vapidKey' => ['nullable', 'regex:/^B[A-Za-z0-9_-]{86}$/', 'required_with:apiKey,senderId,appId'],
+            'apiKeyAndroid' => ['nullable', 'regex:/^AIza[0-9A-Za-z_-]{35}$/', 'required_with:appIdAndroidCustomer,appIdAndroidDriver,appIdAndroidStaff'],
+            'apiKeyIos' => ['nullable', 'regex:/^AIza[0-9A-Za-z_-]{35}$/', 'required_with:appIdIosCustomer'],
+            'appIdAndroidCustomer' => ['nullable', 'regex:/^1:\d{6,20}:android:[0-9a-f]{8,40}$/i'],
+            'appIdAndroidDriver' => ['nullable', 'regex:/^1:\d{6,20}:android:[0-9a-f]{8,40}$/i'],
+            'appIdAndroidStaff' => ['nullable', 'regex:/^1:\d{6,20}:android:[0-9a-f]{8,40}$/i'],
+            'appIdIosCustomer' => ['nullable', 'regex:/^1:\d{6,20}:ios:[0-9a-f]{8,40}$/i'],
             'serviceAccountJson' => ['nullable', 'string', 'max:'.ServiceAccountKey::MAX_BYTES],
         ];
     }
@@ -88,7 +121,11 @@ class PushNotificationsPage extends Component
     protected function messages(): array
     {
         $out = [];
-        foreach (['projectId' => 'project_id', 'apiKey' => 'api_key', 'authDomain' => 'auth_domain', 'senderId' => 'sender_id', 'appId' => 'app_id', 'vapidKey' => 'vapid_key'] as $prop => $lang) {
+        foreach ([
+            'projectId' => 'project_id', 'apiKey' => 'api_key', 'authDomain' => 'auth_domain', 'senderId' => 'sender_id', 'appId' => 'app_id', 'vapidKey' => 'vapid_key',
+            'apiKeyAndroid' => 'api_key', 'apiKeyIos' => 'api_key', 'appIdAndroidCustomer' => 'app_id_android', 'appIdAndroidDriver' => 'app_id_android',
+            'appIdAndroidStaff' => 'app_id_android', 'appIdIosCustomer' => 'app_id_ios',
+        ] as $prop => $lang) {
             $out["$prop.regex"] = __('push_admin.err.'.$lang);
             $out["$prop.required_with"] = __('push_admin.err.required');
         }
@@ -135,6 +172,9 @@ class PushNotificationsPage extends Component
             $this->{$prop} = $prop === 'vapidKey' ? rtrim(trim($this->{$prop}), '=') : trim($this->{$prop});
         }
         $this->validate();
+        if (! $this->projectNumbersAgree()) {
+            return;
+        }
 
         $newKey = null;
         if (trim($this->serviceAccountJson) !== '') {
@@ -262,6 +302,25 @@ class PushNotificationsPage extends Component
         $device->update(['disabled_at' => now()]);
         app(AuditLogger::class)->log('push.device_removed', $device, [], ['platform' => $device->platform, 'browser' => $device->browser]);
         $this->toast(__('push_admin.device_removed'));
+    }
+
+    /** Every app ID carries the project number (1:<number>:android:…): they must all match each other and the sender ID. */
+    private function projectNumbersAgree(): bool
+    {
+        $expected = $this->senderId !== '' ? $this->senderId : null;
+        foreach (array_keys(self::NATIVE_FIELDS) as $prop) {
+            if ($this->{$prop} === '' || ! preg_match('/^1:(\d+):/', $this->{$prop}, $m)) {
+                continue;
+            }
+            $expected ??= $m[1];
+            if ($m[1] !== $expected) {
+                $this->addError($prop, __('push_admin.err.number_mismatch'));
+
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** Validates the pasted/uploaded file against the Project ID; returns the cleaned key or null after showing why not. */
