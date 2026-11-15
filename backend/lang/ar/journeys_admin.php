@@ -57,7 +57,6 @@ return [
     'rc_days' => ':n يوم',
     'won_title' => 'جاء هذا الطلب بعد إحدى رسائلنا',
     'won_body' => 'حققته رحلة :journey (:channel)، بعد :when من الرسالة.',
-    'touches_title' => 'رسائل تسويقية وصلت هذا العميل',
     'reason' => [
         'sent' => 'أُرسلت', 'no_devices' => 'لا يوجد تطبيق مثبّت', 'push_not_configured' => 'الإشعارات غير مُعدّة', 'whatsapp_not_configured' => 'واتساب غير مُعدّ', 'no_phone' => 'لا يوجد رقم هاتف',
         'no_marketing_consent' => 'لا توجد موافقة تسويقية', 'no_whatsapp_optin' => 'لم يوافق على واتساب', 'opted_out' => 'أوقف هذه القناة', 'inactive_user' => 'الحساب غير نشط',

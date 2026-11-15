@@ -22,7 +22,6 @@ use App\Support\BusinessTime;
 use App\Support\Phone;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
@@ -548,12 +547,6 @@ class JourneyService
         $used = $codes->isEmpty() ? 0 : DB::table('order_coupons')->whereIn('code', $codes)->whereIn('order_id', $rows->pluck('order_id'))->count();
 
         return ['orders' => $rows->count(), 'revenue' => (float) $rows->sum('revenue'), 'avg_minutes' => (int) round($mins->avg() ?? 0), 'by_channel' => $by, 'coupon_orders' => $used];
-    }
-
-    /** What reached this customer, newest first (customer page, order page). @return \Illuminate\Support\Collection<int, JourneyDelivery> */
-    public function touchesFor(string $userId, int $limit = 12): Collection
-    {
-        return JourneyDelivery::with(['run.journey:id,key', 'step:id,label,position'])->where('user_id', $userId)->whereIn('status', ['sent', 'delivered'])->latest('sent_at')->limit($limit)->get();
     }
 
     /** First visit: both journeys exist (switched off) with sensible steps and bilingual starter templates the admin can edit. */

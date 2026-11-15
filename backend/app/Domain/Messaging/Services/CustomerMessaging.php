@@ -79,7 +79,11 @@ class CustomerMessaging
         return $this->canSend($staff) && $this->access->allows($staff, 'marketing.create');
     }
 
-    /** The customers this staff member may message, for the given selection. @return Builder<User> */
+    /**
+     * The customers this staff member may message, for the given selection.
+     *
+     * @return Builder<User>
+     */
     public function audienceQuery(User $staff, AudienceSelection $sel): Builder
     {
         $q = CustomerScope::for($staff);

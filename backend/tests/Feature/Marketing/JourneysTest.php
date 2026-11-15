@@ -232,7 +232,9 @@ it('shows recovered orders to the admin and flags the order page', function () {
     $admin = staffWithRole('marketing_manager');
     $this->actingAs($admin);
     Livewire\Livewire::test(JourneyIndex::class, ['tab' => 'recovered'])->assertSee($order->number)->assertSee('Noor');
-    $this->get(route('admin.customers.show', $this->w->customer->id))->assertOk()->assertSee(__('journeys_admin.touches_title'));
+    // The customer's page lists what the journeys sent in its Messages tab (the timeline that replaced the old "touches" block).
+    $this->get(route('admin.customers.show', ['customer' => $this->w->customer->id, 'tab' => 'messages']))->assertOk()
+        ->assertSee(__('messaging_history.tl_title'))->assertSee(__('journeys_admin.name_abandoned_cart'))->assertSee(__('messaging_history.tl_automatic'));
 });
 
 it('lists the messages that were sent, with the customer, on the activity tab', function () {

@@ -10,6 +10,7 @@ use App\Domain\Identity\Services\TokenService;
 use App\Domain\Marketing\Models\LoyaltyTransaction;
 use App\Domain\Marketing\Services\LoyaltyService;
 use App\Domain\Marketing\Services\ReferralService;
+use App\Domain\Messaging\Services\CustomerMessaging;
 use App\Domain\Notifications\Services\NotificationService;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderFulfillment;
@@ -71,6 +72,13 @@ class CustomerShow extends Component
         }
 
         return $result;
+    }
+
+    /** "Send message" in the header: opens the message window (the list's, or this page's own) for this one customer. */
+    public function composeMessage(): void
+    {
+        abort_unless(app(CustomerMessaging::class)->canSend(auth()->user()), 403);
+        $this->dispatch('compose-message', mode: 'ids', ids: [$this->customerId], filters: [], except: [], source: 'customer');
     }
 
     public function updatedTab(): void
@@ -150,6 +158,7 @@ class CustomerShow extends Component
             'referral' => $referrals->staffSummary($c),
             'canAdjust' => $this->canGlobally('loyalty.edit'),
             'canEdit' => $this->canGlobally('customers.edit'),
+            'canMessage' => app(CustomerMessaging::class)->canSend(auth()->user()),
             'pointValue' => $loyalty->pointValue(),
         ])->title($c->name);
     }

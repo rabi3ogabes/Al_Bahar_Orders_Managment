@@ -9,6 +9,7 @@ use App\Domain\Marketing\Models\JourneyDelivery;
 use App\Domain\Marketing\Models\JourneyRun;
 use App\Domain\Marketing\Models\JourneyTemplate;
 use App\Domain\Marketing\Models\Promotion;
+use App\Domain\Marketing\Services\JourneyService;
 use App\Domain\Messaging\Data\AudienceSelection;
 use App\Domain\Messaging\Data\SendRequest;
 use App\Domain\Messaging\Jobs\SendCustomerMessageJob;
@@ -477,7 +478,7 @@ it('says "failed" instead of leaving a message waiting forever when the job give
     CustomerMessage::query()->update(['status' => 'queued', 'sent_at' => null]);
     $batch->forceFill(['status' => 'sending', 'completed_at' => null])->save();
 
-    (new \App\Domain\Messaging\Jobs\SendCustomerMessageJob($batch->id, $c->id))->failed(new RuntimeException('boom'));
+    (new SendCustomerMessageJob($batch->id, $c->id))->failed(new RuntimeException('boom'));
 
     expect(CustomerMessage::first())->status->toBe('failed')->reason->toBe('job_failed');
     expect($batch->fresh())->status->toBe('done')->failed_count->toBe(1);
@@ -486,9 +487,9 @@ it('says "failed" instead of leaving a message waiting forever when the job give
 it('makes the automatic journeys step aside for a customer the team just messaged', function () {
     $w = commerceWorld();
     $w->customer->update(['marketing_consent_at' => now(), 'locale' => 'en', 'phone' => '+97455123456']);
-    $svc = app(\App\Domain\Marketing\Services\JourneyService::class);
+    $svc = app(JourneyService::class);
     $svc->ensureDefaults();
-    \App\Domain\Marketing\Models\Journey::where('key', 'abandoned_cart')->update(['is_enabled' => true, 'settings' => ['max_per_day' => 10]]);
+    Journey::where('key', 'abandoned_cart')->update(['is_enabled' => true, 'settings' => ['max_per_day' => 10]]);
     $cart = Cart::create(['user_id' => $w->customer->id, 'status' => 'active', 'last_activity_at' => now()->subMinutes(45)]);
     CartItem::create(['cart_id' => $cart->id, 'product_variant_id' => $w->v1->id, 'quantity' => 1]);
 
@@ -497,5 +498,5 @@ it('makes the automatic journeys step aside for a customer the team just message
     $svc->tick();
 
     expect(Notification::where('user_id', $w->customer->id)->count())->toBe($before)
-        ->and(\App\Domain\Marketing\Models\JourneyDelivery::pluck('reason')->unique()->all())->toBe(['recently_contacted']);
+        ->and(JourneyDelivery::pluck('reason')->unique()->all())->toBe(['recently_contacted']);
 });

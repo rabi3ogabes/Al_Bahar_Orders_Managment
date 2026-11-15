@@ -1,6 +1,10 @@
 @php
     use App\Livewire\Admin\Sales\CustomerIndex; use App\Support\Phone;
-    $tabs = ['orders' => ['bag', __('admin.orders'), $stats->n], 'addresses' => ['map-pin', __('sales_admin.addresses'), $c->addresses->count()], 'loyalty' => ['gift', __('sales_admin.loyalty'), null], 'consent' => ['shield', __('sales_admin.consents'), null]];
+    $tabs = ['orders' => ['bag', __('admin.orders'), $stats->n], 'addresses' => ['map-pin', __('sales_admin.addresses'), $c->addresses->count()], 'loyalty' => ['gift', __('sales_admin.loyalty'), null]];
+    if (app(\App\Domain\Identity\Services\AccessControl::class)->allows(auth()->user(), 'notifications.view')) {
+        $tabs['messages'] = ['message', __('messaging_history.tl_title'), null];
+    }
+    $tabs['consent'] = ['shield', __('sales_admin.consents'), null];
 @endphp
 <div @class(['mx-auto max-w-7xl' => ! $drawer])>
     @if (! $drawer)
@@ -19,21 +23,27 @@
                 @unless ($reveal)<span class="inline-flex items-center gap-1 text-xs"><x-icon name="lock" class="size-3" />{{ __('sales_admin.masked') }}</span>@endunless
             </div>
         </div>
-        @if ($canEdit && ! $drawer)
-            <div class="flex gap-2">
-                @if ($c->status->value === 'active')
+        @if (($canEdit || $canMessage) && ! $drawer)
+            <div class="flex flex-wrap gap-2">
+                @if ($canMessage)
+                    <button type="button" wire:click="composeMessage" class="btn-primary" data-testid="send-message"><x-icon name="send" class="size-4 rtl-flip" />{{ __('messaging_customers.send') }}</button>
+                @endif
+                @if ($canEdit && $c->status->value === 'active')
                     <button type="button" wire:click="askStatus('suspended')" class="btn-secondary text-ruby-soft"><x-icon name="ban" class="size-4" />{{ __('sales_admin.suspend') }}</button>
-                @elseif ($c->status->value === 'suspended')
+                @elseif ($canEdit && $c->status->value === 'suspended')
                     <button type="button" wire:click="askStatus('active')" class="btn-secondary"><x-icon name="check" class="size-4" />{{ __('sales_admin.reactivate') }}</button>
                 @endif
             </div>
         @endif
     </div>
-    @if ($canEdit && $drawer)
+    @if (($canEdit || $canMessage) && $drawer)
         <div class="-mt-2 mb-5 flex flex-wrap gap-2">
-            @if ($c->status->value === 'active')
+            @if ($canMessage)
+                <button type="button" wire:click="composeMessage" class="btn-primary min-h-11" data-testid="send-message"><x-icon name="send" class="size-4 rtl-flip" />{{ __('messaging_customers.send') }}</button>
+            @endif
+            @if ($canEdit && $c->status->value === 'active')
                 <button type="button" wire:click="askStatus('suspended')" class="btn-secondary min-h-11 text-ruby-soft"><x-icon name="ban" class="size-4" />{{ __('sales_admin.suspend') }}</button>
-            @elseif ($c->status->value === 'suspended')
+            @elseif ($canEdit && $c->status->value === 'suspended')
                 <button type="button" wire:click="askStatus('active')" class="btn-secondary min-h-11"><x-icon name="check" class="size-4" />{{ __('sales_admin.reactivate') }}</button>
             @endif
         </div>
@@ -62,10 +72,6 @@
         <x-admin.stat :label="__('sales_admin.points_balance')" :value="number_format($account->balance)" icon="gift" tone="brass" :hint="__('sales_admin.worth', ['amount' => \App\Support\Money::ofMinor($account->balance * $pointValue->minor)->format()])" />
         <x-admin.stat :label="__('sales_admin.tier')" :value="__('sales_admin.tier_'.$account->tier)" icon="crown" :hint="$stats->last_at ? __('sales_admin.last_order', ['at' => \App\Support\BusinessTime::display($stats->last_at, 'd M Y')]) : null" />
     </div>
-    @endif
-
-    @if (! $drawer && \App\Domain\Marketing\Models\JourneyDelivery::where('user_id', $c->id)->exists())
-        <x-admin.journey-touches :touches="app(\App\Domain\Marketing\Services\JourneyService::class)->touchesFor($c->id)" />
     @endif
 
     <x-admin.tabs :tabs="$tabs" :current="$current" :model="$tabModel" />
@@ -167,6 +173,9 @@
                 </div>
             </div>
         </div>
+    @elseif ($current === 'messages' && isset($tabs['messages']))
+        {{-- Every message the team and the automatic journeys sent to this customer (own component: it reads nothing until this tab is opened). --}}
+        @livewire(\App\Livewire\Admin\Messaging\CustomerTimeline::class, ['customer' => $c], key('msg-timeline-'.$c->id))
     @else
         <div @class(['grid gap-6 [&>*]:min-w-0', 'lg:grid-cols-3' => ! $drawer, 'flex flex-col' => $drawer])>
             <div class="card card-pad">
@@ -205,4 +214,9 @@
             </div>
         </form>
     </x-admin.dialog>
+
+    {{-- The message window. In a side window the customers list (behind it) already has one, so this is the full page's own. --}}
+    @if ($canMessage && ! $drawer)
+        <livewire:admin.messaging.message-composer />
+    @endif
 </div>

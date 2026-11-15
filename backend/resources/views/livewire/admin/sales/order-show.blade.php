@@ -46,7 +46,7 @@
     </div>
     @endif
 
-    <x-admin.journey-touches :order="$o" :touches="collect()" />
+    <x-admin.journey-touches :order="$o" />
 
     @if ($pendingCancellation)
         <div class="card mb-6 border-amber-soft/30 bg-amber-soft/5 p-5 sm:p-6">

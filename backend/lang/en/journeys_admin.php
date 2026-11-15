@@ -57,7 +57,6 @@ return [
     'rc_days' => ':n days',
     'won_title' => 'This order came after one of our messages',
     'won_body' => 'Won by the :journey journey (:channel), :when after the message.',
-    'touches_title' => 'Marketing messages this customer received',
     'reason' => [
         'sent' => 'Sent', 'no_devices' => 'No app installed', 'push_not_configured' => 'Push is not set up', 'whatsapp_not_configured' => 'WhatsApp is not set up', 'no_phone' => 'No phone number',
         'no_marketing_consent' => 'No marketing consent', 'no_whatsapp_optin' => 'Did not opt in to WhatsApp', 'opted_out' => 'Opted out of this channel', 'inactive_user' => 'Account not active',

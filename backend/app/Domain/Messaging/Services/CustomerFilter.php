@@ -46,7 +46,12 @@ class CustomerFilter
         return $q;
     }
 
-    /** Adds `last_contact_at` to the rows (the list shows "last message 3 days ago"). */
+    /**
+     * Adds `last_contact_at` to the rows (the list shows "last message 3 days ago").
+     *
+     * @param  Builder<User>  $q
+     * @return Builder<User>
+     */
     public function withLastContact(Builder $q): Builder
     {
         return $q->addSelect('users.*')->selectRaw(ContactHistory::LAST_CONTACT_SQL.' AS last_contact_at');

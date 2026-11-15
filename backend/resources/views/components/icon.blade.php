@@ -87,6 +87,8 @@
         'play' => '<path d="M6 4l14 8-14 8z"/>',
         'pause' => '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
         'stop' => '<rect x="5" y="5" width="14" height="14" rx="2"/>',
+        'send' => '<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/>',
+        'whatsapp' => '<path d="M20.5 11.6a8.5 8.5 0 0 1-12.3 7.6L3 20.5l1.4-4.9a8.5 8.5 0 1 1 16.1-4z"/><path d="M9.2 8.6c.2 2.4 3.1 5.3 5.6 5.7l1.1-1.3-1.9-1-.9.8c-.8-.4-1.7-1.3-2.1-2.1l.8-.9-1-1.9z"/>',
     ];
 @endphp
 <svg {{ $attributes->merge(['class' => $class]) }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{!! $paths[$name] ?? $paths['info'] !!}</svg>
