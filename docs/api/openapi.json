@@ -23096,6 +23096,288 @@
                 }
             }
         },
+        "/theme": {
+            "get": {
+                "operationId": "v1.theme",
+                "tags": [
+                    "Engagement"
+                ],
+                "summary": "The look to show right now",
+                "description": "Public and cached for a minute. Colours, artwork and banner come from the active look (a hand-activated look, else a live event, else the default design); layout, tokens, design, footer and backdrop come from the default design and the dashboard settings, so an event never changes the layout. With ?design=<key> it answers as if that base design were live (read-only preview); an unknown key answers with the normal payload.",
+                "parameters": [
+                    {
+                        "name": "design",
+                        "in": "query",
+                        "required": false,
+                        "description": "Key of a base design to preview.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "key": {
+                                                    "type": "string"
+                                                },
+                                                "kind": {
+                                                    "type": "string"
+                                                },
+                                                "name": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "colors": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "primary": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "primary_soft": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "accent": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "background": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "surface": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "ink": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "primary",
+                                                        "primary_soft",
+                                                        "accent",
+                                                        "background",
+                                                        "surface",
+                                                        "ink"
+                                                    ]
+                                                },
+                                                "images": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "hero": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "banner": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "logo": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "splash": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "hero",
+                                                        "banner",
+                                                        "logo",
+                                                        "splash"
+                                                    ]
+                                                },
+                                                "banner": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "title": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "subtitle": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "title",
+                                                        "subtitle"
+                                                    ]
+                                                },
+                                                "valid_until": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "format": "date-time"
+                                                },
+                                                "version": {
+                                                    "type": "string"
+                                                },
+                                                "layout": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "classic",
+                                                        "fresh"
+                                                    ]
+                                                },
+                                                "tokens": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "radius": {
+                                                            "type": "string",
+                                                            "enum": [
+                                                                "md",
+                                                                "lg",
+                                                                "xl"
+                                                            ]
+                                                        },
+                                                        "card": {
+                                                            "type": "string",
+                                                            "enum": [
+                                                                "flat",
+                                                                "soft",
+                                                                "outlined"
+                                                            ]
+                                                        },
+                                                        "header": {
+                                                            "type": "string",
+                                                            "enum": [
+                                                                "standard",
+                                                                "brand"
+                                                            ]
+                                                        },
+                                                        "nav": {
+                                                            "type": "string",
+                                                            "enum": [
+                                                                "classic",
+                                                                "center_action"
+                                                            ]
+                                                        },
+                                                        "background": {
+                                                            "type": "string",
+                                                            "enum": [
+                                                                "plain",
+                                                                "gradient"
+                                                            ]
+                                                        },
+                                                        "density": {
+                                                            "type": "string",
+                                                            "enum": [
+                                                                "comfortable",
+                                                                "compact"
+                                                            ]
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "radius",
+                                                        "card",
+                                                        "header",
+                                                        "nav",
+                                                        "background",
+                                                        "density"
+                                                    ]
+                                                },
+                                                "design": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "key": {
+                                                            "type": "string"
+                                                        },
+                                                        "name_en": {
+                                                            "type": "string"
+                                                        },
+                                                        "name_ar": {
+                                                            "type": "string"
+                                                        },
+                                                        "name": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "key",
+                                                        "name_en",
+                                                        "name_ar",
+                                                        "name"
+                                                    ]
+                                                },
+                                                "footer": {
+                                                    "type": "object",
+                                                    "description": "The customer app bottom menu (Appearance > App footer)."
+                                                },
+                                                "backdrop": {
+                                                    "$ref": "#/components/schemas/ThemeBackdrop"
+                                                }
+                                            },
+                                            "required": [
+                                                "key",
+                                                "kind",
+                                                "name",
+                                                "colors",
+                                                "images",
+                                                "banner",
+                                                "valid_until",
+                                                "version",
+                                                "layout",
+                                                "tokens",
+                                                "design",
+                                                "footer",
+                                                "backdrop"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/pages/{slug}": {
             "get": {
                 "operationId": "v1.pages.show",
@@ -30505,6 +30787,67 @@
                     "code"
                 ],
                 "title": "VerifyOtpRequest"
+            },
+            "ThemeBackdrop": {
+                "type": "object",
+                "description": "The picture behind every page of the web store and the customer app (docs/api/PAGE_BACKDROP.md). Defaults when never saved: skyline, bottom, 0.08, no colours. A payload without this key, or with a value outside the allowed set, means \"feature off\": the page looks as it did before. Active = style is not \"none\" or color is not null.",
+                "properties": {
+                    "style": {
+                        "type": "string",
+                        "enum": [
+                            "skyline",
+                            "image",
+                            "none"
+                        ],
+                        "description": "skyline = the built-in Doha skyline vector, image = the admin's own picture, none = page colour only."
+                    },
+                    "image_url": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "uri",
+                        "description": "Absolute URL, only when style = \"image\" and the file exists. If the file is gone the server answers style = \"skyline\" and null here."
+                    },
+                    "fit": {
+                        "type": "string",
+                        "enum": [
+                            "bottom",
+                            "cover"
+                        ],
+                        "description": "Pictures only: bottom = full width, natural height, standing on the bottom edge; cover = fills the page."
+                    },
+                    "opacity": {
+                        "type": "number",
+                        "minimum": 0.02,
+                        "maximum": 0.5,
+                        "description": "Strength of the picture, 0.02 to 0.50 in steps of 0.01."
+                    },
+                    "color": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "pattern": "^#[0-9A-F]{6}$",
+                        "description": "Page colour for LIGHT mode as #RRGGBB, or null = the theme's own background colour. Dark mode keeps its own dark colour."
+                    },
+                    "tint": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "pattern": "^#[0-9A-F]{6}$",
+                        "description": "Colour of the built-in skyline as #RRGGBB, or null = the theme's primary colour."
+                    }
+                },
+                "required": [
+                    "style",
+                    "image_url",
+                    "fit",
+                    "opacity",
+                    "color",
+                    "tint"
+                ]
             }
         },
         "responses": {

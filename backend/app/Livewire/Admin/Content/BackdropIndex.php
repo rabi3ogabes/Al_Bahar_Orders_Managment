@@ -10,6 +10,7 @@ use App\Support\Contrast;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
 
 /**
@@ -28,7 +29,7 @@ class BackdropIndex extends Component
     public array $baseline = [];
 
     /** A picture chosen but not saved yet. */
-    public $upload = null;
+    public ?TemporaryUploadedFile $upload = null;
 
     public bool $justSaved = false;
 
@@ -150,7 +151,7 @@ class BackdropIndex extends Component
     public function render(BackdropService $backdrop, ThemeService $themes)
     {
         $stored = $backdrop->imageUrl($backdrop->config()['image']);
-        $pending = $this->upload && method_exists($this->upload, 'isPreviewable') && $this->upload->isPreviewable() ? $this->upload->temporaryUrl() : null;
+        $pending = $this->upload?->isPreviewable() ? $this->upload->temporaryUrl() : null;
 
         $colors = $themes->active()?->getAttribute('colors');
         $colors = is_array($colors) ? $colors : [];

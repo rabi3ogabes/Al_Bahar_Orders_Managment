@@ -61,6 +61,12 @@ class AbandonedCartService
         private readonly AuditLogger $audit,
     ) {}
 
+    /** A cart older than the cart lifetime (`platform.checkout.cart_ttl_days`) has expired: it is no longer recoverable, so it is not listed or counted. */
+    public static function maxAgeDays(): int
+    {
+        return max(1, (int) config('platform.checkout.cart_ttl_days'));
+    }
+
     // ── Access ───────────────────────────────────────────────────────────────
 
     public function canView(?User $staff): bool
@@ -107,7 +113,7 @@ class AbandonedCartService
         $minutes = self::IDLE[$filters['idle'] ?? '30m'] ?? self::MIN_IDLE;
         $scope = $this->scope($staff, 'orders.view')->narrow($filters['branch'] ?? null);
         $q = Cart::query()->where('carts.status', 'active')->whereNotNull('carts.user_id')
-            ->where('carts.last_activity_at', '<=', now()->subMinutes($minutes))
+            ->whereBetween('carts.last_activity_at', [now()->subDays(self::maxAgeDays()), now()->subMinutes($minutes)])
             ->whereExists(fn ($s) => $s->select(DB::raw(1))->from('cart_items')->whereColumn('cart_items.cart_id', 'carts.id'));
         CartVisibility::apply($q, $scope);
 
@@ -158,23 +164,33 @@ class AbandonedCartService
      */
     public function stats(User $staff, string $branch = ''): array
     {
-        $row = $this->filtered($staff, ['branch' => $branch])->toBase()->selectRaw(
-            'count(*) as carts, coalesce(sum((select coalesce(sum(i.price_at_add * i.quantity), 0) from cart_items i where i.cart_id = carts.id)), 0) as value, '
-            .'count(*) filter (where carts.abandoned_notifications > 0) as reminded, count(*) filter (where carts.coupon_code is not null) as with_coupon'
+        // A join (not a sub-select per cart): the planner picks an index loop for a few carts and a hash join for many.
+        $row = $this->filtered($staff, ['branch' => $branch])->toBase()->join('cart_items as i', 'i.cart_id', '=', 'carts.id')->selectRaw(
+            'count(distinct carts.id) as carts, coalesce(sum(i.price_at_add * i.quantity), 0) as value, '
+            .'count(distinct carts.id) filter (where carts.abandoned_notifications > 0) as reminded, count(distinct carts.id) filter (where carts.coupon_code is not null) as with_coupon'
         )->first();
 
         return ['carts' => (int) ($row->carts ?? 0), 'value' => number_format((float) ($row->value ?? 0), 2, '.', ''), 'reminded' => (int) ($row->reminded ?? 0),
             'with_coupon' => (int) ($row->with_coupon ?? 0)];
     }
 
-    /** The small count on the menu item: carts idle for the minimum or more in the staff member's scope (cached for a minute). */
+    /** The small count on the menu item: carts idle for the minimum or more in the staff member's scope. Cached for a minute and shared by everyone with the same scope. */
     public function badge(User $staff): int
     {
         if (! $this->canView($staff)) {
             return 0;
         }
 
-        return (int) Cache::remember('abandoned-badge:'.$staff->id, 60, fn () => $this->filtered($staff)->count());
+        return (int) Cache::remember($this->badgeKey($staff), 60, fn () => $this->filtered($staff)->count());
+    }
+
+    private function badgeKey(User $staff): string
+    {
+        $scope = $this->scope($staff, 'orders.view');
+        $ids = $scope->branchIds;
+        sort($ids);
+
+        return 'abandoned-badge:'.($scope->all ? 'all' : md5(implode(',', $ids)));
     }
 
     /** @return array{0: string, 1: string}|null */
@@ -417,7 +433,7 @@ class AbandonedCartService
             $cart->update(['status' => 'abandoned']);
             $this->audit->log('cart.discarded', $cart, ['status' => 'active'], ['status' => 'abandoned'], ['units' => $units, 'customer_id' => $cart->user_id], actor: $staff);
         });
-        Cache::forget('abandoned-badge:'.$staff->id);
+        Cache::forget($this->badgeKey($staff));
     }
 
     /**
@@ -449,7 +465,7 @@ class AbandonedCartService
             $cart->update(['status' => 'active']);
             $this->audit->log('cart.restored', $cart, ['status' => 'abandoned'], ['status' => 'active'], ['customer_id' => $cart->user_id], actor: $staff);
         });
-        Cache::forget('abandoned-badge:'.$staff->id);
+        Cache::forget($this->badgeKey($staff));
     }
 
     /**

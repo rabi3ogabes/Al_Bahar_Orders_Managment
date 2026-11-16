@@ -80,6 +80,7 @@ real time on server time. Winners have a payment deadline; unpaid winners are ha
 - **Reviews**: approve/reject; answer product questions.
 - **Homepage builder** (Content › Homepage builder): the other home sections (categories, products, brands, offers, auctions): reorder, schedule, edit both languages, preview what the app receives.
 - **Home banners** (Content › Home banners): the slide banners of the home page, in the app and the web store.
+- **Page background** (Content › Page background): the calm picture behind every page of the web store and the customer app, its strength and the page colour. See *Page background* below.
 - **Notification templates**: override any message per event, channel and language; use the variables shown.
 
 ### Home banners: sliders and slides
@@ -92,6 +93,15 @@ The page is a map of the home page, top to bottom. Each **slider** (a row of pic
 - **Preview** (play button on the slider) plays exactly what customers see now, on a phone, tablet or desktop width.
 - **Other places** (below the map): banners for category pages and the auctions area, managed the same way (they have no slider settings). *Old banners not in any slider* are listed there too: edit one and choose where it shows.
 - Needs the **Content** permissions: *view* sees the map and the preview; *create*, *edit* and *delete* unlock the matching buttons. Every change is recorded in the audit log.
+
+### Page background
+**Content › Page background** sets the picture behind every page of the web store and the customer app. *View* of the Content permissions lets you look, *edit* lets you change.
+- **Picture**: *Qatar skyline* (the Doha towers drawn in one soft colour; the default), *My picture* (JPG, PNG or WebP, up to 4 MB and at least 600 px wide; a wide picture works best) or *None* (the page colour only). **Replace** swaps the file when you save. **Remove picture** deletes it for good (it asks first) and the background goes back to the skyline.
+- **How the picture sits** (*My picture* only): *On the bottom* (full width, standing on the bottom edge) or *Fill the page*.
+- **Strength** from 2 to 50 %: low is calm and keeps text easy to read.
+- **Page colour** replaces the page colour in light mode (dark mode keeps its own dark colour). It is refused when the text would be hard to read (contrast below 4.5 : 1 against the look's text colour); the page tells you before you save. **Skyline colour** tints the skyline. **Use theme colour** on either goes back to following the current look, event looks included.
+- The **live preview** (a phone and a web page, light or dark) follows every change at once. Nothing reaches customers until you press **Save changes**, which stays off until something changed. **Back to default** (asks first) brings back the skyline, the original strength and the theme colours; a picture you uploaded stays under *My picture*.
+- Customers see a saved change within a minute. Cards, bars and menus keep their own solid colour, so text never sits on the picture. Every save and every removed picture is in the audit log.
 
 ## 9. Reports & exports
 **Reports** lists only the reports your role may see (sales, payments, refunds, stock, transfers, auctions, marketing…),
@@ -167,6 +177,11 @@ always limited to your branches. Large exports run in the background — collect
   - **وجهة الشريحة**: بدون رابط (الشريحة غير قابلة للضغط)، قسم، صفحة، منتج، علامة تجارية، مزاد، عنوان ويب (يبدأ بـ https:// فقط) أو نص بحث. إن حُذفت الوجهة لاحقاً تظهر علامة حمراء «رابط معطّل» ويرى العملاء الصورة بدون رابط.
   - رتّب الشرائح بالأسهم أو بسحب المقبض، وأخفِ/أظهر، وكرّر (النسخة مخفية حتى تنشرها)، واحذف (مع «تراجع»، ويمكن استعادة المحذوف خلال أسبوع). يتسع العارض لما يصل إلى 20 شريحة.
   - **أماكن أخرى**: بانرات صفحات الفئات ومنطقة المزادات بالطريقة نفسها. تحتاج صلاحيات **المحتوى**.
+- **خلفية الصفحات** (المحتوى ‹ خلفية الصفحات): الصورة الهادئة خلف كل صفحة في المتجر الإلكتروني وتطبيق العملاء. يكفي «عرض» المحتوى للاطلاع و«تعديل» للتغيير.
+  - **الصورة**: *أفق قطر* (أبراج الدوحة بلون واحد ناعم، وهو الأصل) أو *صورتي* (JPG أو PNG أو WebP حتى 4 ميغابايت وبعرض 600 بكسل على الأقل) أو *بدون* (لون الصفحة فقط). **استبدال الصورة** يُطبَّق عند الحفظ، و**حذف الصورة** يمحو الملف نهائياً (بعد تأكيد) وتعود الخلفية إلى أفق قطر.
+  - **مكان الصورة** (لـ«صورتي» فقط): في الأسفل بعرض الصفحة، أو تغطية الصفحة. **القوة** من 2 إلى 50٪: القوة المنخفضة هادئة وتُبقي النص سهل القراءة.
+  - **لون الصفحة** يحل محل لون الصفحة في الوضع الفاتح (الداكن يحتفظ بلونه). يُرفض اللون إن صعبت قراءة النص عليه (تباين أقل من 4.5 : 1 مع لون نص المظهر)، وتنبهك الصفحة قبل الحفظ. **لون الأفق** يلوّن الأفق، و**استخدام لون المظهر** يعيد اللون إلى لون المظهر الحالي.
+  - **المعاينة المباشرة** (جوال وصفحة ويب، فاتح وداكن) تتبع كل تغيير فوراً، ولا يصل شيء للعملاء قبل **حفظ التغييرات** (معطّل حتى يتغير شيء). **العودة إلى الافتراضي** (بعد تأكيد) يعيد الأفق والقوة الأصلية وألوان المظهر وتبقى صورتك ضمن «صورتي». يرى العملاء التغيير خلال دقيقة، وتحتفظ البطاقات والأشرطة بلونها الصلب فلا يظهر النص فوق الصورة. كل حفظ وحذف للصورة يُسجَّل في سجل التدقيق.
 - **قوالب الإشعارات**: خصّص أي رسالة لكل حدث وقناة ولغة باستخدام المتغيرات الظاهرة.
 
 ## ٩. التقارير والتصدير

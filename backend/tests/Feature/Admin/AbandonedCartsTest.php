@@ -97,6 +97,15 @@ describe('the list', function () {
             ->and($ids(['idle' => 'forever']))->toBe([$a->id, $b->id, $d->id, $e->id]);                  // unknown choice = the default
     });
 
+    it('does not list a cart older than the cart lifetime: it has expired and cannot be recovered', function () {
+        $live = abandonedCart($this, ['idle' => 60 * 24 * 29]);
+        $expired = abandonedCart($this, ['customer' => User::factory()->create(), 'idle' => 60 * 24 * 31]);
+
+        expect($this->svc->page($this->admin, ['idle' => '7d'])['rows']->pluck('id')->all())->toBe([$live->id])
+            ->and($this->svc->page($this->admin)['rows']->pluck('id')->all())->not->toContain($expired->id)
+            ->and($this->svc->stats($this->admin)['carts'])->toBe(1)->and($this->svc->badge($this->admin))->toBe(1);
+    });
+
     it('counts what is waiting, what it is worth and how many were reminded; no made-up recovery figure', function () {
         abandonedCart($this, ['qty' => 2, 'extra' => ['abandoned_notifications' => 1, 'abandoned_notified_at' => now()->subHour()]]);   // 2 x 1000.00
         abandonedCart($this, ['customer' => User::factory()->create(), 'variant' => $this->w->v2->id, 'qty' => 3, 'extra' => ['coupon_code' => 'X']]); // 3 x 250.00
@@ -327,6 +336,20 @@ describe('editing a customer’s cart', function () {
             ->assertHasErrors(['couponInput'])->assertSee(__('checkout.coupon_invalid'))
             ->set('couponInput', '')->call('applyCoupon')->assertHasErrors(['couponInput']);
         expect(AuditLog::where('action', 'cart.staff_edited')->count())->toBe(0);
+    });
+
+    it('limits edits to 240 a minute per staff member', function () {
+        $cart = abandonedCart($this);
+        $item = $cart->items()->first();
+        foreach (range(1, 240) as $i) {
+            RateLimiter::hit('abandoned:edit:'.$this->mgrA->id, 60);
+        }
+
+        expect(fn () => $this->svc->setQuantity($this->mgrA, $cart->id, $item->id, 3))->toThrow(DomainException::class, __('abandoned_admin.err_too_many_requests'))
+            ->and($item->fresh()->quantity)->toBe(2);
+        $this->svc->setQuantity($this->admin, $cart->id, $item->id, 3); // someone else still can
+        Livewire::actingAs($this->mgrA)->test(AbandonedCartsIndex::class)->call('openCart', $cart->id)->call('bump', $item->id, 1)
+            ->assertDispatched('toast', type: 'error', message: __('abandoned_admin.err_too_many_requests'));
     });
 
     it('audits every change with what it was and what it became, and never tells the customer', function () {
