@@ -2661,6 +2661,29 @@ class AppLocalizationsAr extends AppLocalizations {
   String get liveOrderPermissionBlockedBody => 'فعّلها من الإعدادات لتتابع طلبك مباشرة.';
 
   @override
+  String get notificationAskTitle => 'ابقَ على اطلاع بطلباتك وعروضك';
+
+  @override
+  String get notificationAskBody => 'فعّل الإشعارات لتصلك تحديثات الطلب وأخبار التوصيل والعروض مباشرة على هذا الهاتف.';
+
+  @override
+  String get notificationAskBlockedBody => 'فعّلها من الإعدادات لتصلك تحديثات الطلب وأخبار التوصيل والعروض.';
+
+  @override
+  String get notificationStatusTitle => 'الإشعارات متوقفة على هذا الهاتف';
+
+  @override
+  String get notificationStatusNotAsked =>
+      'لم تسمح بالإشعارات بعد، لذلك لن تظهر تحديثات الطلب والعروض كتنبيهات هنا. إشعاراتك داخل التطبيق تعمل كالمعتاد.';
+
+  @override
+  String get notificationStatusBlocked =>
+      'التنبيهات متوقفة من إعدادات هذا الهاتف، لذلك لن تظهر تحديثات الطلب والعروض هنا. إشعاراتك داخل التطبيق تعمل كالمعتاد.';
+
+  @override
+  String get notificationStatusAllow => 'تفعيل الإشعارات';
+
+  @override
   String get quickView => 'نظرة سريعة';
 
   @override

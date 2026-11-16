@@ -181,6 +181,7 @@
                                         @if ($m->reason)<span class="font-medium {{ in_array($m->status, ['failed'], true) ? 'text-ruby-soft' : '' }}"><x-admin.messaging.reason :reason="$m->reason" /></span>@endif
                                         @if ($m->delivered_at)<span class="tabular-nums" title="{{ \App\Support\BusinessTime::display($m->delivered_at, 'D d M Y, H:i') }}">{{ __('messaging_history.delivered_at', ['at' => \App\Support\BusinessTime::display($m->delivered_at)]) }}</span>
                                         @elseif ($m->sent_at)<span class="tabular-nums">{{ __('messaging_history.sent_at', ['at' => \App\Support\BusinessTime::display($m->sent_at)]) }}</span>@endif
+                                        @if ($m->channel === 'notification' && in_array($m->status, ['sent', 'delivered'], true))<x-admin.messaging.phones-note :note="\App\Domain\Notifications\Services\DevicePushReach::deliveryNote($m->meta)" />@endif
                                         @if ($m->coupon_code)<span class="badge-brass font-mono" dir="ltr" title="{{ __('messaging_history.coupon') }}">{{ $m->coupon_code }}</span>@endif
                                         @if ($m->body)<button type="button" @click="text = ! text" :aria-expanded="text" class="font-medium text-brass-600 underline-offset-2 hover:underline dark:text-brass-300"><span x-show="! text">{{ __('messaging_history.show_text') }}</span><span x-show="text" x-cloak>{{ __('messaging_history.hide_text') }}</span></button>@endif
                                     </p>

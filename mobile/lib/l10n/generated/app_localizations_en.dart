@@ -2631,6 +2631,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get liveOrderPermissionBlockedBody => 'Turn them on in settings to follow your order live.';
 
   @override
+  String get notificationAskTitle => 'Stay updated on your orders and offers';
+
+  @override
+  String get notificationAskBody =>
+      'Turn on notifications to get order updates, delivery news and offers right on this phone.';
+
+  @override
+  String get notificationAskBlockedBody => 'Turn them on in settings to get order updates, delivery news and offers.';
+
+  @override
+  String get notificationStatusTitle => 'Notifications are off on this phone';
+
+  @override
+  String get notificationStatusNotAsked =>
+      'You have not allowed notifications yet, so order updates and offers will not show up as alerts here. Your notifications inside the app still work.';
+
+  @override
+  String get notificationStatusBlocked =>
+      'Alerts are switched off in this phone\'s settings, so order updates and offers will not show up here. Your notifications inside the app still work.';
+
+  @override
+  String get notificationStatusAllow => 'Turn on notifications';
+
+  @override
   String get quickView => 'Quick view';
 
   @override

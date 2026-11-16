@@ -13,10 +13,17 @@ use App\Support\BrowserFamily;
  */
 class DeviceRegistry
 {
-    /** @param array{platform: string, push_token: string, device_id?: ?string, app_version?: ?string, locale?: ?string, app?: ?string} $data */
+    /**
+     * `notification_permission` (granted | denied | not_asked) is what the phone says about showing notifications. It is stored with the time
+     * it was said, on the same write as the token. A registration that does not carry it (an older app, a browser, an explicit null) leaves
+     * the stored answer alone: not knowing is never turned into "off".
+     *
+     * @param array{platform: string, push_token: string, device_id?: ?string, app_version?: ?string, locale?: ?string, app?: ?string, notification_permission?: ?string} $data
+     */
     public function register(User $user, array $data, ?string $userAgent = null): UserDevice
     {
         $web = $data['platform'] === 'web';
+        $permission = $data['notification_permission'] ?? null;
 
         $device = UserDevice::updateOrCreate(['push_token' => $data['push_token']], [
             'user_id' => $user->id,
@@ -28,7 +35,9 @@ class DeviceRegistry
             'locale' => $data['locale'] ?? app()->getLocale(),
             'last_seen_at' => now(),
             'disabled_at' => null,
-        ]);
+        ] + (is_string($permission) && in_array($permission, UserDevice::PERMISSIONS, true)
+            ? ['notification_permission' => $permission, 'notification_permission_at' => now()]
+            : []));
         $this->retireOlderTokens($device);
 
         return $device;

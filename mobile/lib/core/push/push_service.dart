@@ -44,6 +44,18 @@ enum PushPermission {
   unavailable,
 }
 
+extension PushPermissionWire on PushPermission {
+  /// What the phone tells the server about its notification permission (`notification_permission` of the devices endpoint), or
+  /// null when it cannot say (no Firebase here, so nothing to report). An iPhone on quiet delivery counts as `granted`: the push is
+  /// shown, in the notification centre.
+  String? get wire => switch (this) {
+    PushPermission.granted || PushPermission.provisional => 'granted',
+    PushPermission.notDetermined => 'not_asked',
+    PushPermission.denied => 'denied',
+    PushPermission.unavailable => null,
+  };
+}
+
 /// Adapter over the messaging SDK (Firebase in production, fakes in tests).
 abstract class PushMessaging {
   /// Returns false when push is unavailable (e.g. no Firebase config).
@@ -413,6 +425,10 @@ class PushService {
 
   /// Someone is signed in on this phone and wants pushes: set by [register], cleared by [unregister] and [onSignedOut].
   bool _signedIn = false;
+
+  /// The `notification_permission` the server was last told (null: nothing, or it could not be read), so a return to the app
+  /// reports only a change.
+  String? _lastPermissionSent;
   String? _pendingLocation;
   final _recent = <String>[];
   final _subs = <StreamSubscription<Object?>>[];
@@ -483,7 +499,49 @@ class PushService {
       if (_available && _registerWanted) await register();
       return;
     }
-    if (_signedIn && prefs.registeredPushToken == null && await _mayRegisterWithoutAsking()) await register();
+    if (_signedIn && prefs.registeredPushToken == null && await _mayRegisterWithoutAsking()) {
+      await register(); // the registration carries the permission
+      return;
+    }
+    await _reportPermissionIfChanged();
+  }
+
+  /// The person has just answered the notification question (the sheet's system dialog): the server hears it at once, with the same token
+  /// (the upsert is idempotent), or a first registration when the phone has none yet. Never throws and never waits for long.
+  Future<void> onPermissionChanged() async {
+    try {
+      if (!enabled || !_available || !_signedIn) return;
+      final token = prefs.registeredPushToken;
+      if (token != null) {
+        await _send(token);
+      } else if (await _mayRegisterWithoutAsking()) {
+        await register();
+      }
+    } catch (_) {
+      // Reporting is best effort: the next registration or return to the app says it again.
+    }
+  }
+
+  /// The person may have changed notifications in the phone's settings while the app was away: tell the server when the answer is a new one.
+  Future<void> _reportPermissionIfChanged() async {
+    try {
+      final token = prefs.registeredPushToken;
+      if (!_signedIn || token == null || _registering != null) return;
+      final now = await _permissionWire();
+      if (now == null || now == _lastPermissionSent) return;
+      await _send(token);
+    } catch (_) {
+      // Best effort, as above.
+    }
+  }
+
+  /// The permission as the server wants it, null when unknown. A slow or failing SDK never holds up a registration.
+  Future<String?> _permissionWire() async {
+    try {
+      return (await messaging.permissionStatus().timeout(const Duration(seconds: 5))).wire;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// The customer app never shows a dialog from [register], so it may always try again. The staff apps ask in [register]; they try
@@ -590,6 +648,7 @@ class PushService {
   Future<void> unregister() async {
     _registerWanted = false;
     _signedIn = false;
+    _lastPermissionSent = null;
     _stopTokenRetry();
     await _tokenRefreshSub?.cancel();
     _tokenRefreshSub = null;
@@ -608,6 +667,7 @@ class PushService {
   Future<void> onSignedOut() async {
     _registerWanted = false;
     _signedIn = false;
+    _lastPermissionSent = null;
     _stopTokenRetry();
     await _tokenRefreshSub?.cancel();
     _tokenRefreshSub = null;
@@ -630,6 +690,7 @@ class PushService {
       version = '${info.version}+${info.buildNumber}';
     } catch (_) {}
     final locale = localeCode?.call();
+    final permission = await _permissionWire();
     await api.post(
       devicesPath,
       data: {
@@ -638,8 +699,10 @@ class PushService {
         'device_id': deviceId,
         'app_version': ?version,
         'locale': ?locale,
+        'notification_permission': ?permission,
       },
     );
+    _lastPermissionSent = permission;
     await prefs.setRegisteredPushToken(token);
     await prefs.setLastPushToken(token);
   }

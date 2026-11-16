@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Customer;
 
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Identity\Models\AccountDeletionRequest;
+use App\Domain\Identity\Models\UserDevice;
 use App\Domain\Identity\Models\UserSession;
 use App\Domain\Identity\Services\DeviceRegistry;
 use App\Domain\Identity\Services\TokenService;
@@ -81,7 +82,9 @@ class ProfileController extends ApiController
     /**
      * Registers (or refreshes) a push token of the phone app or of a browser. Idempotent: the same token again just refreshes the
      * row, and a token that was registered by someone else moves to the person calling now. For platform "web" the browser family
-     * is read from the user agent; `app` says which web app asked (the store or the web version of the mobile app).
+     * is read from the user agent; `app` says which web app asked (the store or the web version of the mobile app). The phone apps also
+     * send `notification_permission` (granted | denied | not_asked): it is kept with the token and the dashboard uses it to tell the team
+     * when a push would be accepted by Google but not shown. A value outside that list is refused (422) like any other unknown value.
      */
     public function registerDevice(Request $request, DeviceRegistry $devices): JsonResponse
     {
@@ -92,6 +95,8 @@ class ProfileController extends ApiController
             'app' => ['nullable', 'in:store,mobile-web'],
             'device_id' => ['nullable', 'string', 'max:191'],
             'app_version' => ['nullable', 'string', 'max:32'],
+            // What the phone says about showing notifications; left out by older apps (then the stored answer stays as it is).
+            'notification_permission' => ['nullable', 'in:'.implode(',', UserDevice::PERMISSIONS)],
         ]);
         $device = $devices->register($this->user(), $data, $request->userAgent());
 

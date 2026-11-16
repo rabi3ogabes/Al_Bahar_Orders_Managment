@@ -124,7 +124,11 @@ class MessageDelivery
         $push = $this->eligibility->allowed($prefs, (string) $user->id, 'push');
         [$title, $body] = $this->texts($content, $locale, $user, $coupon);
         $link = $content['deep_link'] ?: ($batch->kind === 'reminder' ? 'albahar://cart' : 'albahar://home');
-        $meta = ['in_app' => false, 'devices' => 0, 'pushed' => 0];
+        // devices = phones tried, pushed = phones Google accepted it for, silent = of those, phones that said notifications are off or never asked
+        // (Android 13+ hides the push until the person allows it, so "pushed" alone is not "seen"). Unknown (null) is not counted as silent.
+        // push_tried tells "no phone" from "no push attempted" (the customer takes no push, or push is not set up) for the history.
+        $pushConfigured = $this->fcm->configured();
+        $meta = ['in_app' => false, 'devices' => 0, 'pushed' => 0, 'silent' => 0, 'push_tried' => $push && $pushConfigured];
         $inboxId = null;
 
         if ($inApp) {
@@ -132,7 +136,6 @@ class MessageDelivery
                 'data' => array_filter(['deep_link' => $link, 'coupon' => $coupon?->code])])->id;
             $meta['in_app'] = true;
         }
-        $pushConfigured = $this->fcm->configured();
         if ($push && $pushConfigured) {
             foreach ($user->devices()->whereNull('disabled_at')->get() as $device) {
                 $meta['devices']++;
@@ -142,7 +145,10 @@ class MessageDelivery
                 if ($res['unregistered'] ?? false) {
                     $device->update(['disabled_at' => now()]);
                 }
-                $meta['pushed'] += ($res['ok'] ?? false) ? 1 : 0;
+                if ($res['ok'] ?? false) {
+                    $meta['pushed']++;
+                    $meta['silent'] += in_array($device->getAttribute('notification_permission'), ['denied', 'not_asked'], true) ? 1 : 0;
+                }
             }
         }
         $row->update(['title' => $title, 'body' => $body, 'meta' => $meta]);

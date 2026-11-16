@@ -7,6 +7,7 @@
     <div class="border-b border-sand-100 p-5 sm:px-6 dark:border-ink-800">
         <h2 class="font-display text-xl font-semibold text-ink-900 dark:text-ivory">{{ __('messaging_history.tl_title') }}</h2>
         <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">{{ __('messaging_history.tl_hint') }}</p>
+        <x-admin.messaging.phones :reach="$reach" class="mt-2" />
         @if ($entries->isNotEmpty())
             <p class="mt-3 inline-flex flex-wrap items-center gap-2 rounded-xl bg-sand-50 px-3 py-2 text-sm text-ink-700 dark:bg-ink-800/60 dark:text-sand-200">
                 @if ($last)
@@ -43,6 +44,7 @@
                             <span aria-hidden="true">·</span><span class="tabular-nums">{{ \App\Support\BusinessTime::display($e['at']) }}</span>
                             <span aria-hidden="true">·</span><span>{{ $channelName($e['channel']) }}</span>
                             <span aria-hidden="true">·</span><span>{{ $manual ? ($e['staff'] ? __('messaging_history.tl_by', ['name' => $e['staff']]) : __('messaging_history.former_staff')) : __('messaging_history.tl_automatic') }}</span>
+                            @if ($e['phones'])<span aria-hidden="true">·</span><x-admin.messaging.phones-note :note="$e['phones']" />@endif
                         </p>
                         @if ($e['reason'])
                             <p @class(['mt-1.5 text-xs font-medium', 'text-ruby-soft' => $e['status'] === 'failed', 'text-ink-500 dark:text-ink-400' => $e['status'] !== 'failed'])><x-admin.messaging.reason :reason="$e['reason']" /></p>

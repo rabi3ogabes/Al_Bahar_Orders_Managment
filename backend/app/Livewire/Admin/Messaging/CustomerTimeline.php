@@ -5,6 +5,7 @@ namespace App\Livewire\Admin\Messaging;
 use App\Domain\Identity\Models\User;
 use App\Domain\Messaging\Services\ContactHistory;
 use App\Domain\Messaging\Services\CustomerMessaging;
+use App\Domain\Notifications\Services\DevicePushReach;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use App\Livewire\Admin\Sales\CustomerShow;
 use Livewire\Attributes\Locked;
@@ -61,7 +62,7 @@ class CustomerTimeline extends Component
         abort_unless($this->can('notifications.view') && CustomerShow::viewableBy(auth()->user(), $customer), 403);
     }
 
-    public function render(ContactHistory $history, CustomerMessaging $messaging)
+    public function render(ContactHistory $history, CustomerMessaging $messaging, DevicePushReach $phones)
     {
         $customer = $this->customer();
         $this->authorizeViewer($customer);
@@ -78,6 +79,7 @@ class CustomerTimeline extends Component
             'more' => $more && $this->shown < self::MAX,
             'openable' => $openable,
             'last' => $last,
+            'reach' => $phones->forUser($customer->id),
         ]);
     }
 }

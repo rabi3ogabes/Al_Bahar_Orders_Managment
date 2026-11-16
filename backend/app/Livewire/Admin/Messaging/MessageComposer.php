@@ -14,6 +14,7 @@ use App\Domain\Messaging\Services\CustomerScope;
 use App\Domain\Messaging\Services\Eligibility;
 use App\Domain\Messaging\Services\MessageContent;
 use App\Domain\Messaging\Services\MessageVariables;
+use App\Domain\Notifications\Services\DevicePushReach;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use App\Support\BusinessTime;
 use App\Support\DomainException;
@@ -371,7 +372,38 @@ class MessageComposer extends Component
         $this->plan = [
             'total' => $plan->total, 'max' => $plan->max, 'reachable' => $plan->reachable, 'skipped' => $channels === [] ? 0 : $plan->skipped(), 'overCap' => $plan->overCap(),
             'channels' => $plan->channels, 'reasons' => $plan->reasons, 'examples' => $plan->examples, 'single' => $this->singlePlan($channels),
+            'phones' => $plan->overCap() ? null : $this->bulkPhones($channels),
         ];
+    }
+
+    /**
+     * Several customers: of those who will get the notification, how many have a phone that can show a push (one grouped query for all of
+     * them). Null when it does not apply: one customer (the window says it in words), no notification, or push not set up at all.
+     *
+     * @param  list<string>  $channels
+     * @return array{can_show: int, silent: int, none: int, unknown: int}|null
+     */
+    private function bulkPhones(array $channels): ?array
+    {
+        if ($this->singleId !== null || ! in_array('notification', $channels, true) || ! $this->svc()->channelsAvailable()['notification']['push']) {
+            return null;
+        }
+        $limits = $this->svc()->limits();
+        $users = $this->svc()->audienceQuery(auth()->user(), $this->selection())->orderBy('users.id')->limit($limits['bulk_max'])->get();
+        $eval = app(Eligibility::class)->evaluate($users, ['notification'], $this->kind, $limits['cooldown_hours']);
+        $ids = $users->filter(fn (User $u) => array_key_exists('notification', $eval[(string) $u->id] ?? []) && $eval[(string) $u->id]['notification'] === null)
+            ->map(fn (User $u) => (string) $u->id)->values()->all();
+        $counts = ['can_show' => 0, 'silent' => 0, 'none' => 0, 'unknown' => 0];
+        foreach (app(DevicePushReach::class)->forUsers($ids) as $reach) {
+            match (DevicePushReach::state($reach)) {
+                'on' => $counts['can_show']++,
+                'unknown' => $counts['unknown']++,
+                'none' => $counts['none']++,
+                default => $counts['silent']++,
+            };
+        }
+
+        return $counts;
     }
 
     /** One customer: the reason on each channel, so the staff member sees exactly what will and will not happen. @param list<string> $channels @return array<string, ?string>|null */
@@ -652,13 +684,15 @@ class MessageComposer extends Component
         return $reason && Lang::has($key) ? __($key, ['code' => '']) : __('messaging_admin.reason.send_error');
     }
 
-    public function render()
+    public function render(DevicePushReach $phones)
     {
         $svc = $this->svc();
         $open = $this->open;
         $minAt = BusinessTime::now()->addMinutes(2);
 
         return view('livewire.admin.messaging.message-composer', [
+            // One customer: what their phones say about showing a push (a single grouped query; nothing while the window is closed).
+            'reach' => $open && $this->singleId !== null ? $phones->forUser($this->singleId) : null,
             'templates' => $open && $this->step === 'compose' ? JourneyTemplate::where('is_active', true)->whereIn('kind', ['reminder', 'offer'])->orderBy('kind')->orderBy('name')->get() : collect(),
             'promotions' => $open && $this->canCoupon() ? $this->promotions() : collect(),
             'canCoupon' => $this->canCoupon(),

@@ -41,6 +41,7 @@
                         @if ($single){{ __('messaging_composer.speaks', ['language' => __('messaging_composer.lang_'.$defaultLang.'_name')]) }}
                         @else{{ __('messaging_composer.own_language') }}@endif
                     </p>
+                    @if ($single && $reach)<x-admin.messaging.phones :reach="$reach" class="mt-1" />@endif
                 </div>
             </div>
 
@@ -149,6 +150,13 @@
                         @endunless
                         @if (in_array('notification', $channels, true) && ! $available['notification']['push'])
                             <p class="mt-2.5 flex items-start gap-2 text-xs text-ink-500 dark:text-ink-400"><x-icon name="info" class="mt-0.5 size-3.5 shrink-0" />{{ __('messaging_composer.push_off') }}</p>
+                        @elseif ($single && $reach && in_array('notification', $channels, true) && \App\Domain\Notifications\Services\DevicePushReach::pushWillNotShow($reach))
+                            @php $phoneState = \App\Domain\Notifications\Services\DevicePushReach::state($reach); @endphp
+                            {{-- It still sends: the inbox message arrives. This only tells the team that a push will not show, and how to fix it. --}}
+                            <div class="mt-2.5 flex items-start gap-2.5 rounded-xl border border-amber-soft/30 bg-amber-soft/10 p-3 text-sm text-ink-700 dark:text-sand-200" role="note" data-testid="phones-warning" data-state="{{ $phoneState }}">
+                                <x-icon name="alert" class="mt-0.5 size-4 shrink-0 text-amber-soft" />
+                                <p><span class="font-semibold text-ink-900 dark:text-ivory">{{ __('messaging_phones.warn.'.$phoneState.'_title') }}.</span> {{ __('messaging_phones.warn.'.$phoneState, ['name' => \Illuminate\Support\Str::before(trim($singleName), ' ')]) }}</p>
+                            </div>
                         @endif
                     </section>
 
@@ -349,6 +357,22 @@
                                 <p class="mt-2 text-xs text-ink-500 dark:text-ink-400">
                                     @foreach ($channelsOn as $ch){{ __('messaging_admin.channel.'.$ch) }}: {{ number_format($plan['channels'][$ch]['ok'] ?? 0) }}/{{ number_format($plan['total']) }}@unless ($loop->last) · @endunless @endforeach
                                 </p>
+                            @endif
+                            @if (is_array($plan['phones'] ?? null) && array_sum($plan['phones']) > 0)
+                                <div class="mt-3 rounded-2xl border border-sand-200/70 p-4 dark:border-ink-700" data-testid="plan-phones">
+                                    <p class="text-xs font-semibold uppercase tracking-wider text-ink-500">{{ __('messaging_phones.bulk.title') }}</p>
+                                    <ul class="mt-2 space-y-1.5 text-sm">
+                                        @foreach (['can_show' => 'check', 'silent' => 'alert', 'none' => 'alert', 'unknown' => 'info'] as $key => $icon)
+                                            @if (($plan['phones'][$key] ?? 0) > 0)
+                                                <li class="flex items-start gap-2 text-ink-700 dark:text-sand-200" data-testid="plan-phones-{{ $key }}">
+                                                    <x-icon :name="$icon" class="mt-0.5 size-4 shrink-0 {{ $key === 'can_show' ? 'text-emerald-soft dark:text-emerald-300' : ($key === 'unknown' ? 'text-ink-400' : 'text-amber-soft') }}" />
+                                                    <span>{{ trans_choice('messaging_phones.bulk.'.$key, $plan['phones'][$key], ['count' => number_format($plan['phones'][$key])]) }}</span>
+                                                </li>
+                                            @endif
+                                        @endforeach
+                                    </ul>
+                                    <p class="mt-2 text-xs text-ink-500 dark:text-ink-400">{{ __('messaging_phones.bulk.hint') }}</p>
+                                </div>
                             @endif
                             @if (! empty($plan['reasons']))
                                 <div class="mt-3 rounded-2xl border border-sand-200/70 p-4 dark:border-ink-700">

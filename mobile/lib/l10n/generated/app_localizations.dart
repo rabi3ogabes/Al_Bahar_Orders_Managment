@@ -4790,6 +4790,48 @@ abstract class AppLocalizations {
   /// **'Turn them on in settings to follow your order live.'**
   String get liveOrderPermissionBlockedBody;
 
+  /// No description provided for @notificationAskTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Stay updated on your orders and offers'**
+  String get notificationAskTitle;
+
+  /// No description provided for @notificationAskBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on notifications to get order updates, delivery news and offers right on this phone.'**
+  String get notificationAskBody;
+
+  /// No description provided for @notificationAskBlockedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn them on in settings to get order updates, delivery news and offers.'**
+  String get notificationAskBlockedBody;
+
+  /// No description provided for @notificationStatusTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are off on this phone'**
+  String get notificationStatusTitle;
+
+  /// No description provided for @notificationStatusNotAsked.
+  ///
+  /// In en, this message translates to:
+  /// **'You have not allowed notifications yet, so order updates and offers will not show up as alerts here. Your notifications inside the app still work.'**
+  String get notificationStatusNotAsked;
+
+  /// No description provided for @notificationStatusBlocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Alerts are switched off in this phone\'s settings, so order updates and offers will not show up here. Your notifications inside the app still work.'**
+  String get notificationStatusBlocked;
+
+  /// No description provided for @notificationStatusAllow.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on notifications'**
+  String get notificationStatusAllow;
+
   /// No description provided for @quickView.
   ///
   /// In en, this message translates to:

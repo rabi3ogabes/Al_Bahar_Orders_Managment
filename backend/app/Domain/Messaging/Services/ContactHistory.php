@@ -3,6 +3,7 @@
 namespace App\Domain\Messaging\Services;
 
 use App\Domain\Messaging\Models\CustomerMessage;
+use App\Domain\Notifications\Services\DevicePushReach;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -54,7 +55,7 @@ class ContactHistory
     /**
      * The customer's contact history, newest first, manual and automatic together.
      *
-     * @return Collection<int, array{key: string, at: CarbonImmutable, source: string, channel: string, kind: ?string, template: ?string, title: ?string, body: ?string, status: string, reason: ?string, coupon: ?string, staff: ?string, batch_id: ?string, journey: ?string}>
+     * @return Collection<int, array{key: string, at: CarbonImmutable, source: string, channel: string, kind: ?string, template: ?string, title: ?string, body: ?string, status: string, reason: ?string, coupon: ?string, staff: ?string, batch_id: ?string, journey: ?string, phones: array{kind: 'no_phone'|'silent', reached: int, silent: int}|null}>
      */
     public function timeline(string $userId, int $limit = 30, ?CarbonImmutable $before = null): Collection
     {
@@ -64,6 +65,8 @@ class ContactHistory
                 'key' => 'm-'.$m->id, 'at' => CarbonImmutable::instance($m->sent_at ?? $m->created_at), 'source' => 'manual', 'channel' => $m->channel,
                 'kind' => $m->batch?->kind, 'template' => $m->batch?->template_name, 'title' => $m->title, 'body' => $m->body, 'status' => $m->status,
                 'reason' => $m->reason, 'coupon' => $m->coupon_code, 'staff' => $m->batch?->creator?->name, 'batch_id' => $m->batch_id, 'journey' => null,
+                // How many phones a notification reached and where notifications are off (only said once it went out; a skipped row already has its reason).
+                'phones' => $m->channel === 'notification' && in_array($m->status, ['sent', 'delivered'], true) ? DevicePushReach::deliveryNote($m->meta) : null,
             ]);
         $auto = DB::table('journey_deliveries as d')
             ->leftJoin('journey_runs as r', 'r.id', '=', 'd.run_id')->leftJoin('journeys as j', 'j.id', '=', 'r.journey_id')
@@ -75,7 +78,7 @@ class ContactHistory
                 'key' => 'j-'.$d->id, 'at' => CarbonImmutable::parse($d->sent_at ?? $d->created_at), 'source' => 'journey', 'channel' => in_array($d->channel, ['push', 'in_app'], true) ? 'notification' : (string) $d->channel,
                 'kind' => $d->kind !== null ? (string) $d->kind : null, 'template' => $d->template !== null ? (string) $d->template : null, 'title' => null, 'body' => null,
                 'status' => (string) $d->status, 'reason' => $d->reason !== null ? (string) $d->reason : null, 'coupon' => $d->coupon_code !== null ? (string) $d->coupon_code : null, 'staff' => null,
-                'batch_id' => null, 'journey' => $d->journey !== null ? (string) $d->journey : null,
+                'batch_id' => null, 'journey' => $d->journey !== null ? (string) $d->journey : null, 'phones' => null,
             ]);
 
         return $manual->concat($auto)->sortByDesc(fn ($r) => $r['at']->getTimestamp())->values()->take($limit);
