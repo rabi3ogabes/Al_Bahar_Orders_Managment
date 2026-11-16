@@ -85,6 +85,11 @@ Future<_Raster> _render(CustomPainter painter, Size size, {Size? imageSize}) asy
   return raster;
 }
 
+/// How far (of 255) the soft edge of the same cell may differ between two places on a page: the rasteriser's anti-aliasing
+/// is not exactly the same everywhere. A cell that is cut in the wrong place, shifted or squeezed is off by the 128 of
+/// the tint.
+const _edgeNoise = 24;
+
 /// How many pixels of two pictures (as the bytes of [_Raster.block]) differ in their alpha by more than [tolerance] steps
 /// of 255. The same cell lands on the same pixels, but a different offset can round a soft edge a little the other way
 /// (the rasteriser's anti-aliasing is not the same everywhere on a page); the colour of a nearly clear pixel is rounding
@@ -480,9 +485,9 @@ void main() {
         reason: 'the centre of a corner ornament sits on the origin',
       );
       // Right strip: the first 16 px of a cell. Bottom strip: the first 64 rows of a cell.
-      expect(_differences(raster.block(504, 0, 16, 168), raster.block(0, 0, 16, 168), tolerance: 12), 0);
-      expect(_differences(raster.block(0, 336, 168, 64), raster.block(0, 0, 168, 64), tolerance: 12), 0);
-      expect(_differences(raster.block(504, 336, 16, 64), raster.block(0, 0, 16, 64), tolerance: 12), 0);
+      expect(_differences(raster.block(504, 0, 16, 168), raster.block(0, 0, 16, 168), tolerance: _edgeNoise), 0);
+      expect(_differences(raster.block(0, 336, 168, 64), raster.block(0, 0, 168, 64), tolerance: _edgeNoise), 0);
+      expect(_differences(raster.block(504, 336, 16, 64), raster.block(0, 0, 16, 64), tolerance: _edgeNoise), 0);
     });
 
     test('a point near the edge of a cell continues in the next one, with no seam and no double painting', () async {

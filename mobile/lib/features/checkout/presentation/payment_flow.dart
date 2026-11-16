@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:albahar_customer/core/live_order/live_order_controller.dart';
 import 'package:albahar_customer/core/live_order/notification_permission.dart';
 import 'package:albahar_customer/core/providers.dart';
+import 'package:albahar_customer/core/push/push_service.dart';
 import 'package:albahar_customer/core/utils/json.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/checkout/domain/checkout_models.dart';
@@ -32,6 +33,7 @@ Future<void> continueAfterOrder(BuildContext context, WidgetRef ref, PlacedOrder
   final live = ref.read(liveOrderControllerProvider);
   final platform = ref.read(liveOrderPlatformProvider);
   final prefs = ref.read(appPreferencesProvider);
+  final push = ref.read(pushServiceProvider);
   // The root navigator outlives the checkout screen, so the sheet can still be shown once the order page is up.
   final root = Navigator.of(context, rootNavigator: true).context;
   unawaited(
@@ -41,8 +43,14 @@ Future<void> continueAfterOrder(BuildContext context, WidgetRef ref, PlacedOrder
       fulfillmentType: asStringOrNull(placed.raw['fulfillment_type']),
     ),
   );
-  void askForNotifications() =>
-      promptForNotificationsAfterOrder(root, platform: platform, prefs: prefs, controller: live);
+  // The server hears at once what the person answered (it shows in the dashboard next to their phone).
+  void askForNotifications() => promptForNotificationsAfterOrder(
+    root,
+    platform: platform,
+    prefs: prefs,
+    controller: live,
+    onAnswered: push.onPermissionChanged,
+  );
 
   final payment = placed.payment;
   final statusLocation = Uri(

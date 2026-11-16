@@ -135,7 +135,7 @@ class SkylinePainter extends CustomPainter {
         canvas
           ..save()
           ..translate(column * tileSize, row * tileSize)
-          ..clipRect(cell, doAntiAlias: false)
+
           ..scale(scaleX, scaleY)
           ..drawPath(art.path, paint)
           ..restore();
