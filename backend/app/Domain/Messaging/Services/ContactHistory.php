@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\DB;
 /**
  * "When did we last contact this customer, and how?" across both ways a marketing message can reach them: the ones staff send by hand
  * (customer_messages) and the automatic journeys (journey_deliveries). Used by the recently-contacted guard, the customers list and the timeline.
+ *
+ * @phpstan-type TimelineRow array{key: string, at: CarbonImmutable, source: string, channel: string, kind: ?string, template: ?string, title: ?string, body: ?string, status: string, reason: ?string, coupon: ?string, staff: ?string, batch_id: ?string, journey: ?string, phones: array{kind: 'no_phone'|'silent', reached: int, silent: int}|null}
  */
 class ContactHistory
 {
@@ -55,10 +57,11 @@ class ContactHistory
     /**
      * The customer's contact history, newest first, manual and automatic together.
      *
-     * @return Collection<int, array{key: string, at: CarbonImmutable, source: string, channel: string, kind: ?string, template: ?string, title: ?string, body: ?string, status: string, reason: ?string, coupon: ?string, staff: ?string, batch_id: ?string, journey: ?string, phones: array{kind: 'no_phone'|'silent', reached: int, silent: int}|null}>
+     * @return Collection<int, TimelineRow>
      */
     public function timeline(string $userId, int $limit = 30, ?CarbonImmutable $before = null): Collection
     {
+        /** @var Collection<int, TimelineRow> $manual */
         $manual = CustomerMessage::query()->with(['batch:id,created_by,template_name,kind', 'batch.creator:id,name'])->where('user_id', $userId)
             ->when($before, fn ($q) => $q->where('created_at', '<', $before))->orderByDesc('created_at')->limit($limit)->get()
             ->map(fn (CustomerMessage $m) => [
@@ -68,6 +71,7 @@ class ContactHistory
                 // How many phones a notification reached and where notifications are off (only said once it went out; a skipped row already has its reason).
                 'phones' => $m->channel === 'notification' && in_array($m->status, ['sent', 'delivered'], true) ? DevicePushReach::deliveryNote($m->meta) : null,
             ]);
+        /** @var Collection<int, TimelineRow> $auto */
         $auto = DB::table('journey_deliveries as d')
             ->leftJoin('journey_runs as r', 'r.id', '=', 'd.run_id')->leftJoin('journeys as j', 'j.id', '=', 'r.journey_id')
             ->leftJoin('journey_steps as s', 's.id', '=', 'd.step_id')->leftJoin('journey_templates as t', 't.id', '=', 's.template_id')
