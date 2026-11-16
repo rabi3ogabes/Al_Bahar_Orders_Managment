@@ -42,7 +42,8 @@ class ProfileController extends ApiController
             'gender' => ['sometimes', 'nullable', 'in:male,female'],
             'marketing_consent' => ['sometimes', 'boolean'],
             // The second number the delivery driver may call; null or empty clears it.
-            'alternate_phone' => ['sometimes', 'nullable', 'string', 'max:32', new AlternatePhoneNumber($user->phone)],
+            // Switched off in the dashboard: the field is not validated or saved (an older app that still sends it is ignored, not rejected).
+            ...(AlternatePhone::enabled() ? ['alternate_phone' => ['sometimes', 'nullable', 'string', 'max:32', new AlternatePhoneNumber($user->phone)]] : []),
         ]);
         if (array_key_exists('alternate_phone', $data)) {
             $data['alternate_phone'] = AlternatePhone::check($data['alternate_phone'], $user->phone)[0];

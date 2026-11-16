@@ -19,6 +19,7 @@ use App\Domain\Payments\Models\Refund;
 use App\Domain\Payments\Services\PaymentService;
 use App\Domain\Payments\Services\RefundService;
 use App\Http\Controllers\Api\V1\ApiController;
+use App\Support\AlternatePhone;
 use App\Support\BusinessTime;
 use App\Support\Money;
 use Illuminate\Http\JsonResponse;
@@ -51,7 +52,7 @@ class OrderOpsController extends ApiController
         $this->assertCanSee($order);
 
         // The customer's second number (for the driver) is shown to staff only, never by the presenter the customer's own app uses.
-        return response()->json(['data' => $presenter->detail($order) + ['alternate_phone' => $order->alternate_phone] + [
+        return response()->json(['data' => $presenter->detail($order) + ['alternate_phone' => AlternatePhone::visible($order->alternate_phone)] + [
             'internal_notes' => $order->notes()->with('author:id,name')->latest()->get(),
             'history' => $order->history()->get(),
             'payments' => Payment::where('order_id', $order->id)->with('refunds', 'collections')->get(),
@@ -167,8 +168,15 @@ class OrderOpsController extends ApiController
         $rows = Delivery::with(['fulfillment.order:id,number,customer_name,customer_phone,alternate_phone,address_snapshot,payment_method,payment_status,grand_total', 'fulfillment.branch:id,name_en,name_ar'])
             ->where('driver_id', $this->user()->id)->whereNotIn('status', ['delivered', 'returned', 'cancelled'])
             ->orderBy('scheduled_for')->get();
-        // Orders hide the second number from raw dumps; the assigned driver is exactly who may see it.
-        $rows->each(fn (Delivery $d) => $d->fulfillment?->order?->makeVisible('alternate_phone'));
+        // Orders hide the second number from raw dumps; the assigned driver is exactly who may see it (and nobody does while the dashboard switch is off).
+        $enabled = AlternatePhone::enabled();
+        $rows->each(function (Delivery $d) use ($enabled) {
+            $order = $d->fulfillment?->order;
+            $order?->makeVisible('alternate_phone');
+            if (! $enabled) {
+                $order?->setAttribute('alternate_phone', null);
+            }
+        });
 
         return response()->json(['data' => $rows]);
     }

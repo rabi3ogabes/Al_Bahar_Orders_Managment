@@ -43,6 +43,9 @@ class CheckoutBackend {
   final Map<String, Map<String, List<Map<String, dynamic>>>> pickup;
 
   String? savedAlternatePhone;
+
+  /// What `GET /app-config` says about the "Alternative phone number" switch; null = the key is not sent (an older server).
+  bool? alternatePhoneEnabled;
   final String mainPhone;
   bool splitChoice;
   final List<String> pickupBranches;
@@ -54,7 +57,11 @@ class CheckoutBackend {
   /// Which branch serves which address.
   final Map<String, String> branchOfAddress = {'a1': 'br1', 'a2': 'br2'};
 
-  Map<String, dynamic> _span(Map<String, Map<String, List<Map<String, dynamic>>>> source, String branch, RecordedRequest r) {
+  Map<String, dynamic> _span(
+    Map<String, Map<String, List<Map<String, dynamic>>>> source,
+    String branch,
+    RecordedRequest r,
+  ) {
     final from = r.query['from'] as String;
     final to = r.query['to'] as String;
     final onlyAvailable = r.query['only_available'] != null;
@@ -62,11 +69,7 @@ class CheckoutBackend {
     final rows = [
       for (final e in (byDate.entries.toList()..sort((a, b) => a.key.compareTo(b.key))))
         if (e.key.compareTo(from) >= 0 && e.key.compareTo(to) <= 0 && e.value.isNotEmpty)
-          {
-            'date': e.key,
-            'available': e.value.fold<int>(0, (a, s) => a + (s['available'] as int)),
-            'slots': e.value,
-          },
+          {'date': e.key, 'available': e.value.fold<int>(0, (a, s) => a + (s['available'] as int)), 'slots': e.value},
     ].where((d) => !onlyAvailable || (d['available'] as int) > 0).toList();
     return {'data': rows};
   }
@@ -76,7 +79,12 @@ class CheckoutBackend {
     return ok(source[branch]?[r.query['date']] ?? const []);
   }
 
-  bool _slotIsFree(Map<String, Map<String, List<Map<String, dynamic>>>> source, String branch, String id, String? date) {
+  bool _slotIsFree(
+    Map<String, Map<String, List<Map<String, dynamic>>>> source,
+    String branch,
+    String id,
+    String? date,
+  ) {
     final rows = source[branch]?[date] ?? const [];
     return rows.any((s) => s['id'] == id && (s['available'] as int) > 0) && !refused.contains(id);
   }
@@ -103,7 +111,8 @@ class CheckoutBackend {
       errors.add({'code': 'slot_required', 'message': 'slot_required'});
     }
     return {
-      'quote_hash': 'q-$branch-${slotId ?? 'none'}-${slotDate ?? ''}-${b['alternate_phone']}-${b['no_alternate_phone']}',
+      'quote_hash':
+          'q-$branch-${slotId ?? 'none'}-${slotDate ?? ''}-${b['alternate_phone']}-${b['no_alternate_phone']}',
       'fulfillment_type': type,
       'is_split': false,
       'split_choice': splitChoice,
@@ -140,12 +149,8 @@ class CheckoutBackend {
       return _slots(slotsMatch[2] == 'delivery' ? delivery : pickup, slotsMatch[1]!, r);
     }
     return switch (key) {
-      'GET /me' => ok({
-        'id': 'u1',
-        'name': 'Noor',
-        'phone': mainPhone,
-        'alternate_phone': savedAlternatePhone,
-      }),
+      'GET /app-config' => ok({'alternate_phone_enabled': ?alternatePhoneEnabled}),
+      'GET /me' => ok({'id': 'u1', 'name': 'Noor', 'phone': mainPhone, 'alternate_phone': savedAlternatePhone}),
       'GET /cart' => ok({
         'id': 'c1',
         'branch_id': 'br1',
@@ -161,12 +166,7 @@ class CheckoutBackend {
       ]),
       'GET /branches' => page([
         for (final id in pickupBranches)
-          {
-            'id': id,
-            'name': id == 'br1' ? 'West Bay' : 'Lusail',
-            'pickup_enabled': true,
-            'delivery_enabled': true,
-          },
+          {'id': id, 'name': id == 'br1' ? 'West Bay' : 'Lusail', 'pickup_enabled': true, 'delivery_enabled': true},
       ]),
       'POST /checkout/quote' => ok(quoteFor(r)),
       'POST /checkout/orders' => ok({

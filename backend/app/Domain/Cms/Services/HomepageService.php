@@ -13,7 +13,10 @@ use App\Domain\Cms\Models\Banner;
 use App\Domain\Cms\Models\HomepageSection;
 use App\Domain\Marketing\Models\Promotion;
 use App\Support\BusinessTime;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * Renders the admin-managed homepage: published, in-window sections in admin order. Product sections are priced for
@@ -21,7 +24,26 @@ use Illuminate\Support\Facades\Storage;
  */
 class HomepageService
 {
-    public function __construct(private readonly CatalogPresenter $catalog, private readonly AuctionPresenter $auctions) {}
+    /** A slider never serves more slides than this, whatever the section's item limit says (the dashboard allows far fewer). */
+    private const MAX_SLIDES = 50;
+
+    private const REVISION_KEY = 'home:revision';
+
+    public function __construct(private readonly CatalogPresenter $catalog, private readonly AuctionPresenter $auctions, private readonly BannerLinks $links) {}
+
+    /**
+     * Drops every cached copy of the home feed (all languages, branches and platforms) at once: the cache key carries this revision.
+     * Called by the Banner and HomepageSection models on every save, delete and restore, so a dashboard change is live immediately.
+     */
+    public static function flush(): void
+    {
+        Cache::forever(self::REVISION_KEY, (string) Str::uuid());
+    }
+
+    public static function revision(): string
+    {
+        return (string) Cache::get(self::REVISION_KEY, '0');
+    }
 
     public function render(?Branch $branch, string $platform = 'mobile'): array
     {
@@ -29,28 +51,46 @@ class HomepageService
         $sections = HomepageSection::with('items')->where('status', 'published')
             ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', $now))
             ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>', $now))
-            ->orderBy('sort_order')->get();
+            ->orderBy('sort_order')->orderBy('created_at')->orderBy('id')->get();
+        $slides = $this->slides($sections->where('type', 'banners'), $platform);
 
-        return ['sections' => $sections->map(fn (HomepageSection $s) => $this->section($s, $branch, $platform))->filter(fn ($s) => $s['items'] !== [])->values()->all()];
+        return ['sections' => $sections->map(fn (HomepageSection $s) => $this->section($s, $branch, $slides[$s->id] ?? []))->filter(fn ($s) => $s['items'] !== [])->values()->all()];
     }
 
-    private function section(HomepageSection $s, ?Branch $branch, string $platform): array
+    /**
+     * The slides of every slider, in one query: published, inside their window, for this platform, with an image and a link that still works.
+     *
+     * @param  Collection<int, HomepageSection>  $sliders
+     * @return array<string, list<array<string, mixed>>> slider id => slides in admin order
+     */
+    private function slides(Collection $sliders, string $platform): array
+    {
+        if ($sliders->isEmpty()) {
+            return [];
+        }
+        $ar = app()->getLocale() === 'ar';
+        $rows = Banner::live()->whereIn('homepage_section_id', $sliders->pluck('id'))->whereIn('platform', ['all', $platform])->whereNotNull('image_en_path')
+            ->orderBy('sort_order')->orderBy('created_at')->orderBy('id')->get();
+        $links = $this->links->forApi($rows);
+
+        return $rows->groupBy('homepage_section_id')->map(fn (Collection $group) => $group->take(self::MAX_SLIDES)->map(fn (Banner $b) => [
+            'id' => $b->id, 'title' => $ar ? ($b->title_ar ?: $b->title_en) : $b->title_en,
+            'subtitle' => $ar ? ($b->subtitle_ar ?: $b->subtitle_en) : $b->subtitle_en,
+            'image_url' => $this->url($ar ? ($b->image_ar_path ?: $b->image_en_path) : $b->image_en_path),
+            'link' => $links[$b->id] ?? null,
+        ])->values()->all())->all();
+    }
+
+    /** @param  list<array<string, mixed>>  $slides  the already filtered slides when this section is a slider */
+    private function section(HomepageSection $s, ?Branch $branch, array $slides = []): array
     {
         $ar = app()->getLocale() === 'ar';
         $limit = max(1, min(50, (int) $s->item_limit));
         $ids = $s->items->pluck('item_id')->all();
         $products = fn ($q) => $this->catalog->cards($q->active()->visibleInBranch($branch?->id)->with(['translations', 'brand', 'images', 'variants' => fn ($v) => $v->where('status', 'active')])->limit($limit)->get(), $branch);
-        $inWindow = fn ($q) => $q->where(fn ($w) => $w->whereNull('starts_at')->orWhere('starts_at', '<=', now()))->where(fn ($w) => $w->whereNull('ends_at')->orWhere('ends_at', '>', now()));
 
         $items = match ($s->type) {
-            'banners' => $inWindow(Banner::where('status', 'published')->whereIn('platform', ['all', $platform])
-                ->when($ids, fn ($q) => $q->whereIn('id', $ids), fn ($q) => $q->where('placement', $s->settings['placement'] ?? 'home_hero')))
-                ->orderBy('sort_order')->limit($limit)->get()->map(fn ($b) => [
-                    'id' => $b->id, 'title' => $ar ? ($b->title_ar ?: $b->title_en) : $b->title_en,
-                    'subtitle' => $ar ? ($b->subtitle_ar ?: $b->subtitle_en) : $b->subtitle_en,
-                    'image_url' => $this->url($ar ? ($b->image_ar_path ?: $b->image_en_path) : $b->image_en_path),
-                    'link' => $b->link_type ? ['type' => $b->link_type, 'value' => $b->link_value] : null,
-                ])->all(),
+            'banners' => $slides,
             'categories' => Category::active()->with('translations')->when($ids, fn ($q) => $q->whereIn('id', $ids), fn ($q) => $q->whereNull('parent_id'))
                 ->orderBy('sort_order')->limit($limit)->get()->map(fn ($c) => ['id' => $c->id, 'slug' => $c->slug, 'name' => $c->trans('name'), 'image_url' => $this->url($c->image_path), 'icon_url' => $this->url($c->icon_path)])->all(),
             'featured_products' => $products(Product::query()->when($ids, fn ($q) => $q->whereIn('id', $ids), fn ($q) => $q->where('is_featured', true))),
@@ -69,8 +109,13 @@ class HomepageService
             default => [],
         };
 
-        return ['id' => $s->id, 'type' => $s->type, 'layout' => $s->layout, 'title' => $ar ? ($s->title_ar ?: $s->title_en) : $s->title_en,
-            'subtitle' => $ar ? ($s->subtitle_ar ?: $s->subtitle_en) : $s->subtitle_en, 'items' => array_values($items)];
+        $out = ['id' => $s->id, 'type' => $s->type, 'layout' => $s->isSlider() ? 'carousel' : $s->layout, 'title' => $ar ? ($s->title_ar ?: $s->title_en) : $s->title_en,
+            'subtitle' => $ar ? ($s->subtitle_ar ?: $s->subtitle_en) : $s->subtitle_en];
+        if ($s->isSlider()) {
+            $out['slider'] = $s->slider();
+        }
+
+        return $out + ['items' => array_values($items)];
     }
 
     private function url(?string $path): ?string

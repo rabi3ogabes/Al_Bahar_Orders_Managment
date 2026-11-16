@@ -9,7 +9,7 @@ export function Rail({ children, itemWidth = 'w-[62vw] sm:w-[34vw] md:w-[26vw] l
   const by = (d: 1 | -1) => ref.current?.scrollBy({ left: d * (ref.current.clientWidth * 0.85) * (dir === 'rtl' ? -1 : 1), behavior: 'smooth' });
   return (
     <div className="group/rail relative">
-      <div ref={ref} className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth px-4 pb-2 [scrollbar-width:none] sm:-mx-10 sm:px-10 md:gap-6 [&::-webkit-scrollbar]:hidden">
+      <div ref={ref} className="-mx-[clamp(16px,4vw,40px)] flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth px-[clamp(16px,4vw,40px)] pb-2 [scrollbar-width:none] md:gap-6 [&::-webkit-scrollbar]:hidden">
         {children.map((c, i) => <div key={i} className={`${itemWidth} shrink-0 snap-start`}>{c}</div>)}
       </div>
       <button aria-label={t('action.prev')} onClick={() => by(-1)} className="absolute start-1 top-[34%] hidden h-12 w-12 items-center justify-center rounded-full bg-paper text-ink shadow-soft transition-opacity hover:bg-primary hover:text-bg md:flex md:opacity-0 md:group-hover/rail:opacity-100"><ChevronLeft size={20} className="rtl:rotate-180" /></button>

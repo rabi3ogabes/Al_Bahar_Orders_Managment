@@ -2374,5 +2374,18 @@
   "orderUpdatedChip": "Updated",
   "@orderUpdatedChip": {},
   "downloadUpdatedInvoice": "Download updated invoice (PDF)",
-  "@downloadUpdatedInvoice": {}
+  "@downloadUpdatedInvoice": {},
+  "homeBannerPosition": "Banner {position} of {total}",
+  "@homeBannerPosition": {
+    "placeholders": {
+      "position": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "homeLinkOpenFailed": "We couldn’t open this link.",
+  "@homeLinkOpenFailed": {}
 }

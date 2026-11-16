@@ -98,12 +98,14 @@ class FakeOps implements OpsRepository {
     String cod = '303.00',
     bool proof = true,
     Object? items,
+    String? alternate,
   }) => DriverJob.fromJson({
     'id': id,
     'status': status,
     'order_number': 'AB100008',
     'customer_name': 'Noura',
     'customer_phone': '+97455123456',
+    'alternate_phone': ?alternate,
     'address': {
       'zone_number': '24',
       'street_number': '817',
@@ -125,11 +127,13 @@ class FakeOps implements OpsRepository {
     String number = 'AB100009',
     String? driver,
     Object? items,
+    String? alternate,
   }) => QueueOrder.fromJson({
     'fulfillment_id': id,
     'status': status,
     'number': number,
     'customer_name': 'Hamad',
+    'alternate_phone': ?alternate,
     'items_count': 3,
     'payment_method': 'cod',
     'grand_total': '120.00',
@@ -149,12 +153,18 @@ class FakeOps implements OpsRepository {
   Object? styleError;
   int styleLoads = 0;
 
+  /// What `GET /app-config` says about the "Alternative phone number" switch (on until the dashboard turns it off).
+  bool alternatePhoneEnabled = true;
+
   @override
-  Future<OpsStatusStyle> statusStyle() async {
+  Future<OpsAppConfig> appConfig() async {
     styleLoads++;
     if (styleError != null) throw styleError!;
-    return style;
+    return OpsAppConfig(statusStyle: style, alternatePhoneEnabled: alternatePhoneEnabled);
   }
+
+  @override
+  Future<OpsStatusStyle> statusStyle() async => (await appConfig()).statusStyle;
 
   // Missing items ("Missing an item?"): the parcel's lines, what the branch has to offer instead, and what the server answers.
   Map<String, dynamic> adjustContextBody = adjustContextJson();

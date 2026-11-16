@@ -35,9 +35,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
   void initState() {
     super.initState();
     unawaited(_c.forward());
-    // The first launch ends in the intro, whose footer line comes from the server: ask while the splash is showing, so the
-    // answer is usually there by the time the intro opens. It never delays the splash.
-    if (!ref.read(onboardingDoneProvider)) ref.read(publicConfigProvider);
+    // The dashboard's public settings (the intro's footer line, the alternative-number switch): ask while the splash is showing, so
+    // the answer is usually there by the time the first screen opens. It never delays the splash.
+    ref.read(publicConfigProvider);
     _timer = Timer(const Duration(milliseconds: 1500), _next);
   }
 

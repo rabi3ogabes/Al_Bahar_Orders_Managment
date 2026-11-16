@@ -4,10 +4,12 @@ namespace App\Domain\Notifications\Services;
 
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Identity\Models\User;
+use App\Domain\Notifications\Events\NotificationCreated;
 use App\Domain\Notifications\Jobs\SendNotificationJob;
 use App\Domain\Notifications\Models\Notification;
 use App\Domain\Notifications\Models\NotificationLog;
 use App\Domain\Notifications\Models\NotificationPreference;
+use App\Support\BusinessTime;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -46,9 +48,11 @@ class NotificationService
             }
             $msg = $this->templates->render($event, $channel, $locale, $data);
             if ($channel === 'in_app') {
-                $inAppId = Notification::create(['user_id' => $user->id, 'event' => $event, 'category' => $category, 'title' => $msg['subject'],
-                    'body' => $msg['body'], 'data' => array_filter(['deep_link' => $data['deep_link'] ?? null, 'reference' => $data['reference'] ?? null])])->id;
+                $entry = Notification::create(['user_id' => $user->id, 'event' => $event, 'category' => $category, 'title' => $msg['subject'],
+                    'body' => $msg['body'], 'data' => array_filter(['deep_link' => $data['deep_link'] ?? null, 'reference' => $data['reference'] ?? null])]);
+                $inAppId = $entry->id;
                 $sent[] = 'in_app';
+                $this->announce($user, $entry);
 
                 continue;
             }
@@ -60,6 +64,18 @@ class NotificationService
         }
 
         return array_values(array_intersect($channels, $sent)); // report in the caller's channel order
+    }
+
+    /**
+     * Tells the customer's open apps (socket, `private-users.{id}`) that the inbox has a new entry, so the badge and the list follow at once
+     * even where Firebase push does not work. Never throws into the caller: a socket server that is down must not stop a notification.
+     */
+    private function announce(User $user, Notification $entry): void
+    {
+        rescue(fn () => event(new NotificationCreated(
+            $user->id, $entry->id, $entry->event, $entry->category, (string) $entry->title, (string) $entry->body, $entry->data['deep_link'] ?? null,
+            Notification::where('user_id', $user->id)->whereNull('read_at')->count(), BusinessTime::iso($entry->created_at) ?? now()->toIso8601String(),
+        )), report: true);
     }
 
     /** @return array<string, array{subject: string, body: string}> the message rendered once per supported language */

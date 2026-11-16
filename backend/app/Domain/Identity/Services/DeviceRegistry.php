@@ -4,6 +4,7 @@ namespace App\Domain\Identity\Services;
 
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Models\UserDevice;
+use App\Domain\Notifications\Services\PushDiagnostics;
 use App\Support\BrowserFamily;
 
 /**
@@ -20,7 +21,7 @@ class DeviceRegistry
         $device = UserDevice::updateOrCreate(['push_token' => $data['push_token']], [
             'user_id' => $user->id,
             'platform' => $data['platform'],
-            'app' => $web ? ($data['app'] ?? null) : null,
+            'app' => $web ? ($data['app'] ?? null) : $this->phoneApp(),
             'device_id' => $data['device_id'] ?? null,
             'app_version' => $data['app_version'] ?? null,
             'browser' => $web ? BrowserFamily::from($userAgent) : null,
@@ -31,6 +32,17 @@ class DeviceRegistry
         $this->retireOlderTokens($device);
 
         return $device;
+    }
+
+    /**
+     * Which of the three apps a phone token comes from, read from the X-App header every call of the apps carries (null for anything else).
+     * The dashboard counts and labels devices per app with it.
+     */
+    private function phoneApp(): ?string
+    {
+        $app = request()->header('X-App');
+
+        return is_string($app) && in_array($app, PushDiagnostics::APPS, true) ? $app : null;
     }
 
     /**

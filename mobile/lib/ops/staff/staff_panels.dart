@@ -292,8 +292,9 @@ class _OrderDetails extends ConsumerWidget {
                 ),
               ),
             ],
-            // The customer's second number, so staff can reach the customer when the main one is not answered.
-            if (o.alternatePhone != null)
+            // The customer's second number, so staff can reach the customer when the main one is not answered (only while the
+            // dashboard's "Alternative phone number" switch is on).
+            if (o.alternatePhone != null && ref.watch(opsAlternatePhoneEnabledProvider))
               AlternatePhoneCall(key: const ValueKey('call-alternative'), phone: o.alternatePhone!),
           ],
         ),

@@ -68,6 +68,7 @@ class SettingsIndex extends Component
                 'contact.whatsapp' => ['type' => 'text', 'rules' => ['nullable', 'string', 'max:32'], 'dir' => 'ltr'],
                 'customer_app.designed_by_en' => ['type' => 'text', 'rules' => ['nullable', 'string', 'max:80'], 'dir' => 'ltr'],
                 'customer_app.designed_by_ar' => ['type' => 'text', 'rules' => ['nullable', 'string', 'max:80'], 'dir' => 'rtl'],
+                'customer_app.alternate_phone_enabled' => ['type' => 'bool', 'rules' => ['boolean']],
             ],
             'checkout' => [
                 'checkout.service_fee' => ['type' => 'money', 'rules' => $money],

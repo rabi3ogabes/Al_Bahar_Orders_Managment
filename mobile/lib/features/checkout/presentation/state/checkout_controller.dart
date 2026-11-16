@@ -14,6 +14,7 @@ import 'package:albahar_customer/features/checkout/domain/checkout_models.dart';
 import 'package:albahar_customer/features/checkout/domain/slot_selection.dart';
 import 'package:albahar_customer/features/checkout/presentation/state/slot_providers.dart';
 import 'package:albahar_customer/features/profile/presentation/state/profile_providers.dart';
+import 'package:albahar_customer/features/public_config/presentation/state/public_config_state.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -33,6 +34,7 @@ class CheckoutState {
     this.slotBranchId,
     this.slotAuto = false,
     this.alternate = const AlternatePhoneInput(),
+    this.alternateEnabled = true,
     this.mainPhone,
   });
 
@@ -62,6 +64,10 @@ class CheckoutState {
   /// The customer's answer about a second number for the driver (delivery orders only).
   final AlternatePhoneInput alternate;
 
+  /// The dashboard's "Alternative phone number" switch. Off: the question is not asked, never holds the order back and nothing
+  /// about the number is sent, whatever was typed before.
+  final bool alternateEnabled;
+
   /// The account's main number, so the second one can be refused when it is the same.
   final String? mainPhone;
 
@@ -76,7 +82,11 @@ class CheckoutState {
   String? get missingRequirement {
     if (options.fulfillmentType == FulfillmentType.delivery && options.addressId == null) return 'address';
     if (options.fulfillmentType == FulfillmentType.pickup && options.branchId == null) return 'branch';
-    if (options.fulfillmentType == FulfillmentType.delivery && !alternate.isDone(mainPhone: mainPhone)) return 'alternate';
+    if (alternateEnabled &&
+        options.fulfillmentType == FulfillmentType.delivery &&
+        !alternate.isDone(mainPhone: mainPhone)) {
+      return 'alternate';
+    }
     if (slotMissing) return 'slot';
     if (options.paymentMethod == null) return 'payment';
     return null;
@@ -98,6 +108,7 @@ class CheckoutState {
     String? Function()? slotBranchId,
     bool? slotAuto,
     AlternatePhoneInput? alternate,
+    bool? alternateEnabled,
     String? Function()? mainPhone,
   }) => CheckoutState(
     options: options ?? this.options,
@@ -113,6 +124,7 @@ class CheckoutState {
     slotBranchId: slotBranchId != null ? slotBranchId() : this.slotBranchId,
     slotAuto: slotAuto ?? this.slotAuto,
     alternate: alternate ?? this.alternate,
+    alternateEnabled: alternateEnabled ?? this.alternateEnabled,
     mainPhone: mainPhone != null ? mainPhone() : this.mainPhone,
   );
 }
@@ -147,6 +159,8 @@ class CheckoutController extends Notifier<CheckoutState> {
         alternate: untouched ? AlternatePhoneInput.fromSaved(user.alternatePhone) : null,
       );
     });
+    // The dashboard can switch the question off (or on) while the screen is open.
+    ref.listen(alternatePhoneEnabledProvider, (_, enabled) => state = state.copyWith(alternateEnabled: enabled));
     return CheckoutState(
       options: CheckoutOptions(
         fulfillmentType: type,
@@ -155,14 +169,16 @@ class CheckoutController extends Notifier<CheckoutState> {
         couponCode: cart?.couponCode,
       ),
       alternate: AlternatePhoneInput.fromSaved(user?.alternatePhone),
+      alternateEnabled: ref.read(alternatePhoneEnabledProvider),
       mainPhone: user?.phone,
     );
   }
 
   CheckoutRepository get _repo => ref.read(checkoutRepositoryProvider);
 
-  /// The customer's second number, sent with delivery requests once answered (pickup never asks).
-  JsonMap get _alternateFields => state.options.fulfillmentType == FulfillmentType.delivery
+  /// The customer's second number, sent with delivery requests once answered (pickup never asks, and nothing is sent while the
+  /// dashboard has the question switched off).
+  JsonMap get _alternateFields => state.alternateEnabled && state.options.fulfillmentType == FulfillmentType.delivery
       ? state.alternate.requestFields(mainPhone: state.mainPhone)
       : const {};
 

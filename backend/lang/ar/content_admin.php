@@ -136,6 +136,7 @@ return [
     'link_brand' => 'علامة تجارية',
     'link_auction' => 'مزاد',
     'link_page' => 'صفحة',
+    'link_search' => 'نص بحث',
     'link_url' => 'رابط ويب',
     'placement_home_hero' => 'الرئيسية — الواجهة',
     'placement_home_strip' => 'الرئيسية — شريط',

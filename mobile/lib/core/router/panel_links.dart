@@ -21,7 +21,8 @@ Future<void> openLocation(BuildContext context, String location) async {
   final ticket = RegExp(r'^/support/([^/]+)$').firstMatch(path);
   if (ticket != null && ticket.group(1) != 'new') return showTicketPanel(context, ticket.group(1)!);
   final page = RegExp(r'^/pages/([^/]+)$').firstMatch(path);
-  if (page != null) return showCmsPage(context, page.group(1)!);
+  // The path keeps a slug percent-encoded (a link built from an Arabic or spaced slug); the page is asked for by the real slug.
+  if (page != null) return showCmsPage(context, Uri.decodeComponent(page.group(1)!));
   if (path == '/wishlist') return showWishlistPanel(context);
   if (path == '/notifications') return showNotificationsPanel(context);
   unawaited(GoRouter.of(context).push(location));

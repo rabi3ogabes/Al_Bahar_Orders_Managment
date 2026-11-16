@@ -39,7 +39,9 @@ export interface BranchHours { timezone: string; weekly: { day_of_week: number; 
 export interface Slot { id: string; date: string; starts_at: string; ends_at: string; capacity: number; available: number; is_full: boolean; /** Last moment this time can be booked (its start minus the cutoff); absent from an older server. */ bookable_until?: string | null }
 export interface SlotDay { date: string; available: number; slots: Slot[] }
 
-export interface HomeSection { id: string; type: string; layout: string; title: string | null; subtitle: string | null; items: any[]; [k: string]: unknown }
+export interface HomeSection { id: string; type: string; layout: string; title: string | null; subtitle: string | null; items: any[]; slider?: Partial<import('./sliderCore').SliderSettings>; [k: string]: unknown }
+/** One slide of a home slider (`GET /home`, section type `banners`). `link` is null when the slide is not clickable. */
+export interface HomeSlide { id: string; title: string | null; subtitle: string | null; image_url: string | null; link: { type: string; value: string } | null }
 
 export interface User {
   id: string; type: string; name: string; phone: string; /** Their saved second number (E.164) for the delivery driver. */ alternate_phone?: string | null; email: string | null; phone_verified: boolean; locale: 'en' | 'ar'

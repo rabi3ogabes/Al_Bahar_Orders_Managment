@@ -15,6 +15,7 @@ import 'package:albahar_customer/ops/driver/driver_tracker.dart';
 import 'package:albahar_customer/ops/ops_app.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_repository.dart';
+import 'package:albahar_customer/ops/ops_status_style.dart';
 import 'package:albahar_customer/ops/ops_strings.dart';
 import 'package:albahar_customer/ops/ops_widgets.dart';
 import 'package:flutter/material.dart';
@@ -361,7 +362,7 @@ class _JobCardState extends ConsumerState<_JobCard> {
                     label: Text(t.call, maxLines: 1, overflow: TextOverflow.ellipsis),
                   ),
                 ),
-                if (job.alternatePhone != null) ...[
+                if (job.alternatePhone != null && ref.watch(opsAlternatePhoneEnabledProvider)) ...[
                   const Gap(AppSpace.xs),
                   Expanded(
                     child: Semantics(

@@ -20,7 +20,7 @@
 | Delivery zones & fees | Organization › Zones, then each branch › Zones | A zone can be served by several branches with different fees/priorities. Add **delivery slots** (day, time window, capacity) per branch under Branches › Slots: once a branch has delivery slots, customers must pick one at checkout |
 | Staff | Organization › Employees | Create the account, assign it to branches with **branch roles**; company-wide roles (finance, marketing) are separate |
 | Roles | Organization › Roles | Module × action matrix. System roles cannot be deleted; Super Admin is locked |
-| Settings | Organization › Settings | Payment window, COD fee, loyalty, auction defaults, contact details, the "Designed by" line of the customer app intro (General & brand) and the **Let customers return orders** switch (Checkout & fees: off hides "Return order" in the app and the web store and refuses new requests). Secret values are write-only |
+| Settings | Organization › Settings | Payment window, COD fee, loyalty, auction defaults, contact details, the "Designed by" line of the customer app intro and the **Ask for an alternative phone number** switch (both under General & brand) and the **Let customers return orders** switch (Checkout & fees: off hides "Return order" in the app and the web store and refuses new requests). Secret values are write-only |
 
 **Least privilege:** give each person only the roles they need, only in their branches. Nobody can grant permissions
 they don't hold, or change their own roles or status.
@@ -78,8 +78,20 @@ real time on server time. Winners have a payment deadline; unpaid winners are ha
 - **Campaigns**: only customers who gave marketing consent are targeted; schedule and preview before sending.
 - **Loyalty & referrals**: earning/redemption rules; manual point adjustments need a reason.
 - **Reviews**: approve/reject; answer product questions.
-- **Homepage**: reorder sections, schedule banners, edit both languages, preview before publishing.
+- **Homepage builder** (Content › Homepage builder): the other home sections (categories, products, brands, offers, auctions): reorder, schedule, edit both languages, preview what the app receives.
+- **Home banners** (Content › Home banners): the slide banners of the home page, in the app and the web store.
 - **Notification templates**: override any message per event, channel and language; use the variables shown.
+
+### Home banners: sliders and slides
+The page is a map of the home page, top to bottom. Each **slider** (a row of pictures that slides across the page) is opened up to show its slides; the other home sections appear as thin grey rows so you can see exactly where each slider sits.
+- **Add a slider** → choose **where it goes** (at the very top, after a section, or at the bottom), its **name** (only you see it), the **shape** of its pictures (16:9, 21:9, 3:1, 4:3 or 1:1), whether it **slides on its own** and how many seconds per picture (3–15), dots, titles over the pictures, rounded corners, an optional heading, and an optional schedule. A slider is shown only while it is Visible, inside its dates and has at least one live slide.
+- **Move a slider** with the up and down arrows on its header: it jumps over one home section each time (an *Undo* appears for a few seconds). A slider at the very top of the page is the first thing customers see on the web store (above the hero) and in the app.
+- **Add a slide** (button under the slides) opens a window beside the page: the **English picture** (required) and an **Arabic picture** (optional: without it Arabic customers see the English one), drag a picture onto the box or click it (JPG, PNG or WebP, up to 8 MB; the window shows the recommended size for the slider's shape and warns when a picture would be cropped or is too small). A **live preview** shows the slide as customers see it, in English or Arabic (right to left), light or dark.
+- **Where the slide leads**: *No link* (the slide is not tappable: customers just see the picture), *Category* (pick from the real category tree), *Page* (a published page from Content › Pages), *Product* (search by name or code), *Brand*, *Auction*, *Web address* (must start with https://; other kinds of address are refused) or *Search text* (customers land on the search results). The window says in plain words what the slide opens. If the target is later deleted or hidden, the slide shows a red **Broken link** chip and customers see the picture without a link until you choose a new target.
+- **Order the slides** with the arrows on each slide or by dragging its handle. **Hide/show**, **duplicate** (the copy is hidden until you publish it) and **delete** (with *Undo*; a deleted slide or slider can be restored for a week) are on each row. Slides can have a start and end date, and can be limited to the apps or the website. A slider holds up to 20 slides.
+- **Preview** (play button on the slider) plays exactly what customers see now, on a phone, tablet or desktop width.
+- **Other places** (below the map): banners for category pages and the auctions area, managed the same way (they have no slider settings). *Old banners not in any slider* are listed there too: edit one and choose where it shows.
+- Needs the **Content** permissions: *view* sees the map and the preview; *create*, *edit* and *delete* unlock the matching buttons. Every change is recorded in the audit log.
 
 ## 9. Reports & exports
 **Reports** lists only the reports your role may see (sales, payments, refunds, stock, transfers, auctions, marketing…),
@@ -102,7 +114,7 @@ always limited to your branches. Large exports run in the background — collect
 | مناطق التوصيل والرسوم | المؤسسة › المناطق ثم الفرع › المناطق | يمكن أن تخدم عدة فروع المنطقة نفسها برسوم وأولويات مختلفة. أضف **فترات التوصيل** (اليوم والفترة الزمنية والسعة) لكل فرع من الفروع › الفترات: متى وُجدت فترات توصيل لفرع يلزم العميل باختيار إحداها عند الدفع |
 | الموظفون | المؤسسة › الموظفون | أنشئ الحساب وعيّنه على الفروع بأدوار الفرع؛ أدوار الشركة (المالية، التسويق) منفصلة |
 | الأدوار | المؤسسة › الأدوار | مصفوفة الوحدات × الإجراءات. أدوار النظام لا تُحذف والمشرف العام مقفل |
-| الإعدادات | المؤسسة › الإعدادات | مهلة الدفع، رسوم الدفع عند الاستلام، الولاء، إعدادات المزادات. القيم السرية للكتابة فقط |
+| الإعدادات | المؤسسة › الإعدادات | مهلة الدفع، رسوم الدفع عند الاستلام، الولاء، إعدادات المزادات، وزر **طلب رقم هاتف بديل** (عام والعلامة: عند الإيقاف يتوقف التطبيق والمتجر عن طلبه وتُخفى الأرقام في لوحة التحكم وشاشات السائقين والموظفين وتبقى محفوظة). القيم السرية للكتابة فقط |
 
 **أقل صلاحية ممكنة:** امنح كل شخص ما يحتاجه فقط وفي فروعه فقط. لا يمكن لأحد منح صلاحيات لا يملكها أو تعديل أدواره أو حالته.
 
@@ -147,7 +159,14 @@ always limited to your branches. Large exports run in the background — collect
 - **الحملات**: تستهدف فقط العملاء الموافقين على التسويق؛ جدولة ومعاينة قبل الإرسال.
 - **الولاء والإحالات**: قواعد الكسب والاستبدال؛ التعديل اليدوي للنقاط يتطلب سبباً.
 - **التقييمات**: قبول/رفض والرد على أسئلة المنتجات.
-- **الصفحة الرئيسية**: رتّب الأقسام وجدول البانرات وعدّل باللغتين وعاين قبل النشر.
+- **منسّق الصفحة الرئيسية** (المحتوى ‹ منسّق الصفحة الرئيسية): بقية أقسام الرئيسية (الفئات والمنتجات والعلامات والعروض والمزادات): رتّبها وجدولها وعدّل باللغتين وعاين ما يستقبله التطبيق.
+- **بانرات الصفحة الرئيسية** (المحتوى ‹ بانرات الصفحة الرئيسية): بانرات الشرائح في الرئيسية، في التطبيق وفي المتجر الإلكتروني.
+  - الصفحة خريطة للرئيسية من الأعلى إلى الأسفل، وكل **عارض شرائح** مفتوح ليُظهر شرائحه، وبقية الأقسام صفوف رمادية رفيعة لترى مكان كل عارض بدقة.
+  - **إضافة عارض**: اختر مكانه (في الأعلى أو بعد قسم أو في الأسفل) واسمه (تراه أنت فقط) وشكل الصور (16:9 أو 21:9 أو 3:1 أو 4:3 أو 1:1) والتحرك التلقائي وعدد الثواني (3–15) والنقاط والعناوين فوق الصور والزوايا المستديرة وجدولاً اختيارياً. ينقل السهمان الأعلى والأسفل العارض قسماً واحداً في كل مرة (مع «تراجع»).
+  - **إضافة شريحة**: صورة إنجليزية (مطلوبة) وصورة عربية (اختيارية)، اسحب الصورة إلى المربع أو اضغط عليه. تظهر **معاينة حية** باللغتين (يمين لليسار) وبالسمة الفاتحة والداكنة.
+  - **وجهة الشريحة**: بدون رابط (الشريحة غير قابلة للضغط)، قسم، صفحة، منتج، علامة تجارية، مزاد، عنوان ويب (يبدأ بـ https:// فقط) أو نص بحث. إن حُذفت الوجهة لاحقاً تظهر علامة حمراء «رابط معطّل» ويرى العملاء الصورة بدون رابط.
+  - رتّب الشرائح بالأسهم أو بسحب المقبض، وأخفِ/أظهر، وكرّر (النسخة مخفية حتى تنشرها)، واحذف (مع «تراجع»، ويمكن استعادة المحذوف خلال أسبوع). يتسع العارض لما يصل إلى 20 شريحة.
+  - **أماكن أخرى**: بانرات صفحات الفئات ومنطقة المزادات بالطريقة نفسها. تحتاج صلاحيات **المحتوى**.
 - **قوالب الإشعارات**: خصّص أي رسالة لكل حدث وقناة ولغة باستخدام المتغيرات الظاهرة.
 
 ## ٩. التقارير والتصدير

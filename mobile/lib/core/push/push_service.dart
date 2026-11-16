@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:uuid/uuid.dart';
 
 import '../network/api_client.dart';
 import '../providers.dart';
@@ -16,6 +15,8 @@ import '../utils/platform.dart';
 import 'firebase_options_source.dart';
 import 'firebase_starter.dart';
 import 'order_progress.dart';
+import 'push_diagnostics.dart';
+import 'push_token.dart';
 
 /// Platform-neutral push message.
 @immutable
@@ -81,10 +82,16 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 }
 
 class FirebasePushMessaging implements PushMessaging {
-  FirebasePushMessaging({required this.starter});
+  FirebasePushMessaging({required this.starter, this.report, this.tokenTimeout = const Duration(seconds: 20)});
 
   /// Starts Firebase from the native config files, else from the options the server hands out.
   final FirebaseStarter starter;
+
+  /// Told why Firebase or the token failed (see push_diagnostics.dart). Never waited for.
+  final PushReporter? report;
+
+  /// The most the app waits for Firebase to hand out the push token.
+  final Duration tokenTimeout;
 
   FirebaseMessaging? _fm;
 
@@ -102,6 +109,7 @@ class FirebasePushMessaging implements PushMessaging {
       return true;
     } catch (e) {
       debugPrint('Push disabled: Firebase could not start (${e.runtimeType})');
+      tellPush(report, PushStage.init, classifyPushError(e, fallback: 'init_failed'), e.toString());
       _fm = null;
       return false;
     }
@@ -130,29 +138,27 @@ class FirebasePushMessaging implements PushMessaging {
     };
   }
 
-  /// firebase_messaging 17 registers the installation and reports the
-  /// direct-send identifier through `onRegistered` (replaces getToken()).
+  /// The push token of this install: the FCM registration token the server addresses, with Firebase's own reason reported when it cannot
+  /// be had. See [PushTokenFetcher] for why this is `getToken()` and not `register()` + `onRegistered`.
   @override
   Future<String?> getToken() async {
     final fm = _fm;
     if (fm == null) return null;
-    final first = fm.onRegistered.first.timeout(const Duration(seconds: 20));
-    try {
-      await fm.register();
-    } catch (_) {
-      // Nobody waits for the answer any more: its time-out must not surface later as an error nobody catches.
-      unawaited(first.then<void>((_) {}, onError: (Object _) {}));
-      rethrow;
-    }
-    try {
-      return await first;
-    } on TimeoutException {
-      return null;
-    }
+    return PushTokenFetcher(
+      // The plugin deprecates getToken() but still implements it; this is the call that returns the registration token.
+      // ignore: deprecated_member_use
+      registrationToken: fm.getToken,
+      register: fm.register,
+      registered: () => fm.onRegistered,
+      report: report,
+      timeout: tokenTimeout,
+    ).fetch();
   }
 
+  /// A new token after Firebase rotated it. (`onRegistered` is not used: it carries installation ids, not tokens.)
   @override
-  Stream<String> get onTokenRefresh => _fm?.onRegistered ?? const Stream.empty();
+  // ignore: deprecated_member_use
+  Stream<String> get onTokenRefresh => _fm?.onTokenRefresh ?? const Stream.empty();
 
   @override
   Stream<PushMessage> get onForegroundMessage =>
@@ -337,6 +343,7 @@ class PushService {
     this.devicesPath = customerDevicesPath,
     this.askPermissionOnRegister = true,
     this.localeCode,
+    this.report,
     String Function()? platform,
     DateTime Function()? now,
   }) : _platform = platform ?? platformCode,
@@ -348,6 +355,10 @@ class PushService {
   /// When Firebase could not start (its settings are not on the server yet, no network), the app tries again, but not
   /// more often than this.
   static const retryInterval = Duration(minutes: 10);
+
+  /// When a signed-in phone could not get its push token (Firebase unreachable for a moment, the server not answering), it asks again after
+  /// these waits, one more time each, while the app stays open. Later attempts come with the next return to the app.
+  static const tokenRetryDelays = [Duration(seconds: 30), Duration(minutes: 2), Duration(minutes: 10)];
 
   /// How many recent notifications are remembered to tell a repeated delivery from a new message.
   static const _rememberLast = 40;
@@ -368,6 +379,10 @@ class PushService {
 
   /// The app's language (`en` | `ar`), sent with the token so the server writes the live order card and the messages in it.
   final String Function()? localeCode;
+
+  /// Told what stops this phone from registering (permission refused, the server not taking the token) and when it did register, so the
+  /// dashboard can show it. Never waited for.
+  final PushReporter? report;
 
   /// Receives `order_progress` pushes that reach the app while it is open (the live order notification); without it
   /// they are drawn as a plain progress notification.
@@ -390,6 +405,8 @@ class PushService {
   Future<void>? _retrying;
   Future<void>? _registering;
   DateTime? _lastAttempt;
+  Timer? _tokenRetry;
+  int _tokenRetries = 0;
 
   /// [register] ran while push was unavailable: finish it as soon as push starts.
   bool _registerWanted = false;
@@ -488,16 +505,74 @@ class PushService {
       return;
     }
     _registerWanted = false;
-    if (!await _permitted()) return;
+    if (!await _permitted()) {
+      tellPush(report, PushStage.permission, 'permission_denied', 'The person did not allow notifications');
+      return;
+    }
+    await _sayIfNotificationsOff();
     // The SDK reports the token when the registration finishes; if it has nothing new to say, the install's last token is still right.
+    // (When it has nothing it has already said why: see FirebasePushMessaging.getToken.)
     final token = await messaging.getToken() ?? prefs.lastPushToken;
     try {
-      if (token != null) await _send(token);
+      if (token == null) {
+        _scheduleTokenRetry();
+      } else {
+        await _send(token);
+        _tokenRetries = 0;
+        tellPush(report, PushStage.registered, 'ok');
+      }
+    } catch (e) {
+      tellPush(report, PushStage.register, classifyRegisterError(e), e.toString());
+      _scheduleTokenRetry();
+      rethrow;
     } finally {
-      // Listening even when this send failed (no network): a later token refresh must not be lost with it.
-      await _tokenRefreshSub?.cancel();
+      // Listening even when this send failed (no network): a later token refresh must not be lost with it. The old subscription is
+      // dropped without waiting for it: a registration must not hang on closing a listener.
+      final old = _tokenRefreshSub;
       _tokenRefreshSub = messaging.onTokenRefresh.listen((t) => unawaited(_send(t).catchError((Object _) {})));
+      unawaited(old?.cancel());
     }
+  }
+
+  /// A token needs no permission, but a push is only shown with one: when notifications are off in the phone's settings the dashboard
+  /// should know, because "push does not arrive" is then the person's setting, not a fault.
+  Future<void> _sayIfNotificationsOff() async {
+    try {
+      switch (await messaging.permissionStatus()) {
+        case PushPermission.denied:
+          tellPush(
+            report,
+            PushStage.permission,
+            'permission_denied',
+            'Notifications are switched off for this app on the phone',
+          );
+        case PushPermission.notDetermined:
+          tellPush(
+            report,
+            PushStage.permission,
+            'permission_not_asked',
+            'The person has not been asked to allow notifications yet',
+          );
+        case PushPermission.granted || PushPermission.provisional || PushPermission.unavailable:
+          break;
+      }
+    } catch (_) {}
+  }
+
+  /// One more try for a token that could not be had or sent, a little later (see [tokenRetryDelays]). One timer at a time.
+  void _scheduleTokenRetry() {
+    if (!_signedIn || _tokenRetry != null || _tokenRetries >= tokenRetryDelays.length) return;
+    final delay = tokenRetryDelays[_tokenRetries++];
+    _tokenRetry = Timer(delay, () {
+      _tokenRetry = null;
+      if (_signedIn && prefs.registeredPushToken == null) unawaited(register().catchError((Object _) {}));
+    });
+  }
+
+  void _stopTokenRetry() {
+    _tokenRetry?.cancel();
+    _tokenRetry = null;
+    _tokenRetries = 0;
   }
 
   /// Whether pushes may be delivered, asking where that is the right moment. The driver and staff apps ask at once (an alert is the
@@ -515,6 +590,7 @@ class PushService {
   Future<void> unregister() async {
     _registerWanted = false;
     _signedIn = false;
+    _stopTokenRetry();
     await _tokenRefreshSub?.cancel();
     _tokenRefreshSub = null;
     await prefs.setPushCategoryPrefs(const {});
@@ -532,6 +608,7 @@ class PushService {
   Future<void> onSignedOut() async {
     _registerWanted = false;
     _signedIn = false;
+    _stopTokenRetry();
     await _tokenRefreshSub?.cancel();
     _tokenRefreshSub = null;
     await prefs.setPushCategoryPrefs(const {});
@@ -546,11 +623,7 @@ class PushService {
   }
 
   Future<void> _send(String token) async {
-    var deviceId = prefs.installId;
-    if (deviceId == null) {
-      deviceId = const Uuid().v4();
-      await prefs.setInstallId(deviceId);
-    }
+    final deviceId = await ensureInstallId(prefs);
     String? version;
     try {
       final info = await PackageInfo.fromPlatform();
@@ -634,6 +707,7 @@ class PushService {
   void debugHandleForeground(PushMessage m) => _handleForeground(m);
 
   Future<void> dispose() async {
+    _stopTokenRetry();
     await _tokenRefreshSub?.cancel();
     for (final s in _subs) {
       await s.cancel();
@@ -641,10 +715,22 @@ class PushService {
   }
 }
 
-final pushMessagingProvider = Provider<PushMessaging>(
-  (ref) =>
-      FirebasePushMessaging(starter: FirebaseStarter(options: FirebaseOptionsSource.api(ref.watch(apiClientProvider)))),
+/// What goes to the server when push cannot start or register on this phone, and when it can (see push_diagnostics.dart).
+final pushDiagnosticsProvider = Provider<PushDiagnostics>(
+  (ref) => PushDiagnostics.api(
+    ref.watch(apiClientProvider),
+    ref.watch(appPreferencesProvider),
+    enabled: ref.watch(appConfigProvider).pushEnabled,
+  ),
 );
+
+final pushMessagingProvider = Provider<PushMessaging>((ref) {
+  final report = ref.watch(pushDiagnosticsProvider).reporter;
+  return FirebasePushMessaging(
+    report: report,
+    starter: FirebaseStarter(options: FirebaseOptionsSource.api(ref.watch(apiClientProvider)), report: report),
+  );
+});
 final localNotifierProvider = Provider<LocalNotifier>((ref) => FlutterLocalNotifier());
 
 final pushDevicesPathProvider = Provider<String>((ref) => '/me/devices');
@@ -659,6 +745,7 @@ final pushServiceProvider = Provider<PushService>((ref) {
     devicesPath: ref.watch(pushDevicesPathProvider),
     askPermissionOnRegister: ref.watch(pushDevicesPathProvider) != PushService.customerDevicesPath,
     localeCode: () => ref.read(localeCodeProvider),
+    report: ref.watch(pushDiagnosticsProvider).reporter,
   );
   ref.onDispose(service.dispose);
   return service;

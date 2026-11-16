@@ -657,4 +657,12 @@ export const ar: Record<string, string> = {
   "cart.qty_now": "{name}: {n} في سلتك",
   "filter.show_one": "عرض قطعة واحدة",
   "shop.count_one": "قطعة واحدة",
+  "slider.region": "بانرات الصفحة الرئيسية",
+  "slider.slide_n": "{n} من {total}",
+  "slider.go_to": "انتقل إلى الشريحة {n}",
+  "slider.prev": "الشريحة السابقة",
+  "slider.next": "الشريحة التالية",
+  "slider.pause": "إيقاف تحرك الشرائح مؤقتاً",
+  "slider.play": "تشغيل تحرك الشرائح",
+  "slider.open": "افتح هذا العرض",
 };

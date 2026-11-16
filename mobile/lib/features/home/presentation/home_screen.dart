@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:albahar_customer/core/l10n/l10n.dart';
-import 'package:albahar_customer/core/router/panel_links.dart';
 import 'package:albahar_customer/core/theme/brand_theme.dart';
 import 'package:albahar_customer/core/theme/design_tokens.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
@@ -19,6 +18,8 @@ import 'package:albahar_customer/features/catalog/presentation/widgets/catalog_w
 import 'package:albahar_customer/features/home/data/home_repository.dart';
 import 'package:albahar_customer/features/home/domain/home_models.dart';
 import 'package:albahar_customer/features/home/presentation/buy_again_section.dart';
+import 'package:albahar_customer/features/home/presentation/home_link_opener.dart';
+import 'package:albahar_customer/features/home/presentation/home_slider.dart';
 import 'package:albahar_customer/features/home/presentation/season_banner.dart';
 import 'package:albahar_customer/features/notifications/presentation/notifications_screen.dart';
 import 'package:albahar_customer/features/notifications/presentation/state/notifications_controller.dart';
@@ -28,7 +29,6 @@ import 'package:albahar_customer/features/scan/presentation/widgets/scan_entry.d
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -69,7 +69,9 @@ class HomeScreen extends ConsumerWidget {
                     const SliverToBoxAdapter(child: SeasonBanner()),
                     const SliverToBoxAdapter(child: ActiveOrderCard()),
                     for (final s in freshSectionOrder(data.sections))
-                      SliverToBoxAdapter(child: HomeSectionView(section: s)),
+                      SliverToBoxAdapter(
+                        child: HomeSectionView(key: ValueKey(s.id), section: s),
+                      ),
                     const SliverToBoxAdapter(child: BuyAgainSection()),
                     const SliverToBoxAdapter(child: Gap(AppSpace.xxl)),
                   ];
@@ -78,7 +80,10 @@ class HomeScreen extends ConsumerWidget {
                   const SliverToBoxAdapter(child: SeasonBanner()),
                   const SliverToBoxAdapter(child: ActiveOrderCard()),
                   const SliverToBoxAdapter(child: BuyAgainSection()),
-                  for (final s in data.sections) SliverToBoxAdapter(child: HomeSectionView(section: s)),
+                  for (final s in data.sections)
+                    SliverToBoxAdapter(
+                      child: HomeSectionView(key: ValueKey(s.id), section: s),
+                    ),
                   const SliverToBoxAdapter(child: Gap(AppSpace.xxl)),
                 ];
               },
@@ -199,8 +204,11 @@ class _FreshHomeHeader extends ConsumerWidget {
   }
 }
 
-/// Order of the server's sections in the fresh home: pictures first, then categories, the product rails, everything
-/// else in the server's order, and the promotions last (they become promo strips). Nothing is added or removed.
+/// Order of the server's sections in the fresh home: pictures first, then categories, the product rails, everything else in the
+/// server's order, and the promotions last (they become promo strips). Nothing is added or removed.
+///
+/// A slider is the exception: the dashboard places it among the sections, so it stays where it was put. Each slider goes right after
+/// the section it followed in the server's order (or first, when it came first), whatever the other sections are moved to.
 List<HomeSection> freshSectionOrder(List<HomeSection> sections) {
   int rank(HomeSection s) => switch (s) {
     BannersSection() => 0,
@@ -212,12 +220,33 @@ List<HomeSection> freshSectionOrder(List<HomeSection> sections) {
     BrandsSection() => 6,
     PromotionsSection() => 7,
   };
-  final indexed = [for (var i = 0; i < sections.length; i++) (i, sections[i])];
-  indexed.sort((a, b) {
+  final others = [
+    for (var i = 0; i < sections.length; i++)
+      if (sections[i] is! BannersSection) (i, sections[i]),
+  ];
+  others.sort((a, b) {
     final r = rank(a.$2).compareTo(rank(b.$2));
     return r != 0 ? r : a.$1.compareTo(b.$1);
   });
-  return [for (final e in indexed) e.$2];
+  // The sliders that sit before the first other section lead; every other slider follows the section it came after.
+  final leading = <HomeSection>[];
+  final after = <String, List<HomeSection>>{};
+  HomeSection? anchor;
+  for (final s in sections) {
+    if (s is BannersSection) {
+      if (anchor == null) {
+        leading.add(s);
+      } else {
+        (after[anchor.id] ??= []).add(s);
+      }
+    } else {
+      anchor = s;
+    }
+  }
+  return [
+    ...leading,
+    for (final e in others) ...[e.$2, ...?after[e.$2.id]],
+  ];
 }
 
 /// Search pill (opens Search) with the filter button, and the branch pill above it when there are several branches.
@@ -335,7 +364,7 @@ class HomeSectionView extends StatelessWidget {
     return switch (s) {
       BannersSection() => Padding(
         padding: const EdgeInsets.only(top: AppSpace.sm),
-        child: BannerCarousel(banners: s.banners),
+        child: HomeSlider(section: s),
       ),
       CategoriesSection() => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -399,219 +428,6 @@ class HomeSectionView extends StatelessWidget {
     'recommended' => l10n.relatedProducts,
     _ => l10n.productsTitle,
   };
-}
-
-Future<void> openHomeLink(BuildContext context, HomeLink? link) async {
-  if (link == null) return;
-  if (link.isExternal) {
-    final uri = Uri.tryParse(link.value);
-    if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
-    return;
-  }
-  final location = link.location;
-  if (location != null && context.mounted) await openLocation(context, location);
-}
-
-class BannerCarousel extends StatefulWidget {
-  const BannerCarousel({super.key, required this.banners});
-  final List<HomeBanner> banners;
-
-  @override
-  State<BannerCarousel> createState() => _BannerCarouselState();
-}
-
-class _BannerCarouselState extends State<BannerCarousel> {
-  final _controller = PageController(viewportFraction: 0.92);
-  Timer? _auto;
-  int _index = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.banners.length > 1) {
-      _auto = Timer.periodic(const Duration(seconds: 6), (_) {
-        if (!mounted || !_controller.hasClients) return;
-        final reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-        final next = (_index + 1) % widget.banners.length;
-        if (reduce) {
-          _controller.jumpToPage(next);
-        } else {
-          unawaited(_controller.animateToPage(next, duration: AppDurations.slow, curve: Curves.easeOutCubic));
-        }
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _auto?.cancel();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final ratio = width >= 900 ? 21 / 8 : (width >= 600 ? 2.0 : 16 / 11);
-    return Column(
-      children: [
-        AspectRatio(
-          aspectRatio: ratio,
-          child: PageView.builder(
-            controller: _controller,
-            itemCount: widget.banners.length,
-            onPageChanged: (i) => setState(() => _index = i),
-            itemBuilder: (context, i) {
-              final b = widget.banners[i];
-              return Padding(
-                padding: const EdgeInsetsDirectional.symmetric(horizontal: 6),
-                child: Semantics(
-                  button: b.link != null,
-                  label: [b.title, b.subtitle].whereType<String>().join('. '),
-                  child: GestureDetector(
-                    onTap: () => openHomeLink(context, b.link),
-                    child: ClipRRect(
-                      borderRadius: context.design.cardBorderRadius,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          if (b.imageUrl == null || b.imageUrl!.isEmpty)
-                            // No picture: the brand banner — navy gradient with soft gold discs.
-                            DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [context.colors.primary, context.palette.primarySoft],
-                                ),
-                              ),
-                              child: Stack(
-                                children: [
-                                  PositionedDirectional(
-                                    end: -40,
-                                    top: -40,
-                                    child: Container(
-                                      width: 170,
-                                      height: 170,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: context.palette.brass.withValues(alpha: 0.28),
-                                      ),
-                                    ),
-                                  ),
-                                  PositionedDirectional(
-                                    end: 30,
-                                    bottom: -60,
-                                    child: Container(
-                                      width: 120,
-                                      height: 120,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: Colors.white.withValues(alpha: 0.08),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          else
-                            AppNetworkImage(url: b.imageUrl),
-                          if (b.title != null || b.subtitle != null)
-                            DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [Colors.transparent, Colors.black.withValues(alpha: 0.55)],
-                                  stops: const [0.4, 1],
-                                ),
-                              ),
-                            ),
-                          PositionedDirectional(
-                            start: AppSpace.lg,
-                            end: AppSpace.lg,
-                            bottom: AppSpace.lg,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (b.title != null)
-                                  Text(
-                                    b.title!,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: context.text.headlineMedium?.copyWith(color: Colors.white),
-                                  ),
-                                if (b.subtitle != null) ...[
-                                  const Gap(4),
-                                  Text(
-                                    b.subtitle!,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: context.text.bodyMedium?.copyWith(
-                                      color: Colors.white.withValues(alpha: 0.9),
-                                    ),
-                                  ),
-                                ],
-                                if (b.link != null) ...[
-                                  const Gap(AppSpace.sm),
-                                  Container(
-                                    padding: const EdgeInsetsDirectional.symmetric(horizontal: 14, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      color: context.palette.brass,
-                                      borderRadius: BorderRadius.circular(AppRadius.pill),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          context.l10n.shopNow,
-                                          style: context.text.labelMedium?.copyWith(
-                                            color: AppPalette.ink,
-                                            fontWeight: FontWeight.w600,
-                                            letterSpacing: 0,
-                                          ),
-                                        ),
-                                        const Gap(4),
-                                        const Icon(Icons.arrow_forward_rounded, size: 16, color: AppPalette.ink),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-        if (widget.banners.length > 1) ...[
-          const Gap(AppSpace.sm),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              for (var i = 0; i < widget.banners.length; i++)
-                AnimatedContainer(
-                  duration: AppDurations.medium,
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: i == _index ? 18 : 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: i == _index ? context.colors.primary : context.palette.line,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ],
-    );
-  }
 }
 
 /// Category tiles: soft white squares with a line icon (or the category picture) above the name.

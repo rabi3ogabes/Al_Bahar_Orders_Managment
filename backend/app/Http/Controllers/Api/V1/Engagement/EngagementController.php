@@ -37,12 +37,14 @@ class EngagementController extends ApiController
 {
     public function home(Request $request, HomepageService $home): JsonResponse
     {
-        $branchId = $request->validate(['branch_id' => 'nullable|uuid'])['branch_id'] ?? null;
-        $branch = $branchId ? Branch::active()->find($branchId) : null;
-        $key = 'home:'.app()->getLocale().':'.($branch?->id ?? 'all');
+        $in = $request->validate(['branch_id' => 'nullable|uuid', 'platform' => 'nullable|in:mobile,web']);
+        $branch = ($in['branch_id'] ?? null) ? Branch::active()->find($in['branch_id']) : null;
+        // The apps send nothing (mobile); the web store sends ?platform=web so web-only slides reach it and mobile-only slides do not.
+        $platform = $in['platform'] ?? 'mobile';
+        // The revision changes on every dashboard edit (see HomepageService::flush), so a change is live at once; the minute only keeps prices fresh.
+        $key = 'home:'.HomepageService::revision().':'.app()->getLocale().':'.$platform.':'.($branch?->id ?? 'all');
 
-        // Short cache: content is admin-managed and prices must stay fresh.
-        return response()->json(['data' => Cache::remember($key, 60, fn () => $home->render($branch))]);
+        return response()->json(['data' => Cache::remember($key, 60, fn () => $home->render($branch, $platform))]);
     }
 
     public function page(string $slug): JsonResponse

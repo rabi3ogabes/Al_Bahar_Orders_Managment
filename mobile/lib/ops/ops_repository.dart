@@ -36,16 +36,20 @@ class OpsRepository {
     await _api.post('/auth/logout');
   }
 
-  /// How this app should ask for a status change (`ops.status_style` of the public `GET /app-config`: `buttons` or `slide`). A server
-  /// that does not send the setting means the plain buttons; an answer that is not the dashboard's JSON (a captive portal's page)
-  /// throws, so it can never replace the last good one.
-  Future<OpsStatusStyle> statusStyle() async {
+  /// The dashboard settings this app follows, from the public `GET /app-config`: how a status is changed (`ops.status_style`:
+  /// `buttons` or `slide`) and whether the alternative phone number is shown (`alternate_phone_enabled`). A server that does not send
+  /// a setting means today's behaviour (plain buttons, number shown); an answer that is not the dashboard's JSON (a captive portal's
+  /// page) throws, so it can never replace the last good one.
+  Future<OpsAppConfig> appConfig() async {
     final data = await _api
         .get('/app-config', options: Options(extra: {RequestFlags.skipAuth: true}))
         .timeout(const Duration(seconds: 6));
     if (data is! Map) throw const FormatException('The app configuration is not an object.');
-    return OpsStatusStyle.fromCode(asMap(asMap(data)['ops'])['status_style']);
+    return OpsAppConfig.fromJson(asMap(data));
   }
+
+  /// How this app should ask for a status change (see [appConfig]).
+  Future<OpsStatusStyle> statusStyle() async => (await appConfig()).statusStyle;
 
   /// Permission keys of the signed-in staff member.
   Future<List<String>> permissions() async {

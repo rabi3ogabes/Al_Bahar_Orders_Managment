@@ -188,9 +188,11 @@ it('saves CMS pages as drafts, publishes them and manages banners', function () 
     $c->call('publish');
     expect($page->fresh()->status)->toBe('published')->and($page->translations()->where('locale', 'en')->value('body'))->toContain('Hello');
 
-    Livewire::test(BannerIndex::class)->call('create')->call('save')->assertHasErrors('imageEn')
-        ->set('imageEn', UploadedFile::fake()->image('hero.jpg', 1600, 700))->set('form.title_en', 'Ramadan')->set('form.status', 'published')->call('save')->assertHasNoErrors();
-    expect(Banner::where('title_en', 'Ramadan')->exists())->toBeTrue();
+    // Banners live in sliders now (full coverage in tests/Feature/Admin/HomeBannersTest.php).
+    $slider = HomepageSection::create(['type' => 'banners', 'layout' => 'carousel', 'status' => 'published', 'sort_order' => 1]);
+    Livewire::test(BannerIndex::class)->call('createSlide', 'slider:'.$slider->id)->call('saveSlide')->assertHasErrors('imageEn')
+        ->set('imageEn', UploadedFile::fake()->image('hero.jpg', 1600, 700))->set('slide.title_en', 'Ramadan')->call('saveSlide')->assertHasNoErrors();
+    expect(Banner::where('title_en', 'Ramadan')->where('homepage_section_id', $slider->id)->exists())->toBeTrue();
 });
 
 it('lets loyalty managers edit programme rules only with override permission', function () {

@@ -56,7 +56,9 @@ class SendNotificationJob implements ShouldQueue
                 default => ['skipped', null, null, [], 'none'],
             };
             $log->update(['status' => $status, 'recipient' => $recipient, 'provider' => $provider, 'provider_message_id' => $providerId,
-                'response' => Redactor::redact($response), 'sent_at' => in_array($status, ['sent', 'delivered'], true) ? now() : null, 'error' => null]);
+                'response' => Redactor::redact($response), 'sent_at' => in_array($status, ['sent', 'delivered'], true) ? now() : null,
+                // A push that reached nobody says why (FCM's own words), so the dashboard's "Last problem" is more than "failed".
+                'error' => $log->channel === 'push' && $status === 'failed' && is_string($response['error'] ?? null) ? substr($response['error'], 0, 490) : null]);
         } catch (Throwable $e) {
             $log->update(['status' => $this->attempts() >= $this->tries ? 'failed' : 'queued', 'error' => substr($e->getMessage(), 0, 490)]);
             throw $e; // let the queue retry with backoff
@@ -105,7 +107,7 @@ class SendNotificationJob implements ShouldQueue
             return ['skipped', null, null, ['reason' => $devices->isEmpty() ? 'no_devices' : 'not_configured'], 'fcm'];
         }
         $delivered = $removed = $busy = 0;
-        $last = null;
+        $last = $failure = null;
         foreach ($devices as $device) {
             [$title, $body] = $this->textFor($device);
             $res = $fcm->send($device->push_token, $title, $body, ['event' => $log->event, 'deep_link' => (string) $this->deepLink, 'notification_id' => (string) $this->notificationId, 'log_id' => $log->id], $device);
@@ -115,16 +117,24 @@ class SendNotificationJob implements ShouldQueue
             }
             if ($res['ok'] ?? false) {
                 $delivered++;
-            } elseif ($res['retry'] ?? false) {
-                $busy++;
-                $last = $res;
+            } else {
+                $failure = $res;
+                if ($res['retry'] ?? false) {
+                    $busy++;
+                    $last = $res;
+                }
             }
         }
         if ($delivered === 0 && $busy > 0) {
             throw new RuntimeException('FCM unavailable: HTTP '.($last['status'] ?? 0).' '.($last['error'] ?? '')); // the queue tries again later
         }
 
-        return [$delivered > 0 ? 'sent' : 'failed', $devices->count().' device(s)', null, ['delivered_to' => $delivered, 'removed' => $removed], 'fcm'];
+        $response = ['delivered_to' => $delivered, 'removed' => $removed];
+        if ($delivered === 0 && $failure !== null) {
+            $response['error'] = trim('HTTP '.($failure['status'] ?? 0).' '.($failure['code'] ?? $failure['error'] ?? '').' '.($failure['detail'] ?? ''));
+        }
+
+        return [$delivered > 0 ? 'sent' : 'failed', $devices->count().' device(s)', null, $response, 'fcm'];
     }
 
     /** @return array{0: string, 1: string} title and body in the language of the phone's app (the account's language when that one is unknown) */

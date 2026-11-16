@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart';
 
 import '../network/api_client.dart';
+import '../network/api_exception.dart';
 import '../update/app_update.dart';
 
 /// Turns the answer of `GET /push-config?platform=…&app=…` into the options Firebase needs to start, or null when the
@@ -36,6 +37,26 @@ FirebaseOptions? parseFirebaseOptions(Object? data, {String? iosBundleId}) {
   );
 }
 
+/// Why an answer of `GET /push-config?platform=…&app=…` holds nothing to start Firebase with, as one of the codes the dashboard explains
+/// (`push_off`: switched off or no server key; `app_not_set`: this app has no App ID or API key saved; `options_invalid`: anything else odd).
+String diagnoseFirebaseOptions(Object? data) {
+  if (data is! Map) return 'options_invalid';
+  if (data['enabled'] == false) return 'push_off';
+  return data['native'] is Map ? 'options_invalid' : 'app_not_set';
+}
+
+/// What [FirebaseOptionsSource.loadResult] found: the options, or why there are none.
+class FirebaseOptionsResult {
+  const FirebaseOptionsResult.found(FirebaseOptions this.options) : code = null, message = null;
+  const FirebaseOptionsResult.missing(String this.code, [this.message]) : options = null;
+
+  final FirebaseOptions? options;
+
+  /// Why there are none (a code for the dashboard), null when [options] is set.
+  final String? code;
+  final String? message;
+}
+
 /// Where a phone app gets its Firebase settings when the build carries no `google-services.json` /
 /// `GoogleService-Info.plist`: the dashboard, through the public `/push-config` route.
 class FirebaseOptionsSource {
@@ -55,12 +76,29 @@ class FirebaseOptionsSource {
 
   /// The options, or null when there are none to use (see [parseFirebaseOptions]), the server cannot be reached in
   /// time, or it answers with an error. Never throws.
-  Future<FirebaseOptions?> load({String? iosBundleId}) async {
+  Future<FirebaseOptions?> load({String? iosBundleId}) async => (await loadResult(iosBundleId: iosBundleId)).options;
+
+  /// Like [load], and says why when there are no options: `server_unreachable` (no answer in time, or an error answer),
+  /// `push_off`, `app_not_set` or `options_invalid`. Never throws.
+  Future<FirebaseOptionsResult> loadResult({String? iosBundleId}) async {
+    final Object? data;
     try {
-      return parseFirebaseOptions(await fetch().timeout(timeout), iosBundleId: iosBundleId);
+      data = await fetch().timeout(timeout);
     } catch (e) {
       debugPrint('Push options not loaded (${e.runtimeType})');
-      return null;
+      return FirebaseOptionsResult.missing('server_unreachable', _why(e));
+    }
+    try {
+      final options = parseFirebaseOptions(data, iosBundleId: iosBundleId);
+      return options != null
+          ? FirebaseOptionsResult.found(options)
+          : FirebaseOptionsResult.missing(diagnoseFirebaseOptions(data));
+    } catch (e) {
+      return FirebaseOptionsResult.missing('options_invalid', e.runtimeType.toString());
     }
   }
+
+  /// What went wrong with the request, without anything the server said.
+  static String _why(Object e) =>
+      e is ApiException ? 'HTTP ${e.statusCode ?? 0} ${e.kind.name}' : e.runtimeType.toString();
 }

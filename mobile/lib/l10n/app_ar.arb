@@ -922,5 +922,7 @@
   "orderItemReplaces": "بديل لـ {name}",
   "orderItemReducedFrom": "خُفّضت من {count}",
   "orderUpdatedChip": "تم التحديث",
-  "downloadUpdatedInvoice": "تنزيل الفاتورة المحدّثة (PDF)"
+  "downloadUpdatedInvoice": "تنزيل الفاتورة المحدّثة (PDF)",
+  "homeBannerPosition": "إعلان {position} من {total}",
+  "homeLinkOpenFailed": "تعذّر فتح هذا الرابط."
 }

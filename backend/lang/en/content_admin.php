@@ -137,6 +137,7 @@ return [
     'link_auction' => 'Auction',
     'link_page' => 'Page',
     'link_url' => 'Web address',
+    'link_search' => 'Search text',
     'placement_home_hero' => 'Home — hero',
     'placement_home_strip' => 'Home — strip',
     'placement_category_top' => 'Category — top',

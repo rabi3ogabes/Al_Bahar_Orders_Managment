@@ -41,7 +41,7 @@ class FcmClient
      * back as `ok: false` with `retry: true` when trying again later can work (see {@see outcome()}).
      *
      * @param  array<string, mixed>  $data  only strings reach the phone: null values are left out, arrays are sent as JSON
-     * @return array{ok: bool, unregistered: bool, retry: bool, status: int, error: ?string}
+     * @return array{ok: bool, unregistered: bool, retry: bool, status: int, error: ?string, code?: ?string, detail?: ?string}
      */
     public function send(string $token, string $title, string $body, array $data = [], ?UserDevice $device = null): array
     {
@@ -91,7 +91,7 @@ class FcmClient
      * A web token (pass its device) gets the same data-only message through Web Push; the service worker draws the card.
      *
      * @param  array<string, mixed>  $data
-     * @return array{ok: bool, unregistered: bool, retry: bool, status: int, error: ?string}
+     * @return array{ok: bool, unregistered: bool, retry: bool, status: int, error: ?string, code?: ?string, detail?: ?string}
      */
     public function sendProgress(string $token, string $title, string $body, array $data, ?UserDevice $device = null): array
     {
@@ -170,7 +170,7 @@ class FcmClient
      * An expired or revoked OAuth token (401) is replaced once and the message sent again.
      *
      * @param  array{message: array<string, mixed>}  $payload
-     * @return array{ok: bool, unregistered: bool, retry: bool, status: int, error: ?string}
+     * @return array{ok: bool, unregistered: bool, retry: bool, status: int, error: ?string, code?: ?string, detail?: ?string}
      */
     private function deliver(array $payload): array
     {
@@ -205,7 +205,7 @@ class FcmClient
      *
      * @param  array<string, mixed>  $data  `deep_link` may be an app link (albahar://orders/1), a path or a link on this site
      * @param  string|null  $app  store | mobile-web | admin: the Flutter web app lives under /mobile-web/ with hash routes
-     * @return array{ok: bool, unregistered: bool, retry: bool, status: int, error: ?string}
+     * @return array{ok: bool, unregistered: bool, retry: bool, status: int, error: ?string, code?: ?string, detail?: ?string}
      */
     public function sendWeb(string $token, string $title, string $body, array $data = [], ?string $app = null): array
     {
@@ -228,7 +228,7 @@ class FcmClient
      * for a browser that was offline, like `collapse_key` does for Android.
      *
      * @param  array<string, mixed>  $data
-     * @return array{ok: bool, unregistered: bool, retry: bool, status: int, error: ?string}
+     * @return array{ok: bool, unregistered: bool, retry: bool, status: int, error: ?string, code?: ?string, detail?: ?string}
      */
     public function sendWebProgress(string $token, string $title, string $body, array $data, ?string $app = null): array
     {
@@ -302,7 +302,7 @@ class FcmClient
      *    on our side, a refused key or a bad payload, so a configuration mistake cannot switch off every device.
      *  - `retry`: trying again later can work (Google is down or busy: 429, 5xx, UNAVAILABLE, INTERNAL, QUOTA_EXCEEDED, or no connection).
      *
-     * @return array{ok: bool, unregistered: bool, retry: bool, status: int, error: ?string}
+     * @return array{ok: bool, unregistered: bool, retry: bool, status: int, error: ?string, code?: ?string, detail?: ?string}
      */
     private function outcome(Response $res): array
     {
@@ -312,7 +312,20 @@ class FcmClient
         $retry = ! $res->successful() && ($res->status() === 429 || $res->status() >= 500
             || in_array($error, ['UNAVAILABLE', 'INTERNAL', 'RESOURCE_EXHAUSTED'], true) || str_contains($body, 'QUOTA_EXCEEDED'));
 
-        return ['ok' => $res->successful(), 'unregistered' => ! $res->successful() && $deadToken, 'retry' => $retry, 'status' => $res->status(), 'error' => is_string($error) ? $error : null];
+        return ['ok' => $res->successful(), 'unregistered' => ! $res->successful() && $deadToken, 'retry' => $retry, 'status' => $res->status(), 'error' => is_string($error) ? $error : null]
+            + ($res->successful() ? [] : ['code' => $this->errorCode($res), 'detail' => $this->clip($res->json('error.message'))]);
+    }
+
+    /** FCM's own error code (UNREGISTERED, SENDER_ID_MISMATCH, THIRD_PARTY_AUTH_ERROR, QUOTA_EXCEEDED ...), which says more than the HTTP status. */
+    private function errorCode(Response $res): ?string
+    {
+        foreach ((array) $res->json('error.details', []) as $detail) {
+            if (is_array($detail) && is_string($detail['errorCode'] ?? null)) {
+                return $detail['errorCode'];
+            }
+        }
+
+        return null;
     }
 
     private function blamesToken(Response $res): bool

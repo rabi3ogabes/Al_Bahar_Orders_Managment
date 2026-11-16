@@ -128,6 +128,12 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('password-reset', fn (Request $r) => Limit::perHour(5)->by('reset:'.$r->ip()));
         RateLimiter::for('checkout', fn (Request $r) => Limit::perMinute(10)->by('checkout:'.($r->user()?->id ?: $r->ip())));
         RateLimiter::for('bids', fn (Request $r) => Limit::perMinute((int) config('platform.auctions.bid_rate_limit_per_minute'))->by('bid:'.($r->user()?->id ?: $r->ip())));
+        // A public endpoint, so three buckets: the address (generous: a mobile carrier puts many phones behind one address), the install (a phone reports a handful of times a day) and the whole server.
+        RateLimiter::for('push-diagnostics', fn (Request $r) => [
+            Limit::perMinute(60)->by('push-diag-ip:'.$r->ip()),
+            Limit::perHour(40)->by('push-diag-install:'.(is_string($r->input('install_id')) ? substr($r->input('install_id'), 0, 64) : 'none')),
+            Limit::perMinute(600)->by('push-diag-all'),
+        ]);
         RateLimiter::for('webhooks', fn (Request $r) => Limit::perMinute(300)->by('webhook:'.$r->ip()));
         // Scan to add: a shopper scanning a shelf makes a request every second or two. Signed-in shoppers are counted one by one (in a
         // shop everyone shares the shop's Wi-Fi address); guests share their address's bucket.

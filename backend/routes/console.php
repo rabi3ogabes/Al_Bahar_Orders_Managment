@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Auctions\Services\LotService;
+use App\Domain\Cms\Services\HomeContentPurger;
 use App\Domain\Inventory\Services\ReservationService;
 use App\Domain\Marketing\Services\CampaignService;
 use App\Domain\Marketing\Services\LoyaltyService;
@@ -45,3 +46,7 @@ Schedule::command('marketing:send-scheduled')->everyMinute()->withoutOverlapping
 Schedule::command('journeys:tick')->everyMinute()->withoutOverlapping(5)->onOneServer();
 
 Schedule::command('messaging:dispatch-due')->everyMinute()->withoutOverlapping(5)->onOneServer();
+
+Artisan::command('banners:purge-deleted {--days=7}', fn (HomeContentPurger $p) => $this->info(json_encode($p->purge((int) $this->option('days')))))
+    ->purpose('Remove slides and sliders that have been in the dashboard bin for a week (files included)');
+Schedule::command('banners:purge-deleted')->dailyAt('04:10')->timezone('Asia/Qatar')->onOneServer();

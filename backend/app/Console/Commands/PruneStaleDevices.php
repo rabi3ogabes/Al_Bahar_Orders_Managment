@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Domain\Identity\Models\UserDevice;
 use App\Domain\Notifications\Models\LiveActivityToken;
+use App\Domain\Notifications\Services\PushDiagnostics;
 use Illuminate\Console\Command;
 
 class PruneStaleDevices extends Command
@@ -28,6 +29,10 @@ class PruneStaleDevices extends Command
         $starters = LiveActivityToken::where('kind', LiveActivityToken::KIND_START)->whereNull('disabled_at')
             ->whereRaw('coalesce(last_seen_at, created_at) < ?', [$cutoff])->update(['disabled_at' => now()]);
         $this->info("Cleared {$deleted} old live activity token(s), switched off {$starters} stale push-to-start token(s).");
+
+        // What the phones reported about their own push set-up is only useful while it is recent.
+        $reports = app(PushDiagnostics::class)->prune(PushDiagnostics::KEEP_DAYS);
+        $this->info("Removed {$reports} old phone report(s).");
 
         return self::SUCCESS;
     }

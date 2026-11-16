@@ -158,13 +158,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     addressId: o.addressId,
                     onChanged: (id) => controller.update((x) => x.copyWith(addressId: () => id)),
                   ),
-                  const Gap(AppSpace.md),
-                  _AlternatePhoneSection(
-                    input: state.alternate,
-                    mainPhone: state.mainPhone,
-                    onText: controller.setAlternateText,
-                    onDeclined: controller.setAlternateDeclined,
-                  ),
+                  if (state.alternateEnabled) ...[
+                    const Gap(AppSpace.md),
+                    _AlternatePhoneSection(
+                      input: state.alternate,
+                      mainPhone: state.mainPhone,
+                      onText: controller.setAlternateText,
+                      onDeclined: controller.setAlternateDeclined,
+                    ),
+                  ],
                 ] else
                   _PickupSection(state: state, controller: controller),
                 if (o.fulfillmentType == FulfillmentType.delivery &&
@@ -429,7 +431,8 @@ class _AlternatePhoneSectionState extends State<_AlternatePhoneSection> {
     final status = input.status(mainPhone: widget.mainPhone);
     final digits = QatarPhone.normalizeDigits(_text.text).replaceAll('+', '');
     // Never a surprise: a half-typed number is not an error until they leave the field or have typed a whole number.
-    final showError = (status == AlternatePhoneStatus.invalid && (_blurred || digits.length >= 8)) ||
+    final showError =
+        (status == AlternatePhoneStatus.invalid && (_blurred || digits.length >= 8)) ||
         status == AlternatePhoneStatus.sameAsMain;
     final error = switch (status) {
       AlternatePhoneStatus.sameAsMain => l10n.alternatePhoneSame,
@@ -450,7 +453,10 @@ class _AlternatePhoneSectionState extends State<_AlternatePhoneSection> {
           keyboardType: TextInputType.phone,
           textInputAction: TextInputAction.done,
           autofillHints: const [AutofillHints.telephoneNumberNational],
-          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9٠-٩۰-۹+ ]')), LengthLimitingTextInputFormatter(16)],
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9٠-٩۰-۹+ ]')),
+            LengthLimitingTextInputFormatter(16),
+          ],
           helper: status == AlternatePhoneStatus.valid ? l10n.alternatePhoneSavedNote : l10n.alternatePhoneHelper,
           errorText: error,
           onChanged: (v) {

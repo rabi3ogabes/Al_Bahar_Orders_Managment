@@ -32,7 +32,8 @@ use Illuminate\Support\Collection;
  *  - COD fee applies only to cash on delivery. Service fee from settings. Tax per configured rate (default 0%).
  *  - Splitting an order across branches is possible only while the admin setting checkout.show_split_shipment is on; when it is off the
  *    client's allow_split is ignored (no split). The same setting decides whether clients show the switch (quote.split_choice).
- *  - A delivery order may carry the customer's second number for the driver (alternate_phone / no_alternate_phone, see alternatePhone()).
+ *  - A delivery order may carry the customer's second number for the driver (alternate_phone / no_alternate_phone, see alternatePhone()),
+ *    unless the dashboard switch (AlternatePhone::enabled) is off.
  */
 class QuoteService
 {
@@ -191,8 +192,8 @@ class QuoteService
      */
     private function alternatePhone(User $user, Quote $q, array $o): void
     {
-        if ($q->fulfillmentType !== 'delivery') {
-            return;
+        if ($q->fulfillmentType !== 'delivery' || ! AlternatePhone::enabled()) {
+            return; // pickup never asks; with the dashboard switch off nobody asks, nothing is required and nothing is saved on the order
         }
         $asked = array_key_exists('alternate_phone', $o) || array_key_exists('no_alternate_phone', $o);
         if (! $asked) {

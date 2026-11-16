@@ -10,6 +10,7 @@ use App\Domain\Checkout\Services\QuoteService;
 use App\Domain\Orders\Services\OrderPresenter;
 use App\Domain\Payments\Services\PaymentService;
 use App\Http\Controllers\Api\V1\ApiController;
+use App\Support\AlternatePhone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -98,7 +99,8 @@ class CheckoutController extends ApiController
             'delivery_date' => 'nullable|date_format:Y-m-d', 'payment_method' => 'nullable|in:sadad,cod,pay_at_pickup', 'coupon_code' => 'nullable|string|max:48',
             'loyalty_points' => 'nullable|integer|min:0', 'allow_split' => 'nullable|boolean', 'express' => 'nullable|boolean',
             // The customer's second number for the driver (delivery only). Checked and normalised by QuoteService, which answers in plain words.
-            'alternate_phone' => 'nullable|string|max:32', 'no_alternate_phone' => 'nullable|boolean',
+            // With the dashboard switch off the two fields are not even read: an older app that still sends them is ignored, never rejected.
+            ...(AlternatePhone::enabled() ? ['alternate_phone' => 'nullable|string|max:32', 'no_alternate_phone' => 'nullable|boolean'] : []),
             'latitude' => 'nullable|numeric|between:-90,90|required_with:longitude', 'longitude' => 'nullable|numeric|between:-180,180|required_with:latitude',
         ]);
     }

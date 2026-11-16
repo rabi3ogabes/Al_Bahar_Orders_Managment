@@ -9,23 +9,16 @@ import { useDocTitle, useTick } from '../lib/hooks';
 import { useBrand, useDesign } from '../lib/brand';
 import type { Auction, Brand, HomeSection, ProductCard as P } from '../lib/types';
 import { Rail } from '../components/Rail';
+import { BannerSlider } from '../components/BannerSlider';
 import { BuyAgain } from '../components/BuyAgain';
 import { CardSkeletons, ProductCard } from '../components/ProductCard';
 import { Badge, LinkButton, Pic, SectionHead, Skeleton } from '../components/ui';
 
-function linkFor(l?: { type: string; value: string } | null): string {
-  if (!l) return '/shop';
-  if (l.type === 'category') return `/shop?category=${l.value}`;
-  if (l.type === 'product') return `/products/${l.value}`;
-  if (l.type === 'auction') return `/auctions/${l.value}`;
-  return l.value || '/shop';
-}
-
-function Hero({ banner }: { banner?: { title: string; subtitle: string | null; image_url: string | null; link: any } }) {
+function Hero() {
   const { t, dir, num } = useI18n();
   const { branches, branchId } = useBranch();
   const brand = useBrand();
-  const heroImage = brand?.images.hero ?? banner?.image_url ?? null;
+  const heroImage = brand?.images.hero ?? null;
   const eventTitle = brand && brand.kind !== 'base' ? brand.banner.title : null;
   const eventSub = brand && brand.kind !== 'base' ? brand.banner.subtitle : null;
   const cats = useQuery({ queryKey: ['categories'], queryFn: async () => (await get<{ data: unknown[] }>('/categories')).data, staleTime: 10 * 60_000 });
@@ -40,10 +33,10 @@ function Hero({ banner }: { banner?: { title: string; subtitle: string | null; i
       <div className="wrap grid items-center gap-10 py-10 md:py-16 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:py-20">
         <div className="rise order-2 lg:order-1">
           <p className="eyebrow mb-5 flex items-center gap-2"><Sparkles size={14} />{t('home.eyebrow')}</p>
-          <h1 className="text-[clamp(44px,7vw,92px)] leading-[0.98]">{eventTitle || banner?.title || t('home.title')}</h1>
-          <p className="mt-6 max-w-lg text-[17px] leading-relaxed text-ink-soft">{eventSub || banner?.subtitle || t('home.subtitle')}</p>
+          <h1 className="text-[clamp(44px,7vw,92px)] leading-[0.98]">{eventTitle || t('home.title')}</h1>
+          <p className="mt-6 max-w-lg text-[17px] leading-relaxed text-ink-soft">{eventSub || t('home.subtitle')}</p>
           <div className="mt-9 flex flex-wrap gap-3">
-            <LinkButton to={banner ? linkFor(banner.link) : '/shop'} size="lg" variant="primary">{t('home.cta')}<Arrow size={18} /></LinkButton>
+            <LinkButton to="/shop" size="lg" variant="primary">{t('home.cta')}<Arrow size={18} /></LinkButton>
             <LinkButton to="/showrooms" size="lg" variant="outline"><MapPin size={17} />{t('home.cta_showrooms')}</LinkButton>
           </div>
           <dl className="mt-12 grid max-w-lg grid-cols-3 gap-6 border-t border-line pt-6 text-sm empty:hidden">
@@ -128,11 +121,13 @@ function ClassicHome() {
   const { branchId } = useBranch();
   useDocTitle();
   const Arrow = dir === 'rtl' ? ArrowLeft : ArrowRight;
-  const home = useQuery({ queryKey: ['home', branchId], queryFn: async () => (await get<{ data: { sections: HomeSection[] } }>('/home', { branch_id: branchId })).data.sections });
+  // The web store asks for its own slides (platform=web); the admin's order of sections is the order of the page.
+  const home = useQuery({ queryKey: ['home', branchId], queryFn: async () => (await get<{ data: { sections: HomeSection[] } }>('/home', { branch_id: branchId, platform: 'web' })).data.sections });
   const sections = home.data ?? [];
-  const byType = (ty: string) => sections.filter((s) => s.type === ty);
-  const banner = byType('banners')[0]?.items[0];
-  const cats = byType('categories')[0];
+  // Sliders the admin put first are the first thing on the page, above the hero (the first one loads first); everything else follows in the admin's order.
+  const lead = sections.findIndex((s) => s.type !== 'banners');
+  const leading = lead === -1 ? sections : sections.slice(0, lead);
+  const rest = lead === -1 ? [] : sections.slice(lead);
 
   const productSection = (s: HomeSection, eyebrow?: string) => s.items.length === 0 ? null : (
     <section key={s.id} className="wrap mt-24">
@@ -143,17 +138,14 @@ function ClassicHome() {
     </section>
   );
 
-  return (
-    <>
-      <Hero banner={banner} />
-      <PromiseStrip />
-      <BuyAgain />
-
-      {cats && cats.items.length > 0 && (
-        <section className="wrap mt-24">
-          <SectionHead eyebrow={t('home.rooms_eyebrow')} title={cats.title ?? t('home.rooms')} link={{ to: '/shop', label: t('action.view_all') }} />
+  const render = (s: HomeSection) => {
+    switch (s.type) {
+      case 'banners': return <BannerSlider key={s.id} section={s} eager={leading[0]?.id === s.id} />;
+      case 'categories': return s.items.length === 0 ? null : (
+        <section key={s.id} className="wrap mt-24">
+          <SectionHead eyebrow={t('home.rooms_eyebrow')} title={s.title ?? t('home.rooms')} link={{ to: '/shop', label: t('action.view_all') }} />
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6 lg:grid-cols-5">
-            {cats.items.map((c: any, i: number) => (
+            {s.items.map((c: any, i: number) => (
               <Link key={c.id} to={`/shop?category=${c.slug}`} className="group relative block overflow-hidden rounded-[24px]">
                 <Pic src={c.image_url} alt={c.name} ratio={i % 2 ? '3/4' : '4/5'} label={c.name} />
                 <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-ink/70 via-ink/20 to-transparent p-4 pt-14 text-white">
@@ -164,40 +156,47 @@ function ClassicHome() {
             ))}
           </div>
         </section>
-      )}
-
-      {home.isLoading && <div className="wrap mt-24"><Skeleton className="mb-8 h-10 w-72" /><CardSkeletons n={4} /></div>}
-
-      {byType('promotions')[0]?.items.length ? (
-        <section className="wrap mt-24">
+      );
+      case 'promotions': return s.items.length === 0 ? null : (
+        <section key={s.id} className="wrap mt-24">
           <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {byType('promotions')[0].items.slice(0, 3).map((p: any) => (
+            {s.items.slice(0, 3).map((p: any) => (
               <li key={p.id}><Link to="/shop?sale=1" className="flex h-full items-center gap-4 rounded-[24px] border border-brass/30 bg-brass-tint p-5 transition-shadow hover:shadow-soft">
                 <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brass text-sm font-bold text-on-brass">{p.badge ?? '%'}</span>
                 <span><span className="block font-display text-2xl leading-tight">{p.name}</span>{p.description && <span className="text-sm text-ink-soft">{p.description}</span>}</span></Link></li>
             ))}
           </ul>
         </section>
-      ) : null}
-
-      {byType('featured_products').map((s) => productSection(s, t('home.featured_eyebrow')))}
-      {byType('new_arrivals').map((s) => productSection(s, t('home.new_eyebrow')))}
-      <AuctionBand items={(byType('live_auctions')[0]?.items ?? []) as Auction[]} />
-      {byType('best_sellers').map((s) => productSection(s, t('home.best_eyebrow')))}
-      {byType('recommended').map((s) => productSection(s))}
-      {byType('product_collection').map((s) => productSection(s))}
-
-      {byType('brands')[0]?.items.length ? (
-        <section className="wrap mt-24">
-          <SectionHead eyebrow={t('home.brands_eyebrow')} title={byType('brands')[0].title ?? t('home.brands')} />
+      );
+      case 'featured_products': return productSection(s, t('home.featured_eyebrow'));
+      case 'new_arrivals': return productSection(s, t('home.new_eyebrow'));
+      case 'best_sellers': return productSection(s, t('home.best_eyebrow'));
+      case 'recommended': case 'product_collection': return productSection(s);
+      case 'live_auctions': return <AuctionBand key={s.id} items={s.items as Auction[]} />;
+      case 'brands': return s.items.length === 0 ? null : (
+        <section key={s.id} className="wrap mt-24">
+          <SectionHead eyebrow={t('home.brands_eyebrow')} title={s.title ?? t('home.brands')} />
           <ul className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {(byType('brands')[0].items as Brand[]).map((b) => (
+            {(s.items as Brand[]).map((b) => (
               <li key={b.id}><Link to={`/shop?brand=${b.slug}`} className="flex h-24 items-center justify-center rounded-[20px] border border-line bg-paper px-4 text-center transition-colors hover:border-brass">
                 {b.logo_url ? <img src={b.logo_url} alt={b.name} className="max-h-12 object-contain opacity-80" loading="lazy" /> : <span className="font-display text-2xl tracking-wide text-ink-soft">{b.name}</span>}</Link></li>
             ))}
           </ul>
         </section>
-      ) : null}
+      );
+      default: return null;
+    }
+  };
+
+  return (
+    <>
+      {leading.map(render)}
+      <Hero />
+      <PromiseStrip />
+      <BuyAgain />
+
+      {home.isLoading && <div className="wrap mt-24"><Skeleton className="mb-8 h-10 w-72" /><CardSkeletons n={4} /></div>}
+      {rest.map(render)}
 
       <section className="wrap mt-24">
         <div className="relative overflow-hidden rounded-[32px] bg-[linear-gradient(135deg,var(--sand),var(--brass-tint))] p-8 md:p-14">

@@ -90,6 +90,9 @@ return [
     'customer_app' => [
         'designed_by_en' => 'Designed by Athar Qatar',
         'designed_by_ar' => 'تصميم أثر قطر',
+        // Settings → General & brand → "Alternative phone number": whether customers are asked for a second number for the driver.
+        // Off hides it in the apps, the web store and the dashboard and the API ignores it; saved numbers are kept (App\Support\AlternatePhone::enabled).
+        'alternate_phone_enabled' => true,
     ],
 
     'pickup' => [

@@ -12,6 +12,7 @@ import 'package:albahar_customer/core/update/app_update.dart';
 import 'package:albahar_customer/features/auctions/data/auction_repository.dart';
 import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
 import 'package:albahar_customer/features/notifications/data/notifications_repository.dart';
+import 'package:albahar_customer/features/notifications/presentation/state/notification_live.dart';
 import 'package:albahar_customer/features/notifications/presentation/state/notifications_controller.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
@@ -114,6 +115,8 @@ class _AlBaharAppState extends ConsumerState<AlBaharApp> with WidgetsBindingObse
     final brand = ref.watch(brandThemeProvider);
     // The live order notification follows sign-in, the realtime channel, the network and the language.
     ref.watch(liveOrderBootProvider);
+    // The inbox badge and list follow the server while the app is open (socket, then a poll), whether or not push arrives.
+    ref.watch(notificationLiveProvider);
 
     // Register push on sign-in, forget the person on sign-out (also when the session just ended); surface session expiry.
     ref.listen(sessionControllerProvider, (prev, next) {

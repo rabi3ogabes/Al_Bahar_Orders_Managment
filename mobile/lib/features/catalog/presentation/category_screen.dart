@@ -1,6 +1,8 @@
 import 'package:albahar_customer/core/l10n/l10n.dart';
+import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
+import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
 import 'package:albahar_customer/features/catalog/presentation/product_list_screen.dart';
 import 'package:albahar_customer/features/catalog/presentation/state/catalog_providers.dart';
@@ -31,6 +33,15 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
         ? category!.children
         : (fromTree?.children ?? const <CatalogCategory>[]);
     final filters = detail.value?.filters ?? const <AttributeFilter>[];
+
+    // A category that was deleted (a banner or a link still points to it): the normal "not found" page, not an empty product grid.
+    final error = detail.error;
+    if (category == null && error is ApiException && error.kind == ApiErrorKind.notFound) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: ErrorState(error: error, onRetry: () => ref.invalidate(categoryDetailProvider(widget.categoryId))),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(

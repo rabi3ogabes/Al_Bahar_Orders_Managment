@@ -212,6 +212,7 @@ The server skips push silently until Firebase is connected (`FcmClient::configur
 6. **iOS**: register the iOS app in Firebase with bundle ID `qa.albahar.customer`, enter its App ID and API key in the dashboard, and upload an APNs authentication key (Project settings → Cloud Messaging → Apple app configuration). Without the APNs key an iPhone receives nothing.
 7. **Check it.** Place a test order in the customer app with a registered device, then in the admin move it through *Accepted → Preparing → Ready*, assign a driver and run the driver's steps. A card should appear within seconds and update in place.
    On the server, `php artisan tinker` → `app(\App\Domain\Notifications\Services\FcmClient::class)->configured()` must return `true`.
+   If no card appears: open **Push notifications** in the dashboard. *Push health* shows what is wrong per app, *What the phones report* shows what each phone said (and what to do in Firebase), and *Send a test to a phone* sends a real push (with the sample live order card for the customer app on Android). From the server: `php artisan push:test [user] --card`. See "If push does not arrive" in `docs/guides/FIREBASE_PUSH.md`.
 
 ## 8. Privacy
 

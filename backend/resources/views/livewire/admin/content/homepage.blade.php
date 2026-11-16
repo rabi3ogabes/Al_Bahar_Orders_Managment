@@ -29,7 +29,7 @@
                             <span class="grid size-9 shrink-0 place-items-center rounded-xl {{ $live ? 'bg-brass-50 text-brass-600 dark:bg-brass-500/15 dark:text-brass-300' : 'bg-sand-100 text-ink-400 dark:bg-ink-800' }}"><x-icon :name="$icons[$s->type] ?? 'layers'" class="size-4" /></span>
                             <div class="min-w-0 flex-1">
                                 <p class="truncate text-sm font-medium {{ $live ? 'text-ink-900 dark:text-ivory' : 'text-ink-500' }}">{{ (app()->getLocale() === 'ar' ? ($s->title_ar ?: $s->title_en) : $s->title_en) ?: __('content_admin.type_'.$s->type) }}</p>
-                                <p class="truncate text-xs text-ink-500">{{ __('content_admin.type_'.$s->type) }} · {{ __('content_admin.layout_'.$s->layout) }}@if ($s->items_count) · {{ trans_choice('content_admin.n_items', $s->items_count, ['count' => $s->items_count]) }}@endif
+                                <p class="truncate text-xs text-ink-500">{{ __('content_admin.type_'.$s->type) }} · {{ __('content_admin.layout_'.$s->layout) }}@php $n = $s->type === 'banners' ? $s->slides_count : $s->items_count; @endphp@if ($n) · {{ $s->type === 'banners' ? trans_choice('banners_admin.slides_count', $n, ['count' => $n]) : trans_choice('content_admin.n_items', $n, ['count' => $n]) }}@endif
                                     @if ($s->starts_at || $s->ends_at) · <x-icon name="clock" class="inline size-3" /> {{ $s->starts_at ? \App\Support\BusinessTime::display($s->starts_at, 'd M') : '…' }}–{{ $s->ends_at ? \App\Support\BusinessTime::display($s->ends_at, 'd M') : '∞' }}@endif</p>
                             </div>
                             @if ($live)<span class="badge-success">{{ __('content_admin.visible') }}</span>@elseif ($scheduled)<span class="badge-warning">{{ __('status.scheduled') }}</span>@else<span class="badge-neutral">{{ __('content_admin.hidden') }}</span>@endif
@@ -90,9 +90,11 @@
                 <x-admin.field :label="__('content_admin.section_type')" for="form.type" class="sm:col-span-2">
                     <select id="form.type" wire:model.live="form.type" class="input">@foreach (\App\Livewire\Admin\Content\HomepageIndex::TYPES as $t)<option value="{{ $t }}">{{ __('content_admin.type_'.$t) }}</option>@endforeach</select>
                 </x-admin.field>
-                <x-admin.field :label="__('content_admin.layout')" for="form.layout">
-                    <select id="form.layout" wire:model="form.layout" class="input">@foreach (\App\Livewire\Admin\Content\HomepageIndex::LAYOUTS as $l)<option value="{{ $l }}">{{ __('content_admin.layout_'.$l) }}</option>@endforeach</select>
-                </x-admin.field>
+                @if (($form['type'] ?? '') !== 'banners')
+                    <x-admin.field :label="__('content_admin.layout')" for="form.layout">
+                        <select id="form.layout" wire:model="form.layout" class="input">@foreach (\App\Livewire\Admin\Content\HomepageIndex::LAYOUTS as $l)<option value="{{ $l }}">{{ __('content_admin.layout_'.$l) }}</option>@endforeach</select>
+                    </x-admin.field>
+                @endif
             </div>
             <div class="grid gap-4 sm:grid-cols-2 [&>*]:min-w-0">
                 <x-admin.field :label="__('content_admin.title_en')" for="form.title_en"><input id="form.title_en" wire:model="form.title_en" class="input" dir="ltr"></x-admin.field>
@@ -101,9 +103,7 @@
                 <x-admin.field :label="__('content_admin.subtitle_ar')" for="form.subtitle_ar"><input id="form.subtitle_ar" wire:model="form.subtitle_ar" class="input" dir="rtl"></x-admin.field>
             </div>
             @if (($form['type'] ?? '') === 'banners')
-                <x-admin.field :label="__('content_admin.placement')" for="form.placement" :hint="__('content_admin.banner_section_hint')">
-                    <select id="form.placement" wire:model="form.placement" class="input">@foreach (['home_hero', 'home_strip', 'category_top', 'auctions'] as $pl)<option value="{{ $pl }}">{{ __('content_admin.placement_'.$pl) }}</option>@endforeach</select>
-                </x-admin.field>
+                <p class="flex items-start gap-2 rounded-xl bg-brass-50/60 px-4 py-3 text-sm text-ink-600 dark:bg-brass-500/10 dark:text-sand-200"><x-icon name="image" class="mt-0.5 size-4 shrink-0 text-brass-600" /><span>{{ __('banners_admin.homepage_note') }} <a href="{{ route('admin.banners.index') }}" wire:navigate class="font-medium text-brass-700 underline dark:text-brass-300">{{ __('banners_admin.manage_slides') }}</a></span></p>
             @endif
             @if ($itemType)
                 <div>
@@ -128,7 +128,7 @@
                 </div>
             @endif
             <div class="grid gap-4 sm:grid-cols-3 [&>*]:min-w-0">
-                <x-admin.field :label="__('content_admin.item_limit')" for="form.item_limit"><input id="form.item_limit" type="number" min="1" max="50" wire:model="form.item_limit" class="input tabular-nums"></x-admin.field>
+                @if (($form['type'] ?? '') !== 'banners')<x-admin.field :label="__('content_admin.item_limit')" for="form.item_limit"><input id="form.item_limit" type="number" min="1" max="50" wire:model="form.item_limit" class="input tabular-nums"></x-admin.field>@endif
                 <x-admin.field :label="__('content_admin.starts_at')" for="form.starts_at"><input id="form.starts_at" type="datetime-local" wire:model="form.starts_at" class="input"></x-admin.field>
                 <x-admin.field :label="__('content_admin.ends_at')" for="form.ends_at"><input id="form.ends_at" type="datetime-local" wire:model="form.ends_at" class="input"></x-admin.field>
             </div>

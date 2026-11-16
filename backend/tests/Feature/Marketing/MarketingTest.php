@@ -160,11 +160,11 @@ it('notifies customers on order status changes', function () {
 });
 
 it('serves the admin-managed homepage with scheduled banners only within their window', function () {
-    HomepageSection::create(['type' => 'banners', 'layout' => 'hero', 'status' => 'published', 'sort_order' => 0]);
+    $slider = HomepageSection::create(['type' => 'banners', 'layout' => 'hero', 'status' => 'published', 'sort_order' => 0]);
     HomepageSection::create(['type' => 'featured_products', 'layout' => 'carousel', 'status' => 'published', 'sort_order' => 1, 'title_en' => 'Curated', 'title_ar' => 'مختارات']);
     HomepageSection::create(['type' => 'new_arrivals', 'status' => 'draft', 'sort_order' => 2]);
     $this->w->p1->update(['is_featured' => true]);
-    Banner::create(['image_en_path' => 'https://cdn.example/b1.jpg', 'status' => 'published', 'starts_at' => now()->addDay(), 'title_en' => 'Eid']);
+    Banner::create(['homepage_section_id' => $slider->id, 'image_en_path' => 'https://cdn.example/b1.jpg', 'status' => 'published', 'starts_at' => now()->addDay(), 'title_en' => 'Eid']);
 
     $home = $this->getJson('/api/v1/home?branch_id='.$this->w->a->id, ['Accept-Language' => 'ar'])->assertOk()->json('data.sections');
     expect(collect($home)->pluck('type')->all())->toBe(['featured_products'])->and($home[0]['title'])->toBe('مختارات');

@@ -62,7 +62,12 @@ void main() {
       expect(h.read(publicConfigProvider).designedBy('en'), 'Designed by Athar Qatar');
       final request = h.adapter.where('GET', '/app-config').single;
       expect(request.header('Authorization'), isNull, reason: 'a public endpoint: no token is sent');
-      expect(h.read(appPreferencesProvider).publicConfig, _config()..remove('returns_enabled'));
+      expect(
+        h.read(appPreferencesProvider).publicConfig,
+        _config()
+          ..remove('returns_enabled')
+          ..['alternate_phone_enabled'] = true,
+      );
     });
 
     test('the last good answer shows at once on the next launch, and a newer one replaces it', () async {

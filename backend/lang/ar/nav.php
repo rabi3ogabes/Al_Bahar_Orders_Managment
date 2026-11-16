@@ -49,7 +49,7 @@ return [
     'appearance' => 'المظهر والمناسبات',
     'store_design' => 'تصميم المتجر',
     'app_footer' => 'شريط التنقل السفلي',
-    'banners' => 'البانرات',
+    'banners' => 'بانرات الصفحة الرئيسية',
     'pages' => 'الصفحات',
     'notification_templates' => 'قوالب الإشعارات',
     'insights' => 'التحليلات',

@@ -10,15 +10,8 @@ import type { Auction, Brand, Category, HomeSection, Paged, ProductCard as P } f
 import { BuyAgain } from '../components/BuyAgain';
 import { CardSkeletons, ProductCard } from '../components/ProductCard';
 import { Pic, Skeleton } from '../components/ui';
+import { BannerSlider } from '../components/BannerSlider';
 import { AuctionBand } from './Home';
-
-function linkFor(l?: { type: string; value: string } | null): string {
-  if (!l) return '/shop';
-  if (l.type === 'category') return `/shop?category=${l.value}`;
-  if (l.type === 'product') return `/products/${l.value}`;
-  if (l.type === 'auction') return `/auctions/${l.value}`;
-  return l.value || '/shop';
-}
 
 const pill = 'inline-flex h-[52px] items-center justify-center gap-2 rounded-full px-8 text-[15px] font-semibold transition-transform hover:-translate-y-0.5';
 
@@ -33,13 +26,13 @@ function Head({ eyebrow, title, link }: { eyebrow: string; title: string; link?:
   );
 }
 
-function Hero({ banner }: { banner?: { title: string; subtitle: string | null; image_url: string | null; link: any } }) {
+function Hero() {
   const { t, dir } = useI18n();
   const brand = useBrand();
   const Arrow = dir === 'rtl' ? ArrowLeft : ArrowRight;
-  const image = brand?.images.hero ?? banner?.image_url ?? null;
-  const custom = (brand && brand.kind !== 'base' ? brand.banner.title : null) || banner?.title || null;
-  const sub = (brand && brand.kind !== 'base' ? brand.banner.subtitle : null) || banner?.subtitle || t('fresh.hero_text');
+  const image = brand?.images.hero ?? null;
+  const custom = (brand && brand.kind !== 'base' ? brand.banner.title : null) || null;
+  const sub = (brand && brand.kind !== 'base' ? brand.banner.subtitle : null) || t('fresh.hero_text');
   // Two-line headline: the second half is the accent colour.
   let a = t('fresh.hero_a'), b = t('fresh.hero_b');
   if (custom) { const w = custom.split(/\s+/); const k = Math.ceil(w.length / 2); a = w.slice(0, k).join(' '); b = w.slice(k).join(' '); }
@@ -64,7 +57,7 @@ function Hero({ banner }: { banner?: { title: string; subtitle: string | null; i
             <p className="eyebrow !text-accent">{t('fresh.hero_eyebrow')}</p>
             <h1 className="mt-4 text-[clamp(34px,5.4vw,66px)] leading-[1.06]">{a}{' '}<span className="block text-accent">{b}</span></h1>
             <p className="mt-5 max-w-[520px] text-[16px] leading-relaxed text-on-band/85 sm:text-[17px]">{sub}</p>
-            <Link to={banner ? linkFor(banner.link) : '/shop'} className={`${pill} mt-8 bg-accent text-on-accent`}>{t('fresh.hero_cta')}<Arrow size={18} /></Link>
+            <Link to="/shop" className={`${pill} mt-8 bg-accent text-on-accent`}>{t('fresh.hero_cta')}<Arrow size={18} /></Link>
           </div>
           <ul className="mt-10 grid gap-x-8 gap-y-5 border-t border-on-band/20 pt-7 sm:grid-cols-3">
             {trust.map(([Icon, title, text]) => (
@@ -168,47 +161,57 @@ export default function FreshHome() {
   const { t } = useI18n();
   const { branchId } = useBranch();
   useDocTitle();
-  const home = useQuery({ queryKey: ['home', branchId], queryFn: async () => (await get<{ data: { sections: HomeSection[] } }>('/home', { branch_id: branchId })).data.sections });
+  // The web store asks for its own slides (platform=web); the admin's order of sections is the order of the page.
+  const home = useQuery({ queryKey: ['home', branchId], queryFn: async () => (await get<{ data: { sections: HomeSection[] } }>('/home', { branch_id: branchId, platform: 'web' })).data.sections });
   const sections = home.data ?? [];
-  const byType = (ty: string) => sections.filter((s) => s.type === ty);
-  const first = (...types: string[]) => { for (const ty of types) { const s = byType(ty).find((x) => x.items.length > 0); if (s) return s; } return undefined; };
-  const banner = byType('banners')[0]?.items[0];
+  const has = (...types: string[]) => sections.some((s) => types.includes(s.type) && s.items.length > 0);
 
-  const homeCats = byType('categories')[0]?.items as Category[] | undefined;
-  const catApi = useQuery({ queryKey: ['categories'], enabled: home.isFetched && !homeCats?.length, queryFn: async () => (await get<{ data: Category[] }>('/categories')).data, staleTime: 10 * 60_000 });
-  const cats = homeCats?.length ? homeCats : catApi.data ?? [];
-
-  const bestSection = first('best_sellers', 'featured_products', 'recommended');
+  // Categories and a "best sellers" row are always part of this design: when the admin has no such section the store fills them in.
+  const catApi = useQuery({ queryKey: ['categories'], enabled: home.isFetched && !has('categories'), queryFn: async () => (await get<{ data: Category[] }>('/categories')).data, staleTime: 10 * 60_000 });
   const bestApi = useQuery({
-    queryKey: ['fresh-best', branchId], enabled: home.isFetched && !bestSection,
+    queryKey: ['fresh-best', branchId], enabled: home.isFetched && !has('best_sellers', 'featured_products', 'recommended'),
     queryFn: async () => (await get<Paged<P>>('/products', { sort: '-popularity', per_page: 6, branch_id: branchId })).data,
   });
-  const best = (bestSection?.items as P[] | undefined) ?? bestApi.data ?? [];
-  const fresh = first('new_arrivals');
-  const promos = (byType('promotions')[0]?.items ?? []) as { id: string; name: string; description?: string | null; badge?: string | null }[];
-  const brands = (byType('brands')[0]?.items ?? []) as Brand[];
 
-  return (
-    <>
-      <Hero banner={banner} />
-      <BuyAgain />
-      <Categories items={cats} />
-      {home.isLoading && <div className="wrap fx-sec"><Skeleton className="mb-8 h-10 w-72" /><CardSkeletons n={6} /></div>}
-      <ProductRow eyebrow={t('fresh.best_eyebrow')} title={bestSection?.title && bestSection.type === 'best_sellers' ? bestSection.title : t('fresh.best_title')} items={best} />
-      <PromoBand items={promos} />
-      {fresh && <ProductRow eyebrow={t('home.new_eyebrow')} title={fresh.title ?? t('footer.new')} items={fresh.items as P[]} />}
-      <AuctionBand items={(byType('live_auctions')[0]?.items ?? []) as Auction[]} />
-      {brands.length > 0 && (
-        <section className="wrap fx-sec">
-          <Head eyebrow={t('home.brands_eyebrow')} title={byType('brands')[0].title ?? t('home.brands')} />
+  // Sliders the admin put first are the first thing on the page, above the hero (the first one loads first); everything else follows in the admin's order.
+  const lead = sections.findIndex((s) => s.type !== 'banners');
+  const leading = lead === -1 ? sections : sections.slice(0, lead);
+  const rest = lead === -1 ? [] : sections.slice(lead);
+
+  const render = (s: HomeSection) => {
+    switch (s.type) {
+      case 'banners': return <BannerSlider key={s.id} section={s} eager={leading[0]?.id === s.id} />;
+      case 'categories': return <Categories key={s.id} items={s.items as Category[]} />;
+      case 'best_sellers': return <ProductRow key={s.id} eyebrow={t('fresh.best_eyebrow')} title={s.title || t('fresh.best_title')} items={s.items as P[]} />;
+      case 'featured_products': return <ProductRow key={s.id} eyebrow={t('home.featured_eyebrow')} title={s.title || t('fresh.best_title')} items={s.items as P[]} />;
+      case 'recommended': case 'product_collection': return <ProductRow key={s.id} eyebrow={t('fresh.best_eyebrow')} title={s.title || t('fresh.best_title')} items={s.items as P[]} />;
+      case 'new_arrivals': return <ProductRow key={s.id} eyebrow={t('home.new_eyebrow')} title={s.title || t('footer.new')} items={s.items as P[]} />;
+      case 'promotions': return <PromoBand key={s.id} items={s.items as { id: string; name: string; description?: string | null; badge?: string | null }[]} />;
+      case 'live_auctions': return <AuctionBand key={s.id} items={s.items as Auction[]} />;
+      case 'brands': return s.items.length === 0 ? null : (
+        <section key={s.id} className="wrap fx-sec">
+          <Head eyebrow={t('home.brands_eyebrow')} title={s.title ?? t('home.brands')} />
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-5">
-            {brands.map((b) => (
+            {(s.items as Brand[]).map((b) => (
               <li key={b.id}><Link to={`/shop?brand=${b.slug}`} className="fx-card fx-hover flex h-24 items-center justify-center px-4 text-center">
                 {b.logo_url ? <img src={b.logo_url} alt={b.name} width={120} height={48} className="max-h-12 w-auto object-contain" loading="lazy" /> : <span className="text-[17px] font-semibold text-ink-soft">{b.name}</span>}</Link></li>
             ))}
           </ul>
         </section>
-      )}
+      );
+      default: return null;
+    }
+  };
+
+  return (
+    <>
+      {leading.map(render)}
+      <Hero />
+      <BuyAgain />
+      {!has('categories') && <Categories items={catApi.data ?? []} />}
+      {home.isLoading && <div className="wrap fx-sec"><Skeleton className="mb-8 h-10 w-72" /><CardSkeletons n={6} /></div>}
+      {!has('best_sellers', 'featured_products', 'recommended') && <ProductRow eyebrow={t('fresh.best_eyebrow')} title={t('fresh.best_title')} items={bestApi.data ?? []} />}
+      {rest.map(render)}
       <Why />
     </>
   );

@@ -2909,4 +2909,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get downloadUpdatedInvoice => 'Download updated invoice (PDF)';
+
+  @override
+  String homeBannerPosition(int position, int total) {
+    return 'Banner $position of $total';
+  }
+
+  @override
+  String get homeLinkOpenFailed => 'We couldn’t open this link.';
 }

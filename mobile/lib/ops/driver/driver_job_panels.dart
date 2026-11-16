@@ -116,8 +116,9 @@ class _JobDetails extends ConsumerWidget {
                 ),
               ),
             ],
-            // The customer's second number, for when the main one is not answered. Shown only while the job is open.
-            if (!readOnly && job.alternatePhone != null)
+            // The customer's second number, for when the main one is not answered. Shown only while the job is open, and only while the
+            // dashboard's "Alternative phone number" switch is on.
+            if (!readOnly && job.alternatePhone != null && ref.watch(opsAlternatePhoneEnabledProvider))
               AlternatePhoneCall(key: const ValueKey('call-alternative'), phone: job.alternatePhone!),
           ],
         ),
@@ -267,17 +268,20 @@ class _JobActionButtonsState extends ConsumerState<JobActionButtons> {
 
   Future<void> _step(String action) async {
     final location = ref.read(locationServiceProvider);
-    await _run(() async {
-      final pos = action == 'out-for-delivery'
-          ? await location.currentPosition().timeout(const Duration(seconds: 4), onTimeout: () => null)
-          : null;
-      await ref.read(opsRepositoryProvider).jobStep(widget.job.id, action, lat: pos?.lat, lng: pos?.lng);
-    }, becomes: switch (action) {
-      'accept' => 'accepted',
-      'pickup' => 'picked_up',
-      'out-for-delivery' => 'out_for_delivery',
-      _ => null,
-    });
+    await _run(
+      () async {
+        final pos = action == 'out-for-delivery'
+            ? await location.currentPosition().timeout(const Duration(seconds: 4), onTimeout: () => null)
+            : null;
+        await ref.read(opsRepositoryProvider).jobStep(widget.job.id, action, lat: pos?.lat, lng: pos?.lng);
+      },
+      becomes: switch (action) {
+        'accept' => 'accepted',
+        'pickup' => 'picked_up',
+        'out-for-delivery' => 'out_for_delivery',
+        _ => null,
+      },
+    );
   }
 
   Future<void> _deliver() async {
@@ -559,12 +563,7 @@ class _DeliverFormState extends ConsumerState<_DeliverForm> {
             if (ref.watch(opsStatusStyleProvider) == OpsStatusStyle.slide)
               // Recording a delivery (and the cash) is the step that must not happen by a stray tap: slide it. A missing photo or
               // amount springs the thumb back with the message above.
-              SlideToConfirm(
-                label: t.slideConfirmDelivery,
-                busyLabel: t.updating,
-                loading: _busy,
-                onConfirmed: _submit,
-              )
+              SlideToConfirm(label: t.slideConfirmDelivery, busyLabel: t.updating, loading: _busy, onConfirmed: _submit)
             else
               FilledButton(
                 onPressed: _busy ? null : _submit,

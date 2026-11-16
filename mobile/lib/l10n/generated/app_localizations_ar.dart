@@ -2944,4 +2944,12 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get downloadUpdatedInvoice => 'تنزيل الفاتورة المحدّثة (PDF)';
+
+  @override
+  String homeBannerPosition(int position, int total) {
+    return 'إعلان $position من $total';
+  }
+
+  @override
+  String get homeLinkOpenFailed => 'تعذّر فتح هذا الرابط.';
 }

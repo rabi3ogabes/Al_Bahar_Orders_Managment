@@ -3,28 +3,42 @@ import 'package:albahar_customer/features/auctions/domain/auction_models.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
 import 'package:flutter/foundation.dart';
 
-/// Link target for banners: `{type: category|product|auction|url|search|page, value}`.
+/// Link target for banners and promotions: `{type: category|page|product|brand|auction|url|search, value}`.
 @immutable
 class HomeLink {
   const HomeLink({required this.type, required this.value});
-  factory HomeLink.fromJson(JsonMap json) => HomeLink(type: asString(json['type']), value: asString(json['value']));
+  factory HomeLink.fromJson(JsonMap json) =>
+      HomeLink(type: asString(json['type']).trim().toLowerCase(), value: asString(json['value']).trim());
   final String type;
   final String value;
 
   /// In-app location, or null for external URLs / unknown types.
   String? get location => switch (type) {
-    'category' => '/categories/$value',
-    'product' => '/products/$value',
-    'auction' => '/auctions/$value',
-    'lot' => '/auctions/lots/$value',
+    'category' => '/categories/${Uri.encodeComponent(value)}',
+    'product' => '/products/${Uri.encodeComponent(value)}',
+    'auction' => '/auctions/${Uri.encodeComponent(value)}',
+    'lot' => '/auctions/lots/${Uri.encodeComponent(value)}',
     'search' => '/search?q=${Uri.encodeQueryComponent(value)}',
     'collection' || 'products' => '/products?$value',
-    'page' => '/pages/$value',
-    'brand' => '/products?brand_id=$value',
+    'page' => '/pages/${Uri.encodeComponent(value)}',
+    'brand' => '/products?brand_id=${Uri.encodeQueryComponent(value)}',
     _ => null,
   };
 
   bool get isExternal => type == 'url';
+
+  /// The address of an external link, only when it is a real `https://` address (the app never opens plain `http://`, a `javascript:`
+  /// or `tel:` address, or anything else a link could carry). Null for every other type and for an unusable address.
+  Uri? get externalUri {
+    if (!isExternal) return null;
+    final uri = Uri.tryParse(value);
+    if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) return null;
+    return uri;
+  }
+
+  /// Whether tapping can lead anywhere: a known type with a value (and, for an external link, an `https://` address). A slide with a
+  /// link that cannot open is shown, and announced, like a slide without one.
+  bool get isOpenable => value.isNotEmpty && (isExternal ? externalUri != null : location != null);
 }
 
 @immutable
@@ -32,8 +46,8 @@ class HomeBanner {
   const HomeBanner({required this.id, this.title, this.subtitle, this.imageUrl, this.link});
   factory HomeBanner.fromJson(JsonMap json) => HomeBanner(
     id: asString(json['id']),
-    title: asStringOrNull(json['title']),
-    subtitle: asStringOrNull(json['subtitle']),
+    title: asStringOrNull(json['title'])?.trim(),
+    subtitle: asStringOrNull(json['subtitle'])?.trim(),
     imageUrl: asStringOrNull(json['image_url']),
     link: json['link'] is Map ? HomeLink.fromJson(asMap(json['link'])) : null,
   );
@@ -41,7 +55,94 @@ class HomeBanner {
   final String? title;
   final String? subtitle;
   final String? imageUrl;
+
+  /// What a tap opens; null for a slide without a link (not tappable).
   final HomeLink? link;
+
+  /// The slide can be tapped: it has a link that can open.
+  bool get isTappable => link?.isOpenable ?? false;
+
+  /// A title or subtitle to show over the picture.
+  bool get hasText => (title?.isNotEmpty ?? false) || (subtitle?.isNotEmpty ?? false);
+}
+
+/// The shape of a slider's slides (`slider.aspect` of the home feed).
+enum SliderAspect {
+  wide('16:9', 16 / 9),
+  cinema('21:9', 21 / 9),
+  banner('3:1', 3),
+  photo('4:3', 4 / 3),
+  square('1:1', 1);
+
+  const SliderAspect(this.code, this.ratio);
+
+  /// The dashboard's name for it: `16:9`, `21:9`, `3:1`, `4:3` or `1:1`.
+  final String code;
+
+  /// Width divided by height.
+  final double ratio;
+
+  /// Anything the app does not know is the default 16:9, so a newer server can never break the home.
+  static SliderAspect fromCode(Object? code) {
+    final text = asString(code).trim().replaceAll(RegExp(r'[/x×]'), ':');
+    for (final a in values) {
+      if (a.code == text) return a;
+    }
+    return wide;
+  }
+}
+
+/// How one slider behaves and looks (`slider` of a `banners` section). Every key is optional: a feed from an older server has none,
+/// and the slider then autoplays every 5 seconds, 16:9, with dots, titles and rounded corners.
+@immutable
+class SliderSettings {
+  const SliderSettings({
+    this.autoplay = true,
+    this.intervalSeconds = defaultInterval,
+    this.aspect = SliderAspect.wide,
+    this.dots = true,
+    this.showTitles = true,
+    this.rounded = true,
+  });
+
+  factory SliderSettings.fromJson(Object? json) {
+    if (json is! Map) return const SliderSettings();
+    final m = asMap(json);
+    return SliderSettings(
+      autoplay: asBool(m['autoplay'], true),
+      intervalSeconds: asInt(m['interval'], defaultInterval).clamp(minInterval, maxInterval),
+      aspect: SliderAspect.fromCode(m['aspect']),
+      dots: asBool(m['dots'], true),
+      showTitles: asBool(m['show_titles'], true),
+      rounded: asBool(m['rounded'], true),
+    );
+  }
+
+  static const defaultInterval = 5;
+  static const minInterval = 3;
+  static const maxInterval = 15;
+
+  final bool autoplay;
+
+  /// Seconds each slide stays (3 to 15).
+  final int intervalSeconds;
+  final SliderAspect aspect;
+  final bool dots;
+  final bool showTitles;
+  final bool rounded;
+
+  @override
+  bool operator ==(Object other) =>
+      other is SliderSettings &&
+      other.autoplay == autoplay &&
+      other.intervalSeconds == intervalSeconds &&
+      other.aspect == aspect &&
+      other.dots == dots &&
+      other.showTitles == showTitles &&
+      other.rounded == rounded;
+
+  @override
+  int get hashCode => Object.hash(autoplay, intervalSeconds, aspect, dots, showTitles, rounded);
 }
 
 @immutable
@@ -89,7 +190,16 @@ sealed class HomeSection {
     switch (type) {
       case 'banners':
         final banners = mapList(items, HomeBanner.fromJson);
-        return banners.isEmpty ? null : BannersSection(id: id, title: title, layout: layout, banners: banners);
+        return banners.isEmpty
+            ? null
+            : BannersSection(
+                id: id,
+                title: title,
+                subtitle: asStringOrNull(json['subtitle']),
+                layout: layout,
+                banners: banners,
+                slider: SliderSettings.fromJson(json['slider']),
+              );
       case 'categories':
         final cats = mapList(items, CatalogCategory.fromJson);
         return cats.isEmpty ? null : CategoriesSection(id: id, title: title, layout: layout, categories: cats);
@@ -124,9 +234,20 @@ sealed class HomeSection {
   }
 }
 
+/// One slider of the home: its slides in the dashboard's order, and how it looks and behaves. The home may have several, each at the
+/// position the dashboard gave it among the other sections.
 class BannersSection extends HomeSection {
-  const BannersSection({required super.id, super.title, super.layout, required this.banners}) : super(type: 'banners');
+  const BannersSection({
+    required super.id,
+    super.title,
+    this.subtitle,
+    super.layout,
+    required this.banners,
+    this.slider = const SliderSettings(),
+  }) : super(type: 'banners');
   final List<HomeBanner> banners;
+  final String? subtitle;
+  final SliderSettings slider;
 }
 
 class CategoriesSection extends HomeSection {

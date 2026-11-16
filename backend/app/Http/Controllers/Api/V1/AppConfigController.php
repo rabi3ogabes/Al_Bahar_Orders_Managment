@@ -4,11 +4,12 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Domain\Settings\Services\Settings;
 use App\Http\Controllers\Controller;
+use App\Support\AlternatePhone;
 use Illuminate\Http\JsonResponse;
 
 /**
  * Small public settings the customer apps and the web store need before anyone signs in: the "Designed by" line of the intro screens
- * (edited in Settings → General & brand; an empty text means "do not show"), whether customers may return orders, and how the staff and driver
+ * (edited in Settings → General & brand; an empty text means "do not show"), whether customers may return orders, whether the alternative phone number is asked for, and how the staff and driver
  * apps ask for an order status change (Settings → Checkout & fees: buttons or slide to confirm). No secrets.
  * Cached one minute at every layer.
  *
@@ -31,6 +32,7 @@ class AppConfigController extends Controller
         return response()->json(['data' => [
             'designed_by' => ['en' => $line('customer_app.designed_by_en'), 'ar' => $line('customer_app.designed_by_ar')],
             'returns_enabled' => (bool) $settings->get('returns.enabled', true),
+            'alternate_phone_enabled' => (bool) $settings->get(AlternatePhone::SETTING, true),
             'ops' => ['status_style' => self::statusStyle($settings)],
         ]])->header('Cache-Control', 'public, max-age=60');
     }

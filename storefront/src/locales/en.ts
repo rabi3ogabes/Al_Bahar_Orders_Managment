@@ -657,4 +657,12 @@ export const en: Record<string, string> = {
   "cart.qty_now": "{name}: {n} in your cart",
   "filter.show_one": "Show 1 piece",
   "shop.count_one": "1 piece",
+  "slider.region": "Home banners",
+  "slider.slide_n": "{n} of {total}",
+  "slider.go_to": "Go to slide {n}",
+  "slider.prev": "Previous slide",
+  "slider.next": "Next slide",
+  "slider.pause": "Pause the slides",
+  "slider.play": "Play the slides",
+  "slider.open": "Open this offer",
 };

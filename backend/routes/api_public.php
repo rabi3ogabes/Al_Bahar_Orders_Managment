@@ -20,6 +20,8 @@ Route::get('theme', [V1\Cms\ThemeController::class, 'show'])->name('theme');
 Route::get('realtime-config', [V1\RealtimeConfigController::class, 'show'])->name('realtime-config');
 Route::get('map-config', [V1\MapConfigController::class, 'show'])->name('map-config');
 Route::get('push-config', [V1\PushConfigController::class, 'show'])->name('push-config');
+// A phone app says why push does not work on it (before sign-in too): strict, small and rate limited, see PushDiagnosticsController.
+Route::post('push-diagnostics', [V1\PushDiagnosticsController::class, 'store'])->middleware('throttle:push-diagnostics')->name('push-diagnostics');
 Route::get('app-config', [V1\AppConfigController::class, 'show'])->name('app-config');
 
 Route::controller(V1\Catalog\CatalogController::class)->group(function () {
@@ -97,6 +99,7 @@ Route::controller(V1\Auctions\AuctionController::class)->group(function () {
 // ── Engagement: home, CMS, notifications, loyalty, wishlist, reviews, support ──
 Route::controller(V1\Engagement\EngagementController::class)->group(function () {
     Route::get('home', 'home')->name('home');
+    Route::get('homepage', 'home')->name('homepage'); // alias of /home
     Route::get('pages/{slug}', 'page')->name('pages.show');
     Route::get('referrals/status', 'referralStatus')->name('referrals.status');
     Route::get('products/{productId}/reviews', 'reviews')->whereUuid('productId')->name('products.reviews');

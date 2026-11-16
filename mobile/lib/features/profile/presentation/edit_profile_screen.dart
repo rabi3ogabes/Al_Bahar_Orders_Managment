@@ -16,6 +16,7 @@ import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/auth/data/auth_repository.dart';
 import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
 import 'package:albahar_customer/features/checkout/domain/alternate_phone.dart';
+import 'package:albahar_customer/features/public_config/presentation/state/public_config_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -61,10 +62,13 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   bool _passwordStep = false;
   ApiException? _error;
 
+  /// The dashboard's "Alternative phone number" switch. Off: the field is gone and nothing about it is sent, typed or not.
+  bool get _askAlternate => ref.read(alternatePhoneEnabledProvider);
+
   bool get _dirty =>
       _name.text.trim() != (_user?.name ?? '') ||
       _email.text.trim() != (_user?.email ?? '') ||
-      _alternate.text.trim() != AlternatePhoneInput.fromSaved(_user?.alternatePhone).text ||
+      (_askAlternate && _alternate.text.trim() != AlternatePhoneInput.fromSaved(_user?.alternatePhone).text) ||
       _gender != _user?.gender ||
       _dob != _user?.dateOfBirth ||
       _marketing != (_user?.marketingConsent ?? false);
@@ -87,8 +91,12 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       await ref.read(sessionControllerProvider.notifier).updateProfile({
         'name': _name.text.trim(),
         'email': _email.text.trim().isEmpty ? null : _email.text.trim(),
-        // Empty clears it; a number is sent in full so the server validates it the same way as at checkout.
-        'alternate_phone': _alternate.text.trim().isEmpty ? null : (QatarPhone.toE164(_alternate.text) ?? _alternate.text.trim()),
+        // Empty clears it; a number is sent in full so the server validates it the same way as at checkout. Switched off on the
+        // dashboard: not sent at all, so the number the account already has stays as it is.
+        if (_askAlternate)
+          'alternate_phone': _alternate.text.trim().isEmpty
+              ? null
+              : (QatarPhone.toE164(_alternate.text) ?? _alternate.text.trim()),
         'gender': _gender,
         'date_of_birth': _dob,
         'marketing_consent': _marketing,
@@ -133,6 +141,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final dobDate = _dob == null ? null : DateTime.tryParse(_dob!);
+    final askAlternate = ref.watch(alternatePhoneEnabledProvider);
     if (_passwordStep) {
       final hasPassword = _user?.hasPassword ?? false;
       return PanelStep(
@@ -196,30 +205,32 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   enabled: false,
                   forceLtr: true,
                 ),
-                const Gap(AppSpace.md),
-                AppTextField(
-                  key: const ValueKey('profile-alternate-phone'),
-                  controller: _alternate,
-                  label: '${l10n.alternatePhoneLabel} (${l10n.optional})',
-                  hint: l10n.phoneHint,
-                  helper: l10n.alternatePhoneProfileHelper,
-                  prefix: '+974  ',
-                  forceLtr: true,
-                  keyboardType: TextInputType.phone,
-                  textInputAction: TextInputAction.next,
-                  autofillHints: const [AutofillHints.telephoneNumberNational],
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9٠-٩۰-۹+ ]')),
-                    LengthLimitingTextInputFormatter(16),
-                  ],
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) return null;
-                    final number = QatarPhone.toE164(v);
-                    if (number == null) return l10n.alternatePhoneInvalid;
-                    return number == QatarPhone.toE164(_user?.phone ?? '') ? l10n.alternatePhoneSame : null;
-                  },
-                  errorText: _error?.fieldError('alternate_phone'),
-                ),
+                if (askAlternate) ...[
+                  const Gap(AppSpace.md),
+                  AppTextField(
+                    key: const ValueKey('profile-alternate-phone'),
+                    controller: _alternate,
+                    label: '${l10n.alternatePhoneLabel} (${l10n.optional})',
+                    hint: l10n.phoneHint,
+                    helper: l10n.alternatePhoneProfileHelper,
+                    prefix: '+974  ',
+                    forceLtr: true,
+                    keyboardType: TextInputType.phone,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const [AutofillHints.telephoneNumberNational],
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9٠-٩۰-۹+ ]')),
+                      LengthLimitingTextInputFormatter(16),
+                    ],
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return null;
+                      final number = QatarPhone.toE164(v);
+                      if (number == null) return l10n.alternatePhoneInvalid;
+                      return number == QatarPhone.toE164(_user?.phone ?? '') ? l10n.alternatePhoneSame : null;
+                    },
+                    errorText: _error?.fieldError('alternate_phone'),
+                  ),
+                ],
                 const Gap(AppSpace.md),
                 AppTextField(
                   key: ValueKey(_dob),

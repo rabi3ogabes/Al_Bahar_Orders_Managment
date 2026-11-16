@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'firebase_options_source.dart';
+import 'push_diagnostics.dart';
 
 /// Starts the default Firebase app, in this order:
 ///  1. the native config files the build carries (`google-services.json` / `GoogleService-Info.plist`), so a build that
@@ -17,6 +20,7 @@ class FirebaseStarter {
     Future<void> Function()? fromNativeFiles,
     Future<void> Function(FirebaseOptions options)? fromOptions,
     Future<String?> Function()? bundleId,
+    this.report,
   }) : _platform = platform ?? defaultTargetPlatform,
        _isStarted = isStarted ?? (() => Firebase.apps.isNotEmpty),
        _fromNativeFiles = fromNativeFiles ?? (() async => await Firebase.initializeApp()),
@@ -24,6 +28,10 @@ class FirebaseStarter {
        _bundleId = bundleId ?? _packageName;
 
   final FirebaseOptionsSource options;
+
+  /// Told why Firebase could not start (the settings could not be read, or Firebase refused them), so the dashboard can say what to fix.
+  /// Never waited for.
+  final PushReporter? report;
   final TargetPlatform _platform;
   final bool Function() _isStarted;
   final Future<void> Function() _fromNativeFiles;
@@ -42,13 +50,18 @@ class FirebaseStarter {
     }
     if (!_serverOptionsAllowed) return false;
 
-    final loaded = await options.load(iosBundleId: _platform == TargetPlatform.iOS ? await _bundleId() : null);
-    if (loaded == null) return false;
+    final loaded = await options.loadResult(iosBundleId: _platform == TargetPlatform.iOS ? await _bundleId() : null);
+    final found = loaded.options;
+    if (found == null) {
+      tellPush(report, PushStage.options, loaded.code ?? 'options_invalid', loaded.message);
+      return false;
+    }
     try {
-      await _fromOptions(loaded);
+      await _fromOptions(found);
       return true;
     } catch (e) {
       debugPrint('Firebase: the options from the server did not start it (${e.runtimeType})');
+      tellPush(report, PushStage.init, classifyPushError(e, fallback: 'init_failed'), e.toString());
       return false;
     }
   }

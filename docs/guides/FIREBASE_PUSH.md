@@ -21,9 +21,11 @@ All eight steps are also on the page itself (open by default until everything is
 5. **Download the server key.** Project settings, Service accounts tab, Generate new private key. On the Cloud Messaging tab make sure
    "Firebase Cloud Messaging API (V1)" says Enabled (if not: its menu, Manage API in Google Cloud Console, Enable).
 6. **Add the three Android apps.** Project overview, the Android icon. Register one app per package name: `qa.albahar.customer`
-   (customer app), `qa.albahar.driver` (driver app), `qa.albahar.staff` (staff app). For each, download `google-services.json`, open it in a
-   text editor and copy `mobilesdk_app_id` into the matching "Android app ID" field and `current_key` into "Android API key" (one key serves
-   all three). The file itself is not needed in the app.
+   (customer app), `qa.albahar.driver` (driver app), `qa.albahar.staff` (staff app). **Every app has its own App ID**; two apps sharing
+   one is the commonest mistake (see "If push does not arrive"). Download `google-services.json` (Project settings, Your apps), press
+   **Upload google-services.json** in "Phone apps" on the dashboard page: it fills the three App IDs and the Android API key by package
+   name (you still press Save changes). By hand: copy `mobilesdk_app_id` of the entry whose `package_name` matches each app into its
+   "Android app ID" field, and `current_key` into "Android API key" (one key serves all three). The file itself is not needed in the app.
 7. **Add the iPhone app.** Register an iOS app with bundle ID `qa.albahar.customer`. From its `GoogleService-Info.plist` copy `GOOGLE_APP_ID`
    into "iPhone app ID" and `API_KEY` into "iPhone API key". Then **Project settings, Cloud Messaging tab, Apple app configuration, APNs
    authentication key, Upload**: the `.p8` key from the Apple Developer account (Certificates, Identifiers and Profiles, Keys) with its Key
@@ -69,6 +71,62 @@ Firebase down, rate limited) with Firebase's own message below.
 The master switch acts at once and stops every push (web and apps) while keeping all settings. It cannot be turned on before a server key
 exists. Installs that were set up with `FCM_PROJECT_ID` + `FCM_CREDENTIALS_PATH` keep working untouched (the switch counts as on until the
 owner switches it explicitly); a value saved in the dashboard always wins over the server variables.
+
+## If push does not arrive
+
+Open **Dashboard, Organization, Push notifications**. Three sections tell you what is wrong, without a phone in your hand:
+
+1. **Push health** (one card per phone app). Green "Ready" means saved values look right and a phone has registered. "Needs a fix" lists
+   the reasons in plain words. The red banner "Two apps share one App ID" means two of the apps hold the same App ID: register each package as
+   its own Android app in Firebase and use "Upload google-services.json" (or copy each app's own `mobilesdk_app_id`). With a shared App ID
+   only one package can register and Google may refuse the others.
+2. **What the phones report.** Each phone app tells the server when it cannot start push, cannot get a token, or cannot register it, and
+   when it succeeds (no name, number, token or key is sent). Each line shows the app, the step, a code, how many phones, when, the phone's
+   own words, **what it means and what to do**. The last 7 days; a phone that failed and then registered fine is not counted. "Phones that
+   registered" counts the successes per app. Open the app once on a phone with the newest build and look again after a few seconds.
+3. **Send a test to a phone.** Pick "My own devices" or any registered phone (customer, driver, staff), optionally with the sample live
+   order card (customer app on Android), press **Send test**. You see Firebase's answer in plain words and its technical code. With no
+   registered phone it says so and points to the section above. The same from the server: `php artisan push:test [user] [--card]`
+   (user = id, phone number or e-mail; without it, the phone that registered last).
+
+What each report code means and the exact fix (the dashboard shows the same, in English and Arabic):
+
+| Code (step) | Meaning | What to do in Firebase / Google Cloud |
+|---|---|---|
+| `server_unreachable` (options) | the phone could not read `/api/v1/push-config` | check the site answers; a few phones: nothing, the app retries |
+| `push_off` (options) | push is off or the server key is missing | save the server key, switch "Push notifications" on |
+| `app_not_set` (options) | this app has no App ID or API key saved | fill "Android app ID" for it and "Android API key", Save changes |
+| `invalid_app_id`, `init_failed` (init) | Firebase refuses the settings | Project settings, Your apps: copy that app's own App ID |
+| `api_key_blocked` (token) | the API key does not allow this app | Google Cloud, APIs & Services, Credentials, the Android key: Application restrictions = None, or Android apps with all three packages and each build's SHA-1 |
+| `api_key_invalid` (token) | wrong key | paste `current_key` again |
+| `api_disabled` (token) | a Google API is off or not allowed for the key | APIs & Services, Library: enable **Firebase Installations API** and **FCM Registration API**; key "API restrictions": none, or include both |
+| `fis_auth_error`, `invalid_argument` (token) | Firebase refused the install | App ID vs package, key restrictions (see above) |
+| `service_not_available`, `timeout`, `no_token` (token) | Firebase unreachable or no answer | one phone: network / Google Play services; every phone: see the two rows above |
+| `apns_missing` (token) | iPhone has no Apple token | upload the APNs key in Firebase, real iPhone |
+| `permission_denied` (permission) | notifications are off for the app on the phone | phone Settings, Apps, Notifications; the customer app asks after the first order |
+| `permission_not_asked` (permission) | the customer has not been asked yet (Android 13+): a push arrives silently | nothing; the app asks after the first order, or allow it in the phone settings to test |
+| `server_error`, `rejected`, `no_network`, `unauthorized` (register) | the phone had its token but the server did not take it | look at the server log around the time shown |
+| `ok` (registered) | all good | use "Send a test" |
+
+The phone side (`mobile/lib/core/push/`): `FirebaseStarter` reads the settings and starts Firebase; `PushTokenFetcher` gets the token with
+`getToken()` (the FCM registration token the server addresses; firebase_messaging 17 deprecates it for `register()` + `onRegistered`, but
+that stream delivers the installation id, "FID", which is only the first part of the token) and falls back to the installation id only when
+`getToken()` gives nothing or is gone; `PushService` registers it and asks again after 30 seconds, 2 minutes and 10 minutes while the app
+stays open; `PushDiagnostics` posts the reports. Every report is told at most once per run and once a day per install, never blocks
+start-up and never throws.
+
+`POST /api/v1/push-diagnostics` is public (a phone with no Firebase has no token to be authenticated by) and strict: `{app: customer|driver|staff,
+platform: android|ios, stage: options|init|permission|token|register|registered, code: ^[a-z0-9][a-z0-9_.-]{1,47}$, message?: ≤200 chars,
+app_version?, os_version?, install_id}`; other fields are ignored; the message is scrubbed again on the server (API keys, e-mail addresses,
+long tokens and numbers replaced); no user, token or IP address is stored. One row per install, app, stage and code per day (`count` goes
+up), table `push_diagnostics`, removed after 30 days by `push:prune-devices`. Rate limits: 60 a minute per address, 40 an hour per install,
+600 a minute overall. Always answers `202 {"data": {"accepted": true}}`.
+
+Native devices now record which app they belong to (`user_devices.app` = `customer`, `driver` or `staff`, read from the `X-App` header
+every app call carries), which is how the page counts devices per app.
+
+Real time without push: the customer's open app also hears `notification.created` on `private-users.{id}` (the unread count rides in it),
+and while the socket is blocked it reads the badge every 30 seconds, so the inbox follows the server even where push does not work.
 
 ## Settings keys (group `push`, Settings service)
 
@@ -153,7 +211,7 @@ unchanged).
 
 ## What `FcmClient::send()` puts in a push (phones)
 
-`send($token, $title, $body, $data, $device)` never throws. It answers `{ok, unregistered, retry, status, error}`.
+`send($token, $title, $body, $data, $device)` never throws. It answers `{ok, unregistered, retry, status, error}` and, when it failed, FCM's own `code` (`UNREGISTERED`, `SENDER_ID_MISMATCH`, `THIRD_PARTY_AUTH_ERROR` ...) and a clipped `detail` (the log line "Last problem" says it).
 
 | Part | Value | Why |
 |---|---|---|

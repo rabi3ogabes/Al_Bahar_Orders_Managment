@@ -5257,6 +5257,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Download updated invoice (PDF)'**
   String get downloadUpdatedInvoice;
+
+  /// No description provided for @homeBannerPosition.
+  ///
+  /// In en, this message translates to:
+  /// **'Banner {position} of {total}'**
+  String homeBannerPosition(int position, int total);
+
+  /// No description provided for @homeLinkOpenFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn’t open this link.'**
+  String get homeLinkOpenFailed;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

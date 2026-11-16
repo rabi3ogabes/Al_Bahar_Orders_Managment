@@ -11,6 +11,7 @@ use App\Domain\Orders\Enums\FulfillmentStatus as FS;
 use App\Domain\Orders\Models\OrderFulfillment;
 use App\Domain\Orders\Models\OrderItem;
 use App\Http\Controllers\Api\V1\ApiController;
+use App\Support\AlternatePhone;
 use App\Support\BusinessTime;
 use App\Support\DomainException;
 use App\Support\Geo;
@@ -141,7 +142,7 @@ class DispatchController extends ApiController
 
             return [
                 'fulfillment_id' => $f->id, 'order_id' => $f->order_id, 'seq' => (int) $f->order->progress_seq, 'status' => $f->status->value, 'number' => $f->order->number, 'placed_at' => BusinessTime::iso($f->order->placed_at),
-                'customer_name' => $f->order->customer_name, 'customer_phone' => $f->order->customer_phone, 'alternate_phone' => $f->order->alternate_phone,
+                'customer_name' => $f->order->customer_name, 'customer_phone' => $f->order->customer_phone, 'alternate_phone' => AlternatePhone::visible($f->order->alternate_phone),
                 'address' => $f->order->address_snapshot,
                 // Only what is still to be prepared and delivered (lines the branch removed or swapped out are not listed); the counters tell the app the order was changed.
                 'items_count' => (int) $f->items->sum(fn ($i) => max(0, (int) $i->quantity - (int) $i->quantity_cancelled)), 'items' => $this->itemRows($f->items),
@@ -226,7 +227,7 @@ class DispatchController extends ApiController
             'order_id' => $o->id, 'seq' => (int) $o->progress_seq,
             'order_number' => $o->number, 'customer_name' => $o->customer_name, 'customer_phone' => $o->customer_phone,
             // The customer's second number, for the driver of THIS delivery (the query above only returns the caller's own jobs).
-            'alternate_phone' => $o->alternate_phone, 'address' => $o->address_snapshot,
+            'alternate_phone' => AlternatePhone::visible($o->alternate_phone), 'address' => $o->address_snapshot,
             'payment_method' => $o->payment_method, 'cod_amount' => $d->cod_amount, 'requires_proof' => $d->requires_proof,
             'branch' => ['id' => $d->branch_id, 'name' => $d->fulfillment->branch?->localized('name')],
             'scheduled_for' => BusinessTime::iso($d->scheduled_for), 'assigned_at' => BusinessTime::iso($d->assigned_at),

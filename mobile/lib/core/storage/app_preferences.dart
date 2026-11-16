@@ -24,6 +24,7 @@ class AppPreferences {
   static const _kLiveOrders = 'live_order_active';
   static const _kLivePermissionPrompt = 'live_order_permission_prompt';
   static const _kPublicConfig = 'public_config';
+  static const _kPushReports = 'push_reports';
 
   String? get localeCode => _prefs.getString(_kLocale);
   Future<void> setLocaleCode(String code) => _prefs.setString(_kLocale, code);
@@ -126,4 +127,18 @@ class AppPreferences {
   }
 
   Future<void> setPublicConfig(JsonMap config) => _prefs.setString(_kPublicConfig, jsonEncode(config));
+
+  /// The push reports this install already sent to the server (`{"stage|code": "2026-11-16"}`, the day it went through), so one failure is
+  /// told once a day, not at every start. See core/push/push_diagnostics.dart.
+  Map<String, String> get pushReports {
+    final raw = _prefs.getString(_kPushReports);
+    if (raw == null) return const {};
+    try {
+      return asMap(jsonDecode(raw)).map((k, v) => MapEntry(k, v.toString()));
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  Future<void> setPushReports(Map<String, String> reports) => _prefs.setString(_kPushReports, jsonEncode(reports));
 }

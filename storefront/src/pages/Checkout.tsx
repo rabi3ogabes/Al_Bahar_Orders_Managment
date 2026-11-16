@@ -11,6 +11,7 @@ import { useToast } from '../lib/toast';
 import { useDocTitle } from '../lib/hooks';
 import { cx, latinDigits } from '../lib/format';
 import { altPhoneDone, altPhoneFields, altPhoneStatus, nationalDigits } from '../lib/altPhone';
+import { useAltPhoneEnabled } from '../lib/appConfig';
 import { decideSlot, hasFreePlace, isSlotBookable, slotWindowDates } from '../lib/slotPick';
 import type { Address, Branch, OrderDetail, PaymentAction, Quote, SlotDay } from '../lib/types';
 import { useAuthModal } from '../components/AuthModal';
@@ -134,6 +135,8 @@ export default function Checkout() {
   // How often the page chose a time since the customer (or a new address, showroom or way of receiving) last decided: a server that keeps refusing the earliest time can never make the page loop.
   const autoPicks = useRef(0);
   // The second number for the driver: starts from the one saved on the profile; otherwise typed, or "I don't have another number".
+  // The dashboard switch "Ask for an alternative phone number": off removes the question and nothing about it is sent.
+  const altOn = useAltPhoneEnabled();
   const [alt, setAlt] = useState({ text: '', none: false });
   const [altTouched, setAltTouched] = useState(false);
   const [altBlurred, setAltBlurred] = useState(false);
@@ -184,7 +187,7 @@ export default function Checkout() {
   // The saved number starts the field, once, as long as the customer has not typed.
   useEffect(() => { if (user && !altTouched) setAlt({ text: nationalDigits(user.alternate_phone), none: false }); }, [user, altTouched]);
   const altStatus = altPhoneStatus(alt.text, alt.none, user?.phone);
-  const altOk = ful === 'pickup' || altPhoneDone(altStatus);
+  const altOk = ful === 'pickup' || !altOn || altPhoneDone(altStatus);
   const altDigits = latinDigits(alt.text).replace(/\D/g, '');
   // Never a surprise: a half-typed number is not an error until they leave the field or have typed a whole number.
   const altError = altStatus === 'same' ? t('checkout.alt_same') : altStatus === 'invalid' && (altBlurred || altDigits.length >= 8) ? t('checkout.alt_invalid') : undefined;
@@ -210,7 +213,7 @@ export default function Checkout() {
   const showSlots = ready && !!slotBranch;
 
   const place = useMutation({
-    mutationFn: async () => (await post<{ data: { order: OrderDetail; payment: PaymentAction } }>('/checkout/orders', { ...options, ...(ful === 'delivery' ? altPhoneFields(alt.text, alt.none, user?.phone) : {}), quote_hash: q!.quote_hash, customer_notes: notes.trim() || undefined, payment_method: method }, { 'Idempotency-Key': idem.current })).data,
+    mutationFn: async () => (await post<{ data: { order: OrderDetail; payment: PaymentAction } }>('/checkout/orders', { ...options, ...(ful === 'delivery' && altOn ? altPhoneFields(alt.text, alt.none, user?.phone) : {}), quote_hash: q!.quote_hash, customer_notes: notes.trim() || undefined, payment_method: method }, { 'Idempotency-Key': idem.current })).data,
     onSuccess: async (r) => {
       await qc.invalidateQueries({ queryKey: ['cart'] });
       if (r.payment.action === 'redirect' && r.payment.redirect_url) {
@@ -278,12 +281,12 @@ export default function Checkout() {
                 ) : <button onClick={() => setNewAddr(true)} className="w-full rounded-2xl border border-dashed border-brass bg-brass-tint/50 p-6 text-center text-sm font-medium text-brass-deep">{t('address.add_first')}</button>}
 
                 {/* A second number for the driver, in case the main one is not answered: type one, or say there is none. */}
-                <div className="mt-6" data-testid="alt-phone">
+                {altOn && <div className="mt-6" data-testid="alt-phone">
                   <Input label={t('checkout.alt_label')} type="tel" inputMode="tel" autoComplete="tel-national" prefix="+974" placeholder="5522 0011" maxLength={20}
                     value={alt.text} onChange={(e) => { setAltTouched(true); setAlt({ text: e.target.value, none: false }); if (!e.target.value.trim()) setAltBlurred(false); }} onBlur={() => { if (alt.text.trim()) setAltBlurred(true); }}
                     error={altError} hint={altStatus === 'valid' ? t('checkout.alt_saved_note') : t('checkout.alt_help')} />
                   <div className="mt-3"><Checkbox checked={alt.none} onChange={(v) => { setAltTouched(true); setAltBlurred(false); setAlt({ text: '', none: v }); }}>{t('checkout.alt_none')}</Checkbox></div>
-                </div>
+                </div>}
               </div>
             ) : (
               <div className="mt-6">

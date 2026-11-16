@@ -46,9 +46,10 @@
                 <p class="mt-2 text-sm text-ink-500">{{ $status['vapid'] ? __('push_admin.status.ok_vapid') : __('push_admin.status.missing_vapid') }}</p>
             </div>
             <div class="card card-pad">
-                @php($androidReady = $status['android'] > 0)
+                @php($androidShared = collect($health)->contains(fn ($h) => $h['platform'] === 'android' && collect($h['checks'])->contains(fn ($c) => $c['key'] === 'unique' && $c['level'] === 'fail')))
+                @php($androidReady = $status['android'] > 0 && ! $androidShared)
                 <div class="flex items-center gap-2 text-sm font-medium"><span class="grid size-6 place-items-center rounded-full {{ $tone($androidReady) }}"><x-icon :name="$androidReady ? 'check' : 'alert'" class="size-3.5" /></span>{{ __('push_admin.status.android') }}</div>
-                <p class="mt-2 text-sm text-ink-500">{{ $androidReady ? __('push_admin.status.ok_android', ['ready' => $status['android'], 'total' => $status['android_total']]) : __('push_admin.status.missing_android') }}</p>
+                <p class="mt-2 text-sm {{ $androidShared ? 'text-ruby-soft' : 'text-ink-500' }}">{{ $androidShared ? __('push_health.health.duplicate.title') : ($androidReady ? __('push_admin.status.ok_android', ['ready' => $status['android'], 'total' => $status['android_total']]) : __('push_admin.status.missing_android')) }}</p>
             </div>
             <div class="card card-pad">
                 <div class="flex items-center gap-2 text-sm font-medium"><span class="grid size-6 place-items-center rounded-full {{ $tone($status['ios']) }}"><x-icon :name="$status['ios'] ? 'check' : 'alert'" class="size-3.5" /></span>{{ __('push_admin.status.ios') }}</div>
@@ -75,6 +76,9 @@
             </div>
         </div>
     </section>
+
+    {{-- 2b · Push health per phone app, and what the phones themselves report --}}
+    @include('livewire.admin.organization.partials.push-health')
 
     {{-- 3 · Guided steps --}}
     <details class="card group" @if (! $allReady) open @endif>
@@ -145,6 +149,18 @@
                 <legend class="font-display text-lg font-semibold">{{ __('push_admin.phone_title') }}</legend>
                 <p class="mt-1 text-sm text-ink-500">{{ __('push_admin.phone_hint') }}</p>
             </div>
+            @if ($canEdit)
+                <div class="rounded-xl border border-dashed border-sand-300 p-4 dark:border-ink-600" x-data>
+                    <p class="text-sm font-medium">{{ __('push_health.import.title') }}</p>
+                    <p class="mt-0.5 text-xs leading-relaxed text-ink-500">{{ __('push_health.import.hint') }}</p>
+                    <label class="btn-secondary mt-3 min-h-11 cursor-pointer focus-within:ring-2 focus-within:ring-brass-500/40">
+                        <x-icon name="upload" class="size-4" />{{ __('push_health.import.button') }}
+                        <input type="file" accept="application/json,.json" class="sr-only"
+                               @change="const f = $event.target.files[0]; if (f) { f.text().then(t => $wire.importGoogleServices(t)); } $event.target.value = ''">
+                    </label>
+                    @if ($importNote)<p class="mt-2 text-sm leading-relaxed {{ $importNote['level'] === 'ok' ? 'text-emerald-soft dark:text-emerald-300' : 'text-ruby-soft' }}" role="status">{{ $importNote['text'] }}</p>@endif
+                </div>
+            @endif
             <div class="grid gap-5 sm:grid-cols-2">
                 @foreach ([
                     ['apiKeyAndroid', 'api_key_android', null],
@@ -155,9 +171,11 @@
                     ['appIdIosCustomer', 'app_id_ios', 'customer'],
                 ] as [$prop, $lang, $app])
                     @php($package = $app ? \App\Domain\Notifications\Services\FirebaseConfig::PACKAGES[$app] : '')
+                    @php($others = $duplicateNotes[$prop] ?? '')
                     <x-admin.field :label="__('push_admin.field.'.$lang, ['app' => $app ? __('push_admin.phone_app.'.$app) : ''])" :for="$prop" :hint="__('push_admin.hint_field.'.$lang, ['package' => $package])">
-                        <input id="{{ $prop }}" wire:model.live.debounce.700ms="{{ $prop }}" class="input font-mono text-[0.8125rem] @error($prop) input-error @enderror" dir="ltr" spellcheck="false" autocapitalize="off" autocomplete="off"
-                               placeholder="{{ __('push_admin.example.'.$lang) }}" @if ($errors->has($prop)) aria-invalid="true" @endif>
+                        <input id="{{ $prop }}" wire:model.live.debounce.700ms="{{ $prop }}" class="input font-mono text-[0.8125rem] @error($prop) input-error @enderror @if ($others !== '') input-error @endif" dir="ltr" spellcheck="false" autocapitalize="off" autocomplete="off"
+                               placeholder="{{ __('push_admin.example.'.$lang) }}" @if ($errors->has($prop) || $others !== '') aria-invalid="true" @endif @if ($others !== '') aria-describedby="{{ $prop }}-dup" @endif>
+                        @if ($others !== '')<p id="{{ $prop }}-dup" class="field-error" role="alert">{{ __('push_health.health.duplicate_field', ['others' => $others]) }}</p>@endif
                     </x-admin.field>
                 @endforeach
             </div>
@@ -192,6 +210,9 @@
 
     {{-- 5 · iPhone live activity (Apple push key) --}}
     @include('livewire.admin.organization.partials.push-apns')
+
+    {{-- 5b · A real test push to one registered phone --}}
+    @include('livewire.admin.organization.partials.push-phone-test')
 
     {{-- 6 · This browser --}}
     <section class="card card-pad" aria-labelledby="push-browser" x-data="pushBrowser">

@@ -11,10 +11,14 @@ use App\Domain\Notifications\Services\ApnsConfig;
 use App\Domain\Notifications\Services\ApnsKey;
 use App\Domain\Notifications\Services\FcmClient;
 use App\Domain\Notifications\Services\FirebaseConfig;
+use App\Domain\Notifications\Services\PushDiagnostics;
+use App\Domain\Notifications\Services\PushHealth;
+use App\Domain\Notifications\Services\PushTester;
 use App\Domain\Notifications\Services\ServiceAccountKey;
 use App\Domain\Settings\Services\Settings;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use App\Support\BusinessTime;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Livewire\Component;
 use Throwable;
@@ -25,6 +29,10 @@ use Throwable;
  * Every value is saved through the Settings service (audited there); the server key is write-only and never sent back to the page.
  * A separate section, "iPhone live activity", holds the Apple key (.p8, sealed the same way) that lets the server update the order on the
  * lock screen and in the Dynamic Island, with its own switch, save and Test button (see ApnsConfig, ApnsClient).
+ * Three sections answer "why does push not arrive": "Push health" (a checklist per phone app, see PushHealth), "What the phones report" (the
+ * reports the apps post themselves, see PushDiagnostics) and "Send a test to a phone" (a real push with Firebase's answer in plain words,
+ * see PushTester). "Fill from google-services.json" fills the three Android App IDs and the key by package name, so no two apps end up
+ * with the same App ID.
  */
 class PushNotificationsPage extends Component
 {
@@ -98,6 +106,20 @@ class PushNotificationsPage extends Component
     /** @var list<array{label: string, outcome: string, detail: ?string}> */
     public array $testResults = [];
 
+    /** "Send a test to a phone": `mine` (the signed-in person's own devices) or the id of one registered phone. */
+    public string $phoneTarget = 'mine';
+
+    public bool $phoneCard = true;
+
+    /** @var list<array{label: string, outcome: string, explain: string, status: int, code: ?string, card: ?array{ok: bool, status: int, code: ?string}}> */
+    public array $phoneResults = [];
+
+    /** What "Fill from google-services.json" did: a level (`ok` | `error`) and a sentence. @var array{level: string, text: string}|null */
+    public ?array $importNote = null;
+
+    /** The Android app ID fields by app, for the import and the duplicate check. */
+    private const ANDROID_ID_FIELDS = ['customer' => 'appIdAndroidCustomer', 'driver' => 'appIdAndroidDriver', 'staff' => 'appIdAndroidStaff'];
+
     /** setting key => form property */
     private const FIELDS = [
         FirebaseConfig::PROJECT_ID => 'projectId',
@@ -113,6 +135,9 @@ class PushNotificationsPage extends Component
         'push.firebase.app_id_android_staff' => 'appIdAndroidStaff',
         'push.firebase.app_id_ios_customer' => 'appIdIosCustomer',
     ];
+
+    /** Cache key of the last "Test connection" answer, shown in "Push health". */
+    private const LAST_CONNECTION = 'push:last_connection_test';
 
     /** The phone app IDs: property => [platform, app], for the checks that only make sense together. */
     private const NATIVE_FIELDS = [
@@ -290,6 +315,9 @@ class PushNotificationsPage extends Component
         $this->reset('serviceAccountJson', 'replacingKey');
         $this->connection = null;
         $this->toast($changed ? __('push_admin.saved') : __('push_admin.unchanged'));
+        if ($this->formDuplicates() !== []) { // saved (the person may be halfway through), but say it will not work like this
+            $this->toast(__('push_health.health.duplicate.title').'. '.__('push_health.health.duplicate.body'), 'error');
+        }
     }
 
     public function removeServiceAccount(Settings $settings, FirebaseConfig $config): void
@@ -317,6 +345,7 @@ class PushNotificationsPage extends Component
             $result = ['ok' => false, 'code' => 'oauth_failed', 'status' => null, 'detail' => null];
         }
         $this->connection = ['ok' => $result['ok'], 'code' => $result['code'], 'detail' => $result['detail'] ?? null];
+        Cache::put(self::LAST_CONNECTION, ['ok' => $result['ok'], 'code' => $result['code'], 'at' => now()->toIso8601String()], now()->addDays(30));
         app(AuditLogger::class)->log('push.connection_tested', 'push', [], [], ['ok' => $result['ok'], 'result' => $result['code'], 'status' => $result['status'] ?? null]);
         $this->toast($result['ok'] ? __('push_admin.conn_ok') : __('push_admin.conn.'.$result['code']), $result['ok'] ? 'success' : 'error');
     }
@@ -380,6 +409,155 @@ class PushNotificationsPage extends Component
         $device->update(['disabled_at' => now()]);
         app(AuditLogger::class)->log('push.device_removed', $device, [], ['platform' => $device->platform, 'browser' => $device->browser]);
         $this->toast(__('push_admin.device_removed'));
+    }
+
+    /**
+     * A real push to one registered phone (or to the signed-in person's own devices), through Firebase, with the answer in plain words.
+     * For the customer app on Android it can also send the sample live order card.
+     */
+    public function sendPhoneTest(PushTester $tester, FirebaseConfig $config): void
+    {
+        abort_unless($this->canGlobally('settings.edit'), 403);
+        $this->phoneResults = [];
+        if (! $config->configured()) {
+            $this->toast(__('push_admin.test.not_ready'), 'error');
+
+            return;
+        }
+        $devices = $this->phoneTarget === 'mine'
+            ? auth()->user()->devices()->whereNull('disabled_at')->orderByDesc('last_seen_at')->limit(10)->get()
+            : UserDevice::with('user:id,name,phone')->whereNull('disabled_at')->whereIn('platform', ['android', 'ios'])->whereKey(Str::isUuid($this->phoneTarget) ? $this->phoneTarget : null)->get();
+        if ($devices->isEmpty()) {
+            $this->toast($this->phoneTarget === 'mine' ? __('push_health.test.no_devices') : __('push_health.test.pick_one'), 'error');
+
+            return;
+        }
+        $ok = 0;
+        $lastError = null;
+        foreach ($devices as $device) {
+            $r = $tester->send($device, $this->phoneCard);
+            $ok += $r['ok'] ? 1 : 0;
+            $lastError = $r['ok'] ? $lastError : trim('HTTP '.$r['status'].' '.($r['code'] ?? ''));
+            $this->phoneResults[] = ['label' => PushTester::label($device) ?: $this->deviceLabel($device), 'outcome' => $r['outcome'], 'explain' => $r['explain'], 'status' => $r['status'], 'code' => $r['code'], 'card' => $r['card']];
+        }
+        if ($this->phoneTarget !== 'mine' && ($this->phoneResults[0]['outcome'] ?? null) === 'removed') {
+            $this->phoneTarget = 'mine'; // that phone is gone from the picker now
+        }
+        $tester->log(auth()->id(), $devices->count(), $ok, $lastError);
+        app(AuditLogger::class)->log('push.test_sent', 'push', [], [], ['delivered' => $ok, 'devices' => $devices->count()]);
+        $this->toast(__('push_health.test.sent_n', ['ok' => $ok, 'total' => $devices->count()]), $ok > 0 ? 'success' : 'error');
+    }
+
+    /**
+     * Fills the three Android App IDs (and the Android API key) from a google-services.json, by package name, so every app gets its own ID.
+     * Nothing is saved: the person looks at the fields and presses Save changes.
+     */
+    public function importGoogleServices(string $json): void
+    {
+        abort_unless($this->canGlobally('settings.edit'), 403);
+        $this->importNote = null;
+        $data = strlen($json) <= 300_000 ? json_decode($json, true) : null;
+        if (! is_array($data) || ! is_array($data['client'] ?? null) || ! is_array($data['project_info'] ?? null)) {
+            $this->importNote = ['level' => 'error', 'text' => __('push_health.import.bad_file')];
+
+            return;
+        }
+        $number = (string) ($data['project_info']['project_number'] ?? '');
+        $expected = $this->expectedProjectNumber();
+        if ($number !== '' && $expected !== null && $number !== $expected) {
+            $this->importNote = ['level' => 'error', 'text' => __('push_health.import.other_project', ['number' => $number, 'expected' => $expected])];
+
+            return;
+        }
+        $found = [];
+        $key = null;
+        foreach ($data['client'] as $client) {
+            $package = $client['client_info']['android_client_info']['package_name'] ?? null;
+            $id = $client['client_info']['mobilesdk_app_id'] ?? null;
+            $app = is_string($package) ? array_search($package, FirebaseConfig::PACKAGES, true) : false;
+            if ($app === false || ! is_string($id) || PushHealth::appIdProblem('android', $id) !== null) {
+                continue;
+            }
+            $this->{self::ANDROID_ID_FIELDS[$app]} = trim($id);
+            $found[] = $app;
+            $candidate = $client['api_key'][0]['current_key'] ?? null;
+            if ($key === null && is_string($candidate) && preg_match(PushHealth::API_KEY_PATTERN, $candidate) === 1) {
+                $key = $candidate;
+            }
+        }
+        if ($found === []) {
+            $this->importNote = ['level' => 'error', 'text' => __('push_health.import.none')];
+
+            return;
+        }
+        $names = array_map(fn (string $app) => __('push_health.reports.app.'.$app), $found);
+        if ($key !== null) {
+            $this->apiKeyAndroid = $key;
+            $names[] = __('push_health.import.key');
+        }
+        if ($this->projectId === '' && is_string($data['project_info']['project_id'] ?? null)) {
+            $this->projectId = $data['project_info']['project_id'];
+        }
+        $text = __('push_health.import.filled', ['apps' => implode(', ', $names)]);
+        $missing = array_values(array_diff(FirebaseConfig::NATIVE_APPS['android'], $found));
+        if ($missing !== []) {
+            $text .= ' '.__('push_health.import.missing', ['packages' => implode(', ', array_map(fn (string $app) => FirebaseConfig::PACKAGES[$app], $missing))]);
+        }
+        $this->importNote = ['level' => $missing === [] ? 'ok' : 'error', 'text' => $text];
+        foreach (self::ANDROID_ID_FIELDS as $prop) {
+            $this->validateOnly($prop);
+        }
+    }
+
+    /**
+     * The phone app IDs now typed in the form that two or more apps share (an Android package and the iPhone app each need their own).
+     *
+     * @return array<string, list<string>> app id => the "platform:app" holders
+     */
+    private function formDuplicates(): array
+    {
+        $ids = ['android' => [], 'ios' => ['customer' => $this->appIdIosCustomer]];
+        foreach (self::ANDROID_ID_FIELDS as $app => $prop) {
+            $ids['android'][$app] = $this->{$prop};
+        }
+
+        return PushHealth::duplicates($ids);
+    }
+
+    /**
+     * For each App ID field that shares its value with another phone app: the names of the other apps, ready to show under the field.
+     *
+     * @return array<string, string> form property => "Driver app (Android), Staff app (Android)"
+     */
+    private function duplicateNotes(): array
+    {
+        $duplicates = $this->formDuplicates();
+        $name = fn (string $holder) => __('push_health.reports.app.'.explode(':', $holder)[1]).' ('.__('push_health.reports.platform.'.explode(':', $holder)[0]).')';
+        $out = [];
+        foreach (self::NATIVE_FIELDS as $prop => [$platform, $app]) {
+            $holders = $duplicates[strtolower(trim($this->{$prop}))] ?? [];
+            $others = array_values(array_diff($holders, ["$platform:$app"]));
+            if ($others !== []) {
+                $out[$prop] = implode(', ', array_map($name, $others));
+            }
+        }
+
+        return $out;
+    }
+
+    /** The Firebase project number the saved settings agree on: the sender ID, else the number inside an app ID. */
+    private function expectedProjectNumber(): ?string
+    {
+        if ($this->senderId !== '') {
+            return $this->senderId;
+        }
+        foreach (array_keys(self::NATIVE_FIELDS) as $prop) {
+            if (preg_match('/^1:(\d+):/', $this->{$prop}, $m)) {
+                return $m[1];
+            }
+        }
+
+        return null;
     }
 
     // ── iPhone live activity (Apple push) ────────────────────────────────────────────────────────────────────────────
@@ -549,7 +727,7 @@ class PushNotificationsPage extends Component
         return trim($this->serviceAccountJson) !== '';
     }
 
-    public function render(Settings $settings, FirebaseConfig $config, ApnsConfig $apns)
+    public function render(Settings $settings, FirebaseConfig $config, ApnsConfig $apns, PushHealth $health, PushDiagnostics $diagnostics, PushTester $tester)
     {
         $status = $config->status();
         $mine = UserDevice::where('user_id', auth()->id())->whereNull('disabled_at')->orderByDesc('last_seen_at')->limit(20)->get();
@@ -576,6 +754,12 @@ class PushNotificationsPage extends Component
             'apnsDirty' => $this->apnsDirty($apns),
             'apnsActivities' => LiveActivityToken::where('kind', LiveActivityToken::KIND_ACTIVITY)->whereNull('disabled_at')->count(),
             'apnsStarters' => LiveActivityToken::where('kind', LiveActivityToken::KIND_START)->whereNull('disabled_at')->count(),
+            'health' => $health->phoneApps(),
+            'problems' => $diagnostics->problems(),
+            'registered' => $diagnostics->registered(),
+            'lastConnection' => Cache::get(self::LAST_CONNECTION),
+            'duplicateNotes' => $this->duplicateNotes(),
+            'phoneTargets' => $tester->candidates(auth()->id()),
         ])->title(__('push_admin.title'));
     }
 }

@@ -16,6 +16,22 @@ enum OpsStatusStyle {
   static OpsStatusStyle fromCode(Object? code) => code == 'slide' ? slide : buttons;
 }
 
+/// What the staff and driver apps read from the public `GET /app-config`: how a status is changed (`ops.status_style`) and whether the
+/// customer's alternative phone number is shown (`alternate_phone_enabled`, the dashboard's switch).
+@immutable
+class OpsAppConfig {
+  const OpsAppConfig({this.statusStyle = OpsStatusStyle.buttons, this.alternatePhoneEnabled = true});
+
+  /// A missing or wrongly typed value keeps today's behaviour: plain buttons, and the alternative number shown.
+  factory OpsAppConfig.fromJson(JsonMap json) => OpsAppConfig(
+    statusStyle: OpsStatusStyle.fromCode(asMap(json['ops'])['status_style']),
+    alternatePhoneEnabled: asBool(json['alternate_phone_enabled'], true),
+  );
+
+  final OpsStatusStyle statusStyle;
+  final bool alternatePhoneEnabled;
+}
+
 @immutable
 class OpsAddress {
   const OpsAddress({

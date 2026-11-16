@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Domain\Identity\Models\User;
 use App\Domain\Orders\Models\Order;
+use App\Domain\Settings\Services\Settings;
 
 /**
  * The customer's second number, which the delivery driver may call when the main number is not answered.
@@ -14,7 +15,25 @@ final class AlternatePhone
 {
     public const INVALID = 'alternate_phone_invalid';
 
+    /** Settings key of the dashboard switch (Settings → General & brand). On by default. */
+    public const SETTING = 'customer_app.alternate_phone_enabled';
+
     public const SAME_AS_MAIN = 'alternate_phone_same';
+
+    /**
+     * Is the alternative number in use at all? Off: the apps and the web store do not ask for it, the API ignores one a client still sends
+     * and returns null in its place, and the dashboard shows it nowhere. The saved numbers are kept, so turning it back on restores everything.
+     */
+    public static function enabled(): bool
+    {
+        return (bool) app(Settings::class)->get(self::SETTING, true);
+    }
+
+    /** The number as a payload may show it: the stored value when the switch is on, otherwise null. */
+    public static function visible(?string $stored): ?string
+    {
+        return self::enabled() ? $stored : null;
+    }
 
     /**
      * @return array{0: ?string, 1: ?string} [the number in E.164, or null; the error code, or null]. Empty input is "no number", not an error.

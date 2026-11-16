@@ -3,6 +3,7 @@
 namespace App\Http\Resources\V1;
 
 use App\Domain\Identity\Models\User;
+use App\Support\AlternatePhone;
 use App\Support\BusinessTime;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -17,8 +18,8 @@ class UserResource extends JsonResource
             'type' => $this->type->value,
             'name' => $this->name,
             'phone' => $this->phone,
-            // Their own saved second number (for the delivery driver); null when none.
-            'alternate_phone' => $this->alternate_phone,
+            // Their own saved second number (for the delivery driver); null when none, or when the dashboard switch is off (the number stays stored).
+            'alternate_phone' => AlternatePhone::visible($this->alternate_phone),
             'email' => $this->email,
             'phone_verified' => $this->phone_verified_at !== null,
             'locale' => $this->locale,

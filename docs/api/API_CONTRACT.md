@@ -76,7 +76,9 @@ Phone input accepts `55123456`, `+974 5512 3456`, Arabic digits; the server norm
 |---|---|---|
 | GET/PATCH | `/me` | PATCH `{name?, email?, locale?, date_of_birth?, gender?: male\|female, marketing_consent?}` |
 | PUT | `/me/password` | `{current_password?, password, password_confirmation}` |
-| POST/DELETE | `/me/devices` | `{platform, push_token, device_id?, app_version?}` / `{push_token}` |
+| POST/DELETE | `/me/devices` | `{platform, push_token, device_id?, app_version?}` / `{push_token}`. The app is read from the `X-App` header (`customer`/`driver`/`staff`). The same for the staff apps at `/admin/devices` |
+| POST | `/push-diagnostics` (public, no token) | A phone app says why push does not work on it, or that it does: `{app: customer\|driver\|staff, platform: android\|ios, stage: options\|init\|permission\|token\|register\|registered, code (lowercase machine code), message? (≤200), app_version?, os_version?, install_id}` → `202 {data:{accepted:true}}`. No person, token, key or address is stored. See [FIREBASE_PUSH.md](../guides/FIREBASE_PUSH.md) |
+| socket | `private-users.{id}` · `notification.created` | A new inbox entry: `{notification_id, event, category, title, body, deep_link, unread_count, created_at}`; the apps move the badge and read the list again |
 | POST | `/me/live-activities` · `/me/live-activities/start-token` · DELETE `/me/live-activities` | iPhone Live Activity tokens (the order on the lock screen / Dynamic Island): `{order_id, push_token, environment?: production\|sandbox, device_id?, locale?, app_version?}` (own order only, else 404) / `{push_token, ...}` / `{push_token? \| order_id? \| device_id?}`. See [IOS_LIVE_ACTIVITY.md](../guides/IOS_LIVE_ACTIVITY.md) |
 | GET | `/me/sessions` · DELETE `/me/sessions/{id}` | |
 | POST/DELETE | `/me/deletion-request` | `{reason?}` → `{id, status, scheduled_for}` (14-day grace, then anonymised) |
@@ -106,7 +108,7 @@ Create/update body: same fields (`delivery_zone_id` instead of the object). `rec
 | | `/branches/{id}/{pickup,delivery}-slots?from=YYYY-MM-DD&to=YYYY-MM-DD[&only_available=1]` | **a span in one call**: `{data:[{date, available, slots:[slot…]}], meta:{from,to}}`, one entry per date that has slots; `only_available=1` drops dates with no free place. Dates run today … +29 days, span ≤ 30 days, `date` and `from/to` can't be combined (422) |
 | | `/delivery-zones` | `[{id, name, zone_numbers[]}]` |
 | | `/map-config` | `{provider, tiles{light_url,dark_url,attribution,attribution_text,subdomains,max_zoom,retina}, center{lat,lng}, zoom, stale_after_seconds}`: the map provider chosen in Settings; cacheable 5 min (see [MAPS.md](../guides/MAPS.md)) |
-| | `/app-config` | `{designed_by{en,ar}, returns_enabled}`: the "Designed by" lines of the customer app intro (Settings → General & brand; an empty string means hide) and whether customers may return orders (Settings → Checkout & fees); public, cacheable 1 min |
+| | `/app-config` | `{designed_by{en,ar}, returns_enabled, alternate_phone_enabled, ops{status_style}}`: the "Designed by" lines of the customer app intro (Settings → General & brand; an empty string means hide), whether customers may return orders (Settings → Checkout & fees) and whether the alternative phone number is asked for (Settings → General & brand, default on; see `HOME_BANNERS_AND_ALT_PHONE.md`); public, cacheable 1 min |
 
 Branch:
 ```json
@@ -120,7 +122,7 @@ Branch:
 ## 5. Catalog
 | GET | Path | Notes |
 |---|---|---|
-| | `/home?branch_id=` | Ordered, admin-managed sections (see §10) |
+| | `/home?branch_id=&platform=` (alias `/homepage`) | Ordered, admin-managed sections (see §10); `platform=web` for the web store, apps send nothing |
 | | `/categories` | Tree: `[{id, slug, name, image_url, icon_url, banner_url, children:[…]}]` |
 | | `/categories/{id}` | Category + `filters: [{attribute:{code,name,type}, values:[{id, code, name, color_hex}]}]` |
 | | `/brands` | `[{id, slug, name, logo_url}]` |
@@ -199,7 +201,7 @@ the field. The quote answers `split_choice` (bool): true only when that setting 
 cart, so clients show the "allow split shipments" switch only then. `alternate_phone` / `no_alternate_phone` (delivery only; pickup ignores
 them) carry the customer's second number for the driver: send one of the two once the customer answered; omit both for older clients (the
 number saved on the profile is then used). Errors `alternate_phone_required|invalid|same` come back as quote errors. `PATCH /me` accepts
-`alternate_phone` (null or empty clears it) and `GET /me` returns it to its owner only. Slot rows carry `bookable_until` (ISO-8601, +03:00): the
+`alternate_phone` (null or empty clears it) and `GET /me` returns it to its owner only. While the dashboard switch `alternate_phone_enabled` (`/app-config`) is off all of this is ignored and `alternate_phone` is returned as `null` everywhere (stored numbers are kept). Slot rows carry `bookable_until` (ISO-8601, +03:00): the
 last moment the time can be booked.
 **Delivery slots.** When a single-branch delivery order is quoted and that branch publishes delivery slots, a slot is
 required: the fulfillment carries `slot_required: true` and, until `delivery_slot_id` + `delivery_date` are sent, the
@@ -291,17 +293,19 @@ Lot:
 Real-time: Pusher protocol (Laravel Reverb) — public channel `auction-lot.{lotId}`, events `bid.accepted`, `lot.extended`, `lot.status` with payload `{sequence, lot: Lot (without my_*), bid?}`; private channel `private-users.{userId}` event `auction.outbid`/`auction.won`. **Clients must treat the REST lot state as authoritative**: on (re)connect, fetch `/auctions/lots/{id}` and replay `/events?after_sequence=` — never trust a local countdown.
 
 ## 10. Home, CMS, notifications, support
-`GET /home?branch_id=` →
+`GET /home?branch_id=&platform=` →
 ```json
 { "sections":[
-  {"id":"uuid","type":"banners","layout":"hero","title":null,"items":[{"id","title","subtitle","image_url","link":{"type":"category","value":"uuid"}}]},
+  {"id":"uuid","type":"banners","layout":"carousel","title":null,"subtitle":null,
+   "slider":{"autoplay":true,"interval":5,"aspect":"16:9","dots":true,"show_titles":true,"rounded":true},
+   "items":[{"id","title","subtitle","image_url","link":null|{"type":"category|page|product|brand|auction|url|search","value":"…"}}]},
   {"type":"categories","layout":"chips","title":"Shop by room","items":[Category]},
   {"type":"featured_products|new_arrivals|best_sellers|recommended|product_collection","items":[ProductCard]},
   {"type":"brands","items":[Brand]},
   {"type":"promotions","items":[{"id","name","description","badge":"-20%","ends_at"}]},
   {"type":"upcoming_auctions|live_auctions","items":[AuctionCard]} ] }
 ```
-Section order and content are entirely server-driven; unknown `type`s must be ignored by the client.
+Section order and content are entirely server-driven; unknown `type`s must be ignored by the client. A `banners` section is a slider whose slides are the `items` (a `null` link means the slide is not tappable); the full rules are in `HOME_BANNERS_AND_ALT_PHONE.md`.
 
 | Method | Path | Notes |
 |---|---|---|
