@@ -11,8 +11,6 @@ use Illuminate\Support\Facades\DB;
 /**
  * "When did we last contact this customer, and how?" across both ways a marketing message can reach them: the ones staff send by hand
  * (customer_messages) and the automatic journeys (journey_deliveries). Used by the recently-contacted guard, the customers list and the timeline.
- *
- * @phpstan-type TimelineRow array{key: string, at: CarbonImmutable, source: string, channel: string, kind: ?string, template: ?string, title: ?string, body: ?string, status: string, reason: ?string, coupon: ?string, staff: ?string, batch_id: ?string, journey: ?string, phones: array{kind: 'no_phone'|'silent', reached: int, silent: int}|null}
  */
 class ContactHistory
 {
@@ -57,7 +55,7 @@ class ContactHistory
     /**
      * The customer's contact history, newest first, manual and automatic together.
      *
-     * @return Collection<int, TimelineRow>
+     * @return Collection<int, array<string, mixed>>
      */
     public function timeline(string $userId, int $limit = 30, ?CarbonImmutable $before = null): Collection
     {
@@ -83,7 +81,7 @@ class ContactHistory
                 'batch_id' => null, 'journey' => $d->journey !== null ? (string) $d->journey : null, 'phones' => null,
             ]);
 
-        /** @var list<TimelineRow> $rows */
+        /** @var list<array<string, mixed>> $rows */
         $rows = array_merge($manual->all(), $auto->all());
         usort($rows, fn (array $a, array $b) => $b['at']->getTimestamp() <=> $a['at']->getTimestamp());
 
