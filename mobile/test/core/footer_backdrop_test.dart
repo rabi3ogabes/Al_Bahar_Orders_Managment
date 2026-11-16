@@ -94,12 +94,7 @@ Future<Color> _pixel(WidgetTester tester, GlobalKey key, int x, int y) async {
     return image.toByteData();
   });
   final at = (y * boundary.size.width.toInt() + x) * 4;
-  return Color.fromARGB(
-    data!.getUint8(at + 3),
-    data.getUint8(at),
-    data.getUint8(at + 1),
-    data.getUint8(at + 2),
-  );
+  return Color.fromARGB(data!.getUint8(at + 3), data.getUint8(at), data.getUint8(at + 1), data.getUint8(at + 2));
 }
 
 /// [actual] is painted (not the unpainted window) and is [expected] give or take a shadow's tint.
@@ -113,78 +108,94 @@ void _expectPainted(Color actual, Color expected, String reason, {double toleran
 void main() {
   for (final design in FooterDesign.values) {
     for (final dark in [false, true]) {
-      testWidgets('${design.name}, ${dark ? 'dark' : 'light'}: the page colour is behind the whole footer region down to the screen edge', (
-        tester,
-      ) async {
-        final window = GlobalKey();
-        _phone(tester);
-        await tester.pumpWidget(_app(_router(), design, dark: dark, boundary: window));
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull);
+      testWidgets(
+        '${design.name}, ${dark ? 'dark' : 'light'}: the page colour is behind the whole footer region down to the screen edge',
+        (tester) async {
+          final window = GlobalKey();
+          _phone(tester);
+          await tester.pumpWidget(_app(_router(), design, dark: dark, boundary: window));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
 
-        final backdrop = find.byKey(kFooterBackdropKey);
-        expect(backdrop, findsOneWidget);
-        final colour = tester.widget<ColoredBox>(backdrop).color;
-        expect(colour, _pageColor(dark: dark));
-        expect(colour.a, 1.0, reason: 'opaque');
-        expect(colour, isNot(Colors.black));
+          final backdrop = find.byKey(kFooterBackdropKey);
+          expect(backdrop, findsOneWidget);
+          final colour = tester.widget<ColoredBox>(backdrop).color;
+          expect(colour, _pageColor(dark: dark));
+          expect(colour.a, 1.0, reason: 'opaque');
+          expect(colour, isNot(Colors.black));
 
-        final region = tester.getRect(backdrop);
-        final footer = tester.getRect(find.byType(AppFooter));
-        expect(region.left, 0);
-        expect(region.right, _size.width);
-        expect(region.bottom, _size.height, reason: 'down to the bottom edge, system gesture area included');
-        expect(region.top, lessThanOrEqualTo(footer.top));
-        expect(region.height, greaterThanOrEqualTo(footer.height));
-        // The inset is inside the region: the bar itself starts at least one inset above the bottom edge.
-        expect(region.height, greaterThanOrEqualTo(_inset + 48));
-        if (design == FooterDesign.centerAction) {
-          expect(region.height, kCenterBarHeight + _inset, reason: 'the flat part of the bar and the inset');
-        }
-        if (design == FooterDesign.glass) {
-          expect(find.byType(BackdropFilter), findsOneWidget, reason: 'the frosted blur still works');
-        }
-        // And really painted, the gesture area at the very bottom edge included (an unpainted window would be transparent).
-        for (final x in [1, 120, 195, 270, 388]) {
-          final c = await _pixel(tester, window, x, 843);
-          expect(c.a, 1.0, reason: '${design.name} at x=$x');
-        }
-      });
+          final region = tester.getRect(backdrop);
+          final footer = tester.getRect(find.byType(AppFooter));
+          expect(region.left, 0);
+          expect(region.right, _size.width);
+          expect(region.bottom, _size.height, reason: 'down to the bottom edge, system gesture area included');
+          // The inset is inside the region: the bar itself starts at least one inset above the bottom edge.
+          expect(region.height, greaterThanOrEqualTo(_inset + 48));
+          if (design == FooterDesign.centerAction) {
+            // The raised round button rises above the bar over the page: the region is the flat bar and the inset only.
+            expect(region.height, kCenterBarHeight + _inset);
+            expect(region.top, footer.top + kCenterButtonRise);
+            expect(region.bottom, footer.bottom);
+          } else {
+            expect(region.top, lessThanOrEqualTo(footer.top));
+            expect(region.height, greaterThanOrEqualTo(footer.height));
+          }
+          if (design == FooterDesign.glass) {
+            expect(find.byType(BackdropFilter), findsOneWidget, reason: 'the frosted blur still works');
+          }
+          // And really painted, the gesture area at the very bottom edge included (an unpainted window would be transparent).
+          for (final x in [1, 120, 195, 270, 388]) {
+            final c = await _pixel(tester, window, x, 843);
+            expect(c.a, 1.0, reason: '${design.name} at x=$x');
+          }
+        },
+      );
     }
   }
 
   // The proof in pixels, on the bars that leave bare window around themselves. Without the page colour behind them these
   // pixels are not painted at all (transparent), which is the black bar of the report.
   for (final dark in [false, true]) {
-    testWidgets('floating, ${dark ? 'dark' : 'light'}: the strip under and beside the bar is painted in the page colour', (tester) async {
-      final window = GlobalKey();
-      _phone(tester);
-      await tester.pumpWidget(_app(_router(), FooterDesign.floating, dark: dark, boundary: window));
-      await tester.pumpAndSettle();
-      final expected = _pageColor(dark: dark);
-      _expectPainted(await _pixel(tester, window, 195, 843), expected, 'under the bar, in the gesture area', tolerance: 12);
-      _expectPainted(await _pixel(tester, window, 2, 843), expected, 'bottom left corner', tolerance: 12);
-      _expectPainted(await _pixel(tester, window, 387, 843), expected, 'bottom right corner', tolerance: 12);
-    });
+    testWidgets(
+      'floating, ${dark ? 'dark' : 'light'}: the strip under and beside the bar is painted in the page colour',
+      (tester) async {
+        final window = GlobalKey();
+        _phone(tester);
+        await tester.pumpWidget(_app(_router(), FooterDesign.floating, dark: dark, boundary: window));
+        await tester.pumpAndSettle();
+        final expected = _pageColor(dark: dark);
+        _expectPainted(
+          await _pixel(tester, window, 195, 843),
+          expected,
+          'under the bar, in the gesture area',
+          tolerance: 12,
+        );
+        _expectPainted(await _pixel(tester, window, 2, 843), expected, 'bottom left corner', tolerance: 12);
+        _expectPainted(await _pixel(tester, window, 387, 843), expected, 'bottom right corner', tolerance: 12);
+      },
+    );
 
-    testWidgets('centre action, ${dark ? 'dark' : 'light'}: the corners of the bar and the gesture area are painted in the page colour', (
-      tester,
-    ) async {
-      final window = GlobalKey();
-      _phone(tester);
-      await tester.pumpWidget(_app(_router(), FooterDesign.centerAction, dark: dark, boundary: window));
-      await tester.pumpAndSettle();
-      final expected = _pageColor(dark: dark);
-      const barTop = 844 - kCenterBarHeight - _inset;
-      // The two top corners of the bar are rounded: the page colour shows in the notches.
-      _expectPainted(await _pixel(tester, window, 1, barTop.toInt() + 1), expected, 'top left notch');
-      _expectPainted(await _pixel(tester, window, 388, barTop.toInt() + 1), expected, 'top right notch');
-    });
+    testWidgets(
+      'centre action, ${dark ? 'dark' : 'light'}: the corners of the bar and the gesture area are painted in the page colour',
+      (tester) async {
+        final window = GlobalKey();
+        _phone(tester);
+        await tester.pumpWidget(_app(_router(), FooterDesign.centerAction, dark: dark, boundary: window));
+        await tester.pumpAndSettle();
+        final expected = _pageColor(dark: dark);
+        const barTop = 844 - kCenterBarHeight - _inset;
+        // The two top corners of the bar are rounded: the page colour shows in the notches.
+        _expectPainted(await _pixel(tester, window, 1, barTop.toInt() + 1), expected, 'top left notch');
+        _expectPainted(await _pixel(tester, window, 388, barTop.toInt() + 1), expected, 'top right notch');
+      },
+    );
   }
 
   group('with the dashboard page background on', () {
     for (final design in [FooterDesign.floating, FooterDesign.centerAction, FooterDesign.classic]) {
-      testWidgets('${design.name}: the picture stands on the footer menu, and the footer keeps the plain page colour', (tester) async {
+      testWidgets('${design.name}: the picture stands on the footer menu, and the footer keeps the plain page colour', (
+        tester,
+      ) async {
         _phone(tester);
         await tester.pumpWidget(_app(_router(), design, backdrop: const PageBackdropConfig()));
         await tester.pumpAndSettle();
@@ -199,13 +210,17 @@ void main() {
       });
     }
 
-    testWidgets('a dark page background: the dark page colour behind the footer, the skyline in the dark primary', (tester) async {
+    testWidgets('a dark page background: the dark page colour behind the footer, the skyline in the dark primary', (
+      tester,
+    ) async {
       _phone(tester);
       await tester.pumpWidget(_app(_router(), FooterDesign.floating, dark: true, backdrop: const PageBackdropConfig()));
       await tester.pumpAndSettle();
       expect(tester.widget<ColoredBox>(find.byKey(kFooterBackdropKey)).color, AppPalette.nightBg);
       final painter =
-          tester.widget<CustomPaint>(find.byWidgetPredicate((w) => w is CustomPaint && w.painter is SkylinePainter)).painter!
+          tester
+                  .widget<CustomPaint>(find.byWidgetPredicate((w) => w is CustomPaint && w.painter is SkylinePainter))
+                  .painter!
               as SkylinePainter;
       expect(painter.tint, AppPalette.nightNavy);
     });
@@ -214,7 +229,11 @@ void main() {
       _phone(tester);
       const colour = Color(0xFFFFF3E0);
       await tester.pumpWidget(
-        _app(_router(), FooterDesign.floating, backdrop: const PageBackdropConfig(style: BackdropStyle.none, color: colour)),
+        _app(
+          _router(),
+          FooterDesign.floating,
+          backdrop: const PageBackdropConfig(style: BackdropStyle.none, color: colour),
+        ),
       );
       await tester.pumpAndSettle();
       expect(tester.widget<ColoredBox>(find.byKey(kFooterBackdropKey)).color, colour);
@@ -250,53 +269,71 @@ void main() {
     });
 
     for (final dark in [false, true]) {
-      testWidgets('${dark ? 'dark' : 'light'}: paints the page colour under everything and annotates the navigation bar', (tester) async {
-        _phone(tester);
-        await tester.pumpWidget(_app(_router(), FooterDesign.floating, dark: dark, chrome: true));
-        await tester.pumpAndSettle();
-        final page = _pageColor(dark: dark);
-        final root = tester.widget<ColoredBox>(find.descendant(of: find.byType(AppChrome), matching: find.byType(ColoredBox)).first);
-        expect(root.color, page);
-        expect(tester.getRect(find.descendant(of: find.byType(AppChrome), matching: find.byType(ColoredBox)).first).size, _size);
-        final region = tester.widget<AnnotatedRegion<SystemUiOverlayStyle>>(
-          find.descendant(of: find.byType(AppChrome), matching: find.byType(AnnotatedRegion<SystemUiOverlayStyle>)).first,
-        );
-        expect(region.value.systemNavigationBarColor, page);
-      });
+      testWidgets(
+        '${dark ? 'dark' : 'light'}: paints the page colour under everything and annotates the navigation bar',
+        (tester) async {
+          _phone(tester);
+          await tester.pumpWidget(_app(_router(), FooterDesign.floating, dark: dark, chrome: true));
+          await tester.pumpAndSettle();
+          final page = _pageColor(dark: dark);
+          final root = tester.widget<ColoredBox>(
+            find.descendant(of: find.byType(AppChrome), matching: find.byType(ColoredBox)).first,
+          );
+          expect(root.color, page);
+          expect(
+            tester.getRect(find.descendant(of: find.byType(AppChrome), matching: find.byType(ColoredBox)).first).size,
+            _size,
+          );
+          final region = tester.widget<AnnotatedRegion<SystemUiOverlayStyle>>(
+            find
+                .descendant(of: find.byType(AppChrome), matching: find.byType(AnnotatedRegion<SystemUiOverlayStyle>))
+                .first,
+          );
+          expect(region.value.systemNavigationBarColor, page);
+        },
+      );
     }
 
-    testWidgets('what Android is told: the page colour for the navigation bar, even under an app bar that asks for black', (tester) async {
-      final told = <Map<Object?, Object?>>[];
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
-        if (call.method == 'SystemChrome.setSystemUIOverlayStyle') told.add(call.arguments as Map<Object?, Object?>);
-        return null;
-      });
-      addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+    testWidgets(
+      'what Android is told: the page colour for the navigation bar, even under an app bar that asks for black',
+      (tester) async {
+        final told = <Map<Object?, Object?>>[];
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          if (call.method == 'SystemChrome.setSystemUIOverlayStyle') told.add(call.arguments as Map<Object?, Object?>);
+          return null;
+        });
+        addTearDown(
+          () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null),
+        );
 
-      Widget app({required bool chrome}) => MaterialApp(
-        theme: AppTheme.light(_en),
-        builder: (context, child) => chrome ? AppChrome(child: child!) : child!,
-        home: Scaffold(appBar: AppBar(title: const Text('page')), body: const SizedBox.expand()),
-      );
+        Widget app({required bool chrome}) => MaterialApp(
+          theme: AppTheme.light(_en),
+          builder: (context, child) => chrome ? AppChrome(child: child!) : child!,
+          home: Scaffold(
+            appBar: AppBar(title: const Text('page')),
+            body: const SizedBox.expand(),
+          ),
+        );
 
-      // Without it, the app bar's own style paints the navigation bar black (the first half of the black bar).
-      await tester.pumpWidget(app(chrome: false));
-      await tester.pump();
-      expect(told, isNotEmpty);
-      expect(told.last['systemNavigationBarColor'], const Color(0xFF000000).toARGB32());
+        // Without it, the app bar's own style paints the navigation bar black (the first half of the black bar).
+        await tester.pumpWidget(app(chrome: false));
+        await tester.pump();
+        expect(told, isNotEmpty);
+        expect(told.last['systemNavigationBarColor'], const Color(0xFF000000).toARGB32());
 
-      told.clear();
-      await tester.pumpWidget(app(chrome: true));
-      await tester.pump();
-      expect(told, isNotEmpty);
-      final style = told.last;
-      expect(style['systemNavigationBarColor'], AppPalette.ivory.toARGB32());
-      expect(style['systemNavigationBarDividerColor'], Colors.transparent.toARGB32());
-      expect(style['systemNavigationBarContrastEnforced'], false);
-      expect(style['systemNavigationBarIconBrightness'], Brightness.dark.toString());
-      // The status bar still follows the app bar of the page.
-      expect(style['statusBarIconBrightness'], Brightness.dark.toString());
-      expect(style['statusBarBrightness'], Brightness.light.toString());
-    });
+        told.clear();
+        await tester.pumpWidget(app(chrome: true));
+        await tester.pump();
+        expect(told, isNotEmpty);
+        final style = told.last;
+        expect(style['systemNavigationBarColor'], AppPalette.ivory.toARGB32());
+        expect(style['systemNavigationBarDividerColor'], Colors.transparent.toARGB32());
+        expect(style['systemNavigationBarContrastEnforced'], false);
+        expect(style['systemNavigationBarIconBrightness'], Brightness.dark.toString());
+        // The status bar still follows the app bar of the page.
+        expect(style['statusBarIconBrightness'], Brightness.dark.toString());
+        expect(style['statusBarBrightness'], Brightness.light.toString());
+      },
+    );
   });
 }

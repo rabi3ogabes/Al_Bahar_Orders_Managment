@@ -255,6 +255,11 @@ PageTransitionsTheme backdropPageTransitions({
 }) => PageTransitionsTheme(
   builders: {
     for (final platform in TargetPlatform.values)
-      platform: BackdropPageTransitionsBuilder(platform: platform, config: config, page: page, imageBuilder: imageBuilder),
+      platform: BackdropPageTransitionsBuilder(
+        platform: platform,
+        config: config,
+        page: page,
+        imageBuilder: imageBuilder,
+      ),
   },
 );

@@ -2,15 +2,18 @@
 
 use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Branches\Models\BranchDeliveryZone;
+use App\Domain\Catalog\Models\Product;
 use App\Domain\Checkout\Services\AbandonedCartService;
 use App\Domain\Checkout\Services\CartService;
 use App\Domain\Checkout\Services\StaffOrderService;
 use App\Domain\Identity\Models\User;
 use App\Domain\Marketing\Models\Coupon;
 use App\Domain\Marketing\Models\Promotion;
+use App\Domain\Marketing\Services\CampaignService;
 use App\Domain\Notifications\Models\Notification;
 use App\Domain\Orders\Models\Cart;
 use App\Domain\Orders\Models\CartItem;
+use App\Domain\Orders\Models\Order;
 use App\Livewire\Admin\Sales\AbandonedCartsIndex;
 use App\Support\AdminNavigation;
 use App\Support\DomainException;
@@ -19,6 +22,7 @@ use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
@@ -308,7 +312,7 @@ describe('editing a customer’s cart', function () {
         $cart = abandonedCart($this);
         $item = $cart->items()->first();
         $this->w->p2->update(['status' => 'draft']);
-        $bOnly = \App\Domain\Catalog\Models\Product::factory()->create(['price' => '10.00', 'available_in_all_branches' => false]);
+        $bOnly = Product::factory()->create(['price' => '10.00', 'available_in_all_branches' => false]);
 
         expect(fn () => $this->svc->setQuantity($this->mgrA, $cart->id, $item->id, 51))->toThrow(DomainException::class, __('errors.quantity_invalid'))
             ->and(fn () => $this->svc->addItem($this->mgrA, $cart->id, $this->w->v2->id))->toThrow(DomainException::class, __('errors.item_unavailable_simple'))
@@ -440,7 +444,7 @@ describe('discard and undo', function () {
         $cart = abandonedCart($this);
         $this->svc->discard($this->mgrA, $cart->id);
 
-        expect(app(\App\Domain\Marketing\Services\CampaignService::class)->remindAbandonedCarts())->toBe(0)
+        expect(app(CampaignService::class)->remindAbandonedCarts())->toBe(0)
             ->and(Notification::where('user_id', $this->w->customer->id)->count())->toBe(0);
     });
 
@@ -525,10 +529,10 @@ describe('reminders', function () {
 
     it('does not pile on when a message reached the customer recently by another path', function () {
         $cart = abandonedCart($this);
-        $batch = (string) \Illuminate\Support\Str::uuid();
+        $batch = (string) Str::uuid();
         DB::table('customer_message_batches')->insert(['id' => $batch, 'created_by' => $this->admin->id, 'template_name' => 'Manual', 'kind' => 'custom', 'source' => 'single',
             'channels' => json_encode(['whatsapp']), 'content' => json_encode([]), 'status' => 'done', 'created_at' => now(), 'updated_at' => now()]);
-        DB::table('customer_messages')->insert(['id' => (string) \Illuminate\Support\Str::uuid(), 'batch_id' => $batch, 'user_id' => $this->w->customer->id, 'channel' => 'whatsapp',
+        DB::table('customer_messages')->insert(['id' => (string) Str::uuid(), 'batch_id' => $batch, 'user_id' => $this->w->customer->id, 'channel' => 'whatsapp',
             'locale' => 'en', 'status' => 'sent', 'sent_at' => now()->subHour(), 'created_at' => now()->subHour(), 'updated_at' => now()->subHour(), 'body' => 'Hello', 'title' => 'Hi']);
 
         expect($this->svc->remind($this->mgrA, $cart->id)['status'])->toBe('too_soon');
@@ -582,7 +586,7 @@ describe('place the order for the customer', function () {
             ->and(app(CartService::class)->current($this->w->customer)->id)->not->toBe($cart->id);
         // a repeated submit changes nothing
         $orders->place($this->mgrA, $draft->fresh(), $quote->hash, 'abandoned-key-'.str_repeat('b', 12));
-        expect(\App\Domain\Orders\Models\Order::where('user_id', $this->w->customer->id)->count())->toBe(1);
+        expect(Order::where('user_id', $this->w->customer->id)->count())->toBe(1);
     });
 
     it('refuses to place a second order when the customer already ordered from that cart', function () {
@@ -595,7 +599,7 @@ describe('place the order for the customer', function () {
         Cart::whereKey($cart->id)->update(['status' => 'converted']); // the customer ordered on their own
 
         expect(fn () => $orders->place($this->mgrA, $draft->fresh(), $quote->hash, 'abandoned-key-'.str_repeat('c', 12)))->toThrow(DomainException::class, __('abandoned_admin.err_source_already_ordered'))
-            ->and(\App\Domain\Orders\Models\Order::count())->toBe(0);
+            ->and(Order::count())->toBe(0);
     });
 
     it('does not start from a cart that is no longer open, and respects the 20-draft limit', function () {
