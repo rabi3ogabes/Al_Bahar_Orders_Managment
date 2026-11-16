@@ -111,8 +111,8 @@ What each report code means and the exact fix (the dashboard shows the same, in 
 | `fis_auth_error`, `invalid_argument` (token) | Firebase refused the install | App ID vs package, key restrictions (see above) |
 | `service_not_available`, `timeout`, `no_token` (token) | Firebase unreachable or no answer | one phone: network / Google Play services; every phone: see the two rows above |
 | `apns_missing` (token) | iPhone has no Apple token | upload the APNs key in Firebase, real iPhone |
-| `permission_denied` (permission) | notifications are off for the app on the phone | phone Settings, Apps, Notifications; the customer app asks after the first order |
-| `permission_not_asked` (permission) | the customer has not been asked yet (Android 13+): a push arrives silently | nothing; the app asks after the first order, or allow it in the phone settings to test |
+| `permission_denied` (permission) | notifications are off for the app on the phone | phone Settings, Apps, Notifications; or the card at the top of Profile > Notification settings turns them on |
+| `permission_not_asked` (permission) | the customer has not been asked yet (Android 13+): a push arrives silently | nothing; since 1.0.131 the app asks a few seconds after the customer first reaches Home (a friendly sheet, then the system dialog), or allow it in the phone settings to test; the dashboard shows this state next to the customer's phone |
 | `server_error`, `rejected`, `no_network`, `unauthorized` (register) | the phone had its token but the server did not take it | look at the server log around the time shown |
 | `ok` (registered) | all good | use "Send a test" |
 
@@ -253,8 +253,9 @@ show them in the phone's language. The ids are mirrored in `FcmClient` (`CHANNEL
 
 ## Permission and the first notification (customer app)
 
-- **Android 13+**: a token needs no permission, so the app registers without asking. The explanation sheet ("Follow your order live") is
-  shown after the first order, with the system dialog behind it; if the system dialog is gone for good the sheet opens the settings. It
+- **Android 13+**: a token needs no permission, so the app registers without asking. The explanation sheet is shown a few seconds after a
+  signed-in customer first reaches Home ("Stay updated on your orders and offers") and again after the first order ("Follow your order live"),
+  with the system dialog behind it; if the system dialog is gone for good the sheet opens the settings. It
   waits two weeks between "not now" answers and appears three times at most (see `notificationPromptFor`).
 - **iPhone**: the app asks for **provisional** authorization at sign-in, which shows no dialog and lets order news arrive quietly in the
   notification centre from the first minute. The same explanation sheet after the first order then asks for real alerts (the system dialog
