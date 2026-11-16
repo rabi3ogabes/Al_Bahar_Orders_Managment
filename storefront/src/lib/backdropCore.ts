@@ -1,25 +1,44 @@
-// The page background (Doha skyline, colour, own picture): the tolerant reading of the theme's `backdrop` block.
+// The page background (built-in Qatar artwork, colour, own picture): the tolerant reading of the theme's `backdrop` block.
 // Kept free of React and the DOM so it is unit tested (tests/backdrop.test.mjs). Contract: docs/api/PAGE_BACKDROP.md.
 //
 // Tolerance rule: a payload without the block, or with a value outside the allowed set, means "feature off" and the page
-// looks exactly as it did before. Only a number outside 0.02..0.50 is not an error: it is pulled into range.
+// looks exactly as it did before. Two things are not errors: a number outside 0.02..0.50 is pulled into range, and a missing or
+// unknown `scene` is the Doha skyline (a client that does not know a newer artwork still draws something sensible).
 
 export type BackdropStyle = 'skyline' | 'image' | 'none';
 export type BackdropFit = 'bottom' | 'cover';
+/** The built-in artworks (`style = skyline` means "built-in artwork", `scene` says which one). */
+export type BackdropScene = 'doha' | 'dhow' | 'souq' | 'dunes' | 'museum' | 'arabesque';
 /** The block as the server sends it (`GET /theme`). Every key may be missing on an older server. */
-export interface Backdrop { style: BackdropStyle; image_url: string | null; fit: BackdropFit; opacity: number; color: string | null; tint: string | null }
+export interface Backdrop { style: BackdropStyle; scene: BackdropScene; image_url: string | null; fit: BackdropFit; opacity: number; color: string | null; tint: string | null }
+
+/**
+ * The built-in artworks. `tile` is true for a pattern cell that repeats over the whole page (arabesque); false for a scene that
+ * stands on the bottom edge. `file` is the SVG in src/assets (the doha skyline keeps its first name, qatar-skyline.svg).
+ */
+export const SCENES: Readonly<Record<BackdropScene, { readonly tile: boolean; readonly file: string }>> = Object.freeze({
+  doha: Object.freeze({ tile: false, file: 'qatar-skyline.svg' }),
+  dhow: Object.freeze({ tile: false, file: 'qatar-dhow.svg' }),
+  souq: Object.freeze({ tile: false, file: 'qatar-souq.svg' }),
+  dunes: Object.freeze({ tile: false, file: 'qatar-dunes.svg' }),
+  museum: Object.freeze({ tile: false, file: 'qatar-museum.svg' }),
+  arabesque: Object.freeze({ tile: true, file: 'qatar-arabesque.svg' }),
+});
+export const DEFAULT_SCENE: BackdropScene = 'doha';
 
 /** What the page paints. `active` is false when nothing may change anywhere. */
 export interface ResolvedBackdrop {
   active: boolean
-  /** The picture behind the content: the built-in skyline, the admin's own image, or nothing. */
+  /** The picture behind the content: the built-in artwork, the admin's own image, or nothing. */
   picture: BackdropStyle
+  /** Which built-in artwork (only used when `picture` is 'skyline'). A missing or unknown value is the Doha skyline. */
+  scene: BackdropScene
   imageUrl: string | null
   fit: BackdropFit
   opacity: number
   /** Page colour for LIGHT mode, already checked against the text colour. Null keeps the theme's own. */
   color: string | null
-  /** Colour of the built-in skyline. Null means the theme's primary colour. */
+  /** Colour of the built-in artwork. Null means the theme's primary colour. */
   tint: string | null
 }
 
@@ -29,7 +48,7 @@ export const DEFAULT_OPACITY = 0.08;
 /** Below this contrast against the theme's text colour a page colour is ignored (the dashboard itself asks for 4.5:1). */
 export const MIN_PAGE_CONTRAST = 3;
 
-export const BACKDROP_OFF: ResolvedBackdrop = Object.freeze({ active: false, picture: 'none', imageUrl: null, fit: 'bottom', opacity: DEFAULT_OPACITY, color: null, tint: null });
+export const BACKDROP_OFF: ResolvedBackdrop = Object.freeze({ active: false, picture: 'none', scene: DEFAULT_SCENE, imageUrl: null, fit: 'bottom', opacity: DEFAULT_OPACITY, color: null, tint: null });
 
 /* ───────────── colour maths ───────────── */
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -49,6 +68,12 @@ export function contrastRatio(a: string, b: string): number {
 const present = (v: unknown) => v !== undefined && v !== null;
 const STYLES: readonly string[] = ['skyline', 'image', 'none'];
 const FITS: readonly string[] = ['bottom', 'cover'];
+
+/** True for a known scene key. Own-property check, so keys such as `toString` or `__proto__` are not scenes. */
+export const isScene = (v: unknown): v is BackdropScene => typeof v === 'string' && Object.prototype.hasOwnProperty.call(SCENES, v);
+
+/** The scene to draw: a missing, unknown or wrongly typed value is the Doha skyline (the contract's rule for an older client). */
+export const readScene = (v: unknown): BackdropScene => (isScene(v) ? v : DEFAULT_SCENE);
 
 /** An absolute https address only (the picture is an <img>, never a script or a data URL). Returns it cleaned, or null. */
 export function safeImageUrl(v: unknown): string | null {
@@ -91,6 +116,7 @@ export function resolveBackdrop(theme: { backdrop?: unknown; colors?: { ink?: un
   return {
     active: picture !== 'none' || color !== null,
     picture,
+    scene: readScene(r.scene),
     imageUrl,
     fit: r.fit === 'cover' ? 'cover' : 'bottom',
     opacity,

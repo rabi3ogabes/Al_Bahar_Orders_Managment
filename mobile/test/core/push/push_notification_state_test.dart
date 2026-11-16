@@ -19,7 +19,6 @@ class _Sdk extends NoopPushMessaging {
     if (status == PushPermission.notDetermined) {
       status = provisional ? PushPermission.provisional : PushPermission.granted;
     }
-    status = provisional ? PushPermission.provisional : PushPermission.granted;
     return status == PushPermission.granted || status == PushPermission.provisional;
   }
 

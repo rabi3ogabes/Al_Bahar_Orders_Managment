@@ -1,11 +1,18 @@
 @php
-    $skyline = asset('brand/qatar-skyline.svg');
-    $maskStyle = "-webkit-mask: url('{$skyline}') center / 100% 100% no-repeat; mask: url('{$skyline}') center / 100% 100% no-repeat;";
-    $radioCard = 'group relative block cursor-pointer rounded-2xl border border-sand-200 p-3 transition hover:border-brass-400 has-checked:border-brass-500 has-checked:bg-brass-500/5 has-checked:ring-1 has-checked:ring-brass-500 has-focus-visible:ring-2 has-focus-visible:ring-brass-500 dark:border-ink-700';
+    $radioCard = 'group relative block cursor-pointer rounded-2xl border border-sand-200 p-3 transition hover:border-brass-400 has-checked:border-brass-500 has-checked:bg-brass-500/5 has-checked:ring-1 has-checked:ring-brass-500 has-focus-visible:ring-2 has-focus-visible:ring-brass-500 has-disabled:cursor-default has-disabled:hover:border-sand-200 dark:border-ink-700 dark:has-disabled:hover:border-ink-700';
     $segment = 'flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium text-ink-600 transition peer-checked:bg-white peer-checked:text-ink-900 peer-checked:shadow-sm peer-focus-visible:outline-2 peer-focus-visible:outline-brass-500 dark:text-ink-300 dark:peer-checked:bg-ink-700 dark:peer-checked:text-ivory';
     $track = 'inline-grid grid-cols-2 gap-1 rounded-xl bg-sand-100 p-1 dark:bg-ink-800';
     $swatch = 'size-11 shrink-0 cursor-pointer rounded-xl border border-sand-300 bg-transparent p-1 disabled:cursor-not-allowed dark:border-ink-600';
     $low = $ratio !== null && $ratio < $minRatio;
+    $pageBg = $form['color'] ?: $theme['background'];
+    // One gallery, one pick-one group: the six Qatar artworks, then "My picture" and "None".
+    $options = [];
+    foreach ($models as $key => $m) {
+        $options[] = ['value' => $key, 'kind' => 'scene', 'name' => $m['name'], 'sub' => $m['other'], 'sub_locale' => $m['other_locale'], 'tile' => $m['tile'], 'url' => $m['url'], 'width' => $m['width'], 'height' => $m['height']];
+    }
+    $options[] = ['value' => 'image', 'kind' => 'image', 'name' => __('backdrop_admin.style_image'), 'sub' => __('backdrop_admin.style_image_hint')];
+    $options[] = ['value' => 'none', 'kind' => 'none', 'name' => __('backdrop_admin.style_none'), 'sub' => __('backdrop_admin.style_none_hint')];
+    $tiles = collect($models)->where('tile', true)->keys()->values()->all();
 @endphp
 <div>
     <x-admin.page-header :title="__('backdrop_admin.title')" :eyebrow="__('nav.appearance')" :description="__('backdrop_admin.hint')">
@@ -19,6 +26,8 @@
         One Alpine scope for the form and the preview. The radio choices (picture, fit) are read straight from the Livewire form, which a click updates
         at once; the slider and the two colour pickers keep a local copy while they are dragged (op, color, tint) and send it on release, so the preview
         follows the hand with no round trip. The x-effect copies a server-side change (Back to default, a new picture) back into the local copies.
+        The gallery is one group of eight radios over two form fields: a model sets style = skyline and scene together (one round trip), My picture and
+        None only set the style, so the artwork chosen last is remembered.
     --}}
     <form wire:submit="save" class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-start"
           x-data="{
@@ -28,6 +37,13 @@
               tint: @js($form['tint'] ?? ''),
               bg: @js($theme['background']), surface: @js($theme['surface']), primary: @js($theme['primary']), primaryDark: @js($theme['primary_dark']),
               saved: false,
+              scenes: @js(array_keys($models)), tiles: @js($tiles),
+              get current() { return this.$wire.form.style === 'skyline' ? this.$wire.form.scene : this.$wire.form.style },
+              get isTile() { return this.tiles.includes(this.$wire.form.scene) },
+              choose(value) {
+                  if (this.scenes.includes(value)) { this.$wire.form.style = 'skyline'; this.$wire.$set('form.scene', value) }
+                  else { this.$wire.$set('form.style', value) }
+              },
               get pageColor() { return this.mode === 'dark' ? '#181115' : (this.color || this.bg) },
               get cardColor() { return this.mode === 'dark' ? '#221A1E' : this.surface },
               get skyColor() { return this.tint || (this.mode === 'dark' ? this.primaryDark : this.primary) },
@@ -35,35 +51,50 @@
           x-effect="op = Number($wire.form.opacity); color = $wire.form.color || ''; tint = $wire.form.tint || ''"
           x-on:backdrop-saved.window="saved = true; setTimeout(() => saved = false, 2000)">
         <div class="space-y-6 [&>*]:min-w-0">
-            {{-- 1. Which picture: pick one of three, so radio cards --}}
+            {{-- 1. Which picture: pick one of eight (six Qatar artworks, My picture, None), so radio cards. Native radios: arrow keys move and select. --}}
             <section class="card p-4 sm:p-6" aria-labelledby="bd-style-h">
                 <h2 id="bd-style-h" class="font-display text-lg font-semibold">{{ __('backdrop_admin.picture') }}</h2>
                 <p class="mb-4 text-sm text-ink-500 dark:text-ink-400">{{ __('backdrop_admin.picture_hint') }}</p>
-                <div class="grid gap-3 sm:grid-cols-3" role="radiogroup" aria-labelledby="bd-style-h">
-                    @foreach ($styles as $s)
-                        <label class="{{ $radioCard }}" wire:key="bd-style-{{ $s }}">
-                            <input type="radio" name="bd-style" value="{{ $s }}" class="sr-only" wire:model.live="form.style" @disabled(! $canEdit)>
-                            <div class="relative mb-3 flex h-20 items-center justify-center overflow-hidden rounded-xl bg-sand-50 dark:bg-ink-900" aria-hidden="true">
-                                @if ($s === 'skyline')
-                                    <div class="absolute bottom-0 left-1/2 aspect-[1600/340] w-[150%] -translate-x-1/2 opacity-60" style="background-color: {{ $theme['primary'] }}; {{ $maskStyle }}"></div>
-                                @elseif ($s === 'image')
-                                    @if ($previewImage)
-                                        <div class="absolute inset-0 bg-cover bg-center" style="background-image: url('{{ $previewImage }}')"></div>
+                <div class="@container">
+                    <div class="grid grid-cols-2 gap-3 @min-[26rem]:grid-cols-3 @2xl:grid-cols-4" role="radiogroup" aria-labelledby="bd-style-h">
+                        @foreach ($options as $o)
+                            <label class="{{ $radioCard }}" wire:key="bd-pick-{{ $o['value'] }}">
+                                <input type="radio" name="bd-pick" value="{{ $o['value'] }}" class="sr-only" @checked($picked === $o['value'])
+                                       :checked="current === @js($o['value'])" @change="choose(@js($o['value']))" @disabled(! $canEdit)>
+                                <div class="relative mb-3 flex h-20 items-center justify-center overflow-hidden rounded-xl ring-1 ring-inset ring-sand-200 dark:ring-ink-700" aria-hidden="true"
+                                     style="background: {{ $pageBg }}" :style="{ background: pageColor }">
+                                    @if ($o['kind'] === 'scene' && $o['tile'])
+                                        <div class="absolute inset-0 opacity-60" style="background-color: {{ $theme['primary'] }}; -webkit-mask: url('{{ $o['url'] }}') 0 0 / 40px 40px repeat; mask: url('{{ $o['url'] }}') 0 0 / 40px 40px repeat;"
+                                             :style="{ backgroundColor: skyColor }"></div>
+                                    @elseif ($o['kind'] === 'scene')
+                                        <div class="absolute bottom-0 left-1/2 w-[135%] -translate-x-1/2 opacity-60" style="aspect-ratio: {{ $o['width'] }} / {{ $o['height'] }}; background-color: {{ $theme['primary'] }}; -webkit-mask: url('{{ $o['url'] }}') center / 100% 100% no-repeat; mask: url('{{ $o['url'] }}') center / 100% 100% no-repeat;"
+                                             :style="{ backgroundColor: skyColor }"></div>
+                                    @elseif ($o['kind'] === 'image')
+                                        @if ($previewImage)
+                                            <div class="absolute inset-0 bg-cover bg-center" style="background-image: url('{{ $previewImage }}')"></div>
+                                        @else
+                                            <x-icon name="image" class="size-6 text-ink-400" />
+                                        @endif
                                     @else
-                                        <x-icon name="image" class="size-6 text-ink-400" />
+                                        <x-icon name="ban" class="size-6 text-ink-400" />
                                     @endif
+                                </div>
+                                <p class="flex items-center justify-between gap-2 text-sm font-semibold">
+                                    {{ $o['name'] }}
+                                    <x-icon name="check" class="hidden size-4 shrink-0 text-brass-600 group-has-checked:block" />
+                                </p>
+                                @if ($o['kind'] === 'scene')
+                                    {{-- The name in the other language, so a bilingual team can find an artwork by either. Read once by screen readers (the name above). --}}
+                                    <p class="mt-0.5 text-xs text-ink-500 dark:text-ink-400" aria-hidden="true"><bdi lang="{{ $o['sub_locale'] }}" dir="{{ $o['sub_locale'] === 'ar' ? 'rtl' : 'ltr' }}">{{ $o['sub'] }}</bdi></p>
                                 @else
-                                    <x-icon name="ban" class="size-6 text-ink-400" />
+                                    <p class="mt-0.5 text-xs text-ink-500 dark:text-ink-400">{{ $o['sub'] }}</p>
                                 @endif
-                            </div>
-                            <p class="flex items-center justify-between gap-2 text-sm font-semibold">
-                                {{ __('backdrop_admin.style_'.$s) }}
-                                <x-icon name="check" class="hidden size-4 text-brass-600 group-has-checked:block" />
-                            </p>
-                            <p class="mt-0.5 text-xs text-ink-500 dark:text-ink-400">{{ __('backdrop_admin.style_'.$s.'_hint') }}</p>
-                        </label>
-                    @endforeach
+                            </label>
+                        @endforeach
+                    </div>
                 </div>
+                <p class="field-hint" x-cloak x-show="$wire.form.style === 'skyline' && ! isTile">{{ __('backdrop_admin.layout_bottom') }}</p>
+                <p class="field-hint" x-cloak x-show="$wire.form.style === 'skyline' && isTile">{{ __('backdrop_admin.layout_tile') }}</p>
                 @error('form.style')<p class="field-error" role="alert">{{ $message }}</p>@enderror
             </section>
 
@@ -141,8 +172,9 @@
                         @error('form.color')<p class="field-error" role="alert">{{ $message }}</p>@enderror
                     </div>
 
+                    {{-- All six built-in artworks use it; My picture keeps its own colours and None draws nothing. --}}
                     <div x-cloak x-show="$wire.form.style === 'skyline'">
-                        <span class="field-label" id="bd-tint-l">{{ __('backdrop_admin.skyline_colour') }}</span>
+                        <span class="field-label" id="bd-tint-l">{{ __('backdrop_admin.artwork_colour') }}</span>
                         <div class="flex flex-wrap items-center gap-3">
                             <input type="color" aria-labelledby="bd-tint-l" class="{{ $swatch }}" :value="tint || primary" value="{{ $form['tint'] ?: $theme['primary'] }}"
                                    @input="tint = $event.target.value" @change="$wire.$set('form.tint', tint || null)" @disabled(! $canEdit)>
@@ -151,7 +183,7 @@
                                 <button type="button" class="btn-ghost btn-sm min-h-11" x-cloak x-show="tint" @click="tint = ''; $wire.$set('form.tint', null)">{{ __('backdrop_admin.use_theme_colour') }}</button>
                             @endif
                         </div>
-                        <p class="field-hint">{{ __('backdrop_admin.skyline_colour_hint') }}</p>
+                        <p class="field-hint">{{ __('backdrop_admin.artwork_colour_hint') }}</p>
                         @error('form.tint')<p class="field-error" role="alert">{{ $message }}</p>@enderror
                     </div>
                 </div>
@@ -194,7 +226,7 @@
                          style="background: {{ $form['color'] ?: $theme['background'] }}" :style="{ background: pageColor }">
                         <div class="px-3 pb-5 pt-3 text-start" style="background: {{ $theme['primary'] }}"><p class="text-[10px] font-bold text-white">Al Bahar</p></div>
                         <div class="relative min-h-0 flex-1">
-                            <x-admin.backdrop-layers :image="$previewImage" sky="w-[195%]" />
+                            <x-admin.backdrop-layers :image="$previewImage" sky="w-[195%]" tile="59px" />
                             <div class="relative -mt-3 space-y-2 px-2">
                                 <div class="h-12 rounded-xl shadow-sm" style="background: {{ $theme['surface'] }}" :style="{ background: cardColor }"></div>
                                 <div class="grid grid-cols-2 gap-2">
@@ -221,7 +253,7 @@
                             <span class="ms-2 h-2 flex-1 rounded-full bg-white dark:bg-ink-700"></span>
                         </div>
                         <div class="relative h-[10.5rem]">
-                            <x-admin.backdrop-layers :image="$previewImage" sky="w-full" />
+                            <x-admin.backdrop-layers :image="$previewImage" sky="w-full" tile="35px" />
                             <div class="relative flex h-6 items-center px-3 text-start" style="background: {{ $theme['primary'] }}"><p class="text-[8px] font-bold text-white">Al Bahar</p></div>
                             <div class="relative grid grid-cols-3 gap-2 p-3">
                                 @foreach ([0, 1, 2] as $card)<div class="h-14 rounded-lg shadow-sm" style="background: {{ $theme['surface'] }}" :style="{ background: cardColor }"></div>@endforeach

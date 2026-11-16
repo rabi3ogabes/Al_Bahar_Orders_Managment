@@ -160,8 +160,9 @@ img { max-width: 100%; display: block; }
 }
 
 /* Page background (docs/api/PAGE_BACKDROP.md): one fixed layer behind the page, inside the Layout's `isolate` wrapper (components/PageBackdrop.tsx).
-   The skyline is a mask painted with one colour: as wide as the viewport but never under 760px (a phone shows the middle, cropped at both sides),
-   standing on the bottom edge. Not interactive, not animated, not printed. */
+   The artwork is a mask painted with one colour. A scene (doha, dhow, souq, dunes, museum) is as wide as the viewport but never under 760px
+   (a phone shows the middle, cropped at both sides), standing on the bottom edge. A tile (arabesque) is one 200x200 cell drawn at 168px and
+   repeated over the whole page from the top-left, each cell clipped to its box. Not interactive, not animated, not printed. */
 .page-backdrop { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
 .page-sky {
   position: absolute; inset: 0;
@@ -170,6 +171,11 @@ img { max-width: 100%; display: block; }
   -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
   -webkit-mask-position: 50% 100%; mask-position: 50% 100%;
   -webkit-mask-size: max(100%, 760px) auto; mask-size: max(100%, 760px) auto;
+}
+.page-sky-tile {
+  -webkit-mask-repeat: repeat; mask-repeat: repeat;
+  -webkit-mask-position: 0 0; mask-position: 0 0;
+  -webkit-mask-size: 168px 168px; mask-size: 168px 168px;
 }
 .page-img-bottom { position: absolute; inset-inline: 0; bottom: 0; width: 100%; height: auto; max-width: none; }
 .page-img-cover { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: cover; }

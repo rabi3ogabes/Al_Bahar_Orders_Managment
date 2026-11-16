@@ -5,6 +5,7 @@ namespace App\Livewire\Admin\Content;
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Cms\Services\BackdropService;
 use App\Domain\Cms\Services\ThemeService;
+use App\Domain\Cms\Support\BackdropScenes;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use App\Support\Contrast;
 use Illuminate\Support\Arr;
@@ -14,15 +15,18 @@ use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
 
 /**
- * Appearance > Page background: the calm picture behind every page of the web store and the customer app (the Doha
- * skyline, the admin's own picture or nothing), its strength and the page colour. Deferred save: nothing reaches the store
- * until Save. The picture path never travels through the browser, only the five look fields do.
+ * Appearance > Page background: the calm picture behind every page of the web store and the customer app (one of the six
+ * built-in Qatar artworks, the admin's own picture or nothing), its strength and the page colour. Deferred save: nothing
+ * reaches the store until Save. The picture path never travels through the browser, only the six look fields do.
+ *
+ * The gallery is one pick-one group of eight: the six artworks (form.style = skyline plus form.scene) then My picture
+ * (form.style = image) and None (form.style = none). The page sets style and scene together, in one round trip.
  */
 class BackdropIndex extends Component
 {
     use InteractsWithAdmin, WithFileUploads;
 
-    /** What the form edits: style, fit, opacity (whole percent), color and tint (hex or null). @var array<string, mixed> */
+    /** What the form edits: style, scene, fit, opacity (whole percent), color and tint (hex or null). @var array<string, mixed> */
     public array $form = [];
 
     /** The last saved values of those fields, to know when there is something to save. @var array<string, mixed> */
@@ -167,6 +171,15 @@ class BackdropIndex extends Component
         $ratio = Contrast::isHex($color) ? Contrast::ratio($color, $backdrop->ink()) : null;
         $needsPicture = ($this->form['style'] ?? null) === 'image' && $stored === null && $this->upload === null;
 
+        // The gallery: each artwork with its name in the language of the dashboard and in the other one, then the two other choices.
+        $other = app()->getLocale() === 'ar' ? 'en' : 'ar';
+        $models = [];
+        foreach (BackdropScenes::all() as $key => $scene) {
+            $models[$key] = $scene + ['name' => BackdropScenes::name($key), 'other' => BackdropScenes::name($key, $other), 'other_locale' => $other];
+        }
+        $style = $this->form['style'] ?? null;
+        $picked = $style === 'skyline' ? BackdropScenes::normalize($this->form['scene'] ?? null) : (is_string($style) ? $style : '');
+
         return view('livewire.admin.content.backdrop', [
             'dirty' => $this->isDirty($backdrop),
             'blocked' => $needsPicture || ($ratio !== null && $ratio < Contrast::AA),
@@ -177,7 +190,7 @@ class BackdropIndex extends Component
             'previewImage' => $pending ?? $stored,
             'theme' => $theme,
             'canEdit' => $this->can('cms.edit'),
-            'styles' => BackdropService::STYLES, 'fits' => BackdropService::FITS,
+            'models' => $models, 'picked' => $picked, 'fits' => BackdropService::FITS,
             'min' => BackdropService::OPACITY_MIN, 'max' => BackdropService::OPACITY_MAX,
         ])->title(__('backdrop_admin.title'));
     }

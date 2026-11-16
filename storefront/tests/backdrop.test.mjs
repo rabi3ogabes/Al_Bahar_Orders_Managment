@@ -1,15 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { BACKDROP_OFF, DEFAULT_OPACITY, contrastRatio, cssUrl, isHex, resolveBackdrop, safeImageUrl } from '../src/lib/backdropCore.ts';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { BACKDROP_OFF, DEFAULT_OPACITY, DEFAULT_SCENE, SCENES, contrastRatio, cssUrl, isHex, isScene, readScene, resolveBackdrop, safeImageUrl } from '../src/lib/backdropCore.ts';
 
 // The page background (docs/api/PAGE_BACKDROP.md): how the theme's `backdrop` block is read. Anything unexpected is "feature off".
 
 const INK = '#2a1a20';
 const theme = (backdrop, ink = INK) => ({ colors: { ink }, backdrop });
-const block = (over = {}) => ({ style: 'skyline', image_url: null, fit: 'bottom', opacity: 0.08, color: null, tint: null, ...over });
+const block = (over = {}) => ({ style: 'skyline', scene: 'doha', image_url: null, fit: 'bottom', opacity: 0.08, color: null, tint: null, ...over });
 
 test('the server defaults draw the skyline at 8 percent in the theme colours', () => {
-  assert.deepEqual(resolveBackdrop(theme(block())), { active: true, picture: 'skyline', imageUrl: null, fit: 'bottom', opacity: 0.08, color: null, tint: null });
+  assert.deepEqual(resolveBackdrop(theme(block())), { active: true, picture: 'skyline', scene: 'doha', imageUrl: null, fit: 'bottom', opacity: 0.08, color: null, tint: null });
 });
 
 test('no block (older server) or a block that is not an object means feature off', () => {
@@ -138,6 +139,84 @@ test('cssUrl keeps an address inside its quotes', () => {
 });
 
 test('the sample from the contract resolves as documented', () => {
-  const payload = { colors: { ink: INK }, backdrop: { style: 'skyline', image_url: null, fit: 'bottom', opacity: 0.08, color: '#F7F2EE', tint: '#8A1538', future_key: true } };
-  assert.deepEqual(resolveBackdrop(payload), { active: true, picture: 'skyline', imageUrl: null, fit: 'bottom', opacity: 0.08, color: '#f7f2ee', tint: '#8a1538' });
+  const payload = { colors: { ink: INK }, backdrop: { style: 'skyline', scene: 'doha', image_url: null, fit: 'bottom', opacity: 0.08, color: '#F7F2EE', tint: '#8A1538', future_key: true } };
+  assert.deepEqual(resolveBackdrop(payload), { active: true, picture: 'skyline', scene: 'doha', imageUrl: null, fit: 'bottom', opacity: 0.08, color: '#f7f2ee', tint: '#8a1538' });
+});
+
+/* ───────────── built-in artworks (`scene`) ───────────── */
+const ALL = ['doha', 'dhow', 'souq', 'dunes', 'museum', 'arabesque'];
+
+test('every contract scene is known, nothing else is', () => {
+  assert.deepEqual(Object.keys(SCENES).sort(), [...ALL].sort());
+  assert.equal(DEFAULT_SCENE, 'doha');
+  for (const k of ALL) assert.equal(isScene(k), true, k);
+  for (const bad of ['', 'Doha', 'DHOW', 'skyline', 'cityscape', ' doha', 'doha ', 'toString', '__proto__', 'constructor', 'hasOwnProperty', 7, true, null, undefined, {}, ['doha']]) assert.equal(isScene(bad), false, String(bad));
+});
+
+test('scene: each valid key is read as is', () => {
+  for (const scene of ALL) {
+    const r = resolveBackdrop(theme(block({ scene })));
+    assert.equal(r.scene, scene);
+    assert.equal(r.picture, 'skyline');
+    assert.equal(r.active, true);
+  }
+});
+
+test('scene: missing, null, unknown or wrongly typed means the Doha skyline, and the rest of the block is read as before', () => {
+  for (const scene of [undefined, null, '', 'Dhow', 'ARABESQUE', 'pyramids', 'skyline', 'toString', '__proto__', 7, 0, true, false, {}, [], ['dhow']]) {
+    const r = resolveBackdrop(theme(block({ scene, opacity: 0.2, tint: '#8A1538' })));
+    assert.equal(r.scene, 'doha', String(scene));
+    assert.equal(r.picture, 'skyline', String(scene));
+    assert.equal(r.active, true, String(scene));
+    assert.equal(r.opacity, 0.2);
+    assert.equal(r.tint, '#8a1538');
+  }
+  assert.equal(readScene(undefined), 'doha');
+  assert.equal(readScene('souq'), 'souq');
+  assert.equal(readScene(['souq']), 'doha');
+});
+
+test('scene: an old payload without the key behaves exactly as before (skyline, same fields)', () => {
+  const old = { style: 'skyline', image_url: null, fit: 'bottom', opacity: 0.08, color: '#F7F2EE', tint: '#8A1538' };
+  const r = resolveBackdrop(theme(old));
+  assert.deepEqual(r, { active: true, picture: 'skyline', scene: 'doha', imageUrl: null, fit: 'bottom', opacity: 0.08, color: '#f7f2ee', tint: '#8a1538' });
+  assert.equal(SCENES[r.scene].tile, false);
+  assert.equal(resolveBackdrop(theme({ style: 'skyline' })).scene, 'doha');
+});
+
+test('scene never turns the feature off or on by itself: style and page colour decide', () => {
+  assert.equal(resolveBackdrop(theme(block({ style: 'none', scene: 'dhow' }))).active, false);
+  assert.equal(resolveBackdrop(theme(block({ style: 'none', scene: 'dhow', color: '#fcf9fa' }))).active, true);
+  assert.equal(resolveBackdrop(theme(block({ style: 'image', scene: 'dunes', image_url: 'https://cdn.example.com/a.webp' }))).picture, 'image');
+  // A style outside the allowed set is still feature off, whatever the scene says.
+  assert.equal(resolveBackdrop(theme(block({ style: 'svg', scene: 'dhow' }))), BACKDROP_OFF);
+  assert.equal(BACKDROP_OFF.scene, 'doha');
+});
+
+test('tile flag: only the arabesque repeats, every other scene stands on the bottom edge', () => {
+  for (const k of ALL) assert.equal(SCENES[k].tile, k === 'arabesque', k);
+  assert.equal(resolveBackdrop(theme(block({ scene: 'arabesque' }))).scene, 'arabesque');
+  assert.equal(SCENES[resolveBackdrop(theme(block({ scene: 'arabesque' }))).scene].tile, true);
+  assert.equal(SCENES[resolveBackdrop(theme(block({ scene: 'unknown' }))).scene].tile, false);
+});
+
+test('registry is read-only', () => {
+  assert.equal(Object.isFrozen(SCENES), true);
+  for (const k of ALL) assert.equal(Object.isFrozen(SCENES[k]), true, k);
+});
+
+test('every scene has its artwork file in src/assets, and every artwork file has a scene', () => {
+  const dir = new URL('../src/assets/', import.meta.url);
+  for (const k of ALL) {
+    const f = SCENES[k].file;
+    assert.match(f, /^qatar-[a-z]+\.svg$/, k);
+    assert.equal(existsSync(new URL(f, dir)), true, `${k} -> ${f}`);
+    const svg = readFileSync(new URL(f, dir), 'utf8');
+    assert.match(svg, /^<svg\b/, `${f} is an svg`);
+    // The mask needs a viewBox to scale: a scene is the 1600x340 drawing, the tile is one 200x200 cell.
+    assert.match(svg, SCENES[k].tile ? /viewBox="0 0 200 200"/ : /viewBox="0 0 1600 340"/, `${f} viewBox`);
+  }
+  assert.equal(new Set(ALL.map((k) => SCENES[k].file)).size, ALL.length, 'one file per scene');
+  const onDisk = readdirSync(new URL('./', dir)).filter((f) => /^qatar-.*\.svg$/.test(f)).sort();
+  assert.deepEqual(onDisk, ALL.map((k) => SCENES[k].file).sort());
 });

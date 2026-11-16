@@ -89,6 +89,14 @@ Open **Dashboard, Organization, Push notifications**. Three sections tell you wh
    registered phone it says so and points to the section above. The same from the server: `php artisan push:test [user] [--card]`
    (user = id, phone number or e-mail; without it, the phone that registered last).
 
+**"Sent" is not "seen" (Android 13+).** Google can accept a push (`pushed 1 of 1 phones`) and the phone still shows nothing: from Android 13 the
+person must allow notifications first, and a phone that was never asked (or said no) keeps every push hidden. The inbox message still
+arrives. The phone tells the server which it is (`user_devices.notification_permission`: `granted`, `denied`, `not_asked`; an older app sends
+nothing and counts as "not reported"), and the dashboard now shows it: the **Phones** line and a warning in the customer's message window,
+*Reached N phones, notifications off on M* on a sent message, and a count in a bulk send (see
+[CUSTOMER_MESSAGES.md](CUSTOMER_MESSAGES.md)). The fix is on the phone: ask the customer to allow notifications in the app
+(**Settings → Notifications**) or in the phone's own settings for the app.
+
 What each report code means and the exact fix (the dashboard shows the same, in English and Arabic):
 
 | Code (step) | Meaning | What to do in Firebase / Google Cloud |

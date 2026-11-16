@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:albahar_customer/core/theme/page_backdrop_config.dart';
+import 'package:albahar_customer/core/theme/qatar_art_paths.dart';
 import 'package:albahar_customer/core/theme/qatar_skyline_paths.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -15,44 +16,135 @@ typedef BackdropImageBuilder = ImageProvider Function(String url);
 /// The cached network image the rest of the app uses for remote pictures.
 ImageProvider defaultBackdropImage(String url) => CachedNetworkImageProvider(url);
 
-/// The built-in Doha skyline, filled in one colour. It stands on the bottom edge, as wide as the canvas but never narrower
-/// than [minWidth] (on a phone the middle of the skyline shows and both ends are cropped), and keeps the 1600:340 shape
-/// of the drawing. Static: it only repaints when the colour or the opacity change.
-class SkylinePainter extends CustomPainter {
-  const SkylinePainter({required this.tint, required this.opacity});
+/// One built-in artwork, ready to paint: the outline (closed polygons, fill them non-zero) in a [width] x [height] drawing
+/// box. A [tile] artwork is one cell of a repeating pattern; the others are scenes that stand on the bottom edge.
+///
+/// The outlines are built once for the whole app, on first use, and then shared by every painter.
+@immutable
+class BackdropArt {
+  const BackdropArt._({
+    required this.key,
+    required this.width,
+    required this.height,
+    required this.tile,
+    required this.path,
+  });
 
-  /// The skyline never gets narrower than this many logical pixels.
+  static final Map<String, BackdropArt> _built = {};
+
+  /// The artwork for a `scene` key; the Doha skyline for a key that is not one of [PageBackdropConfig.scenes].
+  static BackdropArt of(String scene) {
+    final key = kQatarArt.containsKey(scene) ? scene : PageBackdropConfig.defaultScene;
+    return _built.putIfAbsent(key, () => _build(key));
+  }
+
+  static BackdropArt _build(String key) {
+    final data = kQatarArt[key];
+    if (data == null) {
+      return BackdropArt._(
+        key: PageBackdropConfig.defaultScene,
+        width: kSkylineWidth,
+        height: kSkylineHeight,
+        tile: false,
+        path: buildQatarSkylinePath(),
+      );
+    }
+    return BackdropArt._(key: key, width: data.width, height: data.height, tile: data.tile, path: data.toPath());
+  }
+
+  final String key;
+  final double width;
+  final double height;
+  final bool tile;
+
+  /// Shared and never changed: draw it, do not edit it.
+  final Path path;
+}
+
+/// The built-in artwork of the page background, filled in one colour at one opacity.
+///
+/// A scene stands on the bottom edge, as wide as the canvas but never narrower than [minWidth] (on a phone the middle of
+/// the drawing shows and both ends are cropped), keeps the shape of its drawing (1600:340), and is centred.
+///
+/// A tile scene (`arabesque`) is one cell repeated over the whole canvas: [tileSize] logical pixels square, from the
+/// top-left corner, each cell clipped to its own box so that neighbours join. A cell is the cached outline drawn once per
+/// tile: for the 40 to 220 tiles of a tablet that is a few hundred small polygons, drawn only when the picture repaints,
+/// which is when the colour, the opacity, the scene or the size changes (the layer is a repaint boundary, so scrolling or
+/// animating pages above it never repaints it). Recording a picture of one cell instead would only move the same
+/// tessellation work, and would need a cache keyed by colour and opacity that someone has to dispose.
+///
+/// It paints nothing but the artwork and allocates nothing but one [Paint] per repaint.
+class SkylinePainter extends CustomPainter {
+  const SkylinePainter({required this.tint, required this.opacity, this.scene = PageBackdropConfig.defaultScene});
+
+  /// A scene never gets narrower than this many logical pixels.
   static const double minWidth = 760;
 
-  /// The outline, built once for the whole app.
-  static final Path _outline = buildQatarSkylinePath();
+  /// The side of one cell of a tile scene, in logical pixels (the web mask is 168px as well).
+  static const double tileSize = 168;
 
   final Color tint;
   final double opacity;
 
-  /// Where the drawing lands on a canvas of [size]: the box (in canvas coordinates) the 1600 x 340 drawing is scaled into.
-  static Rect boxFor(Size size) {
+  /// A key of [PageBackdropConfig.scenes]; the Doha skyline for any other.
+  final String scene;
+
+  /// Where the drawing lands on a canvas of [size]: the box (in canvas coordinates) the scene's drawing is scaled into.
+  /// A tile scene has no such box: it covers the whole canvas.
+  static Rect boxFor(Size size, {String scene = PageBackdropConfig.defaultScene}) {
+    final art = BackdropArt.of(scene);
+    if (art.tile) return Offset.zero & size;
     final width = math.max(size.width, minWidth);
-    final scale = width / kSkylineWidth;
-    final height = kSkylineHeight * scale;
+    final scale = width / art.width;
+    final height = art.height * scale;
     return Rect.fromLTWH((size.width - width) / 2, size.height - height, width, height);
   }
+
+  /// How many cells (columns, rows) it takes to cover a canvas of [size]; the last column and row are cut by the canvas.
+  static (int, int) tilesFor(Size size) => ((size.width / tileSize).ceil(), (size.height / tileSize).ceil());
 
   @override
   void paint(Canvas canvas, Size size) {
     if (size.isEmpty) return;
-    final box = boxFor(size);
+    final art = BackdropArt.of(scene);
+    final paint = Paint()..color = tint.withValues(alpha: opacity);
     canvas
       ..save()
-      ..clipRect(Offset.zero & size)
-      ..translate(box.left, box.top)
-      ..scale(box.width / kSkylineWidth)
-      ..drawPath(_outline, Paint()..color = tint.withValues(alpha: opacity))
-      ..restore();
+      ..clipRect(Offset.zero & size);
+    if (art.tile) {
+      _paintTiles(canvas, size, art, paint);
+    } else {
+      final box = boxFor(size, scene: scene);
+      canvas
+        ..translate(box.left, box.top)
+        ..scale(box.width / art.width)
+        ..drawPath(art.path, paint);
+    }
+    canvas.restore();
+  }
+
+  static void _paintTiles(Canvas canvas, Size size, BackdropArt art, Paint paint) {
+    final (columns, rows) = tilesFor(size);
+    const cell = Rect.fromLTWH(0, 0, tileSize, tileSize);
+    final scaleX = tileSize / art.width;
+    final scaleY = tileSize / art.height;
+    for (var row = 0; row < rows; row++) {
+      for (var column = 0; column < columns; column++) {
+        // Move first, clip the whole-pixel cell, and only then scale: every cell lands on the same pixels, and with no
+        // anti-aliasing on the clip two neighbours share their edge pixels exactly (no seam, no double-painted line).
+        canvas
+          ..save()
+          ..translate(column * tileSize, row * tileSize)
+          ..clipRect(cell, doAntiAlias: false)
+          ..scale(scaleX, scaleY)
+          ..drawPath(art.path, paint)
+          ..restore();
+      }
+    }
   }
 
   @override
-  bool shouldRepaint(SkylinePainter old) => old.tint != tint || old.opacity != opacity;
+  bool shouldRepaint(SkylinePainter old) => old.tint != tint || old.opacity != opacity || old.scene != scene;
 }
 
 /// The picture only (no page colour): the skyline, or the uploaded image at its opacity. It ignores pointers, is hidden
@@ -69,7 +161,11 @@ class PageBackdropLayer extends StatelessWidget {
     final Widget picture;
     if (config.style == BackdropStyle.skyline) {
       picture = CustomPaint(
-        painter: SkylinePainter(tint: config.tint ?? Theme.of(context).colorScheme.primary, opacity: config.opacity),
+        painter: SkylinePainter(
+          tint: config.tint ?? Theme.of(context).colorScheme.primary,
+          opacity: config.opacity,
+          scene: config.scene,
+        ),
         child: const SizedBox.expand(),
       );
     } else if (config.style == BackdropStyle.image && url != null) {

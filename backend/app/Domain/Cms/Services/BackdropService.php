@@ -2,6 +2,7 @@
 
 namespace App\Domain\Cms\Services;
 
+use App\Domain\Cms\Support\BackdropScenes;
 use App\Domain\Settings\Services\Settings;
 use App\Support\Contrast;
 use Illuminate\Http\UploadedFile;
@@ -14,13 +15,18 @@ use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
- * The calm picture behind every page of the web store and the customer app (docs/api/PAGE_BACKDROP.md): the built-in Doha
- * skyline, the admin's own picture, or nothing, plus its strength and the page colour. Set from the dashboard (Appearance >
- * Page background), stored as one plain array in the settings table (app.backdrop) and published inside the public theme
- * payload. Everything is checked against fixed allow-lists; unknown fields are dropped.
+ * The calm picture behind every page of the web store and the customer app (docs/api/PAGE_BACKDROP.md): one of the six built-in
+ * Qatar artworks (BackdropScenes), the admin's own picture, or nothing, plus its strength and the page colour. Set from the
+ * dashboard (Appearance > Page background), stored as one plain array in the settings table (app.backdrop) and published inside
+ * the public theme payload. Everything is checked against fixed allow-lists; unknown fields are dropped.
  *
- * Stored: style, image (a path on the media disk under backdrop/), fit, opacity (whole percent 2..50), color and tint
- * ("#RRGGBB" upper-case or null). Published: the same block with opacity as 0.02..0.50 and the picture as an absolute URL.
+ * Stored: style, scene (which built-in artwork; anything unknown, or a setting saved before scenes existed, is `doha`), image (a
+ * path on the media disk under backdrop/), fit, opacity (whole percent 2..50), color and tint ("#RRGGBB" upper-case or null).
+ * Published: the same block with opacity as 0.02..0.50 and the picture as an absolute URL. `style` stays `skyline` for every
+ * built-in artwork, so an older client that only knows the Doha skyline still draws something sensible.
+ *
+ * @phpstan-type Stored array{style: string, scene: string, image: string|null, fit: string, opacity: int, color: string|null, tint: string|null}
+ * @phpstan-type Published array{style: string, scene: string, image_url: string|null, fit: string, opacity: float, color: string|null, tint: string|null}
  */
 class BackdropService
 {
@@ -34,7 +40,7 @@ class BackdropService
     public const FITS = ['bottom', 'cover'];
 
     /** What the dashboard form edits. The picture path is never one of them: it comes from the server, never from the browser. */
-    public const FIELDS = ['style', 'fit', 'opacity', 'color', 'tint'];
+    public const FIELDS = ['style', 'scene', 'fit', 'opacity', 'color', 'tint'];
 
     public const OPACITY_MIN = 2;
 
@@ -51,16 +57,16 @@ class BackdropService
 
     public function __construct(private readonly Settings $settings, private readonly ThemeService $themes) {}
 
-    /** @return array{style: string, image: string|null, fit: string, opacity: int, color: string|null, tint: string|null} */
+    /** @return Stored */
     public function defaults(): array
     {
-        return ['style' => 'skyline', 'image' => null, 'fit' => 'bottom', 'opacity' => self::OPACITY_DEFAULT, 'color' => null, 'tint' => null];
+        return ['style' => 'skyline', 'scene' => BackdropScenes::DEFAULT, 'image' => null, 'fit' => 'bottom', 'opacity' => self::OPACITY_DEFAULT, 'color' => null, 'tint' => null];
     }
 
     /**
      * What is stored: the saved background, or the default when nothing valid is saved. Plain values only.
      *
-     * @return array{style: string, image: string|null, fit: string, opacity: int, color: string|null, tint: string|null}
+     * @return Stored
      */
     public function config(): array
     {
@@ -79,7 +85,7 @@ class BackdropService
      * The public block inside /api/v1/theme. A picture that is gone from the disk falls back to the skyline, so the page never
      * shows an empty frame.
      *
-     * @return array{style: string, image_url: string|null, fit: string, opacity: float, color: string|null, tint: string|null}
+     * @return Published
      */
     public function payload(): array
     {
@@ -95,6 +101,7 @@ class BackdropService
 
         return [
             'style' => $style,
+            'scene' => $c['scene'],
             'image_url' => $url,
             'fit' => $c['fit'],
             'opacity' => round(max(self::OPACITY_MIN, min(self::OPACITY_MAX, $c['opacity'])) / 100, 2),
@@ -116,10 +123,11 @@ class BackdropService
 
     /**
      * Strict check of a background: allow-lists, strength 2 to 50, colours "#RRGGBB", and the page colour must keep the
-     * theme's text readable (WCAG AA). Returns the cleaned array (unknown fields dropped) or throws a ValidationException.
+     * theme's text readable (WCAG AA). An unknown `scene` becomes `doha`. Returns the cleaned array (unknown fields dropped) or
+     * throws a ValidationException.
      *
      * @param  array<string, mixed>  $input
-     * @return array{style: string, image: string|null, fit: string, opacity: int, color: string|null, tint: string|null}
+     * @return Stored
      */
     public function validate(array $input): array
     {
@@ -134,7 +142,7 @@ class BackdropService
      * picture path is never taken from $input: it stays the stored one, or becomes the file in $upload.
      *
      * @param  array<string, mixed>  $input
-     * @return array{style: string, image: string|null, fit: string, opacity: int, color: string|null, tint: string|null}
+     * @return Stored
      */
     public function save(array $input, ?UploadedFile $upload = null): array
     {
@@ -163,10 +171,10 @@ class BackdropService
     }
 
     /**
-     * Puts the original look back: skyline, original strength, theme colours. An uploaded picture stays available under "My
-     * picture" (nothing is deleted).
+     * Puts the original look back: the Doha skyline, original strength, theme colours. An uploaded picture stays available under
+     * "My picture" (nothing is deleted).
      *
-     * @return array{style: string, image: string|null, fit: string, opacity: int, color: string|null, tint: string|null}
+     * @return Stored
      */
     public function reset(): array
     {
@@ -198,9 +206,10 @@ class BackdropService
     }
 
     /**
-     * Deletes the stored picture for good. If it was the live background, the background becomes the skyline.
+     * Deletes the stored picture for good. If it was the live background, the background becomes the built-in artwork that was
+     * chosen last (the scene is never touched by an upload).
      *
-     * @return array{style: string, image: string|null, fit: string, opacity: int, color: string|null, tint: string|null}
+     * @return Stored
      */
     public function removeImage(): array
     {
@@ -235,11 +244,12 @@ class BackdropService
      * Shape check only (no contrast): what is allowed to be stored and read back.
      *
      * @param  array<string, mixed>  $input
-     * @return array{style: string, image: string|null, fit: string, opacity: int, color: string|null, tint: string|null}
+     * @return Stored
      */
     private function clean(array $input): array
     {
-        $data = Validator::make(Arr::only($input, [...self::FIELDS, 'image']) + $this->defaults(), [
+        $merged = Arr::only($input, [...self::FIELDS, 'image']) + $this->defaults();
+        $data = Validator::make($merged, [
             'style' => ['required', Rule::in(self::STYLES)],
             'fit' => ['required', Rule::in(self::FITS)],
             'opacity' => ['required', 'integer', 'between:'.self::OPACITY_MIN.','.self::OPACITY_MAX],
@@ -252,6 +262,9 @@ class BackdropService
 
         return [
             'style' => $data['style'],
+            // Not an error when it is unknown: the artwork is one of six fixed keys, so anything else (a tampered value, a key
+            // from a newer or older server) simply becomes the Doha skyline.
+            'scene' => BackdropScenes::normalize($merged['scene']),
             'image' => ! empty($data['image']) ? $data['image'] : null,
             'fit' => $data['fit'],
             'opacity' => (int) $data['opacity'],
