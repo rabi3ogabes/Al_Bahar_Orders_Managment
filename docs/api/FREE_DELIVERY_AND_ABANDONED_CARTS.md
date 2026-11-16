@@ -27,8 +27,8 @@ An abandoned order is a customer cart (`carts.status = 'active'`, at least one l
   "Add item" search-and-add, coupon box (apply / remove, plain error text), delivery fee and totals from the **real quote engine**
   (same numbers the customer sees), warnings (out of stock, price changed, zone minimum), and these actions:
   Send reminder (consent aware, uses the existing abandoned-cart message), Place order for customer (copies the cart into the staff
-  order panel at the checkout step; the customer's cart is converted when the order is placed), Discard cart (confirm; sets
-  `status = 'abandoned'` so reminders stop).
+  order panel at the checkout step; the customer's cart is converted when the order is placed), Discard cart (sets
+  `status = 'abandoned'` so reminders stop; reversible, so an Undo toast instead of a confirm).
 * Edits go through the same `CartService` rules as the customer app (stock, per-line limits, variants). A staff edit does **not**
   reset the customer's idle clock or the reminder counters. Every change is audited (`cart.staff_edited`, with before and after).
 * The customer sees the changed cart the next time the app or the store loads the cart.
