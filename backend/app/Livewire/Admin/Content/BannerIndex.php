@@ -74,7 +74,6 @@ class BannerIndex extends Component
         $unassigned = $elsewhere->reject(fn (Banner $b) => in_array($b->placement, self::PLACEMENTS, true))->values();
 
         $sliderNumber = 0;
-        /** @var Collection<int, object> $blocks */
         $blocks = $sections->map(function (HomepageSection $s, int $i) use (&$sliderNumber, $inSliders, $sections) {
             $n = $s->isSlider() ? ++$sliderNumber : 0;
             $slides = $s->isSlider() ? ($inSliders[$s->id] ?? collect()) : collect();
@@ -99,7 +98,7 @@ class BannerIndex extends Component
      * Everything the slide window needs, loaded only while it is open: the slide being edited, its slider's look, the friendly summary of
      * the chosen link and the choices of the link picker for the chosen kind of link.
      *
-     * @param  Collection<int, object>  $blocks
+     * @param  Collection<int, covariant object>  $blocks
      * @return array<string, mixed>
      */
     private function editorData(BannerLinks $links, CategoryService $categories, Collection $blocks): array
@@ -178,7 +177,7 @@ class BannerIndex extends Component
      * What the slider preview plays: exactly the slides customers get right now (published and inside their window), in order, with the
      * slider's own settings.
      *
-     * @param  Collection<int, object>  $blocks
+     * @param  Collection<int, covariant object>  $blocks
      * @return array<string, mixed>|null
      */
     private function previewData(Collection $blocks, BannerLinks $links): ?array
