@@ -74,9 +74,15 @@ class PageBackdropLayer extends StatelessWidget {
       );
     } else if (config.style == BackdropStyle.image && url != null) {
       final bottom = config.fit == BackdropFit.bottom;
+      // An upload can be megabytes of pixels and this is a quiet backdrop: decode it no wider than the screen needs.
+      final screen = MediaQuery.maybeSizeOf(context);
+      final ratio = MediaQuery.maybeDevicePixelRatioOf(context) ?? 1;
+      final decodeWidth = screen == null
+          ? 0
+          : ((bottom ? screen.width : math.max(screen.width, screen.height)) * ratio).round();
       picture = SizedBox.expand(
         child: Image(
-          image: imageBuilder(url),
+          image: ResizeImage.resizeIfNeeded(decodeWidth > 0 ? decodeWidth : null, null, imageBuilder(url)),
           // fitWidth keeps the full width at the natural height and, for a very tall picture, crops the top.
           fit: bottom ? BoxFit.fitWidth : BoxFit.cover,
           alignment: bottom ? Alignment.bottomCenter : Alignment.center,

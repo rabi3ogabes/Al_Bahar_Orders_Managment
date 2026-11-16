@@ -37,7 +37,7 @@ beforeEach(function () {
 });
 
 /** An abandoned cart: the customer added the lines, then went away `idle` minutes ago. Branch A and the world's address unless said otherwise. */
-function abandonedCart(object $t, array $o = []): Cart
+function abCart(object $t, array $o = []): Cart
 {
     $customer = $o['customer'] ?? $t->w->customer;
     $carts = app(CartService::class);
@@ -51,7 +51,7 @@ function abandonedCart(object $t, array $o = []): Cart
     return $cart->fresh();
 }
 
-function promoCoupon(string $code = 'SAVE10', array $promotion = []): Coupon
+function abPromo(string $code = 'SAVE10', array $promotion = []): Coupon
 {
     $p = Promotion::create(array_merge(['name_en' => 'Ten percent', 'name_ar' => 'عشرة بالمئة', 'type' => 'percentage', 'value' => '10', 'scope' => 'order',
         'requires_coupon' => true, 'is_active' => true], $promotion));
@@ -59,7 +59,7 @@ function promoCoupon(string $code = 'SAVE10', array $promotion = []): Coupon
     return Coupon::create(['promotion_id' => $p->id, 'code' => $code]);
 }
 
-function customerQuote(object $t): array
+function abCustomerQuote(object $t): array
 {
     actingAsCustomer($t->w->customer);
 
@@ -68,11 +68,11 @@ function customerQuote(object $t): array
 
 describe('the list', function () {
     it('lists customer carts idle for 30 minutes or more, with lines, and nothing else', function () {
-        $idle = abandonedCart($this, ['idle' => 45]);
-        $fresh = abandonedCart($this, ['customer' => User::factory()->create(['name' => 'Fresh Fatima']), 'idle' => 5]);
+        $idle = abCart($this, ['idle' => 45]);
+        $fresh = abCart($this, ['customer' => User::factory()->create(['name' => 'Fresh Fatima']), 'idle' => 5]);
         $empty = Cart::create(['user_id' => User::factory()->create(['name' => 'Empty Eman'])->id, 'status' => 'active', 'last_activity_at' => now()->subHours(3)]);
-        $ordered = abandonedCart($this, ['customer' => User::factory()->create(['name' => 'Ordered Omar']), 'extra' => ['status' => 'converted']]);
-        $draft = abandonedCart($this, ['customer' => User::factory()->create(['name' => 'Draft Dana']), 'extra' => ['status' => 'staff_draft']]);
+        $ordered = abCart($this, ['customer' => User::factory()->create(['name' => 'Ordered Omar']), 'extra' => ['status' => 'converted']]);
+        $draft = abCart($this, ['customer' => User::factory()->create(['name' => 'Draft Dana']), 'extra' => ['status' => 'staff_draft']]);
         $guest = Cart::create(['user_id' => null, 'guest_token_hash' => str_repeat('a', 64), 'status' => 'active', 'last_activity_at' => now()->subHours(3)]);
         CartItem::create(['cart_id' => $guest->id, 'product_variant_id' => $this->w->v1->id, 'quantity' => 1]);
 
@@ -82,12 +82,12 @@ describe('the list', function () {
     });
 
     it('filters by idle time, name or phone, coupon and branch, newest idle first', function () {
-        promoCoupon();
+        abPromo();
         $c = fn (string $name, string $phone) => User::factory()->create(['name' => $name, 'phone' => $phone]);
-        $a = abandonedCart($this, ['customer' => $c('Aisha Al Thani', '+97455000001'), 'idle' => 40]);
-        $b = abandonedCart($this, ['customer' => $c('Bilal Hamad', '+97455000002'), 'idle' => 90, 'extra' => ['coupon_code' => 'SAVE10']]);
-        $d = abandonedCart($this, ['customer' => $c('Dalal Nasser', '+97455000003'), 'idle' => 60 * 30, 'branch' => $this->w->b->id]);
-        $e = abandonedCart($this, ['customer' => $c('Essa Khalid', '+97455000004'), 'idle' => 60 * 24 * 9]);
+        $a = abCart($this, ['customer' => $c('Aisha Al Thani', '+97455000001'), 'idle' => 40]);
+        $b = abCart($this, ['customer' => $c('Bilal Hamad', '+97455000002'), 'idle' => 90, 'extra' => ['coupon_code' => 'SAVE10']]);
+        $d = abCart($this, ['customer' => $c('Dalal Nasser', '+97455000003'), 'idle' => 60 * 30, 'branch' => $this->w->b->id]);
+        $e = abCart($this, ['customer' => $c('Essa Khalid', '+97455000004'), 'idle' => 60 * 24 * 9]);
         $ids = fn (array $f) => $this->svc->page($this->admin, $f)['rows']->pluck('id')->all();
 
         expect($ids([]))->toBe([$a->id, $b->id, $d->id, $e->id])                                       // newest idle first
@@ -102,8 +102,8 @@ describe('the list', function () {
     });
 
     it('does not list a cart older than the cart lifetime: it has expired and cannot be recovered', function () {
-        $live = abandonedCart($this, ['idle' => 60 * 24 * 29]);
-        $expired = abandonedCart($this, ['customer' => User::factory()->create(), 'idle' => 60 * 24 * 31]);
+        $live = abCart($this, ['idle' => 60 * 24 * 29]);
+        $expired = abCart($this, ['customer' => User::factory()->create(), 'idle' => 60 * 24 * 31]);
 
         expect($this->svc->page($this->admin, ['idle' => '7d'])['rows']->pluck('id')->all())->toBe([$live->id])
             ->and($this->svc->page($this->admin)['rows']->pluck('id')->all())->not->toContain($expired->id)
@@ -111,9 +111,9 @@ describe('the list', function () {
     });
 
     it('counts what is waiting, what it is worth and how many were reminded; no made-up recovery figure', function () {
-        abandonedCart($this, ['qty' => 2, 'extra' => ['abandoned_notifications' => 1, 'abandoned_notified_at' => now()->subHour()]]);   // 2 x 1000.00
-        abandonedCart($this, ['customer' => User::factory()->create(), 'variant' => $this->w->v2->id, 'qty' => 3, 'extra' => ['coupon_code' => 'X']]); // 3 x 250.00
-        abandonedCart($this, ['customer' => User::factory()->create(), 'idle' => 3]);
+        abCart($this, ['qty' => 2, 'extra' => ['abandoned_notifications' => 1, 'abandoned_notified_at' => now()->subHour()]]);   // 2 x 1000.00
+        abCart($this, ['customer' => User::factory()->create(), 'variant' => $this->w->v2->id, 'qty' => 3, 'extra' => ['coupon_code' => 'X']]); // 3 x 250.00
+        abCart($this, ['customer' => User::factory()->create(), 'idle' => 3]);
 
         $s = $this->svc->stats($this->admin);
 
@@ -124,7 +124,7 @@ describe('the list', function () {
 
     it('pages with a keyset cursor (25 per page, no OFFSET) and ignores a made-up cursor', function () {
         foreach (range(1, 27) as $i) {
-            abandonedCart($this, ['customer' => User::factory()->create(['name' => 'Customer '.str_pad((string) $i, 2, '0', STR_PAD_LEFT)]), 'idle' => 30 + $i]);
+            abCart($this, ['customer' => User::factory()->create(['name' => 'Customer '.str_pad((string) $i, 2, '0', STR_PAD_LEFT)]), 'idle' => 30 + $i]);
         }
         DB::flushQueryLog();
         DB::enableQueryLog();
@@ -143,7 +143,7 @@ describe('the list', function () {
 
     it('reads a constant number of queries however many carts are on the page', function () {
         foreach (range(1, 3) as $i) {
-            abandonedCart($this, ['customer' => User::factory()->create()]);
+            abCart($this, ['customer' => User::factory()->create()]);
         }
         $count = function () {
             DB::flushQueryLog();
@@ -157,7 +157,7 @@ describe('the list', function () {
         };
         $few = $count();
         foreach (range(1, 15) as $i) {
-            abandonedCart($this, ['customer' => User::factory()->create()]);
+            abCart($this, ['customer' => User::factory()->create()]);
         }
 
         expect($count())->toBe($few);
@@ -166,7 +166,7 @@ describe('the list', function () {
 
 describe('who may see and change', function () {
     it('lets orders.view see the page but not change anything; orders.create changes', function () {
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
         $item = $cart->items()->first();
         $this->actingAs($this->viewer)->get(route('admin.sales.abandoned'))->assertOk()->assertSee($this->w->customer->name);
         $staffer = staffWithRole('sales_employee', $this->w->a);
@@ -192,9 +192,9 @@ describe('who may see and change', function () {
     });
 
     it('only shows a branch-restricted staff member the carts of their branch', function () {
-        $own = abandonedCart($this, ['customer' => User::factory()->create()]);
-        $other = abandonedCart($this, ['customer' => User::factory()->create(), 'branch' => $this->w->b->id]);
-        $none = abandonedCart($this, ['customer' => User::factory()->create(), 'branch' => null, 'address' => null]);
+        $own = abCart($this, ['customer' => User::factory()->create()]);
+        $other = abCart($this, ['customer' => User::factory()->create(), 'branch' => $this->w->b->id]);
+        $none = abCart($this, ['customer' => User::factory()->create(), 'branch' => null, 'address' => null]);
 
         expect($this->svc->page($this->mgrA)['rows']->pluck('id')->all())->toBe([$own->id])
             ->and($this->svc->page($this->mgrB)['rows']->pluck('id')->all())->toBe([$other->id])
@@ -204,11 +204,11 @@ describe('who may see and change', function () {
     });
 
     it('treats a cart with no branch yet by the delivery zone of its address; with neither it is for company-wide roles only', function () {
-        $viaZone = abandonedCart($this, ['customer' => User::factory()->create(), 'branch' => null]); // address in the zone branch A serves
+        $viaZone = abCart($this, ['customer' => User::factory()->create(), 'branch' => null]); // address in the zone branch A serves
         $addr = $this->w->customer->addresses()->first();
         $addr->update(['delivery_zone_id' => $this->w->zone->id]);
         BranchDeliveryZone::where('branch_id', $this->w->b->id)->update(['is_active' => false]);
-        $noSignal = abandonedCart($this, ['customer' => User::factory()->create(), 'branch' => null, 'address' => null]);
+        $noSignal = abCart($this, ['customer' => User::factory()->create(), 'branch' => null, 'address' => null]);
 
         $mgrA = $this->svc->page($this->mgrA)['rows']->pluck('id')->all();
         $mgrB = $this->svc->page($this->mgrB)['rows']->pluck('id')->all();
@@ -219,7 +219,7 @@ describe('who may see and change', function () {
     });
 
     it('never opens or changes a cart outside the staff member’s scope, however the id arrives', function () {
-        $other = abandonedCart($this, ['branch' => $this->w->b->id]);
+        $other = abCart($this, ['branch' => $this->w->b->id]);
         $item = $other->items()->first();
 
         expect(fn () => $this->svc->find($this->mgrA, $other->id))->toThrow(AuthorizationException::class)
@@ -234,8 +234,8 @@ describe('who may see and change', function () {
     });
 
     it('counts the menu badge in the staff member’s own scope', function () {
-        abandonedCart($this);
-        abandonedCart($this, ['customer' => User::factory()->create(), 'branch' => $this->w->b->id]);
+        abCart($this);
+        abCart($this, ['customer' => User::factory()->create(), 'branch' => $this->w->b->id]);
         $routes = fn (User $u) => collect(AdminNavigation::for($u))->flatMap(fn ($g) => array_column($g['items'], 'route'));
 
         expect($this->svc->badge($this->mgrA))->toBe(1)->and($this->svc->badge($this->admin))->toBe(2)
@@ -246,8 +246,8 @@ describe('who may see and change', function () {
 
 describe('editing a customer’s cart', function () {
     it('changes quantity, adds, removes and handles coupons through the cart rules, with the exact customer quote', function () {
-        promoCoupon();
-        $cart = abandonedCart($this);
+        abPromo();
+        $cart = abCart($this);
         $item = $cart->items()->first();
         $svc = $this->svc;
 
@@ -257,7 +257,7 @@ describe('editing a customer’s cart', function () {
 
         $fresh = $cart->fresh();
         $staff = $svc->present($this->mgrA, $cart->id);
-        $customer = customerQuote($this);
+        $customer = abCustomerQuote($this);
 
         expect($fresh->coupon_code)->toBe('SAVE10')->and($fresh->items()->count())->toBe(2)->and((int) $fresh->items()->sum('quantity'))->toBe(5)
             ->and($staff['quote']->subtotal()->toDecimal())->toBe('3500.00')                                  // 3 x 1000 + 2 x 250
@@ -271,7 +271,7 @@ describe('editing a customer’s cart', function () {
         $r = $svc->removeItem($this->mgrA, $cart->id, $item->id);
         $svc->setCoupon($this->mgrA, $cart->id, null);
         $after = $svc->present($this->mgrA, $cart->id);
-        $customerAfter = customerQuote($this);
+        $customerAfter = abCustomerQuote($this);
 
         expect($r['removed'])->toBe(['variant_id' => $this->w->v1->id, 'quantity' => 3])
             ->and($cart->fresh()->coupon_code)->toBeNull()->and($cart->items()->count())->toBe(1)
@@ -280,8 +280,8 @@ describe('editing a customer’s cart', function () {
     });
 
     it('applies a free-delivery coupon through the real quote and shows the fee struck through in the window', function () {
-        promoCoupon('FREESHIP', ['type' => 'free_delivery', 'value' => '0']);
-        $cart = abandonedCart($this, ['variant' => $this->w->v2->id, 'qty' => 1]);
+        abPromo('FREESHIP', ['type' => 'free_delivery', 'value' => '0']);
+        $cart = abCart($this, ['variant' => $this->w->v2->id, 'qty' => 1]);
         $this->svc->setCoupon($this->mgrA, $cart->id, 'freeship');
         $q = $this->svc->present($this->mgrA, $cart->id)['quote'];
 
@@ -291,10 +291,10 @@ describe('editing a customer’s cart', function () {
     });
 
     it('does not move the customer’s idle clock, reminder counters or expiry; a customer’s own edit still does', function () {
-        $cart = abandonedCart($this, ['extra' => ['abandoned_notifications' => 1, 'abandoned_notified_at' => now()->subHours(3), 'expires_at' => now()->addDays(5)]]);
+        $cart = abCart($this, ['extra' => ['abandoned_notifications' => 1, 'abandoned_notified_at' => now()->subHours(3), 'expires_at' => now()->addDays(5)]]);
         $before = $cart->only(['last_activity_at', 'abandoned_notified_at', 'abandoned_notifications', 'expires_at']);
         $item = $cart->items()->first();
-        promoCoupon();
+        abPromo();
 
         $this->svc->setQuantity($this->mgrA, $cart->id, $item->id, 4);
         $this->svc->addItem($this->mgrA, $cart->id, $this->w->v2->id);
@@ -309,7 +309,7 @@ describe('editing a customer’s cart', function () {
     });
 
     it('refuses what the customer app refuses: too many, unavailable products, products the branch does not sell', function () {
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
         $item = $cart->items()->first();
         $this->w->p2->update(['status' => 'draft']);
         $bOnly = Product::factory()->create(['price' => '10.00', 'available_in_all_branches' => false]);
@@ -322,7 +322,7 @@ describe('editing a customer’s cart', function () {
     });
 
     it('flags lines that are out of stock or unavailable, like the customer cart does', function () {
-        $cart = abandonedCart($this, ['qty' => 12]); // branch A holds 5 and branch B 5: not even together
+        $cart = abCart($this, ['qty' => 12]); // branch A holds 5 and branch B 5: not even together
         $line = $this->svc->present($this->mgrA, $cart->id)['lines']->first();
 
         expect($line['issue'])->toBe('insufficient_stock')->and($line['stock'])->toBe(5)->and($line['quantity'])->toBe(12);
@@ -332,7 +332,7 @@ describe('editing a customer’s cart', function () {
     });
 
     it('rejects a coupon the customer cannot use, with the plain reason, and keeps the cart as it was', function () {
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
 
         expect(fn () => $this->svc->setCoupon($this->mgrA, $cart->id, 'NOPE'))->toThrow(ValidationException::class);
         expect($cart->fresh()->coupon_code)->toBeNull();
@@ -343,7 +343,7 @@ describe('editing a customer’s cart', function () {
     });
 
     it('limits edits to 240 a minute per staff member', function () {
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
         $item = $cart->items()->first();
         foreach (range(1, 240) as $i) {
             RateLimiter::hit('abandoned:edit:'.$this->mgrA->id, 60);
@@ -357,7 +357,7 @@ describe('editing a customer’s cart', function () {
     });
 
     it('audits every change with what it was and what it became, and never tells the customer', function () {
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
         $item = $cart->items()->first();
         $this->svc->setQuantity($this->mgrA, $cart->id, $item->id, 6);
 
@@ -370,7 +370,7 @@ describe('editing a customer’s cart', function () {
 
 describe('two people at the same cart', function () {
     it('refuses an edit made on an out-of-date view, saves nothing and says to refresh', function () {
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
         $item = $cart->items()->first();
         $seen = $this->svc->present($this->mgrA, $cart->id)['stamp'];
         $this->svc->setQuantity($this->admin, $cart->id, $item->id, 7); // a colleague changed it meanwhile
@@ -385,7 +385,7 @@ describe('two people at the same cart', function () {
     });
 
     it('gives the staff window a warning, refreshes it and lets the next click work', function () {
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
         $item = $cart->items()->first();
         $page = Livewire::actingAs($this->mgrA)->test(AbandonedCartsIndex::class)->call('openCart', $cart->id)->assertSet('showCart', true);
         $this->svc->setQuantity($this->admin, $cart->id, $item->id, 7);
@@ -397,7 +397,7 @@ describe('two people at the same cart', function () {
     });
 
     it('stops at once when the customer is shopping again, in the service and in the window', function () {
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
         $item = $cart->items()->first();
         $page = Livewire::actingAs($this->mgrA)->test(AbandonedCartsIndex::class)->call('openCart', $cart->id);
         app(CartService::class)->update($this->w->customer, $item->id, 5); // the customer edits the cart right now
@@ -411,7 +411,7 @@ describe('two people at the same cart', function () {
     });
 
     it('locks the cart row for every edit and for the customer’s own edits too', function () {
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
         $item = $cart->items()->first();
         DB::enableQueryLog();
         $this->svc->setQuantity($this->mgrA, $cart->id, $item->id, 3);
@@ -425,7 +425,7 @@ describe('two people at the same cart', function () {
 
 describe('discard and undo', function () {
     it('discards with no confirm, stops being listed, and an undo brings it back as it was', function () {
-        $cart = abandonedCart($this, ['extra' => ['abandoned_notifications' => 1]]);
+        $cart = abCart($this, ['extra' => ['abandoned_notifications' => 1]]);
         $before = $cart->last_activity_at;
 
         $this->svc->discard($this->mgrA, $cart->id);
@@ -441,7 +441,7 @@ describe('discard and undo', function () {
 
     it('stops the automatic reminders for a discarded cart', function () {
         $this->w->customer->forceFill(['marketing_consent_at' => now()])->save();
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
         $this->svc->discard($this->mgrA, $cart->id);
 
         expect(app(CampaignService::class)->remindAbandonedCarts())->toBe(0)
@@ -449,7 +449,7 @@ describe('discard and undo', function () {
     });
 
     it('replaces an empty new cart on undo but never overwrites one with items', function () {
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
         $this->svc->discard($this->mgrA, $cart->id);
         $fresh = app(CartService::class)->current($this->w->customer); // the customer opened the app: an empty cart appears
         $this->svc->restore($this->mgrA, $cart->id);
@@ -462,7 +462,7 @@ describe('discard and undo', function () {
     });
 
     it('does the same from the page: a toast with Undo, no confirm, and the window closes', function () {
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
         $page = Livewire::actingAs($this->mgrA)->test(AbandonedCartsIndex::class)->call('openCart', $cart->id)
             ->call('discard', $cart->id)->assertSet('showCart', false)->assertSet('cartId', '')
             ->assertDispatched('toast', type: 'success', undoEvent: 'abandoned-undo-discard', undoParams: ['id' => $cart->id]);
@@ -472,7 +472,7 @@ describe('discard and undo', function () {
     });
 
     it('removes a line with Undo that puts the same item and quantity back', function () {
-        $cart = abandonedCart($this, ['qty' => 4, 'more' => [$this->w->v2->id => 1]]);
+        $cart = abCart($this, ['qty' => 4, 'more' => [$this->w->v2->id => 1]]);
         $item = $cart->items()->where('product_variant_id', $this->w->v1->id)->first();
         $page = Livewire::actingAs($this->mgrA)->test(AbandonedCartsIndex::class)->call('openCart', $cart->id)->call('removeLine', $item->id)
             ->assertDispatched('toast', type: 'success', undoEvent: 'abandoned-undo-remove', undoParams: ['id' => $cart->id, 'variantId' => $this->w->v1->id, 'quantity' => 4]);
@@ -489,7 +489,7 @@ describe('reminders', function () {
     });
 
     it('sends the abandoned-cart message, counts it, audits it and leaves the cart idle', function () {
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
         $idleSince = $cart->last_activity_at;
 
         $r = $this->svc->remind($this->mgrA, $cart->id);
@@ -503,7 +503,7 @@ describe('reminders', function () {
 
     it('does not message a customer who has not agreed, and says so', function () {
         $this->w->customer->forceFill(['marketing_consent_at' => null])->save();
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
 
         expect($this->svc->remind($this->mgrA, $cart->id)['status'])->toBe('no_consent')
             ->and(Notification::count())->toBe(0)->and($cart->fresh()->abandoned_notifications)->toBe(0)->and(AuditLog::where('action', 'cart.reminder_sent')->exists())->toBeFalse();
@@ -512,7 +512,7 @@ describe('reminders', function () {
     });
 
     it('keeps to the frequency limits: the gap between messages and the most per cart', function () {
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
         $this->svc->remind($this->mgrA, $cart->id);
 
         $again = $this->svc->remind($this->mgrA, $cart->id);
@@ -528,7 +528,7 @@ describe('reminders', function () {
     });
 
     it('does not pile on when a message reached the customer recently by another path', function () {
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
         $batch = (string) Str::uuid();
         DB::table('customer_message_batches')->insert(['id' => $batch, 'created_by' => $this->admin->id, 'template_name' => 'Manual', 'kind' => 'custom', 'source' => 'single',
             'channels' => json_encode(['whatsapp']), 'content' => json_encode([]), 'status' => 'done', 'created_at' => now(), 'updated_at' => now()]);
@@ -539,7 +539,7 @@ describe('reminders', function () {
     });
 
     it('is rate limited to 20 reminders a minute per staff member', function () {
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
         foreach (range(1, 20) as $i) {
             RateLimiter::hit('abandoned:remind:'.$this->mgrA->id, 60);
         }
@@ -551,8 +551,8 @@ describe('reminders', function () {
 
 describe('place the order for the customer', function () {
     it('copies the cart into one staff draft (and reuses it), without touching the customer’s own cart', function () {
-        promoCoupon();
-        $cart = abandonedCart($this, ['more' => [$this->w->v2->id => 1], 'extra' => ['coupon_code' => 'SAVE10', 'fulfillment_type' => 'delivery']]);
+        abPromo();
+        $cart = abCart($this, ['more' => [$this->w->v2->id => 1], 'extra' => ['coupon_code' => 'SAVE10', 'fulfillment_type' => 'delivery']]);
         $orders = app(StaffOrderService::class);
 
         $draft = $orders->adoptCart($cart, $this->mgrA);
@@ -570,7 +570,7 @@ describe('place the order for the customer', function () {
     });
 
     it('ends with the customer’s own cart converted once the order is placed, and it leaves the list', function () {
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
         $orders = app(StaffOrderService::class);
         $draft = $orders->adoptCart($cart, $this->mgrA);
         $orders->setOptions($this->mgrA, $draft, ['address_id' => $this->w->address->id, 'payment_method' => 'cod']);
@@ -590,7 +590,7 @@ describe('place the order for the customer', function () {
     });
 
     it('refuses to place a second order when the customer already ordered from that cart', function () {
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
         $orders = app(StaffOrderService::class);
         $draft = $orders->adoptCart($cart, $this->mgrA);
         $orders->setOptions($this->mgrA, $draft, ['address_id' => $this->w->address->id, 'payment_method' => 'cod']);
@@ -603,7 +603,7 @@ describe('place the order for the customer', function () {
     });
 
     it('does not start from a cart that is no longer open, and respects the 20-draft limit', function () {
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
         $orders = app(StaffOrderService::class);
         foreach (range(1, StaffOrderService::MAX_DRAFTS) as $i) {
             $orders->create($this->admin, $this->w->a->id);
@@ -616,7 +616,7 @@ describe('place the order for the customer', function () {
     });
 
     it('opens the order cart panel at the checkout step from the window', function () {
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
         Livewire::actingAs($this->mgrA)->test(AbandonedCartsIndex::class)->call('openCart', $cart->id)->call('placeOrder')
             ->assertSet('showCart', false)->assertDispatched('open-order-cart', step: 'checkout')->assertDispatched('order-cart-updated');
 
@@ -626,7 +626,7 @@ describe('place the order for the customer', function () {
 
 describe('the page', function () {
     it('renders the list, the window, the row menu and the footer actions for staff who can change', function () {
-        $cart = abandonedCart($this, ['extra' => ['coupon_code' => 'WELCOME']]);
+        $cart = abCart($this, ['extra' => ['coupon_code' => 'WELCOME']]);
         $page = Livewire::actingAs($this->mgrA)->test(AbandonedCartsIndex::class)
             ->assertSee(__('abandoned_admin.title'))->assertSee($this->w->customer->name)->assertSee('WELCOME')->assertSee(__('abandoned_admin.send_reminder'))
             ->assertSee(__('abandoned_admin.actions_for', ['name' => $this->w->customer->name]))->assertSet('showCart', false);
@@ -639,7 +639,7 @@ describe('the page', function () {
     });
 
     it('opens from the ?cart= link and keeps the filters in the address bar', function () {
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
         Livewire::actingAs($this->mgrA)->withQueryParams(['cart' => $cart->id, 'idle' => '1h', 'search' => 'Noor', 'coupon' => true])->test(AbandonedCartsIndex::class)
             ->assertSet('showCart', true)->assertSet('idle', '1h')->assertSet('search', 'Noor')->assertSet('withCoupon', true);
         Livewire::actingAs($this->mgrA)->withQueryParams(['idle' => 'bogus', 'branch' => 'nope'])->test(AbandonedCartsIndex::class)->assertSet('idle', '30m')->assertSet('branch', '');
@@ -647,7 +647,7 @@ describe('the page', function () {
     });
 
     it('shows read-only staff the cart without any change control', function () {
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
         $page = Livewire::actingAs($this->viewer)->test(AbandonedCartsIndex::class)->call('openCart', $cart->id)->assertSet('showCart', true)
             ->assertSee($this->w->customer->name)->assertDontSee(__('abandoned_admin.place_order'))->assertDontSee(__('abandoned_admin.add_item'))
             ->assertDontSee(__('abandoned_admin.send_reminder'))->assertDontSee(__('abandoned_admin.apply'));
@@ -656,7 +656,7 @@ describe('the page', function () {
     });
 
     it('shows what changed when the cart is gone instead of an error page', function () {
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
         $page = Livewire::actingAs($this->mgrA)->test(AbandonedCartsIndex::class)->call('openCart', $cart->id);
         Cart::whereKey($cart->id)->update(['status' => 'converted']);
 
@@ -664,7 +664,7 @@ describe('the page', function () {
     });
 
     it('searches products by name, adds a variant and lists the cart’s change', function () {
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
         $name = $this->w->p2->trans('name');
         $page = Livewire::actingAs($this->mgrA)->test(AbandonedCartsIndex::class)->call('openCart', $cart->id)->call('toggleAdd')->assertSet('addOpen', true)
             ->set('addSearch', mb_substr($name, 0, 6))->assertSee($name);
@@ -680,7 +680,7 @@ describe('the page', function () {
 
     it('moves through keyset pages with next and previous, and resets the page when a filter changes', function () {
         foreach (range(1, 27) as $i) {
-            abandonedCart($this, ['customer' => User::factory()->create(), 'idle' => 30 + $i]);
+            abCart($this, ['customer' => User::factory()->create(), 'idle' => 30 + $i]);
         }
         $page = Livewire::actingAs($this->admin)->test(AbandonedCartsIndex::class);
         $next = $page->viewData('next');
@@ -695,14 +695,14 @@ describe('the page', function () {
 
     it('escapes everything it prints and keeps the customer’s e-mail off the page', function () {
         $evil = User::factory()->create(['name' => '<script>alert(1)</script>', 'email' => 'secret.person@example.test']);
-        $cart = abandonedCart($this, ['customer' => $evil]);
+        $cart = abCart($this, ['customer' => $evil]);
         $page = Livewire::actingAs($this->admin)->test(AbandonedCartsIndex::class)->call('openCart', $cart->id);
 
         $page->assertDontSee('<script>alert(1)</script>', false)->assertSee('&lt;script&gt;alert(1)&lt;/script&gt;', false)->assertDontSee('secret.person@example.test');
     });
 
     it('speaks Arabic with real translations and an identical set of messages in both languages', function () {
-        $cart = abandonedCart($this);
+        $cart = abCart($this);
         app()->setLocale('ar');
         Livewire::actingAs($this->mgrA)->test(AbandonedCartsIndex::class)->assertSee('الطلبات المتروكة')->assertSee('إرسال تذكير')
             ->call('openCart', $cart->id)->assertSee('إنشاء الطلب للعميل')->assertSee('كود الخصم');

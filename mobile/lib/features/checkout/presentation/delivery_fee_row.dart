@@ -42,30 +42,42 @@ class DeliveryFeeRow extends StatelessWidget {
       child: ExcludeSemantics(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 5),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Wrap(
-                  spacing: AppSpace.xs,
-                  runSpacing: AppSpace.xxs,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(l10n.deliveryFee, style: style?.copyWith(color: palette.muted)),
-                    if (coupon != null) _CouponChip(code: coupon),
-                  ],
+          // The amount side may take up to just over half of the line and wraps when it must (a small phone, Arabic, large text),
+          // so the label and the code keep their room instead of being squeezed into a one-word column.
+          child: LayoutBuilder(
+            builder: (context, constraints) => Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Wrap(
+                    spacing: AppSpace.xs,
+                    runSpacing: AppSpace.xxs,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(l10n.deliveryFee, style: style?.copyWith(color: palette.muted)),
+                      if (coupon != null) _CouponChip(code: coupon),
+                    ],
+                  ),
                 ),
-              ),
-              const Gap(AppSpace.sm),
-              if (struck) ...[
-                Text(
-                  fee.formatted,
-                  style: style?.copyWith(color: palette.muted, decoration: TextDecoration.lineThrough),
+                const Gap(AppSpace.sm),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.55),
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: AppSpace.xs,
+                    runSpacing: AppSpace.xxs,
+                    children: [
+                      if (struck)
+                        Text(
+                          fee.formatted,
+                          style: style?.copyWith(color: palette.muted, decoration: TextDecoration.lineThrough),
+                        ),
+                      Text(l10n.free, style: style?.copyWith(color: palette.success, fontWeight: FontWeight.w700)),
+                    ],
+                  ),
                 ),
-                const Gap(AppSpace.xs),
               ],
-              Text(l10n.free, style: style?.copyWith(color: palette.success, fontWeight: FontWeight.w700)),
-            ],
+            ),
           ),
         ),
       ),

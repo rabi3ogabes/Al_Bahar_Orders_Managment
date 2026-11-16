@@ -183,7 +183,7 @@ trait AbandonedCartActions
             return;
         }
         if ($r['status'] === 'sent') {
-            $this->toast(__('abandoned_admin.reminder_sent', ['channels' => implode(', ', array_map(fn ($c) => __('abandoned_admin.channel_'.$c), $r['channels']))]));
+            $this->toast(__('abandoned_admin.reminder_sent', ['channels' => collect($r['channels'])->map(fn (string $c) => (string) __('abandoned_admin.channel_'.$c))->implode(', ')]));
         } else {
             $this->toast(__('abandoned_admin.reminder_'.$r['status'], ['limit' => $r['limit'], 'time' => $r['next_at'] ? BusinessTime::display($r['next_at'], 'd M, H:i') : '']), 'warning');
         }

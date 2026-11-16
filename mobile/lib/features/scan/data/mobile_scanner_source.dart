@@ -272,11 +272,14 @@ class MobileScannerSource implements ScanSource {
     _disarmWatchdog();
     final controller = _controller;
     controller.removeListener(_publish);
-    await _barcodes?.cancel();
-    await _codes.close();
+    // The camera goes back first: whatever else is slow to close, the phone's camera is handed back at once.
+    final released = controller.dispose();
+    // Neither needs waiting for: a subscription is cancelled and a stream closed the moment they are asked to.
+    unawaited(_barcodes?.cancel());
+    unawaited(_codes.close());
     _camera.dispose();
     _torch.dispose();
     _preview.dispose();
-    await controller.dispose();
+    await released;
   }
 }

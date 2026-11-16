@@ -107,7 +107,7 @@ class CampaignService
      * `abandoned_cart_max_messages` reminders per cart, and nothing within `abandoned_cart_min_interval_hours` of the last message to them (a
      * reminder, a journey message or a message staff sent by hand).
      *
-     * @return array{status: 'ok'|'no_customer'|'no_consent'|'limit_reached'|'too_soon', next_at: ?CarbonImmutable, limit: int}
+     * @return array{status: string, next_at: ?CarbonImmutable, limit: int} status: ok | no_customer | no_consent | limit_reached | too_soon
      */
     public function reminderStatus(Cart $cart): array
     {
@@ -138,7 +138,7 @@ class CampaignService
      * Staff sent the customer a reminder about this cart (push, in-app inbox and WhatsApp where they agreed). The reminder bookkeeping moves
      * (so the automatic reminders do not repeat it) but the cart itself is not touched: it stays abandoned until the customer acts.
      *
-     * @return array{status: 'sent'|'no_channel'|'no_customer'|'no_consent'|'limit_reached'|'too_soon', channels: list<string>, next_at: ?CarbonImmutable, limit: int}
+     * @return array{status: string, channels: list<string>, next_at: ?CarbonImmutable, limit: int} status: sent | no_channel, or one of reminderStatus()
      */
     public function remindCart(Cart $cart): array
     {
