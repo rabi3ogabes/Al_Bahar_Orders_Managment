@@ -99,7 +99,7 @@ Screenshots (375 and 1280 px, EN and AR, light and dark, classic and fresh) are 
 
 - **No real Reverb socket.** The sandbox has no socket server in front of the store; the live test fakes the Pusher protocol at the WebSocket layer.
 - **No real phones.** Chromium emulation only (touch events, safe areas). iOS Safari scroll lock and the keyboard pushing a sheet up are worth one manual pass.
-- **Free-delivery progress is not shown.** The cart API has no threshold (`free_delivery_threshold` is only used inside the checkout quote as a `free_delivery_progress` hint). Suggested API change: `GET /cart` returns `delivery: { free_threshold, remaining }` for the chosen branch.
+- **No free-delivery progress.** There is no "free above X" minimum any more: delivery always costs the zone fee, and free delivery only comes from a coupon code (see `docs/api/FREE_DELIVERY_AND_ABANDONED_CARTS.md`). The cart panel must not show a progress strip or bar.
 - Client quantity cap is 20 per line; the server allows 50 (`platform.checkout.max_quantity_per_line`). Raise `MAX_QTY` in `lib/cartMath.ts` if 20 is too low.
 - The "you may also need" rail in the panel needs a signed-in customer (`/cart/suggestions` is behind auth); guests see the items and totals only.
 - The pickup pass (QR) inside the order window reuses the page's component and was not exercised: the demo data has no pickup that is ready.

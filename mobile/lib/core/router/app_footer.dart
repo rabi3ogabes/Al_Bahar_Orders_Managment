@@ -40,6 +40,10 @@ final footerConfigProvider = Provider<FooterConfig>((ref) {
 const double kCenterBarHeight = 64;
 const double kCenterButtonRise = 28;
 
+/// The page colour painted behind the whole footer region (the bar, the space around a floating one and the system
+/// gesture area under it), so the empty window never shows there. Tests find it by this key.
+const kFooterBackdropKey = ValueKey<String>('footer-backdrop');
+
 /// Puts the footer menu under EVERY page of the app (not only the five tab roots), on phones and wide windows alike.
 /// It hides only on the first-run screens and sign-in, and while the keyboard is open so forms keep their room.
 class FooterScope extends StatefulWidget {
@@ -96,21 +100,39 @@ class _FooterScopeState extends State<FooterScope> {
     if (!showsFooter(path) || top == '/scan' || mq.viewInsets.bottom > 0) return widget.child;
     // The pages must not add the system bottom inset a second time: the footer already sits on it.
     final page = MediaQuery(data: mq.removePadding(removeBottom: true), child: widget.child);
+    // Nothing is painted behind the footer by the pages, and an empty window is black (Android night mode, iOS, the web):
+    // the page colour goes behind the whole footer region, down to the bottom edge of the screen.
+    final pageColor = context.pageColor;
     return Consumer(
       builder: (context, ref, _) {
         if (ref.watch(footerConfigProvider).design != FooterDesign.centerAction) {
           return Column(
             children: [
               Expanded(child: page),
-              AppFooter(path: path, onGo: _go),
+              SizedBox(
+                width: double.infinity,
+                child: ColoredBox(
+                  key: kFooterBackdropKey,
+                  color: pageColor,
+                  child: AppFooter(path: path, onGo: _go),
+                ),
+              ),
             ],
           );
         }
-        // The raised round button rises above the bar, over the page: a Stack keeps it tappable.
+        // The raised round button rises above the bar, over the page: a Stack keeps it tappable. The corners above the
+        // bar's rounded top edge and the system inset below it show the page colour.
         final flat = kCenterBarHeight + mq.padding.bottom;
         return Stack(
           children: [
             Positioned.fill(bottom: flat, child: page),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: flat,
+              child: ColoredBox(key: kFooterBackdropKey, color: pageColor),
+            ),
             Positioned(
               left: 0,
               right: 0,

@@ -148,7 +148,6 @@ class BranchAdminController extends ApiController
         $data = $request->validate([
             'delivery_zone_id' => 'required|uuid|exists:delivery_zones,id',
             'delivery_fee' => 'required|numeric|min:0',
-            'free_delivery_threshold' => 'nullable|numeric|min:0',
             'min_order_amount' => 'nullable|numeric|min:0',
             'max_order_amount' => 'nullable|numeric|min:0|gte:min_order_amount',
             'oversized_surcharge' => 'nullable|numeric|min:0',

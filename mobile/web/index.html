@@ -31,6 +31,18 @@
 
   <title>Al Bahar Home &amp; Living</title>
   <link rel="manifest" href="manifest.json">
+
+  <!--
+    The page behind the app is never the browser's default (white, or black in some dark modes): it is the app's own page
+    colour (ivory by day, the dark page colour by night; see AppPalette in lib/core/theme/tokens.dart), so nothing flashes
+    before the first frame and no strip shows around the footer menu.
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; background-color: #FCF9FA; }
+    @media (prefers-color-scheme: dark) {
+      html, body { background-color: #181115; }
+    }
+  </style>
 </head>
 <body>
   <!--

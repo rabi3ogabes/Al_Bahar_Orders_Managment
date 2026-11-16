@@ -49,6 +49,7 @@ return [
     'appearance' => 'Appearance',
     'store_design' => 'Store design',
     'app_footer' => 'App footer',
+    'page_background' => 'Page background',
     'banners' => 'Home banners',
     'pages' => 'Pages',
     'notification_templates' => 'Notification templates',

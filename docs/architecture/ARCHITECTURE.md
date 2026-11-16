@@ -61,7 +61,7 @@ before confirmation.
 window); deducted when goods leave the branch (delivery: dispatch/pick-up by driver; pickup: handover, partial supported).
 Cancellation before that releases exactly once; returns re-add stock as `customer_return`.
 
-**Promotion stacking**: free-delivery always combines; stackable item promotions apply cumulatively by priority; the best
+**Promotion stacking**: free-delivery (coupon code only, never automatic; delivery otherwise always costs the zone fee) always combines; stackable item promotions apply cumulatively by priority; the best
 single non-stackable is compared with the stackable total and the larger saving wins; one coupon per order; usage limits
 enforced atomically at placement and reversed on cancellation.
 

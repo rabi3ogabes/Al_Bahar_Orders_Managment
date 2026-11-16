@@ -114,6 +114,7 @@ class ThemeService
                 ? ['key' => $design->key, 'name_en' => $design->name_en, 'name_ar' => $design->name_ar ?: $design->name_en, 'name' => $design->localized('name')]
                 : ['key' => 'default', 'name_en' => 'Al Bahar', 'name_ar' => 'البحار', 'name' => app()->getLocale() === 'ar' ? 'البحار' : 'Al Bahar'],
             'footer' => app(AppFooterService::class)->config(),
+            'backdrop' => app(BackdropService::class)->payload(),
         ];
     }
 

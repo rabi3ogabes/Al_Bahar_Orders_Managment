@@ -58,14 +58,18 @@ it('scopes promotions to categories and branches, and enforces minimum basket', 
     expect($this->postJson('/api/v1/checkout/quote', $this->opts)->json('data.totals.discount.amount'))->toBe('0.00');
 });
 
-it('picks the better of the best non-stackable vs all stackable promotions, and free delivery always combines', function () {
+it('picks the better of the best non-stackable vs all stackable promotions, and free delivery (with its code) always combines', function () {
     promo(['requires_coupon' => false, 'type' => 'fixed', 'value' => '100', 'is_stackable' => true, 'priority' => 1]);
     promo(['requires_coupon' => false, 'type' => 'fixed', 'value' => '80', 'is_stackable' => true, 'priority' => 2]);
     promo(['requires_coupon' => false, 'type' => 'percentage', 'value' => '15', 'is_stackable' => false]); // 225 > 180
-    promo(['requires_coupon' => false, 'type' => 'free_delivery', 'value' => '0']);
-    $q = $this->postJson('/api/v1/checkout/quote', $this->opts)->json('data');
+    Coupon::create(['promotion_id' => promo(['type' => 'free_delivery', 'value' => '0'])->id, 'code' => 'FREESHIP']);
+    $q = $this->postJson('/api/v1/checkout/quote', $this->opts + ['coupon_code' => 'FREESHIP'])->json('data');
     expect($q['totals']['discount']['amount'])->toBe('240.00') // 225 item + 15 delivery
         ->and($q['totals']['grand_total']['amount'])->toBe('1285.00'); // 1500 - 225 + 15 - 15 + 10 cod
+
+    // Without the code the same basket pays the delivery fee.
+    $plain = $this->postJson('/api/v1/checkout/quote', $this->opts)->json('data');
+    expect($plain['totals']['discount']['amount'])->toBe('225.00')->and($plain['totals']['grand_total']['amount'])->toBe('1300.00');
 });
 
 it('supports buy-one-get-one on the cheapest eligible units', function () {

@@ -22,8 +22,11 @@ use Illuminate\Support\Facades\DB;
  * SCOPE: whole order, specific products, or categories (incl. sub-categories); optional branch, customer-group and
  * first-order restrictions; minimum basket; maximum discount; overall & per-customer usage limits; start/end window.
  *
+ * FREE DELIVERY comes from a coupon code only. Delivery always costs the zone fee; a free_delivery promotion that is automatic
+ * (requires_coupon = false) is ignored here, so no basket value, date or customer group can waive the fee without a code.
+ *
  * STACKING RULES (deterministic):
- *   1. Free-delivery promotions always combine with item discounts (they only waive delivery fees).
+ *   1. Free-delivery promotions (coupon-only) always combine with item discounts (they only waive delivery fees).
  *   2. Item promotions flagged is_stackable apply cumulatively in priority order (lower first), each computed on the
  *      amount remaining after earlier discounts.
  *   3. Non-stackable item promotions never combine: the single best one is compared against the total of all
@@ -57,6 +60,14 @@ class PromotionEngine
         $eligible = [];
         foreach ($candidates as $promo) {
             if ($isAuction && ! $promo->applies_to_auctions) {
+                continue;
+            }
+            if ($promo->type === 'free_delivery' && ! $promo->requires_coupon) {
+                // Automatic free delivery is not allowed (the Promotions form cannot create it): never waive the fee without a code.
+                if ($coupon && $coupon->promotion_id === $promo->id) {
+                    $couponError = 'coupon_invalid';
+                }
+
                 continue;
             }
             $reason = $this->ineligibility($promo, $lines, $user);

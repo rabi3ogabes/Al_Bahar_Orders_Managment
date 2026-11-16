@@ -4,6 +4,7 @@ import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:albahar_customer/core/theme/contrast.dart';
 import 'package:albahar_customer/core/theme/design_tokens.dart';
+import 'package:albahar_customer/core/theme/page_backdrop.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/widgets/app_button.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
@@ -139,10 +140,17 @@ class FreshScaffold extends StatelessWidget {
       resizeToAvoidBottomInset: resizeToAvoidBottomInset,
     );
     if (!gradient) return scaffold;
+    // The dashboard's page background (when it is on) goes on top of the gradient wash and under the page, so the skyline
+    // is not hidden by the opaque wash that this page draws over its route's own backdrop.
+    final backdrop = PageBackdropScope.maybeOf(context);
     return Stack(
       fit: StackFit.expand,
       children: [
         const Positioned.fill(child: FreshBackground()),
+        if (backdrop != null && backdrop.config.hasPicture)
+          Positioned.fill(
+            child: PageBackdropLayer(config: backdrop.config, imageBuilder: backdrop.imageBuilder),
+          ),
         scaffold,
       ],
     );

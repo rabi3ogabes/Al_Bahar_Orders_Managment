@@ -151,12 +151,11 @@
                     <x-admin.empty :title="__('branches.no_zones')" icon="map" />
                 @else
                     <div class="table-wrap"><table class="table">
-                        <thead><tr><th>{{ __('nav.zones') }}</th><th class="!text-end">{{ __('branches.fee') }}</th><th class="!text-end">{{ __('branches.free_above') }}</th><th>{{ __('branches.limits') }}</th><th>COD</th><th>{{ __('branches.eta') }}</th><th></th></tr></thead>
+                        <thead><tr><th>{{ __('nav.zones') }}</th><th class="!text-end">{{ __('branches.fee') }}</th><th>{{ __('branches.limits') }}</th><th>COD</th><th>{{ __('branches.eta') }}</th><th></th></tr></thead>
                         <tbody>@foreach ($branch->zoneConfigs->sortBy('priority') as $z)
                             <tr wire:key="z-{{ $z->id }}" class="{{ $z->is_active ? '' : 'opacity-50' }}">
                                 <td class="font-medium">{{ $z->zone->localized('name') }}</td>
                                 <td class="text-end tabular-nums">{{ \App\Support\Money::of($z->delivery_fee)->format() }}</td>
-                                <td class="text-end tabular-nums">{{ $z->free_delivery_threshold ? \App\Support\Money::of($z->free_delivery_threshold)->format() : '—' }}</td>
                                 <td class="text-xs text-ink-500">{{ $z->min_order_amount ?? '0' }} – {{ $z->max_order_amount ?? '∞' }}</td>
                                 <td>{!! $z->cod_enabled ? '<span class="badge-success">✓</span>' : '<span class="badge-neutral">—</span>' !!}</td>
                                 <td class="text-ink-500">{{ $z->estimated_minutes ? __('branches.minutes', ['n' => $z->estimated_minutes]) : '—' }}</td>
@@ -172,7 +171,6 @@
                     <x-admin.field :label="__('nav.zones')" for="zone.delivery_zone_id"><select id="zone.delivery_zone_id" wire:model="zone.delivery_zone_id" class="input"><option value="">—</option>@foreach ($zones as $z)<option value="{{ $z->id }}">{{ $z->localized('name') }}</option>@endforeach</select></x-admin.field>
                     <div class="grid grid-cols-2 gap-3">
                         <x-admin.field :label="__('branches.fee')" for="zone.delivery_fee"><input id="zone.delivery_fee" wire:model="zone.delivery_fee" class="input" dir="ltr"></x-admin.field>
-                        <x-admin.field :label="__('branches.free_above')" for="zone.free_delivery_threshold"><input id="zone.free_delivery_threshold" wire:model="zone.free_delivery_threshold" class="input" dir="ltr"></x-admin.field>
                         <x-admin.field :label="__('branches.min_order')" for="zone.min_order_amount"><input id="zone.min_order_amount" wire:model="zone.min_order_amount" class="input" dir="ltr"></x-admin.field>
                         <x-admin.field :label="__('branches.max_order')" for="zone.max_order_amount"><input id="zone.max_order_amount" wire:model="zone.max_order_amount" class="input" dir="ltr"></x-admin.field>
                         <x-admin.field :label="__('branches.eta_minutes')" for="zone.estimated_minutes"><input id="zone.estimated_minutes" type="number" wire:model="zone.estimated_minutes" class="input"></x-admin.field>

@@ -69,7 +69,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [context.theme.scaffoldBackgroundColor, context.palette.surfaceMuted],
+            colors: [context.pageColor, context.palette.surfaceMuted],
           ),
         ),
         child: Center(

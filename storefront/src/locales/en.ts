@@ -266,6 +266,8 @@ export const en: Record<string, string> = {
   "checkout.points_discount": "Points redeemed",
   "checkout.delivery_fee": "Delivery",
   "checkout.free": "Free",
+  "checkout.fee_was": "Was",
+  "checkout.fee_code": "Free delivery code",
   "checkout.cod_fee": "Cash-on-delivery fee",
   "checkout.service_fee": "Service fee",
   "checkout.tax": "Tax",

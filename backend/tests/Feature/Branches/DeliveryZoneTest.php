@@ -49,5 +49,6 @@ it('lets branch managers configure zones only for their branch', function () {
     actingAsStaff(staffWithRole('admin'));
     $this->postJson("/api/v1/admin/branches/{$b->id}/zones", ['delivery_zone_id' => $zone->id, 'delivery_fee' => 20, 'min_order_amount' => 100, 'max_order_amount' => 50])
         ->assertStatus(422)->assertJsonValidationErrors('max_order_amount');
-    $this->postJson("/api/v1/admin/branches/{$b->id}/zones", ['delivery_zone_id' => $zone->id, 'delivery_fee' => 20, 'free_delivery_threshold' => 500])->assertCreated();
+    $this->postJson("/api/v1/admin/branches/{$b->id}/zones", ['delivery_zone_id' => $zone->id, 'delivery_fee' => 20, 'min_order_amount' => 100])->assertCreated()
+        ->assertJsonMissingPath('data.free_delivery_threshold');
 });

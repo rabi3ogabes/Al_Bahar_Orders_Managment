@@ -72,6 +72,7 @@ final class AdminNavigation
                 ['label' => 'nav.appearance', 'route' => 'admin.appearance.index', 'icon' => 'sparkles', 'permission' => 'cms.view'],
                 ['label' => 'nav.store_design', 'route' => 'admin.appearance.designs', 'icon' => 'layers', 'permission' => 'cms.view'],
                 ['label' => 'nav.app_footer', 'route' => 'admin.appearance.footer', 'icon' => 'menu', 'permission' => 'cms.view'],
+                ['label' => 'nav.page_background', 'route' => 'admin.appearance.background', 'icon' => 'building', 'permission' => 'cms.view'],
                 ['label' => 'nav.pages', 'route' => 'admin.pages.index', 'icon' => 'file-text', 'permission' => 'cms.view'],
                 ['label' => 'nav.notification_templates', 'route' => 'admin.notification-templates.index', 'icon' => 'bell', 'permission' => 'notifications.view'],
             ]],

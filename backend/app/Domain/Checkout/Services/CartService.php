@@ -42,8 +42,13 @@ class CartService
         return $this->addTo($this->current($user), $variantId, $quantity);
     }
 
-    /** Add to a specific cart (the customer's active cart, or a staff draft). */
-    public function addTo(Cart $cart, string $variantId, int $quantity): Cart
+    /**
+     * Add to a specific cart (the customer's active cart, or a staff draft).
+     *
+     * @param  bool  $recordActivity  false when staff edit a customer's cart for them: the customer's idle clock, reminder counters and
+     *                                expiry stay as they were (the cart is still abandoned), see AbandonedCartService
+     */
+    public function addTo(Cart $cart, string $variantId, int $quantity, bool $recordActivity = true): Cart
     {
         $max = (int) config('platform.checkout.max_quantity_per_line');
         if ($quantity < 1 || $quantity > $max) {
@@ -54,7 +59,8 @@ class CartService
             throw DomainException::make('item_unavailable_simple');
         }
 
-        DB::transaction(function () use ($cart, $variant, $quantity, $max) {
+        DB::transaction(function () use ($cart, $variant, $quantity, $max, $recordActivity) {
+            Cart::whereKey($cart->id)->lockForUpdate()->first(); // one writer at a time per cart (customer and staff edits queue up instead of overwriting each other)
             $item = CartItem::where('cart_id', $cart->id)->where('product_variant_id', $variant->id)->lockForUpdate()->first();
             $branch = $cart->branch_id ? Branch::find($cart->branch_id) : null;
             $price = $this->prices->resolve($variant, $branch) ?? $this->prices->resolve($variant, null);
@@ -63,7 +69,9 @@ class CartService
             } else {
                 CartItem::create(['cart_id' => $cart->id, 'product_variant_id' => $variant->id, 'quantity' => $quantity, 'price_at_add' => $price?->final()->toDecimal()]);
             }
-            $this->touch($cart);
+            if ($recordActivity) {
+                $this->touch($cart);
+            }
         });
 
         return $cart->refresh();
@@ -74,18 +82,20 @@ class CartService
         return $this->updateIn($this->current($user), $itemId, $quantity);
     }
 
-    public function updateIn(Cart $cart, string $itemId, int $quantity): Cart
+    /** @param bool $recordActivity see addTo() */
+    public function updateIn(Cart $cart, string $itemId, int $quantity, bool $recordActivity = true): Cart
     {
-        $item = CartItem::where('cart_id', $cart->id)->findOrFail($itemId);
-        if ($quantity <= 0) {
-            $item->delete();
-        } else {
-            if ($quantity > (int) config('platform.checkout.max_quantity_per_line')) {
-                throw DomainException::make('quantity_invalid');
-            }
-            $item->update(['quantity' => $quantity]);
+        if ($quantity > (int) config('platform.checkout.max_quantity_per_line')) {
+            throw DomainException::make('quantity_invalid');
         }
-        $this->touch($cart);
+        DB::transaction(function () use ($cart, $itemId, $quantity, $recordActivity) {
+            Cart::whereKey($cart->id)->lockForUpdate()->first();
+            $item = CartItem::where('cart_id', $cart->id)->findOrFail($itemId);
+            $quantity <= 0 ? $item->delete() : $item->update(['quantity' => $quantity]);
+            if ($recordActivity) {
+                $this->touch($cart);
+            }
+        });
 
         return $cart->refresh();
     }
@@ -100,8 +110,11 @@ class CartService
         return $this->setOptionsOn($this->current($user), $user, $o);
     }
 
-    /** @param User|null $user the cart's customer (addresses and coupons are checked against them); null for a draft without one */
-    public function setOptionsOn(Cart $cart, ?User $user, array $o): Cart
+    /**
+     * @param  User|null  $user  the cart's customer (addresses and coupons are checked against them); null for a draft without one
+     * @param  bool  $recordActivity  see addTo()
+     */
+    public function setOptionsOn(Cart $cart, ?User $user, array $o, bool $recordActivity = true): Cart
     {
         $data = [];
         if (array_key_exists('branch_id', $o)) {
@@ -122,7 +135,7 @@ class CartService
         if (array_key_exists('loyalty_points', $o)) {
             $data['loyalty_points_to_redeem'] = max(0, (int) $o['loyalty_points']);
         }
-        $cart->update($data + ['last_activity_at' => now()]);
+        $cart->update($data + ($recordActivity ? ['last_activity_at' => now()] : []));
 
         return $cart->refresh();
     }

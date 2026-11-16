@@ -16,6 +16,7 @@ import { useToast } from '../lib/toast';
 import { BranchPicker, CartDrawer, Logo, MenuDrawer, SearchOverlay, SeasonBanner, prefetchHeaderChunks, preload, useCategories } from './shell';
 import { DrawerLink } from './drawerLink';
 import { FreshFooter, FreshHeader } from './FreshChrome';
+import { PageBackdrop } from './PageBackdrop';
 
 export { Logo, LogoMark } from './shell';
 
@@ -200,7 +201,9 @@ export function Layout() {
   const fresh = layout === 'fresh';
   if (!ready) return <div className="min-h-dvh" aria-busy="true" />;
   return (
-    <div className="flex min-h-dvh flex-col">
+    // `isolate`: the page background sits at z -1 inside this wrapper, above the body colour and below every section.
+    <div className="isolate flex min-h-dvh flex-col">
+      <PageBackdrop />
       <PreviewBar />
       {fresh ? <FreshHeader /> : <Header />}
       <main id="main" className="flex-1 outline-none" tabIndex={-1}><Outlet /></main>

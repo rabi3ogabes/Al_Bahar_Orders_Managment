@@ -130,12 +130,17 @@
                 </x-admin.field>
             </div>
             <div class="grid gap-2 sm:grid-cols-2">
-                <x-admin.toggle :label="__('marketing_admin.requires_coupon')" :hint="__('marketing_admin.requires_coupon_hint')" wire:model="p.requires_coupon" />
+                @if (($p['type'] ?? '') === 'free_delivery')
+                    <x-admin.toggle :label="__('marketing_admin.requires_coupon')" :hint="__('marketing_admin.requires_coupon_locked')" wire:model="p.requires_coupon" disabled />
+                @else
+                    <x-admin.toggle :label="__('marketing_admin.requires_coupon')" :hint="__('marketing_admin.requires_coupon_hint')" wire:model="p.requires_coupon" />
+                @endif
                 <x-admin.toggle :label="__('marketing_admin.stackable')" :hint="__('marketing_admin.stackable_hint')" wire:model="p.is_stackable" />
                 <x-admin.toggle :label="__('marketing_admin.first_order')" wire:model="p.first_order_only" />
                 <x-admin.toggle :label="__('marketing_admin.applies_to_auctions')" wire:model="p.applies_to_auctions" />
                 <x-admin.toggle :label="__('marketing_admin.active')" wire:model="p.is_active" />
             </div>
+            @error('p.requires_coupon')<p class="field-error">{{ $message }}</p>@enderror
             <div>
                 <span class="field-label">{{ __('marketing_admin.scope') }}</span>
                 <div class="mb-3 flex flex-wrap gap-2">

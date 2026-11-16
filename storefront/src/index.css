@@ -159,6 +159,22 @@ img { max-width: 100%; display: block; }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
 
+/* Page background (docs/api/PAGE_BACKDROP.md): one fixed layer behind the page, inside the Layout's `isolate` wrapper (components/PageBackdrop.tsx).
+   The skyline is a mask painted with one colour: as wide as the viewport but never under 760px (a phone shows the middle, cropped at both sides),
+   standing on the bottom edge. Not interactive, not animated, not printed. */
+.page-backdrop { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.page-sky {
+  position: absolute; inset: 0;
+  background-color: var(--sky-tint, var(--primary)); opacity: var(--sky-o, 0.08);
+  -webkit-mask-image: var(--sky-url); mask-image: var(--sky-url);
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-position: 50% 100%; mask-position: 50% 100%;
+  -webkit-mask-size: max(100%, 760px) auto; mask-size: max(100%, 760px) auto;
+}
+.page-img-bottom { position: absolute; inset-inline: 0; bottom: 0; width: 100%; height: auto; max-width: none; }
+.page-img-cover { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: cover; }
+@media print { .page-backdrop { display: none; } }
+
 /* Page-width container with a generous gutter. */
 .wrap { width: 100%; max-width: 1280px; margin-inline: auto; padding-inline: clamp(16px, 4vw, 40px); }
 .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--brass-deep); }

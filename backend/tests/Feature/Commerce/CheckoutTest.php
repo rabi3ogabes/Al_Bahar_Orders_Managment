@@ -93,7 +93,7 @@ it('splits across branches only when needed and shows both delivery fees', funct
     $this->postJson('/api/v1/cart/items', ['variant_id' => $w->v1->id, 'quantity' => 8]);
     $q = $this->postJson('/api/v1/checkout/quote', ['address_id' => $w->address->id, 'payment_method' => 'cod'])->json('data');
     expect($q['is_split'])->toBeTrue()->and($q['fulfillments'])->toHaveCount(2)
-        ->and(collect($q['fulfillments'])->pluck('delivery_fee.amount')->all())->toEqualCanonicalizing(['0.00', '25.00']) // A over free threshold
+        ->and(collect($q['fulfillments'])->pluck('delivery_fee.amount')->all())->toEqualCanonicalizing(['15.00', '25.00']) // each branch part pays its zone fee, even A's 5000 part
         ->and(collect($q['warnings'])->pluck('code'))->toContain('split_fulfillment');
 
     $res = quoteAndPlace(['address_id' => $w->address->id, 'payment_method' => 'cod'])->assertCreated();

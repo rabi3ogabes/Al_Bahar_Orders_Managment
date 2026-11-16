@@ -94,6 +94,7 @@ Route::get('banners', Admin\Content\BannerIndex::class)->middleware('permission:
 Route::get('appearance', Admin\Content\ThemeIndex::class)->middleware('permission:cms.view')->name('appearance.index');
 Route::get('appearance/designs', Admin\Content\DesignIndex::class)->middleware('permission:cms.view')->name('appearance.designs');
 Route::get('appearance/footer', Admin\Content\AppFooterIndex::class)->middleware('permission:cms.view')->name('appearance.footer');
+Route::get('appearance/background', Admin\Content\BackdropIndex::class)->middleware('permission:cms.view')->name('appearance.background');
 Route::get('pages', Admin\Content\PageIndex::class)->middleware('permission:cms.view')->name('pages.index');
 Route::get('notification-templates', Admin\Content\NotificationTemplateIndex::class)->middleware('permission:notifications.view')->name('notification-templates.index');
 

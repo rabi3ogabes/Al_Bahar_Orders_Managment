@@ -6,7 +6,7 @@ import { get } from '../lib/api';
 import { useBranch } from '../lib/branch';
 import { useI18n } from '../lib/i18n';
 import { useDocTitle, useTick } from '../lib/hooks';
-import { useBrand, useDesign } from '../lib/brand';
+import { useBackdrop, useBrand, useDesign } from '../lib/brand';
 import type { Auction, Brand, HomeSection, ProductCard as P } from '../lib/types';
 import { Rail } from '../components/Rail';
 import { BannerSlider } from '../components/BannerSlider';
@@ -73,9 +73,11 @@ function Hero() {
 
 function PromiseStrip() {
   const { t } = useI18n();
+  // A full-width band: with a page background it lets the picture run on behind it (cards elsewhere stay opaque); without one it is unchanged.
+  const { picture } = useBackdrop();
   const items = [[Truck, t('promise.delivery'), t('promise.delivery_text')], [PackageCheck, t('promise.pickup'), t('promise.pickup_text')], [ShieldCheck, t('promise.warranty'), t('promise.warranty_text')], [Clock, t('promise.support'), t('promise.support_text')]] as const;
   return (
-    <section aria-label={t('promise.title')} className="border-y border-line bg-paper">
+    <section aria-label={t('promise.title')} className={picture === 'none' ? 'border-y border-line bg-paper' : 'border-y border-line bg-paper/40'}>
       <ul className="wrap grid grid-cols-2 gap-x-6 gap-y-6 py-7 lg:grid-cols-4">
         {items.map(([Icon, a, b]) => (
           <li key={a} className="flex items-start gap-3.5"><Icon size={24} strokeWidth={1.4} className="mt-0.5 shrink-0 text-brass" /><div><p className="text-sm font-semibold">{a}</p><p className="text-[13px] leading-snug text-muted">{b}</p></div></li>

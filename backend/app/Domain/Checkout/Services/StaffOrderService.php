@@ -7,6 +7,7 @@ use App\Domain\Branches\Models\Branch;
 use App\Domain\Catalog\Models\ProductVariant;
 use App\Domain\Catalog\Services\UpsellService;
 use App\Domain\Checkout\Data\Quote;
+use App\Domain\Checkout\Support\CartVisibility;
 use App\Domain\Identity\Enums\UserStatus;
 use App\Domain\Identity\Enums\UserType;
 use App\Domain\Identity\Models\User;
@@ -45,6 +46,9 @@ class StaffOrderService
     public const SESSION_KEY = 'staff_order_draft';
 
     public const MAX_DRAFTS = 20;
+
+    /** Key in carts.staff_options of a draft made from a customer's cart (see adoptCart); the customer's cart is closed when that order is placed. */
+    public const SOURCE_KEY = 'source_cart_id';
 
     /** Checkout choices kept in carts.staff_options (the cart itself holds branch, fulfilment type, address and coupon). */
     private const OPTION_KEYS = ['payment_method', 'delivery_slot_id', 'delivery_date', 'pickup_slot_id', 'pickup_date', 'express', 'notes', 'internal_note'];
@@ -89,6 +93,12 @@ class StaffOrderService
     private function fail(string $code, int $status = 422, array $replace = []): never
     {
         throw new DomainException($code, __('neworder_admin.err_'.$code, $replace), $status);
+    }
+
+    /** Same as fail(), for the messages of the abandoned orders manager (lang/*/abandoned_admin.php). */
+    private function failCart(string $code, int $status = 409): never
+    {
+        throw new DomainException($code, __('abandoned_admin.err_'.$code), $status);
     }
 
     private function throttle(User $staff, string $bucket, int $perMinute): void
@@ -192,6 +202,52 @@ class StaffOrderService
     public function ensureCurrent(User $staff): Cart
     {
         return $this->current($staff) ?? $this->create($staff);
+    }
+
+    /**
+     * "Place order for customer": copy a customer's abandoned cart (lines, coupon, loyalty points, branch, address, delivery or pickup) into a
+     * staff draft of this staff member and make it their current draft. The customer's own cart is left exactly as it is until the order is
+     * placed; then CheckoutService marks it converted. Adopting the same cart again returns the draft that already exists instead of a second one.
+     * Lines are copied as they are (an unavailable item is flagged by the quote, not refused here); the staff member fixes them in the order cart.
+     */
+    public function adoptCart(Cart $customerCart, User $staff): Cart
+    {
+        $this->authorize($staff);
+        $this->throttle($staff, 'draft', 30);
+
+        return DB::transaction(function () use ($customerCart, $staff) {
+            $source = Cart::whereKey($customerCart->id)->lockForUpdate()->first();
+            if (! $source || $source->status !== 'active' || $source->user_id === null) {
+                $this->failCart('cart_not_active');
+            }
+            if (! CartVisibility::allows($source, $this->scope($staff))) {
+                throw new AuthorizationException(__('errors.forbidden'));
+            }
+            $customer = $this->customer($source->user_id);
+
+            $draft = Cart::where('status', Cart::STAFF_DRAFT)->where('staff_id', $staff->id)->where('staff_options->'.self::SOURCE_KEY, $source->id)->first();
+            if (! $draft) {
+                if (Cart::where('status', Cart::STAFF_DRAFT)->where('staff_id', $staff->id)->count() >= self::MAX_DRAFTS) {
+                    $this->fail('draft_limit', 422, ['max' => self::MAX_DRAFTS]);
+                }
+                $scope = $this->scope($staff);
+                $branchId = $source->branch_id ?? ($scope->all ? null : ($scope->branchIds[0] ?? null));
+                if ($branchId !== null) {
+                    $this->assertBranch($staff, $branchId);
+                }
+                $draft = Cart::create(['status' => Cart::STAFF_DRAFT, 'staff_id' => $staff->id, 'user_id' => $customer->id, 'branch_id' => $branchId,
+                    'fulfillment_type' => $source->fulfillment_type, 'address_id' => $source->address_id, 'coupon_code' => $source->coupon_code,
+                    'loyalty_points_to_redeem' => $source->loyalty_points_to_redeem, 'staff_options' => [self::SOURCE_KEY => $source->id], 'last_activity_at' => now()]);
+                $max = (int) config('platform.checkout.max_quantity_per_line');
+                foreach ($source->items()->get() as $line) {
+                    CartItem::create(['cart_id' => $draft->id, 'product_variant_id' => $line->product_variant_id, 'quantity' => min($max, $line->quantity), 'price_at_add' => $line->price_at_add]);
+                }
+                $this->audit->log('cart.adopted', $source, [], ['draft_id' => $draft->id, 'customer_id' => $customer->id, 'lines' => $source->items()->count()], actor: $staff);
+            }
+            session([self::SESSION_KEY => $draft->id]);
+
+            return $draft;
+        });
     }
 
     public function discard(User $staff, Cart $draft): void
@@ -448,6 +504,10 @@ class StaffOrderService
         }
         $customer = $draft->user_id ? User::find($draft->user_id) : $this->fail('customer_required');
         $opts = $draft->staff_options ?? [];
+        $source = isset($opts[self::SOURCE_KEY]) ? Cart::find($opts[self::SOURCE_KEY]) : null;
+        if ($source && $source->status === 'converted') {
+            $this->failCart('source_already_ordered'); // the customer (or a colleague) already ordered from this cart: never place it twice
+        }
         $result = $this->checkout->placeCart($customer, $draft, $this->quoteOptions($staff, $draft), $quoteHash, $idempotencyKey, $opts['notes'] ?? null, $staff);
         $order = $result['order'];
 

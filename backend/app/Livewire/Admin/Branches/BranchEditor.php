@@ -43,7 +43,7 @@ class BranchEditor extends Component
 
     public array $holiday = ['type' => 'holiday', 'name_en' => '', 'name_ar' => '', 'starts_at' => '', 'ends_at' => '', 'reason' => ''];
 
-    public array $zone = ['delivery_zone_id' => '', 'delivery_fee' => '15.00', 'free_delivery_threshold' => '', 'min_order_amount' => '', 'max_order_amount' => '', 'cod_enabled' => true, 'estimated_minutes' => 180, 'priority' => 100];
+    public array $zone = ['delivery_zone_id' => '', 'delivery_fee' => '15.00', 'min_order_amount' => '', 'max_order_amount' => '', 'cod_enabled' => true, 'estimated_minutes' => 180, 'priority' => 100];
 
     public array $slot = ['fulfillment_type' => 'pickup', 'day_of_week' => 0, 'starts_at' => '16:00', 'ends_at' => '18:00', 'capacity' => 10];
 
@@ -149,7 +149,7 @@ class BranchEditor extends Component
         $this->authorizeBranch('zones.edit', $this->branch->id);
         $data = $this->validate([
             'zone.delivery_zone_id' => 'required|uuid|exists:delivery_zones,id', 'zone.delivery_fee' => 'required|numeric|min:0',
-            'zone.free_delivery_threshold' => 'nullable|numeric|min:0', 'zone.min_order_amount' => 'nullable|numeric|min:0',
+            'zone.min_order_amount' => 'nullable|numeric|min:0',
             'zone.max_order_amount' => 'nullable|numeric|min:0|gte:zone.min_order_amount', 'zone.cod_enabled' => 'boolean',
             'zone.estimated_minutes' => 'nullable|integer|min:0', 'zone.priority' => 'nullable|integer|min:0',
         ])['zone'];

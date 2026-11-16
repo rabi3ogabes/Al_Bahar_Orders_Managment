@@ -30,6 +30,10 @@ abstract class ScanSource {
   ValueListenable<ScanTorch> get torch;
 
   /// Opens the camera (asks for permission the first time). Safe to call again; it never throws.
+  ///
+  /// Calling it again after a failure starts over from scratch (a camera that failed to open is rebuilt), so "Try again" is just this
+  /// call. Whatever goes wrong ends in [ScanCameraState.unavailable] or [ScanCameraState.permissionDenied], never in an endless
+  /// [ScanCameraState.starting].
   Future<void> start();
 
   /// Releases the camera (screen hidden or app in the background). Safe to call again; it never throws.
@@ -47,6 +51,10 @@ abstract class ScanSource {
 }
 
 /// A new source per visit to the scanner: the camera is released the moment the screen is left.
+///
+/// This provider is auto-dispose, and a plain `ref.read` of an auto-dispose provider that nothing listens to is released again a
+/// moment later (which closed the camera under the open screen). The screen therefore listens to it for as long as it is open
+/// (`ref.listenManual` in `initState`) and takes the source from that subscription.
 final scanSourceProvider = Provider.autoDispose<ScanSource>((ref) {
   final source = MobileScannerSource();
   ref.onDispose(source.dispose);

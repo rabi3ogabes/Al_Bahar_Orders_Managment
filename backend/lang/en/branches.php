@@ -85,7 +85,6 @@ return [
     'zones_hint' => 'Fees and limits apply per branch, so each fulfillment is quoted accurately.',
     'no_zones' => 'This branch does not deliver yet',
     'fee' => 'Fee',
-    'free_above' => 'Free above',
     'limits' => 'Order limits',
     'eta' => 'ETA',
     'minutes' => ':n min',

@@ -11,6 +11,7 @@ import { useAuthModal } from './AuthModal';
 import { DrawerCtx, DrawerLink, useDrawerNavigate } from './drawerLink';
 import { SideDrawer } from './SideDrawer';
 import { Alert, Button, Pic, PriceTag, Skeleton } from './ui';
+import { DeliveryFeeRow } from './DeliveryFeeRow';
 
 /**
  * The cart panel. "Add to cart" anywhere opens it over the current page (end side drawer, a bottom sheet on phones) and it
@@ -47,7 +48,10 @@ function CartFooter() {
   };
   return (
     <div>
-      <div className="mb-1 flex items-baseline justify-between"><span className="text-sm text-muted">{t('cart.subtotal')}</span><span className="text-xl font-semibold tabular-nums" aria-live="polite" data-testid="cart-subtotal">{cart.subtotal.formatted}</span></div>
+      <dl className="mb-1.5 space-y-1">
+        <div className="flex items-baseline justify-between"><dt className="text-sm text-muted">{t('cart.subtotal')}</dt><dd className="text-xl font-semibold tabular-nums" aria-live="polite" data-testid="cart-subtotal">{cart.subtotal.formatted}</dd></div>
+        <div className="text-sm"><DeliveryFeeRow /></div>
+      </dl>
       <p className="mb-3 text-xs text-muted">{t('cart.shipping_note')}</p>
       <Button size="lg" block loading={busy} disabled={blocked || cart.lines.length === 0} onClick={() => void checkout()}>{t('cart.checkout')}</Button>
       {blocked && <p role="alert" className="mt-2 text-center text-xs text-danger">{t('cart.fix_items')}</p>}

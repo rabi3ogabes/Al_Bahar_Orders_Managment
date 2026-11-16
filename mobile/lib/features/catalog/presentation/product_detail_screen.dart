@@ -103,7 +103,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             child: Transform.translate(
               offset: const Offset(0, -24),
               child: Material(
-                color: Theme.of(context).scaffoldBackgroundColor,
+                color: context.pageColor,
                 shape: const RoundedRectangleBorder(
                   borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.sheet)),
                 ),

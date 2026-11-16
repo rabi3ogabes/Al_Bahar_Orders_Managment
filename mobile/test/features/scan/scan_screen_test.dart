@@ -79,6 +79,74 @@ void main() {
 
   Finder button(String label) => find.widgetWithText(AppButton, label);
 
+  /// The scanner opened with the REAL provider lifecycle: `scanSourceProvider` is auto-dispose, and every visit builds a new fake
+  /// camera that is closed when the provider lets go of it (an `overrideWithValue` keeps the camera alive for ever, so it could never
+  /// show a camera released too early or not at all).
+  Future<({List<FakeScanSource> cameras, ScanServer server, TestHarness h})> openLive(WidgetTester t) async {
+    final cameras = <FakeScanSource>[];
+    final shop = standardServer();
+    final h = await boot(
+      t,
+      backend(extra: shop.handle),
+      overrides: [
+        scanSourceProvider.overrideWith((ref) {
+          final camera = FakeScanSource();
+          cameras.add(camera);
+          ref.onDispose(camera.dispose);
+          return camera;
+        }),
+        scanClockProvider.overrideWithValue(() => now),
+      ],
+    );
+    await h.container.read(cartControllerProvider.future);
+    await go(t, h, '/home');
+    unawaited(h.read(routerProvider).push('/scan'));
+    await settle(t);
+    return (cameras: cameras, server: shop, h: h);
+  }
+
+  group('the camera source lives exactly as long as the screen', () {
+    testWidgets('it is not released under the open screen, and it is released when the screen is left', (t) async {
+      final live = await openLive(t);
+      final camera = live.cameras.single;
+      // Long enough for the provider scheduler to let go of a source that nothing listens to. That is what used to close the camera
+      // a moment after the screen opened and left a black preview with a spinner on a real phone.
+      await t.pump(const Duration(seconds: 1));
+      await t.pump(const Duration(seconds: 1));
+      expect(camera.disposed, isFalse, reason: 'the open screen holds its camera');
+      expect(camera.starts, greaterThan(0));
+      expect(live.cameras, hasLength(1), reason: 'one visit, one camera');
+
+      await see(t, camera, '6291000000011');
+      expect(live.server.lines, {'v1': 1}, reason: 'the camera still delivers codes after the first seconds');
+
+      await t.tap(find.byTooltip(en.scanClose));
+      await settle(t);
+      expect(path(live.h), '/home');
+      expect(camera.stops, greaterThan(0));
+      expect(camera.disposed, isTrue, reason: 'leaving the scanner releases the camera');
+      await teardown(t);
+    });
+
+    testWidgets('going back releases it too, and the next visit builds a new camera that stays on', (t) async {
+      final live = await openLive(t);
+      final first = live.cameras.single;
+      live.h.read(routerProvider).pop();
+      await settle(t);
+      expect(first.disposed, isTrue);
+
+      unawaited(live.h.read(routerProvider).push('/scan'));
+      await settle(t);
+      expect(live.cameras, hasLength(2));
+      final second = live.cameras.last;
+      expect(second.starts, greaterThan(0));
+      await t.pump(const Duration(seconds: 1));
+      await t.pump(const Duration(seconds: 1));
+      expect(second.disposed, isFalse);
+      await teardown(t);
+    });
+  });
+
   group('the screen', () {
     testWidgets('a full-screen camera with a way out, a light, and a typing fallback; no footer', (t) async {
       final (:source, :server, :h) = await open(t);
@@ -337,6 +405,85 @@ void main() {
       await teardown(t);
     });
 
+    testWidgets('while the camera opens: a calm note, and the way out, typing and searching are all at hand', (t) async {
+      final camera = FakeScanSource(camera: ScanCameraState.starting);
+      final (:source, :server, :h) = await open(t, source: camera);
+      expect(find.text(en.scanCameraStarting), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsWidgets);
+      expect(find.byTooltip(en.scanClose), findsOneWidget);
+      expect(find.text(en.scanEnterCode), findsOneWidget);
+      expect(find.text(en.scanSearchByName), findsOneWidget);
+      expect(find.text(en.scanCameraUnavailableTitle), findsNothing);
+      expect(t.takeException(), isNull);
+
+      // The camera does not answer in time: the screen says so instead of spinning for ever.
+      camera.camera.value = ScanCameraState.unavailable;
+      await settle(t);
+      expect(find.text(en.scanCameraStarting), findsNothing);
+      expect(find.text(en.scanCameraUnavailableTitle), findsOneWidget);
+
+      await t.tap(find.text(en.scanSearchByName));
+      await settle(t);
+      expect(path(h), '/search');
+      await teardown(t);
+    });
+
+    testWidgets('while the camera opens, searching by name is one tap away', (t) async {
+      final camera = FakeScanSource(camera: ScanCameraState.starting);
+      final (:source, :server, :h) = await open(t, source: camera);
+      await t.tap(find.text(en.scanSearchByName));
+      await settle(t);
+      expect(path(h), '/search');
+      await teardown(t);
+    });
+
+    testWidgets('Try again asks the camera to start from scratch; when it opens the explanation goes', (t) async {
+      final camera = FakeScanSource(camera: ScanCameraState.unavailable);
+      await open(t, source: camera);
+      expect(find.text(en.scanCameraUnavailableTitle), findsOneWidget);
+      expect(find.text(en.scanCameraStarting), findsNothing, reason: 'a failed start never stays on "starting"');
+
+      final starts = camera.starts;
+      camera.afterStart = ScanCameraState.ready;
+      await t.tap(button(en.retry));
+      await settle(t);
+      expect(camera.starts, starts + 1);
+      expect(find.text(en.scanCameraUnavailableTitle), findsNothing);
+      expect(button(en.retry), findsNothing);
+      expect(find.text(en.scanHint), findsOneWidget);
+      await teardown(t);
+    });
+
+    testWidgets('Try again that fails again stays on the explanation (and can be pressed again)', (t) async {
+      final camera = FakeScanSource(camera: ScanCameraState.unavailable);
+      await open(t, source: camera);
+      final starts = camera.starts;
+      camera.afterStart = ScanCameraState.unavailable;
+      await t.tap(button(en.retry));
+      await settle(t);
+      await t.tap(button(en.retry));
+      await settle(t);
+      expect(camera.starts, starts + 2);
+      expect(find.text(en.scanCameraUnavailableTitle), findsOneWidget);
+      await teardown(t);
+    });
+
+    testWidgets('large text on a small phone: the opening note and the camera problem fit, with every button', (t) async {
+      t.platformDispatcher.textScaleFactorTestValue = 1.3;
+      addTearDown(t.platformDispatcher.clearTextScaleFactorTestValue);
+      final camera = FakeScanSource(camera: ScanCameraState.starting);
+      await open(t, source: camera, width: 320, height: 640);
+      expect(t.takeException(), isNull);
+      expect(find.text(en.scanSearchByName), findsOneWidget);
+      camera.camera.value = ScanCameraState.unavailable;
+      await settle(t);
+      expect(t.takeException(), isNull);
+      expect(button(en.retry), findsOneWidget);
+      expect(find.text(en.scanSearchByName), findsOneWidget);
+      expect(find.text(en.scanEnterCode), findsOneWidget);
+      await teardown(t);
+    });
+
     testWidgets('returning from Settings with the permission on starts the camera again', (t) async {
       final camera = FakeScanSource(camera: ScanCameraState.permissionDenied);
       await open(t, source: camera);
@@ -350,10 +497,13 @@ void main() {
       await teardown(t);
     });
 
-    testWidgets('no usable camera: says so and still lets the shopper search or type a code', (t) async {
+    testWidgets('no usable camera: says so and still lets the shopper try again, search or type a code', (t) async {
       final camera = FakeScanSource(camera: ScanCameraState.unavailable);
       final (:source, :server, :h) = await open(t, source: camera);
       expect(find.text(en.scanCameraUnavailableTitle), findsOneWidget);
+      expect(find.text(en.scanCameraUnavailableMessage), findsOneWidget);
+      expect(button(en.retry), findsOneWidget, reason: 'the main action is to try the camera again');
+      expect(find.text(en.scanSearchByName), findsOneWidget);
       expect(find.text(en.scanEnterCode), findsOneWidget);
 
       await t.tap(find.text(en.scanEnterCode));

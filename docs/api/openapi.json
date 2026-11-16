@@ -3361,13 +3361,6 @@
                                         "type": "number",
                                         "minimum": 0
                                     },
-                                    "free_delivery_threshold": {
-                                        "type": [
-                                            "number",
-                                            "null"
-                                        ],
-                                        "minimum": 0
-                                    },
                                     "min_order_amount": {
                                         "type": [
                                             "number",
@@ -26992,12 +26985,6 @@
                     "delivery_fee": {
                         "type": "string"
                     },
-                    "free_delivery_threshold": {
-                        "type": [
-                            "string",
-                            "null"
-                        ]
-                    },
                     "min_order_amount": {
                         "type": [
                             "string",
@@ -27057,7 +27044,6 @@
                     "branch_id",
                     "delivery_zone_id",
                     "delivery_fee",
-                    "free_delivery_threshold",
                     "min_order_amount",
                     "max_order_amount",
                     "oversized_surcharge",

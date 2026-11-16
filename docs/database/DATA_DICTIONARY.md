@@ -373,7 +373,7 @@ Indexes:
 | `branch_id` | uuid | no |  |
 | `delivery_zone_id` | uuid | no |  |
 | `delivery_fee` | numeric | no | '0'::numeric |
-| `free_delivery_threshold` | numeric | yes |  |
+| `free_delivery_threshold` | numeric | yes | no longer used, always NULL |
 | `min_order_amount` | numeric | yes |  |
 | `max_order_amount` | numeric | yes |  |
 | `oversized_surcharge` | numeric | no | '0'::numeric |

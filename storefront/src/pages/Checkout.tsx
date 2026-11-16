@@ -9,7 +9,8 @@ import { useCart } from '../lib/cart';
 import { useI18n } from '../lib/i18n';
 import { useToast } from '../lib/toast';
 import { useDocTitle } from '../lib/hooks';
-import { cx, latinDigits } from '../lib/format';
+import { cx, latinDigits, money } from '../lib/format';
+import { deliveryFeeLine } from '../lib/deliveryFee';
 import { altPhoneDone, altPhoneFields, altPhoneStatus, nationalDigits } from '../lib/altPhone';
 import { useAltPhoneEnabled } from '../lib/appConfig';
 import { decideSlot, hasFreePlace, isSlotBookable, slotWindowDates } from '../lib/slotPick';
@@ -17,6 +18,7 @@ import type { Address, Branch, OrderDetail, PaymentAction, Quote, SlotDay } from
 import { useAuthModal } from '../components/AuthModal';
 import { Alert, Button, Checkbox, EmptyState, Input, Pic, Segmented, Skeleton, Spinner, Textarea } from '../components/ui';
 import { AddressWindow } from '../components/windows';
+import { DeliveryFeeRow } from '../components/DeliveryFeeRow';
 
 type Method = 'sadad' | 'cod' | 'pay_at_pickup';
 
@@ -113,7 +115,7 @@ function Slots({ branchId, kind, value, date, auto, replaced, onPick, required, 
 }
 
 export default function Checkout() {
-  const { t, dir } = useI18n();
+  const { t, dir, locale } = useI18n();
   const Back = dir === 'rtl' ? ArrowRight : ArrowLeft;
   const { user, loading: authLoading } = useAuth();
   const authModal = useAuthModal();
@@ -245,6 +247,7 @@ export default function Checkout() {
     pay_at_pickup: { icon: <Store size={22} />, title: t('pay.pickup'), text: t('pay.pickup_text') },
   };
   const grand = q?.totals.grand_total.formatted;
+  const feeLine = deliveryFeeLine(q, (v, cur) => money(v, cur, locale));
   const quoteErrors = (q?.errors ?? []).filter((e) => e.code !== 'slot_required' && e.code !== 'slot_unavailable');
   const canPlace = !!q && !!method && !place.isPending && (!slotRequired || !!slotId) && altOk && q.can_place_order !== false && !quote.isFetching && !quoteErr;
   // Why the button waits, in plain words: shown before it is ever pressed.
@@ -368,9 +371,9 @@ export default function Checkout() {
             {quoteErrors.map((e, i) => <div key={i} className="mt-4"><Alert tone="danger">{e.message ?? e.code}</Alert></div>)}
             <dl className={cx('mt-5 space-y-2.5 border-t border-line pt-5 text-sm transition-opacity', quote.isFetching && 'opacity-60')}>
               <Row k={t('cart.subtotal')} v={(q?.totals.subtotal ?? cart.subtotal).formatted} />
-              {q && parseFloat(q.totals.discount.amount) > 0 && <Row k={t('checkout.discount')} v={`− ${q.totals.discount.formatted}`} good />}
+              {feeLine.discount && <Row k={t('checkout.discount')} v={`− ${feeLine.discount.formatted}`} good />}
               {q && parseFloat(q.totals.loyalty_discount.amount) > 0 && <Row k={t('checkout.points_discount')} v={`− ${q.totals.loyalty_discount.formatted}`} good />}
-              {q ? <Row k={t('checkout.delivery_fee')} v={parseFloat(q.totals.delivery_fee.amount) > 0 ? q.totals.delivery_fee.formatted : t('checkout.free')} /> : <Row k={t('checkout.delivery_fee')} v={t('cart.at_checkout')} muted />}
+              <DeliveryFeeRow line={feeLine} />
               {q && parseFloat(q.totals.cod_fee.amount) > 0 && <Row k={t('checkout.cod_fee')} v={q.totals.cod_fee.formatted} />}
               {q && parseFloat(q.totals.service_fee.amount) > 0 && <Row k={t('checkout.service_fee')} v={q.totals.service_fee.formatted} />}
               {q && parseFloat(q.totals.tax.amount) > 0 && <Row k={t('checkout.tax')} v={q.totals.tax.formatted} />}

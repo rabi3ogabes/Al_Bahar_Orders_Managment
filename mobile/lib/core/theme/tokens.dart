@@ -235,6 +235,12 @@ extension ThemeContextX on BuildContext {
   ThemeData get theme => Theme.of(this);
   TextTheme get text => Theme.of(this).textTheme;
   ColorScheme get colors => Theme.of(this).colorScheme;
+
+  /// The opaque colour of the page itself (the theme background, or the dashboard's page colour in light mode).
+  /// Read this instead of `Theme.of(context).scaffoldBackgroundColor`: when the dashboard's page background is on, the
+  /// scaffold is transparent so the picture shows through, and a surface painted with it would vanish.
+  Color get pageColor => Theme.of(this).colorScheme.surfaceContainerLowest;
+
   AppColors get palette => Theme.of(this).extension<AppColors>() ?? AppColors.light;
   bool get isRtl => Directionality.of(this) == TextDirection.rtl;
 }

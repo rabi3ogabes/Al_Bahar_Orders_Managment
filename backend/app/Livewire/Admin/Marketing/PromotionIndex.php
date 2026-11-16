@@ -72,6 +72,14 @@ class PromotionIndex extends Component
         $this->resetPage();
     }
 
+    /** Free delivery is only ever given with a coupon code (delivery otherwise costs the zone fee), so choosing that type switches the code requirement on. */
+    public function updatedP(mixed $value, string $key): void
+    {
+        if ($key === 'type' && $value === 'free_delivery') {
+            $this->p['requires_coupon'] = true;
+        }
+    }
+
     private static function local($v): string
     {
         return $v ? BusinessTime::local($v)->format('Y-m-d\TH:i') : '';
@@ -107,6 +115,9 @@ class PromotionIndex extends Component
             'buy_quantity', 'get_quantity', 'get_discount_percent', 'first_order_only', 'customer_group_id', 'requires_coupon', 'is_stackable', 'priority',
             'usage_limit', 'per_customer_limit', 'is_active', 'applies_to_auctions']))->map(fn ($v) => $v ?? '')->all()
             + ['starts_at' => self::local($promo->starts_at), 'ends_at' => self::local($promo->ends_at)];
+        if ($promo->type === 'free_delivery') {
+            $this->p['requires_coupon'] = true;
+        }
         $this->categoryIds = $promo->categories->pluck('id')->all();
         $this->productIds = $promo->products->pluck('id')->all();
         $this->productSearch = $this->skuPaste = '';
@@ -130,13 +141,13 @@ class PromotionIndex extends Component
             'p.get_quantity' => ($type === 'bogo' ? 'required' : 'nullable').'|integer|min:1|max:100',
             'p.get_discount_percent' => 'nullable|numeric|min:0|max:100',
             'p.first_order_only' => 'boolean', 'p.customer_group_id' => 'nullable|uuid|exists:customer_groups,id',
-            'p.requires_coupon' => 'boolean', 'p.is_stackable' => 'boolean', 'p.priority' => 'required|integer|min:0|max:10000',
+            'p.requires_coupon' => $type === 'free_delivery' ? 'accepted' : 'boolean', 'p.is_stackable' => 'boolean', 'p.priority' => 'required|integer|min:0|max:10000',
             'p.usage_limit' => 'nullable|integer|min:1', 'p.per_customer_limit' => 'nullable|integer|min:1',
             'p.starts_at' => 'nullable|date', 'p.ends_at' => 'nullable|date|after:p.starts_at',
             'p.is_active' => 'boolean', 'p.applies_to_auctions' => 'boolean',
             'categoryIds' => 'array', 'categoryIds.*' => 'uuid|exists:categories,id',
             'productIds' => 'array|max:'.self::MAX_PRODUCTS, 'productIds.*' => 'uuid|exists:products,id', 'branchIds' => 'array', 'branchIds.*' => 'uuid|exists:branches,id',
-        ], [], ['p.name_en' => __('marketing_admin.name_en'), 'p.name_ar' => __('marketing_admin.name_ar'), 'p.value' => __('marketing_admin.value'), 'p.ends_at' => __('marketing_admin.ends_at'),
+        ], ['p.requires_coupon.accepted' => __('marketing_admin.free_delivery_needs_code')], ['p.name_en' => __('marketing_admin.name_en'), 'p.name_ar' => __('marketing_admin.name_ar'), 'p.value' => __('marketing_admin.value'), 'p.ends_at' => __('marketing_admin.ends_at'),
             'p.buy_quantity' => __('marketing_admin.buy_qty'), 'p.get_quantity' => __('marketing_admin.get_qty')]);
         $attrs = collect($data['p'])->map(fn ($v) => $v === '' ? null : $v)->all();
         $attrs['starts_at'] = self::instant($data['p']['starts_at'] ?: null);

@@ -140,6 +140,12 @@ class CheckoutService
             $this->orders->history($order, null, 'order', null, $order->status->value, $staff ?? $user, 'placed',
                 ['payment_method' => $order->payment_method] + ($staff ? ['on_behalf_of' => $user->id] : []));
             $cart->update(['status' => 'converted', 'converted_order_id' => $order->id]);
+            // A staff draft made from the customer's own abandoned cart ("Place order for customer"): that cart is now ordered too,
+            // so it stops being abandoned, the reminders stop and the customer does not find the same items waiting to be bought again.
+            $sourceId = $draft ? ($cart->staff_options[StaffOrderService::SOURCE_KEY] ?? null) : null;
+            if ($sourceId) {
+                Cart::whereKey($sourceId)->where('user_id', $user->id)->where('status', 'active')->update(['status' => 'converted', 'converted_order_id' => $order->id]);
+            }
             $this->audit->log('order.placed', $order, [], ['number' => $order->number, 'total' => $order->grand_total, 'method' => $order->payment_method,
                 'branches' => collect($quote->plans)->map(fn ($p) => $p->branch->code)->all()]
                 + ($staff ? ['placed_by_staff_id' => $staff->id, 'customer_id' => $user->id] : []), actor: $staff ?? $user);

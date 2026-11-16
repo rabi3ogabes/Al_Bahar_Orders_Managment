@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'brand_theme.dart';
 import 'contrast.dart';
 import 'design_tokens.dart';
+import 'page_backdrop.dart';
 import 'tokens.dart';
 
 abstract final class AppFonts {
@@ -17,11 +18,16 @@ abstract final class AppFonts {
 /// Latin uses Inter for headings and body alike (heavier weights for headings, no serif).
 abstract final class AppTheme {
   /// [brand] is the look chosen in the dashboard (Qatar events etc.); dark mode keeps its own palette.
-  static ThemeData light(Locale locale, {BrandTheme? brand}) => _build(Brightness.light, locale, brand);
+  ///
+  /// [backdrop] is the dashboard's page background. Only the customer app passes it; without it (the driver and staff
+  /// apps, and every call that predates it) the theme is exactly what it always was.
+  static ThemeData light(Locale locale, {BrandTheme? brand, PageBackdropConfig? backdrop}) =>
+      _build(Brightness.light, locale, brand, backdrop);
 
   /// Dark mode keeps its own palette; only the layout switches (and, for the fresh design, a readable tint of the
   /// brand colour) come from [brand].
-  static ThemeData dark(Locale locale, {BrandTheme? brand}) => _build(Brightness.dark, locale, brand);
+  static ThemeData dark(Locale locale, {BrandTheme? brand, PageBackdropConfig? backdrop}) =>
+      _build(Brightness.dark, locale, brand, backdrop);
 
   static TextTheme textTheme(Locale locale, Color ink, Color muted) {
     final isArabic = locale.languageCode == 'ar';
@@ -63,7 +69,7 @@ abstract final class AppTheme {
 
   static Color _mix(Color a, Color b, double t) => Color.lerp(a, b, t)!;
 
-  static ThemeData _build(Brightness brightness, Locale locale, BrandTheme? brand) {
+  static ThemeData _build(Brightness brightness, Locale locale, BrandTheme? brand, PageBackdropConfig? backdrop) {
     final isDark = brightness == Brightness.dark;
     var ext = isDark ? AppColors.dark : AppColors.light;
     var bg = isDark ? AppPalette.nightBg : AppPalette.ivory;
@@ -94,6 +100,10 @@ abstract final class AppTheme {
         ink: brand.ink,
       );
     }
+    // The dashboard's page background, when it is on. Its page colour replaces the light background (never the dark one),
+    // unless the theme's text would be hard to read on it.
+    final active = (backdrop?.isActive ?? false) ? backdrop : null;
+    if (active != null && !isDark) bg = active.pageColorFor(ext.ink) ?? bg;
     final surfaceHigh = isDark ? AppPalette.nightSurfaceHigh : ext.tint;
     final ink = ext.ink;
     // Brand primary: deep navy on light, a soft navy tint on dark.
@@ -153,7 +163,9 @@ abstract final class AppTheme {
       useMaterial3: true,
       brightness: brightness,
       colorScheme: scheme,
-      scaffoldBackgroundColor: bg,
+      // With the page background on, every page carries its own opaque backdrop (see the page transitions below) and the
+      // scaffold lets it show through. `canvasColor` and the colour scheme keep the opaque page colour.
+      scaffoldBackgroundColor: active == null ? bg : Colors.transparent,
       canvasColor: bg,
       textTheme: text,
       fontFamily: locale.languageCode == 'ar' ? AppFonts.arabic : AppFonts.body,
@@ -332,12 +344,14 @@ abstract final class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       ),
       progressIndicatorTheme: ProgressIndicatorThemeData(color: navy, linearTrackColor: ext.line),
-      pageTransitionsTheme: const PageTransitionsTheme(
-        builders: {
-          TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
-          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-        },
-      ),
+      pageTransitionsTheme: active == null
+          ? const PageTransitionsTheme(
+              builders: {
+                TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
+                TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+              },
+            )
+          : backdropPageTransitions(config: active, page: bg),
     );
   }
 }

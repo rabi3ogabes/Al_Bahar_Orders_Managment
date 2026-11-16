@@ -12,7 +12,7 @@ class ArtPalette {
 
   factory ArtPalette.of(BuildContext context) => ArtPalette(
     dark: context.theme.brightness == Brightness.dark,
-    background: context.theme.scaffoldBackgroundColor,
+    background: context.pageColor,
     surface: context.colors.surface,
     ink: context.palette.ink,
   );

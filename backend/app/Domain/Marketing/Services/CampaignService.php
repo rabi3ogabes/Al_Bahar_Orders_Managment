@@ -5,6 +5,7 @@ namespace App\Domain\Marketing\Services;
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Identity\Models\User;
+use App\Domain\Messaging\Services\ContactHistory;
 use App\Domain\Marketing\Models\Journey;
 use App\Domain\Notifications\Models\MarketingCampaign;
 use App\Domain\Notifications\Models\Notification;
@@ -12,6 +13,7 @@ use App\Domain\Notifications\Services\NotificationService;
 use App\Domain\Notifications\Services\TemplateRenderer;
 use App\Domain\Orders\Models\Cart;
 use App\Domain\Settings\Services\Settings;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
@@ -98,6 +100,60 @@ class CampaignService
             });
 
         return $n;
+    }
+
+    /**
+     * May this customer's cart be reminded right now? Same rules as the automatic reminders: the customer agreed to marketing messages, at most
+     * `abandoned_cart_max_messages` reminders per cart, and nothing within `abandoned_cart_min_interval_hours` of the last message to them (a
+     * reminder, a journey message or a message staff sent by hand).
+     *
+     * @return array{status: 'ok'|'no_customer'|'no_consent'|'limit_reached'|'too_soon', next_at: ?CarbonImmutable, limit: int}
+     */
+    public function reminderStatus(Cart $cart): array
+    {
+        $max = (int) $this->settings->get('notifications.abandoned_cart_max_messages', 2);
+        $gap = (int) $this->settings->get('notifications.abandoned_cart_min_interval_hours', 24);
+        $user = $cart->user_id ? User::find($cart->user_id) : null;
+        $out = fn (string $status, ?CarbonImmutable $next = null) => ['status' => $status, 'next_at' => $next, 'limit' => $max];
+        if (! $user || ! $user->isCustomer() || ! $user->isActive()) {
+            return $out('no_customer');
+        }
+        if (! $user->marketing_consent_at) {
+            return $out('no_consent');
+        }
+        if ($cart->abandoned_notifications >= $max) {
+            return $out('limit_reached');
+        }
+        if ($cart->abandoned_notified_at && $cart->abandoned_notified_at->addHours($gap)->isFuture()) {
+            return $out('too_soon', $cart->abandoned_notified_at->addHours($gap));
+        }
+        if ($gap > 0 && app(ContactHistory::class)->recentlyContacted([(string) $user->id], $gap) !== []) {
+            return $out('too_soon');
+        }
+
+        return $out('ok');
+    }
+
+    /**
+     * Staff sent the customer a reminder about this cart (push, in-app inbox and WhatsApp where they agreed). The reminder bookkeeping moves
+     * (so the automatic reminders do not repeat it) but the cart itself is not touched: it stays abandoned until the customer acts.
+     *
+     * @return array{status: 'sent'|'no_channel'|'no_customer'|'no_consent'|'limit_reached'|'too_soon', channels: list<string>, next_at: ?CarbonImmutable, limit: int}
+     */
+    public function remindCart(Cart $cart): array
+    {
+        $state = $this->reminderStatus($cart);
+        if ($state['status'] !== 'ok') {
+            return $state + ['channels' => []];
+        }
+        $user = User::findOrFail($cart->user_id);
+        $channels = $this->notify->notify($user, 'cart.abandoned', ['deep_link' => 'albahar://cart'], ['push', 'in_app', 'whatsapp']);
+        if ($channels === []) {
+            return ['status' => 'no_channel', 'channels' => [], 'next_at' => null, 'limit' => $state['limit']];
+        }
+        Cart::whereKey($cart->id)->update(['abandoned_notified_at' => now(), 'abandoned_notifications' => $cart->abandoned_notifications + 1]);
+
+        return ['status' => 'sent', 'channels' => $channels, 'next_at' => null, 'limit' => $state['limit']];
     }
 
     /** Conversion: share of reminded carts later converted to orders. */

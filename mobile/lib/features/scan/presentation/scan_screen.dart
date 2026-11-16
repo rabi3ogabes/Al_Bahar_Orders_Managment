@@ -26,15 +26,23 @@ class ScanScreen extends ConsumerStatefulWidget {
 
 class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObserver {
   StreamSubscription<String>? _codes;
-  late final ScanSource _source = ref.read(scanSourceProvider);
+
+  /// Holds the camera source open for exactly as long as this screen is. The provider is auto-dispose: a plain `ref.read` would be
+  /// released a moment later (nothing listens to it), closing the camera under the screen and leaving it black with a spinner.
+  late final ProviderSubscription<ScanSource> _sourceLink;
+  late final ScanSource _source;
 
   @override
   void initState() {
     super.initState();
+    _sourceLink = ref.listenManual(scanSourceProvider, (_, _) {});
+    _source = _sourceLink.read();
     WidgetsBinding.instance.addObserver(this);
     _codes = _source.codes.listen(_onCode);
     // Opens the camera (and asks for permission the first time) once the first frame has the preview attached.
-    WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_source.start()));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_source.start());
+    });
   }
 
   @override
@@ -42,6 +50,8 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_codes?.cancel());
     unawaited(_source.stop());
+    // Last: letting go of the source is what releases the camera for good.
+    _sourceLink.close();
     super.dispose();
   }
 
@@ -123,12 +133,13 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
                 fit: StackFit.expand,
                 children: [
                   ScanOverlay(flash: flash, looking: looking),
-                  Center(child: _Starting(label: l10n.scanCameraStarting)),
+                  _Starting(onSearch: () => unawaited(context.push('/search'))),
                 ],
               ),
               ScanCameraState.permissionDenied || ScanCameraState.unavailable => _CameraProblem(
                 state: camera,
                 onSettings: _source.openSettings,
+                onRetry: () => unawaited(_source.start()),
                 onSearch: () => unawaited(context.push('/search')),
               ),
             },
@@ -194,19 +205,85 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
   }
 }
 
+/// Shown while the camera opens: a calm note in the scan window (where the picture is about to appear) and, under it, a way to carry
+/// on without the camera. Nothing here waits for the camera: closing, typing a code and searching are all at hand from the start.
 class _Starting extends StatelessWidget {
-  const _Starting({required this.label});
-  final String label;
+  const _Starting({required this.onSearch});
+
+  final VoidCallback onSearch;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    liveRegion: true,
-    label: label,
-    child: const SizedBox(
-      width: 28,
-      height: 28,
-      child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
-    ),
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final label = l10n.scanCameraStarting;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final window = scanWindowFor(constraints.biggest);
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Positioned.fromRect(
+              rect: window,
+              child: Center(
+                child: Semantics(
+                  liveRegion: true,
+                  container: true,
+                  label: label,
+                  child: ExcludeSemantics(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(
+                            width: 28,
+                            height: 28,
+                            child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                          ),
+                          const Gap(AppSpace.sm),
+                          Text(
+                            label,
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: context.text.bodyMedium?.copyWith(color: Colors.white70),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: window.bottom + AppSpace.sm,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: _CameraLink(icon: Icons.search_rounded, label: l10n.scanSearchByName, onPressed: onSearch),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// A quiet text button that reads on the black camera layer (the theme's text buttons are dark).
+class _CameraLink extends StatelessWidget {
+  const _CameraLink({required this.icon, required this.label, required this.onPressed});
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => TextButton.icon(
+    onPressed: onPressed,
+    icon: Icon(icon, size: 20),
+    label: Text(label),
+    style: TextButton.styleFrom(foregroundColor: Colors.white),
   );
 }
 
@@ -235,12 +312,19 @@ class _TorchButton extends StatelessWidget {
   );
 }
 
-/// Shown over the black preview when there is no camera to look through: why, and what to do instead.
+/// Shown over the black preview when there is no camera to look through: why, and what to do instead. A refused permission offers
+/// Settings; a camera that failed to open offers "Try again". Searching by name is there in both cases (typing a code is in the panel).
 class _CameraProblem extends StatelessWidget {
-  const _CameraProblem({required this.state, required this.onSettings, required this.onSearch});
+  const _CameraProblem({
+    required this.state,
+    required this.onSettings,
+    required this.onRetry,
+    required this.onSearch,
+  });
 
   final ScanCameraState state;
   final Future<void> Function() onSettings;
+  final VoidCallback onRetry;
   final VoidCallback onSearch;
 
   @override
@@ -286,12 +370,9 @@ class _CameraProblem extends StatelessWidget {
                       onPressed: () => unawaited(onSettings()),
                     )
                   else
-                    AppButton(
-                      label: l10n.scanSearchByName,
-                      icon: Icons.search_rounded,
-                      expand: false,
-                      onPressed: onSearch,
-                    ),
+                    AppButton(label: l10n.retry, icon: Icons.refresh_rounded, expand: false, onPressed: onRetry),
+                  const Gap(AppSpace.xxs),
+                  _CameraLink(icon: Icons.search_rounded, label: l10n.scanSearchByName, onPressed: onSearch),
                 ],
               ),
             ),

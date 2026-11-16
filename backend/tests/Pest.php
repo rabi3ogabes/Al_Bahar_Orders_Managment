@@ -70,7 +70,7 @@ function commerceWorld(array $stockA = [5, 5], array $stockB = [5, 5]): object
     $b = Branch::factory()->create(['code' => 'B'.random_int(100, 999)]);
     foreach ([[$a, 10, '15.00'], [$b, 20, '25.00']] as [$br, $prio, $fee]) {
         BranchDeliveryZone::create(['branch_id' => $br->id, 'delivery_zone_id' => $zone->id, 'delivery_fee' => $fee,
-            'free_delivery_threshold' => '5000.00', 'min_order_amount' => '50.00', 'priority' => $prio]);
+            'min_order_amount' => '50.00', 'priority' => $prio]);
         app(BranchService::class)->setWeeklyHours($br, app(BranchService::class)->defaultHours(), audit: false);
     }
     $p1 = Product::factory()->create(['price' => '1000.00']);

@@ -18,6 +18,9 @@ class BranchDeliveryZone extends Pivot
 
     protected $guarded = ['id'];
 
+    /** The column `free_delivery_threshold` is no longer used (always NULL): free delivery now only comes from a coupon code. It is never sent out. */
+    protected $hidden = ['free_delivery_threshold'];
+
     protected $casts = ['cod_enabled' => 'boolean', 'express_enabled' => 'boolean', 'is_active' => 'boolean'];
 
     /** @return BelongsTo<Branch, $this> */

@@ -11,10 +11,12 @@ fks=q("""select tc.table_name,kcu.column_name,ccu.table_name,rc.delete_rule from
 idx=q("select tablename,indexname,indexdef from pg_indexes where schemaname='public' order by 1,2", 3)
 chk=q("select conrelid::regclass::text, conname, pg_get_constraintdef(oid) from pg_constraint where contype='c' and connamespace='public'::regnamespace order by 1,2", 3)
 trg=q("select event_object_table, trigger_name from information_schema.triggers group by 1,2 order by 1", 2)
+# Columns kept in the schema but no longer used: the note replaces the (empty) default in the dictionary.
+RETIRED={('branch_delivery_zones','free_delivery_threshold'):'no longer used, always NULL'}
 groups={'Identity & access':['users','user_sessions','user_devices','otp_verifications','roles','permissions','role_permissions','user_roles','personal_access_tokens','password_reset_tokens','sessions','account_deletion_requests','idempotency_keys'],
  'Organization':['branches','branch_employees','branch_hours','branch_holidays','branch_settings','delivery_zones','branch_delivery_zones','delivery_slots','delivery_slot_bookings']}
 bytable=collections.OrderedDict()
-for t,c,dt,ln,nul,de in cols: bytable.setdefault(t,[]).append((c,dt+(f'({ln})' if ln else ''),nul,de))
+for t,c,dt,ln,nul,de in cols: bytable.setdefault(t,[]).append((c,dt+(f'({ln})' if ln else ''),nul,RETIRED.get((t,c),de)))
 fk_by=collections.defaultdict(list)
 for t,c,rt,rule in fks: fk_by[t].append((c,rt,rule))
 md=['# Data dictionary','','Generated from the live PostgreSQL schema (`docs/database/generate.py`). Regenerate after every migration.','',

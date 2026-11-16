@@ -266,6 +266,8 @@ export const ar: Record<string, string> = {
   "checkout.points_discount": "نقاط مستبدلة",
   "checkout.delivery_fee": "التوصيل",
   "checkout.free": "مجاني",
+  "checkout.fee_was": "كانت",
+  "checkout.fee_code": "رمز التوصيل المجاني",
   "checkout.cod_fee": "رسوم الدفع عند الاستلام",
   "checkout.service_fee": "رسوم الخدمة",
   "checkout.tax": "الضريبة",

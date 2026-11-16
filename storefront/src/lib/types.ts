@@ -75,7 +75,8 @@ export interface Quote {
   fulfillments: { branch: { id: string; name: string; area: string | null }; type: string; items: QuoteLine[]; subtotal: Money; delivery_fee: Money; eta_minutes: number | null; slot: Slot | null; slot_required: boolean; allocation_reason: string }[]
   lines: QuoteLine[]
   totals: { subtotal: Money; discount: Money; delivery_fee: Money; service_fee: Money; cod_fee: Money; tax: Money; loyalty_discount: Money; grand_total: Money }
-  discounts: { code?: string; label?: string; amount?: Money }[]
+  /** `free_delivery`: this discount is a free-delivery coupon (it waives the delivery fee; its amount counts that fee). */
+  discounts: { code?: string; label?: string; amount?: Money; free_delivery?: boolean }[]
   payment_methods: { code: 'sadad' | 'cod' | 'pay_at_pickup'; available: boolean; reason: string | null }[]
   loyalty: { balance: number; max_redeemable_points: number; points_applied: number; points_to_earn?: number }
   warnings?: { code?: string; message?: string }[]

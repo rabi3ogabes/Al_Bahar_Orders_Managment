@@ -6,6 +6,7 @@ import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/push/push_service.dart';
 import 'package:albahar_customer/core/router/app_footer.dart';
 import 'package:albahar_customer/core/router/app_router.dart';
+import 'package:albahar_customer/core/theme/app_chrome.dart';
 import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:albahar_customer/core/theme/brand_theme.dart';
 import 'package:albahar_customer/core/update/app_update.dart';
@@ -151,18 +152,22 @@ class _AlBaharAppState extends ConsumerState<AlBaharApp> with WidgetsBindingObse
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      theme: AppTheme.light(locale, brand: brand),
-      darkTheme: AppTheme.dark(locale, brand: brand),
+      // The customer app is the only one with the dashboard's page background (the driver and staff apps use OpsApp).
+      theme: AppTheme.light(locale, brand: brand, backdrop: brand.backdrop),
+      darkTheme: AppTheme.dark(locale, brand: brand, backdrop: brand.backdrop),
       themeMode: themeMode,
       builder: (context, child) {
         // Cap extreme text scaling to keep layouts usable while still
         // honouring accessibility settings (up to 1.6×).
         final mq = MediaQuery.of(context);
-        return MediaQuery(
-          data: mq.copyWith(textScaler: mq.textScaler.clamp(minScaleFactor: 0.9, maxScaleFactor: 1.6)),
-          child: UpdateGate(
-            baseUrl: config.apiBaseUrl,
-            child: FooterScope(router: router, child: child ?? const SizedBox.shrink()),
+        // AppChrome: the page colour under everything (the window is never black) and a matching Android navigation bar.
+        return AppChrome(
+          child: MediaQuery(
+            data: mq.copyWith(textScaler: mq.textScaler.clamp(minScaleFactor: 0.9, maxScaleFactor: 1.6)),
+            child: UpdateGate(
+              baseUrl: config.apiBaseUrl,
+              child: FooterScope(router: router, child: child ?? const SizedBox.shrink()),
+            ),
           ),
         );
       },

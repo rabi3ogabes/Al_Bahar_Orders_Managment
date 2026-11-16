@@ -7,6 +7,7 @@ import { useDocTitle } from '../lib/hooks';
 import { Alert, Button, EmptyState, Pic, QtyStepper, Skeleton } from '../components/ui';
 import { useAuthModal } from '../components/AuthModal';
 import { CartSuggestions } from '../components/Upsell';
+import { DeliveryFeeRow } from '../components/DeliveryFeeRow';
 
 export default function CartPage() {
   const { t, dir } = useI18n();
@@ -60,7 +61,7 @@ export default function CartPage() {
           <h2 className="text-3xl">{t('checkout.summary')}</h2>
           <dl className="mt-5 space-y-3 text-sm">
             <div className="flex justify-between"><dt className="text-muted">{t('cart.subtotal')}</dt><dd className="font-semibold tabular-nums">{cart.subtotal.formatted}</dd></div>
-            <div className="flex justify-between"><dt className="text-muted">{t('checkout.delivery_fee')}</dt><dd className="text-muted">{t('cart.at_checkout')}</dd></div>
+            <DeliveryFeeRow />
           </dl>
           <Button size="lg" block className="mt-6" disabled={blocked} onClick={() => void go()}>{t('cart.checkout')}<Arrow size={18} /></Button>
           {blocked && <p className="mt-2 text-center text-xs text-danger">{t('cart.fix_items')}</p>}

@@ -72,7 +72,7 @@ class Branch extends Model
     public function deliveryZones(): BelongsToMany
     {
         return $this->belongsToMany(DeliveryZone::class, 'branch_delivery_zones')->using(BranchDeliveryZone::class)
-            ->withPivot(['id', 'delivery_fee', 'free_delivery_threshold', 'min_order_amount', 'max_order_amount', 'oversized_surcharge',
+            ->withPivot(['id', 'delivery_fee', 'min_order_amount', 'max_order_amount', 'oversized_surcharge',
                 'cod_enabled', 'express_enabled', 'express_fee', 'estimated_minutes', 'priority', 'is_active'])->withTimestamps();
     }
 

@@ -149,6 +149,8 @@ return [
     'reply_sent' => 'Reply sent to the customer.',
     'requires_coupon' => 'Requires a coupon code',
     'requires_coupon_hint' => 'Off = applied automatically to qualifying baskets.',
+    'requires_coupon_locked' => 'Always on for free delivery: delivery costs the zone fee unless the customer enters a code for this offer.',
+    'free_delivery_needs_code' => 'Free delivery can only be given with a coupon code.',
     'resolve' => 'Resolve',
     'reviews_empty' => 'No reviews here',
     'reviews_empty_hint' => 'Reviews and questions waiting for moderation appear here.',

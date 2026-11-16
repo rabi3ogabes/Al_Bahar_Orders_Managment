@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/router/footer_config.dart';
 import 'package:albahar_customer/core/theme/design_tokens.dart';
+import 'package:albahar_customer/core/theme/page_backdrop_config.dart';
 import 'package:albahar_customer/core/utils/json.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,6 +32,7 @@ class BrandTheme {
     this.design = DesignTokens.classic,
     this.designKey,
     this.designName,
+    this.backdrop = PageBackdropConfig.off,
   });
 
   /// Qatar maroon: what the app shows before the server answers and when it is offline.
@@ -87,6 +89,8 @@ class BrandTheme {
       design: DesignTokens.fromJson(j['layout'], j['tokens']),
       designKey: asStringOrNull(asMap(j['design'])['key']),
       designName: _designName(asMap(j['design'])),
+      // Older servers send no `backdrop`: that reads as off, and the app looks as it always did.
+      backdrop: PageBackdropConfig.fromJson(j['backdrop']),
     );
   }
 
@@ -115,6 +119,10 @@ class BrandTheme {
   final String? designKey;
   final String? designName;
 
+  /// The page background chosen in the dashboard (the Doha skyline by default); [PageBackdropConfig.off] when the server
+  /// sends none.
+  final PageBackdropConfig backdrop;
+
   bool get isEvent => kind != 'base';
 
   @override
@@ -132,7 +140,8 @@ class BrandTheme {
       other.logoUrl == logoUrl &&
       other.footer == footer &&
       other.design == design &&
-      other.designKey == designKey;
+      other.designKey == designKey &&
+      other.backdrop == backdrop;
 
   @override
   int get hashCode => Object.hash(
@@ -149,6 +158,7 @@ class BrandTheme {
     footer,
     design,
     designKey,
+    backdrop,
   );
 }
 

@@ -24,6 +24,10 @@ class FakeScanSource implements ScanSource {
   int settingsOpened = 0;
   bool disposed = false;
 
+  /// What the camera becomes when [start] is called (null: it stays as it is). A test sets it to play a camera that opens (or
+  /// fails to) the next time the screen asks.
+  ScanCameraState? afterStart;
+
   /// A barcode comes into view (call again to "see" it again).
   void emit(String code) => _codes.add(code);
 
@@ -31,7 +35,11 @@ class FakeScanSource implements ScanSource {
   Stream<String> get codes => _codes.stream;
 
   @override
-  Future<void> start() async => starts++;
+  Future<void> start() async {
+    starts++;
+    final next = afterStart;
+    if (next != null) camera.value = next;
+  }
 
   @override
   Future<void> stop() async => stops++;

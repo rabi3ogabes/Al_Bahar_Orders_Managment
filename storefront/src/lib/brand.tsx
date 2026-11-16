@@ -1,5 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
 import { get } from './api';
+import { BACKDROP_OFF, contrastRatio as contrast, isHex, resolveBackdrop, type Backdrop, type ResolvedBackdrop } from './backdropCore';
+
+export type { Backdrop, ResolvedBackdrop };
 
 export type Layout = 'classic' | 'fresh';
 export interface DesignTokens {
@@ -18,6 +21,8 @@ export interface BrandTheme {
   colors: { primary: string; primary_soft: string; accent: string; background: string; surface: string; ink: string };
   images: { hero: string | null; banner: string | null; logo: string | null; splash: string | null };
   banner: { title: string | null; subtitle: string | null };
+  /** Page background (docs/api/PAGE_BACKDROP.md). Absent on an older server: the page looks as it did before. */
+  backdrop?: Backdrop | null;
 }
 
 const CLASSIC_TOKENS: DesignTokens = { radius: 'lg', card: 'soft', header: 'standard', nav: 'classic', background: 'plain', density: 'comfortable' };
@@ -44,20 +49,19 @@ export function resolveDesign(t: BrandTheme | null): { layout: Layout; tokens: D
   };
 }
 
-interface Ctx { theme: BrandTheme | null; layout: Layout; tokens: DesignTokens; ready: boolean; preview: { key: string; name: string } | null; exitPreview: () => void }
-const C = createContext<Ctx>({ theme: null, layout: 'classic', tokens: CLASSIC_TOKENS, ready: true, preview: null, exitPreview: () => {} });
+interface Ctx { theme: BrandTheme | null; layout: Layout; tokens: DesignTokens; backdrop: ResolvedBackdrop; ready: boolean; preview: { key: string; name: string } | null; exitPreview: () => void }
+const C = createContext<Ctx>({ theme: null, layout: 'classic', tokens: CLASSIC_TOKENS, backdrop: BACKDROP_OFF, ready: true, preview: null, exitPreview: () => {} });
 /** The brand payload (colours, artwork, seasonal banner). Null until the first load. */
 export const useBrand = () => useContext(C).theme;
 /** Which web design is active and its tokens, plus the admin-preview state. */
 export const useDesign = () => useContext(C);
+/** What the page background paints (skyline, own picture, page colour), read tolerantly from the brand payload. */
+export const useBackdrop = () => useContext(C).backdrop;
 
-/* ───────────── colour maths (keeps text readable on any admin-chosen palette) ───────────── */
-const hex = /^#[0-9a-f]{6}$/i;
+/* ───────────── colour maths (keeps text readable on any admin-chosen palette; contrast and hex checks live in backdropCore) ───────────── */
 const rgb = (h: string): [number, number, number] => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 const toHex = (c: number[]) => `#${c.map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('')}`;
 const mix = (a: string, b: string, w: number) => { const x = rgb(a), y = rgb(b); return toHex(x.map((v, i) => v * (1 - w) + y[i] * w)); };
-const lum = (h: string) => { const [r, g, b] = rgb(h).map((v) => { const s = v / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
-const contrast = (a: string, b: string) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
 /** Best of white or near-black for text on `bg`. */
 const readable = (bg: string) => (contrast(bg, '#ffffff') >= contrast(bg, '#111111') ? '#ffffff' : '#111111');
 /** Darkens (or lightens, for dark pages) `c` until it reaches `min` contrast against `bg`. */
@@ -67,23 +71,25 @@ function ensure(c: string, bg: string, min: number, toward: '#000000' | '#ffffff
   return out;
 }
 
-function css(t: BrandTheme, layout: Layout): string {
+/** `pageColor`: the dashboard's page colour (light mode only, already contrast-checked); it replaces the theme's page background. */
+function css(t: BrandTheme, layout: Layout, pageColor: string | null): string {
   const c = t.colors;
-  if (!c || ![c.primary, c.primary_soft, c.accent, c.background, c.surface, c.ink].every((v) => hex.test(v ?? ''))) return '';
+  if (!c || ![c.primary, c.primary_soft, c.accent, c.background, c.surface, c.ink].every(isHex)) return '';
+  const page = pageColor ?? c.background;
   const onPrimary = readable(c.primary);
   const onAccent = readable(c.accent);
   if (layout === 'classic') {
-    return `:root:not([data-theme='dark']){--primary:${c.primary};--primary-soft:${c.primary_soft};--brass:${c.accent};--brass-deep:${c.primary};--bg:${c.background};--paper:${c.surface};--ink:${c.ink};--rose:${c.primary_soft};--accent:${c.accent};--on-accent:${onAccent};--on-brass:${onAccent};--on-primary:${onPrimary};--band:${c.primary};--on-band:${onPrimary}}`;
+    return `:root:not([data-theme='dark']){--primary:${c.primary};--primary-soft:${c.primary_soft};--brass:${c.accent};--brass-deep:${c.primary};--bg:${page};--paper:${c.surface};--ink:${c.ink};--rose:${c.primary_soft};--accent:${c.accent};--on-accent:${onAccent};--on-brass:${onAccent};--on-primary:${onPrimary};--band:${c.primary};--on-band:${onPrimary}}`;
   }
   // Fresh: the accent (often a light yellow) is only used as a fill with its own readable text colour.
   // --brass (used as text and focus ring on light pages) stays a dark, AA-safe shade of the primary.
-  const brass = ensure(c.primary_soft, c.background, 4.5);
-  const brassTint = mix(c.background, c.primary, 0.08);
-  const sand = mix(c.background, c.primary, 0.05);
-  const line = mix(c.background, c.ink, 0.12);
-  const muted = ensure(mix(c.ink, c.background, 0.38), c.background, 4.5);
-  const inkSoft = mix(c.ink, c.background, 0.22);
-  const light = `:root:not([data-theme='dark']){--primary:${c.primary};--primary-soft:${c.primary_soft};--brass:${brass};--brass-deep:${ensure(c.primary, c.background, 7)};--brass-tint:${brassTint};--bg:${c.background};--paper:${c.surface};--sand:${sand};--sand-deep:${mix(c.background, c.primary, 0.12)};--ink:${c.ink};--ink-soft:${inkSoft};--muted:${muted};--line:${line};--rose:${mix(c.background, c.primary, 0.14)};--accent:${c.accent};--on-accent:${onAccent};--on-primary:${onPrimary};--band:${c.primary};--on-band:${onPrimary}}`;
+  const brass = ensure(c.primary_soft, page, 4.5);
+  const brassTint = mix(page, c.primary, 0.08);
+  const sand = mix(page, c.primary, 0.05);
+  const line = mix(page, c.ink, 0.12);
+  const muted = ensure(mix(c.ink, page, 0.38), page, 4.5);
+  const inkSoft = mix(c.ink, page, 0.22);
+  const light = `:root:not([data-theme='dark']){--primary:${c.primary};--primary-soft:${c.primary_soft};--brass:${brass};--brass-deep:${ensure(c.primary, page, 7)};--brass-tint:${brassTint};--bg:${page};--paper:${c.surface};--sand:${sand};--sand-deep:${mix(page, c.primary, 0.12)};--ink:${c.ink};--ink-soft:${inkSoft};--muted:${muted};--line:${line};--rose:${mix(page, c.primary, 0.14)};--accent:${c.accent};--on-accent:${onAccent};--on-primary:${onPrimary};--band:${c.primary};--on-band:${onPrimary}}`;
   // Dark mode: derived from the same primary so the green store never turns maroon.
   const dBg = mix('#0d1210', c.primary, 0.1), dPaper = mix('#151c18', c.primary, 0.14);
   const dBrass = ensure(mix(c.accent, '#ffffff', 0.1), dBg, 4.5, '#ffffff');
@@ -111,6 +117,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   const [previewKey, setPreviewKey] = useState<string | null>(initialPreview);
   const [theme, setTheme] = useState<BrandTheme | null>(() => (initialPreview ? null : readCache()));
   const { layout, tokens } = useMemo(() => resolveDesign(theme), [theme]);
+  const backdrop = useMemo(() => resolveBackdrop(theme), [theme]);
   // First visit has no cached design: hold the first paint briefly so the page never jumps from one layout to the other.
   const [settled, setSettled] = useState(() => !!theme);
   useEffect(() => { const id = window.setTimeout(() => setSettled(true), 1200); return () => window.clearTimeout(id); }, []);
@@ -137,9 +144,9 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     applyAttrs(layout, tokens);
     let el = document.getElementById('brand-theme') as HTMLStyleElement | null;
     if (!el) { el = document.createElement('style'); el.id = 'brand-theme'; document.head.appendChild(el); }
-    el.textContent = theme ? css(theme, layout) : '';
-    if (theme && hex.test(theme.colors.primary) && document.documentElement.dataset.theme !== 'dark') document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme.colors.primary);
-  }, [theme, layout, tokens]);
+    el.textContent = theme ? css(theme, layout, backdrop.color) : '';
+    if (theme && isHex(theme.colors.primary) && document.documentElement.dataset.theme !== 'dark') document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme.colors.primary);
+  }, [theme, layout, tokens, backdrop.color]);
 
   const exitPreview = useCallback(() => {
     setPreviewKey(null);
@@ -148,8 +155,8 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<Ctx>(() => ({
-    theme, layout, tokens, exitPreview, ready: settled,
+    theme, layout, tokens, backdrop, exitPreview, ready: settled,
     preview: previewKey ? { key: previewKey, name: theme?.design?.name || theme?.name || previewKey } : null,
-  }), [theme, layout, tokens, settled, previewKey, exitPreview]);
+  }), [theme, layout, tokens, backdrop, settled, previewKey, exitPreview]);
   return <C.Provider value={value}>{children}</C.Provider>;
 }

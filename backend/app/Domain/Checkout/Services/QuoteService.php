@@ -276,13 +276,9 @@ class QuoteService
         if ($cfg->max_order_amount !== null && $subtotal->greaterThan(Money::of($cfg->max_order_amount))) {
             $q->error('above_max_order', ['branch' => $plan->branch->localized('name'), 'maximum' => Money::of($cfg->max_order_amount)->jsonSerialize()]);
         }
+        // Every delivery pays the zone fee, whatever the basket is worth. The only way to waive it is a free-delivery coupon:
+        // PromotionEngine zeroes it later through a discount line, so the quote shows the fee and what the code took off.
         $fee = Money::of($cfg->delivery_fee);
-        if ($cfg->free_delivery_threshold !== null && $subtotal->greaterThanOrEqual(Money::of($cfg->free_delivery_threshold))) {
-            $fee = Money::zero();
-        } elseif ($cfg->free_delivery_threshold !== null) {
-            $q->hints[] = ['code' => 'free_delivery_progress', 'branch_id' => $plan->branch->id,
-                'remaining' => Money::of($cfg->free_delivery_threshold)->minus($subtotal)->jsonSerialize()];
-        }
         if (collect($plan->lines)->contains(fn (QuoteLine $l) => $l->isOversized())) {
             $fee = $fee->plus(Money::of($cfg->oversized_surcharge ?? '0'));
         }
