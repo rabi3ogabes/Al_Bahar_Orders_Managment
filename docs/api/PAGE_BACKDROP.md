@@ -69,7 +69,7 @@ App: loop over the cells and clip each. On web the pattern is fixed to the viewp
 * Permissions: `cms.view` to open, `cms.edit` to change. Every save is audited (`cms.backdrop_updated`, `cms.backdrop_image_removed`).
 * Settings key `app.backdrop`; uploaded picture on the media disk under `backdrop/`.
 * Controls: picture (a gallery of radio cards: the six models, My picture, None; each model card shows its own artwork in the current tint), upload / replace / remove (remove asks first), fit (images),
-  opacity slider 2 to 50 %, page colour (picker + "Use theme colour"), skyline colour (picker + "Use theme colour"),
+  opacity slider 2 to 50 %, page colour (picker + "Use theme colour"), artwork colour (picker + "Use theme colour"; applies to every built-in model),
   live preview (phone and web card, light / dark switch), Save (disabled until something changed) and "Back to default".
 * Uploads: JPG, PNG or WebP up to 4 MB, minimum 600 px wide. SVG is not accepted for upload (script risk); the built-in skyline is the vector.
 * Page colour is refused when its contrast with the active theme's text colour is below 4.5:1 (WCAG AA), with a plain message.

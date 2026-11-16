@@ -18,7 +18,7 @@ class DeviceRegistry
      * it was said, on the same write as the token. A registration that does not carry it (an older app, a browser, an explicit null) leaves
      * the stored answer alone: not knowing is never turned into "off".
      *
-     * @param array{platform: string, push_token: string, device_id?: ?string, app_version?: ?string, locale?: ?string, app?: ?string, notification_permission?: ?string} $data
+     * @param  array{platform: string, push_token: string, device_id?: ?string, app_version?: ?string, locale?: ?string, app?: ?string, notification_permission?: ?string}  $data
      */
     public function register(User $user, array $data, ?string $userAgent = null): UserDevice
     {

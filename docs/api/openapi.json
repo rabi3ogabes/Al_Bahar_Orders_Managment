@@ -30803,7 +30803,7 @@
             },
             "ThemeBackdrop": {
                 "type": "object",
-                "description": "The picture behind every page of the web store and the customer app (docs/api/PAGE_BACKDROP.md). Defaults when never saved: skyline, bottom, 0.08, no colours. A payload without this key, or with a value outside the allowed set, means \"feature off\": the page looks as it did before. Active = style is not \"none\" or color is not null.",
+                "description": "The picture behind every page of the web store and the customer app (docs/api/PAGE_BACKDROP.md). Defaults when never saved: skyline, doha, bottom, 0.08, no colours. A payload without this key, or with a value outside the allowed set, means \"feature off\": the page looks as it did before. Active = style is not \"none\" or color is not null.",
                 "properties": {
                     "style": {
                         "type": "string",
@@ -30812,7 +30812,20 @@
                             "image",
                             "none"
                         ],
-                        "description": "skyline = the built-in Doha skyline vector, image = the admin's own picture, none = page colour only."
+                        "description": "skyline = one of the built-in Qatar artworks (which one is `scene`; style stays skyline for every scene, so an older client that only knows the Doha skyline still draws something sensible), image = the admin's own picture, none = page colour only."
+                    },
+                    "scene": {
+                        "type": "string",
+                        "enum": [
+                            "doha",
+                            "dhow",
+                            "souq",
+                            "dunes",
+                            "museum",
+                            "arabesque"
+                        ],
+                        "default": "doha",
+                        "description": "Which built-in artwork is drawn when style = \"skyline\" (always present, default doha, also kept while style is image or none). doha = Doha skyline, dhow = Dhows on the Gulf, souq = Souq Waqif, dunes = Desert dunes, museum = Corniche and the Museum of Islamic Art (all five stand on the bottom edge, drawing box 1600 x 340); arabesque = Islamic geometry, a tile: one 200 x 200 cell repeated over the whole page (168 logical px per cell from the top-left, clipped to its box). A client that does not know a value draws doha."
                     },
                     "image_url": {
                         "type": [
@@ -30850,11 +30863,12 @@
                             "null"
                         ],
                         "pattern": "^#[0-9A-F]{6}$",
-                        "description": "Colour of the built-in skyline as #RRGGBB, or null = the theme's primary colour."
+                        "description": "Colour of the built-in artwork (all six scenes) as #RRGGBB, or null = the theme's primary colour."
                     }
                 },
                 "required": [
                     "style",
+                    "scene",
                     "image_url",
                     "fit",
                     "opacity",

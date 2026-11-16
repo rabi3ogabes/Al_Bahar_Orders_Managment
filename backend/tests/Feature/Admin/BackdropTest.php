@@ -490,7 +490,7 @@ it('draws every artwork in the phone and the web preview, each with its own mask
         expect($html)->toContain('qatar-arabesque.svg\') 0 0 / '.$size.' '.$size.' repeat');
     }
     // The gallery thumbnails follow the colour of the artwork (and the page colour) the admin is choosing.
-    expect($html)->toContain(":style=\"{ backgroundColor: skyColor }\"")->toContain(":style=\"{ background: pageColor }\"");
+    expect($html)->toContain(':style="{ backgroundColor: skyColor }"')->toContain(':style="{ background: pageColor }"');
 });
 
 it('says in plain words how the chosen artwork sits, and offers the artwork colour for all six but not for the other two', function () {
