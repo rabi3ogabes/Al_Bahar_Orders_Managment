@@ -7,7 +7,6 @@ import '../../features/auth/presentation/state/session_controller.dart';
 import '../providers.dart';
 import '../push/push_service.dart';
 import 'live_order_controller.dart';
-import 'live_order_platform.dart';
 import 'notification_permission.dart';
 
 /// True when the page [context] belongs to is the one in front of the customer: it is the top page of its navigator and of the tab
@@ -21,7 +20,7 @@ bool isFrontPage(BuildContext context) {
   final shell = navigator == null ? null : ModalRoute.of(navigator.context);
   if (shell != null && !shell.isCurrent) return false;
   // The tabs are kept alive side by side; the hidden ones have their tickers switched off.
-  if (!TickerMode.of(context)) return false;
+  if (!TickerMode.valuesOf(context).enabled) return false;
   final lifecycle = WidgetsBinding.instance.lifecycleState;
   return lifecycle == null || lifecycle == AppLifecycleState.resumed;
 }
@@ -107,7 +106,6 @@ class _NotificationAskState extends ConsumerState<NotificationAsk> {
     _done = true;
     var tooLate = false;
     try {
-      final push = ref.read(pushServiceProvider);
       await promptForNotificationsIfNeeded(
         context,
         platform: ref.read(liveOrderPlatformProvider),
@@ -121,7 +119,7 @@ class _NotificationAskState extends ConsumerState<NotificationAsk> {
           tooLate = !front;
           return front;
         },
-        onAnswered: widget.onAnswered ?? push.onPermissionChanged,
+        onAnswered: _reporter(),
       );
     } catch (_) {
       // Asking is a courtesy: whatever goes wrong here never reaches the page.
@@ -129,6 +127,18 @@ class _NotificationAskState extends ConsumerState<NotificationAsk> {
     if (tooLate && mounted) {
       _done = false;
       if (_deferrals++ < widget.maxDeferrals) _arm();
+    }
+  }
+
+  /// Who tells the server the answer: [NotificationAsk.onAnswered], else the push service (found now, so the answer is still
+  /// reported if the page is left while the system dialog is up). A push service that cannot be had reports nothing.
+  Future<void> Function() _reporter() {
+    final custom = widget.onAnswered;
+    if (custom != null) return custom;
+    try {
+      return ref.read(pushServiceProvider).onPermissionChanged;
+    } catch (_) {
+      return () async {};
     }
   }
 

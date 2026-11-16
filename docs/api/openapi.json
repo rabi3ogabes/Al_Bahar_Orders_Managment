@@ -238,6 +238,19 @@
                                             "null"
                                         ],
                                         "maxLength": 32
+                                    },
+                                    "notification_permission": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "enum": [
+                                            "granted",
+                                            "denied",
+                                            "not_asked",
+                                            null
+                                        ],
+                                        "description": "What the phone says about showing notifications (Android 13+ hides a push until the person allows it). Optional: when left out or null the stored answer is kept. Any other value is a 422."
                                     }
                                 },
                                 "required": [
@@ -560,7 +573,7 @@
             "get": {
                 "operationId": "v1.addresses.index",
                 "tags": [
-                    "Account \u00b7 Addresses",
+                    "Account · Addresses",
                     "Address"
                 ],
                 "responses": {
@@ -713,7 +726,7 @@
             "post": {
                 "operationId": "v1.addresses.store",
                 "tags": [
-                    "Account \u00b7 Addresses",
+                    "Account · Addresses",
                     "Address"
                 ],
                 "responses": {
@@ -865,7 +878,7 @@
             "get": {
                 "operationId": "v1.addresses.show",
                 "tags": [
-                    "Account \u00b7 Addresses",
+                    "Account · Addresses",
                     "Address"
                 ],
                 "parameters": [
@@ -1025,7 +1038,7 @@
             "patch": {
                 "operationId": "v1.addresses.update",
                 "tags": [
-                    "Account \u00b7 Addresses",
+                    "Account · Addresses",
                     "Address"
                 ],
                 "parameters": [
@@ -1185,7 +1198,7 @@
             "delete": {
                 "operationId": "v1.addresses.destroy",
                 "tags": [
-                    "Account \u00b7 Addresses",
+                    "Account · Addresses",
                     "Address"
                 ],
                 "parameters": [
@@ -1235,7 +1248,7 @@
             "post": {
                 "operationId": "v1.addresses.default",
                 "tags": [
-                    "Account \u00b7 Addresses",
+                    "Account · Addresses",
                     "Address"
                 ],
                 "parameters": [
@@ -1397,7 +1410,7 @@
             "post": {
                 "operationId": "v1.admin.auctions.store",
                 "tags": [
-                    "Admin \u00b7 Auctions",
+                    "Admin · Auctions",
                     "AuctionAdmin"
                 ],
                 "responses": {
@@ -1429,7 +1442,7 @@
             "patch": {
                 "operationId": "v1.admin.auctions.update",
                 "tags": [
-                    "Admin \u00b7 Auctions",
+                    "Admin · Auctions",
                     "AuctionAdmin"
                 ],
                 "parameters": [
@@ -1476,7 +1489,7 @@
             "post": {
                 "operationId": "v1.admin.auctions.lots.store",
                 "tags": [
-                    "Admin \u00b7 Auctions",
+                    "Admin · Auctions",
                     "AuctionAdmin"
                 ],
                 "parameters": [
@@ -1634,7 +1647,7 @@
             "post": {
                 "operationId": "v1.admin.auctions.publish",
                 "tags": [
-                    "Admin \u00b7 Auctions",
+                    "Admin · Auctions",
                     "AuctionAdmin"
                 ],
                 "parameters": [
@@ -1681,7 +1694,7 @@
             "post": {
                 "operationId": "v1.admin.auctions.cancel",
                 "tags": [
-                    "Admin \u00b7 Auctions",
+                    "Admin · Auctions",
                     "AuctionAdmin"
                 ],
                 "parameters": [
@@ -1751,7 +1764,7 @@
                 "operationId": "v1.admin.auctions.lots.update",
                 "summary": "Edit a lot; what may change depends on its state (see AuctionService::updateLot). Send only the fields to change",
                 "tags": [
-                    "Admin \u00b7 Auctions",
+                    "Admin · Auctions",
                     "AuctionAdmin"
                 ],
                 "parameters": [
@@ -1900,7 +1913,7 @@
             "delete": {
                 "operationId": "v1.admin.auctions.lots.destroy",
                 "tags": [
-                    "Admin \u00b7 Auctions",
+                    "Admin · Auctions",
                     "AuctionAdmin"
                 ],
                 "parameters": [
@@ -1933,7 +1946,7 @@
                 "operationId": "v1.admin.auctions.lots.action",
                 "summary": "Auctioneer controls for live events",
                 "tags": [
-                    "Admin \u00b7 Auctions",
+                    "Admin · Auctions",
                     "AuctionAdmin"
                 ],
                 "parameters": [
@@ -2021,7 +2034,7 @@
                 "operationId": "v1.admin.auctions.lots.feed",
                 "summary": "Live feed for the auctioneer dashboard (full detail incl. reserve and bidder identity)",
                 "tags": [
-                    "Admin \u00b7 Auctions",
+                    "Admin · Auctions",
                     "AuctionAdmin"
                 ],
                 "parameters": [
@@ -2097,7 +2110,7 @@
             "post": {
                 "operationId": "v1.admin.auctions.bids.retract",
                 "tags": [
-                    "Admin \u00b7 Auctions",
+                    "Admin · Auctions",
                     "AuctionAdmin"
                 ],
                 "parameters": [
@@ -2166,7 +2179,7 @@
             "post": {
                 "operationId": "v1.admin.auctions.bidders.block",
                 "tags": [
-                    "Admin \u00b7 Auctions",
+                    "Admin · Auctions",
                     "AuctionAdmin"
                 ],
                 "parameters": [
@@ -2235,7 +2248,7 @@
             "post": {
                 "operationId": "v1.admin.auth.login",
                 "tags": [
-                    "Admin \u00b7 Auth",
+                    "Admin · Auth",
                     "StaffAuth"
                 ],
                 "requestBody": {
@@ -2320,7 +2333,7 @@
                 "operationId": "v1.admin.me",
                 "summary": "Current staff member with effective permissions and branch scope",
                 "tags": [
-                    "Admin \u00b7 Auth",
+                    "Admin · Auth",
                     "StaffAuth"
                 ],
                 "responses": {
@@ -2395,7 +2408,7 @@
             "get": {
                 "operationId": "v1.admin.branches.index",
                 "tags": [
-                    "Admin \u00b7 Branches",
+                    "Admin · Branches",
                     "BranchAdmin"
                 ],
                 "parameters": [
@@ -2562,7 +2575,7 @@
             "post": {
                 "operationId": "v1.admin.branches.store",
                 "tags": [
-                    "Admin \u00b7 Branches",
+                    "Admin · Branches",
                     "BranchAdmin"
                 ],
                 "requestBody": {
@@ -2639,7 +2652,7 @@
             "get": {
                 "operationId": "v1.admin.branches.show",
                 "tags": [
-                    "Admin \u00b7 Branches",
+                    "Admin · Branches",
                     "BranchAdmin"
                 ],
                 "parameters": [
@@ -2695,7 +2708,7 @@
             "put": {
                 "operationId": "v1.admin.branches.update",
                 "tags": [
-                    "Admin \u00b7 Branches",
+                    "Admin · Branches",
                     "BranchAdmin"
                 ],
                 "parameters": [
@@ -2777,7 +2790,7 @@
             "put": {
                 "operationId": "v1.admin.branches.hours",
                 "tags": [
-                    "Admin \u00b7 Branches",
+                    "Admin · Branches",
                     "BranchAdmin"
                 ],
                 "parameters": [
@@ -2882,7 +2895,7 @@
             "post": {
                 "operationId": "v1.admin.branches.holidays.store",
                 "tags": [
-                    "Admin \u00b7 Branches",
+                    "Admin · Branches",
                     "BranchAdmin"
                 ],
                 "parameters": [
@@ -2981,7 +2994,7 @@
             "delete": {
                 "operationId": "v1.admin.branches.holidays.destroy",
                 "tags": [
-                    "Admin \u00b7 Branches",
+                    "Admin · Branches",
                     "BranchAdmin"
                 ],
                 "parameters": [
@@ -3046,7 +3059,7 @@
             "get": {
                 "operationId": "v1.admin.branches.employees",
                 "tags": [
-                    "Admin \u00b7 Branches",
+                    "Admin · Branches",
                     "BranchAdmin"
                 ],
                 "parameters": [
@@ -3133,7 +3146,7 @@
             "post": {
                 "operationId": "v1.admin.branches.employees.assign",
                 "tags": [
-                    "Admin \u00b7 Branches",
+                    "Admin · Branches",
                     "BranchAdmin"
                 ],
                 "parameters": [
@@ -3218,7 +3231,7 @@
             "delete": {
                 "operationId": "v1.admin.branches.employees.remove",
                 "tags": [
-                    "Admin \u00b7 Branches",
+                    "Admin · Branches",
                     "BranchAdmin"
                 ],
                 "parameters": [
@@ -3283,7 +3296,7 @@
             "get": {
                 "operationId": "v1.admin.branches.zones",
                 "tags": [
-                    "Admin \u00b7 Branches",
+                    "Admin · Branches",
                     "BranchAdmin"
                 ],
                 "parameters": [
@@ -3331,7 +3344,7 @@
             "post": {
                 "operationId": "v1.admin.branches.zones.upsert",
                 "tags": [
-                    "Admin \u00b7 Branches",
+                    "Admin · Branches",
                     "BranchAdmin"
                 ],
                 "parameters": [
@@ -3456,7 +3469,7 @@
             "get": {
                 "operationId": "v1.admin.catalog.products.index",
                 "tags": [
-                    "Admin \u00b7 Catalog",
+                    "Admin · Catalog",
                     "CatalogAdmin"
                 ],
                 "parameters": [
@@ -3609,7 +3622,7 @@
             "post": {
                 "operationId": "v1.admin.catalog.products.store",
                 "tags": [
-                    "Admin \u00b7 Catalog",
+                    "Admin · Catalog",
                     "CatalogAdmin"
                 ],
                 "requestBody": {
@@ -4088,7 +4101,7 @@
             "post": {
                 "operationId": "v1.admin.catalog.products.bulk",
                 "tags": [
-                    "Admin \u00b7 Catalog",
+                    "Admin · Catalog",
                     "CatalogAdmin"
                 ],
                 "requestBody": {
@@ -4183,7 +4196,7 @@
             "post": {
                 "operationId": "v1.admin.catalog.products.import",
                 "tags": [
-                    "Admin \u00b7 Catalog",
+                    "Admin · Catalog",
                     "CatalogAdmin"
                 ],
                 "requestBody": {
@@ -4239,7 +4252,7 @@
             "get": {
                 "operationId": "v1.admin.catalog.products.show",
                 "tags": [
-                    "Admin \u00b7 Catalog",
+                    "Admin · Catalog",
                     "CatalogAdmin"
                 ],
                 "parameters": [
@@ -4718,7 +4731,7 @@
             "put": {
                 "operationId": "v1.admin.catalog.products.update",
                 "tags": [
-                    "Admin \u00b7 Catalog",
+                    "Admin · Catalog",
                     "CatalogAdmin"
                 ],
                 "parameters": [
@@ -5223,7 +5236,7 @@
             "post": {
                 "operationId": "v1.admin.catalog.products.archive",
                 "tags": [
-                    "Admin \u00b7 Catalog",
+                    "Admin · Catalog",
                     "CatalogAdmin"
                 ],
                 "parameters": [
@@ -5279,7 +5292,7 @@
             "post": {
                 "operationId": "v1.admin.catalog.products.duplicate",
                 "tags": [
-                    "Admin \u00b7 Catalog",
+                    "Admin · Catalog",
                     "CatalogAdmin"
                 ],
                 "parameters": [
@@ -5760,7 +5773,7 @@
             "post": {
                 "operationId": "v1.admin.catalog.variants.store",
                 "tags": [
-                    "Admin \u00b7 Catalog",
+                    "Admin · Catalog",
                     "CatalogAdmin"
                 ],
                 "parameters": [
@@ -5874,7 +5887,7 @@
             "patch": {
                 "operationId": "v1.admin.catalog.variants.update",
                 "tags": [
-                    "Admin \u00b7 Catalog",
+                    "Admin · Catalog",
                     "CatalogAdmin"
                 ],
                 "parameters": [
@@ -5994,7 +6007,7 @@
                 "operationId": "v1.admin.catalog.products.branch-settings",
                 "summary": "Branch-level price & availability override (product or variant)",
                 "tags": [
-                    "Admin \u00b7 Catalog",
+                    "Admin · Catalog",
                     "CatalogAdmin"
                 ],
                 "parameters": [
@@ -6328,7 +6341,7 @@
             "get": {
                 "operationId": "v1.admin.catalog.products.price-history",
                 "tags": [
-                    "Admin \u00b7 Catalog",
+                    "Admin · Catalog",
                     "CatalogAdmin"
                 ],
                 "parameters": [
@@ -6378,7 +6391,7 @@
             "post": {
                 "operationId": "v1.admin.catalog.images.store",
                 "tags": [
-                    "Admin \u00b7 Catalog",
+                    "Admin · Catalog",
                     "CatalogAdmin"
                 ],
                 "parameters": [
@@ -6486,7 +6499,7 @@
             "post": {
                 "operationId": "v1.admin.catalog.images.reorder",
                 "tags": [
-                    "Admin \u00b7 Catalog",
+                    "Admin · Catalog",
                     "CatalogAdmin"
                 ],
                 "parameters": [
@@ -6567,7 +6580,7 @@
             "delete": {
                 "operationId": "v1.admin.catalog.images.destroy",
                 "tags": [
-                    "Admin \u00b7 Catalog",
+                    "Admin · Catalog",
                     "CatalogAdmin"
                 ],
                 "parameters": [
@@ -6622,7 +6635,7 @@
             "post": {
                 "operationId": "v1.admin.catalog.categories.store",
                 "tags": [
-                    "Admin \u00b7 Catalog",
+                    "Admin · Catalog",
                     "CatalogAdmin"
                 ],
                 "requestBody": {
@@ -6721,7 +6734,7 @@
             "patch": {
                 "operationId": "v1.admin.catalog.categories.update",
                 "tags": [
-                    "Admin \u00b7 Catalog",
+                    "Admin · Catalog",
                     "CatalogAdmin"
                 ],
                 "parameters": [
@@ -6826,7 +6839,7 @@
             "delete": {
                 "operationId": "v1.admin.catalog.categories.destroy",
                 "tags": [
-                    "Admin \u00b7 Catalog",
+                    "Admin · Catalog",
                     "CatalogAdmin"
                 ],
                 "parameters": [
@@ -6881,7 +6894,7 @@
             "post": {
                 "operationId": "v1.admin.catalog.brands.store",
                 "tags": [
-                    "Admin \u00b7 Catalog",
+                    "Admin · Catalog",
                     "CatalogAdmin"
                 ],
                 "requestBody": {
@@ -6958,7 +6971,7 @@
             "get": {
                 "operationId": "v1.admin.inventory.stock",
                 "tags": [
-                    "Admin \u00b7 Inventory",
+                    "Admin · Inventory",
                     "InventoryAdmin"
                 ],
                 "parameters": [
@@ -7112,9 +7125,9 @@
         "/admin/inventory/stock/{inventory}": {
             "patch": {
                 "operationId": "v1.admin.inventory.stock.thresholds",
-                "summary": "Only stock thresholds are editable here \u2014 quantities change exclusively through ledger workflows",
+                "summary": "Only stock thresholds are editable here — quantities change exclusively through ledger workflows",
                 "tags": [
-                    "Admin \u00b7 Inventory",
+                    "Admin · Inventory",
                     "InventoryAdmin"
                 ],
                 "parameters": [
@@ -7196,7 +7209,7 @@
             "get": {
                 "operationId": "v1.admin.inventory.movements",
                 "tags": [
-                    "Admin \u00b7 Inventory",
+                    "Admin · Inventory",
                     "InventoryAdmin"
                 ],
                 "parameters": [
@@ -7356,7 +7369,7 @@
             "post": {
                 "operationId": "v1.admin.inventory.adjustments.store",
                 "tags": [
-                    "Admin \u00b7 Inventory",
+                    "Admin · Inventory",
                     "InventoryAdmin"
                 ],
                 "requestBody": {
@@ -7461,7 +7474,7 @@
             "post": {
                 "operationId": "v1.admin.inventory.adjustments.post",
                 "tags": [
-                    "Admin \u00b7 Inventory",
+                    "Admin · Inventory",
                     "InventoryAdmin"
                 ],
                 "parameters": [
@@ -7508,7 +7521,7 @@
             "get": {
                 "operationId": "v1.admin.inventory.transfers.index",
                 "tags": [
-                    "Admin \u00b7 Inventory",
+                    "Admin · Inventory",
                     "InventoryAdmin"
                 ],
                 "parameters": [
@@ -7652,7 +7665,7 @@
             "post": {
                 "operationId": "v1.admin.inventory.transfers.store",
                 "tags": [
-                    "Admin \u00b7 Inventory",
+                    "Admin · Inventory",
                     "InventoryAdmin"
                 ],
                 "requestBody": {
@@ -7743,7 +7756,7 @@
             "post": {
                 "operationId": "v1.admin.inventory.transfers.action",
                 "tags": [
-                    "Admin \u00b7 Inventory",
+                    "Admin · Inventory",
                     "InventoryAdmin"
                 ],
                 "parameters": [
@@ -7829,7 +7842,7 @@
             "post": {
                 "operationId": "v1.admin.inventory.stocktakes.store",
                 "tags": [
-                    "Admin \u00b7 Inventory",
+                    "Admin · Inventory",
                     "InventoryAdmin"
                 ],
                 "requestBody": {
@@ -7897,7 +7910,7 @@
             "post": {
                 "operationId": "v1.admin.inventory.stocktakes.action",
                 "tags": [
-                    "Admin \u00b7 Inventory",
+                    "Admin · Inventory",
                     "InventoryAdmin"
                 ],
                 "parameters": [
@@ -7989,7 +8002,7 @@
             "get": {
                 "operationId": "v1.admin.inventory.suppliers.index",
                 "tags": [
-                    "Admin \u00b7 Inventory",
+                    "Admin · Inventory",
                     "InventoryAdmin"
                 ],
                 "parameters": [
@@ -8133,7 +8146,7 @@
             "post": {
                 "operationId": "v1.admin.inventory.suppliers.store",
                 "tags": [
-                    "Admin \u00b7 Inventory",
+                    "Admin · Inventory",
                     "InventoryAdmin"
                 ],
                 "requestBody": {
@@ -8249,7 +8262,7 @@
             "post": {
                 "operationId": "v1.admin.inventory.purchase-orders.store",
                 "tags": [
-                    "Admin \u00b7 Inventory",
+                    "Admin · Inventory",
                     "InventoryAdmin"
                 ],
                 "requestBody": {
@@ -8357,7 +8370,7 @@
             "post": {
                 "operationId": "v1.admin.inventory.purchase-orders.action",
                 "tags": [
-                    "Admin \u00b7 Inventory",
+                    "Admin · Inventory",
                     "InventoryAdmin"
                 ],
                 "parameters": [
@@ -8483,7 +8496,7 @@
             "get": {
                 "operationId": "v1.admin.orders.index",
                 "tags": [
-                    "Admin \u00b7 Orders",
+                    "Admin · Orders",
                     "OrderOps"
                 ],
                 "parameters": [
@@ -8650,7 +8663,7 @@
             "get": {
                 "operationId": "v1.admin.orders.show",
                 "tags": [
-                    "Admin \u00b7 Orders",
+                    "Admin · Orders",
                     "OrderOps"
                 ],
                 "parameters": [
@@ -8698,7 +8711,7 @@
             "post": {
                 "operationId": "v1.admin.orders.cancel",
                 "tags": [
-                    "Admin \u00b7 Orders",
+                    "Admin · Orders",
                     "OrderOps"
                 ],
                 "parameters": [
@@ -8793,7 +8806,7 @@
             "post": {
                 "operationId": "v1.admin.orders.notes",
                 "tags": [
-                    "Admin \u00b7 Orders",
+                    "Admin · Orders",
                     "OrderOps"
                 ],
                 "parameters": [
@@ -8869,7 +8882,7 @@
             "post": {
                 "operationId": "v1.admin.fulfillments.transition",
                 "tags": [
-                    "Admin \u00b7 Orders",
+                    "Admin · Orders",
                     "OrderOps"
                 ],
                 "parameters": [
@@ -8997,7 +9010,7 @@
             "post": {
                 "operationId": "v1.admin.cancellations.decide",
                 "tags": [
-                    "Admin \u00b7 Orders",
+                    "Admin · Orders",
                     "OrderOps"
                 ],
                 "parameters": [
@@ -9079,7 +9092,7 @@
             "post": {
                 "operationId": "v1.admin.pickup.ready",
                 "tags": [
-                    "Admin \u00b7 Orders",
+                    "Admin · Orders",
                     "OrderOps"
                 ],
                 "parameters": [
@@ -9141,7 +9154,7 @@
             "post": {
                 "operationId": "v1.admin.pickup.verify",
                 "tags": [
-                    "Admin \u00b7 Orders",
+                    "Admin · Orders",
                     "OrderOps"
                 ],
                 "requestBody": {
@@ -9192,7 +9205,7 @@
             "post": {
                 "operationId": "v1.admin.pickup.handover",
                 "tags": [
-                    "Admin \u00b7 Orders",
+                    "Admin · Orders",
                     "OrderOps"
                 ],
                 "parameters": [
@@ -9307,7 +9320,7 @@
             "post": {
                 "operationId": "v1.admin.deliveries.store",
                 "tags": [
-                    "Admin \u00b7 Orders",
+                    "Admin · Orders",
                     "OrderOps"
                 ],
                 "parameters": [
@@ -9400,7 +9413,7 @@
             "post": {
                 "operationId": "v1.admin.deliveries.action",
                 "tags": [
-                    "Admin \u00b7 Orders",
+                    "Admin · Orders",
                     "OrderOps"
                 ],
                 "parameters": [
@@ -9495,7 +9508,7 @@
                 "operationId": "v1.admin.deliveries.mine",
                 "summary": "Driver's own task list (mobile)",
                 "tags": [
-                    "Admin \u00b7 Orders",
+                    "Admin · Orders",
                     "OrderOps"
                 ],
                 "responses": {
@@ -9530,7 +9543,7 @@
             "post": {
                 "operationId": "v1.admin.payments.collect",
                 "tags": [
-                    "Admin \u00b7 Orders",
+                    "Admin · Orders",
                     "OrderOps"
                 ],
                 "parameters": [
@@ -9619,7 +9632,7 @@
             "post": {
                 "operationId": "v1.admin.refunds.store",
                 "tags": [
-                    "Admin \u00b7 Orders",
+                    "Admin · Orders",
                     "OrderOps"
                 ],
                 "parameters": [
@@ -9712,7 +9725,7 @@
             "post": {
                 "operationId": "v1.admin.refunds.action",
                 "tags": [
-                    "Admin \u00b7 Orders",
+                    "Admin · Orders",
                     "OrderOps"
                 ],
                 "parameters": [
@@ -9796,7 +9809,7 @@
             "get": {
                 "operationId": "v1.admin.reports.run",
                 "tags": [
-                    "Admin \u00b7 Reports",
+                    "Admin · Reports",
                     "ReportAdmin"
                 ],
                 "parameters": [
@@ -9863,7 +9876,7 @@
                 "operationId": "v1.admin.exports.store",
                 "summary": "Queue an export; every export request is audited",
                 "tags": [
-                    "Admin \u00b7 Reports",
+                    "Admin · Reports",
                     "ReportAdmin"
                 ],
                 "requestBody": {
@@ -9967,7 +9980,7 @@
             "get": {
                 "operationId": "v1.admin.exports.index",
                 "tags": [
-                    "Admin \u00b7 Reports",
+                    "Admin · Reports",
                     "ReportAdmin"
                 ],
                 "responses": {
@@ -10003,7 +10016,7 @@
             "get": {
                 "operationId": "v1.admin.exports.download",
                 "tags": [
-                    "Admin \u00b7 Reports",
+                    "Admin · Reports",
                     "ReportAdmin"
                 ],
                 "parameters": [
@@ -29089,7 +29102,7 @@
             },
             "PaymentStatus": {
                 "type": "string",
-                "description": "Payment state machine (separate from order status).   pending \u2192 processing \u2192 (authorized \u2192) paid \u2192 partially_refunded \u2192 refunded   pending/processing \u2192 failed | cancelled | expired      failed \u2192 pending (retry creates a NEW payment attempt)\n",
+                "description": "Payment state machine (separate from order status).   pending → processing → (authorized →) paid → partially_refunded → refunded   pending/processing → failed | cancelled | expired      failed → pending (retry creates a NEW payment attempt)\n",
                 "enum": [
                     "pending",
                     "processing",

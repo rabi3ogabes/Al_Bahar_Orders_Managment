@@ -1,4 +1,5 @@
 import 'package:albahar_customer/core/l10n/l10n.dart';
+import 'package:albahar_customer/core/live_order/notification_status_card.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/side_panel.dart';
@@ -50,6 +51,8 @@ class NotificationPrefsScreen extends ConsumerWidget {
         return ListView(
           padding: const EdgeInsets.all(AppSpace.gutter),
           children: [
+            // Shown only while this phone will not show alerts (notifications off or never asked); the button fixes it.
+            const ContentWidth(child: NotificationStatusCard()),
             for (final cat in categories)
               ContentWidth(
                 child: Padding(

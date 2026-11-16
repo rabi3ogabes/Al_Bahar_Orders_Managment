@@ -12,7 +12,8 @@ Single source of the drawing: `scripts/qatar-skyline/build.py` writes `backend/p
 
 ```json
 "backdrop": {
-  "style": "skyline",      // "skyline" (built-in vector) | "image" (admin upload) | "none" (colour only)
+  "style": "skyline",      // "skyline" (built-in vector artwork, see `scene`) | "image" (admin upload) | "none" (colour only)
+  "scene": "doha",         // which built-in artwork: "doha" | "dhow" | "souq" | "dunes" | "museum" | "arabesque" (see Models below)
   "image_url": null,       // absolute https URL, only when style = "image"
   "fit": "bottom",         // images only: "bottom" (full width, natural height, standing on the bottom edge) | "cover"
   "opacity": 0.08,         // 0.02 .. 0.50, two decimals
@@ -21,12 +22,33 @@ Single source of the drawing: `scripts/qatar-skyline/build.py` writes `backend/p
 }
 ```
 
-* Defaults when the admin never saved anything: `style=skyline, fit=bottom, opacity=0.08, color=null, tint=null`.
+* Defaults when the admin never saved anything: `style=skyline, scene=doha, fit=bottom, opacity=0.08, color=null, tint=null`.
+* `scene` is always present in the answer (default `doha`); `style` stays `skyline` for every built-in artwork so older clients that only know the Doha skyline still draw something sensible. A client that does not know a `scene` value draws `doha`.
 * `image_url` is null unless `style = "image"` and a file exists. If the file is gone the server answers `style = "skyline"`.
 * The block is part of the same cached payload (60 s); saving in the dashboard clears the cache.
 * **Clients must be tolerant.** A payload without `backdrop`, or with a value outside the allowed set, means "feature off"
   (older server) and the page looks exactly as it did before. Unknown keys are ignored.
 * **Active** = `style != "none"` or `color != null`. Not active: nothing changes anywhere.
+
+## Models (built-in artworks)
+
+All drawn once by `scripts/qatar-skyline/build.py` (doha) and `scripts/qatar-skyline/build_scenes.py` (the rest), one colour, closed polygons.
+Files: `backend/public/brand/qatar-<scene>.svg` (`qatar-skyline.svg` is `doha`), the byte-identical copy in `storefront/src/assets/`,
+and for the app `mobile/lib/core/theme/qatar_skyline_paths.dart` (doha) and `mobile/lib/core/theme/qatar_art_paths.dart` (`kQatarArt` map, the other five).
+Never edit them by hand; each file header carries the sha256 of its SVG.
+
+| `scene` | Name (EN / AR) | Layout | Box |
+|---|---|---|---|
+| `doha` | Doha skyline / أفق الدوحة | stands on the bottom edge | 1600 x 340 |
+| `dhow` | Dhows on the Gulf / الداو على الخليج | stands on the bottom edge | 1600 x 340 |
+| `souq` | Souq Waqif / سوق واقف | stands on the bottom edge | 1600 x 340 |
+| `dunes` | Desert dunes / كثبان الصحراء | stands on the bottom edge | 1600 x 340 |
+| `museum` | Corniche and the Museum of Islamic Art / الكورنيش ومتحف الفن الإسلامي | stands on the bottom edge | 1600 x 340 |
+| `arabesque` | Islamic geometry / الزخرفة الإسلامية | **tile**: one cell that repeats over the whole page | 200 x 200 |
+
+Rules for a **tile** artwork (`arabesque`): the cell is drawn 168 logical px wide and high, repeated in both directions from the top-left of
+the page area, each cell clipped to its box (the pattern is cut at the cell edges so neighbours join). Web: `mask-size: 168px 168px; mask-repeat: repeat`.
+App: loop over the cells and clip each. On web the pattern is fixed to the viewport like the other artworks. Bottom-standing artworks follow rule 3 below.
 
 ## Rendering rules (identical on web and app)
 
@@ -34,7 +56,7 @@ Single source of the drawing: `scripts/qatar-skyline/build.py` writes `backend/p
    opaque surfaces, so text never sits on the picture.
 2. **Colour** (`color`) replaces the theme's page background in light mode only. Dark mode keeps its own dark page colour.
    Safety net on the client: if the contrast between the theme's text colour and `color` is below 3:1, ignore `color`.
-3. **Skyline**: tinted with `tint` or else the theme primary (in dark mode the theme's dark-mode primary), painted at `opacity`,
+3. **Built-in artwork** (`style = skyline`, any `scene`): tinted with `tint` or else the theme primary (in dark mode the theme's dark-mode primary), painted at `opacity`,
    standing on the bottom edge of the visible page, as wide as the viewport but never narrower than 760 logical px
    (on a phone the centre of the skyline shows, cropped at both sides), height follows the 1600:340 drawing, horizontally centred.
 4. **Image**: shown with its own colours at `opacity`. `fit = bottom`: full width, natural height, bottom edge. `fit = cover`: fills the page.
@@ -46,7 +68,7 @@ Single source of the drawing: `scripts/qatar-skyline/build.py` writes `backend/p
 
 * Permissions: `cms.view` to open, `cms.edit` to change. Every save is audited (`cms.backdrop_updated`, `cms.backdrop_image_removed`).
 * Settings key `app.backdrop`; uploaded picture on the media disk under `backdrop/`.
-* Controls: picture (radio cards: Qatar skyline, My picture, None), upload / replace / remove (remove asks first), fit (images),
+* Controls: picture (a gallery of radio cards: the six models, My picture, None; each model card shows its own artwork in the current tint), upload / replace / remove (remove asks first), fit (images),
   opacity slider 2 to 50 %, page colour (picker + "Use theme colour"), skyline colour (picker + "Use theme colour"),
   live preview (phone and web card, light / dark switch), Save (disabled until something changed) and "Back to default".
 * Uploads: JPG, PNG or WebP up to 4 MB, minimum 600 px wide. SVG is not accepted for upload (script risk); the built-in skyline is the vector.

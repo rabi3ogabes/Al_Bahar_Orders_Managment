@@ -272,6 +272,239 @@ void main() {
       expect(find.text('Follow your order live'), findsOneWidget);
     });
   });
+
+  group('asked early, before any order', () {
+    Widget button(
+      _Flow flow, {
+      Locale locale = const Locale('en'),
+      bool Function()? stillWanted,
+      void Function()? answered,
+    }) => wrapApp(
+      Builder(
+        builder: (context) => Center(
+          child: ElevatedButton(
+            onPressed: () async => flow.outcome = await promptForNotificationsIfNeeded(
+              context,
+              platform: flow.platform,
+              prefs: flow.prefs,
+              controller: flow.controller,
+              now: () => flow.now,
+              early: true,
+              stillWanted: stillWanted,
+              onAnswered: answered == null ? null : () async => answered(),
+            ),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+      locale: locale,
+    );
+
+    testWidgets('the sheet is about orders and offers, in English', (tester) async {
+      final flow = await _Flow.create();
+      flow.platform.state = LiveOrderPermission.denied;
+      await tester.pumpWidget(button(flow));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Stay updated on your orders and offers'), findsOneWidget);
+      expect(find.textContaining('delivery news and offers'), findsOneWidget);
+      expect(find.text('Follow your order live'), findsNothing);
+      expect(find.text('Allow notifications'), findsOneWidget);
+      expect(find.text('Not now'), findsOneWidget);
+    });
+
+    testWidgets('and in Arabic, right to left', (tester) async {
+      final flow = await _Flow.create();
+      flow.platform.state = LiveOrderPermission.denied;
+      await tester.pumpWidget(button(flow, locale: const Locale('ar')));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ابقَ على اطلاع بطلباتك وعروضك'), findsOneWidget);
+      expect(find.text('السماح بالإشعارات'), findsOneWidget);
+      expect(Directionality.of(tester.element(find.text('السماح بالإشعارات'))), TextDirection.rtl);
+    });
+
+    testWidgets('the settings variant has its own words too', (tester) async {
+      final flow = await _Flow.create();
+      flow.platform.state = LiveOrderPermission.blocked;
+      await tester.pumpWidget(button(flow));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Notifications are off'), findsOneWidget);
+      expect(find.textContaining('Turn them on in settings to get order updates'), findsOneWidget);
+      expect(find.text('Open settings'), findsOneWidget);
+    });
+
+    testWidgets('no sheet and no count when the moment has gone by (another window opened)', (tester) async {
+      final flow = await _Flow.create();
+      flow.platform.state = LiveOrderPermission.denied;
+      await tester.pumpWidget(button(flow, stillWanted: () => false));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NotificationPermissionSheet), findsNothing);
+      expect(flow.outcome, isFalse);
+      expect(flow.prefs.livePermissionPrompt.count, 0);
+    });
+
+    testWidgets('the server is told once the system has answered, and not when the person said "not now"', (
+      tester,
+    ) async {
+      final flow = await _Flow.create();
+      flow.platform.state = LiveOrderPermission.denied;
+      var told = 0;
+      await tester.pumpWidget(button(flow, answered: () => told++));
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Not now'));
+      await tester.pumpAndSettle();
+      expect(told, 0);
+
+      flow.now = _now.add(const Duration(days: 15));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Allow notifications'));
+      await tester.pumpAndSettle();
+      expect(told, 1);
+      expect(flow.outcome, isTrue);
+    });
+
+    testWidgets('a report that fails is nobody\'s business', (tester) async {
+      final flow = await _Flow.create();
+      flow.platform.state = LiveOrderPermission.denied;
+      await tester.pumpWidget(
+        wrapApp(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () async => flow.outcome = await promptForNotificationsIfNeeded(
+                context,
+                platform: flow.platform,
+                prefs: flow.prefs,
+                controller: flow.controller,
+                onAnswered: () async => throw StateError('server down'),
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Allow notifications'));
+      await tester.pumpAndSettle();
+      expect(flow.outcome, isTrue);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('after an order the same report is made', (tester) async {
+      final flow = await _Flow.create();
+      flow.platform.state = LiveOrderPermission.denied;
+      var told = 0;
+      await tester.pumpWidget(
+        wrapApp(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () => promptForNotificationsAfterOrder(
+                context,
+                platform: flow.platform,
+                prefs: flow.prefs,
+                controller: flow.controller,
+                onAnswered: () async => told++,
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      expect(find.text('Follow your order live'), findsOneWidget, reason: 'the order wording is unchanged');
+      await tester.tap(find.text('Allow notifications'));
+      await tester.pumpAndSettle();
+      expect(told, 1);
+    });
+  });
+
+  group('when the person presses the button themselves', () {
+    Future<(_Flow, bool)> run(_Flow flow, {Future<void> Function()? answered}) async =>
+        (flow, await turnOnNotifications(platform: flow.platform, controller: flow.controller, onAnswered: answered));
+
+    test('already on: nothing to do, nothing reported', () async {
+      final flow = await _Flow.create();
+      var told = 0;
+      final (_, on) = await run(flow, answered: () async => told++);
+      expect(on, isTrue);
+      expect(flow.platform.requestCalls, 0);
+      expect(flow.platform.openSettingsCalls, 0);
+      expect(told, 0);
+    });
+
+    test(
+      'not asked yet: the system question at once, no waiting period, no count, and the answer is reported',
+      () async {
+        final flow = await _Flow.create();
+        flow.platform.state = LiveOrderPermission.denied;
+        await flow.prefs.setLivePermissionPrompt(_now.subtract(const Duration(days: 1)), 2);
+        var told = 0;
+        final (_, on) = await run(flow, answered: () async => told++);
+        expect(on, isTrue);
+        expect(flow.platform.requestCalls, 1);
+        expect(told, 1);
+        expect(
+          flow.prefs.livePermissionPrompt.count,
+          2,
+          reason: 'a button the person pressed is not a prompt to count',
+        );
+      },
+    );
+
+    test('"don\'t allow": false, and the refusal is reported', () async {
+      final flow = await _Flow.create();
+      flow.platform
+        ..state = LiveOrderPermission.denied
+        ..dialogAnswer = LiveOrderPermission.blocked;
+      var told = 0;
+      final (_, on) = await run(flow, answered: () async => told++);
+      expect(on, isFalse);
+      expect(told, 1);
+    });
+
+    test('the system dialog is gone: the phone settings open, nothing else', () async {
+      final flow = await _Flow.create();
+      flow.platform.state = LiveOrderPermission.blocked;
+      final (_, on) = await run(flow);
+      expect(on, isFalse);
+      expect(flow.platform.openSettingsCalls, 1);
+      expect(flow.platform.requestCalls, 0);
+    });
+
+    test('the cards that were waiting for the permission are drawn', () async {
+      final flow = await _Flow.create();
+      flow.platform.state = LiveOrderPermission.denied;
+      flow.controller.onSignedIn();
+      unawaited(flow.controller.orderPlaced(orderId: 'o1', number: '1'));
+      await Future<void>.delayed(Duration.zero);
+      final drawn = flow.platform.shown.length;
+
+      await run(flow);
+      expect(flow.platform.shown.length, drawn + 1);
+      expect(flow.platform.last.force, isTrue);
+      await flow.controller.dispose();
+    });
+
+    test('a failing platform or report never throws', () async {
+      final flow = await _Flow.create();
+      expect(await turnOnNotifications(platform: _BrokenPlatform(), controller: flow.controller), isFalse);
+
+      flow.platform.state = LiveOrderPermission.denied;
+      final (_, on) = await run(flow, answered: () async => throw StateError('server down'));
+      expect(on, isTrue);
+    });
+  });
 }
 
 class _BrokenPlatform extends FakePlatform {

@@ -7,7 +7,6 @@ import '../l10n/l10n.dart';
 import '../push/push_service.dart';
 import '../theme/tokens.dart';
 import '../widgets/app_button.dart';
-import '../widgets/common.dart';
 import 'live_order_controller.dart';
 import 'live_order_platform.dart';
 import 'notification_permission.dart';
@@ -66,13 +65,24 @@ class _NotificationStatusCardState extends ConsumerState<NotificationStatusCard>
       await turnOnNotifications(
         platform: ref.read(liveOrderPlatformProvider),
         controller: ref.read(liveOrderControllerProvider),
-        onAnswered: widget.onAnswered ?? ref.read(pushServiceProvider).onPermissionChanged,
+        onAnswered: _reporter(),
       );
     } catch (_) {
       // Never throws into the screen; the standing below says what is true now.
     }
     await _refresh();
     if (mounted) setState(() => _busy = false);
+  }
+
+  /// Who tells the server the answer: [NotificationStatusCard.onAnswered], else the push service. One that cannot be had reports nothing.
+  Future<void> Function() _reporter() {
+    final custom = widget.onAnswered;
+    if (custom != null) return custom;
+    try {
+      return ref.read(pushServiceProvider).onPermissionChanged;
+    } catch (_) {
+      return () async {};
+    }
   }
 
   @override

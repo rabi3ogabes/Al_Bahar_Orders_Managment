@@ -42,71 +42,66 @@ class HomeScreen extends ConsumerWidget {
     final l10n = context.l10n;
     final fresh = context.design.isFresh;
 
-    // NotificationAsk asks a signed-in customer to allow notifications a few seconds after Home appears (it adds nothing to the page).
-    return NotificationAsk(
-      child: FreshScaffold(
-        body: RefreshIndicator(
-          onRefresh: () async {
-            unawaited(ref.read(brandThemeProvider.notifier).refresh());
-            ref.invalidate(activeOrdersProvider);
-            ref.invalidate(homeFeedProvider);
-            await ref.read(homeFeedProvider.future);
-          },
-          child: CustomScrollView(
-            slivers: [
-              if (fresh) const SliverToBoxAdapter(child: _FreshHomeHeader()) else const _HomeHeader(),
-              ...feed.when(
-                skipLoadingOnRefresh: true,
-                data: (data) {
-                  if (data.sections.isEmpty) {
-                    return [
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: EmptyState(
-                          icon: Icons.weekend_outlined,
-                          title: l10n.appFullName,
-                          message: l10n.homeEmpty,
-                        ),
-                      ),
-                    ];
-                  }
-                  if (fresh) {
-                    // Fresh order: banner, categories, best sellers and new arrivals, the rest, promo strips, buy again.
-                    return [
-                      const SliverToBoxAdapter(child: SeasonBanner()),
-                      const SliverToBoxAdapter(child: ActiveOrderCard()),
-                      for (final s in freshSectionOrder(data.sections))
-                        SliverToBoxAdapter(
-                          child: HomeSectionView(key: ValueKey(s.id), section: s),
-                        ),
-                      const SliverToBoxAdapter(child: BuyAgainSection()),
-                      const SliverToBoxAdapter(child: Gap(AppSpace.xxl)),
-                    ];
-                  }
+    final page = FreshScaffold(
+      body: RefreshIndicator(
+        onRefresh: () async {
+          unawaited(ref.read(brandThemeProvider.notifier).refresh());
+          ref.invalidate(activeOrdersProvider);
+          ref.invalidate(homeFeedProvider);
+          await ref.read(homeFeedProvider.future);
+        },
+        child: CustomScrollView(
+          slivers: [
+            if (fresh) const SliverToBoxAdapter(child: _FreshHomeHeader()) else const _HomeHeader(),
+            ...feed.when(
+              skipLoadingOnRefresh: true,
+              data: (data) {
+                if (data.sections.isEmpty) {
+                  return [
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: EmptyState(icon: Icons.weekend_outlined, title: l10n.appFullName, message: l10n.homeEmpty),
+                    ),
+                  ];
+                }
+                if (fresh) {
+                  // Fresh order: banner, categories, best sellers and new arrivals, the rest, promo strips, buy again.
                   return [
                     const SliverToBoxAdapter(child: SeasonBanner()),
                     const SliverToBoxAdapter(child: ActiveOrderCard()),
-                    const SliverToBoxAdapter(child: BuyAgainSection()),
-                    for (final s in data.sections)
+                    for (final s in freshSectionOrder(data.sections))
                       SliverToBoxAdapter(
                         child: HomeSectionView(key: ValueKey(s.id), section: s),
                       ),
+                    const SliverToBoxAdapter(child: BuyAgainSection()),
                     const SliverToBoxAdapter(child: Gap(AppSpace.xxl)),
                   ];
-                },
-                loading: () => [const SliverToBoxAdapter(child: _HomeSkeleton())],
-                error: (e, _) => [
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: ErrorState(error: e, onRetry: () => ref.invalidate(homeFeedProvider)),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                }
+                return [
+                  const SliverToBoxAdapter(child: SeasonBanner()),
+                  const SliverToBoxAdapter(child: ActiveOrderCard()),
+                  const SliverToBoxAdapter(child: BuyAgainSection()),
+                  for (final s in data.sections)
+                    SliverToBoxAdapter(
+                      child: HomeSectionView(key: ValueKey(s.id), section: s),
+                    ),
+                  const SliverToBoxAdapter(child: Gap(AppSpace.xxl)),
+                ];
+              },
+              loading: () => [const SliverToBoxAdapter(child: _HomeSkeleton())],
+              error: (e, _) => [
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: ErrorState(error: e, onRetry: () => ref.invalidate(homeFeedProvider)),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
+    // A few seconds after a signed-in customer reaches Home, NotificationAsk asks them to allow notifications; it adds nothing to the page.
+    return NotificationAsk(child: page);
   }
 }
 
