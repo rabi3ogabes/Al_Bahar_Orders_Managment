@@ -61,7 +61,6 @@ class ContactHistory
      */
     public function timeline(string $userId, int $limit = 30, ?CarbonImmutable $before = null): Collection
     {
-        /** @var Collection<int, TimelineRow> $manual */
         $manual = CustomerMessage::query()->with(['batch:id,created_by,template_name,kind', 'batch.creator:id,name'])->where('user_id', $userId)
             ->when($before, fn ($q) => $q->where('created_at', '<', $before))->orderByDesc('created_at')->limit($limit)->get()
             ->map(fn (CustomerMessage $m) => [
@@ -71,7 +70,6 @@ class ContactHistory
                 // How many phones a notification reached and where notifications are off (only said once it went out; a skipped row already has its reason).
                 'phones' => $m->channel === 'notification' && in_array($m->status, ['sent', 'delivered'], true) ? DevicePushReach::deliveryNote($m->meta) : null,
             ]);
-        /** @var Collection<int, TimelineRow> $auto */
         $auto = DB::table('journey_deliveries as d')
             ->leftJoin('journey_runs as r', 'r.id', '=', 'd.run_id')->leftJoin('journeys as j', 'j.id', '=', 'r.journey_id')
             ->leftJoin('journey_steps as s', 's.id', '=', 'd.step_id')->leftJoin('journey_templates as t', 't.id', '=', 's.template_id')
@@ -85,6 +83,10 @@ class ContactHistory
                 'batch_id' => null, 'journey' => $d->journey !== null ? (string) $d->journey : null, 'phones' => null,
             ]);
 
-        return $manual->concat($auto)->sortByDesc(fn ($r) => $r['at']->getTimestamp())->values()->take($limit);
+        /** @var list<TimelineRow> $rows */
+        $rows = array_merge($manual->all(), $auto->all());
+        usort($rows, fn (array $a, array $b) => $b['at']->getTimestamp() <=> $a['at']->getTimestamp());
+
+        return collect(array_slice($rows, 0, $limit));
     }
 }
