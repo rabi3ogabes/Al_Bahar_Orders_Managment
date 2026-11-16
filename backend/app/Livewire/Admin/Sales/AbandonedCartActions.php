@@ -80,11 +80,16 @@ trait AbandonedCartActions
         $this->showCart = true;
     }
 
+    /**
+     * Closes the window from the server (after a discard or "Place order"). The window's own history entry is removed by the overlay stack, which
+     * lands on the entry that still carries `?cart=`; so the address bar is cleaned once that has settled.
+     */
     public function closeCart(): void
     {
         $this->showCart = false;
         $this->cartId = '';
         $this->resetWindowInput();
+        $this->js("setTimeout(() => { const u = new URL(window.location.href); if (u.searchParams.has('cart')) { u.searchParams.delete('cart'); window.history.replaceState(window.history.state, '', u); } }, 400)");
     }
 
     /** ✕, Esc, scrim and Back of the window all end here (wire:model.live): drop the id so the address bar is clean again. */

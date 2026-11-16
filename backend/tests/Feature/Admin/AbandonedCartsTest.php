@@ -8,6 +8,10 @@ use App\Domain\Checkout\Services\CartService;
 use App\Domain\Checkout\Services\StaffOrderService;
 use App\Domain\Identity\Models\User;
 use App\Domain\Marketing\Models\Coupon;
+use App\Domain\Marketing\Models\Journey;
+use App\Domain\Marketing\Models\JourneyDelivery;
+use App\Domain\Marketing\Models\JourneyRun;
+use App\Domain\Marketing\Models\JourneyStep;
 use App\Domain\Marketing\Models\Promotion;
 use App\Domain\Marketing\Services\CampaignService;
 use App\Domain\Notifications\Models\Notification;
@@ -17,7 +21,6 @@ use App\Domain\Orders\Models\Order;
 use App\Livewire\Admin\Sales\AbandonedCartsIndex;
 use App\Support\AdminNavigation;
 use App\Support\DomainException;
-use App\Support\Money;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
@@ -118,7 +121,7 @@ describe('the list', function () {
         $s = $this->svc->stats($this->admin);
 
         expect($s)->toBe(['carts' => 2, 'value' => '2750.00', 'reminded' => 1, 'with_coupon' => 1]);
-        $page = Livewire::actingAs($this->admin)->test(AbandonedCartsIndex::class)->assertSee(__('abandoned_admin.kpi_carts'))->assertSee(Money::of('2750.00')->format());
+        $page = Livewire::actingAs($this->admin)->test(AbandonedCartsIndex::class)->assertSee(__('abandoned_admin.kpi_carts'))->assertSee('QAR 2,750');
         expect(strtolower($page->html()))->not->toContain('recovered');
     });
 
@@ -501,6 +504,24 @@ describe('reminders', function () {
             ->and(AuditLog::where('action', 'cart.reminder_sent')->where('auditable_id', $cart->id)->where('actor_id', $this->mgrA->id)->exists())->toBeTrue();
     });
 
+    it('counts the steps of the abandoned-cart journey as reminders too, and holds a staff reminder back after them', function () {
+        $cart = abCart($this);
+        $journey = Journey::create(['key' => 'abandoned_cart', 'name' => 'Abandoned cart', 'is_enabled' => true]);
+        $step = JourneyStep::create(['journey_id' => $journey->id, 'position' => 1, 'delay_minutes' => 60, 'channels' => ['push', 'in_app']]);
+        $run = JourneyRun::create(['journey_id' => $journey->id, 'user_id' => $this->w->customer->id, 'cart_id' => $cart->id, 'anchor_at' => $cart->last_activity_at]);
+        foreach (['push', 'in_app'] as $channel) { // one step sent on two channels is one reminder
+            JourneyDelivery::create(['run_id' => $run->id, 'step_id' => $step->id, 'user_id' => $this->w->customer->id, 'channel' => $channel, 'status' => 'sent', 'sent_at' => now()->subHours(2)]);
+        }
+
+        $row = $this->svc->page($this->admin)['rows']->first();
+        $summary = AbandonedCartService::reminderSummary($row);
+
+        expect($summary['sent'])->toBe(1)->and($summary['last']->lt(now()->subHour()))->toBeTrue()
+            ->and($this->svc->stats($this->admin)['reminded'])->toBe(1)
+            ->and($this->svc->present($this->admin, $cart->id)['reminders']['sent'])->toBe(1)
+            ->and($this->svc->remind($this->admin, $cart->id)['status'])->toBe('too_soon');
+    });
+
     it('does not message a customer who has not agreed, and says so', function () {
         $this->w->customer->forceFill(['marketing_consent_at' => null])->save();
         $cart = abCart($this);
@@ -613,6 +634,17 @@ describe('place the order for the customer', function () {
 
         Cart::whereKey($cart->id)->update(['status' => 'abandoned']);
         expect(fn () => $orders->adoptCart($cart, $this->mgrA))->toThrow(DomainException::class, __('abandoned_admin.err_cart_not_active'));
+    });
+
+    it('stops being linked to the customer’s cart when the staff member switches the draft to another customer', function () {
+        $cart = abCart($this);
+        $orders = app(StaffOrderService::class);
+        $draft = $orders->adoptCart($cart, $this->mgrA);
+        $other = User::factory()->create();
+
+        $orders->setCustomer($this->mgrA, $draft, $other->id);
+
+        expect($draft->fresh()->user_id)->toBe($other->id)->and($draft->fresh()->staff_options)->toBeNull()->and($cart->fresh()->status)->toBe('active');
     });
 
     it('opens the order cart panel at the checkout step from the window', function () {

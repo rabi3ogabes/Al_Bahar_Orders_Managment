@@ -72,7 +72,7 @@
                             <a href="{{ route($item['route']) }}" wire:navigate class="nav-link {{ $active ? 'nav-link-active' : '' }}" @if($active) aria-current="page" @endif>
                                 <x-icon :name="$item['icon']" class="size-[1.15rem] shrink-0 {{ $active ? 'text-brass-300' : '' }}" />
                                 <span class="truncate">{{ __($item['label']) }}</span>
-                                @if (($item['badge'] ?? null) === 'abandoned' && ($badge = app(\App\Domain\Checkout\Services\AbandonedCartService::class)->badge($user)) > 0)
+                                @if (($item['badge'] ?? null) === 'abandoned' && ($badge = \App\Domain\Checkout\Support\AbandonedCarts::badge($user)) > 0)
                                     <span class="ms-auto grid min-w-5 place-items-center rounded-full bg-brass-500 px-1.5 text-[0.7rem] font-semibold leading-5 text-ink-950 tabular-nums" title="{{ __('abandoned_admin.kpi_carts_hint') }}"><span aria-hidden="true">{{ $badge > 99 ? '99+' : $badge }}</span><span class="sr-only">{{ trans_choice('abandoned_admin.count', $badge, ['count' => $badge]) }}</span></span>
                                 @endif
                             </a>

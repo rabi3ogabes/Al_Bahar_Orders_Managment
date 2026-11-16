@@ -268,8 +268,10 @@ class StaffOrderService
         $draft = $this->owned($staff, $draft);
         $customer = $customerId ? $this->customer($customerId) : null;
         if ($customer?->id !== $draft->user_id) {
-            // Addresses, coupons and loyalty belong to a customer: start those choices again.
-            $draft->update(['user_id' => $customer?->id, 'address_id' => null, 'coupon_code' => null, 'loyalty_points_to_redeem' => 0]);
+            // Addresses, coupons and loyalty belong to a customer: start those choices again. A draft made from a customer's abandoned cart
+            // stops being linked to it (it is not that customer's order any more).
+            $opts = array_diff_key($draft->staff_options ?? [], [self::SOURCE_KEY => 1]);
+            $draft->update(['user_id' => $customer?->id, 'address_id' => null, 'coupon_code' => null, 'loyalty_points_to_redeem' => 0, 'staff_options' => $opts ?: null]);
         }
 
         return $this->touch($draft);

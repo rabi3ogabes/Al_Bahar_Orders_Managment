@@ -1,6 +1,6 @@
 @php
     $idleKeys = array_keys(\App\Domain\Checkout\Services\AbandonedCartService::IDLE);
-    $money = fn ($v) => \App\Support\Money::of($v ?? '0')->format();
+    $kpiMoney = fn ($v) => preg_replace('/\.00(?=\s|$)/', '', \App\Support\Money::of($v ?? '0')->format()); // whole riyals are enough for a headline number
     $chip = 'inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium transition';
     $chipOn = 'border-ink-900 bg-ink-900 text-ivory dark:border-brass-500 dark:bg-brass-500 dark:text-ink-950';
     $chipOff = 'border-sand-300 bg-white hover:border-brass-400 dark:border-ink-600 dark:bg-ink-800';
@@ -8,12 +8,25 @@
 <div>
     <x-admin.page-header :title="__('abandoned_admin.title')" :eyebrow="__('nav.sales')" :description="__('abandoned_admin.hint')" />
 
-    {{-- Numbers right now --}}
-    <section aria-label="{{ __('abandoned_admin.kpi_label') }}" class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <x-admin.stat :label="__('abandoned_admin.kpi_carts')" :value="number_format($stats['carts'])" icon="cart" tone="brass" :hint="__('abandoned_admin.kpi_carts_hint')" />
-        <x-admin.stat :label="__('abandoned_admin.kpi_value')" :value="$money($stats['value'])" icon="cash" :hint="__('abandoned_admin.kpi_value_hint')" />
-        <x-admin.stat :label="__('abandoned_admin.kpi_reminded')" :value="number_format($stats['reminded'])" icon="send" :hint="__('abandoned_admin.kpi_reminded_hint', ['count' => number_format(max(0, $stats['carts'] - $stats['reminded']))])" />
-        <x-admin.stat :label="__('abandoned_admin.kpi_coupon')" :value="number_format($stats['with_coupon'])" icon="percent" :hint="__('abandoned_admin.kpi_coupon_hint')" />
+    {{-- Numbers right now: a 2 x 2 grid on phones, one row on wide screens --}}
+    <section aria-label="{{ __('abandoned_admin.kpi_label') }}" class="mb-6 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        @foreach ([
+            ['kpi_carts', number_format($stats['carts']), 'cart', true, __('abandoned_admin.kpi_carts_hint')],
+            ['kpi_value', $kpiMoney($stats['value']), 'cash', false, __('abandoned_admin.kpi_value_hint')],
+            ['kpi_reminded', number_format($stats['reminded']), 'send', false, __('abandoned_admin.kpi_reminded_hint', ['count' => number_format(max(0, $stats['carts'] - $stats['reminded']))])],
+            ['kpi_coupon', number_format($stats['with_coupon']), 'percent', false, __('abandoned_admin.kpi_coupon_hint')],
+        ] as [$label, $value, $icon, $brass, $hint])
+            <div class="card relative overflow-hidden p-4 sm:p-6">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="text-xs text-ink-500 dark:text-ink-400 sm:text-sm">{{ __('abandoned_admin.'.$label) }}</p>
+                        <p class="mt-1 font-display text-2xl font-semibold tracking-tight text-ink-900 tabular-nums dark:text-ivory sm:mt-2 sm:text-3xl" dir="auto">{{ $value }}</p>
+                    </div>
+                    <span class="hidden size-11 shrink-0 place-items-center rounded-xl sm:grid {{ $brass ? 'bg-brass-50 text-brass-600 dark:bg-brass-500/15 dark:text-brass-300' : 'bg-sand-100 text-ink-600 dark:bg-ink-800 dark:text-sand-200' }}"><x-icon :name="$icon" /></span>
+                </div>
+                <p class="mt-2 text-[0.7rem] leading-snug text-ink-500 dark:text-ink-400 sm:mt-4 sm:text-xs">{{ $hint }}</p>
+            </div>
+        @endforeach
     </section>
 
     <div class="card">
@@ -25,13 +38,15 @@
                             class="min-h-11 rounded-[0.65rem] px-3 text-sm font-medium tabular-nums transition {{ $idle === $k ? 'bg-white text-ink-900 shadow-sm dark:bg-ink-700 dark:text-ivory' : 'text-ink-500 hover:text-ink-900 dark:hover:text-ivory' }}">{{ __('abandoned_admin.idle_'.$k) }}</button>
                 @endforeach
             </div>
-            <button type="button" wire:click="toggleCoupon" aria-pressed="{{ $withCoupon ? 'true' : 'false' }}" class="{{ $chip }} {{ $withCoupon ? $chipOn : $chipOff }}"><x-icon name="percent" class="size-4" />{{ __('abandoned_admin.has_coupon') }}</button>
-            @if ($branches->count() > 1)
-                <select wire:model.live="branch" class="input sm:w-44" aria-label="{{ __('admin.branch') }}">
-                    <option value="">{{ __('admin.all_branches') }}</option>
-                    @foreach ($branches as $b)<option value="{{ $b->id }}">{{ $b->code }} · {{ $b->localized('name') }}</option>@endforeach
-                </select>
-            @endif
+            <div class="flex w-full items-center gap-2 sm:contents">
+                <button type="button" wire:click="toggleCoupon" aria-pressed="{{ $withCoupon ? 'true' : 'false' }}" class="{{ $chip }} shrink-0 {{ $withCoupon ? $chipOn : $chipOff }}"><x-icon name="percent" class="size-4" />{{ __('abandoned_admin.has_coupon') }}</button>
+                @if ($branches->count() > 1)
+                    <select wire:model.live="branch" class="input min-w-0 flex-1 sm:w-44 sm:flex-none" aria-label="{{ __('admin.branch') }}">
+                        <option value="">{{ __('admin.all_branches') }}</option>
+                        @foreach ($branches as $b)<option value="{{ $b->id }}">{{ $b->code }} · {{ $b->localized('name') }}</option>@endforeach
+                    </select>
+                @endif
+            </div>
             <x-slot:meta><span aria-live="polite">{{ trans_choice('abandoned_admin.count', $total, ['count' => number_format($total)]) }}</span></x-slot:meta>
         </x-admin.toolbar>
 
@@ -65,9 +80,10 @@
                                 <td class="whitespace-nowrap text-end font-medium"><x-admin.money :value="$row->value" /></td>
                                 <td class="whitespace-nowrap" title="{{ \App\Support\BusinessTime::display($row->last_activity_at) }}">{{ $row->last_activity_at?->diffForHumans(null, \Carbon\CarbonInterface::DIFF_ABSOLUTE) }}</td>
                                 <td class="whitespace-nowrap">
-                                    @if ($row->abandoned_notifications > 0)
-                                        <span class="badge-info">{{ trans_choice('abandoned_admin.reminders_sent', $row->abandoned_notifications, ['count' => $row->abandoned_notifications]) }}</span>
-                                        <span class="block text-xs text-ink-500">{{ $row->abandoned_notified_at?->diffForHumans() }}</span>
+                                    @php $rem = \App\Domain\Checkout\Services\AbandonedCartService::reminderSummary($row); @endphp
+                                    @if ($rem['sent'] > 0)
+                                        <span class="badge-info">{{ trans_choice('abandoned_admin.reminders_sent', $rem['sent'], ['count' => $rem['sent']]) }}</span>
+                                        <span class="block text-xs text-ink-500">{{ $rem['last']?->diffForHumans() }}</span>
                                     @else
                                         <span class="text-xs text-ink-400">{{ __('abandoned_admin.not_reminded') }}</span>
                                     @endif
@@ -99,7 +115,8 @@
                             <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-500">
                                 <span>{{ trans_choice('abandoned_admin.items', (int) $row->units, ['count' => (int) $row->units]) }}</span>
                                 <span class="inline-flex items-center gap-1"><x-icon name="clock" class="size-3.5" />{{ $row->last_activity_at?->diffForHumans(null, \Carbon\CarbonInterface::DIFF_ABSOLUTE) }}</span>
-                                @if ($row->abandoned_notifications > 0)<span class="badge-info">{{ trans_choice('abandoned_admin.reminders_sent', $row->abandoned_notifications, ['count' => $row->abandoned_notifications]) }}</span>@endif
+                                @php $remM = \App\Domain\Checkout\Services\AbandonedCartService::reminderSummary($row); @endphp
+                                @if ($remM['sent'] > 0)<span class="badge-info">{{ trans_choice('abandoned_admin.reminders_sent', $remM['sent'], ['count' => $remM['sent']]) }}</span>@endif
                                 @if ($row->coupon_code)<span class="badge-brass font-mono" dir="ltr">{{ $row->coupon_code }}</span>@endif
                             </div>
                             <div class="flex items-center gap-2">
@@ -135,7 +152,7 @@
                             <x-icon name="send" class="size-4" />{{ __('abandoned_admin.send_reminder') }}
                         </button>
                         <button type="button" wire:click="discard('{{ $cartId }}')" wire:loading.attr="disabled" wire:target="discard" class="btn-secondary min-h-11 flex-1 text-ruby-soft"><x-icon name="trash" class="size-4" />{{ __('abandoned_admin.discard') }}</button>
-                        <button type="button" wire:click="closeCart" class="btn-ghost min-h-11">{{ __('admin.close') }}</button>
+                        <button type="button" @click="requestClose()" class="btn-ghost hidden min-h-11 sm:inline-flex">{{ __('admin.close') }}</button>
                     </div>
                 </div>
             </x-slot:footer>

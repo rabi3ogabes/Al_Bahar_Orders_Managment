@@ -57,7 +57,6 @@ return [
     'customer' => 'العميل',
     'idle_for' => 'خاملة منذ',
     'reminders' => 'التذكيرات',
-    'reminders_of' => 'أُرسل :sent من :max',
     'branch' => 'الفرع',
     'branch_auto' => 'تلقائي (أفضل فرع)',
     'delivery_to' => 'التوصيل إلى',

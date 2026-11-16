@@ -5,7 +5,7 @@
     <div class="space-y-4 py-6 text-center" role="status">
         <div class="mx-auto grid size-14 place-items-center rounded-2xl bg-sand-100 text-brass-600 dark:bg-ink-800 dark:text-brass-300"><x-icon name="info" class="size-6" /></div>
         <p class="mx-auto max-w-sm text-sm text-ink-600 dark:text-sand-200">{{ $window['gone'] }}</p>
-        <button type="button" wire:click="closeCart" class="btn-primary min-h-11">{{ __('admin.close') }}</button>
+        <button type="button" @click="requestClose()" class="btn-primary min-h-11">{{ __('admin.close') }}</button>
     </div>
 @else
     @php
@@ -35,8 +35,8 @@
             <dl class="mt-2 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                 <div><dt class="text-xs text-ink-500">{{ __('abandoned_admin.idle_for') }}</dt><dd class="font-medium" title="{{ \App\Support\BusinessTime::display($window['idle_since']) }}">{{ $window['idle_since']->diffForHumans(null, \Carbon\CarbonInterface::DIFF_ABSOLUTE) }}</dd></div>
                 <div><dt class="text-xs text-ink-500">{{ __('abandoned_admin.reminders') }}</dt>
-                    <dd class="font-medium">{{ $cart->abandoned_notifications > 0 ? __('abandoned_admin.reminders_of', ['sent' => $cart->abandoned_notifications, 'max' => $reminder['limit']]) : __('abandoned_admin.not_reminded') }}
-                        @if ($cart->abandoned_notified_at)<span class="block text-xs font-normal text-ink-500">{{ $cart->abandoned_notified_at->diffForHumans() }}</span>@endif</dd></div>
+                    <dd class="font-medium">{{ $window['reminders']['sent'] > 0 ? trans_choice('abandoned_admin.reminders_sent', $window['reminders']['sent'], ['count' => $window['reminders']['sent']]) : __('abandoned_admin.not_reminded') }}
+                        @if ($window['reminders']['last'])<span class="block text-xs font-normal text-ink-500">{{ $window['reminders']['last']->diffForHumans() }}</span>@endif</dd></div>
                 <div><dt class="text-xs text-ink-500">{{ __('abandoned_admin.branch') }}</dt><dd class="font-medium">{{ $window['branch'] ? $window['branch']->code.' · '.$window['branch']->localized('name') : __('abandoned_admin.branch_auto') }}</dd></div>
                 <div><dt class="text-xs text-ink-500">{{ $cart->fulfillment_type === 'pickup' ? __('abandoned_admin.pickup') : __('abandoned_admin.delivery_to') }}</dt>
                     <dd class="font-medium">

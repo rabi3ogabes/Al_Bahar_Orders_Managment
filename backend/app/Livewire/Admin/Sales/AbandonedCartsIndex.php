@@ -114,8 +114,8 @@ class AbandonedCartsIndex extends Component
         if ($this->addOpen && $this->svc()->canChange(auth()->user())) {
             try {
                 $data['results'] = $this->svc()->searchProducts(auth()->user(), $this->cartId, $this->addSearch);
-            } catch (DomainException) {
-                $data['results'] = []; // rate limited: the list stays as it was
+            } catch (DomainException|AuthorizationException) {
+                $data['results'] = []; // the cart changed in the last instant: the next render explains it
             }
         }
 

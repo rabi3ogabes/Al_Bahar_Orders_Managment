@@ -57,7 +57,6 @@ return [
     'customer' => 'Customer',
     'idle_for' => 'Idle for',
     'reminders' => 'Reminders',
-    'reminders_of' => ':sent of :max sent',
     'branch' => 'Branch',
     'branch_auto' => 'Automatic (best branch)',
     'delivery_to' => 'Delivery to',
