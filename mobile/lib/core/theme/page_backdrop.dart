@@ -104,18 +104,23 @@ class PageBackdropScope extends InheritedWidget {
   final PageBackdropConfig config;
   final BackdropImageBuilder imageBuilder;
 
-  static PageBackdropScope? maybeOf(BuildContext context) => context.dependOnInheritedWidgetOfExactType<PageBackdropScope>();
+  static PageBackdropScope? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<PageBackdropScope>();
 
   @override
   bool updateShouldNotify(PageBackdropScope oldWidget) =>
       config != oldWidget.config || imageBuilder != oldWidget.imageBuilder;
 }
 
-/// One page with the dashboard's background: the opaque page colour, the picture on it, then the page. Cards, sheets, bars
-/// and the footer menu keep their own opaque surfaces, so text never sits on the picture.
+/// The page colour, the picture on it, then the page above. Cards, sheets, bars and the footer menu keep their own opaque
+/// surfaces, so text never sits on the picture.
 ///
-/// It does not change the size or the constraints the page sees, and its own layer sits in a [RepaintBoundary], so the
-/// picture is painted once however much the page above it repaints.
+/// The app shell puts one behind the whole navigator (its pages are transparent while the page background is on, and
+/// there is nothing to see through to but this). A page that moves over another one with a real transition carries its own,
+/// see [BackdropPageTransitionsBuilder].
+///
+/// It does not change the size or the constraints its child sees, and the picture sits in a [RepaintBoundary], so it is
+/// painted once however much the page above it repaints.
 class PageBackdrop extends StatelessWidget {
   const PageBackdrop({super.key, required this.config, required this.child, this.imageBuilder = defaultBackdropImage});
 
@@ -146,9 +151,39 @@ class PageBackdrop extends StatelessWidget {
   }
 }
 
+/// The page background as the theme carries it: present while it changes anything in the mode in use (a picture, or a page
+/// colour in light mode), absent otherwise. [AppTheme] puts it there, and the app shell reads it to put the backdrop behind
+/// the pages, so the theme is the one place that decides.
+@immutable
+class PageBackdropTheme extends ThemeExtension<PageBackdropTheme> {
+  const PageBackdropTheme(this.config);
+
+  final PageBackdropConfig config;
+
+  @override
+  PageBackdropTheme copyWith({PageBackdropConfig? config}) => PageBackdropTheme(config ?? this.config);
+
+  /// A discrete switch: it flips at the half way point.
+  @override
+  PageBackdropTheme lerp(ThemeExtension<PageBackdropTheme>? other, double t) =>
+      other is PageBackdropTheme && t >= 0.5 ? other : this;
+
+  @override
+  bool operator ==(Object other) => other is PageBackdropTheme && other.config == config;
+
+  @override
+  int get hashCode => config.hashCode;
+}
+
+extension PageBackdropContextX on BuildContext {
+  /// The page background to draw behind the pages, or null when the theme has none (the page looks as it always did).
+  PageBackdropConfig? get pageBackdrop => Theme.of(this).extension<PageBackdropTheme>()?.config;
+}
+
 /// A page transition that carries the backdrop with the page it moves: it wraps the route's child in a [PageBackdrop] and
-/// hands it to the platform's usual transition. Every page then owns an opaque background, so a transition never shows
-/// the previous page through a transparent one, and the picture slides, fades and zooms together with its page.
+/// hands it to the platform's usual transition. A page that slides or fades over another one (a Material route such as the
+/// map pin picker) then owns an opaque background, so the transition never shows the page below through a transparent
+/// scaffold, and the picture moves together with its page.
 class BackdropPageTransitionsBuilder extends PageTransitionsBuilder {
   BackdropPageTransitionsBuilder({
     required this.platform,

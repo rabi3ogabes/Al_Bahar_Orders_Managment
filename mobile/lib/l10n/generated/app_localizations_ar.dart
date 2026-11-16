@@ -986,6 +986,16 @@ class AppLocalizationsAr extends AppLocalizations {
   String get deliveryFee => 'رسوم التوصيل';
 
   @override
+  String deliveryFreeWithCode(String code) {
+    return 'توصيل مجاني بالرمز $code';
+  }
+
+  @override
+  String deliveryFeeWas(String fee) {
+    return 'كان $fee';
+  }
+
+  @override
   String get serviceFee => 'رسوم الخدمة';
 
   @override

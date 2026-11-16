@@ -1778,6 +1778,18 @@ abstract class AppLocalizations {
   /// **'Delivery'**
   String get deliveryFee;
 
+  /// No description provided for @deliveryFreeWithCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Free delivery with code {code}'**
+  String deliveryFreeWithCode(String code);
+
+  /// No description provided for @deliveryFeeWas.
+  ///
+  /// In en, this message translates to:
+  /// **'Was {fee}'**
+  String deliveryFeeWas(String fee);
+
   /// No description provided for @serviceFee.
   ///
   /// In en, this message translates to:

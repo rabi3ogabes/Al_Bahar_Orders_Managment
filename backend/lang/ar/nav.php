@@ -6,6 +6,7 @@ return [
     'sales' => 'المبيعات',
     'new_order' => 'طلب جديد',
     'orders' => 'الطلبات',
+    'abandoned' => 'الطلبات المتروكة',
     'pickup' => 'الاستلام من الفرع',
     'deliveries' => 'التوصيل',
     'customers' => 'العملاء',

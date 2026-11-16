@@ -77,6 +77,9 @@ class BackdropIndex extends Component
     {
         abort_unless($this->can('cms.edit'), 403);
         $this->resetValidation();
+        if (! $this->isDirty($backdrop)) {
+            return; // a second press on the same Save: nothing new to store or to audit
+        }
         $old = $backdrop->config();
         try {
             $clean = $backdrop->save($this->form, $this->upload);

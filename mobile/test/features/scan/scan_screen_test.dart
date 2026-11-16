@@ -405,7 +405,7 @@ void main() {
       await teardown(t);
     });
 
-    testWidgets('while the camera opens: a calm note, and the way out, typing and searching are all at hand', (t) async {
+    testWidgets('while the camera opens: a calm note, with the way out, typing and searching at hand', (t) async {
       final camera = FakeScanSource(camera: ScanCameraState.starting);
       final (:source, :server, :h) = await open(t, source: camera);
       expect(find.text(en.scanCameraStarting), findsOneWidget);
@@ -468,7 +468,9 @@ void main() {
       await teardown(t);
     });
 
-    testWidgets('large text on a small phone: the opening note and the camera problem fit, with every button', (t) async {
+    testWidgets('large text on a small phone: the opening note and the camera problem fit, with every button', (
+      t,
+    ) async {
       t.platformDispatcher.textScaleFactorTestValue = 1.3;
       addTearDown(t.platformDispatcher.clearTextScaleFactorTestValue);
       final camera = FakeScanSource(camera: ScanCameraState.starting);

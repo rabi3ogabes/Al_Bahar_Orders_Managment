@@ -100,10 +100,11 @@ abstract final class AppTheme {
         ink: brand.ink,
       );
     }
-    // The dashboard's page background, when it is on. Its page colour replaces the light background (never the dark one),
-    // unless the theme's text would be hard to read on it.
-    final active = (backdrop?.isActive ?? false) ? backdrop : null;
-    if (active != null && !isDark) bg = active.pageColorFor(ext.ink) ?? bg;
+    // The dashboard's page background, when it changes anything in this mode: a picture, or its page colour. The colour
+    // replaces the light background only (dark keeps its own), and only when the theme's text stays readable on it.
+    final pageColor = isDark ? null : backdrop?.pageColorFor(ext.ink);
+    final active = backdrop != null && (backdrop.hasPicture || pageColor != null) ? backdrop : null;
+    if (pageColor != null) bg = pageColor;
     final surfaceHigh = isDark ? AppPalette.nightSurfaceHigh : ext.tint;
     final ink = ext.ink;
     // Brand primary: deep navy on light, a soft navy tint on dark.
@@ -163,13 +164,14 @@ abstract final class AppTheme {
       useMaterial3: true,
       brightness: brightness,
       colorScheme: scheme,
-      // With the page background on, every page carries its own opaque backdrop (see the page transitions below) and the
-      // scaffold lets it show through. `canvasColor` and the colour scheme keep the opaque page colour.
+      // With the page background on, the scaffold lets the backdrop behind the pages show through (FooterScope puts it there,
+      // and a page that moves over another carries its own, see the page transitions below). `canvasColor` and the colour
+      // scheme keep the opaque page colour.
       scaffoldBackgroundColor: active == null ? bg : Colors.transparent,
       canvasColor: bg,
       textTheme: text,
       fontFamily: locale.languageCode == 'ar' ? AppFonts.arabic : AppFonts.body,
-      extensions: [ext, design],
+      extensions: [ext, design, if (active != null) PageBackdropTheme(active)],
       splashFactory: InkSparkle.splashFactory,
       visualDensity: design.visualDensity,
       materialTapTargetSize: MaterialTapTargetSize.padded,

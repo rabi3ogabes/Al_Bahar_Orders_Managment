@@ -95,7 +95,7 @@ class StaffOrderService
         throw new DomainException($code, __('neworder_admin.err_'.$code, $replace), $status);
     }
 
-    /** Same as fail(), for the messages of the abandoned orders manager (lang/*/abandoned_admin.php). */
+    /** Same as fail(), for the messages of the abandoned orders manager (the abandoned_admin language files). */
     private function failCart(string $code, int $status = 409): never
     {
         throw new DomainException($code, __('abandoned_admin.err_'.$code), $status);

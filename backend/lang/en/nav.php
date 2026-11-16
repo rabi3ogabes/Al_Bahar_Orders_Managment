@@ -6,6 +6,7 @@ return [
     'sales' => 'Sales',
     'new_order' => 'New order',
     'orders' => 'Orders',
+    'abandoned' => 'Abandoned orders',
     'pickup' => 'Store pickup',
     'deliveries' => 'Deliveries',
     'customers' => 'Customers',

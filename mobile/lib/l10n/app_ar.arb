@@ -281,6 +281,8 @@
   "orderSummary": "ملخّص الطلب",
   "discount": "الخصم",
   "deliveryFee": "رسوم التوصيل",
+  "deliveryFreeWithCode": "توصيل مجاني بالرمز {code}",
+  "deliveryFeeWas": "كان {fee}",
   "serviceFee": "رسوم الخدمة",
   "codFee": "رسوم الدفع عند التوصيل",
   "tax": "الضريبة",

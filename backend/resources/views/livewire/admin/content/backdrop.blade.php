@@ -79,7 +79,7 @@
                         <p class="mt-2 text-sm text-ruby-soft" role="status">{{ __('backdrop_admin.upload_need') }}</p>
                     @endif
                     <div class="mt-3 flex flex-wrap gap-2">
-                        <button type="button" class="btn-secondary min-h-11" @click="$el.closest('section').querySelector('input[type=file]').click()"><x-icon name="upload" class="size-4" />{{ __('backdrop_admin.upload_replace') }}</button>
+                        <button type="button" class="btn-secondary min-h-11" @click="$el.closest('section').querySelector('input[type=file]').click()"><x-icon name="upload" class="size-4" />{{ $upload || $storedUrl ? __('backdrop_admin.upload_replace') : __('backdrop_admin.upload_choose') }}</button>
                         @if ($upload)
                             <button type="button" class="btn-ghost min-h-11" wire:click="discardUpload"><x-icon name="x" class="size-4" />{{ __('backdrop_admin.upload_discard') }}</button>
                         @elseif ($storedUrl)
@@ -127,7 +127,7 @@
                         <div class="flex flex-wrap items-center gap-3">
                             <input type="color" aria-labelledby="bd-color-l" class="{{ $swatch }}" :value="color || bg" value="{{ $form['color'] ?: $theme['background'] }}"
                                    @input="color = $event.target.value" @change="$wire.$set('form.color', color || null)" @disabled(! $canEdit)>
-                            <span class="font-mono text-xs uppercase text-ink-500 dark:text-ink-400" dir="ltr" x-text="color || @js(__('backdrop_admin.theme_colour'))">{{ $form['color'] ?: __('backdrop_admin.theme_colour') }}</span>
+                            <span class="text-xs text-ink-500 dark:text-ink-400" dir="ltr" x-text="color ? color.toUpperCase() : @js(__('backdrop_admin.theme_colour'))">{{ $form['color'] ?: __('backdrop_admin.theme_colour') }}</span>
                             @if ($canEdit)
                                 <button type="button" class="btn-ghost btn-sm min-h-11" x-cloak x-show="color" @click="color = ''; $wire.$set('form.color', null)">{{ __('backdrop_admin.use_theme_colour') }}</button>
                             @endif
@@ -146,7 +146,7 @@
                         <div class="flex flex-wrap items-center gap-3">
                             <input type="color" aria-labelledby="bd-tint-l" class="{{ $swatch }}" :value="tint || primary" value="{{ $form['tint'] ?: $theme['primary'] }}"
                                    @input="tint = $event.target.value" @change="$wire.$set('form.tint', tint || null)" @disabled(! $canEdit)>
-                            <span class="font-mono text-xs uppercase text-ink-500 dark:text-ink-400" dir="ltr" x-text="tint || @js(__('backdrop_admin.theme_colour'))">{{ $form['tint'] ?: __('backdrop_admin.theme_colour') }}</span>
+                            <span class="text-xs text-ink-500 dark:text-ink-400" dir="ltr" x-text="tint ? tint.toUpperCase() : @js(__('backdrop_admin.theme_colour'))">{{ $form['tint'] ?: __('backdrop_admin.theme_colour') }}</span>
                             @if ($canEdit)
                                 <button type="button" class="btn-ghost btn-sm min-h-11" x-cloak x-show="tint" @click="tint = ''; $wire.$set('form.tint', null)">{{ __('backdrop_admin.use_theme_colour') }}</button>
                             @endif
@@ -160,8 +160,8 @@
             {{-- Save bar: stays in view; Save is off until something changed --}}
             @if ($canEdit)
                 <div class="sticky bottom-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sand-200 bg-white/95 p-3 shadow-[var(--shadow-lift)] backdrop-blur dark:border-ink-700 dark:bg-ink-900/95">
-                    <p class="min-w-0 flex-1 px-1 text-sm {{ $dirty ? 'font-medium text-ink-800 dark:text-sand-100' : 'text-ink-500 dark:text-ink-400' }}" role="status">{{ $dirty ? __('backdrop_admin.unsaved') : __('backdrop_admin.all_saved') }}</p>
-                    <button type="submit" class="btn-primary min-h-11 min-w-36" @disabled(! $dirty || $blocked) wire:loading.attr="disabled" wire:target="save" aria-live="polite">
+                    <p class="min-w-0 flex-1 px-1 text-sm {{ $blocked ? 'font-medium text-ruby-soft' : ($dirty ? 'font-medium text-ink-800 dark:text-sand-100' : 'text-ink-500 dark:text-ink-400') }}" role="status">{{ $blocked ? __('backdrop_admin.blocked') : ($dirty ? __('backdrop_admin.unsaved') : __('backdrop_admin.all_saved')) }}</p>
+                    <button type="submit" class="btn-primary min-h-11 min-w-36" @disabled(! $dirty || $blocked)  aria-live="polite">
                         <span class="inline-flex items-center gap-2" wire:loading.remove wire:target="save">
                             <template x-if="saved"><x-icon name="check" class="size-4" /></template>
                             <span x-text="saved ? @js(__('backdrop_admin.saved')) : @js(__('backdrop_admin.save'))">{{ $justSaved && ! $dirty ? __('backdrop_admin.saved') : __('backdrop_admin.save') }}</span>

@@ -84,4 +84,20 @@ and variants, compared without regard to case.
 4. Deny the permission (Settings > camera off) and reopen: the explanation and Open settings appear; turn it on and return: the camera starts.
 5. Print a label sheet from the dashboard and scan it with the app (also a small 38 mm label, to check the bars are readable).
 
+## Black screen with a spinner (fixed in 1.0.123)
+
+**Symptom:** the camera screen stayed black with the "Starting the camera" spinner and never opened, on every phone.
+
+**Cause:** the camera source is an auto-dispose provider and the screen read it with a plain `ref.read`. Riverpod releases an
+auto-dispose provider that nothing listens to a moment after it is read, so the camera controller was disposed under the open screen.
+The failed start was swallowed, so the screen waited for ever. The old tests replaced the source with a fake and could not see it.
+
+**Now:** the screen holds the source with `ref.listenManual` for as long as it is open; the controller starts once (`autoStart: false`);
+every failure ends in "camera unavailable" with **Try again** (or "permission needed" with Open settings); a 12 s watchdog stops an
+endless "starting"; the escape routes (close, type a code, search by name) are visible the whole time. Regression tests keep the
+real auto-dispose behaviour (`openLive` in `scan_screen_test.dart`) and the source's failure paths (`mobile_scanner_source_test.dart`).
+
+If a phone still shows "camera unavailable": run `adb logcat | grep "\[scan\]"` (the reason is logged without personal data) and check that
+another app is not holding the camera and that Google Play services are up to date (ML Kit reads the barcodes).
+
 On the live server: run `php artisan migrate` (adds four small indexes); nothing else is needed.

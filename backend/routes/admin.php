@@ -55,6 +55,7 @@ Route::get('orders', Admin\Sales\OrderIndex::class)->middleware('permission:orde
 Route::get('orders/create', Admin\Sales\OrderCreate::class)->middleware('permission:orders.create')->name('orders.create');
 Route::get('orders/{order}', Admin\Sales\OrderShow::class)->middleware('permission:orders.view')->name('orders.show');
 Route::get('orders/{order}/invoice', [DocumentController::class, 'invoice'])->middleware('permission:orders.view')->name('orders.invoice');
+Route::get('abandoned-orders', Admin\Sales\AbandonedCartsIndex::class)->middleware('permission:orders.view')->name('sales.abandoned');
 Route::get('pickup', Admin\Sales\PickupIndex::class)->middleware('permission:pickup.view')->name('pickup.index');
 Route::get('pickup/scan', Admin\Sales\PickupScanner::class)->middleware('permission:pickup.view')->name('pickup.scan');
 Route::get('deliveries', Admin\Sales\DeliveryIndex::class)->middleware('permission:deliveries.view')->name('deliveries.index');

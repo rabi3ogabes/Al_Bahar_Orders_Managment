@@ -814,6 +814,18 @@
   "@discount": {},
   "deliveryFee": "Delivery",
   "@deliveryFee": {},
+  "deliveryFreeWithCode": "Free delivery with code {code}",
+  "@deliveryFreeWithCode": {
+    "placeholders": {
+      "code": {"type": "String"}
+    }
+  },
+  "deliveryFeeWas": "Was {fee}",
+  "@deliveryFeeWas": {
+    "placeholders": {
+      "fee": {"type": "String"}
+    }
+  },
   "serviceFee": "Service fee",
   "@serviceFee": {},
   "codFee": "Cash on delivery fee",

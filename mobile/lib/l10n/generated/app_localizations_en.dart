@@ -967,6 +967,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deliveryFee => 'Delivery';
 
   @override
+  String deliveryFreeWithCode(String code) {
+    return 'Free delivery with code $code';
+  }
+
+  @override
+  String deliveryFeeWas(String fee) {
+    return 'Was $fee';
+  }
+
+  @override
   String get serviceFee => 'Service fee';
 
   @override

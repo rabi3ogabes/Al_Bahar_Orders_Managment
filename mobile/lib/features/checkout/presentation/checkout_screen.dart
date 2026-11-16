@@ -17,6 +17,7 @@ import 'package:albahar_customer/features/branches/data/branch_repository.dart';
 import 'package:albahar_customer/features/branches/domain/branch_models.dart';
 import 'package:albahar_customer/features/checkout/domain/alternate_phone.dart';
 import 'package:albahar_customer/features/checkout/domain/checkout_models.dart';
+import 'package:albahar_customer/features/checkout/presentation/delivery_fee_row.dart';
 import 'package:albahar_customer/features/checkout/presentation/delivery_slot_section.dart';
 import 'package:albahar_customer/features/checkout/presentation/payment_flow.dart';
 import 'package:albahar_customer/features/checkout/presentation/state/checkout_controller.dart';
@@ -612,9 +613,10 @@ class _SplitPlan extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   if (f.deliveryFee != null)
-                    SummaryRow(
-                      label: l10n.deliveryFee,
-                      value: f.deliveryFee!.isZero ? l10n.free : f.deliveryFee!.formatted,
+                    DeliveryFeeRow(
+                      fee: f.deliveryFee!,
+                      waived: f.type == 'delivery' && quote.freeDeliveryDiscount != null,
+                      code: quote.freeDeliveryDiscount?.code,
                     ),
                 ],
               ),
@@ -765,6 +767,19 @@ class _QuoteSummary extends StatelessWidget {
       );
     }
 
+    // Delivery always costs the zone fee: the line is there for every delivery. A free-delivery coupon does not remove it, it
+    // strikes the fee through and says "Free" with the code, so that coupon is not listed a second time as "− fee" among the discounts.
+    final delivery = state.options.fulfillmentType == FulfillmentType.delivery;
+    final deliveryFee = t.deliveryFee;
+    final freeCoupon = quote.freeDeliveryDiscount;
+    // The fee the coupon waived (null: no coupon, or a pickup with no fee, where there is nothing to strike through).
+    final waivedFee = freeCoupon != null && deliveryFee != null && (delivery || !deliveryFee.isZero)
+        ? deliveryFee
+        : null;
+    final Widget? deliveryRow = waivedFee != null
+        ? DeliveryFeeRow(fee: waivedFee, waived: true, code: freeCoupon?.code)
+        : fee(l10n.deliveryFee, deliveryFee, freeIfZero: delivery);
+
     return AnimatedOpacity(
       duration: AppDurations.fast,
       opacity: state.quoting ? 0.5 : 1,
@@ -822,17 +837,14 @@ class _QuoteSummary extends StatelessWidget {
             Divider(color: context.palette.line, height: AppSpace.lg),
             SummaryRow(label: l10n.subtotal, value: t.subtotal.formatted),
             for (final d in quote.discounts)
-              SummaryRow(
-                label: d.code != null ? '${d.label} (${d.code})' : d.label,
-                value: '− ${d.amount.formatted}',
-                valueColor: context.palette.success,
-              ),
+              if (!(d.freeDelivery && waivedFee != null))
+                SummaryRow(
+                  label: d.code != null ? '${d.label} (${d.code})' : d.label,
+                  value: '− ${d.amount.formatted}',
+                  valueColor: context.palette.success,
+                ),
             if (quote.discounts.isEmpty) ?fee(l10n.discount, t.discount, negative: true),
-            ?fee(
-              l10n.deliveryFee,
-              t.deliveryFee,
-              freeIfZero: state.options.fulfillmentType == FulfillmentType.delivery,
-            ),
+            ?deliveryRow,
             ?fee(l10n.serviceFee, t.serviceFee),
             ?fee(l10n.codFee, t.codFee),
             ?fee(l10n.tax, t.tax),

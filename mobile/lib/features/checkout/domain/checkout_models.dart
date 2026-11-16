@@ -237,15 +237,20 @@ class OrderTotals {
 
 @immutable
 class QuoteDiscount {
-  const QuoteDiscount({required this.label, this.code, required this.amount});
+  const QuoteDiscount({required this.label, this.code, required this.amount, this.freeDelivery = false});
   factory QuoteDiscount.fromJson(JsonMap json) => QuoteDiscount(
     label: asString(json['label']),
     code: asStringOrNull(json['code']),
     amount: Money.maybe(json['amount']) ?? Money.zero,
+    freeDelivery: asBool(json['free_delivery']),
   );
   final String label;
   final String? code;
   final Money amount;
+
+  /// A free-delivery coupon: it waives the delivery fee (the quote keeps the full fee in `totals.delivery_fee` and lists the
+  /// waived amount here), so the delivery line shows the fee struck through with "Free" and this [code].
+  final bool freeDelivery;
 }
 
 @immutable
@@ -344,6 +349,9 @@ class Quote {
   final DateTime? expiresAt;
 
   PaymentOption? option(PaymentMethod method) => paymentMethods.where((p) => p.code == method.api).firstOrNull;
+
+  /// The coupon that waived the delivery fee, if one was applied (delivery is free only with such a code).
+  QuoteDiscount? get freeDeliveryDiscount => discounts.where((d) => d.freeDelivery).firstOrNull;
 
   /// The only fulfilment of a non-split quote (slots only apply there).
   QuoteFulfillment? get singleFulfillment => !isSplit && fulfillments.length == 1 ? fulfillments.first : null;

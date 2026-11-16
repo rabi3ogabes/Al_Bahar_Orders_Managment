@@ -5,6 +5,7 @@ import 'package:albahar_customer/core/router/footer_config.dart';
 import 'package:albahar_customer/core/theme/brand_theme.dart';
 import 'package:albahar_customer/core/theme/contrast.dart';
 import 'package:albahar_customer/core/theme/design_tokens.dart';
+import 'package:albahar_customer/core/theme/page_backdrop.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
@@ -97,9 +98,13 @@ class _FooterScopeState extends State<FooterScope> {
     // A page pushed over a tab leaves `uri` on the tab: the full-screen scanner is recognised by the page on top.
     final top = configuration.matches.isEmpty ? path : configuration.matches.last.matchedLocation;
     final mq = MediaQuery.of(context);
-    if (!showsFooter(path) || top == '/scan' || mq.viewInsets.bottom > 0) return widget.child;
+    // The dashboard's page background (when it is on) lies behind the whole navigator, so it stands on the footer menu
+    // (or on the bottom of the screen where there is none). The pages are transparent then and show it through.
+    final backdrop = context.pageBackdrop;
+    Widget behindPages(Widget pages) => backdrop == null ? pages : PageBackdrop(config: backdrop, child: pages);
+    if (!showsFooter(path) || top == '/scan' || mq.viewInsets.bottom > 0) return behindPages(widget.child);
     // The pages must not add the system bottom inset a second time: the footer already sits on it.
-    final page = MediaQuery(data: mq.removePadding(removeBottom: true), child: widget.child);
+    final page = behindPages(MediaQuery(data: mq.removePadding(removeBottom: true), child: widget.child));
     // Nothing is painted behind the footer by the pages, and an empty window is black (Android night mode, iOS, the web):
     // the page colour goes behind the whole footer region, down to the bottom edge of the screen.
     final pageColor = context.pageColor;

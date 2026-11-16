@@ -24,6 +24,7 @@ final class AdminNavigation
             ['label' => 'nav.sales', 'items' => [
                 ['label' => 'nav.new_order', 'route' => 'admin.orders.create', 'icon' => 'plus', 'permission' => 'orders.create'],
                 ['label' => 'nav.orders', 'route' => 'admin.orders.index', 'icon' => 'bag', 'permission' => 'orders.view'],
+                ['label' => 'nav.abandoned', 'route' => 'admin.sales.abandoned', 'icon' => 'cart', 'permission' => 'orders.view', 'badge' => 'abandoned'],
                 ['label' => 'nav.pickup', 'route' => 'admin.pickup.index', 'icon' => 'qr', 'permission' => 'pickup.view'],
                 ['label' => 'nav.deliveries', 'route' => 'admin.deliveries.index', 'icon' => 'truck', 'permission' => 'deliveries.view'],
                 ['label' => 'nav.fleet', 'route' => 'admin.fleet', 'icon' => 'map-pin', 'permission' => 'deliveries.view'],

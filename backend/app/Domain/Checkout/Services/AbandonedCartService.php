@@ -340,6 +340,9 @@ class AbandonedCartService
             if (! $variant) {
                 $this->fail('item_unavailable', 404);
             }
+            if (! $this->prices->availability($variant, null)->purchasable) {
+                throw DomainException::make('item_unavailable_simple'); // the very refusal the customer app gives
+            }
             $branch = $cart->branch_id ? Branch::active()->find($cart->branch_id) : null;
             if ($branch && $this->prices->resolve($variant, $branch) === null) {
                 $this->fail('item_unavailable_branch', 422);
