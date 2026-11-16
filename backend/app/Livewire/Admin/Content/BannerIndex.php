@@ -74,6 +74,7 @@ class BannerIndex extends Component
         $unassigned = $elsewhere->reject(fn (Banner $b) => in_array($b->placement, self::PLACEMENTS, true))->values();
 
         $sliderNumber = 0;
+        /** @var Collection<int, object> $blocks */
         $blocks = $sections->map(function (HomepageSection $s, int $i) use (&$sliderNumber, $inSliders, $sections) {
             $n = $s->isSlider() ? ++$sliderNumber : 0;
             $slides = $s->isSlider() ? ($inSliders[$s->id] ?? collect()) : collect();

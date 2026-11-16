@@ -207,7 +207,7 @@ class PushHealth
         $out = [];
         $rows = UserDevice::whereNull('disabled_at')->whereIn('platform', ['android', 'ios'])->selectRaw('platform, coalesce(app, \'\') as app, count(*) as n')->groupBy('platform', 'app')->get();
         foreach ($rows as $r) {
-            $out[$r->platform][$r->app] = (int) $r->n;
+            $out[$r->platform][$r->app] = (int) $r->getAttribute('n');
         }
 
         return $out;

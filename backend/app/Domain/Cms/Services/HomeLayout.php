@@ -298,7 +298,12 @@ final class HomeLayout
         return 'cms.home.slides.'.($sectionId ?: 'placement-'.$placement);
     }
 
-    /** @template T @param  callable(): T  $work @return T */
+    /**
+     * @template T
+     *
+     * @param  callable(): T  $work
+     * @return T
+     */
     private function inSectionsLock(callable $work): mixed
     {
         return DB::transaction(function () use ($work) {
@@ -308,7 +313,12 @@ final class HomeLayout
         });
     }
 
-    /** @template T @param  callable(): T  $work @return T */
+    /**
+     * @template T
+     *
+     * @param  callable(): T  $work
+     * @return T
+     */
     private function inSlidesLock(string $key, callable $work): mixed
     {
         return DB::transaction(function () use ($key, $work) {

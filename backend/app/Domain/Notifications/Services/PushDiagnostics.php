@@ -126,7 +126,7 @@ class PushDiagnostics
             ->selectRaw('app, platform, count(distinct install_id) as phones, max(last_seen_at) as last_at')->groupBy('app', 'platform')->get();
         $out = [];
         foreach ($rows as $r) {
-            $out[$r->app][$r->platform] = ['phones' => (int) $r->phones, 'last_at' => (string) $r->last_at];
+            $out[$r->app][$r->platform] = ['phones' => (int) $r->getAttribute('phones'), 'last_at' => (string) $r->getAttribute('last_at')];
         }
 
         return $out;
