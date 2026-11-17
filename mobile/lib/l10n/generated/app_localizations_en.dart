@@ -3099,6 +3099,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get dealNoteLimitOrderReached => 'per-order limit reached';
+
+  @override
   String get dealNoteLimitCustomer => 'your account limit is reached';
 
   @override

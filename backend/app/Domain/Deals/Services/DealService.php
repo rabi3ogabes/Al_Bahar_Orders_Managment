@@ -16,6 +16,7 @@ use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Orders\Models\Cart;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderItem;
+use App\Domain\Pricing\Services\PriceResolver;
 use App\Support\BusinessTime;
 use App\Support\DomainException;
 use App\Support\Money;
@@ -64,12 +65,12 @@ class DealService
         $this->access->authorize($actor, $deal ? 'marketing.edit' : 'marketing.create');
 
         $saved = DB::transaction(function () use ($actor, $deal, $data) {
+            $this->lockOverlapCheck();
             if ($deal !== null) {
-                $deal = Deal::whereKey($deal->id)->lockForUpdate()->firstOrFail();
+                $deal = $this->lockDeal($deal->id);
                 if ($deal->ended_at !== null) {
                     throw new DomainException('deal_invalid_window', __('deals.err_ended_locked'), 422);
                 }
-                DealProduct::where('deal_id', $deal->id)->orderBy('id')->lockForUpdate()->get();
             }
             $existing = $deal ? $deal->products()->get()->keyBy('product_id') : collect();
             [$attrs, $rows] = $this->clean($deal, $data, $existing);
@@ -101,7 +102,10 @@ class DealService
         $this->access->authorize($actor, 'marketing.edit');
 
         $saved = DB::transaction(function () use ($actor, $deal, $active) {
-            $deal = Deal::whereKey($deal->id)->lockForUpdate()->firstOrFail();
+            if ($active) {
+                $this->lockOverlapCheck();
+            }
+            $deal = $this->lockDeal($deal->id);
             if ($deal->is_active === $active) {
                 return $deal;
             }
@@ -125,7 +129,7 @@ class DealService
         $this->access->authorize($actor, 'marketing.edit');
 
         $saved = DB::transaction(function () use ($actor, $deal) {
-            $deal = Deal::whereKey($deal->id)->lockForUpdate()->firstOrFail();
+            $deal = $this->lockDeal($deal->id);
             if ($deal->ended_at !== null || $deal->ends_at->lessThanOrEqualTo(now())) {
                 return $deal;
             }
@@ -170,7 +174,7 @@ class DealService
         $this->access->authorize($actor, 'marketing.delete');
 
         DB::transaction(function () use ($actor, $deal) {
-            $deal = Deal::whereKey($deal->id)->lockForUpdate()->firstOrFail();
+            $deal = $this->lockDeal($deal->id);
             if (DealRedemption::where('deal_id', $deal->id)->exists()) {
                 throw DomainException::make('deal_has_orders', 409);
             }
@@ -226,19 +230,18 @@ class DealService
      */
     public function claim(Order $order, User $user, array $lines): void
     {
+        /** @var array<string, array{row: DealProduct, deal: Deal, units: int, savings: Money}> $wanted by deal product id */
         $wanted = [];
         foreach ($lines as $line) {
             $d = $line->deal;
             if ($d === null || $d->units < 1) {
                 continue;
             }
-            $w = &$wanted[$d->row->id];
-            $w ??= ['row' => $d->row, 'deal' => $d->deal, 'units' => 0, 'savings' => Money::zero()];
-            $w['units'] += $d->units;
-            $w['savings'] = $w['savings']->plus($d->savings());
-            unset($w);
+            $key = (string) $d->row->id;
+            $wanted[$key] = ['row' => $d->row, 'deal' => $d->deal, 'units' => ($wanted[$key]['units'] ?? 0) + $d->units,
+                'savings' => ($wanted[$key]['savings'] ?? Money::zero())->plus($d->savings())];
         }
-        if ($wanted === []) {
+        if (count($wanted) === 0) {
             return;
         }
         ksort($wanted);
@@ -289,10 +292,15 @@ class DealService
                 return 0;
             }
             DealProduct::whereIn('id', $redemptions->pluck('deal_product_id'))->orderBy('id')->lockForUpdate()->get();
-            $lines = OrderItem::where('order_id', $orderId)->where('deal_units', '>', 0)->where('quantity', '>', 0)->get(['id', 'product_id', 'deal_id', 'deal_units', 'quantity', 'quantity_cancelled']);
+            $lines = OrderItem::where('order_id', $orderId)->where('deal_units', '>', 0)->where('quantity', '>', 0)
+                ->get(['id', 'order_fulfillment_id', 'product_id', 'deal_id', 'deal_units', 'quantity', 'quantity_cancelled']);
+            // A parcel that was cancelled or came back holds nothing, whatever its lines say: a delivery that failed and was cancelled, or a delivered parcel that
+            // was returned, has its goods on the shelf again (its lines still read "handed over", so only the parcel's own state tells).
+            $gone = DB::table('order_fulfillments')->where('order_id', $orderId)->whereIn('status', ['cancelled', 'returned'])->pluck('id')->all();
             $given = 0;
             foreach ($redemptions as $r) {
                 $alive = $everything ? 0 : (int) $lines->where('deal_id', $r->deal_id)->where('product_id', $r->product_id)
+                    ->reject(fn (OrderItem $i) => in_array($i->order_fulfillment_id, $gone, true))
                     ->sum(fn (OrderItem $i) => $this->share($i->deal_units, $i->quantity - $i->quantity_cancelled, $i->quantity));
                 $alive = min($alive, $r->units);
                 $back = $r->units - $alive;
@@ -327,7 +335,8 @@ class DealService
         $keep = $to > 0 ? $this->share($units, $to, $from) : 0;
         $item->forceFill(['deal_units' => $keep])->save();
         $carried = $substitute !== null && $substituteQuantity > 0 ? min($units - $keep, $this->share($units, $substituteQuantity, $from)) : 0;
-        if ($substitute !== null && $carried > 0) {
+        // Only a replacement of the SAME product keeps the deal: a different product was never in the deal, so its units go back to the pool.
+        if ($substitute !== null && $carried > 0 && $substitute->product_id === $item->product_id) {
             $substitute->forceFill(['deal_id' => $item->deal_id, 'deal_name_en' => $item->deal_name_en, 'deal_name_ar' => $item->deal_name_ar,
                 'deal_units' => $carried, 'deal_unit_savings' => $item->deal_unit_savings])->save();
         }
@@ -365,12 +374,34 @@ class DealService
         $sold = $deal->isSoldOut();
         if ($sold && $deal->sold_out_at === null) {
             $deal->forceFill(['sold_out_at' => now()])->save();
+            $this->changed(); // the home feed (cached for a minute) must stop offering it
         } elseif (! $sold && $deal->sold_out_at !== null) {
             $deal->forceFill(['sold_out_at' => null])->save();
+            $this->changed();
         }
     }
 
     // ─── Internals ──────────────────────────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Two admins saving or switching on deals at the same moment must not both pass the "one running deal per product" check: one lock, held to the end of the
+     * transaction, makes the check and the write one step. (Checkout never takes it.)
+     */
+    private function lockOverlapCheck(): void
+    {
+        DB::select('SELECT pg_advisory_xact_lock(hashtext(?))', ['deals:overlap']);
+    }
+
+    /**
+     * Lock a deal the way checkout does: its product rows first (by id), then the deal row. claim() and release() hold the product rows and then update the
+     * deal row, so taking them the other way round here could make an admin's Save and a customer's last-unit order wait for each other for ever.
+     */
+    private function lockDeal(string $id): Deal
+    {
+        DealProduct::where('deal_id', $id)->orderBy('id')->lockForUpdate()->pluck('id');
+
+        return Deal::whereKey($id)->lockForUpdate()->firstOrFail();
+    }
 
     /**
      * Validate and normalise a save request.
@@ -381,10 +412,16 @@ class DealService
      */
     private function clean(?Deal $deal, array $data, $existing): array
     {
+        // An upper-case id from a crafted request names the same product but would miss the existing row (and its sold units) in the checks below.
+        if (isset($data['products']) && is_array($data['products'])) {
+            $data['products'] = array_map(fn ($row) => is_array($row) && is_string($row['product_id'] ?? null) ? ['product_id' => strtolower($row['product_id'])] + $row : $row, $data['products']);
+        }
         $type = (string) ($data['discount_type'] ?? '');
+        // Money typed as plain decimals only: up to 8 digits and 2 decimals. "1e3" or "0.004" would pass `numeric` and then break Money or a CHECK constraint.
+        $decimal = 'regex:/^\d{1,8}(\.\d{1,2})?$/';
         $value = $type === Deal::PERCENT
-            ? ['required', 'numeric', 'min:'.DealPricing::MIN_PERCENT, 'max:'.DealPricing::MAX_PERCENT]
-            : ($type === Deal::AMOUNT_OFF ? ['required', 'numeric', 'gt:0', 'max:10000000'] : ['nullable']);
+            ? ['required', 'numeric', $decimal, 'min:'.DealPricing::MIN_PERCENT, 'max:'.DealPricing::MAX_PERCENT]
+            : ($type === Deal::AMOUNT_OFF ? ['required', 'numeric', $decimal, 'gt:0', 'max:10000000'] : ['nullable']);
         $integer = fn (int $max) => ['nullable', 'integer', 'min:1', 'max:'.$max];
         $v = Validator::make($data, [
             'name_en' => ['required', 'string', 'max:255'], 'name_ar' => ['required', 'string', 'max:255'],
@@ -395,10 +432,11 @@ class DealService
             'limit_per_order' => $integer(999), 'limit_per_customer' => $integer(9999), 'sort_order' => ['nullable', 'integer', 'min:0', 'max:100000'],
             'products' => ['required', 'array', 'min:1', 'max:'.self::MAX_PRODUCTS],
             'products.*.product_id' => ['required', 'uuid', 'distinct', 'exists:products,id'],
-            'products.*.deal_price' => ['nullable', 'numeric', 'gt:0', 'max:10000000'],
+            'products.*.deal_price' => ['nullable', 'numeric', $decimal, 'gt:0', 'max:10000000'],
             'products.*.quantity_total' => ['nullable', 'integer', 'min:1', 'max:100000000'],
             'products.*.limit_per_order' => $integer(999), 'products.*.limit_per_customer' => $integer(9999),
-        ], [], ['name_en' => __('deals.f_name_en'), 'name_ar' => __('deals.f_name_ar'), 'ends_at' => __('deals.f_ends_at'), 'discount_value' => __('deals.f_discount_value')]);
+        ], ['discount_value.regex' => __('deals.err_decimal'), 'products.*.deal_price.regex' => __('deals.err_decimal')],
+            ['name_en' => __('deals.f_name_en'), 'name_ar' => __('deals.f_name_ar'), 'ends_at' => __('deals.f_ends_at'), 'discount_value' => __('deals.f_discount_value')]);
         $v->after(function ($v) use ($data, $type, $existing, $deal) {
             if ($v->errors()->isNotEmpty()) {
                 return;
@@ -425,10 +463,11 @@ class DealService
         });
         $input = $v->validate();
 
-        $archived = Product::whereIn('id', collect($input['products'])->pluck('product_id'))->where('status', 'archived')->pluck('id')->diff($existing->keys());
-        if ($archived->isNotEmpty()) {
+        $archived = Product::whereIn('id', collect($input['products'])->pluck('product_id'))->where('status', 'archived')->whereNotIn('id', $existing->keys()->all())->exists();
+        if ($archived) {
             throw ValidationException::withMessages(['products' => [__('deals.err_product_archived')]]);
         }
+        $this->assertPriceFloor($input, $type);
         $design = DealDesign::validate($data['design'] ?? $deal?->design);
 
         $starts = filled($input['starts_at'] ?? null) ? BusinessTime::toUtc($input['starts_at']) : null;
@@ -480,6 +519,41 @@ class DealService
             if (! in_array($productId, $keep, true)) {
                 $current->delete();
             }
+        }
+    }
+
+    /**
+     * A deal price below 5 % of the normal price is almost surely a typo (400 instead of 40 off a 350 sofa would sell it for 0.01): refuse it, naming the product.
+     * Checked for every active variant of every listed product, for all three price rules and for a product's own price; a variant the rule gives no deal to is skipped.
+     *
+     * @param  array<string, mixed>  $input  the validated request
+     */
+    private function assertPriceFloor(array $input, string $type): void
+    {
+        $products = Product::with(['translations', 'variants' => fn ($q) => $q->where('status', 'active')])->whereIn('id', collect($input['products'])->pluck('product_id'))->get()->keyBy('id');
+        $prices = app(PriceResolver::class);
+        $rule = new Deal(['discount_type' => $type, 'discount_value' => $type === Deal::FIXED_PRICE ? '0.00' : Money::of((string) ($input['discount_value'] ?? '0'))->toDecimal()]);
+        $errors = [];
+        foreach (array_values($input['products']) as $i => $row) {
+            $product = $products->get($row['product_id']);
+            if ($product === null) {
+                continue;
+            }
+            $own = filled($row['deal_price'] ?? null) ? Money::of((string) $row['deal_price'])->toDecimal() : null;
+            $dealRow = new DealProduct(['deal_price' => $own]);
+            foreach ($product->variants as $variant) {
+                $variant->setRelation('product', $product);
+                $normal = $prices->price($variant, null)->final();
+                $price = DealPricing::unitPrice($rule, $dealRow, $normal);
+                if ($price !== null && $price->minor * 100 < $normal->minor * 5) {
+                    $errors[$own !== null ? "products.$i.deal_price" : 'discount_value'][] = __('deals.err_price_too_low', [
+                        'product' => $product->trans('name') ?: $product->sku, 'min' => Money::ofMinor((int) ceil($normal->minor * 5 / 100))->format()]);
+                    break;
+                }
+            }
+        }
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
         }
     }
 

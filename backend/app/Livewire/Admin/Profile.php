@@ -3,11 +3,14 @@
 namespace App\Livewire\Admin;
 
 use App\Domain\Audit\Services\AuditLogger;
+use App\Domain\Identity\Models\User;
+use App\Domain\Identity\Services\TokenService;
 use App\Domain\Identity\Services\TwoFactorService;
 use App\Support\StaffLanding;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\Rules\Password;
 use Livewire\Component;
 
@@ -45,21 +48,42 @@ class Profile extends Component
         $this->redirectRoute('admin.profile', navigate: true);
     }
 
-    public function changePassword(AuditLogger $audit)
+    /** Failed "current password" checks (change password, turn two-factor off) share one budget per person, like the two-factor code. */
+    private function currentPasswordWrong(User $user): bool
+    {
+        $key = 'profile-current-password:'.$user->id;
+        if (RateLimiter::tooManyAttempts($key, 5)) {
+            $this->addError('current_password', __('errors.too_many_requests'));
+
+            return true;
+        }
+        if (! Hash::check($this->current_password, (string) $user->password)) {
+            RateLimiter::hit($key, 300);
+            $this->addError('current_password', __('auth.password'));
+
+            return true;
+        }
+        RateLimiter::clear($key);
+
+        return false;
+    }
+
+    public function changePassword(AuditLogger $audit, TokenService $tokens)
     {
         $this->validate([
             'current_password' => 'required|string',
-            'password' => ['required', 'confirmed', Password::min(12)->mixedCase()->numbers()->uncompromised(0)],
+            'password' => ['required', 'confirmed', 'different:current_password', Password::min(12)->mixedCase()->numbers()->uncompromised(0)],
         ]);
         $user = auth()->user();
-        if (! Hash::check($this->current_password, $user->password)) {
-            $this->addError('current_password', __('auth.password'));
-
+        if ($this->currentPasswordWrong($user)) {
             return;
         }
         $wasForced = $user->must_change_password;
         $user->forceFill(['password' => $this->password, 'must_change_password' => false])->save();
-        $user->tokens()->delete();
+        // Whoever else knew the old password (a temporary one an administrator typed, a stolen session) is out: every app session and refresh
+        // token, every other browser session (new stamp, see EnsureStaff) and the remember-me cookie. This browser stays signed in.
+        $tokens->revokeAll($user, 'password_changed');
+        session(['session_stamp' => $tokens->forgetWebSessions($user, session()->getId())]);
         $audit->log('staff.password_changed', $user);
         $this->reset('current_password', 'password', 'password_confirmation');
         if ($wasForced) {
@@ -103,9 +127,7 @@ class Profile extends Component
         }
         $this->validate(['current_password' => 'required|string']);
         $user = auth()->user();
-        if (! Hash::check($this->current_password, $user->password)) {
-            $this->addError('current_password', __('auth.password'));
-
+        if ($this->currentPasswordWrong($user)) {
             return;
         }
         $user->forceFill(['two_factor_secret' => null, 'two_factor_recovery_codes' => null, 'two_factor_confirmed_at' => null])->save();

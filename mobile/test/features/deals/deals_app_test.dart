@@ -404,6 +404,11 @@ void main() {
       await _goto(t, c, '/deals/d1');
       expect(find.byType(DealWidget), findsOneWidget);
       expect(find.text('Limit 2 per order · Limit 3 per customer'), findsOneWidget);
+      expect(
+        find.text('Shop the deal'),
+        findsNothing,
+        reason: 'a button that does nothing is not drawn on the deal\'s own page',
+      );
       expect(find.text('Product p1'), findsOneWidget);
       expect(find.text('Product p2'), findsOneWidget);
       expect(find.text('QAR 70.00'), findsWidgets);

@@ -35,7 +35,7 @@ class User extends Authenticatable
     protected $guarded = ['id', 'is_super_admin', 'two_factor_secret', 'two_factor_recovery_codes', 'two_factor_confirmed_at'];
 
     /** alternate_phone is personal data meant for the driver and branch staff: it is never part of a raw model dump (UserResource shows it to its owner only). */
-    protected $hidden = ['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes', 'alternate_phone'];
+    protected $hidden = ['password', 'remember_token', 'session_stamp', 'two_factor_secret', 'two_factor_recovery_codes', 'alternate_phone'];
 
     /** Mirrors DB defaults so freshly created models are complete under strict mode. */
     protected $attributes = [

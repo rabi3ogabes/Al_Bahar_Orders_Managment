@@ -2502,6 +2502,8 @@
       }
     }
   },
+  "dealNoteLimitOrderReached": "per-order limit reached",
+  "@dealNoteLimitOrderReached": {},
   "dealNoteLimitCustomer": "your account limit is reached",
   "@dealNoteLimitCustomer": {},
   "dealNoteSoldOut": "deal sold out",

@@ -148,7 +148,7 @@ class BranchEmployeeService
      */
     public function create(User $actor, Branch $branch, array $profile, array $featureIds): User
     {
-        $this->assertCan($actor, 'employees.create', null);
+        $this->assertCan($actor, 'employees.create', $branch->id);
         $this->assertCan($actor, 'employees.assign', $branch->id);
         if (empty($profile['email']) && empty($profile['phone'])) {
             throw $this->fail('contact_required', 422);

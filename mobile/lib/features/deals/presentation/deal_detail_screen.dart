@@ -55,7 +55,7 @@ class DealDetailScreen extends ConsumerWidget {
                         DealDueWatcher(dueAt: state.deal.dueAt, onDue: () => ref.invalidate(provider)),
                         Padding(
                           padding: const EdgeInsets.fromLTRB(AppSpace.gutter, AppSpace.md, AppSpace.gutter, 0),
-                          child: DealWidget(data: DealCardData.fromDeal(state.deal)),
+                          child: DealWidget(data: DealCardData.fromDeal(state.deal), showButton: false),
                         ),
                         _Limits(deal: state.deal),
                       ],

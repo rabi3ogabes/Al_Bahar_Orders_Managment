@@ -192,7 +192,11 @@ void main() {
   group('the checkout summary', () {
     testWidgets('each line says what its deal did, and the deals are one "Deal savings" row', (t) async {
       await _pumpCheckout(t, _Shop(promotion: true));
-      expect(find.text('Weekend Furniture Drop · Deal price on 2 of 3 · limit 2 per order'), findsOneWidget);
+      expect(
+        find.text('Weekend Furniture Drop · Deal price on 2 of 3 · per-order limit reached'),
+        findsOneWidget,
+        reason: 'a quote line carries no limit: no number',
+      );
       expect(find.text('Deal savings'), findsOneWidget);
       expect(find.text('− QAR 60.00'), findsOneWidget);
       // The deal is not listed a second time among the discounts; a promotion still is.
@@ -329,6 +333,8 @@ void main() {
           },
         );
         final screen = h.container.listen(checkoutControllerProvider, (_, _) {});
+        // Whoever shows the cart (the badge of the footer) keeps listening to it.
+        h.container.listen(cartControllerProvider, (_, _) {});
         await h.container.read(cartControllerProvider.future);
         final c = h.read(checkoutControllerProvider.notifier);
         c.setAlternateDeclined(true);

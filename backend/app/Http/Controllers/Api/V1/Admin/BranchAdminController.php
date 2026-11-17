@@ -108,7 +108,9 @@ class BranchAdminController extends ApiController
             ->map(fn (BranchEmployee $a) => [
                 'user_id' => $a->user_id, 'name' => $a->user->name, 'email' => $a->user->email, 'job_title' => $a->job_title,
                 'is_active' => $a->is_active, 'is_delivery_driver' => $a->is_delivery_driver,
-                'roles' => $a->user->roleAssignments->pluck('role.key'),
+                // A personal feature checklist is not a role anybody can assign: its key never leaves the server, a flag says it exists.
+                'roles' => $a->user->roleAssignments->reject(fn ($ur) => $ur->role->isPersonal())->pluck('role.key')->values(),
+                'custom_access' => $a->user->roleAssignments->contains(fn ($ur) => $ur->role->isPersonal()),
             ]);
 
         return response()->json(['data' => $rows]);

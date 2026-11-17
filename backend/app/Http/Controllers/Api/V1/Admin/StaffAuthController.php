@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Identity\Enums\UserType;
-use App\Domain\Identity\Models\UserSession;
 use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Identity\Services\AuthService;
 use App\Domain\Identity\Services\TokenService;
@@ -15,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
+use Laravel\Sanctum\PersonalAccessToken;
 
 /**
  * Staff API authentication (separate channel from customers). Tokens carry the "staff" ability.
@@ -67,9 +67,10 @@ class StaffAuthController extends ApiController
             return response()->json(['message' => __('auth.password'), 'code' => 'invalid_password', 'errors' => ['current_password' => [__('auth.password')]]], 422);
         }
         $user->forceFill(['password' => $data['password'], 'must_change_password' => false])->save();
-        UserSession::where('user_id', $user->id)->whereNull('revoked_at')
-            ->where('access_token_id', '!=', $user->currentAccessToken()->id ?? 0)->get()
-            ->each(fn (UserSession $s) => $tokens->revoke($s, 'password_changed'));
+        // Whoever else knew the old password is out: every other app session and refresh token, and every browser session of this account.
+        // The device that is changing it stays signed in.
+        $token = $user->currentAccessToken();
+        $tokens->revokeAllExcept($user, $token instanceof PersonalAccessToken ? (int) $token->getKey() : null, 'password_changed');
         $audit->log('staff.password_changed', $user);
 
         return response()->json(['data' => ['updated' => true, 'must_change_password' => false]]);

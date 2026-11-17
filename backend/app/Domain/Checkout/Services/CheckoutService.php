@@ -27,6 +27,7 @@ use App\Domain\Payments\Models\Payment;
 use App\Domain\Payments\Services\PaymentService;
 use App\Support\DocumentNumber;
 use App\Support\DomainException;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -38,6 +39,9 @@ use Illuminate\Support\Facades\DB;
  */
 class CheckoutService
 {
+    /** How many times an order is tried when the database reports a deadlock. */
+    private const DEADLOCK_ATTEMPTS = 3;
+
     public function __construct(
         private readonly QuoteService $quotes,
         private readonly ReservationService $reservations,
@@ -97,8 +101,29 @@ class CheckoutService
         return $cart ? new DomainException('deal_changed', $e->getMessage(), 409, $e->context + ['quote' => $this->quotes->quote($user, $cart, $options)->toArray()]) : $e;
     }
 
-    /** @return array{order: Order, payment: Payment, replayed: bool} */
+    /**
+     * The order transaction, tried again (up to three times) when PostgreSQL picks it as the victim of a deadlock. That is safe because a failed attempt is
+     * rolled back whole and an attempt starts by checking the idempotency key again; nothing outside the database is touched inside it (the order event goes
+     * out after the commit). Two orders that want the same rows in the same order cannot deadlock; this is for the day another path gets it wrong.
+     *
+     * @return array{order: Order, payment: Payment, replayed: bool}
+     */
     private function placeInTransaction(User $user, ?Cart $draft, ?User $staff, array $options, string $quoteHash, string $idempotencyKey, ?string $notes): array
+    {
+        for ($attempt = 1; ; $attempt++) {
+            try {
+                return $this->placeOnce($user, $draft, $staff, $options, $quoteHash, $idempotencyKey, $notes);
+            } catch (QueryException $e) {
+                if ($attempt >= self::DEADLOCK_ATTEMPTS || ! in_array((string) $e->getCode(), ['40P01', '40001'], true) && ! str_contains(strtolower($e->getMessage()), 'deadlock detected')) {
+                    throw $e;
+                }
+                usleep(random_int(20_000, 80_000));
+            }
+        }
+    }
+
+    /** @return array{order: Order, payment: Payment, replayed: bool} */
+    private function placeOnce(User $user, ?Cart $draft, ?User $staff, array $options, string $quoteHash, string $idempotencyKey, ?string $notes): array
     {
         return DB::transaction(function () use ($user, $draft, $staff, $options, $quoteHash, $idempotencyKey, $notes) {
             DB::select('SELECT pg_advisory_xact_lock(hashtext(?))', ['checkout:'.$user->id.':'.$idempotencyKey]);

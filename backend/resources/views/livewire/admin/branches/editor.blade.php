@@ -223,7 +223,7 @@
                                 <span class="grid size-10 place-items-center rounded-full bg-ink-900 text-sm text-ivory dark:bg-ink-700">{{ mb_substr($a->user->name, 0, 1) }}</span>
                                 <div class="min-w-0 flex-1"><div class="truncate font-medium">{{ $a->user->name }} @if ($a->is_delivery_driver)<span class="badge-info ms-1"><x-icon name="truck" class="size-3" />{{ __('branches.driver') }}</span>@endif</div>
                                     <div class="truncate text-xs text-ink-500">{{ $a->job_title ?: $a->user->email }}</div></div>
-                                <div class="hidden flex-wrap gap-1 sm:flex">@foreach ($a->user->roleAssignments as $ra)<span class="badge-neutral">{{ $ra->role->localized('name') }}</span>@endforeach</div>
+                                <div class="hidden flex-wrap gap-1 sm:flex">@foreach ($a->user->roleAssignments as $ra)<span class="{{ $ra->role->isPersonal() ? 'badge-info' : 'badge-neutral' }}">{{ $ra->role->isPersonal() ? __('branch_access.personal_role') : $ra->role->localized('name') }}</span>@endforeach</div>
                                 @if ($this->can('employees.assign', $branch->id) && $a->user_id !== auth()->id())
                                     <button wire:click="toggleEmployee('{{ $a->id }}')" class="btn-ghost btn-sm">{{ $a->is_active ? __('admin.disable') : __('admin.enable') }}</button>
                                 @endif

@@ -144,6 +144,9 @@ class AuthService
         }
         $user->forceFill(['password' => $password])->save();
         $this->tokens->revokeAll($user, 'password_reset');
+        if ($user->isStaff()) {
+            $this->tokens->forgetWebSessions($user);
+        }
         $this->audit->log('auth.password_reset', $user, actor: $user);
     }
 

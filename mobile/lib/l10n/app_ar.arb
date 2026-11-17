@@ -974,6 +974,7 @@
   "dealPriceOn": "سعر العرض على {deal} من {total}",
   "dealPriceOnAll": "سعر العرض على كل الـ {total}",
   "dealNoteLimitOrder": "الحد {count} لكل طلب",
+  "dealNoteLimitOrderReached": "تم بلوغ حد الطلب الواحد",
   "dealNoteLimitCustomer": "بلغت حد حسابك",
   "dealNoteSoldOut": "نفدت كمية العرض",
   "dealNoteEnded": "انتهى العرض",

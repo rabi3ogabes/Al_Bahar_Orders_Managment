@@ -348,13 +348,42 @@ void main() {
       expect(deal.name, '7');
       expect(deal.tagline, isNull);
       expect(deal.phase, DealPhase.live);
-      expect(deal.secondsLeft, 0);
+      expect(deal.secondsLeft, isNull, reason: 'garbage is unknown, never zero');
       expect(deal.percent, isNull);
       expect(deal.limitPerOrder, isNull);
       expect(deal.productsTotal, 0);
       expect(deal.products, isEmpty);
       expect(deal.design, DealDesign.fallback);
       expect(deal.dueAt, isNull);
+    });
+
+    test('a live deal with no readable end time stays live: garbage seconds_left is not "zero seconds left"', () {
+      for (final secondsLeft in <Object?>['soon', null, true, <Object?>[], double.nan]) {
+        final deal = Deal.fromJson({...dealJson(), 'ends_at': null, 'seconds_left': secondsLeft}, receivedAt: dealsNow);
+        expect(deal.endsAt, isNull, reason: '$secondsLeft');
+        expect(deal.secondsLeft, isNull, reason: '$secondsLeft');
+        expect(
+          deal.phaseAt(dealsNow.add(const Duration(days: 30))),
+          DealPhase.live,
+          reason: 'no end time: nothing to end it by',
+        );
+        expect(deal.dueAt, isNull);
+      }
+      expect(
+        Deal.fromJson({...dealJson(), 'ends_at': null, 'seconds_left': '90'}, receivedAt: dealsNow).endsAt,
+        dealsNow.add(const Duration(seconds: 90)),
+      );
+      expect(
+        Deal.fromJson({...dealJson(), 'ends_at': null, 'seconds_left': 0}, receivedAt: dealsNow).endsAt,
+        dealsNow,
+        reason: 'a real zero is zero',
+      );
+      final scheduled = Deal.fromJson({
+        ...dealJson(phase: 'scheduled'),
+        'starts_at': null,
+        'seconds_to_start': 'soon',
+      }, receivedAt: dealsNow);
+      expect(scheduled.startsAt, isNull);
     });
 
     test('percent is read only for a percentage rule and only from 1 to 100', () {

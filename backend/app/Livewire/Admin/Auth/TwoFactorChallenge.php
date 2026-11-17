@@ -4,6 +4,7 @@ namespace App\Livewire\Admin\Auth;
 
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Identity\Services\TwoFactorService;
+use App\Support\StaffLanding;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
@@ -40,7 +41,7 @@ class TwoFactorChallenge extends Component
         $user->forceFill(['last_login_at' => now(), 'last_login_ip' => request()->ip()])->save();
         $audit->log('auth.login', $user, [], [], ['channel' => 'admin_web', 'two_factor' => true], actor: $user);
 
-        return $this->redirectIntended(route('admin.dashboard'), navigate: false);
+        return $this->redirectIntended(StaffLanding::url($user), navigate: false);
     }
 
     public function render(TwoFactorService $twoFactor)

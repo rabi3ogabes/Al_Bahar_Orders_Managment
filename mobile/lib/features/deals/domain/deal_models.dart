@@ -46,14 +46,14 @@ class Deal {
   /// `scheduled` for the upcoming list). [receivedAt] turns `seconds_left` into an end time when `ends_at` is missing.
   factory Deal.fromJson(JsonMap json, {DealPhase fallbackPhase = DealPhase.live, DateTime? receivedAt}) {
     final parsed = DealPhase.parse(json['phase']);
-    final secondsLeft = json['seconds_left'] == null ? null : asInt(json['seconds_left']).clamp(0, 1 << 31);
+    final secondsLeft = _seconds(json['seconds_left']);
     var endsAt = asDate(json['ends_at']);
     if (endsAt == null && secondsLeft != null && receivedAt != null) {
       endsAt = receivedAt.add(Duration(seconds: secondsLeft));
     }
     // A scheduled deal's start, from `seconds_to_start` when `starts_at` is missing.
     var startsAt = asDate(json['starts_at']);
-    final toStart = json['seconds_to_start'] == null ? null : asInt(json['seconds_to_start']).clamp(0, 1 << 31);
+    final toStart = _seconds(json['seconds_to_start']);
     if (startsAt == null && toStart != null && receivedAt != null) {
       startsAt = receivedAt.add(Duration(seconds: toStart));
     }
@@ -77,6 +77,18 @@ class Deal {
       design: DealDesign.fromJson(json['design']),
       showOnHome: asBool(json['show_on_home']),
     );
+  }
+
+  /// Whole seconds from a number or a numeric string; null for anything else (a garbage value is "unknown", never zero: zero would
+  /// end the deal at once).
+  static int? _seconds(Object? v) {
+    final n = switch (v) {
+      final num x => x.toDouble(),
+      final String s => double.tryParse(s.trim()),
+      _ => null,
+    };
+    if (n == null || !n.isFinite) return null;
+    return n.clamp(0, 1 << 31).floor();
   }
 
   static int? _limit(Object? v) {

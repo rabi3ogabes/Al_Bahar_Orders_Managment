@@ -166,7 +166,10 @@ class _DealView {
       colors: colors,
       phase: phase,
       secondsLeft: left,
-      headline: phase == DealPhase.scheduled ? l10n.dealStartsIn : (d.headlineFor(lang) ?? l10n.dealEndsIn),
+      // "Ends in" with no end time to follow would only mislead: such a deal has no headline.
+      headline: left == null && (phase == DealPhase.live || phase == DealPhase.scheduled)
+          ? ''
+          : (phase == DealPhase.scheduled ? l10n.dealStartsIn : (d.headlineFor(lang) ?? l10n.dealEndsIn)),
       cta: live && !compact && showButton ? (d.ctaFor(lang) ?? l10n.dealShopCta) : null,
       compact: compact,
       tappable: tappable,
@@ -219,7 +222,7 @@ class _DealView {
       parts.add('$headline ${dealSpokenTime(l10n, secondsLeft!)}');
     } else if (phase == DealPhase.soldOut) {
       parts.add(l10n.dealSoldOutNotice);
-    } else {
+    } else if (phase != DealPhase.live && phase != DealPhase.scheduled) {
       parts.add(l10n.dealEnded);
     }
     if (percent != null) parts.add(l10n.dealOffSpoken(percent!));
@@ -394,13 +397,18 @@ class _DealView {
     return Text(t, textAlign: align, maxLines: 2, overflow: TextOverflow.ellipsis, style: small(context, alpha: 0.88));
   }
 
-  /// The countdown, or the word for why there is none.
-  Widget clockOrStatus(
+  /// The countdown, or the word for why there is none (sold out, over). Null for a live or upcoming deal with no time to count to:
+  /// nothing is drawn then, never a false "ended".
+  Widget? clockOrStatus(
     BuildContext context, {
     DealTimerSize? size,
     bool display = false,
     AlignmentGeometry align = AlignmentDirectional.centerStart,
-  }) => counting ? timer(size: size, display: display, align: align) : status(context, align: align);
+  }) {
+    if (counting) return timer(size: size, display: display, align: align);
+    if (phase == DealPhase.live || phase == DealPhase.scheduled) return null;
+    return status(context, align: align);
+  }
 }
 
 /// Stacks [children] with [gap] between them, leaving out the nulls.
@@ -433,7 +441,8 @@ class _Classic extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(v.headline, maxLines: 1, overflow: TextOverflow.ellipsis, style: v.small(context)),
+                    if (v.headline.isNotEmpty)
+                      Text(v.headline, maxLines: 1, overflow: TextOverflow.ellipsis, style: v.small(context)),
                     Text(v.data.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: v.title(context)),
                   ],
                 ),
@@ -501,14 +510,15 @@ class _Bold extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: _spaced([
-                  Text(
-                    v.headline.toUpperCase(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: v
-                        .small(context, alpha: 1, bold: true)
-                        ?.copyWith(color: v.colors.accent, letterSpacing: v.lang == 'ar' ? 0 : 1.2),
-                  ),
+                  if (v.headline.isNotEmpty)
+                    Text(
+                      v.headline.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: v
+                          .small(context, alpha: 1, bold: true)
+                          ?.copyWith(color: v.colors.accent, letterSpacing: v.lang == 'ar' ? 0 : 1.2),
+                    ),
                   Text(
                     v.data.name,
                     maxLines: 2,
@@ -559,13 +569,13 @@ class _Minimal extends StatelessWidget {
             ],
           ),
           v.tagline(context),
-          Row(
-            children: [
-              Text(v.headline, style: v.small(context)),
-              const SizedBox(width: 10),
-              Expanded(child: v.clockOrStatus(context, size: DealTimerSize.small)),
-            ],
-          ),
+          if (v.clockOrStatus(context, size: DealTimerSize.small) case final clock?)
+            Row(
+              children: [
+                if (v.headline.isNotEmpty) ...[Text(v.headline, style: v.small(context)), const SizedBox(width: 10)],
+                Expanded(child: clock),
+              ],
+            ),
           v.stock(context, height: 4),
           v.ctaButton(context, outlined: true),
         ], 10),
@@ -597,17 +607,19 @@ class _Luxe extends StatelessWidget {
               const SizedBox(width: 8),
               Icon(dealIconData(v.design.icon), color: accent, size: 16),
               const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  v.headline.toUpperCase(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: v
-                      .small(context, alpha: 1, bold: true)
-                      ?.copyWith(color: accent, letterSpacing: v.lang == 'ar' ? 0 : 2.2),
+              if (v.headline.isNotEmpty) ...[
+                Flexible(
+                  child: Text(
+                    v.headline.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: v
+                        .small(context, alpha: 1, bold: true)
+                        ?.copyWith(color: accent, letterSpacing: v.lang == 'ar' ? 0 : 2.2),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
+                const SizedBox(width: 8),
+              ],
               line(),
             ],
           ),

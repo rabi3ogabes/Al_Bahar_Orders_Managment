@@ -120,16 +120,34 @@ class TokenService
     }
 
     /**
-     * Ends the person's dashboard (browser) sessions and "remember me" cookies. With the database session driver the rows are deleted;
-     * with any other driver the sessions cannot be listed by user, but they are already useless: EnsureStaff re-checks that the account is
-     * active on every request. Cycling remember_token kills the "remember me" cookie either way.
+     * Revokes every API session except the one that is making the request (it stays signed in), and rotates the browser-session stamp.
+     * Used when somebody chooses a new password from the app: whoever else knew the old one (a temporary password, a stolen token) is out.
      */
-    public function forgetWebSessions(User $user): void
+    public function revokeAllExcept(User $user, ?int $keepAccessTokenId, string $reason): void
     {
-        $user->forceFill(['remember_token' => Str::random(60)])->saveQuietly();
+        UserSession::where('user_id', $user->getKey())->whereNull('revoked_at')
+            ->when($keepAccessTokenId !== null, fn ($q) => $q->where(fn ($w) => $w->whereNull('access_token_id')->orWhere('access_token_id', '!=', $keepAccessTokenId)))
+            ->update(['revoked_at' => now(), 'revoked_reason' => $reason]);
+        $user->tokens()->when($keepAccessTokenId !== null, fn ($q) => $q->where('id', '!=', $keepAccessTokenId))->delete();
+        $this->forgetWebSessions($user);
+    }
+
+    /**
+     * Ends every dashboard (browser) session of the person, whatever the session driver: the per-user stamp that each session carries
+     * (users.session_stamp, checked by EnsureStaff on every request) is rotated, so an old cookie is refused even after the account is
+     * switched on again. The remember-me token is cycled too, and with the database driver the session rows are deleted as a courtesy.
+     * Returns the new stamp: a caller that wants ITS OWN session to stay signed in (a password change) puts it into its session.
+     */
+    public function forgetWebSessions(User $user, ?string $keepSessionId = null): string
+    {
+        $stamp = Str::random(40);
+        $user->forceFill(['remember_token' => Str::random(60), 'session_stamp' => $stamp])->saveQuietly();
         if (config('session.driver') === 'database') {
-            DB::table(config('session.table', 'sessions'))->where('user_id', $user->getKey())->delete();
+            DB::table(config('session.table', 'sessions'))->where('user_id', $user->getKey())
+                ->when($keepSessionId !== null, fn ($q) => $q->where('id', '!=', $keepSessionId))->delete();
         }
+
+        return $stamp;
     }
 
     private function enforceSessionLimit(User $user): void

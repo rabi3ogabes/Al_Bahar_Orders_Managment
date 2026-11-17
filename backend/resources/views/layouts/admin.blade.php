@@ -2,7 +2,9 @@
     $user = auth()->user();
     $rtl = in_array(app()->getLocale(), config('platform.rtl_locales'), true);
     $nav = \App\Support\AdminNavigation::for($user);
-    $canOrder = app(\App\Domain\Identity\Services\AccessControl::class)->allows($user, 'orders.create');
+    // While a first step is pending (choose a password, enrol two-factor) only the profile page works: no cart components (their calls would be refused).
+    $firstStepPending = $user->must_change_password || (! $user->hasTwoFactorEnabled() && app(\App\Domain\Identity\Services\TwoFactorService::class)->required());
+    $canOrder = ! $firstStepPending && app(\App\Domain\Identity\Services\AccessControl::class)->allows($user, 'orders.create');
     $brand = app()->getLocale() === 'ar' ? config('platform.brand.name_ar') : config('platform.brand.name_en');
 @endphp
 <!DOCTYPE html>

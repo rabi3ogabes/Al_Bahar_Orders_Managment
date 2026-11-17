@@ -14,9 +14,16 @@ import 'package:flutter/material.dart';
 /// * Some: "Deal price on 2 of 3", then why fewer ("limit 2 per order", "your account limit is reached", "deal sold out",
 ///   "deal ended").
 /// * None: only the reason ("You reached your limit for this deal", "deal sold out", "deal ended").
-String? dealLineText(AppLocalizations l10n, DealLineUnits units) {
+///
+/// The per-order limit is said with its number only when it is known ([limitPerOrder], from the deal block of a cart line) and some
+/// unit still gets the deal price. The units at the deal price are NOT the limit (variants of one product share it: with a limit of 2,
+/// one line may get 1 and the next 0), so without the real number the words are number-free: "per-order limit reached".
+String? dealLineText(AppLocalizations l10n, DealLineUnits units, {int? limitPerOrder}) {
   final note = switch (units.note) {
-    DealNote.limitPerOrder => l10n.dealNoteLimitOrder(units.unitsAtDealPrice),
+    DealNote.limitPerOrder =>
+      limitPerOrder != null && units.unitsAtDealPrice > 0
+          ? l10n.dealNoteLimitOrder(limitPerOrder)
+          : l10n.dealNoteLimitOrderReached,
     DealNote.limitPerCustomer => l10n.dealNoteLimitCustomer,
     DealNote.soldOut => l10n.dealNoteSoldOut,
     DealNote.ended => l10n.dealNoteEnded,
@@ -36,19 +43,22 @@ String? dealLineText(AppLocalizations l10n, DealLineUnits units) {
 
 /// The deal of a line, in one calm row under the line: the flame, the deal's name and the wording above.
 class DealLineNote extends StatelessWidget {
-  const DealLineNote({super.key, required this.name, this.units, this.color});
+  const DealLineNote({super.key, required this.name, this.units, this.limitPerOrder, this.color});
 
   final String name;
 
   /// How many units get the deal price; without it the row names the deal only.
   final DealLineUnits? units;
 
+  /// The deal's per-order limit when the caller knows it (a cart line does, a quote line does not).
+  final int? limitPerOrder;
+
   /// The deal's accent colour; the app's own accent when the server sent none.
   final Color? color;
 
   @override
   Widget build(BuildContext context) {
-    final text = units == null ? null : dealLineText(context.l10n, units!);
+    final text = units == null ? null : dealLineText(context.l10n, units!, limitPerOrder: limitPerOrder);
     final tone = color ?? context.palette.brassDeep;
     final full = [if (name.isNotEmpty) name, ?text].join(' · ');
     if (full.isEmpty) return const SizedBox.shrink();
@@ -89,7 +99,12 @@ class DealCartNote extends StatelessWidget {
     final now = DealClockScope.peek(context)?.now();
     final phase = now == null ? d.phase : d.phaseAt(now);
     if (phase != DealPhase.live && phase != DealPhase.soldOut) return const SizedBox.shrink();
-    return DealLineNote(name: d.name, units: units, color: dealAccentOn(context, d, context.colors.surface));
+    return DealLineNote(
+      name: d.name,
+      units: units,
+      limitPerOrder: d.limitPerOrder,
+      color: dealAccentOn(context, d, context.colors.surface),
+    );
   }
 }
 

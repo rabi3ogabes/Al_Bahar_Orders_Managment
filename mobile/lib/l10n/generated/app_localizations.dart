@@ -5564,6 +5564,12 @@ abstract class AppLocalizations {
   /// **'limit {count} per order'**
   String dealNoteLimitOrder(int count);
 
+  /// No description provided for @dealNoteLimitOrderReached.
+  ///
+  /// In en, this message translates to:
+  /// **'per-order limit reached'**
+  String get dealNoteLimitOrderReached;
+
   /// No description provided for @dealNoteLimitCustomer.
   ///
   /// In en, this message translates to:

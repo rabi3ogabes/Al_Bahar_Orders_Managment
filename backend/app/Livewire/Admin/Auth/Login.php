@@ -30,27 +30,37 @@ class Login extends Component
     public function login(AuditLogger $audit)
     {
         $this->validate();
-        $key = 'admin-login:'.Str::lower($this->email).'|'.request()->ip();
-        if (RateLimiter::tooManyAttempts($key, 5)) {
-            throw ValidationException::withMessages(['email' => __('auth.throttle', ['seconds' => RateLimiter::availableIn($key)])]);
+        $identifier = trim($this->email);
+        // One bucket per person however the number is typed ("+974 5555 1234", "55551234", "0097455551234", Arabic digits): the same identity as
+        // the API limiter. A second bucket per address of the caller stops one machine guessing across many accounts.
+        $identity = str_contains($identifier, '@') ? mb_strtolower($identifier) : (Phone::normalize($identifier) ?? mb_strtolower($identifier));
+        $keys = ['admin-login:'.$identity.'|'.request()->ip() => 5, 'admin-login-ip:'.request()->ip() => 20];
+        foreach ($keys as $key => $max) {
+            if (RateLimiter::tooManyAttempts($key, $max)) {
+                throw ValidationException::withMessages(['email' => __('auth.throttle', ['seconds' => RateLimiter::availableIn($key)])]);
+            }
         }
 
-        $identifier = trim($this->email);
         $user = User::where('type', 'staff')->when(
             str_contains($identifier, '@'),
             fn ($q) => $q->whereRaw('lower(email) = ?', [Str::lower($identifier)]),
             fn ($q) => $q->where('phone', Phone::normalize($identifier) ?? '__invalid__'),
         )->first();
-        if (! $user || ! $user->password || ! Hash::check($this->password, $user->password) || ! $user->isActive()) {
-            RateLimiter::hit($key, 300);
+        // Always one password check, even for an unknown identifier (against a well-formed hash nobody knows the password of), so the answer
+        // takes as long either way.
+        $valid = Hash::check($this->password, $user?->password ?: '$2y$12$'.str_repeat('a', 53));
+        if (! $user || ! $user->password || ! $valid || ! $user->isActive()) {
+            foreach ($keys as $key => $max) {
+                RateLimiter::hit($key, 300);
+            }
             $audit->log('auth.login_failed', 'User', [], [], ['channel' => 'admin_web', 'user_id' => $user?->id]);
             throw ValidationException::withMessages(['email' => __('auth.failed')]);
         }
-        RateLimiter::clear($key);
+        RateLimiter::clear('admin-login:'.$identity.'|'.request()->ip());
 
         Auth::guard('web')->login($user, $this->remember);
         session()->regenerate();
-        session(['locale' => $user->locale]);
+        session(['locale' => $user->locale, 'session_stamp' => (string) $user->session_stamp]);
 
         if ($user->hasTwoFactorEnabled()) {
             session(['two_factor_passed' => false]);

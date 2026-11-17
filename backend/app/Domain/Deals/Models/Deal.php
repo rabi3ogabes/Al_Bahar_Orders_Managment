@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 /**
  * A countdown offer (docs/api/DEALS.md). The phase is computed from the window, the switch and the product quantities, never stored.
@@ -89,15 +90,36 @@ class Deal extends Model
         return $q->where('is_active', true)->whereNull('ended_at')->where('ends_at', '>', $now);
     }
 
-    /** Every product with a quantity is gone (an unlimited product is never sold out, an empty deal is not sold out either). */
-    public function isSoldOut(): bool
+    /**
+     * Every product a shopper could buy has a quantity and all of it is gone (an unlimited product is never sold out, an empty deal is not sold out either).
+     * A product that is archived or switched off in the catalog cannot be bought, so it neither keeps a deal "live" nor counts as "sold out"; pass `$rows`
+     * to judge a smaller set (the products sold at the shopper's branch).
+     *
+     * @param  Collection<int, DealProduct>|null  $rows  the deal's products to judge; null = all of them that are active in the catalog
+     */
+    public function isSoldOut(?Collection $rows = null): bool
+    {
+        if ($rows === null) {
+            $this->loadMissing('products.product:id,status');
+            $rows = $this->products->filter(fn (DealProduct $p) => $p->product?->status === 'active');
+        }
+
+        return $rows->isNotEmpty() && $rows->every(fn (DealProduct $p) => $p->quantity_total !== null && $p->quantity_sold >= $p->quantity_total);
+    }
+
+    /**
+     * True when some product has a quantity but nothing limits how much one customer can take of it (no limit per order and none per account, on the product or
+     * on the deal): one account could then take every unit, cancel and do it again. The dashboard warns about it.
+     */
+    public function lacksBuyerLimit(): bool
     {
         $this->loadMissing('products');
 
-        return $this->products->isNotEmpty() && $this->products->every(fn (DealProduct $p) => $p->quantity_total !== null && $p->quantity_sold >= $p->quantity_total);
+        return $this->products->contains(fn (DealProduct $p) => $p->quantity_total !== null && $p->perOrderLimit($this) === null && $p->perCustomerLimit($this) === null);
     }
 
-    public function phase(?CarbonInterface $now = null): string
+    /** @param  Collection<int, DealProduct>|null  $rows  see isSoldOut() */
+    public function phase(?CarbonInterface $now = null, ?Collection $rows = null): string
     {
         $now ??= now();
         if ($this->ended_at !== null || $this->ends_at->lessThanOrEqualTo($now)) {
@@ -110,6 +132,6 @@ class Deal extends Model
             return self::SCHEDULED;
         }
 
-        return $this->isSoldOut() ? self::SOLD_OUT : self::LIVE;
+        return $this->isSoldOut($rows) ? self::SOLD_OUT : self::LIVE;
     }
 }

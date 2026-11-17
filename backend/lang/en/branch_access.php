@@ -165,5 +165,6 @@ return [
     'error_contact_taken' => 'That mobile number or e-mail already belongs to another account.',
     'error_feature_unknown' => 'One of the selected features does not exist.',
     'error_feature_required' => 'Tick at least one feature.',
+    'error_personal_role_replace' => 'This person’s access here is a feature checklist. Change it under Features & branches; roles cannot replace it from this form.',
     'error_password_change_required' => 'Choose your own password before you continue.',
 ];

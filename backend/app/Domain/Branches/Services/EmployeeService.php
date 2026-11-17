@@ -80,7 +80,8 @@ class EmployeeService
     }
 
     /**
-     * Assign the employee to a branch with the given branch-scoped roles (replaces their roles at that branch).
+     * Assign the employee to a branch with the given branch-scoped roles (replaces their roles at that branch), unless their access there is
+     * a personal feature checklist: then the checklist is kept (empty $roleKeys) or the call is refused (roles given).
      *
      * @param  list<string>  $roleKeys
      */
@@ -91,6 +92,24 @@ class EmployeeService
         $roles = Role::whereIn('key', $roleKeys)->get();
         foreach ($roles as $role) {
             $this->assertCanGrantRole($actor, $role, $branch->id);
+        }
+
+        // Somebody whose access here is a feature checklist (a personal role) keeps it: this path only updates the job title and the driver
+        // flag, and it never swaps the checklist for ready-made roles. That is done under "Feature access" (BranchEmployeeService::setFeatures).
+        $hasChecklist = Role::where('personal_user_id', $employee->id)->where('personal_branch_id', $branch->id)
+            ->whereIn('id', UserRole::where('user_id', $employee->id)->where('branch_id', $branch->id)->select('role_id'))->exists();
+        if ($hasChecklist && $roles->isNotEmpty()) {
+            throw new DomainException('personal_role_replace', __('branch_access.error_personal_role_replace'), 422);
+        }
+        if ($hasChecklist) {
+            return DB::transaction(function () use ($actor, $employee, $branch, $jobTitle, $isDriver) {
+                $assignment = BranchEmployee::where('branch_id', $branch->id)->where('user_id', $employee->id)->firstOrFail();
+                $old = $assignment->only(['job_title', 'is_delivery_driver']);
+                $assignment->update(['job_title' => $jobTitle, 'is_delivery_driver' => $isDriver, 'assigned_by' => $actor->id]);
+                $this->audit->log('employee.branch_assigned', $employee, $old, ['job_title' => $jobTitle, 'is_delivery_driver' => $isDriver], ['branch_id' => $branch->id, 'kept' => 'feature_checklist'], branchId: $branch->id, actor: $actor);
+
+                return $assignment;
+            });
         }
 
         return DB::transaction(function () use ($actor, $employee, $branch, $roles, $jobTitle, $isDriver) {

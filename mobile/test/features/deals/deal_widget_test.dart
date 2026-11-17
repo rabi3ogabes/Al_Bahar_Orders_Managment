@@ -546,6 +546,40 @@ void main() {
       expect(find.text('Secs'), findsNothing);
     });
 
+    for (final style in DealStyle.values) {
+      testWidgets(
+        '${style.name}: a live deal with no end time draws no countdown and no "ended" (and says neither aloud)',
+        (tester) async {
+          final handle = tester.ensureSemantics();
+          final data = DealCardData(
+            name: 'Weekend Furniture Drop',
+            phase: DealPhase.live,
+            startsAt: dealsNow.subtract(const Duration(hours: 1)),
+            percent: 30,
+            design: DealDesign.fromJson(designJson(style: style.name)),
+          );
+          await tester.pumpWidget(
+            _app(
+              DealWidget(data: data, onTap: () {}),
+              phone: _Phone(),
+            ),
+          );
+          await tester.pump();
+          expect(tester.takeException(), isNull);
+          expect(find.text('Deal ended'), findsNothing);
+          expect(find.text('Days'), findsNothing);
+          expect(find.text('Secs'), findsNothing);
+          expect(find.text('Ends in'), findsNothing, reason: 'a headline with nothing to count would mislead');
+          expect(find.text('Weekend Furniture Drop'), findsOneWidget);
+          final label = tester.getSemantics(find.byType(DealWidget)).label;
+          expect(label, contains('Weekend Furniture Drop'));
+          expect(label, isNot(contains('ended')));
+          expect(label, isNot(contains('Ends in')));
+          handle.dispose();
+        },
+      );
+    }
+
     testWidgets('colours come only from the design', (tester) async {
       Future<void> pumpColours(Object? colors) async {
         await tester.pumpWidget(

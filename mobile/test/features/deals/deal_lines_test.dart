@@ -66,8 +66,39 @@ void main() {
     String? en(int deal, int regular, [DealNote? note]) =>
         dealLineText(_en, DealLineUnits(unitsAtDealPrice: deal, unitsAtRegularPrice: regular, note: note));
 
-    test('"Deal price on 2 of 3 · limit 2 per order"', () {
-      expect(en(2, 1, DealNote.limitPerOrder), 'Deal price on 2 of 3 · limit 2 per order');
+    test(
+      '"Deal price on 2 of 3 · limit 2 per order" when the real limit is known (a cart line has the deal block)',
+      () {
+        const units = DealLineUnits(unitsAtDealPrice: 2, unitsAtRegularPrice: 1, note: DealNote.limitPerOrder);
+        expect(dealLineText(_en, units, limitPerOrder: 2), 'Deal price on 2 of 3 · limit 2 per order');
+      },
+    );
+
+    test('variants share one limit: the words use the limit, never the units of a line', () {
+      // Limit 2 per order over three variant lines: line A got 1, line B got 1, line C got 0.
+      const b = DealLineUnits(unitsAtDealPrice: 1, unitsAtRegularPrice: 1, note: DealNote.limitPerOrder);
+      const c = DealLineUnits(unitsAtDealPrice: 0, unitsAtRegularPrice: 2, note: DealNote.limitPerOrder);
+      expect(
+        dealLineText(_en, b, limitPerOrder: 2),
+        'Deal price on 1 of 2 · limit 2 per order',
+        reason: 'not "limit 1"',
+      );
+      expect(dealLineText(_en, c, limitPerOrder: 2), 'per-order limit reached', reason: 'never "limit 0 per order"');
+      expect(dealLineText(_ar, c, limitPerOrder: 2), 'تم بلوغ حد الطلب الواحد');
+      expect(dealLineText(_ar, b, limitPerOrder: 2), 'سعر العرض على 1 من 2 · الحد 2 لكل طلب');
+    });
+
+    test('without the real limit (a quote line carries none) the words have no number', () {
+      expect(en(2, 1, DealNote.limitPerOrder), 'Deal price on 2 of 3 · per-order limit reached');
+      expect(en(1, 1, DealNote.limitPerOrder), 'Deal price on 1 of 2 · per-order limit reached');
+      expect(en(0, 2, DealNote.limitPerOrder), 'per-order limit reached');
+      expect(
+        dealLineText(
+          _ar,
+          const DealLineUnits(unitsAtDealPrice: 2, unitsAtRegularPrice: 1, note: DealNote.limitPerOrder),
+        ),
+        'سعر العرض على 2 من 3 · تم بلوغ حد الطلب الواحد',
+      );
     });
 
     test('the other reasons', () {
@@ -90,11 +121,6 @@ void main() {
     });
 
     test('Arabic', () {
-      final ar = dealLineText(
-        _ar,
-        const DealLineUnits(unitsAtDealPrice: 2, unitsAtRegularPrice: 1, note: DealNote.limitPerOrder),
-      );
-      expect(ar, 'سعر العرض على 2 من 3 · الحد 2 لكل طلب');
       expect(
         dealLineText(
           _ar,
@@ -205,7 +231,7 @@ void main() {
       'deal': deal,
     };
 
-    test('the line\'s own deal carries the units; the product card\'s block is the fallback', () {
+    test('the line\'s own deal carries the units; the product card\'s block is the fallback only when the line has no `deal` key', () {
       final own = CartItem.fromJson(
         line(
           deal: {...dealBlockJson(), 'units_at_deal_price': 2, 'units_at_regular_price': 1, 'note': 'limit_per_order'},
@@ -214,9 +240,13 @@ void main() {
       expect(own.deal?.dealId, 'd1');
       expect(own.dealUnits?.unitsAtDealPrice, 2);
       expect(own.dealUnits?.note, DealNote.limitPerOrder);
-      final viaCard = CartItem.fromJson(line(cardDeal: dealBlockJson()));
-      expect(viaCard.deal?.dealId, 'd1');
+      final viaCard = CartItem.fromJson(line(cardDeal: dealBlockJson())..remove('deal'));
+      expect(viaCard.deal?.dealId, 'd1', reason: 'a server that sends no line deal at all');
       expect(viaCard.dealUnits, isNull, reason: 'no counts: the words wait for the server');
+      // An explicit `deal: null` says this line has none, whatever the product card carries.
+      final explicitNone = CartItem.fromJson(line(cardDeal: dealBlockJson()));
+      expect(explicitNone.deal, isNull);
+      expect(explicitNone.dealUnits, isNull);
       final none = CartItem.fromJson(line());
       expect(none.deal, isNull);
       expect(none.dealUnits, isNull);

@@ -3163,6 +3163,9 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String get dealNoteLimitOrderReached => 'تم بلوغ حد الطلب الواحد';
+
+  @override
   String get dealNoteLimitCustomer => 'بلغت حد حسابك';
 
   @override

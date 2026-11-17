@@ -367,6 +367,33 @@ void main() {
       expect(t.takeException(), isNull);
     });
 
+    testWidgets('variants of one product share the limit: the words use the real limit, never "limit 0 per order"', (
+      t,
+    ) async {
+      Map<String, dynamic> variantLine(String id, int units, int regular) => {
+        'id': id,
+        'variant_id': 'v$id',
+        'product': productCard('p1'),
+        'quantity': units + regular,
+        'unit_price': price('100.00'),
+        'line_total': money('${(units + regular) * 100}.00'),
+        'deal': {
+          ...dealBlockJson(limitPerOrder: 2),
+          'units_at_deal_price': units,
+          'units_at_regular_price': regular,
+          'note': 'limit_per_order',
+        },
+      };
+      final body = cart();
+      body['items'] = [variantLine('a', 1, 1), variantLine('b', 1, 0), variantLine('c', 0, 2)];
+      await pumpCart(t, body);
+      expect(find.text('Weekend Furniture Drop · Deal price on 1 of 2 · limit 2 per order'), findsOneWidget);
+      expect(find.text('Weekend Furniture Drop · Deal price on all 1'), findsOneWidget);
+      expect(find.text('Weekend Furniture Drop · per-order limit reached'), findsOneWidget);
+      expect(find.textContaining('limit 0'), findsNothing);
+      expect(find.textContaining('limit 1'), findsNothing);
+    });
+
     testWidgets('all units at the deal price', (t) async {
       await pumpCart(
         t,

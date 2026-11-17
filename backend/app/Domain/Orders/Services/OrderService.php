@@ -84,12 +84,14 @@ class OrderService
             if ($to === FS::Delivered && ! $from->stockHandedOver()) {
                 $this->consumeAll($f, $actor);
             }
-            if ($to === FS::Cancelled) {
-                // Whatever cancels a parcel (the customer, staff, an unpaid-order expiry, an adjustment that emptied it) also gives its deal units back, once:
-                // the deal rows are locked before any stock row, the same order checkout uses, so the two never wait for each other.
+            if (in_array($to, [FS::Cancelled, FS::Returned], true)) {
+                // A parcel that is cancelled (the customer, staff, an unpaid-order expiry, an adjustment that emptied it, a delivery that failed for good) or comes
+                // back (returned) gives its deal units back too, once: the deal rows are locked before any stock row, the same order checkout uses, so the two never
+                // wait for each other. The units are released below, once the parcel itself says cancelled / returned.
                 app(DealService::class)->lockForOrder($order->id);
+            }
+            if ($to === FS::Cancelled) {
                 $this->releaseAll($f, $actor, $reason ?? 'cancelled');
-                app(DealService::class)->release($order->id);
             }
             if ($to === FS::Returned) {
                 $this->restockReturn($f, $actor);
@@ -108,6 +110,9 @@ class OrderService
                 $f->assigned_to = $f->assigned_to ?? $actor->id;
             }
             $f->save();
+            if (in_array($to, [FS::Cancelled, FS::Returned], true)) {
+                app(DealService::class)->release($order->id);
+            }
 
             $this->history($order, $f, 'fulfillment', $from->value, $to->value, $actor, $reason, $meta);
             $this->audit->log('order.fulfillment_'.$to->value, $f, ['status' => $from->value], ['status' => $to->value], ['order' => $order->number, 'reason' => $reason], branchId: $f->branch_id, actor: $actor);

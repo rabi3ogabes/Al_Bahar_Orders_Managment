@@ -39,8 +39,9 @@ class CartItem {
       priceChanged: asBool(json['price_changed']),
       previousPrice: _previous(json['previous_price']),
       issue: asStringOrNull(json['issue']),
-      // The line's own `deal` (the product's deal block plus how many of this line's units get the deal price), else the one on its product card.
-      deal: DealInfo.maybe(json['deal']) ?? product.deal,
+      // The line's own `deal` (the product's deal block plus how many of this line's units get the deal price). Only a server that sends no
+      // `deal` key at all falls back to the block on the product card: an explicit `deal: null` means this line has none.
+      deal: json.containsKey('deal') ? DealInfo.maybe(json['deal']) : product.deal,
       dealUnits: DealLineUnits.maybe(json['deal']),
     );
   }

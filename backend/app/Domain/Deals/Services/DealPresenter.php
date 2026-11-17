@@ -41,13 +41,16 @@ class DealPresenter
     {
         $now = now();
         $deals = Deal::query()->open($now)->when($homeOnly, fn ($q) => $q->where('show_on_home', true))
-            ->with(['products' => fn ($q) => $q->select('id', 'deal_id', 'product_id', 'quantity_total', 'quantity_sold', 'sort_order')->with('product:id,status')])->get();
+            ->with(['products' => fn ($q) => $q->select('id', 'deal_id', 'product_id', 'quantity_total', 'quantity_sold', 'sort_order')])->get();
+        // What this shopper can actually buy: active in the catalog and sold at the chosen branch. A deal is judged on those products only, so a product nobody can
+        // buy neither keeps a deal "live" nor hides that the rest is sold out.
+        $sellable = Product::query()->active()->visibleInBranch($branch?->id)->whereIn('id', $deals->flatMap(fn (Deal $d) => $d->products->pluck('product_id'))->unique()->values())->pluck('id')->flip();
 
         $live = [];
         $upcoming = [];
         foreach ($deals as $deal) {
-            $phase = $deal->phase($now);
-            $visible = $deal->products->filter(fn (DealProduct $p) => $p->product?->status === 'active');
+            $visible = $deal->products->filter(fn (DealProduct $p) => $sellable->has($p->product_id))->values();
+            $phase = $deal->phase($now, $visible);
             if ($visible->isEmpty()) {
                 continue;
             }
@@ -67,7 +70,7 @@ class DealPresenter
         }
         $cards = $this->cardsFor(collect($shown)->flatten()->unique()->values()->all(), $user, $branch);
         $brand = DealDesign::brandPrimary();
-        $present = fn (array $pair) => $this->deal($pair[0], $pair[1]->count(), array_values(array_filter(array_map(fn (string $id) => $cards[$id] ?? null, $shown[$pair[0]->id]))), $brand, $now);
+        $present = fn (array $pair) => $this->deal($pair[0], $pair[1]->count(), array_values(array_filter(array_map(fn (string $id) => $cards[$id] ?? null, $shown[$pair[0]->id]))), $brand, $now, $pair[1]);
 
         return ['server_time' => $this->serverTime($now), 'live' => array_map($present, $live), 'upcoming' => array_map($present, $upcoming)];
     }
@@ -79,14 +82,15 @@ class DealPresenter
      */
     public function show(Deal $deal, ?User $user, ?Branch $branch, int $page): array
     {
-        $deal->unsetRelation('products');
-        $rows = DealProduct::query()->where('deal_id', $deal->id)->whereHas('product', fn ($q) => $q->active()->visibleInBranch($branch?->id))
-            ->orderBy('sort_order')->orderBy('created_at')->orderBy('id')->paginate(self::PAGE_SIZE, ['*'], 'page', max(1, $page));
-        $ids = $rows->getCollection()->pluck('product_id')->all();
+        // Every product of the deal this shopper can buy (active, sold at the branch), in the admin's order: the phase is judged on all of them, a page is cut from them.
+        $all = DealProduct::query()->where('deal_id', $deal->id)->whereHas('product', fn ($q) => $q->active()->visibleInBranch($branch?->id))
+            ->orderBy('sort_order')->orderBy('created_at')->orderBy('id')->get(['id', 'deal_id', 'product_id', 'quantity_total', 'quantity_sold', 'sort_order', 'created_at']);
+        $page = max(1, $page);
+        $ids = $all->forPage($page, self::PAGE_SIZE)->pluck('product_id')->all();
         $cards = $this->cardsFor($ids, $user, $branch);
         $now = now();
-        $out = $this->deal($deal, $rows->total(), array_values(array_filter(array_map(fn (string $id) => $cards[$id] ?? null, $ids))), DealDesign::brandPrimary(), $now);
-        $out['products'] = ['data' => $out['products'], 'meta' => ['current_page' => $rows->currentPage(), 'per_page' => $rows->perPage(), 'total' => $rows->total(), 'last_page' => $rows->lastPage()]];
+        $out = $this->deal($deal, $all->count(), array_values(array_filter(array_map(fn (string $id) => $cards[$id] ?? null, $ids))), DealDesign::brandPrimary(), $now, $all);
+        $out['products'] = ['data' => $out['products'], 'meta' => ['current_page' => $page, 'per_page' => self::PAGE_SIZE, 'total' => $all->count(), 'last_page' => max(1, (int) ceil($all->count() / self::PAGE_SIZE))]];
 
         return ['server_time' => $this->serverTime($now)] + $out;
     }
@@ -95,16 +99,17 @@ class DealPresenter
      * The `Deal` shape. `$products` are cards already built; `$total` how many products the deal has in all.
      *
      * @param  list<array<string, mixed>>  $products
+     * @param  Collection<int, DealProduct>|null  $rows  the deal's products this shopper can buy (the phase is judged on them); null = every active one
      * @return array<string, mixed>
      */
-    public function deal(Deal $deal, int $total, array $products, ?string $brand = null, ?CarbonInterface $now = null): array
+    public function deal(Deal $deal, int $total, array $products, ?string $brand = null, ?CarbonInterface $now = null, ?Collection $rows = null): array
     {
         $now ??= now();
         $perCustomer = $deal->limit_per_customer;
 
         return [
             'id' => $deal->id, 'name' => $deal->localized('name'), 'tagline' => $deal->localized('tagline'),
-            'phase' => $deal->phase($now),
+            'phase' => $deal->phase($now, $rows),
             'starts_at' => BusinessTime::iso($deal->starts_at), 'ends_at' => BusinessTime::iso($deal->ends_at),
             // Seconds to the end (what the countdown shows) and, for a deal that has not started, seconds to its start: the client adds its own offset to the server clock.
             'seconds_left' => max(0, (int) ceil($now->diffInSeconds($deal->ends_at, false))),
