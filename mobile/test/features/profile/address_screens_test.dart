@@ -96,7 +96,7 @@ void main() {
   testWidgets('Arabic: the phone number keeps its "+" in front of the digits, whatever the text around it', (t) async {
     await _pump(t, const AddressesScreen(), alternate: false, locale: 'ar');
     // The number is isolated left-to-right inside the right-to-left line.
-    expect(find.textContaining('⁦+97455123456⁩', findRichText: true), findsWidgets);
+    expect(find.textContaining('\u2066+97455123456\u2069', findRichText: true), findsWidgets);
     expect(t.takeException(), isNull);
   });
 

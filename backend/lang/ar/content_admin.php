@@ -190,6 +190,8 @@ return [
     'ev_referral_rewarded' => 'مكافأة الإحالة (صاحب الدعوة)',
     'ev_referral_friend_rewarded' => 'مكافأة الإحالة (الصديق المدعو)',
     'ev_campaign' => 'حملة تسويقية',
+    'ev_payment_link' => 'رابط الدفع',
+    'ev_order_items_changed' => 'تعديل أصناف الطلب',
     'r_sales_summary' => 'ملخص المبيعات',
     'r_sales_by_branch' => 'المبيعات حسب الفرع',
     'r_sales_by_product' => 'المبيعات حسب المنتج',

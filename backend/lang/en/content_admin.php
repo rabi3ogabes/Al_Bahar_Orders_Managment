@@ -190,6 +190,8 @@ return [
     'ev_referral_rewarded' => 'Referral reward (inviter)',
     'ev_referral_friend_rewarded' => 'Referral reward (invited friend)',
     'ev_campaign' => 'Marketing campaign',
+    'ev_payment_link' => 'Payment link',
+    'ev_order_items_changed' => 'Order items changed',
     'r_sales_summary' => 'Sales summary',
     'r_sales_by_branch' => 'Sales by branch',
     'r_sales_by_product' => 'Sales by product',

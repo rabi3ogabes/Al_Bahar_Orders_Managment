@@ -22,6 +22,7 @@ import 'package:albahar_customer/features/checkout/presentation/delivery_slot_se
 import 'package:albahar_customer/features/checkout/presentation/extra_delivery_fee_row.dart';
 import 'package:albahar_customer/features/checkout/presentation/payment_flow.dart';
 import 'package:albahar_customer/features/checkout/presentation/state/checkout_controller.dart';
+import 'package:albahar_customer/features/checkout/presentation/total_action_bar.dart';
 import 'package:albahar_customer/features/profile/domain/profile_models.dart';
 import 'package:albahar_customer/features/profile/presentation/addresses_screen.dart';
 import 'package:albahar_customer/features/profile/presentation/state/profile_providers.dart';
@@ -985,34 +986,23 @@ class _PlaceOrderBar extends StatelessWidget {
                       ],
                     ),
                   ),
-                Row(
-                  children: [
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(l10n.grandTotal, style: context.text.bodySmall),
-                        AnimatedSwitcher(
-                          duration: AppDurations.medium,
-                          child: state.quoting
-                              ? Text(l10n.calculating, key: const ValueKey('calc'), style: context.text.titleMedium)
-                              : Text(
-                                  state.quote?.totals.grandTotal.formatted ?? '—',
-                                  key: ValueKey(state.quote?.quoteHash),
-                                  style: context.text.titleLarge,
-                                ),
-                        ),
-                      ],
-                    ),
-                    const Gap(AppSpace.md),
-                    Expanded(
-                      child: AppButton.accent(
-                        label: l10n.placeOrder,
-                        loading: state.placing,
-                        onPressed: state.canPlace ? onPlace : null,
-                      ),
-                    ),
-                  ],
+                TotalActionBar(
+                  label: l10n.grandTotal,
+                  amount: AnimatedSwitcher(
+                    duration: AppDurations.medium,
+                    child: state.quoting
+                        ? Text(l10n.calculating, key: const ValueKey('calc'), style: context.text.titleMedium)
+                        : Text(
+                            state.quote?.totals.grandTotal.formatted ?? '—',
+                            key: ValueKey(state.quote?.quoteHash),
+                            style: context.text.titleLarge,
+                          ),
+                  ),
+                  action: AppButton.accent(
+                    label: l10n.placeOrder,
+                    loading: state.placing,
+                    onPressed: state.canPlace ? onPlace : null,
+                  ),
                 ),
               ],
             ),

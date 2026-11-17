@@ -106,7 +106,7 @@ void main() {
           reason: 'delivery is quoted at checkout, the page says so',
         );
         final words = RegExp(
-          'minimum|min\\. order|cash on delivery|COD|add .* more|الحد الأدنى|رسوم الدفع|الدفع عند',
+          'minimum|min\\. order|cash on delivery|\\bCOD\\b|add .* more|الحد الأدنى|رسوم الدفع|الدفع عند',
           caseSensitive: false,
         );
         expect(find.textContaining(words, findRichText: true), findsNothing);

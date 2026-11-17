@@ -17,6 +17,7 @@ import 'package:albahar_customer/features/cart/domain/cart_models.dart';
 import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/catalog_widgets.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/upsell_widgets.dart';
+import 'package:albahar_customer/features/checkout/presentation/total_action_bar.dart';
 import 'package:albahar_customer/features/scan/presentation/widgets/scan_entry.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -185,6 +186,9 @@ class CartLine extends ConsumerWidget {
       }
     }
 
+    // On a 320 px phone a 80 px picture leaves the quantity buttons (124 px) less room than they need.
+    final picture = MediaQuery.sizeOf(context).width < 360 ? 72.0 : 80.0;
+
     return Dismissible(
       key: ValueKey(item.id),
       direction: DismissDirection.endToStart,
@@ -211,8 +215,8 @@ class CartLine extends ConsumerWidget {
                 child: GestureDetector(
                   onTap: () => openProduct(context, item.product, heroScope: 'cart'),
                   child: SizedBox(
-                    width: 80,
-                    height: 80,
+                    width: picture,
+                    height: picture,
                     child: Hero(
                       tag: item.product.heroTag('cart'),
                       child: AppNetworkImage(
@@ -444,26 +448,15 @@ class _CheckoutBarState extends ConsumerState<_CheckoutBar> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(AppSpace.gutter, AppSpace.sm, AppSpace.gutter, AppSpace.sm),
           child: ContentWidth(
-            child: Row(
-              children: [
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(l10n.subtotal, style: context.text.bodySmall),
-                    Text(widget.cart.subtotal.formatted, style: context.text.titleLarge),
-                  ],
-                ),
-                const Gap(AppSpace.md),
-                Expanded(
-                  child: AppButton(
-                    label: l10n.proceedToCheckout,
-                    icon: Icons.arrow_forward_rounded,
-                    loading: _busy,
-                    onPressed: widget.cart.canCheckout ? _go : null,
-                  ),
-                ),
-              ],
+            child: TotalActionBar(
+              label: l10n.subtotal,
+              amount: Text(widget.cart.subtotal.formatted, style: context.text.titleLarge),
+              action: AppButton(
+                label: l10n.proceedToCheckout,
+                icon: Icons.arrow_forward_rounded,
+                loading: _busy,
+                onPressed: widget.cart.canCheckout ? _go : null,
+              ),
             ),
           ),
         ),

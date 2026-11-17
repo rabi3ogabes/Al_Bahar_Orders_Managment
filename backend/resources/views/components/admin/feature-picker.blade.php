@@ -71,9 +71,9 @@
         <p class="flex items-start gap-2 rounded-xl bg-sand-50 p-3 text-xs leading-relaxed text-ink-600 dark:bg-ink-800 dark:text-ink-300"><x-icon name="lock" class="mt-0.5 size-3.5 shrink-0" />{{ __('branch_access.locked_note') }}</p>
     @endif
 
-    <div class="grid gap-4 md:grid-cols-2">
+    <div class="gap-4 md:columns-2">
         @foreach ($picker['groups'] as $group)
-            <fieldset class="min-w-0 rounded-2xl border border-sand-200/70 p-3 dark:border-ink-700" wire:key="group-{{ $group['id'] }}">
+            <fieldset class="mb-4 min-w-0 break-inside-avoid rounded-2xl border border-sand-200/70 p-3 dark:border-ink-700" wire:key="group-{{ $group['id'] }}">
                 <legend class="px-1.5 text-xs font-semibold uppercase tracking-wider text-ink-500 dark:text-ink-400 rtl:tracking-normal">{{ $group['label'] }}</legend>
                 <div class="space-y-0.5">
                     @foreach ($group['features'] as $f)

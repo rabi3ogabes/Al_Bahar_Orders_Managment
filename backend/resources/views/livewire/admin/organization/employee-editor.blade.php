@@ -45,8 +45,8 @@
                     <x-admin.field :label="__('branch_access.temp_password')" for="form.password" required :hint="__('branch_access.temp_password_hint')" class="sm:col-span-2">
                         <div class="flex gap-2" x-data="{ copied: false }">
                             <input id="form.password" x-ref="pw" type="{{ $showPassword ? 'text' : 'password' }}" wire:model="form.password" class="input font-mono" dir="ltr" autocomplete="new-password" spellcheck="false">
-                            <button type="button" wire:click="generatePassword" class="btn-secondary min-h-11 shrink-0 px-3" title="{{ __('org_admin.generate') }}" aria-label="{{ __('org_admin.generate') }}"><x-icon name="sparkles" class="size-4" /></button>
-                            <button type="button" class="btn-secondary min-h-11 shrink-0 px-3" @click="navigator.clipboard.writeText($refs.pw.value).then(() => { copied = true; setTimeout(() => copied = false, 1800) })"
+                            <button type="button" wire:click="generatePassword" class="btn-secondary min-h-11 min-w-11 shrink-0 px-3" title="{{ __('org_admin.generate') }}" aria-label="{{ __('org_admin.generate') }}"><x-icon name="sparkles" class="size-4" /></button>
+                            <button type="button" class="btn-secondary min-h-11 min-w-11 shrink-0 px-3" @click="navigator.clipboard.writeText($refs.pw.value).then(() => { copied = true; setTimeout(() => copied = false, 1800) })"
                                     title="{{ __('branch_access.copy_password') }}" aria-label="{{ __('branch_access.copy_password') }}"><x-icon name="check" class="size-4" x-show="copied" x-cloak /><x-icon name="clipboard" class="size-4" x-show="!copied" /></button>
                         </div>
                     </x-admin.field>
