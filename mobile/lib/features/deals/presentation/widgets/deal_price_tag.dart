@@ -18,7 +18,7 @@ Color dealAccentOn(BuildContext context, DealInfo deal, Color on) {
 /// second); with none it trusts the phase the server reported.
 bool dealShowsPrice(BuildContext context, DealInfo? deal) {
   if (deal == null) return false;
-  return deal.showsDealPriceAt(DealClockScope.peek(context)?.now());
+  return deal.showsDealPriceAt(DealClockScope.peek(context)?.trustedNow());
 }
 
 /// A product's price while a deal is on: the deal price, the regular price struck through and the "-30%" pill.
@@ -87,4 +87,17 @@ class DealPriceTag extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Builds with whether [deal] shows its price right now: it follows the screen's server clock (every second, so the price falls back to
+/// the normal one the moment the deal ends), and with no server time known yet it trusts the phase the server reported.
+class DealOnBuilder extends StatelessWidget {
+  const DealOnBuilder({super.key, required this.deal, required this.builder});
+
+  final DealInfo? deal;
+  final Widget Function(BuildContext context, bool dealOn) builder;
+
+  @override
+  Widget build(BuildContext context) =>
+      builder(context, deal != null && deal!.showsDealPriceAt(DealClockScope.trustedNowOf(context)));
 }

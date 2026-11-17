@@ -57,8 +57,12 @@ class DashboardMetrics
                 ->whereRaw('(on_hand - reserved) <= minimum_stock')->where('minimum_stock', '>', 0)->count(),
             'out_of_stock' => $stockScope->apply(DB::table('branch_inventory'), 'branch_id')->whereRaw('(on_hand - reserved) <= 0')->count(),
             'live_auctions' => $this->access->allows($user, 'auctions.view') ? DB::table('auctions')->where('status', 'live')->count() : null,
-            'open_tickets' => $this->access->allows($user, 'support.view') ? DB::table('support_tickets')->whereIn('status', ['open', 'pending_staff'])->count() : null,
-            'pending_refunds' => $this->access->allows($user, 'refunds.view') ? DB::table('refunds')->whereIn('status', ['requested', 'approved'])->count() : null,
+            // Both figures follow the viewer's branches (a branch-only grant never sees the company-wide count).
+            'open_tickets' => $this->access->allows($user, 'support.view')
+                ? $this->access->scope($user, 'support.view')->narrow($branchId)->apply(DB::table('support_tickets'), 'branch_id')->whereIn('status', ['open', 'pending_staff'])->count() : null,
+            'pending_refunds' => $this->access->allows($user, 'refunds.view')
+                ? DB::table('refunds')->whereIn('status', ['requested', 'approved'])
+                    ->whereIn('order_id', $this->access->scope($user, 'refunds.view')->narrow($branchId)->apply(DB::table('order_fulfillments'), 'branch_id')->select('order_id'))->count() : null,
             'chart' => ['labels' => $labels, 'totals' => $totals, 'orders' => $counts],
             'recent_orders' => DB::table('orders')->whereIn('id', $branchOrders())->orderByDesc('placed_at')->limit(8)
                 ->get(['id', 'number', 'customer_name', 'status', 'payment_status', 'grand_total', 'placed_at']),

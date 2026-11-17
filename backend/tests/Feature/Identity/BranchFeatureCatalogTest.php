@@ -34,6 +34,12 @@ it('never offers an admin-only permission', function () {
     }
 });
 
+it('never offers the shared product catalog: catalog.edit is company-wide, so a branch grant would edit every branch’s products through the API', function () {
+    expect(PermissionRegistry::ADMIN_ONLY_KEYS)->toContain('catalog.create', 'catalog.edit', 'catalog.delete', 'catalog.approve');
+    expect(BranchFeatureCatalog::offeredKeys())->not->toContain('catalog.edit', 'catalog.create', 'catalog.delete', 'catalog.approve');
+    expect(BranchFeatureCatalog::ids())->not->toContain('products_edit');
+});
+
 it('has unique feature ids and groups that cover every feature once', function () {
     $ids = BranchFeatureCatalog::ids();
     expect($ids)->toBe(array_values(array_unique($ids)))->and(count($ids))->toBeGreaterThan(20);
@@ -86,8 +92,8 @@ it('can be handed out in full by a system branch manager (every preset is within
     foreach (BranchFeatureCatalog::presets() as $preset => $features) {
         expect($grantable)->toContain(...$features);
     }
-    // The company-wide catalog edit is not something a branch manager holds, so it stays locked for them.
-    expect($grantable)->not->toContain('products_edit');
+    // Support replies are not part of a system branch manager's role, so they stay locked for them.
+    expect($grantable)->not->toContain('support_reply');
 });
 
 describe('language files', function () {

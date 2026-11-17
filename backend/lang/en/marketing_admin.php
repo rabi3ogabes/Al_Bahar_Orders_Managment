@@ -47,6 +47,8 @@ return [
     'buy_qty' => 'Buy quantity',
     'campaign_cancelled' => 'Campaign cancelled.',
     'campaign_name' => 'Campaign name',
+    'campaign_nothing_sent' => 'Nothing went out: no customer could be reached on this campaign’s channels (they may all be switched off in Notification controls, nobody agreed to them, or the audience is empty). The campaign was not marked as sent.',
+    'note_missed_when_due' => 'It was scheduled for :at but could not go out within a day of that time (for example campaign messages were switched off), so it was not sent. Create it again to send it.',
     'campaign_not_sendable' => 'This campaign has already been sent or cancelled.',
     'campaign_scheduled' => 'Campaign scheduled.',
     'campaign_sent' => '{0} Sent — no customers matched.|{1} Sent to :count customer.|[2,*] Sent to :count customers.',

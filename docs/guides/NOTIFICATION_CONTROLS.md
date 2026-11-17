@@ -55,7 +55,7 @@ nothing left to change loses its row. `App\Domain\Notifications\Services\Notific
 | `set / reset / resetAll` | write (audited, cache flushed) |
 | `matrix()` | everything the page needs |
 
-Rules are cached as one entry (5 minutes, **flushed on every write**), so a switch applies at once on every server.
+Rules are cached as one entry (5 minutes) under a key that carries a **version number, bumped on every write** (and once more after the surrounding transaction commits), so a switch applies at once on every server and a reader that started before the change can only store the old rules under the old key, which nobody reads any more (`NotificationRules::cacheKey()`).
 
 **A rule can only remove a send, or add a channel to an event sent with its default channels.** When the code names its own channels (a campaign's
 channel list, the payment link, a staff cart reminder), the rule can only take some of them away; it never adds one. Consent and the customer's
@@ -93,7 +93,12 @@ The card (Android promoted notification, iPhone Live Activity) follows the order
   Reason: they are transactional but the platform can work without them (staff can copy a link; the order page still shows the state), and the admin owns the decision.
 - **Payment link switched off**: the staff action "Send link" refuses with a clear message instead of reporting a link as sent.
 - **Campaign messages switched off**: a campaign stays as it is (a scheduled one waits, nothing is marked *sent*), **Send** shows an error, and it goes out normally when you switch it back on.
-  A scheduled campaign that came due while it was off goes out then, so check *Marketing → Campaigns* when you switch it on again.
+  **A scheduled campaign is not sent late.** The scheduler (`marketing:send-scheduled`, every minute) sends a scheduled campaign only if it came due less than **24 hours** ago
+  (`CampaignService::SCHEDULE_GRACE_HOURS`). One that came due earlier (campaign messages were off for a day, the scheduler was down) is **not sent**: it ends as *Cancelled* with the note
+  "scheduled for … but could not go out within a day" (`marketing_campaigns.status_note = missed_when_due`, audited as `marketing.campaign_missed`), so a days-old offer never reaches customers when you
+  switch campaigns back on. A campaign that came due less than a day ago still goes out then. Create it again if you still want it.
+- **A campaign is marked *sent* only when something went out.** `recipients_count` counts the customers reached on at least one channel (not everyone in the audience). If the master switch is on but every
+  channel of the campaign is off (or nobody can be reached, or the audience is empty), nothing is sent, the status is **unchanged** and **Send** tells the admin ("Nothing went out ... not marked as sent").
 - A message already **queued** when you switch it off is dropped at the moment of sending (`SendNotificationJob` checks again) and logged as *skipped · switched_off*.
 
 ### Sent only when you send them (not switched here)

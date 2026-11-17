@@ -27,6 +27,7 @@ use App\Domain\Payments\Models\Payment;
 use App\Domain\Payments\Services\PaymentService;
 use App\Support\DocumentNumber;
 use App\Support\DomainException;
+use Illuminate\Database\DeadlockException;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
@@ -113,7 +114,7 @@ class CheckoutService
         for ($attempt = 1; ; $attempt++) {
             try {
                 return $this->placeOnce($user, $draft, $staff, $options, $quoteHash, $idempotencyKey, $notes);
-            } catch (QueryException $e) {
+            } catch (QueryException|DeadlockException $e) { // (inside an outer transaction Laravel reports a deadlock as a DeadlockException)
                 if ($attempt >= self::DEADLOCK_ATTEMPTS || ! in_array((string) $e->getCode(), ['40P01', '40001'], true) && ! str_contains(strtolower($e->getMessage()), 'deadlock detected')) {
                     throw $e;
                 }

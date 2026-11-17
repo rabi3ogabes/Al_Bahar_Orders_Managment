@@ -172,28 +172,42 @@ class RoundIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final onTap = onPressed == null
+        ? null
+        : () {
+            Haptics.tap();
+            onPressed!();
+          };
+    // The disc is [size] (it may be smaller than 48), but the whole 48 x 48 box is the button: a tap on the margin round the disc counts,
+    // so a thumb that lands a little off the picture still lands. (The disc's own ink answers inside it; the outer detector the rest.)
     return Tooltip(
       message: tooltip,
-      child: SizedBox(
-        width: kMinTouchTarget,
-        height: kMinTouchTarget,
-        child: Center(
-          child: Material(
-            color: background ?? context.colors.surface.withValues(alpha: 0.92),
-            shape: const CircleBorder(),
-            elevation: 0,
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: onPressed == null
-                  ? null
-                  : () {
-                      Haptics.tap();
-                      onPressed!();
-                    },
-              child: SizedBox(
-                width: size,
-                height: size,
-                child: Icon(icon, size: 21, color: color ?? context.colors.onSurface, semanticLabel: tooltip),
+      child: Semantics(
+        button: true,
+        enabled: onPressed != null,
+        label: tooltip,
+        onTap: onTap,
+        excludeSemantics: true,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: SizedBox(
+            width: kMinTouchTarget,
+            height: kMinTouchTarget,
+            child: Center(
+              child: Material(
+                color: background ?? context.colors.surface.withValues(alpha: 0.92),
+                shape: const CircleBorder(),
+                elevation: 0,
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: onTap,
+                  child: SizedBox(
+                    width: size,
+                    height: size,
+                    child: Icon(icon, size: 21, color: color ?? context.colors.onSurface),
+                  ),
+                ),
               ),
             ),
           ),

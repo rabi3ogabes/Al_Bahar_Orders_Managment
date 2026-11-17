@@ -28,6 +28,7 @@
                             <p class="text-xs text-ink-500 tabular-nums">
                                 @if ($c->status === 'sent'){{ __('marketing_admin.sent_to', ['count' => number_format($c->recipients_count), 'at' => \App\Support\BusinessTime::display($c->sent_at)]) }}
                                 @elseif ($c->status === 'scheduled'){{ __('marketing_admin.scheduled_for', ['at' => \App\Support\BusinessTime::display($c->scheduled_at)]) }}
+                                @elseif ($c->status === 'cancelled' && $c->status_note){{ __('marketing_admin.note_'.$c->status_note, ['at' => \App\Support\BusinessTime::display($c->scheduled_at)]) }}
                                 @else{{ __('admin.updated') }} {{ \App\Support\BusinessTime::display($c->updated_at) }}@endif
                             </p>
                         </div>

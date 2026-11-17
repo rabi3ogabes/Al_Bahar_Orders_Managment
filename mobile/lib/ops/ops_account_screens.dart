@@ -87,7 +87,18 @@ class _OpsPasswordScreenState extends ConsumerState<OpsPasswordScreen> {
     } catch (e) {
       if (!mounted) return;
       _showError(l10n, e);
+      // Anything but a refusal of what was typed (no network, a timeout, a server error) may mean the change DID reach the server and only
+      // the answer was lost: trying again would then be refused for the old password for ever. Ask once whether the person still has to
+      // choose one; if not, the app opens.
+      if (!(e is ApiException && e.kind == ApiErrorKind.validation)) unawaited(_recheck());
     }
+  }
+
+  /// One look at the server's flag (see [_submit]). A look that fails changes nothing: the screen and its message stay.
+  Future<void> _recheck() async {
+    try {
+      await ref.read(opsSessionProvider.notifier).recheck();
+    } catch (_) {}
   }
 
   void _showError(AppLocalizations l10n, Object error) {

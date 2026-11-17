@@ -10,6 +10,7 @@ import 'package:albahar_customer/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
@@ -121,6 +122,7 @@ Future<ProductPageHost> pumpProductPage(
   bool homeHero = false,
   bool shareFails = false,
   BrandTheme? brand,
+  List<Override> overrides = const [],
 }) async {
   tester.view
     ..physicalSize = size
@@ -138,6 +140,7 @@ Future<ProductPageHost> pumpProductPage(
         if (shareFails) throw StateError('no share sheet');
         shared.add(params);
       }),
+      ...overrides,
     ],
     handler: routes({
       'GET /products/p1': detailReply ?? (_) => ok(detail ?? productJson()),

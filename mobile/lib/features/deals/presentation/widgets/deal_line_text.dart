@@ -96,8 +96,7 @@ class DealCartNote extends StatelessWidget {
   Widget build(BuildContext context) {
     final d = deal;
     if (d == null) return const SizedBox.shrink();
-    final now = DealClockScope.peek(context)?.now();
-    final phase = now == null ? d.phase : d.phaseAt(now);
+    final phase = d.phaseAt(DealClockScope.peek(context)?.trustedNow());
     if (phase != DealPhase.live && phase != DealPhase.soldOut) return const SizedBox.shrink();
     return DealLineNote(
       name: d.name,

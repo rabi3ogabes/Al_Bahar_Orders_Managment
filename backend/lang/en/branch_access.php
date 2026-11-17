@@ -55,8 +55,6 @@ return [
     'products_view_hint' => 'Opens the product list with this branch’s prices.',
     'prices_edit' => 'Change this branch’s prices',
     'prices_edit_hint' => 'Set the selling price and availability for this branch only.',
-    'products_edit' => 'Edit product details',
-    'products_edit_hint' => 'Change names, descriptions and photos. This changes the product for every branch and the website.',
     'customers_view' => 'See customers',
     'customers_view_hint' => 'Opens the customers who ordered from this branch.',
     'support_view' => 'See support requests',

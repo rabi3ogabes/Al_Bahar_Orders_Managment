@@ -136,7 +136,7 @@ class Deal {
   }
 
   /// The phase at [serverNow]: see [dealPhaseAt].
-  DealPhase phaseAt(DateTime serverNow) => dealPhaseAt(phase, startsAt, endsAt, serverNow);
+  DealPhase phaseAt(DateTime? serverNow) => dealPhaseAt(phase, startsAt, endsAt, serverNow);
 
   /// The moment this deal changes state next: when it ends (live) or starts (scheduled). Null when it has no time.
   DateTime? get dueAt => switch (phase) {

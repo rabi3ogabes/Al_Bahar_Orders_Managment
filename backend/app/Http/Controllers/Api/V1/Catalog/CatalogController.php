@@ -70,7 +70,7 @@ class CatalogController extends ApiController
             'data' => $this->presenter->cards($page->getCollection(), $branch, $request->user('sanctum')),
             'links' => ['first' => $page->url(1), 'last' => $page->url($page->lastPage()), 'prev' => $page->previousPageUrl(), 'next' => $page->nextPageUrl()],
             'meta' => ['current_page' => $page->currentPage(), 'per_page' => $page->perPage(), 'total' => $page->total(), 'last_page' => $page->lastPage()],
-        ]);
+        ])->header('Cache-Control', 'private, no-cache')->header('Vary', 'Authorization, Accept-Language'); // cards carry the signed-in customer's own deal allowance
     }
 
     public function search(Request $request): JsonResponse
@@ -97,7 +97,8 @@ class CatalogController extends ApiController
             ->firstOrFail();
         $branch = $this->branch($request->input('branch_id'));
 
-        return response()->json(['data' => $this->presenter->detail($product, $branch, $request->user('sanctum'))]);
+        return response()->json(['data' => $this->presenter->detail($product, $branch, $request->user('sanctum'))])
+            ->header('Cache-Control', 'private, no-cache')->header('Vary', 'Authorization, Accept-Language'); // the deal block holds the customer's own allowance: never shared between people
     }
 
     /**

@@ -41,8 +41,7 @@ class _StripBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final now = DealClockScope.nowOf(context);
-    final phase = deal.phaseAt(now);
+    final phase = deal.phaseAt(DealClockScope.trustedNowOf(context));
     switch (phase) {
       case DealPhase.ended || DealPhase.paused || DealPhase.unknown:
         return const SizedBox.shrink();

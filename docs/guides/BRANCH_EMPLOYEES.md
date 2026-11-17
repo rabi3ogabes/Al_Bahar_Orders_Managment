@@ -65,7 +65,6 @@ per row with **Undo**. Search, branch filter (only your branches), role filter (
 |  | **Approve stock changes** | Approve the adjustments, counts and transfers that others made. | `inventory.approve`, `stocktaking.approve`, `transfers.approve` | See stock |
 | Prices and products | **See products and prices** | Opens the product list with this branch’s prices. | `catalog.view`, `pricing.view` | — |
 |  | **Change this branch’s prices** | Set the selling price and availability for this branch only. | `pricing.edit` | See products and prices |
-|  | **Edit product details** | Change names, descriptions and photos. This changes the product for every branch and the website. | `catalog.edit` | See products and prices |
 | Customers | **See customers** | Opens the customers who ordered from this branch. | `customers.view` | — |
 | Support | **See support requests** | Opens the support inbox of this branch. | `support.view` | — |
 |  | **Reply to support requests** | Answer customers and add internal notes. | `support.create`, `support.edit` | See support requests |
@@ -76,7 +75,7 @@ per row with **Undo**. Search, branch filter (only your branches), role filter (
 |  | **Hand in and deposit cash** | Hand collected cash to the office and record bank deposits. | `payments.edit` | See cash drawer and payments |
 | Staff of this branch | **See staff of this branch** | Opens the list of people who work at this branch (no changes). | `employees.view` | — |
 
-*"Edit product details" is the only company-wide feature in the list (it changes the product for every branch and the website); a branch manager does not hold it, so it is locked for them.*
+*Product details (names, descriptions, photos) are shared by every branch and the website, so editing them is **not** a branch feature: `catalog.edit` (like create, delete and approve) stays with administrators. Branch prices are a feature ("Change this branch’s prices").*
 
 ### Presets
 
@@ -100,7 +99,6 @@ per row with **Undo**. Search, branch filter (only your branches), role filter (
 | Approve stock changes | ✓ |  |  |  |  |  |
 | See products and prices | ✓ | ✓ |  | ✓ |  | ✓ |
 | Change this branch’s prices | ✓ |  |  |  |  |  |
-| Edit product details |  |  |  |  |  |  |
 | See customers | ✓ | ✓ | ✓ |  | ✓ | ✓ |
 | See support requests | ✓ | ✓ |  |  |  | ✓ |
 | Reply to support requests |  |  |  |  |  |  |
@@ -121,15 +119,27 @@ per row with **Undo**. Search, branch filter (only your branches), role filter (
 * **Branch scope.** The person needs `employees.assign` at the branch; a manager only sees and changes staff of their own branches, and can switch a person on/off only
   if every branch that person works at is theirs. Nobody changes their own access. An admin, a super admin or anyone with a company-wide role is never touched through the checklist.
 * **Never offered:** `roles.*`, `settings.*`, `notifications.*`, `cms.*`, `marketing.*`, `audit.*`, `branches.*`, `zones.*`, `auctions.*`, `loyalty.*`, `reviews.*`, and
-  `employees.create/edit/delete/assign`, catalog create/delete/approve. Staff of the branch can be *viewed* only.
+  `employees.create/edit/delete/assign`, and `catalog.create/edit/delete/approve` (the shared catalog: the staff API checks them without a branch, so a branch grant would edit every branch's products). Staff of the branch can be *viewed* only.
 * **Pages and APIs.** Every dashboard page and staff API route is guarded by the permission *and* the branch scope in the page or controller: a feature that is not ticked answers
   **403**, another branch's data is empty or **403/404**. The menu shows only what is permitted (and direct URLs are closed anyway).
-* **Disabling** (the row switch, or Suspend/Deactivate) revokes every API token and refresh token at once, deletes the browser sessions (database session driver) and cycles the
-  "remember me" token; a disabled account is also refused on every request. Taking away someone's last active branch does the same.
+* **Sessions are cut at once, whatever the session driver.** Every dashboard session carries the account's `users.session_stamp` (written at sign-in, checked on every request, also
+  Livewire calls). Rotating it ends every browser session of the person, with Redis, file or database sessions alike, and an old cookie **stays dead even if the account is switched
+  on again**. It is rotated (together with the "remember me" token, every API token and every refresh token) when: the **password is changed** (dashboard form or `PUT /admin/me/password`: only the
+  device making the change stays signed in), an administrator **resets the password**, an account is **suspended or deactivated** (the row switch too), a password is reset by code,
+  or the person's **last active branch** is removed or switched off.
 * **First sign-in.** `users.must_change_password` is set when the account is created and when the password is reset; the dashboard sends the person to **My profile** and the staff API
-  answers `403 password_change_required` until `PUT /api/v1/admin/me/password` (or the profile form) succeeds.
+  answers `403 password_change_required` until `PUT /api/v1/admin/me/password` (or the profile form) succeeds. The new password must differ from the current one. The live-channel
+  authorisation endpoints (`/broadcasting/auth`, `/api/v1/broadcasting/auth`) apply the same staff policy, so the person subscribes to nothing before choosing their own password.
+* **Those first-step gates (password, two-factor enrolment) cannot be spoofed.** A Livewire call is let through only when every component in it is the profile component (read from the
+  server-signed snapshots) and it comes from the profile page; request headers (`X-Livewire`, `Referer`) play no part. While a first step is pending the profile page shows no cart components.
+* **Assignment edits keep the checklist.** Saving the assignment form (or `POST /api/v1/admin/branches/{branch}/employees`) for someone whose access is a checklist updates only the job
+  title and the driver flag; giving ready-made roles to that person from there is refused (`422 personal_role_replace`): use *Features & branches*. The branch's staff list in the API shows
+  `custom_access: true` instead of the personal role's key.
+* **Scoped data.** The features hand out branch-scoped data only: customers, reports, support and refund figures are limited to the person's branches (the dashboard's open-ticket and
+  pending-refund counts and the customers report's sign-up count included: that count is company-wide and only shown to people who see every branch).
 * **Two-factor** stays as the team setting says (Settings › Security); an employee with it on is asked for the code as before.
-* **Rate limit:** at most 20 accounts per person per hour; sign-in is limited as before. **Audit:** `employee.created` (branch, sign-in method; no password), `employee.access_changed`
+* **Rate limits:** at most 20 accounts per person per hour; dashboard sign-in is limited per person (one bucket however the mobile number is typed) and per address of the caller, and always checks a password so
+  an unknown identifier answers as slowly as a known one; wrong *current password* attempts on the profile (change password, turn two-factor off) share one budget of five per five minutes. **Audit:** `employee.created` (branch, sign-in method; no password), `employee.access_changed`
   (old and new permission keys and features, replaced roles), `employee.status_changed`, `employee.password_reset`. No secret is ever written to a log.
 
 ## Design decision: a personal role, not per-user grants
@@ -152,13 +162,14 @@ and two on tablets and larger. The staff app (Flutter, `mobile/lib/ops`) follows
 |---|---|
 | `POST /api/v1/admin/auth/login` | now also accepts a mobile number in `email` or in `phone`; the answer includes `must_change_password` |
 | `GET /api/v1/admin/me` | now includes `must_change_password` |
-| `PUT /api/v1/admin/me/password` | `current_password`, `password`, `password_confirmation` (12+ characters, upper and lower case, a number, different from the current one); signs out the other devices |
+| `PUT /api/v1/admin/me/password` | `current_password`, `password`, `password_confirmation` (12+ characters, upper and lower case, a number, different from the current one); signs out every other app session, refresh token and browser session of the account (this device stays) |
 | any other `/api/v1/admin/*` call while the flag is set | `403`, code `password_change_required` |
+| `GET /api/v1/admin/branches/{branch}/employees` | rows no longer carry a personal role's key in `roles`; `custom_access` says it exists |
 
 ## Known limits
 
 * There is no e-mailed **invite link** (the platform has no staff mail channel yet): the temporary password is shared by the person who adds the employee.
-* Browser sessions can be deleted per user only with the `database` session driver; with Redis/file sessions a disabled account is refused at once on every request (the check is per request), and the "remember me" cookie is invalidated.
+* Browser sessions are ended by the per-account stamp on every request, so they stop at once with any session driver; the session *rows* are deleted as a courtesy only with the `database` driver (Redis/file sessions simply expire).
 * The staff apps (branch and driver) have the same first-sign-in step: they read `must_change_password` from the sign-in answer, and treat `403 password_change_required` from any call as "show **Choose your own password**" (the server keeps the same tokens signed in after `PUT /api/v1/admin/me/password`, so the app just carries on). A staff account with no `orders.view` is told so in the branch app (use the dashboard).
 
 ## For developers: adding a feature
@@ -201,5 +212,5 @@ manager's authority, or a text is missing or not Arabic.
 * الميزات تُحفظ كـ **دور شخصي** لموظف واحد في فرع واحد؛ نظام الصلاحيات نفسه لم يتغير. الحساب `staff` وليس مشرفًا عامًا ولا يحمل أي دور على مستوى الشركة.
 * **لا أحد يمنح ما لا يملكه:** كل صلاحية تتغير (تفعيلًا أو إلغاءً) يجب أن يملكها من يحفظ في ذلك الفرع؛ والميزات التي لا يملكها تظهر مقفلة، ويتحقق الخادم من ذلك دائمًا.
 * **نطاق الفرع:** يلزم `employees.assign` في الفرع؛ المدير يرى ويعدّل موظفي فروعه فقط، ولا يعدّل أحد صلاحياته بنفسه، ولا تُعدَّل بهذه القائمة حسابات المسؤولين أو من لديهم دور على مستوى الشركة.
-* **لا تُعرض إطلاقًا:** الأدوار، الإعدادات، الإشعارات، المحتوى، التسويق، التدقيق، الفروع، المناطق، المزادات، الولاء، التقييمات، وإنشاء الموظفين وتعديلهم.
-* **التعطيل** يلغي كل الرموز والجلسات فورًا، ويُرفض الحساب المعطّل في كل طلب. **أول دخول:** يجب اختيار كلمة مرور خاصة قبل أي شيء آخر. **المصادقة الثنائية** كما في إعدادات الفريق. يُسجَّل `employee.created` و`employee.access_changed` في سجل التدقيق دون أي سر.
+* **لا تُعرض إطلاقًا:** الأدوار، الإعدادات، الإشعارات، المحتوى، التسويق، التدقيق، الفروع، المناطق، المزادات، الولاء، التقييمات، وإنشاء الموظفين وتعديلهم، وتعديل بيانات المنتجات (الكتالوج مشترك بين كل الفروع والموقع، فيبقى للمسؤولين؛ أما أسعار الفرع فميزة متاحة).
+* **التعطيل أو تغيير كلمة المرور أو إعادة تعيينها** يلغي كل الرموز وكل جلسات المتصفح فورًا مهما كان نوع تخزين الجلسات (بصمة جلسة لكل حساب تُفحص مع كل طلب)، وتبقى الجلسة القديمة ميتة حتى لو أُعيد تفعيل الحساب؛ والجهاز الذي غيّر كلمة المرور يبقى مفتوحًا. ويُرفض الحساب المعطّل في كل طلب. **تعديل التعيين** لا يمسح قائمة الميزات: يحدّث المسمى الوظيفي وخيار السائق فقط. **أول دخول:** يجب اختيار كلمة مرور خاصة قبل أي شيء آخر. **المصادقة الثنائية** كما في إعدادات الفريق. يُسجَّل `employee.created` و`employee.access_changed` في سجل التدقيق دون أي سر.

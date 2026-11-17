@@ -93,14 +93,21 @@ it('creates an employee and assigns branch roles through EmployeeService', funct
     $salma = User::where('email', 'salma@albahar.qa')->firstOrFail();
     expect($salma->isStaff())->toBeTrue();
 
+    // Her access is a feature checklist: ready-made roles cannot replace it from the assignment form (that is "Feature access").
     Livewire::test(EmployeeEditor::class, ['employee' => $salma])
+        ->set('assign.branch_id', $this->wb->id)->set('assign.roles', ['sales_employee'])->call('saveAssignment')->assertDispatched('toast', type: 'error');
+    expect(Role::where('personal_user_id', $salma->id)->exists())->toBeTrue()->and(UserRole::where('user_id', $salma->id)->where('branch_id', $this->wb->id)->count())->toBe(1);
+
+    // A staff member without a checklist gets branch roles through the same form.
+    $plain = User::factory()->staff()->create();
+    Livewire::test(EmployeeEditor::class, ['employee' => $plain])
         ->set('assign.branch_id', $this->wb->id)->set('assign.roles', ['sales_employee'])->call('saveAssignment')->assertHasNoErrors();
-    expect(UserRole::where('user_id', $salma->id)->where('branch_id', $this->wb->id)->count())->toBe(1);
+    expect(UserRole::where('user_id', $plain->id)->where('branch_id', $this->wb->id)->count())->toBe(1);
 
     // Cannot assign at a branch the manager does not manage — enforced by the service, surfaced as a toast.
-    Livewire::test(EmployeeEditor::class, ['employee' => $salma])
+    Livewire::test(EmployeeEditor::class, ['employee' => $plain])
         ->set('assign.branch_id', $this->prl->id)->set('assign.roles', ['sales_employee'])->call('saveAssignment')->assertDispatched('toast');
-    expect(UserRole::where('user_id', $salma->id)->where('branch_id', $this->prl->id)->exists())->toBeFalse();
+    expect(UserRole::where('user_id', $plain->id)->where('branch_id', $this->prl->id)->exists())->toBeFalse();
 });
 
 it('never lets an employee change their own roles or status', function () {

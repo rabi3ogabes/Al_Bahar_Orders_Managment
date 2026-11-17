@@ -8,6 +8,7 @@ use App\Domain\Notifications\Models\NotificationLog;
 use App\Domain\Notifications\Models\NotificationRule;
 use App\Support\DomainException;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 /**
@@ -56,6 +57,9 @@ class NotificationRules
     ];
 
     private const CACHE_KEY = 'notification_rules:v1';
+
+    /** Bumped on every change: the rules are cached under a key that carries it, so a late reader can never put old rules where a new reader looks. */
+    private const VERSION_KEY = 'notification_rules:version';
 
     private const COUNTS_KEY = 'notification_rules:sent:';
 
@@ -330,10 +334,18 @@ class NotificationRules
         return $out;
     }
 
+    /** The cache key the rules are stored under right now (it changes whenever a rule is saved). */
+    public function cacheKey(): string
+    {
+        return self::CACHE_KEY.':'.(int) Cache::get(self::VERSION_KEY, 0);
+    }
+
     /** @return array<string, array{enabled: bool, channels: array<string, bool>}> every saved rule, by event */
     private function rows(): array
     {
-        return Cache::remember(self::CACHE_KEY, self::TTL, function () {
+        // The key (with its version) is read BEFORE the database: a reader that started before a change stores what it read under the OLD key,
+        // which nobody reads any more, instead of re-storing stale rules for the whole TTL where the new readers look.
+        return Cache::remember($this->cacheKey(), self::TTL, function () {
             $out = [];
             foreach (NotificationRule::query()->get(['event', 'is_enabled', 'channels']) as $rule) {
                 $out[$rule->event] = ['enabled' => (bool) $rule->is_enabled, 'channels' => $this->clean((array) $rule->channels)];
@@ -343,9 +355,16 @@ class NotificationRules
         });
     }
 
+    /** Called after every write: moves everybody to a new key now, and again once the surrounding transaction (if any) has committed. */
     private function flush(): void
     {
-        Cache::forget(self::CACHE_KEY);
+        $this->bump();
+        DB::afterCommit(fn () => $this->bump());
+    }
+
+    private function bump(): void
+    {
+        Cache::increment(self::VERSION_KEY);
     }
 
     private function guardKnown(string $event): void

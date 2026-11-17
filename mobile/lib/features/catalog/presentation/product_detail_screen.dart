@@ -23,6 +23,7 @@ import 'package:albahar_customer/features/catalog/presentation/widgets/product_o
 import 'package:albahar_customer/features/catalog/presentation/widgets/product_page_sections.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/review_widgets.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/upsell_widgets.dart';
+import 'package:albahar_customer/features/deals/presentation/widgets/deal_clock.dart';
 import 'package:albahar_customer/features/deals/presentation/widgets/deal_price_tag.dart';
 import 'package:albahar_customer/features/deals/presentation/widgets/deal_product_strip.dart';
 import 'package:flutter/material.dart';
@@ -96,7 +97,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final price = variant?.price ?? product.summary.price;
     // The deal this product is in, as it reads for the chosen variant (null: none, or this variant is not in it).
     final deal = dealForVariant(product.summary.deal, product.variants, variant);
-    final dealOn = dealShowsPrice(context, deal);
     final branch = ref.watch(preferredBranchProvider);
     final colourAttr = product.colourAttribute;
     final multi = colourAttr != null;
@@ -107,157 +107,175 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final sku = variant?.sku ?? product.summary.sku;
     final hasRating = product.summary.rating.count > 0;
 
-    return Scaffold(
-      body: CustomScrollView(
-        physics: kProductPagePhysics,
-        slivers: [
-          ProductSliverHeader(
-            title: product.name,
-            background: ProductGallery(
-              images: product.imagesFor(variant),
-              heroTag: product.summary.heroTag(widget.heroScope),
-              bottomInset: ProductSliverHeader.sheetOverlap,
-            ),
-            actions: [
-              Builder(
-                builder: (anchor) => ProductHeaderButton(
-                  icon: Icons.ios_share_rounded,
-                  tooltip: l10n.share,
-                  onPressed: () => unawaited(_share(product, anchor)),
+    // ONE clock for the whole page (the price, the deal strip and the end-of-deal refetch all read it), ticking only while a deal is on it.
+    return DealClockHost(
+      active: product.summary.deal != null,
+      child: Scaffold(
+        body: CustomScrollView(
+          physics: kProductPagePhysics,
+          slivers: [
+            ProductSliverHeader(
+              title: product.name,
+              background: ProductGallery(
+                images: product.imagesFor(variant),
+                heroTag: product.summary.heroTag(widget.heroScope),
+                bottomInset: ProductSliverHeader.sheetOverlap,
+              ),
+              actions: [
+                Builder(
+                  builder: (anchor) => ProductHeaderButton(
+                    icon: Icons.ios_share_rounded,
+                    tooltip: l10n.share,
+                    onPressed: () => unawaited(_share(product, anchor)),
+                  ),
                 ),
-              ),
-              HeaderChrome(
-                builder: (context, disc) =>
-                    WishlistHeart(product: product.summary, variantId: variant?.id, size: 40, background: disc),
-              ),
-            ],
-          ),
-          SliverToBoxAdapter(
-            child: _Sheet(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (product.summary.brand != null)
-                    Text(
-                      product.summary.brand!.name,
-                      style: context.text.labelMedium?.copyWith(color: context.palette.brassDeep, letterSpacing: 0.4),
+                HeaderChrome(
+                  builder: (context, disc) =>
+                      WishlistHeart(product: product.summary, variantId: variant?.id, size: 40, background: disc),
+                ),
+              ],
+            ),
+            SliverToBoxAdapter(
+              child: _Sheet(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Draws nothing; when the deal ends (or starts) the product is read again, so the price and the strip follow the server.
+                    DealDueWatcher(
+                      dueAt: product.summary.deal?.dueAt,
+                      onDue: () => ref.invalidate(productDetailProvider(widget.productId)),
                     ),
-                  const Gap(AppSpace.xxs),
-                  Semantics(header: true, child: Text(product.name, style: context.text.headlineLarge)),
-                  if (hasRating || sku != null) ...[
-                    const Gap(AppSpace.xs),
-                    Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: AppSpace.sm,
-                      runSpacing: AppSpace.xxs,
-                      children: [
-                        if (hasRating)
-                          RatingStars(average: product.summary.rating.average, count: product.summary.rating.count),
-                        if (sku != null) Text(l10n.skuLabel(sku), style: context.text.bodySmall),
-                      ],
-                    ),
-                  ],
-                  const Gap(AppSpace.md),
-                  // Choosing another colour or size changes the price (and the sale line): it eases in, nothing jumps.
-                  AnimatedSize(
-                    duration: AppDurations.fast,
-                    alignment: AlignmentDirectional.topStart,
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    if (product.summary.brand != null)
+                      Text(
+                        product.summary.brand!.name,
+                        style: context.text.labelMedium?.copyWith(color: context.palette.brassDeep, letterSpacing: 0.4),
+                      ),
+                    const Gap(AppSpace.xxs),
+                    Semantics(header: true, child: Text(product.name, style: context.text.headlineLarge)),
+                    if (hasRating || sku != null) ...[
+                      const Gap(AppSpace.xs),
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: AppSpace.sm,
+                        runSpacing: AppSpace.xxs,
                         children: [
-                          if (price != null) ...[
-                            if (dealOn)
-                              DealPriceTag(deal: deal!, price: price, size: PriceTagSize.large)
-                            else
-                              PriceTag(price: price, size: PriceTagSize.large),
-                            if (!dealOn && price.isOnSale && price.saleEndsAt != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text(
-                                  l10n.saleEnds(QatarTime.date(price.saleEndsAt, context.localeCode)),
-                                  style: context.text.bodySmall?.copyWith(color: context.palette.danger),
-                                ),
-                              ),
-                          ] else
-                            Text(l10n.selectBranchToBuy, style: context.text.bodyMedium),
+                          if (hasRating)
+                            RatingStars(average: product.summary.rating.average, count: product.summary.rating.count),
+                          if (sku != null) Text(l10n.skuLabel(sku), style: context.text.bodySmall),
                         ],
                       ),
-                    ),
-                  ),
-                  // The deal: its countdown, the stock bar and what one order and this customer can buy at the deal price.
-                  if (deal != null) ...[const Gap(AppSpace.md), DealProductStrip(deal: deal)],
-                  if (product.shortDescription != null) ...[
+                    ],
                     const Gap(AppSpace.md),
-                    Text(
-                      product.shortDescription!,
-                      style: context.text.bodyLarge?.copyWith(color: context.palette.muted),
+                    // Choosing another colour or size changes the price (and the sale line): it eases in, nothing jumps.
+                    AnimatedSize(
+                      duration: AppDurations.fast,
+                      alignment: AlignmentDirectional.topStart,
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (price != null)
+                              DealOnBuilder(
+                                deal: deal,
+                                builder: (context, dealOn) => Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (dealOn)
+                                      DealPriceTag(deal: deal!, price: price, size: PriceTagSize.large)
+                                    else
+                                      PriceTag(price: price, size: PriceTagSize.large),
+                                    if (!dealOn && price.isOnSale && price.saleEndsAt != null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: Text(
+                                          l10n.saleEnds(QatarTime.date(price.saleEndsAt, context.localeCode)),
+                                          style: context.text.bodySmall?.copyWith(color: context.palette.danger),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              )
+                            else
+                              Text(l10n.selectBranchToBuy, style: context.text.bodyMedium),
+                          ],
+                        ),
+                      ),
                     ),
-                  ],
-                  if (multi) ...[
+                    // The deal: its countdown, the stock bar and what one order and this customer can buy at the deal price.
+                    if (deal != null) ...[const Gap(AppSpace.md), DealProductStrip(deal: deal)],
+                    if (product.shortDescription != null) ...[
+                      const Gap(AppSpace.md),
+                      Text(
+                        product.shortDescription!,
+                        style: context.text.bodyLarge?.copyWith(color: context.palette.muted),
+                      ),
+                    ],
+                    if (multi) ...[
+                      const Gap(AppSpace.lg),
+                      ColourQuantities(
+                        title: colourAttr.name.isEmpty ? l10n.coloursTitle : colourAttr.name,
+                        rows: rows,
+                        quantities: _colourQty,
+                        onChanged: (id, q) => setState(() => q <= 0 ? _colourQty.remove(id) : _colourQty[id] = q),
+                      ),
+                    ],
+                    for (final attr in product.attributes.where((a) => a != colourAttr)) ...[
+                      const Gap(AppSpace.lg),
+                      ProductAttributeSelector(
+                        attribute: attr,
+                        selectedId: selection[attr.code],
+                        isSelectable: (valueId) => product.isValueSelectable(selection, attr.code, valueId),
+                        onSelected: (valueId) {
+                          Haptics.tap();
+                          setState(() {
+                            final next = {...selection, attr.code: valueId};
+                            // If the combination does not exist, keep only this choice
+                            // and let the resolver pick the closest variant.
+                            final resolved =
+                                product.resolveVariant(next) ?? product.resolveVariant({attr.code: valueId});
+                            _selection = resolved == null ? next : product.selectionFor(resolved);
+                          });
+                        },
+                      ),
+                    ],
                     const Gap(AppSpace.lg),
-                    ColourQuantities(
-                      title: colourAttr.name.isEmpty ? l10n.coloursTitle : colourAttr.name,
-                      rows: rows,
-                      quantities: _colourQty,
-                      onChanged: (id, q) => setState(() => q <= 0 ? _colourQty.remove(id) : _colourQty[id] = q),
-                    ),
-                  ],
-                  for (final attr in product.attributes.where((a) => a != colourAttr)) ...[
+                    ProductAvailabilityCard(product: product, variant: variant, branchName: branch?.name),
                     const Gap(AppSpace.lg),
-                    ProductAttributeSelector(
-                      attribute: attr,
-                      selectedId: selection[attr.code],
-                      isSelectable: (valueId) => product.isValueSelectable(selection, attr.code, valueId),
-                      onSelected: (valueId) {
-                        Haptics.tap();
-                        setState(() {
-                          final next = {...selection, attr.code: valueId};
-                          // If the combination does not exist, keep only this choice
-                          // and let the resolver pick the closest variant.
-                          final resolved = product.resolveVariant(next) ?? product.resolveVariant({attr.code: valueId});
-                          _selection = resolved == null ? next : product.selectionFor(resolved);
-                        });
-                      },
-                    ),
+                    ProductDetailsSection(product: product),
+                    const Gap(AppSpace.lg),
+                    ReviewsPreview(productId: product.id, productName: product.name, rating: product.summary.rating),
                   ],
-                  const Gap(AppSpace.lg),
-                  ProductAvailabilityCard(product: product, variant: variant, branchName: branch?.name),
-                  const Gap(AppSpace.lg),
-                  ProductDetailsSection(product: product),
-                  const Gap(AppSpace.lg),
-                  ReviewsPreview(productId: product.id, productName: product.name, rating: product.summary.rating),
-                ],
+                ),
               ),
             ),
-          ),
-          if (product.upsell.isNotEmpty)
-            SliverToBoxAdapter(
-              child: UpsellSection(
-                title: l10n.completeYourSet,
-                products: product.upsell,
-                scope: 'upsell-${product.id}',
+            if (product.upsell.isNotEmpty)
+              SliverToBoxAdapter(
+                child: UpsellSection(
+                  title: l10n.completeYourSet,
+                  products: product.upsell,
+                  scope: 'upsell-${product.id}',
+                ),
               ),
-            ),
-          if (product.related.isNotEmpty) ...[
-            SliverToBoxAdapter(child: SectionHeader(title: l10n.relatedProducts)),
-            SliverToBoxAdapter(
-              child: ProductCarousel(products: product.related, scope: 'related-${product.id}'),
-            ),
+            if (product.related.isNotEmpty) ...[
+              SliverToBoxAdapter(child: SectionHeader(title: l10n.relatedProducts)),
+              SliverToBoxAdapter(
+                child: ProductCarousel(products: product.related, scope: 'related-${product.id}'),
+              ),
+            ],
+            const SliverToBoxAdapter(child: Gap(AppSpace.xl)),
           ],
-          const SliverToBoxAdapter(child: Gap(AppSpace.xl)),
-        ],
-      ),
-      bottomNavigationBar: ProductBuyBar(
-        multiCount: multi ? pickedCount : null,
-        onAddMany: multi ? () => _addColours(product, rows) : null,
-        purchasable: multi ? colourBuyable : purchasable,
-        quantity: _quantity,
-        maxQuantity: _maxQuantity,
-        onQuantity: (q) => setState(() => _quantity = q),
-        onAdd: variant == null ? null : () => _addToCart(product, variant),
-        onNotify: variant == null ? null : () => _notify(variant),
+        ),
+        bottomNavigationBar: ProductBuyBar(
+          multiCount: multi ? pickedCount : null,
+          onAddMany: multi ? () => _addColours(product, rows) : null,
+          purchasable: multi ? colourBuyable : purchasable,
+          quantity: _quantity,
+          maxQuantity: _maxQuantity,
+          onQuantity: (q) => setState(() => _quantity = q),
+          onAdd: variant == null ? null : () => _addToCart(product, variant),
+          onNotify: variant == null ? null : () => _notify(variant),
+        ),
       ),
     );
   }

@@ -104,7 +104,7 @@ class _HideWhenOver extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final over = deal.phaseAt(DealClockScope.nowOf(context)) == DealPhase.ended;
+    final over = deal.phaseAt(DealClockScope.trustedNowOf(context)) == DealPhase.ended;
     return over ? const SizedBox.shrink() : child;
   }
 }

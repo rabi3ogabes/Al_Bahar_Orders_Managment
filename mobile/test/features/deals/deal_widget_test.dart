@@ -5,6 +5,7 @@ import 'package:albahar_customer/features/deals/presentation/widgets/deal_card_d
 import 'package:albahar_customer/features/deals/presentation/widgets/deal_clock.dart';
 import 'package:albahar_customer/features/deals/presentation/widgets/deal_widget.dart';
 import 'package:albahar_customer/l10n/generated/app_localizations.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -54,10 +55,12 @@ Widget _app(
   bool dark = false,
   bool reduceMotion = false,
   double textScale = 1,
+  bool calibrated = true,
 }) => ProviderScope(
   // A new key each time: a test that pumps twice gets a new clock (and the new "phone"), as a new screen would.
   key: UniqueKey(),
-  overrides: [dealDeviceNowProvider.overrideWithValue(() => phone.now)],
+  // The server's time is known (skew zero): the clock decides phases. `calibrated: false` is a cold start with no `server_time` yet.
+  overrides: [dealDeviceNowProvider.overrideWithValue(() => phone.now), if (calibrated) calibratedClock],
   child: MaterialApp(
     locale: locale,
     supportedLocales: const [Locale('en'), Locale('ar')],
@@ -579,6 +582,37 @@ void main() {
         },
       );
     }
+
+    testWidgets('the background picture is decoded at the screen width, on its own layer', (tester) async {
+      tester.view.physicalSize = const Size(1170, 2700); // 390 x 900 dp at 3x
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        _app(
+          DealWidget(
+            data: _data(design: designJson(imageUrl: 'https://img.test/deal-4000px.jpg')),
+          ),
+          phone: _Phone(),
+        ),
+      );
+      await tester.pump();
+      final image = tester.widget<CachedNetworkImage>(find.byType(CachedNetworkImage));
+      expect(image.memCacheWidth, 1170, reason: '390 dp x 3, not the 4000 px of the upload');
+      expect(find.ancestor(of: find.byType(CachedNetworkImage), matching: find.byType(RepaintBoundary)), findsWidgets);
+      // A very wide screen is capped.
+      tester.view.physicalSize = const Size(4800, 1800); // 2400 x 900 dp at 2x
+      tester.view.devicePixelRatio = 2;
+      await tester.pumpWidget(
+        _app(
+          DealWidget(
+            data: _data(design: designJson(imageUrl: 'https://img.test/deal-4000px.jpg')),
+          ),
+          phone: _Phone(),
+        ),
+      );
+      await tester.pump();
+      expect(tester.widget<CachedNetworkImage>(find.byType(CachedNetworkImage)).memCacheWidth, 1200);
+    });
 
     testWidgets('colours come only from the design', (tester) async {
       Future<void> pumpColours(Object? colors) async {

@@ -3,6 +3,7 @@ import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:albahar_customer/core/theme/contrast.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
+import 'package:albahar_customer/features/catalog/presentation/widgets/product_gallery.dart' show galleryCacheWidth;
 import 'package:albahar_customer/features/deals/domain/deal_countdown.dart';
 import 'package:albahar_customer/features/deals/domain/deal_info.dart';
 import 'package:albahar_customer/features/deals/presentation/widgets/deal_card_data.dart';
@@ -78,7 +79,13 @@ class DealWidget extends StatelessWidget {
         child: Stack(
           children: [
             if (d.imageUrl != null) ...[
-              Positioned.fill(child: AppNetworkImage(url: d.imageUrl)),
+              // Decoded at the screen's width, not at the size of the upload, and painted on its own layer: the countdown above it
+              // repaints every second and must not drag the picture along.
+              Positioned.fill(
+                child: RepaintBoundary(
+                  child: AppNetworkImage(url: d.imageUrl, memCacheWidth: galleryCacheWidth(context, max: 1200)),
+                ),
+              ),
               // The picture sits behind the words: the widget's own background, strong enough to read on any photo.
               Positioned.fill(
                 child: DecoratedBox(
@@ -147,8 +154,10 @@ class _DealView {
     final l10n = context.l10n;
     final lang = context.localeCode;
     final d = data.design;
+    // The countdown counts against the best time at hand; the phase (live, over...) changes by it only once the server's own time is
+    // known, so a phone with a wrong clock never turns a live deal into an ended one.
     final now = DealClockScope.nowOf(context);
-    final phase = data.phaseAt(now);
+    final phase = data.phaseAt(DealClockScope.trustedNowOf(context));
     final counting = phase == DealPhase.live || phase == DealPhase.scheduled;
     final left = counting ? dealSecondsLeft(phase == DealPhase.scheduled ? data.startsAt : data.endsAt, now) : null;
     final raw = d.colors ?? DealPalette.fromTheme(context);

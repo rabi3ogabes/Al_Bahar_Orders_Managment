@@ -183,8 +183,14 @@ class _FakeSession extends OpsSession {
   Completer<void>? gate;
   int signOuts = 0;
 
+  /// How many times the screen asked the server whether the password still has to be chosen.
+  int rechecks = 0;
+
   @override
   OpsAuth build() => auth;
+
+  @override
+  Future<void> recheck() async => rechecks++;
 
   @override
   Future<void> changePassword({required String current, required String password, required String confirmation}) async {
@@ -936,6 +942,42 @@ void main() {
         expect(find.text('You appear to be offline. Check your connection and try again.'), findsNothing);
       });
 
+      for (final failure in [
+        apiError(ApiErrorKind.offline, 0),
+        apiError(ApiErrorKind.timeout, 0),
+        apiError(ApiErrorKind.server, 502),
+        apiError(ApiErrorKind.rateLimited, 429, retryAfter: const Duration(seconds: 5)),
+      ]) {
+        testWidgets(
+          '${failure.kind}: the server is asked once whether the change went through (the answer may be lost)',
+          (tester) async {
+            final session = await _pumpScreen(tester, const OpsPasswordScreen());
+            session.failWith = failure;
+            await _fill(tester);
+            await _save(tester);
+            expect(session.rechecks, 1);
+            await _save(tester);
+            expect(session.rechecks, 2, reason: 'once per failed try, never in a loop');
+          },
+        );
+      }
+
+      testWidgets('a refusal of what was typed (a wrong or weak password) never asks: the server answered', (
+        tester,
+      ) async {
+        final session = await _pumpScreen(tester, const OpsPasswordScreen());
+        session.failWith = _refused({
+          'current_password': ['The provided password is incorrect.'],
+        }, code: 'invalid_password');
+        await _fill(tester);
+        await _save(tester);
+        session.failWith = _refused({
+          'password': ['The password must be at least 12 characters.'],
+        });
+        await _save(tester);
+        expect(session.rechecks, 0);
+      });
+
       testWidgets('too many tries: the wait is said', (tester) async {
         final session = await _pumpScreen(tester, const OpsPasswordScreen());
         session.failWith = apiError(ApiErrorKind.rateLimited, 429, retryAfter: const Duration(seconds: 45));
@@ -987,6 +1029,39 @@ void main() {
       h.adapter.failConnection = null;
       await _save(tester);
       expect(find.byType(StaffHome), findsOneWidget);
+      await tester.pump(const Duration(seconds: 5));
+    });
+
+    testWidgets('the change reached the server but its answer was lost: the screen asks again and the app opens', (
+      tester,
+    ) async {
+      final server = _Server();
+      // The server saves the new password and clears the flag, then the connection breaks before the phone hears it.
+      server.onChange = (r) {
+        server.password = (r.body as Map)['password'] as String;
+        server.mustChange = false;
+        return error(502, 'bad_gateway');
+      };
+      final h = await _app(tester, server);
+      await _signIn(tester);
+      await _fill(tester);
+      await _save(tester);
+      expect(find.byType(StaffHome), findsOneWidget, reason: 'retrying would be refused for the old password for ever');
+      expect(h.read(opsSessionProvider), OpsAuth.signedIn);
+      expect(h.adapter.where('PUT', '/admin/me/password'), hasLength(1));
+      await tester.pump(const Duration(seconds: 5));
+    });
+
+    testWidgets('a lost answer while the flag is still set: the person stays and can try again', (tester) async {
+      final server = _Server();
+      server.onChange = (r) => error(502, 'bad_gateway');
+      final h = await _app(tester, server);
+      await _signIn(tester);
+      await _fill(tester);
+      await _save(tester);
+      expect(find.byType(OpsPasswordScreen), findsOneWidget);
+      expect(find.text('Our service is having a moment. Please try again shortly.'), findsOneWidget);
+      expect(h.read(opsSessionProvider), OpsAuth.passwordChange);
       await tester.pump(const Duration(seconds: 5));
     });
 

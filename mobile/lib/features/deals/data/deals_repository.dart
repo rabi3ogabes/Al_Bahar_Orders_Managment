@@ -9,16 +9,19 @@ final dealDeviceNowProvider = Provider<DateTime Function()>((ref) => DateTime.no
 
 /// How far the server's clock is ahead of this phone (`server_time - device time`) as of the last deals answer. Every
 /// countdown adds it to the phone's clock, so a wrong phone clock never shows a wrong deal time.
-class DealSkew extends Notifier<Duration> {
+///
+/// Null until the server has told its time (a cold start straight onto a product page): the phone's clock is then unproven, and
+/// nothing is decided by it (the phase the server reported wins).
+class DealSkew extends Notifier<Duration?> {
   @override
-  Duration build() => Duration.zero;
+  Duration? build() => null;
 
   void set(Duration skew) {
     if (skew != state) state = skew;
   }
 }
 
-final dealSkewProvider = NotifierProvider<DealSkew, Duration>(DealSkew.new);
+final dealSkewProvider = NotifierProvider<DealSkew, Duration?>(DealSkew.new);
 
 class DealsRepository {
   DealsRepository(this._api, {required this.now, required this.onSkew});

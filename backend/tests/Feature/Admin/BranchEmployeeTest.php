@@ -181,9 +181,9 @@ describe('creating a branch employee', function () {
 
 describe('security: no escalation, no foreign branches, no admins', function () {
     it('never lets someone grant a feature they do not hold themselves', function () {
-        // The manager holds neither company-wide product editing nor anything outside their role.
-        expect($this->svc->grantable($this->manager, $this->wb->id))->not->toContain('products_edit');
-        expect(fn () => makeEmployee(['orders_view', 'products_edit'], by: $this->manager))->toThrow(DomainException::class, __('errors.cannot_grant_beyond_authority'));
+        // The manager's role has support.view but not support.create/edit, so "Reply to support requests" is not theirs to give.
+        expect($this->svc->grantable($this->manager, $this->wb->id))->not->toContain('support_reply');
+        expect(fn () => makeEmployee(['orders_view', 'support_reply'], by: $this->manager))->toThrow(DomainException::class, __('errors.cannot_grant_beyond_authority'));
         // A custom, narrower manager: only order features. Cannot hand out stock.
         $narrow = staffWithRole('order_manager', $this->wb);
         UserRole::where('user_id', $narrow->id)->update(['role_id' => Role::where('key', 'order_manager')->value('id')]);
@@ -204,7 +204,7 @@ describe('security: no escalation, no foreign branches, no admins', function () 
         $this->actingAs($this->manager);
         Livewire::test(EmployeeEditor::class)
             ->set('form', ['name' => 'T', 'email' => 't@albahar.qa', 'phone' => '', 'job_title' => '', 'locale' => 'en', 'password' => 'Str0ngPassword!'])
-            ->set('features', ['orders_view', 'products_edit'])->call('create')->assertDispatched('toast', type: 'error');
+            ->set('features', ['orders_view', 'support_reply'])->call('create')->assertDispatched('toast', type: 'error');
         expect(User::where('email', 't@albahar.qa')->exists())->toBeFalse();
     });
 
@@ -265,13 +265,13 @@ describe('security: no escalation, no foreign branches, no admins', function () 
     });
 
     it('does not let a manager add or remove a permission they do not hold, even one hidden inside a role', function () {
-        // An admin gave the employee company-wide product editing; the manager does not hold catalog.edit.
-        $emp = makeEmployee(['orders_view', 'products_edit'], by: $this->admin, profile: ['email' => 'pe@albahar.qa']);
+        // An admin gave the employee support replies; the manager does not hold support.create/edit.
+        $emp = makeEmployee(['orders_view', 'support_reply'], by: $this->admin, profile: ['email' => 'pe@albahar.qa']);
         expect(fn () => $this->svc->setFeatures($this->manager, $emp, $this->wb, ['orders_view']))->toThrow(DomainException::class);
-        expect($this->svc->featuresOf($emp, $this->wb->id))->toContain('products_edit');
+        expect($this->svc->featuresOf($emp, $this->wb->id))->toContain('support_reply');
         // ... but they can still change the parts they do hold, while the locked one stays ticked.
-        $this->svc->setFeatures($this->manager, $emp, $this->wb, ['orders_view', 'orders_prepare', 'products_edit']);
-        expect($this->svc->featuresOf($emp, $this->wb->id))->toEqualCanonicalizing(['orders_view', 'orders_prepare', 'products_edit', 'products_view']);
+        $this->svc->setFeatures($this->manager, $emp, $this->wb, ['orders_view', 'orders_prepare', 'support_reply']);
+        expect($this->svc->featuresOf($emp, $this->wb->id))->toEqualCanonicalizing(['orders_view', 'orders_prepare', 'support_reply', 'support_view']);
 
         // A shared role carrying permissions beyond the manager's: replacing it with a checklist is refused.
         $role = Role::create(['key' => 'super_picker', 'name_en' => 'Picker', 'name_ar' => 'منتقي', 'scope' => 'branch']);
@@ -336,12 +336,11 @@ describe('the employee editor', function () {
         expect(Role::where('personal_user_id', $emp->id)->count())->toBe(1);
     });
 
-    it('removes the personal role when the branch assignment is replaced by a shared role or removed', function () {
+    it('keeps the personal role when roles are offered over it (refused), and removes it with the branch assignment', function () {
         $emp = makeEmployee(['orders_view'], by: $this->admin);
-        app(EmployeeService::class)->assignToBranch($this->admin, $emp, $this->wb, ['sales_employee']);
-        expect(Role::where('personal_user_id', $emp->id)->exists())->toBeFalse();
-        $this->svc->setFeatures($this->admin, $emp, $this->wb, ['orders_view']);
-        expect(Role::where('personal_user_id', $emp->id)->count())->toBe(1);
+        // roles cannot replace a checklist from the assignment path
+        expect(fn () => app(EmployeeService::class)->assignToBranch($this->admin, $emp, $this->wb, ['sales_employee']))->toThrow(DomainException::class, __('branch_access.error_personal_role_replace'));
+        expect(Role::where('personal_user_id', $emp->id)->count())->toBe(1)->and($this->svc->featuresOf($emp, $this->wb->id))->toBe(['orders_view']);
         app(EmployeeService::class)->removeFromBranch($this->admin, $emp, $this->wb);
         expect(Role::where('personal_user_id', $emp->id)->exists())->toBeFalse()->and(UserRole::where('user_id', $emp->id)->exists())->toBeFalse();
     });

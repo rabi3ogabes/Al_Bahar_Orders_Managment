@@ -54,7 +54,7 @@ class DealCardData {
   final int? remainingPercent;
   final DealDesign design;
 
-  DealPhase phaseAt(DateTime serverNow) => dealPhaseAt(phase, startsAt, endsAt, serverNow);
+  DealPhase phaseAt(DateTime? serverNow) => dealPhaseAt(phase, startsAt, endsAt, serverNow);
 }
 
 /// The icon an admin picked for a deal.

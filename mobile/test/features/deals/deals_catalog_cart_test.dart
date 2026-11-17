@@ -54,6 +54,23 @@ Widget _card(
 
 Map<String, dynamic> _inDeal(Map<String, dynamic> deal) => dealProductJson('p1', deal: deal);
 
+/// A phone clock a test moves by hand, one second at a time, together with the test clock.
+class _PagePhone {
+  _PagePhone(this.now);
+  DateTime now;
+  ProductPageHost? host;
+
+  Future<void> tick(WidgetTester t) async {
+    now = now.add(const Duration(seconds: 1));
+    await t.pump(const Duration(seconds: 1));
+  }
+}
+
+class _ThreeHoursBehind extends DealSkew {
+  @override
+  Duration? build() => const Duration(hours: -3);
+}
+
 void main() {
   setUpAll(() async {
     await loadAppFonts();
@@ -109,7 +126,7 @@ void main() {
       );
       Widget scoped() => ProviderScope(
         key: UniqueKey(),
-        overrides: [dealDeviceNowProvider.overrideWithValue(() => now)],
+        overrides: [dealDeviceNowProvider.overrideWithValue(() => now), calibratedClock],
         child: DealClockHost(child: _card(json)),
       );
       await t.pumpWidget(scoped());
@@ -266,6 +283,121 @@ void main() {
         expect(find.byType(DealWidget), findsOneWidget);
       },
     );
+
+    // The page's own clock: the phone is a controllable "now" (dealsNow), and `calibrated` says whether a `server_time` was heard.
+    Future<_PagePhone> pageAt(
+      WidgetTester t, {
+      required Map<String, dynamic> detail,
+      bool calibrated = true,
+      Duration phoneOffset = Duration.zero,
+    }) async {
+      final phone = _PagePhone(dealsNow.add(phoneOffset));
+      final host = await pumpProductPage(
+        t,
+        detail: detail,
+        overrides: [dealDeviceNowProvider.overrideWithValue(() => phone.now), if (calibrated) calibratedClock],
+      );
+      phone.host = host;
+      await settle(t);
+      return phone;
+    }
+
+    Map<String, dynamic> endingIn(Duration left) =>
+        withDeal(dealBlockJson(startsAt: dealsNow.subtract(const Duration(hours: 1)), endsAt: dealsNow.add(left)));
+
+    testWidgets('the price, the strip and the product itself follow the deal when it ends: one clock, one refetch', (
+      t,
+    ) async {
+      final phone = await pageAt(t, detail: endingIn(const Duration(seconds: 3)));
+      expect(find.text('QAR 70.00'), findsOneWidget);
+      expect(find.byType(DealWidget), findsOneWidget);
+      final reads = phone.host!.requests('GET', '/products/p1').length;
+      for (var i = 0; i < 4; i++) {
+        await phone.tick(t);
+      }
+      await settle(t);
+      // The same second: the price is the normal one and the strip is gone (they used to disagree, and nothing asked the server).
+      expect(find.text('QAR 70.00'), findsNothing);
+      expect(find.text('QAR 100.00'), findsOneWidget);
+      expect(find.byType(DealWidget), findsNothing);
+      expect(
+        phone.host!.requests('GET', '/products/p1').length,
+        greaterThan(reads),
+        reason: 'the product is read again when the deal ends',
+      );
+      expect(t.takeException(), isNull);
+    });
+
+    testWidgets('a deal that starts while the page is open: the price drops and the strip goes live, together', (
+      t,
+    ) async {
+      final scheduled = withDeal(
+        dealBlockJson(
+          phase: 'scheduled',
+          startsAt: dealsNow.add(const Duration(seconds: 3)),
+          endsAt: dealsNow.add(const Duration(hours: 2)),
+        ),
+      );
+      final phone = await pageAt(t, detail: scheduled);
+      expect(find.text('Starts in'), findsOneWidget);
+      expect(find.text('QAR 70.00'), findsNothing);
+      for (var i = 0; i < 4; i++) {
+        await phone.tick(t);
+      }
+      await settle(t);
+      expect(find.text('QAR 70.00'), findsOneWidget, reason: 'the price and the strip change at the same moment');
+      expect(find.text('Ends in'), findsOneWidget);
+    });
+
+    testWidgets('a cold deep link with a wrong phone clock does not hide a live deal (no server_time heard yet)', (
+      t,
+    ) async {
+      // The phone is three hours ahead: by its clock the deal ended long ago. The server said it is live.
+      final phone = await pageAt(
+        t,
+        detail: endingIn(const Duration(hours: 1)),
+        calibrated: false,
+        phoneOffset: const Duration(hours: 3),
+      );
+      expect(find.text('QAR 70.00'), findsOneWidget, reason: 'the server\'s phase wins until its time is known');
+      expect(find.byType(DealWidget), findsOneWidget);
+      expect(find.text('Deal ended'), findsNothing);
+      for (var i = 0; i < 3; i++) {
+        await phone.tick(t);
+      }
+      expect(find.text('QAR 70.00'), findsOneWidget);
+      expect(find.byType(DealWidget), findsOneWidget);
+    });
+
+    testWidgets('with the server\'s time known, the same phone is corrected and the deal is judged by the server', (
+      t,
+    ) async {
+      final phone = _PagePhone(dealsNow.add(const Duration(hours: 3)));
+      final host = await pumpProductPage(
+        t,
+        detail: endingIn(const Duration(hours: 1)),
+        overrides: [
+          dealDeviceNowProvider.overrideWithValue(() => phone.now),
+          dealSkewProvider.overrideWith(_ThreeHoursBehind.new),
+        ],
+      );
+      phone.host = host;
+      await settle(t);
+      expect(
+        find.text('QAR 70.00'),
+        findsOneWidget,
+        reason: 'phone +3 h, skew -3 h: it is 06:12 on the server, the deal is live',
+      );
+      expect(find.byType(DealWidget), findsOneWidget);
+    });
+
+    testWidgets('a page with no deal runs no timer', (t) async {
+      await pumpProductPage(t);
+      await settle(t);
+      final clock = DealClockScope.peek(t.element(find.byType(CustomScrollView).first));
+      expect(clock, isNotNull);
+      expect(clock!.running, isFalse, reason: 'nothing on the page needs a countdown');
+    });
 
     testWidgets('Arabic on a 320 dp phone with large text: no overflow', (t) async {
       await pumpProductPage(

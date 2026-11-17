@@ -25,5 +25,7 @@ return [
     'seo_products' => '{1} 1 product|[2,*] :count products',
     'seo_deal_ended' => 'Deal ended',
     'seo_deal_ended_description' => 'This deal is over. See the deals that are running now.',
+    'err_decimal' => 'Type a plain number with at most 2 decimals, for example 49 or 49.50.',
+    'err_price_too_low' => 'The deal price of ":product" would be below 5% of its normal price (the lowest allowed is :min). Check the number: it looks like a typo.',
     'warn_contrast' => 'These colours are legal but a little hard to read. A darker background or a lighter text reads better.',
 ];

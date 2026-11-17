@@ -187,7 +187,8 @@ class ReportService
             ['metric' => 'new_customers', 'value' => $inRange->count()], ['metric' => 'customers_with_orders', 'value' => $active->count()],
             ['metric' => 'repeat_customers', 'value' => $repeat], ['metric' => 'repeat_rate_percent', 'value' => $rows->count() ? round($repeat * 100 / $rows->count(), 1) : 0],
             ['metric' => 'average_lifetime_value', 'value' => $this->d($rows->count() ? $rows->sum('spend') / $rows->count() : 0)],
-            ['metric' => 'new_registrations', 'value' => DB::table('users')->where('type', 'customer')->whereBetween('created_at', [$start, $end])->count()],
+            // Sign-ups belong to no branch: only someone who sees every branch is shown the company-wide count.
+            ...($s->all ? [['metric' => 'new_registrations', 'value' => DB::table('users')->where('type', 'customer')->whereBetween('created_at', [$start, $end])->count()]] : []),
         ], 'summary' => []];
     }
 

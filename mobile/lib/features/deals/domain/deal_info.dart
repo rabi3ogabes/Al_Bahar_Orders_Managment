@@ -79,7 +79,11 @@ T _pick<T extends Enum>(List<T> values, Object? raw, T fallback) {
 /// The phase of a deal at [serverNow], from the phase the server reported and the deal's times: a deal that was live ends
 /// when its time is over, and a scheduled one goes live when its start comes. (The server stays the authority: the next
 /// fetch confirms.)
-DealPhase dealPhaseAt(DealPhase phase, DateTime? startsAt, DateTime? endsAt, DateTime serverNow) {
+///
+/// [serverNow] is null when no server-corrected clock is at hand: the phase the server reported then stands as it is (a phone's own
+/// clock is never used to end or start a deal).
+DealPhase dealPhaseAt(DealPhase phase, DateTime? startsAt, DateTime? endsAt, DateTime? serverNow) {
+  if (serverNow == null) return phase;
   if (phase == DealPhase.live || phase == DealPhase.soldOut) {
     if (endsAt != null && !serverNow.isBefore(endsAt)) return DealPhase.ended;
     return phase;
@@ -336,7 +340,7 @@ class DealInfo {
   final DealDesign design;
 
   /// The phase at [serverNow]: see [dealPhaseAt].
-  DealPhase phaseAt(DateTime serverNow) => dealPhaseAt(phase, startsAt, endsAt, serverNow);
+  DealPhase phaseAt(DateTime? serverNow) => dealPhaseAt(phase, startsAt, endsAt, serverNow);
 
   /// The block as it reads for one variant of the product: that variant's own deal price and normal price. The percent is
   /// kept only while the price is the block's own (another price has another percent, and the app does not work it out).
@@ -359,6 +363,9 @@ class DealInfo {
       design: design,
     );
   }
+
+  /// The moment this deal changes state next: its end while live, its start while scheduled. Null without a time.
+  DateTime? get dueAt => phase == DealPhase.scheduled ? (startsAt ?? endsAt) : endsAt;
 
   /// This customer has used all the units they may buy at the deal price.
   bool get limitReached => customerRemaining == 0;

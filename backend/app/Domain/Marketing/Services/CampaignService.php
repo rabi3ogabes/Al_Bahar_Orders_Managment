@@ -38,9 +38,18 @@ class CampaignService
             ->when($segment['min_orders'] ?? null, fn ($q, $n) => $q->has('orders', '>=', (int) $n));
     }
 
+    /** A scheduled campaign that comes due more than this long before it can go out (campaign messages were off, the scheduler was down) is not sent. */
+    public const SCHEDULE_GRACE_HOURS = 24;
+
+    /**
+     * Sends a draft or scheduled campaign to its audience. Returns how many customers it reached on at least one channel. It is marked *sent*
+     * only when that is at least one: if every channel is switched off, nobody in the audience can be reached, or the audience is empty, the
+     * campaign keeps its status (and 0 is returned) so nobody is told "sent" about a message that did not go out.
+     */
     public function send(MarketingCampaign $campaign): int
     {
-        if (! in_array($campaign->status, ['draft', 'scheduled'], true)) {
+        $before = $campaign->status;
+        if (! in_array($before, ['draft', 'scheduled'], true)) {
             return 0;
         }
         // Campaign messages switched off in the notification controls: the campaign stays as it is (a scheduled one waits) and nobody is told "sent".
@@ -53,18 +62,55 @@ class CampaignService
             foreach ($users as $user) {
                 try {
                     $ar = $user->preferredLocale() === 'ar';
-                    $this->notify->notify($user, 'campaign', ['title' => $ar ? $campaign->title_ar : $campaign->title_en, 'body' => $ar ? $campaign->body_ar : $campaign->body_en,
+                    $channels = $this->notify->notify($user, 'campaign', ['title' => $ar ? $campaign->title_ar : $campaign->title_en, 'body' => $ar ? $campaign->body_ar : $campaign->body_en,
                         'deep_link' => $campaign->deep_link,
                         'by_locale' => ['ar' => ['title' => $campaign->title_ar, 'body' => $campaign->body_ar], 'en' => ['title' => $campaign->title_en, 'body' => $campaign->body_en]]], $campaign->channels, $campaign->id);
-                    $n++;
+                    if ($channels !== []) {
+                        $n++; // reached on at least one channel (a customer who opted out of them all, or a channel switched off, does not count)
+                    }
                 } catch (\Throwable $e) {
                     report($e); // one customer's problem must not leave the other 999 without the campaign and the campaign stuck on "sending"
                 }
             }
         });
+        if ($n === 0) {
+            $campaign->update(['status' => $before]);
+
+            return 0;
+        }
         $campaign->update(['status' => 'sent', 'sent_at' => now(), 'recipients_count' => $n]);
 
         return $n;
+    }
+
+    /**
+     * The scheduler's job (every minute): sends the scheduled campaigns whose time has come. One that came due more than
+     * SCHEDULE_GRACE_HOURS ago is NOT sent (an offer that is days old; typically campaign messages were switched off meanwhile): it ends as
+     * *cancelled* with the note `missed_when_due` and an audit record, and the team can create it again.
+     *
+     * @return array{sent: int, missed: int}
+     */
+    public function sendDue(): array
+    {
+        $sent = 0;
+        $missed = 0;
+        $cutoff = now()->subHours(self::SCHEDULE_GRACE_HOURS);
+        MarketingCampaign::where('status', 'scheduled')->where('scheduled_at', '<=', now())->orderBy('scheduled_at')->get()
+            ->each(function (MarketingCampaign $c) use (&$sent, &$missed, $cutoff) {
+                if ($c->scheduled_at !== null && $c->scheduled_at->lt($cutoff)) {
+                    $c->update(['status' => 'cancelled', 'status_note' => 'missed_when_due']);
+                    app(AuditLogger::class)->log('marketing.campaign_missed', $c, ['status' => 'scheduled'], ['status' => 'cancelled', 'status_note' => 'missed_when_due'],
+                        ['scheduled_at' => $c->scheduled_at->toIso8601String(), 'grace_hours' => self::SCHEDULE_GRACE_HOURS]);
+                    $missed++;
+
+                    return;
+                }
+                if ($this->send($c) > 0) {
+                    $sent++;
+                }
+            });
+
+        return ['sent' => $sent, 'missed' => $missed];
     }
 
     /**

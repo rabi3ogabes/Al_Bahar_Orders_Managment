@@ -128,6 +128,12 @@ class CampaignIndex extends Component
             return;
         }
         $n = $svc->send($c);
+        if ($n === 0) {
+            // Nobody could be reached (every channel switched off in Notification controls, nobody opted in, or an empty audience): not sent, status unchanged.
+            $this->toast(__('marketing_admin.campaign_nothing_sent'), 'error');
+
+            return;
+        }
         $audit->log('marketing.campaign_sent', $c, [], ['recipients' => $n]);
         $this->toast(trans_choice('marketing_admin.campaign_sent', $n, ['count' => $n]));
     }

@@ -342,6 +342,22 @@ class DealService
         }
     }
 
+    /**
+     * Run every minute: a deal that just STARTED or just ENDED (its time ran out) changes the prices on the cached home feed and the sitemap without anybody
+     * pressing a button, so they are dropped on the minute instead of waiting for the cache to expire. Returns whether it did.
+     */
+    public function refreshFeed(): bool
+    {
+        $since = now()->subSeconds(65);
+        $moved = Deal::query()->where('is_active', true)->whereNull('ended_at')
+            ->where(fn ($q) => $q->whereBetween('starts_at', [$since, now()])->orWhereBetween('ends_at', [$since, now()]))->exists();
+        if ($moved) {
+            $this->changed();
+        }
+
+        return $moved;
+    }
+
     // ─── Reading ────────────────────────────────────────────────────────────────────────────────────────────────────
 
     public function isRunning(Deal $deal, ?CarbonInterface $now = null): bool

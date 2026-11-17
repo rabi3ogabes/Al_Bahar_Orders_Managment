@@ -236,7 +236,7 @@ class CartService
 
     /**
      * How many units of each cart line get the deal price (the same rules as DealEngine, without any reservation): the per-order limit and the
-     * units left count per PRODUCT, so two lines of one product share them. Lines are filled in the order the cart shows them.
+     * units left count per PRODUCT, so two lines of one product share them. Lines are filled the way DealEngine fills a quote (best saving per unit first).
      *
      * @param  array<string, array<string, mixed>>  $entries  DealBlocks::load() for the cart's products
      * @return array{0: array<string, array{units: int, note: ?string}>, 1: Money} line id → units and the reason fewer than all; the total saving
@@ -255,6 +255,8 @@ class CartService
                 $wanted[$pid] = ($wanted[$pid] ?? 0) + $item->quantity;
             }
         }
+        // The same order DealEngine uses for the quote (the lines that save the most per unit first, ties by variant), so the cart's `deal_savings` is the quote's.
+        usort($lines, fn (array $a, array $b) => [$b[2]->minor, $a[0]->product_variant_id] <=> [$a[2]->minor, $b[0]->product_variant_id]);
         $left = [];
         $notes = [];
         $units = [];

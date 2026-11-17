@@ -124,7 +124,6 @@ final class PermissionRegistry
         'products' => [
             'products_view' => ['keys' => ['catalog.view', 'pricing.view']],
             'prices_edit' => ['keys' => ['pricing.edit'], 'needs' => ['products_view']],
-            'products_edit' => ['keys' => ['catalog.edit'], 'needs' => ['products_view']],
         ],
         'customers' => [
             'customers_view' => ['keys' => ['customers.view']],
@@ -179,7 +178,11 @@ final class PermissionRegistry
      */
     public const ADMIN_ONLY_MODULES = ['roles', 'settings', 'notifications', 'cms', 'marketing', 'audit', 'branches', 'zones', 'auctions', 'loyalty', 'reviews'];
 
-    public const ADMIN_ONLY_KEYS = ['employees.create', 'employees.edit', 'employees.delete', 'employees.assign', 'catalog.create', 'catalog.delete', 'catalog.approve'];
+    /**
+     * catalog.create/edit/delete/approve change the SHARED product catalog (every branch and the website): the dashboard needs them company-wide and the staff
+     * API checks them without a branch, so a branch-only grant would still edit global products. They are never offered per branch.
+     */
+    public const ADMIN_ONLY_KEYS = ['employees.create', 'employees.edit', 'employees.delete', 'employees.assign', 'catalog.create', 'catalog.edit', 'catalog.delete', 'catalog.approve'];
 
     /** @return list<array{key:string,module:string,action:string,name_en:string,name_ar:string}> */
     public static function permissions(): array

@@ -217,13 +217,13 @@ it('stores only what differs from the default and removes the row when nothing d
 });
 
 it('flushes its cache on every change, so a switch applies at once', function () {
-    expect($this->rules->enabled('order.cancelled'))->toBeTrue()->and(Cache::has('notification_rules:v1'))->toBeTrue();
+    expect($this->rules->enabled('order.cancelled'))->toBeTrue()->and(Cache::has($this->rules->cacheKey()))->toBeTrue();
 
     $this->rules->set('order.cancelled', false);
-    expect(Cache::has('notification_rules:v1'))->toBeFalse()->and($this->rules->enabled('order.cancelled'))->toBeFalse()->and(Cache::has('notification_rules:v1'))->toBeTrue();
+    expect(Cache::has($this->rules->cacheKey()))->toBeFalse()->and($this->rules->enabled('order.cancelled'))->toBeFalse()->and(Cache::has($this->rules->cacheKey()))->toBeTrue();
 
     $this->rules->reset('order.cancelled');
-    expect(Cache::has('notification_rules:v1'))->toBeFalse()->and($this->rules->enabled('order.cancelled'))->toBeTrue();
+    expect(Cache::has($this->rules->cacheKey()))->toBeFalse()->and($this->rules->enabled('order.cancelled'))->toBeTrue();
 
     $this->rules->set('order.cancelled', false);
     $this->rules->set('payment.failed', true, ['push' => false]);

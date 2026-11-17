@@ -1,15 +1,19 @@
 import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/features/deals/data/deals_repository.dart';
+import 'package:albahar_customer/features/deals/presentation/state/deals_providers.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../helpers/fakes.dart';
 import 'deals_fixtures.dart';
 
 void main() {
+  // The footer's dot watches the app's lifecycle, so it needs the widgets binding even in a provider-only test.
+  TestWidgetsFlutterBinding.ensureInitialized();
   late DateTime phone;
 
-  Future<TestHarness> start(FakeHandler handler) =>
-      TestHarness.create(handler: handler, overrides: [dealDeviceNowProvider.overrideWithValue(() => phone)]);
+  Future<TestHarness> start(FakeHandler handler, {List<Override> extra = const []}) =>
+      TestHarness.create(handler: handler, overrides: [dealDeviceNowProvider.overrideWithValue(() => phone), ...extra]);
 
   setUp(() => phone = dealsNow);
 
@@ -49,7 +53,7 @@ void main() {
     test('learns how far the phone clock is from the server clock', () async {
       phone = dealsNow.subtract(const Duration(minutes: 7));
       final h = await start(routes({'GET /deals': (_) => ok(feedJson())}));
-      expect(h.read(dealSkewProvider), Duration.zero);
+      expect(h.read(dealSkewProvider), isNull, reason: 'nothing is known before the server speaks');
       final feed = await h.read(dealsRepositoryProvider).feed();
       expect(feed.skew, const Duration(minutes: 7));
       expect(h.read(dealSkewProvider), const Duration(minutes: 7));
@@ -74,7 +78,7 @@ void main() {
         }),
       );
       await h2.read(dealsRepositoryProvider).feed();
-      expect(h2.read(dealSkewProvider), Duration.zero);
+      expect(h2.read(dealSkewProvider), isNull);
     });
 
     test('a failure is a plain ApiException, and a garbage answer is an empty feed', () async {
@@ -137,6 +141,46 @@ void main() {
       final h = await start(routes({'GET /deals/a%2Fb': (_) => ok(dealJson(id: 'a/b'))}));
       final page = await h.read(dealsRepositoryProvider).detail('a/b');
       expect(page.deal.id, 'a/b');
+    });
+  });
+
+  group('the footer\'s live dot', () {
+    test('survives the footer leaving the tree for a moment (the keyboard opening): no new request', () async {
+      final h = await start(
+        routes({
+          'GET /deals': (_) => ok(feedJson(live: [dealJson()])),
+        }),
+        extra: [footerHasDealsProvider.overrideWithValue(true)],
+      );
+      final first = h.container.listen(liveDealsProvider, (_, _) {});
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(h.read(liveDealsProvider), isTrue);
+      final asked = h.adapter.where('GET', '/deals').length;
+      expect(asked, 1);
+      // The footer is dropped (keyboard open): its listener goes away; it comes back when the keyboard closes.
+      first.close();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(h.container.exists(liveDealsProvider), isTrue, reason: 'kept alive while the footer has a Deals item');
+      h.container.listen(liveDealsProvider, (_, _) {});
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(h.read(liveDealsProvider), isTrue, reason: 'the dot did not flicker');
+      expect(h.adapter.where('GET', '/deals').length, asked, reason: 'no new request');
+    });
+
+    test('with no Deals item in the footer it costs nothing: no request, no timer, nothing kept', () async {
+      final h = await start(
+        routes({
+          'GET /deals': (_) => ok(feedJson(live: [dealJson()])),
+        }),
+        extra: [footerHasDealsProvider.overrideWithValue(false)],
+      );
+      final sub = h.container.listen(liveDealsProvider, (_, _) {});
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(h.read(liveDealsProvider), isFalse);
+      expect(h.adapter.where('GET', '/deals'), isEmpty);
+      sub.close();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(h.container.exists(liveDealsProvider), isFalse);
     });
   });
 }

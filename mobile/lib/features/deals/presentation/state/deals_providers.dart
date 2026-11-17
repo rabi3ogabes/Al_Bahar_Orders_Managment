@@ -147,6 +147,10 @@ class LiveDealsController extends Notifier<bool> {
   bool build() {
     ref.onDispose(_stop);
     if (!ref.watch(footerHasDealsProvider)) return false;
+    // The footer is dropped from the tree while the keyboard is open and comes back after it: that must not throw the dot away (and
+    // ask the server again). It lives as long as the footer has a Deals item; the rebuild of an edited footer lets it go (the
+    // lifecycle watcher and the timer are stopped by [_stop] when it does).
+    ref.keepAlive();
     ref.watch(localeCodeProvider);
     ref.watch(preferredBranchIdProvider);
     final binding = WidgetsBinding.instance;
@@ -207,5 +211,6 @@ class _Lifecycle with WidgetsBindingObserver {
   }
 }
 
-/// Auto-disposed: the footer is what watches it, so the timer and the lifecycle watcher live exactly as long as the footer does.
+/// Auto-disposed, but kept alive while the footer has a Deals item (see [LiveDealsController.build]): the timer and the lifecycle watcher
+/// live as long as the dashboard's footer shows the button.
 final liveDealsProvider = NotifierProvider.autoDispose<LiveDealsController, bool>(LiveDealsController.new);

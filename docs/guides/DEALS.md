@@ -97,8 +97,14 @@ you want it finished earlier, **End now**: orders already placed keep their deal
 * **One price for the whole order.** The price the customer confirms is the price they pay. If a deal ends, sells out or reaches a limit while they are in
   checkout, the order is not placed: the app says "A deal changed, your total was updated" and they confirm the new total.
 * **Staff-made orders and auctions do not get deal prices** (the dashboard's *New order*, the branch app). This is on purpose; it can be changed later.
-* **Cancelling gives units back.** A cancelled order, an unpaid online order that expired, a fully refunded order, or an item taken off by the branch
-  (out of stock) gives its deal units back to the deal and to the customer's own allowance. Doing it twice gives them back once.
+* **Cancelling and returning give units back.** A cancelled order, an unpaid online order that expired, a delivery that failed and was then cancelled,
+  a delivered parcel marked **Returned** (its goods are back on the shelf), a fully refunded order, or an item taken off by the branch (out of stock) gives
+  its deal units back to the deal and to the customer's own allowance. Doing it twice gives them back once. A parcel that is only delivered keeps its units.
+* **Put a limit when you set a quantity.** Units are taken when the order is placed, even before it is paid, so with a quantity but no limit per order and
+  none per customer, one account could take every unit, cancel and do it again. The editor warns you (and the list shows a "No buyer limit" chip) but never
+  blocks you: set a **per customer** limit to close it.
+* **Typing mistakes are caught.** A deal price below 5 % of the normal price is refused (it names the product and the lowest price allowed), and prices
+  accept plain numbers with up to 2 decimals only.
 * **Prices on the invoice.** Each order line remembers the deal it got (name, units, saving per unit) and the order lists the deal as a discount, so
   invoices and revised invoices stay right even after the deal changes or ends.
 * **Who can do what.** Marketing: *view* sees the page; *create* makes and duplicates; *edit* changes, pauses, resumes and ends; *delete* deletes. A

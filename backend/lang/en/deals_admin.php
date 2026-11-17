@@ -98,6 +98,10 @@ return [
     'per_order_hint' => 'Example: 2 means a customer gets the deal price on 2 units in one order.',
     'per_customer_hint' => 'Example: 3 means one account gets the deal price on 3 units in all its orders of this deal.',
     'no_limit' => 'No limit',
+    'chip_no_limit' => 'No buyer limit',
+    'chip_no_limit_hint' => 'A product with a quantity has no limit per order or per customer: one account could take every unit, cancel and start again. Add a limit.',
+    'warn_no_limit_row' => 'No limit for this product: one customer could take every unit. Set a limit per order or per customer.',
+    'warn_no_limit' => '{1} One product has a quantity but no limit per order or per customer, so one customer could take every unit, cancel the order and do it again. Add a limit here or on the product.|[2,*] :n products have a quantity but no limit per order or per customer, so one customer could take every unit, cancel the order and do it again. Add a limit here or on the products.',
 
     's_look' => 'Look',
     'look_hint' => 'This is how the countdown widget looks in the shop and the app. Colours are checked so the words stay readable.',

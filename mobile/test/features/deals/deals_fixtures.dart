@@ -1,7 +1,19 @@
+import 'package:albahar_customer/features/deals/data/deals_repository.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
+
 import '../../helpers/fakes.dart';
 
 /// The instant every deals test treats as "now" (the server's clock and, unless a test skews it, the phone's).
 final dealsNow = DateTime.utc(2026, 11, 17, 6, 12);
+
+/// The skew of an app that has already heard the server's time (zero: the phone is right): phases then follow the clock. Without it the
+/// clock is unproven and the phase the server reported wins.
+class CalibratedSkew extends DealSkew {
+  @override
+  Duration? build() => Duration.zero;
+}
+
+Override get calibratedClock => dealSkewProvider.overrideWith(CalibratedSkew.new);
 
 /// The moment the default deal times are built around. Tests that run on the real clock (a product card, the product page and the
 /// cart have no fake clock) point it at `DateTime.now`.
