@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\TwoFactorService;
 use App\Support\DomainException;
 use Closure;
@@ -101,7 +102,7 @@ class EnsureStaff
      * Does this browser session carry the account's current stamp? A session that carries none was started by a "remember me" cookie
      * (the cookie itself is only accepted while remember_token is unchanged, and revoking cycles it), so it adopts the current stamp.
      */
-    private function sessionIsCurrent(Request $request, $user): bool
+    private function sessionIsCurrent(Request $request, User $user): bool
     {
         if (! $request->hasSession()) {
             return true; // not a browser session (nothing to compare)

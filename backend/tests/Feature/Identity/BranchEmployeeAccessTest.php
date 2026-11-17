@@ -112,7 +112,8 @@ describe('on the dashboard', function () {
         app(EmployeeService::class)->setStatus($this->super, $emp, 'suspended');
         $this->actingAs($emp->fresh())->get(route('admin.orders.index'))->assertRedirect(route('admin.login'));
         app(EmployeeService::class)->setStatus($this->super, $emp->fresh(), 'active');
-        $this->actingAs($emp->fresh())->get(route('admin.orders.index'))->assertOk();
+        // switched on again: a browser that signs in afresh (it carries the account's new stamp) works; the old cookie does not (StaffSecurityReviewTest)
+        $this->withSession(['session_stamp' => (string) $emp->fresh()->session_stamp])->actingAs($emp->fresh())->get(route('admin.orders.index'))->assertOk();
     });
 });
 
@@ -213,8 +214,9 @@ describe('first sign-in on the dashboard', function () {
         }
         $this->get(route('admin.profile'))->assertOk()->assertSee(__('branch_access.must_change_title'));
         // a dashboard action from any other page is refused too; only the profile page's own actions pass
-        $this->withHeaders(['X-Livewire' => 'true', 'Referer' => route('admin.orders.index')])->get(route('admin.orders.index'))->assertForbidden();
-        $this->withHeaders(['X-Livewire' => 'true', 'Referer' => route('admin.profile')])->get(route('admin.orders.index'))->assertOk();
+        // a page request that merely claims to be a Livewire call (headers are client-supplied) is not let through (see StaffSecurityReviewTest for real Livewire calls)
+        $this->withHeaders(['X-Livewire' => 'true', 'Referer' => route('admin.orders.index')])->get(route('admin.orders.index'))->assertRedirect(route('admin.profile'));
+        $this->withHeaders(['X-Livewire' => 'true', 'Referer' => route('admin.profile')])->get(route('admin.orders.index'))->assertRedirect(route('admin.profile'));
 
         Livewire::test(Profile::class)->set('current_password', 'TempPassw0rdXyz')->set('password', 'BrandNewPassw0rd!')->set('password_confirmation', 'BrandNewPassw0rd!')
             ->call('changePassword')->assertHasNoErrors()->assertRedirect(route('admin.dashboard'));

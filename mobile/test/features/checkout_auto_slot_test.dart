@@ -28,7 +28,11 @@ class _Clock {
   DateTime call() => now;
 }
 
-CheckoutBackend _backend({bool pickupTimes = true, bool deliveryTimes = true, DateTime? s16Until}) {
+CheckoutBackend _backend({
+  bool pickupTimes = true,
+  bool deliveryTimes = true,
+  DateTime? s16Until,
+}) {
   final d = qDay(1);
   return CheckoutBackend(
     delivery: {
@@ -169,11 +173,7 @@ void main() {
       h.container.invalidate(deliverySlotWindowProvider);
       await _settle(t);
       expect(_state(h).options.deliverySlotId, 's-18');
-      expect(
-        find.byKey(const ValueKey('delivery-slot-s-09')),
-        findsOneWidget,
-        reason: 'the new time is offered, not forced',
-      );
+      expect(find.byKey(const ValueKey('delivery-slot-s-09')), findsOneWidget, reason: 'the new time is offered, not forced');
     });
 
     testWidgets('a time that fills up while the screen is open is replaced, and the screen says so', (t) async {
@@ -188,10 +188,7 @@ void main() {
 
       expect(_state(h).options.deliverySlotId, 's-18');
       expect(_state(h).slotAuto, isTrue);
-      expect(
-        find.text('That time just became unavailable, so we chose the next earliest. Tap another time to change it.'),
-        findsOneWidget,
-      );
+      expect(find.text('That time just became unavailable, so we chose the next earliest. Tap another time to change it.'), findsOneWidget);
       expect(_place(t).onPressed, isNotNull);
     });
 
@@ -205,10 +202,7 @@ void main() {
       await _settle(t);
 
       expect(_state(h).options.deliverySlotId, 's-18', reason: 'never keep a stale time');
-      expect(
-        find.text('That time just became unavailable, so we chose the next earliest. Tap another time to change it.'),
-        findsOneWidget,
-      );
+      expect(find.text('That time just became unavailable, so we chose the next earliest. Tap another time to change it.'), findsOneWidget);
     });
 
     testWidgets('the server refusing the earliest time sends the screen to the next one instead of looping', (t) async {
@@ -309,12 +303,7 @@ void main() {
 
     testWidgets('pickup: an empty state offers delivery instead', (t) async {
       final h = await _pump(t, _backend(pickupTimes: false));
-      await _run(
-        t,
-        h
-            .read(checkoutControllerProvider.notifier)
-            .update((o) => o.copyWith(fulfillmentType: FulfillmentType.pickup, branchId: () => 'br1')),
-      );
+      await _run(t, h.read(checkoutControllerProvider.notifier).update((o) => o.copyWith(fulfillmentType: FulfillmentType.pickup, branchId: () => 'br1')));
       await _settle(t);
       expect(find.byKey(const ValueKey('pickup-slots-empty')), findsOneWidget);
       expect(find.text('No pickup times are open right now'), findsOneWidget);
