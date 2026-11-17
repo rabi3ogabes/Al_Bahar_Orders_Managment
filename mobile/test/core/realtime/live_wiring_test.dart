@@ -57,8 +57,8 @@ void main() {
         container.listen(orderLiveProvider, (_, _) {});
         container.listen(orderDetailViewProvider('o1'), (_, _) {});
         await container.read(orderDetailProvider('o1').future);
-      container.listen(activeOrdersViewProvider, (_, _) {});
-      await container.read(activeOrdersProvider.future);
+        container.listen(activeOrdersViewProvider, (_, _) {});
+        await container.read(activeOrdersProvider.future);
         expect(container.read(orderDetailViewProvider('o1')).value!.status, 'processing');
 
         events.add(

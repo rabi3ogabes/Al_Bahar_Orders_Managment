@@ -2,6 +2,7 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/router/footer_config.dart';
+import 'package:albahar_customer/core/router/navigation_lock.dart';
 import 'package:albahar_customer/core/theme/brand_theme.dart';
 import 'package:albahar_customer/core/theme/contrast.dart';
 import 'package:albahar_customer/core/theme/design_tokens.dart';
@@ -111,17 +112,19 @@ class _FooterScopeState extends State<FooterScope> {
     final pageColor = context.pageColor;
     return Consumer(
       builder: (context, ref, _) {
+        // An order being placed must finish on its own page: the menu ignores taps until the server has answered.
+        final locked = ref.watch(navigationLockProvider);
+        Widget menu() => AbsorbPointer(
+          absorbing: locked,
+          child: AppFooter(path: path, onGo: _go),
+        );
         if (ref.watch(footerConfigProvider).effectiveDesign != FooterDesign.centerAction) {
           return Column(
             children: [
               Expanded(child: page),
               SizedBox(
                 width: double.infinity,
-                child: ColoredBox(
-                  key: kFooterBackdropKey,
-                  color: pageColor,
-                  child: AppFooter(path: path, onGo: _go),
-                ),
+                child: ColoredBox(key: kFooterBackdropKey, color: pageColor, child: menu()),
               ),
             ],
           );
@@ -139,12 +142,7 @@ class _FooterScopeState extends State<FooterScope> {
               height: flat,
               child: ColoredBox(key: kFooterBackdropKey, color: pageColor),
             ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: AppFooter(path: path, onGo: _go),
-            ),
+            Positioned(left: 0, right: 0, bottom: 0, child: menu()),
           ],
         );
       },
@@ -152,6 +150,8 @@ class _FooterScopeState extends State<FooterScope> {
   }
 
   void _go(String route) {
+    // Belt and braces with the AbsorbPointer: no route change while an order is being placed.
+    if (ProviderScope.containerOf(context, listen: false).read(navigationLockProvider)) return;
     Haptics.tap();
     widget.router.go(route);
   }

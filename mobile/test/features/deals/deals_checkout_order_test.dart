@@ -5,6 +5,7 @@ import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/models/money.dart';
 import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/providers.dart' show supportedLocales;
+import 'package:albahar_customer/core/router/navigation_lock.dart';
 import 'package:albahar_customer/core/storage/token_storage.dart';
 import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:albahar_customer/core/widgets/common.dart' show SummaryRow;
@@ -307,6 +308,58 @@ void main() {
       await c2.update((o) => o.copyWith(loyaltyPoints: 0, addressId: () => 'a2'));
       expect(h2.read(checkoutControllerProvider).dealChanged, isFalse);
     });
+
+    test(
+      'an order on its way outlives its screen: the cart is refreshed, the menu is locked meanwhile and unlocked after',
+      () async {
+        final hold = Completer<void>();
+        final shop = _Shop();
+        final inner = shop.handler;
+        final h = await TestHarness.create(
+          tokens: _signedIn,
+          handler: (r) async {
+            if (r.method == 'POST' && r.path == '/checkout/orders') {
+              await hold.future;
+              return ok({
+                'order': {'id': 'o1', 'number': 'AB1'},
+                'payment': {'payment_id': 'p1', 'method': 'cod', 'status': 'pending', 'action': 'none'},
+              }, status: 201);
+            }
+            return inner(r);
+          },
+        );
+        final screen = h.container.listen(checkoutControllerProvider, (_, _) {});
+        await h.container.read(cartControllerProvider.future);
+        final c = h.read(checkoutControllerProvider.notifier);
+        c.setAlternateDeclined(true);
+        await c.update((o) => o.copyWith(addressId: () => 'a1'));
+        final cartReads = h.adapter.where('GET', '/cart').length;
+        expect(h.read(navigationLockProvider), isFalse);
+
+        final placing = c.placeOrder();
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        expect(h.read(navigationLockProvider), isTrue, reason: 'the footer menu waits while the order is sent');
+        // The customer walks off the page (it is the last listener of the controller).
+        screen.close();
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        expect(
+          h.container.exists(checkoutControllerProvider),
+          isTrue,
+          reason: 'the controller is kept alive while placing',
+        );
+
+        hold.complete();
+        final placed = await placing;
+        expect(placed!.orderNumber, 'AB1');
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        expect(
+          h.adapter.where('GET', '/cart').length,
+          greaterThan(cartReads),
+          reason: 'the cart was converted into the order: it is read again',
+        );
+        expect(h.read(navigationLockProvider), isFalse, reason: 'the menu works again');
+      },
+    );
 
     test('another 409 is still an ordinary error', () async {
       final h = await TestHarness.create(

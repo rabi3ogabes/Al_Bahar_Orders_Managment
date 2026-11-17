@@ -2,6 +2,7 @@
 // middle of the bar, the other items evenly on both sides, in the centre-action look whatever design is saved.
 import 'package:albahar_customer/core/router/app_footer.dart';
 import 'package:albahar_customer/core/router/footer_config.dart';
+import 'package:albahar_customer/core/router/navigation_lock.dart';
 import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
 import 'package:albahar_customer/features/deals/presentation/state/deals_providers.dart';
@@ -27,6 +28,11 @@ Map<String, Object?> _json({
     for (final k in keys) {'key': k, 'enabled': !off.contains(k), 'icon': null, 'label_en': null, 'label_ar': null},
   ],
 };
+
+class _Locked extends NavigationLock {
+  @override
+  bool build() => true;
+}
 
 class _Live extends LiveDealsController {
   _Live(this.live);
@@ -299,6 +305,46 @@ void main() {
       await tester.pumpWidget(_app(_router(), config));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('the navigation lock (an order is being placed)', () {
+    Widget lockedApp(GoRouter router) => ProviderScope(
+      overrides: [
+        cartCountProvider.overrideWithValue(2),
+        footerConfigProvider.overrideWithValue(FooterConfig.fromJson(_json())!),
+        liveDealsProvider.overrideWith(() => _Live(false)),
+        navigationLockProvider.overrideWith(_Locked.new),
+      ],
+      child: MaterialApp.router(
+        routerConfig: router,
+        supportedLocales: const [Locale('en'), Locale('ar')],
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        theme: AppTheme.light(const Locale('en')),
+        builder: (context, child) => FooterScope(router: router, child: child ?? const SizedBox.shrink()),
+      ),
+    );
+
+    testWidgets('a footer tap does nothing while locked, and works again when the lock is released', (tester) async {
+      _phone(tester);
+      final router = _router();
+      await tester.pumpWidget(lockedApp(router));
+      await tester.pumpAndSettle();
+      await tester.tap(_item('Account'), warnIfMissed: false);
+      await tester.tap(_item('Deals'), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(find.text('page /home'), findsOneWidget, reason: 'the customer stays on the page');
+      final container = ProviderScope.containerOf(tester.element(find.byType(FooterScope)));
+      container.read(navigationLockProvider.notifier).set(false);
+      await tester.pumpAndSettle();
+      await tester.tap(_item('Account'));
+      await tester.pumpAndSettle();
+      expect(find.text('page /account'), findsOneWidget);
     });
   });
 

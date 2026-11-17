@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:albahar_customer/core/models/money.dart';
 import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/network/interceptors.dart';
+import 'package:albahar_customer/core/router/navigation_lock.dart';
 import 'package:albahar_customer/core/utils/json.dart';
 import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
 import 'package:albahar_customer/features/branches/domain/branch_models.dart';
@@ -403,6 +404,10 @@ class CheckoutController extends Notifier<CheckoutState> {
     final quote = state.quote;
     if (quote == null || state.placing) return null;
     state = state.copyWith(placing: true, placeError: () => null, dealChanged: false);
+    // While the order is on its way this controller must outlive its screen (an autoDispose one would die with it, and the cart
+    // would never be cleared), and the footer menu is locked so nobody walks off the page that opens the payment.
+    final alive = ref.keepAlive();
+    ref.read(navigationLockProvider.notifier).set(true);
     // One key per confirmed quote: network retries of the same confirmation
     // reuse it (no duplicate orders); a changed quote gets a new key.
     final key = _idempotencyKeys.putIfAbsent(quote.quoteHash, Idempotency.newKey);
@@ -414,10 +419,11 @@ class CheckoutController extends Notifier<CheckoutState> {
         customerNotes: state.notes,
         extra: _alternateFields,
       );
+      // The order exists on the server now and the cart was converted into it: the cart is refreshed first, whatever became of the screen.
+      ref.invalidate(cartControllerProvider);
       if (!ref.mounted) return placed;
       state = state.copyWith(placing: false);
-      // Cart was converted into the order server-side. The saved second number may have changed with it.
-      ref.invalidate(cartControllerProvider);
+      // The saved second number may have changed with the order.
       unawaited(ref.read(sessionControllerProvider.notifier).refreshUser());
       return placed;
     } on ApiException catch (e) {
@@ -473,6 +479,9 @@ class CheckoutController extends Notifier<CheckoutState> {
     } catch (e) {
       if (ref.mounted) state = state.copyWith(placing: false, placeError: () => e);
       return null;
+    } finally {
+      if (ref.mounted) ref.read(navigationLockProvider.notifier).set(false);
+      alive.close();
     }
   }
 }
