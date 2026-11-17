@@ -2905,6 +2905,219 @@ class AppLocalizationsAr extends AppLocalizations {
   String get navScan => 'مسح';
 
   @override
+  String get navDeals => 'العروض';
+
+  @override
+  String get dealsTitle => 'العروض';
+
+  @override
+  String get dealsLiveNow => 'العروض، متاحة الآن';
+
+  @override
+  String get dealsLiveSection => 'متاحة الآن';
+
+  @override
+  String get dealsUpcomingSection => 'القادمة';
+
+  @override
+  String get dealsEmptyTitle => 'لا توجد عروض الآن';
+
+  @override
+  String get dealsEmptyMessage => 'عروض جديدة تصل باستمرار. تفقّد التطبيق قريبًا.';
+
+  @override
+  String get dealsBrowseShop => 'تصفّح المتجر';
+
+  @override
+  String dealsSeeProducts(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'عرض كل $count منتج',
+      many: 'عرض كل $count منتجًا',
+      few: 'عرض كل $count منتجات',
+      two: 'عرض المنتجين',
+      one: 'عرض المنتج',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get dealEndedTitle => 'انتهى هذا العرض';
+
+  @override
+  String get dealEndedMessage => 'تعرّف على العروض المتاحة الآن.';
+
+  @override
+  String get dealsSeeCurrent => 'شاهد العروض الحالية';
+
+  @override
+  String get dealNoProducts => 'ستظهر هنا منتجات هذا العرض.';
+
+  @override
+  String dealLimitPerOrder(int count) {
+    return 'الحد الأقصى $count لكل طلب';
+  }
+
+  @override
+  String dealLimitPerCustomer(int count) {
+    return 'الحد الأقصى $count لكل عميل';
+  }
+
+  @override
+  String get dealEndsIn => 'ينتهي خلال';
+
+  @override
+  String get dealStartsIn => 'يبدأ خلال';
+
+  @override
+  String get dealShopCta => 'تسوّق العرض';
+
+  @override
+  String get dealSoldOut => 'نفدت الكمية';
+
+  @override
+  String get dealSoldOutNotice => 'نفدت كمية هذا العرض';
+
+  @override
+  String get dealEnded => 'انتهى العرض';
+
+  @override
+  String get dealUnitDays => 'يوم';
+
+  @override
+  String get dealUnitHours => 'ساعة';
+
+  @override
+  String get dealUnitMinutes => 'دقيقة';
+
+  @override
+  String get dealUnitSeconds => 'ثانية';
+
+  @override
+  String get dealShortDays => 'ي';
+
+  @override
+  String get dealShortHours => 'س';
+
+  @override
+  String get dealShortMinutes => 'د';
+
+  @override
+  String get dealShortSeconds => 'ث';
+
+  @override
+  String dealSpokenDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count يوم',
+      many: '$count يومًا',
+      few: '$count أيام',
+      two: 'يومان',
+      one: 'يوم واحد',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String dealSpokenHours(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count ساعة',
+      many: '$count ساعة',
+      few: '$count ساعات',
+      two: 'ساعتان',
+      one: 'ساعة واحدة',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String dealSpokenMinutes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count دقيقة',
+      many: '$count دقيقة',
+      few: '$count دقائق',
+      two: 'دقيقتان',
+      one: 'دقيقة واحدة',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get dealSpokenLessThanMinute => 'أقل من دقيقة';
+
+  @override
+  String get dealSpokenSeparator => '، ';
+
+  @override
+  String dealOffSpoken(int percent) {
+    return 'خصم $percent٪';
+  }
+
+  @override
+  String get dealPriceLabel => 'سعر العرض';
+
+  @override
+  String get dealYourLimit => 'وصلت إلى الحد الأقصى لهذا العرض';
+
+  @override
+  String get dealYourLimitHint => 'يُطبَّق السعر العادي على هذا المنتج.';
+
+  @override
+  String dealCustomerRemaining(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'يمكنك شراء $count قطعة أخرى بسعر العرض',
+      many: 'يمكنك شراء $count قطعة أخرى بسعر العرض',
+      few: 'يمكنك شراء $count قطع أخرى بسعر العرض',
+      two: 'يمكنك شراء قطعتين أخريين بسعر العرض',
+      one: 'يمكنك شراء قطعة واحدة أخرى بسعر العرض',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get dealSavingsRow => 'وفّرت من العروض';
+
+  @override
+  String dealPriceOn(int deal, int total) {
+    return 'سعر العرض على $deal من $total';
+  }
+
+  @override
+  String dealPriceOnAll(int total) {
+    return 'سعر العرض على كل الـ $total';
+  }
+
+  @override
+  String dealNoteLimitOrder(int count) {
+    return 'الحد $count لكل طلب';
+  }
+
+  @override
+  String get dealNoteLimitCustomer => 'بلغت حد حسابك';
+
+  @override
+  String get dealNoteSoldOut => 'نفدت كمية العرض';
+
+  @override
+  String get dealNoteEnded => 'انتهى العرض';
+
+  @override
+  String get dealChangedBanner => 'تغيّر أحد العروض وتم تحديث إجمالي طلبك';
+
+  @override
+  String dealSaved(String amount) {
+    return 'وفّرت $amount';
+  }
+
+  @override
   String switchLanguageTo(String language) {
     return 'تغيير اللغة إلى $language';
   }

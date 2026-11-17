@@ -2871,6 +2871,189 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navScan => 'Scan';
 
   @override
+  String get navDeals => 'Deals';
+
+  @override
+  String get dealsTitle => 'Deals';
+
+  @override
+  String get dealsLiveNow => 'Deals, on sale now';
+
+  @override
+  String get dealsLiveSection => 'On sale now';
+
+  @override
+  String get dealsUpcomingSection => 'Upcoming';
+
+  @override
+  String get dealsEmptyTitle => 'No deals right now';
+
+  @override
+  String get dealsEmptyMessage => 'New deals drop often. Check back soon.';
+
+  @override
+  String get dealsBrowseShop => 'Browse the shop';
+
+  @override
+  String dealsSeeProducts(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'See all $count products',
+      one: 'See the product',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get dealEndedTitle => 'This deal has ended';
+
+  @override
+  String get dealEndedMessage => 'Have a look at the deals on sale now.';
+
+  @override
+  String get dealsSeeCurrent => 'See current deals';
+
+  @override
+  String get dealNoProducts => 'The products of this deal will appear here.';
+
+  @override
+  String dealLimitPerOrder(int count) {
+    return 'Limit $count per order';
+  }
+
+  @override
+  String dealLimitPerCustomer(int count) {
+    return 'Limit $count per customer';
+  }
+
+  @override
+  String get dealEndsIn => 'Ends in';
+
+  @override
+  String get dealStartsIn => 'Starts in';
+
+  @override
+  String get dealShopCta => 'Shop the deal';
+
+  @override
+  String get dealSoldOut => 'Sold out';
+
+  @override
+  String get dealSoldOutNotice => 'This deal is sold out';
+
+  @override
+  String get dealEnded => 'Deal ended';
+
+  @override
+  String get dealUnitDays => 'Days';
+
+  @override
+  String get dealUnitHours => 'Hours';
+
+  @override
+  String get dealUnitMinutes => 'Mins';
+
+  @override
+  String get dealUnitSeconds => 'Secs';
+
+  @override
+  String get dealShortDays => 'd';
+
+  @override
+  String get dealShortHours => 'h';
+
+  @override
+  String get dealShortMinutes => 'm';
+
+  @override
+  String get dealShortSeconds => 's';
+
+  @override
+  String dealSpokenDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count days', one: '1 day');
+    return '$_temp0';
+  }
+
+  @override
+  String dealSpokenHours(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count hours', one: '1 hour');
+    return '$_temp0';
+  }
+
+  @override
+  String dealSpokenMinutes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count minutes', one: '1 minute');
+    return '$_temp0';
+  }
+
+  @override
+  String get dealSpokenLessThanMinute => 'less than a minute';
+
+  @override
+  String get dealSpokenSeparator => ', ';
+
+  @override
+  String dealOffSpoken(int percent) {
+    return '$percent% off';
+  }
+
+  @override
+  String get dealPriceLabel => 'Deal price';
+
+  @override
+  String get dealYourLimit => 'You reached your limit for this deal';
+
+  @override
+  String get dealYourLimitHint => 'The regular price applies to this product.';
+
+  @override
+  String dealCustomerRemaining(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'You can buy $count more at the deal price',
+      one: 'You can buy 1 more at the deal price',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get dealSavingsRow => 'Deal savings';
+
+  @override
+  String dealPriceOn(int deal, int total) {
+    return 'Deal price on $deal of $total';
+  }
+
+  @override
+  String dealPriceOnAll(int total) {
+    return 'Deal price on all $total';
+  }
+
+  @override
+  String dealNoteLimitOrder(int count) {
+    return 'limit $count per order';
+  }
+
+  @override
+  String get dealNoteLimitCustomer => 'your account limit is reached';
+
+  @override
+  String get dealNoteSoldOut => 'deal sold out';
+
+  @override
+  String get dealNoteEnded => 'deal ended';
+
+  @override
+  String get dealChangedBanner => 'A deal changed, your total was updated';
+
+  @override
+  String dealSaved(String amount) {
+    return 'You saved $amount';
+  }
+
+  @override
   String switchLanguageTo(String language) {
     return 'Switch language to $language';
   }

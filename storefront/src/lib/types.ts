@@ -1,3 +1,4 @@
+import type { DealBlock } from './deals';
 export interface Money { amount: string; currency: string; formatted: string }
 /** Money as the server may send it: the usual object, or (for the extra delivery fee) a bare decimal such as "50.00". Read with `parseMoney` (lib/deliveryFee.ts). */
 export type MoneyLike = Money | string | number
@@ -15,10 +16,14 @@ export interface ProductCard {
   /** Extra delivery fee of bulky products (docs/api/CHECKOUT_FEES_V2.md, section 3). Missing or 0 means none; absent from an older server. */
   extra_delivery_fee?: MoneyLike | null
   extra_delivery_fee_mode?: ExtraDeliveryMode | null
+  /** The countdown offer this product is in (docs/api/DEALS.md); null or absent when none, and always absent from an older server. */
+  deal?: DealBlock | null
 }
 export interface Variant {
   id: string; sku: string; name: string; attribute_value_ids: number[]; price: Price
   available_in_branch: boolean; in_stock: boolean; available_quantity: number; image_url: string | null
+  /** This variant's own deal price while the product's deal is live (null: the variant has no deal). Read with `dealPriceFor`. */
+  deal_price?: Money | null
 }
 export interface AttributeDef { code: string; name: string; type: 'color' | 'select' | string; values: { id: number; code: string; name: string; color_hex: string | null }[] }
 export interface ProductDetail extends ProductCard {
@@ -75,7 +80,10 @@ export interface Cart {
 
 /** One product's share of the extra delivery fee (`delivery_extras` of a quote). */
 export interface DeliveryExtra { product_id?: string; name?: string; mode?: ExtraDeliveryMode | null; quantity?: number; fee_each?: MoneyLike | null; amount?: MoneyLike | null }
-export interface QuoteLine { variant_id: string; product_id: string; branch_id: string; name: string; variant_name: string | null; image_url: string | null; quantity: number; unit_price: Price; line_total: Money }
+export interface QuoteLine { variant_id: string; product_id: string; branch_id: string; name: string; variant_name: string | null; image_url: string | null; quantity: number; unit_price: Price; line_total: Money
+  /** `{ deal_id, name, units_at_deal_price, units_at_regular_price, savings, ends_at, note }` or null. Read with `readQuoteDeal`. */
+  deal?: unknown
+}
 export interface Quote {
   quote_hash: string; currency: string; fulfillment_type: 'delivery' | 'pickup'; payment_method: string | null; is_split: boolean
   /** The "allow split shipments" switch is worth showing: the admin setting is on AND more than one active branch holds part of the cart. */
@@ -84,11 +92,13 @@ export interface Quote {
   fulfillments: { branch: { id: string; name: string; area: string | null }; type: string; items: QuoteLine[]; subtotal: Money; delivery_fee: Money; eta_minutes: number | null; slot: Slot | null; slot_required: boolean; allocation_reason: string }[]
   lines: QuoteLine[]
   /** `delivery_fee` is the gross delivery total: it already holds `extra_delivery_fee` (the part that comes from bulky products). Both extra fields are absent from an older server. */
-  totals: { subtotal: Money; discount: Money; delivery_fee: Money; extra_delivery_fee?: MoneyLike | null; service_fee: Money; tax: Money; loyalty_discount: Money; grand_total: Money }
+  totals: { subtotal: Money; discount: Money; delivery_fee: Money; extra_delivery_fee?: MoneyLike | null; service_fee: Money; tax: Money; loyalty_discount: Money; grand_total: Money
+    /** What the deals took off ("0.00" when none). Absent from an older server. */
+    deal_savings?: Money | null }
   /** What makes up `totals.extra_delivery_fee`, one row per product; empty or missing when there is none. */
   delivery_extras?: DeliveryExtra[] | null
   /** `free_delivery`: this discount is a free-delivery coupon (it waives the delivery fee; its amount counts that fee). */
-  discounts: { code?: string; label?: string; amount?: Money; free_delivery?: boolean }[]
+  discounts: { code?: string; label?: string; amount?: Money; free_delivery?: boolean; /** `deal` for a countdown offer. */ source?: string }[]
   payment_methods: { code: 'sadad' | 'cod' | 'pay_at_pickup'; available: boolean; reason: string | null }[]
   loyalty: { balance: number; max_redeemable_points: number; points_applied: number; points_to_earn?: number }
   warnings?: { code?: string; message?: string }[]
@@ -98,7 +108,10 @@ export interface OrderSummary {
   id: string; number: string; status: string; status_label: string; payment_status: string; payment_method: string; fulfillment_type: string
   items_count: number; grand_total: Money; placed_at: string; thumbnail_url: string | null
 }
-export interface OrderItem { id: string; product_id: string; variant_id: string; sku: string; name: string; variant_name: string | null; image_url: string | null; quantity: number; quantity_cancelled?: number; quantity_returned?: number; fulfillment_id?: string | null; unit_price: Money; line_total: Money; adjustment?: ItemAdjustment | null }
+export interface OrderItem { id: string; product_id: string; variant_id: string; sku: string; name: string; variant_name: string | null; image_url: string | null; quantity: number; quantity_cancelled?: number; quantity_returned?: number; fulfillment_id?: string | null; unit_price: Money; line_total: Money; adjustment?: ItemAdjustment | null
+  /** The deal this line got (`{ deal_id, name, units, unit_savings }`), a snapshot; read with `orderLineDeal`. */
+  deal?: unknown
+}
 /** What the branch did to one line while preparing the order (see docs/api/ORDER_ADJUSTMENTS.md). */
 export interface ItemAdjustment { kind: 'reduced' | 'removed' | 'replaced' | 'replacement'; original_quantity: number; original_name?: string | null; reason_code?: string | null; reason_label?: string | null; replaces_name?: string | null; replaced_by_name?: string | null }
 export interface OrderRevision { number: number; at: string; reason_label?: string | null; note?: string | null; branch?: string | null; lines?: { text?: string | null }[]; total_before?: Money | null; total_after?: Money | null; order_cancelled?: boolean }

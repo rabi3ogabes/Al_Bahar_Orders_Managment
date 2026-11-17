@@ -5192,6 +5192,294 @@ abstract class AppLocalizations {
   /// **'Scan'**
   String get navScan;
 
+  /// No description provided for @navDeals.
+  ///
+  /// In en, this message translates to:
+  /// **'Deals'**
+  String get navDeals;
+
+  /// No description provided for @dealsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Deals'**
+  String get dealsTitle;
+
+  /// No description provided for @dealsLiveNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Deals, on sale now'**
+  String get dealsLiveNow;
+
+  /// No description provided for @dealsLiveSection.
+  ///
+  /// In en, this message translates to:
+  /// **'On sale now'**
+  String get dealsLiveSection;
+
+  /// No description provided for @dealsUpcomingSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming'**
+  String get dealsUpcomingSection;
+
+  /// No description provided for @dealsEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No deals right now'**
+  String get dealsEmptyTitle;
+
+  /// No description provided for @dealsEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'New deals drop often. Check back soon.'**
+  String get dealsEmptyMessage;
+
+  /// No description provided for @dealsBrowseShop.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse the shop'**
+  String get dealsBrowseShop;
+
+  /// No description provided for @dealsSeeProducts.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{See the product} other{See all {count} products}}'**
+  String dealsSeeProducts(int count);
+
+  /// No description provided for @dealEndedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'This deal has ended'**
+  String get dealEndedTitle;
+
+  /// No description provided for @dealEndedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Have a look at the deals on sale now.'**
+  String get dealEndedMessage;
+
+  /// No description provided for @dealsSeeCurrent.
+  ///
+  /// In en, this message translates to:
+  /// **'See current deals'**
+  String get dealsSeeCurrent;
+
+  /// No description provided for @dealNoProducts.
+  ///
+  /// In en, this message translates to:
+  /// **'The products of this deal will appear here.'**
+  String get dealNoProducts;
+
+  /// No description provided for @dealLimitPerOrder.
+  ///
+  /// In en, this message translates to:
+  /// **'Limit {count} per order'**
+  String dealLimitPerOrder(int count);
+
+  /// No description provided for @dealLimitPerCustomer.
+  ///
+  /// In en, this message translates to:
+  /// **'Limit {count} per customer'**
+  String dealLimitPerCustomer(int count);
+
+  /// No description provided for @dealEndsIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Ends in'**
+  String get dealEndsIn;
+
+  /// No description provided for @dealStartsIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Starts in'**
+  String get dealStartsIn;
+
+  /// No description provided for @dealShopCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Shop the deal'**
+  String get dealShopCta;
+
+  /// No description provided for @dealSoldOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Sold out'**
+  String get dealSoldOut;
+
+  /// No description provided for @dealSoldOutNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'This deal is sold out'**
+  String get dealSoldOutNotice;
+
+  /// No description provided for @dealEnded.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal ended'**
+  String get dealEnded;
+
+  /// No description provided for @dealUnitDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Days'**
+  String get dealUnitDays;
+
+  /// No description provided for @dealUnitHours.
+  ///
+  /// In en, this message translates to:
+  /// **'Hours'**
+  String get dealUnitHours;
+
+  /// No description provided for @dealUnitMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'Mins'**
+  String get dealUnitMinutes;
+
+  /// No description provided for @dealUnitSeconds.
+  ///
+  /// In en, this message translates to:
+  /// **'Secs'**
+  String get dealUnitSeconds;
+
+  /// No description provided for @dealShortDays.
+  ///
+  /// In en, this message translates to:
+  /// **'d'**
+  String get dealShortDays;
+
+  /// No description provided for @dealShortHours.
+  ///
+  /// In en, this message translates to:
+  /// **'h'**
+  String get dealShortHours;
+
+  /// No description provided for @dealShortMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'m'**
+  String get dealShortMinutes;
+
+  /// No description provided for @dealShortSeconds.
+  ///
+  /// In en, this message translates to:
+  /// **'s'**
+  String get dealShortSeconds;
+
+  /// No description provided for @dealSpokenDays.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 day} other{{count} days}}'**
+  String dealSpokenDays(int count);
+
+  /// No description provided for @dealSpokenHours.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 hour} other{{count} hours}}'**
+  String dealSpokenHours(int count);
+
+  /// No description provided for @dealSpokenMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 minute} other{{count} minutes}}'**
+  String dealSpokenMinutes(int count);
+
+  /// No description provided for @dealSpokenLessThanMinute.
+  ///
+  /// In en, this message translates to:
+  /// **'less than a minute'**
+  String get dealSpokenLessThanMinute;
+
+  /// No description provided for @dealSpokenSeparator.
+  ///
+  /// In en, this message translates to:
+  /// **', '**
+  String get dealSpokenSeparator;
+
+  /// No description provided for @dealOffSpoken.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}% off'**
+  String dealOffSpoken(int percent);
+
+  /// No description provided for @dealPriceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal price'**
+  String get dealPriceLabel;
+
+  /// No description provided for @dealYourLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'You reached your limit for this deal'**
+  String get dealYourLimit;
+
+  /// No description provided for @dealYourLimitHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The regular price applies to this product.'**
+  String get dealYourLimitHint;
+
+  /// No description provided for @dealCustomerRemaining.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{You can buy 1 more at the deal price} other{You can buy {count} more at the deal price}}'**
+  String dealCustomerRemaining(int count);
+
+  /// No description provided for @dealSavingsRow.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal savings'**
+  String get dealSavingsRow;
+
+  /// No description provided for @dealPriceOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal price on {deal} of {total}'**
+  String dealPriceOn(int deal, int total);
+
+  /// No description provided for @dealPriceOnAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal price on all {total}'**
+  String dealPriceOnAll(int total);
+
+  /// No description provided for @dealNoteLimitOrder.
+  ///
+  /// In en, this message translates to:
+  /// **'limit {count} per order'**
+  String dealNoteLimitOrder(int count);
+
+  /// No description provided for @dealNoteLimitCustomer.
+  ///
+  /// In en, this message translates to:
+  /// **'your account limit is reached'**
+  String get dealNoteLimitCustomer;
+
+  /// No description provided for @dealNoteSoldOut.
+  ///
+  /// In en, this message translates to:
+  /// **'deal sold out'**
+  String get dealNoteSoldOut;
+
+  /// No description provided for @dealNoteEnded.
+  ///
+  /// In en, this message translates to:
+  /// **'deal ended'**
+  String get dealNoteEnded;
+
+  /// No description provided for @dealChangedBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'A deal changed, your total was updated'**
+  String get dealChangedBanner;
+
+  /// No description provided for @dealSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'You saved {amount}'**
+  String dealSaved(String amount);
+
   /// No description provided for @switchLanguageTo.
   ///
   /// In en, this message translates to:

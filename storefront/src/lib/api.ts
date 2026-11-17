@@ -8,8 +8,11 @@ export class ApiError extends Error {
   code: string;
   errors: Record<string, string[]>;
   requestId?: string;
+  /** The whole error body, for errors that carry data (`409 deal_changed` sends the fresh quote in `data.quote`). */
+  body: any;
   constructor(status: number, body: any) {
     super(body?.message || 'Request failed');
+    this.body = body;
     this.status = status;
     this.code = body?.code || 'error';
     this.errors = body?.errors || {};

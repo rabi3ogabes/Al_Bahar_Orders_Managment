@@ -2309,6 +2309,177 @@
   "@scanToAddSubtitle": {},
   "navScan": "Scan",
   "@navScan": {},
+  "navDeals": "Deals",
+  "@navDeals": {},
+  "dealsTitle": "Deals",
+  "@dealsTitle": {},
+  "dealsLiveNow": "Deals, on sale now",
+  "@dealsLiveNow": {},
+  "dealsLiveSection": "On sale now",
+  "@dealsLiveSection": {},
+  "dealsUpcomingSection": "Upcoming",
+  "@dealsUpcomingSection": {},
+  "dealsEmptyTitle": "No deals right now",
+  "@dealsEmptyTitle": {},
+  "dealsEmptyMessage": "New deals drop often. Check back soon.",
+  "@dealsEmptyMessage": {},
+  "dealsBrowseShop": "Browse the shop",
+  "@dealsBrowseShop": {},
+  "dealsSeeProducts": "{count, plural, =1{See the product} other{See all {count} products}}",
+  "@dealsSeeProducts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dealEndedTitle": "This deal has ended",
+  "@dealEndedTitle": {},
+  "dealEndedMessage": "Have a look at the deals on sale now.",
+  "@dealEndedMessage": {},
+  "dealsSeeCurrent": "See current deals",
+  "@dealsSeeCurrent": {},
+  "dealNoProducts": "The products of this deal will appear here.",
+  "@dealNoProducts": {},
+  "dealLimitPerOrder": "Limit {count} per order",
+  "@dealLimitPerOrder": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dealLimitPerCustomer": "Limit {count} per customer",
+  "@dealLimitPerCustomer": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dealEndsIn": "Ends in",
+  "@dealEndsIn": {},
+  "dealStartsIn": "Starts in",
+  "@dealStartsIn": {},
+  "dealShopCta": "Shop the deal",
+  "@dealShopCta": {},
+  "dealSoldOut": "Sold out",
+  "@dealSoldOut": {},
+  "dealSoldOutNotice": "This deal is sold out",
+  "@dealSoldOutNotice": {},
+  "dealEnded": "Deal ended",
+  "@dealEnded": {},
+  "dealUnitDays": "Days",
+  "@dealUnitDays": {},
+  "dealUnitHours": "Hours",
+  "@dealUnitHours": {},
+  "dealUnitMinutes": "Mins",
+  "@dealUnitMinutes": {},
+  "dealUnitSeconds": "Secs",
+  "@dealUnitSeconds": {},
+  "dealShortDays": "d",
+  "@dealShortDays": {},
+  "dealShortHours": "h",
+  "@dealShortHours": {},
+  "dealShortMinutes": "m",
+  "@dealShortMinutes": {},
+  "dealShortSeconds": "s",
+  "@dealShortSeconds": {},
+  "dealSpokenDays": "{count, plural, =1{1 day} other{{count} days}}",
+  "@dealSpokenDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dealSpokenHours": "{count, plural, =1{1 hour} other{{count} hours}}",
+  "@dealSpokenHours": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dealSpokenMinutes": "{count, plural, =1{1 minute} other{{count} minutes}}",
+  "@dealSpokenMinutes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dealSpokenLessThanMinute": "less than a minute",
+  "@dealSpokenLessThanMinute": {},
+  "dealSpokenSeparator": ", ",
+  "@dealSpokenSeparator": {},
+  "dealOffSpoken": "{percent}% off",
+  "@dealOffSpoken": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "dealPriceLabel": "Deal price",
+  "@dealPriceLabel": {},
+  "dealYourLimit": "You reached your limit for this deal",
+  "@dealYourLimit": {},
+  "dealYourLimitHint": "The regular price applies to this product.",
+  "@dealYourLimitHint": {},
+  "dealCustomerRemaining": "{count, plural, =1{You can buy 1 more at the deal price} other{You can buy {count} more at the deal price}}",
+  "@dealCustomerRemaining": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dealSavingsRow": "Deal savings",
+  "@dealSavingsRow": {},
+  "dealPriceOn": "Deal price on {deal} of {total}",
+  "@dealPriceOn": {
+    "placeholders": {
+      "deal": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "dealPriceOnAll": "Deal price on all {total}",
+  "@dealPriceOnAll": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "dealNoteLimitOrder": "limit {count} per order",
+  "@dealNoteLimitOrder": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dealNoteLimitCustomer": "your account limit is reached",
+  "@dealNoteLimitCustomer": {},
+  "dealNoteSoldOut": "deal sold out",
+  "@dealNoteSoldOut": {},
+  "dealNoteEnded": "deal ended",
+  "@dealNoteEnded": {},
+  "dealChangedBanner": "A deal changed, your total was updated",
+  "@dealChangedBanner": {},
+  "dealSaved": "You saved {amount}",
+  "@dealSaved": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "switchLanguageTo": "Switch language to {language}",
   "@switchLanguageTo": {
     "placeholders": {

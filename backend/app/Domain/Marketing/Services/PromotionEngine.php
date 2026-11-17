@@ -43,6 +43,9 @@ class PromotionEngine
     public function evaluate(array $lines, ?User $user, ?string $couponCode, Money $deliveryFees, bool $isAuction = false): array
     {
         $now = now();
+        // Units that got a deal price are never discounted twice: everything below only sees the units that did not (DealEngine ran first).
+        $all = $lines;
+        $lines = $this->withoutDealUnits($all);
         $couponError = null;
         $coupon = null;
         $candidates = Promotion::query()->where('is_active', true)->where('requires_coupon', false)
@@ -106,13 +109,13 @@ class PromotionEngine
             $couponError = 'coupon_not_combinable';
         }
 
-        // Write per-line allocations onto the lines.
-        foreach ($lines as $line) {
-            $line->discount = Money::zero();
+        // Write per-line allocations onto the lines (a line keeps what its deal units already saved).
+        foreach ($all as $line) {
+            $line->discount = $line->dealSavings();
         }
         foreach ($discounts as $d) {
             foreach ($d->allocations as $key => $amount) {
-                foreach ($lines as $line) {
+                foreach ($all as $line) {
                     if ($line->key === $key) {
                         $line->discount = $line->discount->plus($amount)->min($line->subtotal());
                     }
@@ -124,6 +127,27 @@ class PromotionEngine
     }
 
     /**
+     * The lines as the promotions see them: the same lines with the deal-priced units taken out (a fully deal-priced line is left out).
+     *
+     * @param  list<QuoteLine>  $lines
+     * @return list<QuoteLine>
+     */
+    private function withoutDealUnits(array $lines): array
+    {
+        $view = [];
+        foreach ($lines as $line) {
+            $left = $line->promotionQuantity();
+            if ($left === $line->quantity) {
+                $view[] = $line;
+            } elseif ($left > 0) {
+                $view[] = new QuoteLine($line->key, $line->variant, $line->branch, $left, $line->price);
+            }
+        }
+
+        return $view;
+    }
+
+    /**
      * Record usage atomically at order placement; throws if a limit was reached meanwhile (race-safe).
      *
      * @param  list<AppliedDiscount>  $discounts
@@ -132,6 +156,9 @@ class PromotionEngine
     {
         foreach ($discounts as $d) {
             $promo = $d->promotion;
+            if ($promo === null) {
+                continue; // the prices of a deal are claimed by DealService, not counted as a promotion use
+            }
             if ($user && $promo->per_customer_limit) {
                 DB::select('SELECT pg_advisory_xact_lock(hashtext(?))', ['promo:'.$promo->id.':'.$user->id]);
                 $used = CouponUsage::where('promotion_id', $promo->id)->where('user_id', $user->id)->where('status', 'applied')->count();

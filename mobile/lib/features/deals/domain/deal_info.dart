@@ -75,6 +75,21 @@ T _pick<T extends Enum>(List<T> values, Object? raw, T fallback) {
   return values.where((v) => v.name == key).firstOrNull ?? fallback;
 }
 
+/// The phase of a deal at [serverNow], from the phase the server reported and the deal's times: a deal that was live ends
+/// when its time is over, and a scheduled one goes live when its start comes. (The server stays the authority: the next
+/// fetch confirms.)
+DealPhase dealPhaseAt(DealPhase phase, DateTime? startsAt, DateTime? endsAt, DateTime serverNow) {
+  if (phase == DealPhase.live || phase == DealPhase.soldOut) {
+    if (endsAt != null && !serverNow.isBefore(endsAt)) return DealPhase.ended;
+    return phase;
+  }
+  if (phase == DealPhase.scheduled && startsAt != null && !serverNow.isBefore(startsAt)) {
+    if (endsAt != null && !serverNow.isBefore(endsAt)) return DealPhase.ended;
+    return DealPhase.live;
+  }
+  return phase;
+}
+
 /// The three colours of a deal, resolved by the server (the app never invents colours). Text on background is readable.
 @immutable
 class DealColors {
@@ -321,19 +336,8 @@ class DealInfo {
   final bool soldOut;
   final DealDesign design;
 
-  /// The phase at [serverNow]: a deal that was live when it was fetched ends when its time is over, and a scheduled one
-  /// goes live when its start comes. (The server stays the authority: the next fetch confirms.)
-  DealPhase phaseAt(DateTime serverNow) {
-    if (phase == DealPhase.live || phase == DealPhase.soldOut) {
-      if (endsAt != null && !serverNow.isBefore(endsAt!)) return DealPhase.ended;
-      return phase;
-    }
-    if (phase == DealPhase.scheduled && startsAt != null && !serverNow.isBefore(startsAt!)) {
-      if (endsAt != null && !serverNow.isBefore(endsAt!)) return DealPhase.ended;
-      return DealPhase.live;
-    }
-    return phase;
-  }
+  /// The phase at [serverNow]: see [dealPhaseAt].
+  DealPhase phaseAt(DateTime serverNow) => dealPhaseAt(phase, startsAt, endsAt, serverNow);
 
   /// This customer has used all the units they may buy at the deal price.
   bool get limitReached => customerRemaining == 0;

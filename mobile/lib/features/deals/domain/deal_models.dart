@@ -117,18 +117,8 @@ class Deal {
     return n == null || n <= 0 || n > 100 ? null : n;
   }
 
-  /// The phase at [serverNow]: see [DealInfo.phaseAt].
-  DealPhase phaseAt(DateTime serverNow) {
-    if (phase == DealPhase.live || phase == DealPhase.soldOut) {
-      if (endsAt != null && !serverNow.isBefore(endsAt!)) return DealPhase.ended;
-      return phase;
-    }
-    if (phase == DealPhase.scheduled && startsAt != null && !serverNow.isBefore(startsAt!)) {
-      if (endsAt != null && !serverNow.isBefore(endsAt!)) return DealPhase.ended;
-      return DealPhase.live;
-    }
-    return phase;
-  }
+  /// The phase at [serverNow]: see [dealPhaseAt].
+  DealPhase phaseAt(DateTime serverNow) => dealPhaseAt(phase, startsAt, endsAt, serverNow);
 
   /// The moment this deal changes state next: when it ends (live) or starts (scheduled). Null when it has no time.
   DateTime? get dueAt => switch (phase) {

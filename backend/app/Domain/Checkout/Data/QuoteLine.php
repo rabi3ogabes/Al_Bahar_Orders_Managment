@@ -4,6 +4,7 @@ namespace App\Domain\Checkout\Data;
 
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Catalog\Models\ProductVariant;
+use App\Domain\Deals\Data\LineDeal;
 use App\Domain\Pricing\Data\EffectivePrice;
 use App\Support\Money;
 
@@ -13,6 +14,9 @@ final class QuoteLine
     public Money $discount;
 
     public Money $tax;
+
+    /** What a deal did to this line (units at the deal price, why fewer than all); null when no deal covers the product. Set by DealEngine. */
+    public ?LineDeal $deal = null;
 
     public function __construct(
         public readonly string $key,               // stable key: variantId|branchId
@@ -28,6 +32,18 @@ final class QuoteLine
     public function subtotal(): Money
     {
         return $this->price->final()->times($this->quantity);
+    }
+
+    /** The saving of the units that got the deal price (zero without a deal). Already part of `discount`. */
+    public function dealSavings(): Money
+    {
+        return $this->deal?->savings() ?? Money::zero();
+    }
+
+    /** Units a promotion may still discount: the ones that did not get a deal price. */
+    public function promotionQuantity(): int
+    {
+        return $this->quantity - ($this->deal?->units ?? 0);
     }
 
     public function total(): Money
