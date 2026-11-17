@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/models/money.dart';
 import '../../../core/utils/json.dart';
+import '../../deals/domain/deal_info.dart';
 
 @immutable
 class Rating {
@@ -31,6 +32,7 @@ class ProductSummary {
     required this.inStock,
     required this.hasVariants,
     this.variantId,
+    this.deal,
   });
 
   factory ProductSummary.fromJson(JsonMap json) => ProductSummary(
@@ -46,6 +48,7 @@ class ProductSummary {
     inStock: asBool(json['in_stock'], true),
     hasVariants: asBool(json['has_variants']),
     variantId: asStringOrNull(json['variant_id']),
+    deal: DealInfo.maybe(json['deal']),
   );
 
   final String id;
@@ -59,6 +62,9 @@ class ProductSummary {
   final List<String> badges;
   final bool inStock;
   final bool hasVariants;
+
+  /// The deal (countdown offer) this product is in; null when it is in none (and always null on an older server).
+  final DealInfo? deal;
 
   /// The single variant a card can add straight to the bag (null when the shopper must pick colour/size first).
   final String? variantId;

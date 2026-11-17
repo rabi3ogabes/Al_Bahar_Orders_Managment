@@ -2,6 +2,9 @@
 
 require_once __DIR__.'/AdjustmentFixtures.php';
 
+use App\Domain\Catalog\Models\Product;
+use App\Domain\Inventory\Enums\MovementType;
+use App\Domain\Inventory\Services\InventoryLedger;
 use App\Domain\Marketing\Models\OrderCoupon;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderItem;
@@ -111,10 +114,10 @@ it('takes the fee of a replaced product off, but not when a variant of the same 
 it('keeps the fee when a variant of the same product replaces the line', function () {
     $variants = [];
     $a = xfeeOrder(['qty' => [0, 0], 'prepare' => function (object $w) use (&$variants) {
-        $product = App\Domain\Catalog\Models\Product::factory()->withVariants(2)->create(['price' => '400.00', 'extra_delivery_fee' => '30.00', 'extra_delivery_fee_mode' => 'per_unit']);
+        $product = Product::factory()->withVariants(2)->create(['price' => '400.00', 'extra_delivery_fee' => '30.00', 'extra_delivery_fee_mode' => 'per_unit']);
         $variants = $product->variants()->get()->all();
         foreach ($variants as $v) {
-            app(App\Domain\Inventory\Services\InventoryLedger::class)->apply($w->a->id, $v->id, App\Domain\Inventory\Enums\MovementType::OpeningBalance, 10);
+            app(InventoryLedger::class)->apply($w->a->id, $v->id, MovementType::OpeningBalance, 10);
         }
         test()->postJson('/api/v1/cart/items', ['variant_id' => $variants[0]->id, 'quantity' => 2])->assertSuccessful();
     }]);

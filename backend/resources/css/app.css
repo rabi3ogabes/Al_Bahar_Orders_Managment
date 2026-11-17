@@ -135,6 +135,13 @@
     .drawer-body form:not(.card, [role=alertdialog] form) > div:last-child:has(> :is(.btn-primary, .btn-danger, .btn-brass)):has(> :nth-child(3)) > :is(.btn-primary, .btn-danger, .btn-brass) { flex-basis: 100%; order: -1; }
 }
 
+/* Touch screens (a tablet at the counter, a phone): buttons, fields and menu links are at least 44 px, as docs/guides/SIDE_WINDOWS.md asks.
+   Mouse users keep the compact sizes. */
+@media (pointer: coarse) {
+    :is(.btn, .btn-primary, .btn-brass, .btn-secondary, .btn-ghost, .btn-danger, .btn-sm, .input, .nav-link) { min-height: 2.75rem; }
+    .btn-sm { min-width: 2.75rem; }
+}
+
 /* Mirror directional icons in RTL */
 html[dir="rtl"] .rtl-flip { transform: scaleX(-1); }
 

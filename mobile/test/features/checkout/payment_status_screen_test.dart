@@ -72,13 +72,15 @@ void main() {
     t,
   ) async {
     var polls2 = 0;
+    // The first answer about the new payment is slow: until it comes, the page must not show the old one.
+    final firstAnswer = Completer<FakeReply>();
     final h = await _open(
       t,
       routes({
         'GET /payments/p1': (_) => ok(_payment('p1', 'failed', reason: 'Card declined')),
         'POST /orders/o1/payments': (_) =>
             ok({'payment_id': 'p2', 'method': 'sadad', 'status': 'pending', 'action': 'none'}),
-        'GET /payments/p2': (_) => ok(_payment('p2', ++polls2 == 1 ? 'pending' : 'paid')),
+        'GET /payments/p2': (_) => ++polls2 == 1 ? firstAnswer.future : ok(_payment('p2', 'paid')),
       }),
     );
     expect(find.text(_en.paymentFailed), findsOneWidget);
@@ -94,7 +96,10 @@ void main() {
       reason: 'the new payment is being checked, the old answer is gone',
     );
     expect(find.text('Card declined'), findsNothing);
-    expect(find.text(_en.retryPayment), findsNothing);
+    expect(find.text(_en.retryPayment), findsNothing, reason: 'a second tap would start a second payment');
+    expect(find.text(_en.paymentPending), findsOneWidget);
+    firstAnswer.complete(ok(_payment('p2', 'pending')));
+    await _settle(t, 4);
     expect(find.text(_en.paymentPending), findsOneWidget);
 
     // The next check (3 s later) finds it paid.

@@ -7,6 +7,7 @@ use App\Domain\Catalog\Services\CatalogImportService;
 use App\Domain\Catalog\Services\ProductService;
 use App\Domain\Identity\Models\User;
 use App\Livewire\Admin\Catalog\ProductEditor;
+use App\Support\DomainException;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Http\UploadedFile;
 use Livewire\Livewire;
@@ -142,7 +143,7 @@ it('validates the fee strictly in the admin API', function (array $bad, string $
 it('refuses a fee the database would also refuse, whoever calls the service', function () {
     $service = app(ProductService::class);
     foreach ([['extra_delivery_fee' => '-5.00'], ['extra_delivery_fee' => '100000.01'], ['extra_delivery_fee_mode' => 'weekly']] as $bad) {
-        expect(fn () => $service->update($this->product->fresh(), $bad))->toThrow(App\Support\DomainException::class);
+        expect(fn () => $service->update($this->product->fresh(), $bad))->toThrow(DomainException::class);
     }
     expect($this->product->fresh()->extra_delivery_fee)->toBe('0.00');
 });
