@@ -6,8 +6,10 @@ use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Catalog\Models\ProductTranslation;
 use App\Domain\Catalog\Models\ProductVariant;
+use App\Domain\Checkout\Services\ExtraDeliveryFee;
 use App\Domain\Pricing\Services\PricingService;
 use App\Support\DomainException;
+use App\Support\Money;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -19,7 +21,8 @@ class ProductService
 {
     private const CORE = ['sku', 'barcode', 'category_id', 'brand_id', 'status', 'currency', 'cost_price', 'weight', 'weight_unit',
         'length', 'width', 'height', 'dimension_unit', 'is_featured', 'is_bestseller', 'is_new_arrival', 'requires_assembly',
-        'assembly_service_available', 'is_oversized', 'available_in_all_branches', 'tags', 'specifications', 'allow_sale_above_price'];
+        'assembly_service_available', 'is_oversized', 'extra_delivery_fee', 'extra_delivery_fee_mode', 'available_in_all_branches', 'tags', 'specifications',
+        'allow_sale_above_price'];
 
     public function __construct(private readonly AuditLogger $audit, private readonly PricingService $pricing) {}
 
@@ -30,7 +33,7 @@ class ProductService
     {
         return DB::transaction(function () use ($data) {
             $this->assertUniqueCodes($data['sku'] ?? null, $data['barcode'] ?? null);
-            $product = new Product(collect($data)->only(self::CORE)->all());
+            $product = new Product($this->coreFields($data));
             $product->price = $data['price'];
             $product->sale_price = $data['sale_price'] ?? null;
             $product->sale_starts_at = $data['sale_starts_at'] ?? null;
@@ -51,7 +54,8 @@ class ProductService
             if (! empty($data['warranty']['duration_months'])) {
                 $product->warranty()->create($data['warranty']);
             }
-            $this->audit->log('catalog.product_created', $product, [], ['sku' => $product->sku, 'price' => $product->price, 'status' => $product->status]);
+            $this->audit->log('catalog.product_created', $product, [], ['sku' => $product->sku, 'price' => $product->price, 'status' => $product->status]
+                + (Money::of((string) $product->extra_delivery_fee)->isPositive() ? ['extra_delivery_fee' => $product->extra_delivery_fee, 'extra_delivery_fee_mode' => $product->extra_delivery_fee_mode] : []));
 
             return $product->load('variants', 'translations');
         });
@@ -66,7 +70,7 @@ class ProductService
             if (array_key_exists('barcode', $data) && $data['barcode'] && $data['barcode'] !== $product->barcode) {
                 $this->assertUniqueCodes(null, $data['barcode'], $product->id);
             }
-            $product->fill(collect($data)->only(self::CORE)->all());
+            $product->fill($this->coreFields($data));
             if (($data['status'] ?? null) === 'active' && ! $product->published_at) {
                 $product->published_at = now();
             }
@@ -92,6 +96,29 @@ class ProductService
 
             return $product->refresh();
         });
+    }
+
+    /**
+     * The product's own columns out of a request. The extra delivery fee (money, at most two decimals, never negative, never above the limit) and
+     * its mode (one of two) are checked here once more for every caller (editor, API, import): a bad value is refused, never saved.
+     *
+     * @return array<string, mixed>
+     */
+    private function coreFields(array $data): array
+    {
+        $core = collect($data)->only(self::CORE)->all();
+        if (array_key_exists('extra_delivery_fee', $core)) {
+            $fee = Money::of((string) ($core['extra_delivery_fee'] ?? '0'));
+            if ($fee->isNegative() || $fee->greaterThan(Money::of(ExtraDeliveryFee::MAX))) {
+                throw DomainException::make('invalid_extra_delivery_fee', 422);
+            }
+            $core['extra_delivery_fee'] = $fee->toDecimal();
+        }
+        if (array_key_exists('extra_delivery_fee_mode', $core) && ! in_array($core['extra_delivery_fee_mode'], ExtraDeliveryFee::MODES, true)) {
+            throw DomainException::make('invalid_extra_delivery_fee', 422);
+        }
+
+        return $core;
     }
 
     public function createVariant(Product $product, array $v): ProductVariant

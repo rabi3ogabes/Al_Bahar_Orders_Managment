@@ -20,6 +20,18 @@ class Money {
 
   static Money? maybe(Object? json) => json is Map ? Money.fromJson(asMap(json)) : null;
 
+  /// Like [maybe], and also reads a bare decimal (`"50.00"`, `50`) from a server that sends a newer field as a plain amount: shown as
+  /// `QAR 50.00` until the server localises it. Anything else (null, empty text) is null.
+  static Money? lenient(Object? json, {String currency = 'QAR'}) {
+    if (json is Map) return Money.fromJson(asMap(json));
+    final amount = switch (json) {
+      final num n => n.toStringAsFixed(2),
+      final String s when s.trim().isNotEmpty && double.tryParse(s.trim()) != null => s.trim(),
+      _ => null,
+    };
+    return amount == null ? null : Money(amount: amount, currency: currency, formatted: '$currency $amount');
+  }
+
   static const zero = Money(amount: '0.00', currency: 'QAR', formatted: 'QAR 0.00');
 
   /// Decimal string as sent by the server, e.g. "1250.50".

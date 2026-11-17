@@ -54,6 +54,7 @@ return [
     'banners' => 'بانرات الصفحة الرئيسية',
     'pages' => 'الصفحات',
     'notification_templates' => 'قوالب الإشعارات',
+    'notification_rules' => 'التحكم بالإشعارات',
     'insights' => 'التحليلات',
     'reports' => 'التقارير',
     'exports' => 'ملفات التصدير',

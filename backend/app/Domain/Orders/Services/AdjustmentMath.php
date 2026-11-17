@@ -13,7 +13,8 @@ use App\Support\Money;
  *    customer's favour), and tax is worked out again on what is left at the line's own rate.
  *  - A substitute costs per unit at most what the original unit cost: min(its current price, the original unit price). It carries the
  *    original line's discount per unit scaled by that price ratio, so its net price per unit can never be higher than the original's.
- *  - Delivery and service fees are never raised or re-priced by a shortage (the customer is not penalised for it).
+ *  - Delivery and service fees are never raised or re-priced by a shortage (the customer is not penalised for it). The one fee that goes down is the
+ *    extra delivery fee of a bulky product whose units are gone (OrderAdjustmentService::extraDeliveryAfter): it follows the units, and never rises.
  *  - The total never goes below zero, and loyalty points the new total cannot absorb are handed back (never wasted).
  */
 final class AdjustmentMath
@@ -79,7 +80,8 @@ final class AdjustmentMath
 
     /**
      * The order total from its parts: goods minus item discounts, plus delivery less its discount, service fee and tax, less loyalty points, never
-     * below zero; the cash-on-delivery fee is added after that floor (the same rule the checkout uses).
+     * below zero; the cash-on-delivery fee is added after that floor. Orders placed today have none ("0.00"): cash on delivery became free, but orders
+     * placed before that still carry their own stored `fee_breakdown.cod_fee` and keep adding up exactly as they did.
      *
      * @param  array{subtotal: Money, item_discount: Money, delivery_fee: Money, delivery_discount: Money, service_fee: Money, cod_fee: Money, tax: Money, loyalty: Money}  $p
      */

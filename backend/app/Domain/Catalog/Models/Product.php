@@ -25,6 +25,7 @@ class Product extends Model
         'status' => 'draft', 'currency' => 'QAR', 'available_in_all_branches' => true, 'has_variants' => false,
         'allow_sale_above_price' => false, 'is_featured' => false, 'is_bestseller' => false, 'is_new_arrival' => false,
         'requires_assembly' => false, 'assembly_service_available' => false, 'is_oversized' => false,
+        'extra_delivery_fee' => '0.00', 'extra_delivery_fee_mode' => 'per_unit',
         'weight_unit' => 'kg', 'dimension_unit' => 'cm', 'rating_average' => 0, 'rating_count' => 0, 'sales_count' => 0,
     ];
 
@@ -41,6 +42,8 @@ class Product extends Model
         'requires_assembly' => 'boolean',
         'assembly_service_available' => 'boolean',
         'is_oversized' => 'boolean',
+        // Money as a two-decimal string (like the other money columns), never a float.
+        'extra_delivery_fee' => 'decimal:2',
         'available_in_all_branches' => 'boolean',
         'allow_sale_above_price' => 'boolean',
         'rating_average' => 'float',

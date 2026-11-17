@@ -7,6 +7,7 @@ use App\Domain\Identity\Models\UserDevice;
 use App\Domain\Notifications\Contracts\SmsSender;
 use App\Domain\Notifications\Models\NotificationLog;
 use App\Domain\Notifications\Services\FcmClient;
+use App\Domain\Notifications\Services\NotificationRules;
 use App\Domain\Notifications\Services\WhatsAppClient;
 use App\Support\Phone;
 use App\Support\Redactor;
@@ -43,6 +44,12 @@ class SendNotificationJob implements ShouldQueue
     {
         $log = NotificationLog::find($this->logId);
         if (! $log || in_array($log->status, ['sent', 'delivered'], true)) {
+            return;
+        }
+        // The admin may have switched this notification (or this channel of it) off while the job waited in the queue or for a retry.
+        if (! app(NotificationRules::class)->allows($log->event, $log->channel)) {
+            $log->update(['status' => 'skipped', 'response' => ['reason' => 'switched_off']]);
+
             return;
         }
         $user = User::find($log->user_id);

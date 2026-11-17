@@ -15,10 +15,12 @@ use Illuminate\Support\Facades\DB;
 /**
  * Single entry point for customer communications. Respects consent and per-channel preferences, writes the in-app
  * notification synchronously, and queues every external channel (push/SMS/WhatsApp/email) with retries + logging.
+ * The admin's notification controls ({@see NotificationRules}) decide FIRST what may be sent at all: an event switched off sends and stores
+ * nothing, a channel switched off is skipped; consent and preferences (allowed()) are applied on top, so a rule never adds a send a customer opted out of.
  */
 class NotificationService
 {
-    public function __construct(private readonly TemplateRenderer $templates) {}
+    public function __construct(private readonly TemplateRenderer $templates, private readonly NotificationRules $rules) {}
 
     /**
      * @param  array<string, mixed>  $data  placeholders; 'deep_link' is passed to push payloads; 'by_locale' (locale => placeholders) overrides
@@ -26,11 +28,12 @@ class NotificationService
      */
     public function notify(User $user, string $event, array $data = [], ?array $channels = null, ?string $campaignId = null): array
     {
-        if (! $user->isActive()) {
+        if (! $user->isActive() || ! $this->rules->enabled($event)) {
             return [];
         }
         $category = NotificationCatalog::category($event);
-        $channels ??= NotificationCatalog::defaultChannels($event);
+        // A caller that names its own channels keeps them (a rule can only switch some off); with the event's defaults a channel the admin switched on is added too.
+        $channels = $this->rules->effectiveChannels($event, $channels ?? NotificationCatalog::defaultChannels($event), allowAdditions: $channels === null);
         $locale = $user->preferredLocale();
         $sent = [];
         $inAppId = null;
@@ -93,10 +96,12 @@ class NotificationService
     /**
      * True when this order event is already announced by the customer's live order card: push is set up and the person has a phone or
      * browser that takes it. The card follows the same "order updates" push preference as the classic push (see PushNotifier).
+     * With the card switched off for this step in the notification controls it covers nothing, so the classic push goes out instead.
      */
     private function liveCardCovers(User $user, string $event): bool
     {
         return in_array($event, NotificationCatalog::LIVE_CARD_EVENTS, true)
+            && $this->rules->allows($event, NotificationRules::LIVE_CARD)
             && app(FcmClient::class)->configured()
             && $user->devices()->whereNull('disabled_at')->exists();
     }

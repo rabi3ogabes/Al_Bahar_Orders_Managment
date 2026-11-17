@@ -76,6 +76,7 @@ final class AdminNavigation
                 ['label' => 'nav.page_background', 'route' => 'admin.appearance.background', 'icon' => 'building', 'permission' => 'cms.view'],
                 ['label' => 'nav.pages', 'route' => 'admin.pages.index', 'icon' => 'file-text', 'permission' => 'cms.view'],
                 ['label' => 'nav.notification_templates', 'route' => 'admin.notification-templates.index', 'icon' => 'bell', 'permission' => 'notifications.view'],
+                ['label' => 'nav.notification_rules', 'route' => 'admin.notification-rules', 'icon' => 'sliders', 'permission' => 'notifications.view'],
             ]],
             ['label' => 'nav.insights', 'items' => [
                 ['label' => 'nav.issues', 'route' => 'admin.issues.index', 'icon' => 'alert', 'permission' => 'orders.view'],

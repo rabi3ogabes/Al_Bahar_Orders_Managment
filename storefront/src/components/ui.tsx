@@ -28,7 +28,7 @@ export function LinkButton({ variant = 'primary', size = 'md', block, className,
   return <Link className={cx('inline-flex items-center justify-center gap-2 rounded-full font-medium tracking-wide transition-colors duration-200', vclass[variant], sclass[size], block && 'w-full', className)} {...p} />;
 }
 export const IconButton = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement> & { label: string }>(function IconButton({ label, className, children, ...p }, ref) {
-  return <button ref={ref} aria-label={label} title={label} className={cx('relative inline-flex h-11 w-11 items-center justify-center rounded-full text-ink transition-colors hover:bg-sand', className)} {...p}>{children}</button>;
+  return <button ref={ref} aria-label={label} title={label} className={cx('relative inline-flex h-11 w-11 items-center justify-center rounded-full text-ink transition-colors hover:bg-sand max-[359px]:h-10 max-[359px]:w-10', className)} {...p}>{children}</button>;
 });
 
 /* ───────────── Form fields ───────────── */

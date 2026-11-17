@@ -1322,6 +1322,24 @@ abstract class AppLocalizations {
   /// **'Choose a branch to see price & stock'**
   String get selectBranchToBuy;
 
+  /// No description provided for @extraDeliveryFeePerUnit.
+  ///
+  /// In en, this message translates to:
+  /// **'Extra delivery fee {fee} per item'**
+  String extraDeliveryFeePerUnit(String fee);
+
+  /// No description provided for @extraDeliveryFeePerLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Extra delivery fee {fee} for this item, whatever the quantity'**
+  String extraDeliveryFeePerLine(String fee);
+
+  /// No description provided for @viewImageFullScreen.
+  ///
+  /// In en, this message translates to:
+  /// **'View image full screen'**
+  String get viewImageFullScreen;
+
   /// No description provided for @imageOf.
   ///
   /// In en, this message translates to:
@@ -1801,6 +1819,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Cash on delivery fee'**
   String get codFee;
+
+  /// No description provided for @bulkyDeliveryFee.
+  ///
+  /// In en, this message translates to:
+  /// **'Extra delivery fee for bulky items'**
+  String get bulkyDeliveryFee;
+
+  /// No description provided for @bulkyDeliveryEach.
+  ///
+  /// In en, this message translates to:
+  /// **'×{quantity} · {fee} each'**
+  String bulkyDeliveryEach(int quantity, String fee);
+
+  /// No description provided for @bulkyDeliveryOnce.
+  ///
+  /// In en, this message translates to:
+  /// **'×{quantity} · charged once'**
+  String bulkyDeliveryOnce(int quantity);
+
+  /// No description provided for @bulkyDeliveryIncluded.
+  ///
+  /// In en, this message translates to:
+  /// **'Already included in the delivery fee above.'**
+  String get bulkyDeliveryIncluded;
+
+  /// No description provided for @bulkyDeliveryShow.
+  ///
+  /// In en, this message translates to:
+  /// **'Show details'**
+  String get bulkyDeliveryShow;
+
+  /// No description provided for @bulkyDeliveryHide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide details'**
+  String get bulkyDeliveryHide;
+
+  /// No description provided for @quoteRefreshFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Your totals couldn’t be refreshed. Please try again.'**
+  String get quoteRefreshFailed;
+
+  /// No description provided for @placingOrderWait.
+  ///
+  /// In en, this message translates to:
+  /// **'We’re placing your order. Please wait a moment.'**
+  String get placingOrderWait;
+
+  /// No description provided for @paymentWaitBack.
+  ///
+  /// In en, this message translates to:
+  /// **'We’re confirming your payment. Please wait a moment.'**
+  String get paymentWaitBack;
 
   /// No description provided for @tax.
   ///

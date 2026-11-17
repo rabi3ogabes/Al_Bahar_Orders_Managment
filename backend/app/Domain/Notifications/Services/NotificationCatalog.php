@@ -46,6 +46,23 @@ final class NotificationCatalog
     public const LIVE_CARD_EVENTS = ['order.created', 'order.confirmed', 'order.ready_for_pickup', 'order.out_for_delivery', 'order.completed', 'order.cancelled'];
 
     /**
+     * The catalog event that owns each step (`phase`) of the live order card, so the notification controls can switch a step off together
+     * with its message: placed = order.created, preparing = order.confirmed ("order accepted"), on the way = order.out_for_delivery,
+     * ready (pickup) = order.ready_for_pickup, delivered and collected = order.completed, cancelled = order.cancelled.
+     * A failed delivery has no event on purpose: it needs the customer's attention, so the card always shows it.
+     */
+    public const CARD_PHASE_EVENTS = [
+        'placed' => 'order.created', 'preparing' => 'order.confirmed', 'on_the_way' => 'order.out_for_delivery', 'ready' => 'order.ready_for_pickup',
+        'delivered' => 'order.completed', 'collected' => 'order.completed', 'cancelled' => 'order.cancelled',
+    ];
+
+    /** The event behind a live-card step, or null for a step the controls never switch off (a failed delivery). */
+    public static function cardEvent(string $phase): ?string
+    {
+        return self::CARD_PHASE_EVENTS[$phase] ?? null;
+    }
+
+    /**
      * Events sent outside the catalog by staff (`staff.message`) and by the customer journeys (`journey.*`) are marketing, like the
      * in-app entries they create, so the app files their banners under the offers preference and the offers Android channel.
      */

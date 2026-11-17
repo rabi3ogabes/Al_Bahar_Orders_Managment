@@ -3374,13 +3374,6 @@
                                         "type": "number",
                                         "minimum": 0
                                     },
-                                    "min_order_amount": {
-                                        "type": [
-                                            "number",
-                                            "null"
-                                        ],
-                                        "minimum": 0
-                                    },
                                     "max_order_amount": {
                                         "type": [
                                             "number",
@@ -3548,6 +3541,12 @@
                                                     "variants_count": {
                                                         "type": "string"
                                                     },
+                                                    "extra_delivery_fee": {
+                                                        "type": "string"
+                                                    },
+                                                    "extra_delivery_fee_mode": {
+                                                        "type": "string"
+                                                    },
                                                     "brand": {
                                                         "type": [
                                                             "string",
@@ -3576,6 +3575,8 @@
                                                     "price",
                                                     "sale_price",
                                                     "variants_count",
+                                                    "extra_delivery_fee",
+                                                    "extra_delivery_fee_mode",
                                                     "brand",
                                                     "category",
                                                     "updated_at"
@@ -3758,6 +3759,18 @@
                                                 },
                                                 "is_oversized": {
                                                     "type": "boolean"
+                                                },
+                                                "extra_delivery_fee": {
+                                                    "type": "string",
+                                                    "description": "Extra delivery fee for a bulky product in QAR (string money, \"0.00\" = none); delivery orders only. See docs/api/CHECKOUT_FEES_V2.md."
+                                                },
+                                                "extra_delivery_fee_mode": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "per_unit",
+                                                        "per_line"
+                                                    ],
+                                                    "description": "per_unit: the extra delivery fee is charged for every unit; per_line: once for the product whatever the quantity."
                                                 },
                                                 "available_in_all_branches": {
                                                     "type": "boolean"
@@ -4066,6 +4079,8 @@
                                                 "requires_assembly",
                                                 "assembly_service_available",
                                                 "is_oversized",
+                                                "extra_delivery_fee",
+                                                "extra_delivery_fee_mode",
                                                 "available_in_all_branches",
                                                 "tags",
                                                 "specifications",
@@ -4391,6 +4406,18 @@
                                                 "is_oversized": {
                                                     "type": "boolean"
                                                 },
+                                                "extra_delivery_fee": {
+                                                    "type": "string",
+                                                    "description": "Extra delivery fee for a bulky product in QAR (string money, \"0.00\" = none); delivery orders only. See docs/api/CHECKOUT_FEES_V2.md."
+                                                },
+                                                "extra_delivery_fee_mode": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "per_unit",
+                                                        "per_line"
+                                                    ],
+                                                    "description": "per_unit: the extra delivery fee is charged for every unit; per_line: once for the product whatever the quantity."
+                                                },
                                                 "available_in_all_branches": {
                                                     "type": "boolean"
                                                 },
@@ -4698,6 +4725,8 @@
                                                 "requires_assembly",
                                                 "assembly_service_available",
                                                 "is_oversized",
+                                                "extra_delivery_fee",
+                                                "extra_delivery_fee_mode",
                                                 "available_in_all_branches",
                                                 "tags",
                                                 "specifications",
@@ -4891,6 +4920,18 @@
                                                 "is_oversized": {
                                                     "type": "boolean"
                                                 },
+                                                "extra_delivery_fee": {
+                                                    "type": "string",
+                                                    "description": "Extra delivery fee for a bulky product in QAR (string money, \"0.00\" = none); delivery orders only. See docs/api/CHECKOUT_FEES_V2.md."
+                                                },
+                                                "extra_delivery_fee_mode": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "per_unit",
+                                                        "per_line"
+                                                    ],
+                                                    "description": "per_unit: the extra delivery fee is charged for every unit; per_line: once for the product whatever the quantity."
+                                                },
                                                 "available_in_all_branches": {
                                                     "type": "boolean"
                                                 },
@@ -5198,6 +5239,8 @@
                                                 "requires_assembly",
                                                 "assembly_service_available",
                                                 "is_oversized",
+                                                "extra_delivery_fee",
+                                                "extra_delivery_fee_mode",
                                                 "available_in_all_branches",
                                                 "tags",
                                                 "specifications",
@@ -5431,6 +5474,18 @@
                                                 "is_oversized": {
                                                     "type": "boolean"
                                                 },
+                                                "extra_delivery_fee": {
+                                                    "type": "string",
+                                                    "description": "Extra delivery fee for a bulky product in QAR (string money, \"0.00\" = none); delivery orders only. See docs/api/CHECKOUT_FEES_V2.md."
+                                                },
+                                                "extra_delivery_fee_mode": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "per_unit",
+                                                        "per_line"
+                                                    ],
+                                                    "description": "per_unit: the extra delivery fee is charged for every unit; per_line: once for the product whatever the quantity."
+                                                },
                                                 "available_in_all_branches": {
                                                     "type": "boolean"
                                                 },
@@ -5738,6 +5793,8 @@
                                                 "requires_assembly",
                                                 "assembly_service_available",
                                                 "is_oversized",
+                                                "extra_delivery_fee",
+                                                "extra_delivery_fee_mode",
                                                 "available_in_all_branches",
                                                 "tags",
                                                 "specifications",
@@ -14102,6 +14159,18 @@
                                                                     },
                                                                     "has_variants": {
                                                                         "type": "boolean"
+                                                                    },
+                                                                    "extra_delivery_fee": {
+                                                                        "type": "string",
+                                                                        "description": "Extra delivery fee for a bulky product in QAR (string money, \"0.00\" = none); delivery orders only. See docs/api/CHECKOUT_FEES_V2.md."
+                                                                    },
+                                                                    "extra_delivery_fee_mode": {
+                                                                        "type": "string",
+                                                                        "enum": [
+                                                                            "per_unit",
+                                                                            "per_line"
+                                                                        ],
+                                                                        "description": "per_unit: the extra delivery fee is charged for every unit; per_line: once for the product whatever the quantity."
                                                                     }
                                                                 },
                                                                 "required": [
@@ -14117,7 +14186,9 @@
                                                                     "badges",
                                                                     "in_stock",
                                                                     "purchasable",
-                                                                    "has_variants"
+                                                                    "has_variants",
+                                                                    "extra_delivery_fee",
+                                                                    "extra_delivery_fee_mode"
                                                                 ]
                                                             },
                                                             "variant_name": {
@@ -14817,6 +14888,18 @@
                                                                     },
                                                                     "has_variants": {
                                                                         "type": "boolean"
+                                                                    },
+                                                                    "extra_delivery_fee": {
+                                                                        "type": "string",
+                                                                        "description": "Extra delivery fee for a bulky product in QAR (string money, \"0.00\" = none); delivery orders only. See docs/api/CHECKOUT_FEES_V2.md."
+                                                                    },
+                                                                    "extra_delivery_fee_mode": {
+                                                                        "type": "string",
+                                                                        "enum": [
+                                                                            "per_unit",
+                                                                            "per_line"
+                                                                        ],
+                                                                        "description": "per_unit: the extra delivery fee is charged for every unit; per_line: once for the product whatever the quantity."
                                                                     }
                                                                 },
                                                                 "required": [
@@ -14832,7 +14915,9 @@
                                                                     "badges",
                                                                     "in_stock",
                                                                     "purchasable",
-                                                                    "has_variants"
+                                                                    "has_variants",
+                                                                    "extra_delivery_fee",
+                                                                    "extra_delivery_fee_mode"
                                                                 ]
                                                             },
                                                             "variant_name": {
@@ -15519,6 +15604,18 @@
                                                                     },
                                                                     "has_variants": {
                                                                         "type": "boolean"
+                                                                    },
+                                                                    "extra_delivery_fee": {
+                                                                        "type": "string",
+                                                                        "description": "Extra delivery fee for a bulky product in QAR (string money, \"0.00\" = none); delivery orders only. See docs/api/CHECKOUT_FEES_V2.md."
+                                                                    },
+                                                                    "extra_delivery_fee_mode": {
+                                                                        "type": "string",
+                                                                        "enum": [
+                                                                            "per_unit",
+                                                                            "per_line"
+                                                                        ],
+                                                                        "description": "per_unit: the extra delivery fee is charged for every unit; per_line: once for the product whatever the quantity."
                                                                     }
                                                                 },
                                                                 "required": [
@@ -15534,7 +15631,9 @@
                                                                     "badges",
                                                                     "in_stock",
                                                                     "purchasable",
-                                                                    "has_variants"
+                                                                    "has_variants",
+                                                                    "extra_delivery_fee",
+                                                                    "extra_delivery_fee_mode"
                                                                 ]
                                                             },
                                                             "variant_name": {
@@ -16226,6 +16325,18 @@
                                                                     },
                                                                     "has_variants": {
                                                                         "type": "boolean"
+                                                                    },
+                                                                    "extra_delivery_fee": {
+                                                                        "type": "string",
+                                                                        "description": "Extra delivery fee for a bulky product in QAR (string money, \"0.00\" = none); delivery orders only. See docs/api/CHECKOUT_FEES_V2.md."
+                                                                    },
+                                                                    "extra_delivery_fee_mode": {
+                                                                        "type": "string",
+                                                                        "enum": [
+                                                                            "per_unit",
+                                                                            "per_line"
+                                                                        ],
+                                                                        "description": "per_unit: the extra delivery fee is charged for every unit; per_line: once for the product whatever the quantity."
                                                                     }
                                                                 },
                                                                 "required": [
@@ -16241,7 +16352,9 @@
                                                                     "badges",
                                                                     "in_stock",
                                                                     "purchasable",
-                                                                    "has_variants"
+                                                                    "has_variants",
+                                                                    "extra_delivery_fee",
+                                                                    "extra_delivery_fee_mode"
                                                                 ]
                                                             },
                                                             "variant_name": {
@@ -16911,6 +17024,18 @@
                                                                     },
                                                                     "has_variants": {
                                                                         "type": "boolean"
+                                                                    },
+                                                                    "extra_delivery_fee": {
+                                                                        "type": "string",
+                                                                        "description": "Extra delivery fee for a bulky product in QAR (string money, \"0.00\" = none); delivery orders only. See docs/api/CHECKOUT_FEES_V2.md."
+                                                                    },
+                                                                    "extra_delivery_fee_mode": {
+                                                                        "type": "string",
+                                                                        "enum": [
+                                                                            "per_unit",
+                                                                            "per_line"
+                                                                        ],
+                                                                        "description": "per_unit: the extra delivery fee is charged for every unit; per_line: once for the product whatever the quantity."
                                                                     }
                                                                 },
                                                                 "required": [
@@ -16926,7 +17051,9 @@
                                                                     "badges",
                                                                     "in_stock",
                                                                     "purchasable",
-                                                                    "has_variants"
+                                                                    "has_variants",
+                                                                    "extra_delivery_fee",
+                                                                    "extra_delivery_fee_mode"
                                                                 ]
                                                             },
                                                             "variant_name": {
@@ -17604,6 +17731,18 @@
                                                                     },
                                                                     "has_variants": {
                                                                         "type": "boolean"
+                                                                    },
+                                                                    "extra_delivery_fee": {
+                                                                        "type": "string",
+                                                                        "description": "Extra delivery fee for a bulky product in QAR (string money, \"0.00\" = none); delivery orders only. See docs/api/CHECKOUT_FEES_V2.md."
+                                                                    },
+                                                                    "extra_delivery_fee_mode": {
+                                                                        "type": "string",
+                                                                        "enum": [
+                                                                            "per_unit",
+                                                                            "per_line"
+                                                                        ],
+                                                                        "description": "per_unit: the extra delivery fee is charged for every unit; per_line: once for the product whatever the quantity."
                                                                     }
                                                                 },
                                                                 "required": [
@@ -17619,7 +17758,9 @@
                                                                     "badges",
                                                                     "in_stock",
                                                                     "purchasable",
-                                                                    "has_variants"
+                                                                    "has_variants",
+                                                                    "extra_delivery_fee",
+                                                                    "extra_delivery_fee_mode"
                                                                 ]
                                                             },
                                                             "variant_name": {
@@ -18176,6 +18317,82 @@
                                                                 ]
                                                             }
                                                         },
+                                                        "delivery_extras": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "object",
+                                                                "properties": {
+                                                                    "product_id": {
+                                                                        "type": "string"
+                                                                    },
+                                                                    "name": {
+                                                                        "type": "string"
+                                                                    },
+                                                                    "mode": {
+                                                                        "type": "string",
+                                                                        "enum": [
+                                                                            "per_unit",
+                                                                            "per_line"
+                                                                        ],
+                                                                        "description": "per_unit: the extra delivery fee is charged for every unit; per_line: once for the product whatever the quantity."
+                                                                    },
+                                                                    "quantity": {
+                                                                        "type": "integer"
+                                                                    },
+                                                                    "fee_each": {
+                                                                        "type": "object",
+                                                                        "properties": {
+                                                                            "amount": {
+                                                                                "type": "string"
+                                                                            },
+                                                                            "currency": {
+                                                                                "type": "string"
+                                                                            },
+                                                                            "formatted": {
+                                                                                "type": "string"
+                                                                            }
+                                                                        },
+                                                                        "required": [
+                                                                            "amount",
+                                                                            "currency",
+                                                                            "formatted"
+                                                                        ]
+                                                                    },
+                                                                    "amount": {
+                                                                        "type": "object",
+                                                                        "properties": {
+                                                                            "amount": {
+                                                                                "type": "string"
+                                                                            },
+                                                                            "currency": {
+                                                                                "type": "string"
+                                                                            },
+                                                                            "formatted": {
+                                                                                "type": "string"
+                                                                            }
+                                                                        },
+                                                                        "required": [
+                                                                            "amount",
+                                                                            "currency",
+                                                                            "formatted"
+                                                                        ]
+                                                                    },
+                                                                    "branch_id": {
+                                                                        "type": "string"
+                                                                    }
+                                                                },
+                                                                "required": [
+                                                                    "product_id",
+                                                                    "name",
+                                                                    "mode",
+                                                                    "quantity",
+                                                                    "fee_each",
+                                                                    "amount",
+                                                                    "branch_id"
+                                                                ]
+                                                            },
+                                                            "description": "The extra delivery fees of bulky products inside totals.delivery_fee (empty list when none)."
+                                                        },
                                                         "totals": {
                                                             "type": "object",
                                                             "properties": {
@@ -18236,6 +18453,25 @@
                                                                         "formatted"
                                                                     ]
                                                                 },
+                                                                "extra_delivery_fee": {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "amount": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "currency": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "formatted": {
+                                                                            "type": "string"
+                                                                        }
+                                                                    },
+                                                                    "required": [
+                                                                        "amount",
+                                                                        "currency",
+                                                                        "formatted"
+                                                                    ]
+                                                                },
                                                                 "service_fee": {
                                                                     "type": "object",
                                                                     "properties": {
@@ -18272,7 +18508,8 @@
                                                                         "amount",
                                                                         "currency",
                                                                         "formatted"
-                                                                    ]
+                                                                    ],
+                                                                    "description": "Always \"0.00\": cash on delivery costs nothing extra. Kept so older app builds keep working; never show a row for it."
                                                                 },
                                                                 "tax": {
                                                                     "type": "object",
@@ -18336,6 +18573,7 @@
                                                                 "subtotal",
                                                                 "discount",
                                                                 "delivery_fee",
+                                                                "extra_delivery_fee",
                                                                 "service_fee",
                                                                 "cod_fee",
                                                                 "tax",
@@ -18465,6 +18703,7 @@
                                                         "is_split",
                                                         "fulfillments",
                                                         "lines",
+                                                        "delivery_extras",
                                                         "totals",
                                                         "discounts",
                                                         "payment_methods",
@@ -18690,6 +18929,82 @@
                                                                 ]
                                                             }
                                                         },
+                                                        "delivery_extras": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "object",
+                                                                "properties": {
+                                                                    "product_id": {
+                                                                        "type": "string"
+                                                                    },
+                                                                    "name": {
+                                                                        "type": "string"
+                                                                    },
+                                                                    "mode": {
+                                                                        "type": "string",
+                                                                        "enum": [
+                                                                            "per_unit",
+                                                                            "per_line"
+                                                                        ],
+                                                                        "description": "per_unit: the extra delivery fee is charged for every unit; per_line: once for the product whatever the quantity."
+                                                                    },
+                                                                    "quantity": {
+                                                                        "type": "integer"
+                                                                    },
+                                                                    "fee_each": {
+                                                                        "type": "object",
+                                                                        "properties": {
+                                                                            "amount": {
+                                                                                "type": "string"
+                                                                            },
+                                                                            "currency": {
+                                                                                "type": "string"
+                                                                            },
+                                                                            "formatted": {
+                                                                                "type": "string"
+                                                                            }
+                                                                        },
+                                                                        "required": [
+                                                                            "amount",
+                                                                            "currency",
+                                                                            "formatted"
+                                                                        ]
+                                                                    },
+                                                                    "amount": {
+                                                                        "type": "object",
+                                                                        "properties": {
+                                                                            "amount": {
+                                                                                "type": "string"
+                                                                            },
+                                                                            "currency": {
+                                                                                "type": "string"
+                                                                            },
+                                                                            "formatted": {
+                                                                                "type": "string"
+                                                                            }
+                                                                        },
+                                                                        "required": [
+                                                                            "amount",
+                                                                            "currency",
+                                                                            "formatted"
+                                                                        ]
+                                                                    },
+                                                                    "branch_id": {
+                                                                        "type": "string"
+                                                                    }
+                                                                },
+                                                                "required": [
+                                                                    "product_id",
+                                                                    "name",
+                                                                    "mode",
+                                                                    "quantity",
+                                                                    "fee_each",
+                                                                    "amount",
+                                                                    "branch_id"
+                                                                ]
+                                                            },
+                                                            "description": "The extra delivery fees of bulky products inside totals.delivery_fee (empty list when none)."
+                                                        },
                                                         "totals": {
                                                             "type": "object",
                                                             "properties": {
@@ -18750,6 +19065,25 @@
                                                                         "formatted"
                                                                     ]
                                                                 },
+                                                                "extra_delivery_fee": {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "amount": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "currency": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "formatted": {
+                                                                            "type": "string"
+                                                                        }
+                                                                    },
+                                                                    "required": [
+                                                                        "amount",
+                                                                        "currency",
+                                                                        "formatted"
+                                                                    ]
+                                                                },
                                                                 "service_fee": {
                                                                     "type": "object",
                                                                     "properties": {
@@ -18786,7 +19120,8 @@
                                                                         "amount",
                                                                         "currency",
                                                                         "formatted"
-                                                                    ]
+                                                                    ],
+                                                                    "description": "Always \"0.00\": cash on delivery costs nothing extra. Kept so older app builds keep working; never show a row for it."
                                                                 },
                                                                 "tax": {
                                                                     "type": "object",
@@ -18850,6 +19185,7 @@
                                                                 "subtotal",
                                                                 "discount",
                                                                 "delivery_fee",
+                                                                "extra_delivery_fee",
                                                                 "service_fee",
                                                                 "cod_fee",
                                                                 "tax",
@@ -18984,6 +19320,7 @@
                                                         "is_split",
                                                         "fulfillments",
                                                         "lines",
+                                                        "delivery_extras",
                                                         "totals",
                                                         "discounts",
                                                         "payment_methods",
@@ -20671,6 +21008,18 @@
                                                     },
                                                     "has_variants": {
                                                         "type": "boolean"
+                                                    },
+                                                    "extra_delivery_fee": {
+                                                        "type": "string",
+                                                        "description": "Extra delivery fee for a bulky product in QAR (string money, \"0.00\" = none); delivery orders only. See docs/api/CHECKOUT_FEES_V2.md."
+                                                    },
+                                                    "extra_delivery_fee_mode": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "per_unit",
+                                                            "per_line"
+                                                        ],
+                                                        "description": "per_unit: the extra delivery fee is charged for every unit; per_line: once for the product whatever the quantity."
                                                     }
                                                 },
                                                 "required": [
@@ -20686,7 +21035,9 @@
                                                     "badges",
                                                     "in_stock",
                                                     "purchasable",
-                                                    "has_variants"
+                                                    "has_variants",
+                                                    "extra_delivery_fee",
+                                                    "extra_delivery_fee_mode"
                                                 ]
                                             }
                                         },
@@ -21064,6 +21415,18 @@
                                                     },
                                                     "has_variants": {
                                                         "type": "boolean"
+                                                    },
+                                                    "extra_delivery_fee": {
+                                                        "type": "string",
+                                                        "description": "Extra delivery fee for a bulky product in QAR (string money, \"0.00\" = none); delivery orders only. See docs/api/CHECKOUT_FEES_V2.md."
+                                                    },
+                                                    "extra_delivery_fee_mode": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "per_unit",
+                                                            "per_line"
+                                                        ],
+                                                        "description": "per_unit: the extra delivery fee is charged for every unit; per_line: once for the product whatever the quantity."
                                                     }
                                                 },
                                                 "required": [
@@ -21079,7 +21442,9 @@
                                                     "badges",
                                                     "in_stock",
                                                     "purchasable",
-                                                    "has_variants"
+                                                    "has_variants",
+                                                    "extra_delivery_fee",
+                                                    "extra_delivery_fee_mode"
                                                 ]
                                             }
                                         },
@@ -21771,6 +22136,18 @@
                                                 },
                                                 "has_variants": {
                                                     "type": "boolean"
+                                                },
+                                                "extra_delivery_fee": {
+                                                    "type": "string",
+                                                    "description": "Extra delivery fee for a bulky product in QAR (string money, \"0.00\" = none); delivery orders only. See docs/api/CHECKOUT_FEES_V2.md."
+                                                },
+                                                "extra_delivery_fee_mode": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "per_unit",
+                                                        "per_line"
+                                                    ],
+                                                    "description": "per_unit: the extra delivery fee is charged for every unit; per_line: once for the product whatever the quantity."
                                                 },
                                                 "description": {
                                                     "type": [
@@ -22537,6 +22914,18 @@
                                                             },
                                                             "has_variants": {
                                                                 "type": "boolean"
+                                                            },
+                                                            "extra_delivery_fee": {
+                                                                "type": "string",
+                                                                "description": "Extra delivery fee for a bulky product in QAR (string money, \"0.00\" = none); delivery orders only. See docs/api/CHECKOUT_FEES_V2.md."
+                                                            },
+                                                            "extra_delivery_fee_mode": {
+                                                                "type": "string",
+                                                                "enum": [
+                                                                    "per_unit",
+                                                                    "per_line"
+                                                                ],
+                                                                "description": "per_unit: the extra delivery fee is charged for every unit; per_line: once for the product whatever the quantity."
                                                             }
                                                         },
                                                         "required": [
@@ -22552,7 +22941,9 @@
                                                             "badges",
                                                             "in_stock",
                                                             "purchasable",
-                                                            "has_variants"
+                                                            "has_variants",
+                                                            "extra_delivery_fee",
+                                                            "extra_delivery_fee_mode"
                                                         ]
                                                     }
                                                 },
@@ -22595,6 +22986,8 @@
                                                 "in_stock",
                                                 "purchasable",
                                                 "has_variants",
+                                                "extra_delivery_fee",
+                                                "extra_delivery_fee_mode",
                                                 "description",
                                                 "material",
                                                 "category",
@@ -22935,6 +23328,18 @@
                                                     },
                                                     "has_variants": {
                                                         "type": "boolean"
+                                                    },
+                                                    "extra_delivery_fee": {
+                                                        "type": "string",
+                                                        "description": "Extra delivery fee for a bulky product in QAR (string money, \"0.00\" = none); delivery orders only. See docs/api/CHECKOUT_FEES_V2.md."
+                                                    },
+                                                    "extra_delivery_fee_mode": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "per_unit",
+                                                            "per_line"
+                                                        ],
+                                                        "description": "per_unit: the extra delivery fee is charged for every unit; per_line: once for the product whatever the quantity."
                                                     }
                                                 },
                                                 "required": [
@@ -22950,7 +23355,9 @@
                                                     "badges",
                                                     "in_stock",
                                                     "purchasable",
-                                                    "has_variants"
+                                                    "has_variants",
+                                                    "extra_delivery_fee",
+                                                    "extra_delivery_fee_mode"
                                                 ]
                                             }
                                         },
@@ -25846,6 +26253,18 @@
                                                                             },
                                                                             "has_variants": {
                                                                                 "type": "boolean"
+                                                                            },
+                                                                            "extra_delivery_fee": {
+                                                                                "type": "string",
+                                                                                "description": "Extra delivery fee for a bulky product in QAR (string money, \"0.00\" = none); delivery orders only. See docs/api/CHECKOUT_FEES_V2.md."
+                                                                            },
+                                                                            "extra_delivery_fee_mode": {
+                                                                                "type": "string",
+                                                                                "enum": [
+                                                                                    "per_unit",
+                                                                                    "per_line"
+                                                                                ],
+                                                                                "description": "per_unit: the extra delivery fee is charged for every unit; per_line: once for the product whatever the quantity."
                                                                             }
                                                                         },
                                                                         "required": [
@@ -25861,7 +26280,9 @@
                                                                             "badges",
                                                                             "in_stock",
                                                                             "purchasable",
-                                                                            "has_variants"
+                                                                            "has_variants",
+                                                                            "extra_delivery_fee",
+                                                                            "extra_delivery_fee_mode"
                                                                         ]
                                                                     },
                                                                     "variant_name": {
@@ -27280,12 +27701,6 @@
                     "delivery_fee": {
                         "type": "string"
                     },
-                    "min_order_amount": {
-                        "type": [
-                            "string",
-                            "null"
-                        ]
-                    },
                     "max_order_amount": {
                         "type": [
                             "string",
@@ -27339,7 +27754,6 @@
                     "branch_id",
                     "delivery_zone_id",
                     "delivery_fee",
-                    "min_order_amount",
                     "max_order_amount",
                     "oversized_surcharge",
                     "cod_enabled",
@@ -29343,6 +29757,20 @@
                     },
                     "is_oversized": {
                         "type": "boolean"
+                    },
+                    "extra_delivery_fee": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "description": "Extra delivery fee for a bulky product in QAR, at most two decimals; 0 = none."
+                    },
+                    "extra_delivery_fee_mode": {
+                        "type": "string",
+                        "enum": [
+                            "per_unit",
+                            "per_line"
+                        ],
+                        "description": "per_unit: charged for every unit; per_line: charged once whatever the quantity."
                     },
                     "available_in_all_branches": {
                         "type": "boolean"

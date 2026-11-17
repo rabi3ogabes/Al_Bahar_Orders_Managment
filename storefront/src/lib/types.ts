@@ -1,4 +1,8 @@
 export interface Money { amount: string; currency: string; formatted: string }
+/** Money as the server may send it: the usual object, or (for the extra delivery fee) a bare decimal such as "50.00". Read with `parseMoney` (lib/deliveryFee.ts). */
+export type MoneyLike = Money | string | number
+/** How a product's extra delivery fee is charged: for every unit in the order, or once for the product whatever the quantity. */
+export type ExtraDeliveryMode = 'per_unit' | 'per_line'
 export interface Price { regular: Money; sale: Money | null; final: Money; discount_percent: number; sale_ends_at: string | null; source: string }
 export interface Img { url: string; thumb_url: string; alt: string; variant_id?: string | null }
 export interface Paged<T> { data: T[]; meta: { current_page: number; per_page?: number; total: number; last_page: number } }
@@ -8,6 +12,9 @@ export interface ProductCard {
   brand: { id: string; name: string } | null; image: Img | null; price: Price
   rating: { average: number; count: number }; badges: string[]; in_stock: boolean; purchasable: boolean; has_variants: boolean
   variant_id?: string | null // the single variant a card can add straight to the bag
+  /** Extra delivery fee of bulky products (docs/api/CHECKOUT_FEES_V2.md, section 3). Missing or 0 means none; absent from an older server. */
+  extra_delivery_fee?: MoneyLike | null
+  extra_delivery_fee_mode?: ExtraDeliveryMode | null
 }
 export interface Variant {
   id: string; sku: string; name: string; attribute_value_ids: number[]; price: Price
@@ -66,6 +73,8 @@ export interface Cart {
   loyalty_points: number; items: CartItem[]; items_count: number; subtotal: Money; warnings: { code?: string; message?: string }[]
 }
 
+/** One product's share of the extra delivery fee (`delivery_extras` of a quote). */
+export interface DeliveryExtra { product_id?: string; name?: string; mode?: ExtraDeliveryMode | null; quantity?: number; fee_each?: MoneyLike | null; amount?: MoneyLike | null }
 export interface QuoteLine { variant_id: string; product_id: string; branch_id: string; name: string; variant_name: string | null; image_url: string | null; quantity: number; unit_price: Price; line_total: Money }
 export interface Quote {
   quote_hash: string; currency: string; fulfillment_type: 'delivery' | 'pickup'; payment_method: string | null; is_split: boolean
@@ -74,7 +83,10 @@ export interface Quote {
   errors?: { code?: string; message?: string }[]; can_place_order?: boolean
   fulfillments: { branch: { id: string; name: string; area: string | null }; type: string; items: QuoteLine[]; subtotal: Money; delivery_fee: Money; eta_minutes: number | null; slot: Slot | null; slot_required: boolean; allocation_reason: string }[]
   lines: QuoteLine[]
-  totals: { subtotal: Money; discount: Money; delivery_fee: Money; service_fee: Money; cod_fee: Money; tax: Money; loyalty_discount: Money; grand_total: Money }
+  /** `delivery_fee` is the gross delivery total: it already holds `extra_delivery_fee` (the part that comes from bulky products). Both extra fields are absent from an older server. */
+  totals: { subtotal: Money; discount: Money; delivery_fee: Money; extra_delivery_fee?: MoneyLike | null; service_fee: Money; tax: Money; loyalty_discount: Money; grand_total: Money }
+  /** What makes up `totals.extra_delivery_fee`, one row per product; empty or missing when there is none. */
+  delivery_extras?: DeliveryExtra[] | null
   /** `free_delivery`: this discount is a free-delivery coupon (it waives the delivery fee; its amount counts that fee). */
   discounts: { code?: string; label?: string; amount?: Money; free_delivery?: boolean }[]
   payment_methods: { code: 'sadad' | 'cod' | 'pay_at_pickup'; available: boolean; reason: string | null }[]

@@ -72,7 +72,10 @@ class DeliveryFeeRow extends StatelessWidget {
                           fee.formatted,
                           style: style?.copyWith(color: palette.muted, decoration: TextDecoration.lineThrough),
                         ),
-                      Text(l10n.free, style: style?.copyWith(color: palette.success, fontWeight: FontWeight.w700)),
+                      Text(
+                        l10n.free,
+                        style: style?.copyWith(color: palette.success, fontWeight: FontWeight.w700),
+                      ),
                     ],
                   ),
                 ),

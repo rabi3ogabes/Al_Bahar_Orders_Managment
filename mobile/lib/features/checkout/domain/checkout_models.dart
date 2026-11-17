@@ -179,6 +179,8 @@ class QuoteFulfillment {
     this.etaMinutes,
     this.slot,
     this.slotRequired = false,
+    this.extraDeliveryFee,
+    this.deliveryExtras = const [],
   });
   factory QuoteFulfillment.fromJson(JsonMap json) => QuoteFulfillment(
     branch: NamedRef.fromJson(asMap(json['branch'])),
@@ -189,12 +191,20 @@ class QuoteFulfillment {
     etaMinutes: asIntOrNull(json['eta_minutes']),
     slot: QuoteSlot.maybe(json['slot']),
     slotRequired: asBool(json['slot_required']),
+    extraDeliveryFee: Money.lenient(json['extra_delivery_fee']),
+    deliveryExtras: DeliveryExtra.listFrom(json['delivery_extras']),
   );
   final NamedRef branch;
   final String type;
   final List<QuoteLine> items;
   final Money? subtotal;
+
+  /// The whole delivery fee of this plan (zone fee, extra fees of bulky items, express): the gross amount.
   final Money? deliveryFee;
+
+  /// The part of [deliveryFee] that comes from products with an extra delivery fee, when the server details it per plan.
+  final Money? extraDeliveryFee;
+  final List<DeliveryExtra> deliveryExtras;
   final int? etaMinutes;
   final QuoteSlot? slot;
 
@@ -210,6 +220,7 @@ class OrderTotals {
     required this.grandTotal,
     this.discount,
     this.deliveryFee,
+    this.extraDeliveryFee,
     this.serviceFee,
     this.codFee,
     this.tax,
@@ -219,6 +230,7 @@ class OrderTotals {
     subtotal: Money.maybe(json['subtotal']) ?? Money.zero,
     discount: Money.maybe(json['discount']),
     deliveryFee: Money.maybe(json['delivery_fee']),
+    extraDeliveryFee: Money.lenient(json['extra_delivery_fee']),
     serviceFee: Money.maybe(json['service_fee']),
     codFee: Money.maybe(json['cod_fee']),
     tax: Money.maybe(json['tax']),
@@ -227,12 +239,63 @@ class OrderTotals {
   );
   final Money subtotal;
   final Money? discount;
+
+  /// The whole delivery fee (zone fee, extra fees of bulky items, express): the gross amount, whatever a coupon waives.
   final Money? deliveryFee;
+
+  /// The part of [deliveryFee] that comes from products with an extra delivery fee. Null or zero: none (an older server sends nothing).
+  final Money? extraDeliveryFee;
   final Money? serviceFee;
+
+  /// Always zero from the current server (the cash-on-delivery fee is gone). Still read so an older server or a stored order
+  /// parses; the checkout never shows it.
   final Money? codFee;
   final Money? tax;
   final Money? loyaltyDiscount;
   final Money grandTotal;
+}
+
+/// One product's extra delivery fee in a quote (`delivery_extras[i]`): "bulky" items the admin charges extra to deliver.
+@immutable
+class DeliveryExtra {
+  const DeliveryExtra({
+    required this.productId,
+    required this.name,
+    required this.amount,
+    this.perUnit = true,
+    this.quantity = 1,
+    this.feeEach,
+  });
+  factory DeliveryExtra.fromJson(JsonMap json) => DeliveryExtra(
+    productId: asString(json['product_id']),
+    name: asString(json['name']),
+    // `per_unit` (every unit) is the default; only `per_line` (once, whatever the quantity) is the other mode.
+    perUnit: asString(json['mode'], 'per_unit') != 'per_line',
+    quantity: asInt(json['quantity'], 1),
+    feeEach: Money.lenient(json['fee_each']),
+    amount: Money.lenient(json['amount']) ?? Money.zero,
+  );
+
+  /// The rows worth showing: a product that adds nothing is left out.
+  static List<DeliveryExtra> listFrom(Object? json) =>
+      mapList(json, DeliveryExtra.fromJson).where((e) => !e.amount.isZero).toList();
+
+  final String productId;
+  final String name;
+
+  /// True: charged for every unit of the product. False: charged once, whatever the quantity.
+  final bool perUnit;
+  final int quantity;
+  final Money? feeEach;
+  final Money amount;
+}
+
+/// The extra delivery fee of an order (or of one plan of a split order): what it comes to and which products it comes from.
+@immutable
+class DeliveryExtras {
+  const DeliveryExtras({required this.fee, this.items = const []});
+  final Money fee;
+  final List<DeliveryExtra> items;
 }
 
 @immutable
@@ -311,6 +374,7 @@ class Quote {
     this.expiresAt,
     this.currency = 'QAR',
     this.splitChoice = false,
+    this.deliveryExtras = const [],
   });
 
   factory Quote.fromJson(JsonMap json) => Quote(
@@ -328,6 +392,7 @@ class Quote {
     errors: mapList(json['errors'], QuoteIssue.fromJson),
     canPlaceOrder: asBool(json['can_place_order']),
     expiresAt: asDate(json['expires_at']),
+    deliveryExtras: DeliveryExtra.listFrom(json['delivery_extras']),
   );
 
   final String quoteHash;
@@ -347,6 +412,25 @@ class Quote {
   final List<QuoteIssue> errors;
   final bool canPlaceOrder;
   final DateTime? expiresAt;
+
+  /// Which products add an extra delivery fee, for the whole quote (`delivery_extras`). Empty when none (or an older server).
+  final List<DeliveryExtra> deliveryExtras;
+
+  /// The extra delivery fee of the whole order, or null when there is none to show. Only a delivery has one: a pickup never does.
+  DeliveryExtras? get extras {
+    final fee = totals.extraDeliveryFee;
+    if (fee == null || fee.isZero || !fulfillments.any((f) => f.type == 'delivery')) return null;
+    return DeliveryExtras(fee: fee, items: deliveryExtras);
+  }
+
+  /// The extra delivery fee of one plan of a split order. The server details it per plan (`fulfillments[i].extra_delivery_fee`); a
+  /// quote with a single plan falls back to the totals. Null when the plan is a pickup or the server says nothing about it.
+  DeliveryExtras? extrasOf(QuoteFulfillment plan) {
+    if (plan.type != 'delivery') return null;
+    final own = plan.extraDeliveryFee;
+    if (own != null) return own.isZero ? null : DeliveryExtras(fee: own, items: plan.deliveryExtras);
+    return fulfillments.length == 1 ? extras : null;
+  }
 
   PaymentOption? option(PaymentMethod method) => paymentMethods.where((p) => p.code == method.api).firstOrNull;
 

@@ -7,11 +7,13 @@ use App\Domain\Catalog\Models\Brand;
 use App\Domain\Catalog\Models\CatalogImport;
 use App\Domain\Catalog\Models\Category;
 use App\Domain\Catalog\Models\Product;
+use App\Domain\Checkout\Services\ExtraDeliveryFee;
 use App\Support\DomainException;
 use App\Support\Money;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use OpenSpout\Common\Entity\Row;
 use OpenSpout\Reader\CSV\Reader as CsvReader;
 use OpenSpout\Reader\XLSX\Reader as XlsxReader;
@@ -23,13 +25,17 @@ use OpenSpout\Writer\XLSX\Writer as XlsxWriter;
  *
  * Columns: sku*, name_en*, name_ar*, price*, sale_price, status, category_slug, brand_slug, barcode,
  *          short_description_en, short_description_ar, description_en, description_ar, weight, length, width, height,
- *          is_featured, is_new_arrival, is_bestseller, requires_assembly, is_oversized, tags (comma separated)
+ *          is_featured, is_new_arrival, is_bestseller, requires_assembly, is_oversized, tags (comma separated),
+ *          extra_delivery_fee, extra_delivery_fee_mode (per_unit | per_line)
+ *
+ * The two extra-delivery columns are optional: a file without them (or with an empty cell) leaves an existing product's fee as it is and gives a new
+ * product 0 / per_unit, so an older export can be imported again without wiping any fee.
  */
 class CatalogImportService
 {
     public const COLUMNS = ['sku', 'name_en', 'name_ar', 'price', 'sale_price', 'status', 'category_slug', 'brand_slug', 'barcode',
         'short_description_en', 'short_description_ar', 'description_en', 'description_ar', 'weight', 'length', 'width', 'height',
-        'is_featured', 'is_new_arrival', 'is_bestseller', 'requires_assembly', 'is_oversized', 'tags'];
+        'is_featured', 'is_new_arrival', 'is_bestseller', 'requires_assembly', 'is_oversized', 'tags', 'extra_delivery_fee', 'extra_delivery_fee_mode'];
 
     public function __construct(private readonly ProductService $products) {}
 
@@ -127,7 +133,7 @@ class CatalogImportService
                 $writer->addRow(Row::fromValues([$p->sku, $en?->getAttribute('name'), $ar?->getAttribute('name'), $p->price, $p->sale_price, $p->status, $p->category?->slug,
                     $p->brand?->slug, $p->barcode, $en?->getAttribute('short_description'), $ar?->getAttribute('short_description'), $en?->getAttribute('description'), $ar?->getAttribute('description'),
                     $p->weight, $p->length, $p->width, $p->height, (int) $p->is_featured, (int) $p->is_new_arrival, (int) $p->is_bestseller,
-                    (int) $p->requires_assembly, (int) $p->is_oversized, implode(',', $p->tags ?? [])]));
+                    (int) $p->requires_assembly, (int) $p->is_oversized, implode(',', $p->tags ?? []), $p->extra_delivery_fee, $p->extra_delivery_fee_mode]));
                 $count++;
             }
         });
@@ -138,6 +144,7 @@ class CatalogImportService
 
     private function validateRow(array $d, $categories, $brands): array
     {
+        $d['extra_delivery_fee_mode'] = is_string($d['extra_delivery_fee_mode'] ?? null) ? strtolower(trim($d['extra_delivery_fee_mode'])) : $d['extra_delivery_fee_mode'];
         $v = Validator::make($d, [
             'sku' => ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9\-_.]+$/'],
             'name_en' => ['required', 'string', 'max:255'],
@@ -148,6 +155,8 @@ class CatalogImportService
             'barcode' => ['nullable', 'string', 'max:64'],
             'weight' => ['nullable', 'numeric', 'min:0'],
             'length' => ['nullable', 'numeric', 'min:0'], 'width' => ['nullable', 'numeric', 'min:0'], 'height' => ['nullable', 'numeric', 'min:0'],
+            'extra_delivery_fee' => ['nullable', 'numeric', 'min:0', 'max:'.ExtraDeliveryFee::MAX, 'regex:/^\d+(\.\d{1,2})?$/'],
+            'extra_delivery_fee_mode' => ['nullable', Rule::in(ExtraDeliveryFee::MODES)],
         ]);
         $v->after(function ($v) use ($d, $categories, $brands) {
             if (! empty($d['category_slug']) && ! isset($categories[$d['category_slug']])) {
@@ -165,8 +174,16 @@ class CatalogImportService
     {
         $bool = fn ($v) => in_array(strtolower((string) $v), ['1', 'true', 'yes', 'y'], true);
         $num = fn ($v) => ($v === null || $v === '') ? null : (string) $v;
+        // Only what the file really says: an empty cell or a missing column never overwrites a fee set in the editor.
+        $extra = [];
+        if (($d['extra_delivery_fee'] ?? null) !== null && $d['extra_delivery_fee'] !== '') {
+            $extra['extra_delivery_fee'] = Money::of((string) $d['extra_delivery_fee'])->toDecimal();
+        }
+        if (is_string($d['extra_delivery_fee_mode'] ?? null) && trim($d['extra_delivery_fee_mode']) !== '') {
+            $extra['extra_delivery_fee_mode'] = strtolower(trim($d['extra_delivery_fee_mode']));
+        }
 
-        return [
+        return $extra + [
             'sku' => $d['sku'],
             'barcode' => $d['barcode'] ?: null,
             'price' => Money::of((string) $d['price'])->toDecimal(),

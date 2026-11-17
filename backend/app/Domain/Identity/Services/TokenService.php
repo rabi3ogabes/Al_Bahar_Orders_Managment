@@ -119,6 +119,19 @@ class TokenService
         $user->tokens()->delete();
     }
 
+    /**
+     * Ends the person's dashboard (browser) sessions and "remember me" cookies. With the database session driver the rows are deleted;
+     * with any other driver the sessions cannot be listed by user, but they are already useless: EnsureStaff re-checks that the account is
+     * active on every request. Cycling remember_token kills the "remember me" cookie either way.
+     */
+    public function forgetWebSessions(User $user): void
+    {
+        $user->forceFill(['remember_token' => Str::random(60)])->saveQuietly();
+        if (config('session.driver') === 'database') {
+            DB::table(config('session.table', 'sessions'))->where('user_id', $user->getKey())->delete();
+        }
+    }
+
     private function enforceSessionLimit(User $user): void
     {
         $max = config('platform.auth.max_sessions_per_user');

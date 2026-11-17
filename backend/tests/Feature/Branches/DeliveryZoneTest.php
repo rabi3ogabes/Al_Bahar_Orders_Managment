@@ -8,6 +8,7 @@ use App\Domain\Branches\Services\BranchService;
 use App\Domain\Branches\Services\DeliveryZoneResolver;
 use App\Domain\Branches\Services\SlotService;
 use App\Support\DomainException;
+use Illuminate\Support\Facades\DB;
 
 it('resolves zones by zone number or polygon and lists the serving branches by priority', function () {
     $zone = DeliveryZone::factory()->create(['zone_numbers' => '63, 66', 'polygon' => [[51.50, 25.30], [51.56, 25.30], [51.56, 25.35], [51.50, 25.35]]]);
@@ -47,8 +48,11 @@ it('lets branch managers configure zones only for their branch', function () {
     [$a, $b] = Branch::factory()->count(2)->create();
     $zone = DeliveryZone::factory()->create();
     actingAsStaff(staffWithRole('admin'));
-    $this->postJson("/api/v1/admin/branches/{$b->id}/zones", ['delivery_zone_id' => $zone->id, 'delivery_fee' => 20, 'min_order_amount' => 100, 'max_order_amount' => 50])
+    $this->postJson("/api/v1/admin/branches/{$b->id}/zones", ['delivery_zone_id' => $zone->id, 'delivery_fee' => 20, 'max_order_amount' => -1])
         ->assertStatus(422)->assertJsonValidationErrors('max_order_amount');
-    $this->postJson("/api/v1/admin/branches/{$b->id}/zones", ['delivery_zone_id' => $zone->id, 'delivery_fee' => 20, 'min_order_amount' => 100])->assertCreated()
-        ->assertJsonMissingPath('data.free_delivery_threshold');
+    // There is no minimum order any more: a client that still sends one is ignored, and it is never stored or sent back.
+    $this->postJson("/api/v1/admin/branches/{$b->id}/zones", ['delivery_zone_id' => $zone->id, 'delivery_fee' => 20, 'min_order_amount' => 100, 'max_order_amount' => 50])->assertCreated()
+        ->assertJsonMissingPath('data.free_delivery_threshold')->assertJsonMissingPath('data.min_order_amount');
+    expect(DB::table('branch_delivery_zones')->where('branch_id', $b->id)->value('min_order_amount'))->toBeNull()
+        ->and(DB::table('branch_delivery_zones')->where('branch_id', $b->id)->value('max_order_amount'))->toBe('50.00');
 });

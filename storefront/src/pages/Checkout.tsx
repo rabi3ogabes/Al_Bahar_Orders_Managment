@@ -10,15 +10,15 @@ import { useI18n } from '../lib/i18n';
 import { useToast } from '../lib/toast';
 import { useDocTitle } from '../lib/hooks';
 import { cx, latinDigits, money } from '../lib/format';
-import { deliveryFeeLine } from '../lib/deliveryFee';
-import { altPhoneDone, altPhoneFields, altPhoneStatus, nationalDigits } from '../lib/altPhone';
+import { deliveryFeeLine, extraDelivery } from '../lib/deliveryFee';
+import { altPhoneAsked, altPhoneReady, altPhoneRequest, altPhoneStatus, nationalDigits } from '../lib/altPhone';
 import { useAltPhoneEnabled } from '../lib/appConfig';
 import { decideSlot, hasFreePlace, isSlotBookable, slotWindowDates } from '../lib/slotPick';
 import type { Address, Branch, OrderDetail, PaymentAction, Quote, SlotDay } from '../lib/types';
 import { useAuthModal } from '../components/AuthModal';
 import { Alert, Button, Checkbox, EmptyState, Input, Pic, Segmented, Skeleton, Spinner, Textarea } from '../components/ui';
 import { AddressWindow } from '../components/windows';
-import { DeliveryFeeRow } from '../components/DeliveryFeeRow';
+import { DeliveryFeeRow, ExtraDeliveryRow } from '../components/DeliveryFeeRow';
 
 type Method = 'sadad' | 'cod' | 'pay_at_pickup';
 
@@ -150,6 +150,9 @@ export default function Checkout() {
   const [newAddr, setNewAddr] = useState(false);
   const [err, setErr] = useState('');
   const idem = useRef(uuid());
+  // Taken the instant the button is pressed (the mutation's own "pending" state arrives a moment later, and a fast double press fits in between).
+  // Given back only when the order did not go through; after an accepted order the page is leaving.
+  const placing = useRef(false);
 
   const addresses = useQuery({ queryKey: ['addresses', user?.id], enabled: !!user, queryFn: async () => (await get<{ data: Address[] }>('/me/addresses')).data });
   useEffect(() => { if (!addressId && addresses.data?.length) setAddressId((addresses.data.find((a) => a.is_default) ?? addresses.data[0]).id); }, [addresses.data, addressId]);
@@ -171,25 +174,33 @@ export default function Checkout() {
   }), [ful, addressId, pickBranch, slotId, slotDate, method, couponApplied, points]);
 
   const quote = useQuery({
-    queryKey: ['quote', options, cart.count], enabled: !!user && cart.lines.length > 0 && ready, placeholderData: (p) => p,
+    // The server prices its own copy of the bag: ask only once every change made in the cart panel has reached it (a quantity changed while this page is open).
+    queryKey: ['quote', options, cart.count], enabled: !!user && cart.lines.length > 0 && ready && !cart.adding, placeholderData: (p) => p,
     queryFn: async () => (await post<{ data: Quote }>('/checkout/quote', options)).data,
     retry: false,
   });
   const q = quote.data;
   const quoteErr = quote.error instanceof ApiError ? quote.error : null;
 
-  // A new quote means a new order intent: a fresh idempotency key.
-  useEffect(() => { idem.current = uuid(); }, [q?.quote_hash]);
+  // A new quote means a new order intent: a fresh idempotency key, and an error about the earlier attempt is no longer true.
+  useEffect(() => { idem.current = uuid(); setErr(''); }, [q?.quote_hash]);
   // A new address, showroom or way of receiving has its own times: forget the old one (the earliest of the new ones is chosen when they load).
   useEffect(() => { setSlotId(null); setSlotDate(null); setSlotAuto(false); setSlotReplaced(false); autoPicks.current = 0; }, [ful, addressId, pickBranch]);
   const pickSlot = (id: string | null, d: string | null, meta?: PickMeta) => {
     if (meta?.auto) { if (autoPicks.current >= 4) return; autoPicks.current += 1; } else if (id) autoPicks.current = 0;
     setSlotId(id); setSlotDate(d); setSlotAuto(!!meta?.auto && !!id); setSlotReplaced(!!meta?.replaced);
   };
+  // Back from the payment page can bring this page back from the browser's memory exactly as it was left (a spinning button, an emptied bag): start it fresh.
+  useEffect(() => {
+    const back = (e: PageTransitionEvent) => { if (e.persisted) window.location.reload(); };
+    window.addEventListener('pageshow', back);
+    return () => window.removeEventListener('pageshow', back);
+  }, []);
   // The saved number starts the field, once, as long as the customer has not typed.
   useEffect(() => { if (user && !altTouched) setAlt({ text: nationalDigits(user.alternate_phone), none: false }); }, [user, altTouched]);
   const altStatus = altPhoneStatus(alt.text, alt.none, user?.phone);
-  const altOk = ful === 'pickup' || !altOn || altPhoneDone(altStatus);
+  const altAsked = altPhoneAsked(altOn, ful);
+  const altOk = altPhoneReady(altAsked, altStatus);
   const altDigits = latinDigits(alt.text).replace(/\D/g, '');
   // Never a surprise: a half-typed number is not an error until they leave the field or have typed a whole number.
   const altError = altStatus === 'same' ? t('checkout.alt_same') : altStatus === 'invalid' && (altBlurred || altDigits.length >= 8) ? t('checkout.alt_invalid') : undefined;
@@ -215,7 +226,7 @@ export default function Checkout() {
   const showSlots = ready && !!slotBranch;
 
   const place = useMutation({
-    mutationFn: async () => (await post<{ data: { order: OrderDetail; payment: PaymentAction } }>('/checkout/orders', { ...options, ...(ful === 'delivery' && altOn ? altPhoneFields(alt.text, alt.none, user?.phone) : {}), quote_hash: q!.quote_hash, customer_notes: notes.trim() || undefined, payment_method: method }, { 'Idempotency-Key': idem.current })).data,
+    mutationFn: async () => (await post<{ data: { order: OrderDetail; payment: PaymentAction } }>('/checkout/orders', { ...options, ...altPhoneRequest(altAsked, alt.text, alt.none, user?.phone), quote_hash: q!.quote_hash, customer_notes: notes.trim() || undefined, payment_method: method }, { 'Idempotency-Key': idem.current })).data,
     onSuccess: async (r) => {
       await qc.invalidateQueries({ queryKey: ['cart'] });
       if (r.payment.action === 'redirect' && r.payment.redirect_url) {
@@ -231,13 +242,14 @@ export default function Checkout() {
       if (e instanceof ApiError && e.code === 'slot_unavailable') { setSlotId(null); setSlotDate(null); setSlotAuto(false); setSlotReplaced(true); void qc.invalidateQueries({ queryKey: ['slots'] }); void quote.refetch(); return; }
       setErr(e instanceof ApiError ? e.message : t('error.generic'));
     },
+    onSettled: (_r, e) => { if (e) placing.current = false; },
   });
 
   if (authLoading) return <div className="wrap py-16"><Spinner /></div>;
   if (!user) {
     return <div className="wrap py-16"><EmptyState icon={<Lock size={28} />} title={t('checkout.signin_title')} text={t('checkout.signin_text')} action={<Button size="lg" onClick={() => authModal.open({ reason: t('auth.reason_checkout') })}>{t('auth.sign_in')}</Button>} /></div>;
   }
-  if (!cart.loading && cart.lines.length === 0) {
+  if (!cart.loading && cart.lines.length === 0 && !place.isPending && !place.isSuccess) {
     return <div className="wrap py-16"><EmptyState title={t('cart.empty')} text={t('cart.empty_text')} action={<Button size="lg" onClick={() => nav('/shop')}>{t('cart.continue')}</Button>} /></div>;
   }
 
@@ -249,9 +261,11 @@ export default function Checkout() {
   const grand = q?.totals.grand_total.formatted;
   const feeLine = deliveryFeeLine(q, (v, cur) => money(v, cur, locale));
   const quoteErrors = (q?.errors ?? []).filter((e) => e.code !== 'slot_required' && e.code !== 'slot_unavailable');
-  const canPlace = !!q && !!method && !place.isPending && (!slotRequired || !!slotId) && altOk && q.can_place_order !== false && !quote.isFetching && !quoteErr;
+  const extra = extraDelivery(q, (v, cur) => money(v, cur, locale));
+  // Never twice: not while an order is on its way, nor after it was accepted (the page is then leaving for the payment page or the order). Not while a bag change is still travelling to the server.
+  const canPlace = !!q && !!method && !place.isPending && !place.isSuccess && !cart.adding && !quote.isPlaceholderData && (!slotRequired || !!slotId) && altOk && q.can_place_order !== false && !quote.isFetching && !quoteErr;
   // Why the button waits, in plain words: shown before it is ever pressed.
-  const holdReason = !q || quote.isFetching ? null : ful === 'delivery' && !altOk ? (altStatus === 'invalid' ? t('checkout.alt_invalid') : altStatus === 'same' ? t('checkout.alt_same') : t('checkout.alt_required_hint')) : slotRequired && !slotId ? t('checkout.slot_required') : null;
+  const holdReason = !q || quote.isFetching ? null : !altOk ? (altStatus === 'invalid' ? t('checkout.alt_invalid') : altStatus === 'same' ? t('checkout.alt_same') : t('checkout.alt_required_hint')) : slotRequired && !slotId ? t('checkout.slot_required') : null;
 
   return (
     <div className="wrap py-8 md:py-12">
@@ -374,16 +388,16 @@ export default function Checkout() {
               {feeLine.discount && <Row k={t('checkout.discount')} v={`− ${feeLine.discount.formatted}`} good />}
               {q && parseFloat(q.totals.loyalty_discount.amount) > 0 && <Row k={t('checkout.points_discount')} v={`− ${q.totals.loyalty_discount.formatted}`} good />}
               <DeliveryFeeRow line={feeLine} />
-              {q && parseFloat(q.totals.cod_fee.amount) > 0 && <Row k={t('checkout.cod_fee')} v={q.totals.cod_fee.formatted} />}
+              <ExtraDeliveryRow extra={extra} />
               {q && parseFloat(q.totals.service_fee.amount) > 0 && <Row k={t('checkout.service_fee')} v={q.totals.service_fee.formatted} />}
               {q && parseFloat(q.totals.tax.amount) > 0 && <Row k={t('checkout.tax')} v={q.totals.tax.formatted} />}
-              <div className="flex items-baseline justify-between border-t border-line pt-4"><dt className="text-base font-semibold">{t('checkout.total')}</dt><dd className="font-display text-4xl tabular-nums">{grand ?? '—'}</dd></div>
+              <div className="flex items-baseline justify-between gap-3 border-t border-line pt-4"><dt className="text-base font-semibold">{t('checkout.total')}</dt><dd className="whitespace-nowrap font-display text-[clamp(26px,9vw,36px)] tabular-nums">{grand ?? '—'}</dd></div>
             </dl>
             {q && q.loyalty.points_to_earn ? <p className="mt-3 flex items-center gap-2 text-[13px] text-brass-deep"><Gift size={14} />{t('checkout.earn', { n: q.loyalty.points_to_earn })}</p> : null}
             {err && <div className="mt-4"><Alert tone="danger">{err}</Alert></div>}
             {holdReason && <p className="mt-5 text-center text-sm font-medium text-warning" role="status" data-testid="place-hold-reason">{holdReason}</p>}
-            <Button size="lg" block className="mt-6" disabled={!canPlace} loading={place.isPending} onClick={() => { setErr(''); place.mutate(); }}>
-              <Lock size={16} />{method === 'sadad' ? t('checkout.pay_now') : t('checkout.place')}{grand ? ` · ${grand}` : ''}
+            <Button size="lg" block className="mt-6" disabled={!canPlace} loading={place.isPending || place.isSuccess} onClick={() => { if (placing.current) return; placing.current = true; setErr(''); place.mutate(); }}>
+              <Lock size={16} />{method === 'sadad' ? t('checkout.pay_now') : t('checkout.place')}{grand && <span className="max-[360px]:hidden">{` · ${grand}`}</span>}
             </Button>
             <p className="mt-3 text-center text-xs text-muted">{t('checkout.agree')} <Link to="/pages/terms" className="underline">{t('footer.terms')}</Link></p>
           </div>

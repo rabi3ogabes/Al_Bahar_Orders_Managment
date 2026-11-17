@@ -23,6 +23,25 @@ class Order extends Model
 
     protected $casts = ['address_snapshot' => 'array', 'fee_breakdown' => 'array', 'tax_snapshot' => 'array', 'placed_at' => 'immutable_datetime', 'confirmed_at' => 'immutable_datetime', 'completed_at' => 'immutable_datetime', 'cancelled_at' => 'immutable_datetime', 'payment_due_at' => 'immutable_datetime', 'status' => 'App\Domain\Orders\Enums\OrderStatus', 'payment_status' => 'App\Domain\Payments\Enums\PaymentStatus', 'loyalty_points_redeemed' => 'integer', 'adjustment_count' => 'integer'];
 
+    /**
+     * What the order's products added to its delivery fee (docs/api/CHECKOUT_FEES_V2.md section 3), as stored when it was placed (and shrunk by an
+     * adjustment that took such a product away). Only entries that still cost something. Orders placed before the fee existed have none.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function deliveryExtras(): array
+    {
+        $lines = (array) data_get($this->fee_breakdown, 'extra_delivery.lines', []);
+
+        return array_values(array_filter($lines, fn ($l) => is_array($l) && Money::of((string) ($l['amount'] ?? '0'))->isPositive()));
+    }
+
+    /** The part of `delivery_fee_total` that comes from products with an extra delivery fee. */
+    public function extraDeliveryFee(): Money
+    {
+        return Money::of((string) data_get($this->fee_breakdown, 'extra_delivery.amount', '0'));
+    }
+
     /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {

@@ -572,6 +572,24 @@
   "@productUnavailable": {},
   "selectBranchToBuy": "Choose a branch to see price & stock",
   "@selectBranchToBuy": {},
+  "extraDeliveryFeePerUnit": "Extra delivery fee {fee} per item",
+  "@extraDeliveryFeePerUnit": {
+    "placeholders": {
+      "fee": {
+        "type": "String"
+      }
+    }
+  },
+  "extraDeliveryFeePerLine": "Extra delivery fee {fee} for this item, whatever the quantity",
+  "@extraDeliveryFeePerLine": {
+    "placeholders": {
+      "fee": {
+        "type": "String"
+      }
+    }
+  },
+  "viewImageFullScreen": "View image full screen",
+  "@viewImageFullScreen": {},
   "imageOf": "Image {index} of {total}",
   "@imageOf": {
     "placeholders": {
@@ -830,6 +848,33 @@
   "@serviceFee": {},
   "codFee": "Cash on delivery fee",
   "@codFee": {},
+  "bulkyDeliveryFee": "Extra delivery fee for bulky items",
+  "@bulkyDeliveryFee": {},
+  "bulkyDeliveryEach": "×{quantity} · {fee} each",
+  "@bulkyDeliveryEach": {
+    "placeholders": {
+      "quantity": {"type": "int"},
+      "fee": {"type": "String"}
+    }
+  },
+  "bulkyDeliveryOnce": "×{quantity} · charged once",
+  "@bulkyDeliveryOnce": {
+    "placeholders": {
+      "quantity": {"type": "int"}
+    }
+  },
+  "bulkyDeliveryIncluded": "Already included in the delivery fee above.",
+  "@bulkyDeliveryIncluded": {},
+  "bulkyDeliveryShow": "Show details",
+  "@bulkyDeliveryShow": {},
+  "bulkyDeliveryHide": "Hide details",
+  "@bulkyDeliveryHide": {},
+  "quoteRefreshFailed": "Your totals couldn’t be refreshed. Please try again.",
+  "@quoteRefreshFailed": {},
+  "placingOrderWait": "We’re placing your order. Please wait a moment.",
+  "@placingOrderWait": {},
+  "paymentWaitBack": "We’re confirming your payment. Please wait a moment.",
+  "@paymentWaitBack": {},
   "tax": "Tax",
   "@tax": {},
   "loyaltyDiscount": "Points redeemed",

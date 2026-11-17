@@ -6,6 +6,7 @@ import 'package:albahar_customer/features/branches/presentation/state/branch_pro
 import 'package:albahar_customer/features/catalog/data/catalog_repository.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
 /// CatalogCategory tree (cached for the session; refreshes on locale change).
 final categoriesProvider = FutureProvider<List<CatalogCategory>>((ref) {
@@ -58,6 +59,13 @@ final productDetailProvider = FutureProvider.autoDispose.family<ProductDetail, S
   final branchId = ref.watch(preferredBranchIdProvider);
   return ref.watch(catalogRepositoryProvider).product(id, branchId: branchId);
 });
+
+/// Opens the system share sheet. A provider so tests can stand in for the platform.
+final shareActionProvider = Provider<Future<void> Function(ShareParams params)>(
+  (ref) => (params) async {
+    await SharePlus.instance.share(params);
+  },
+);
 
 final productAvailabilityProvider = FutureProvider.autoDispose.family<List<BranchStock>, String>((ref, id) {
   ref.watch(localeCodeProvider);

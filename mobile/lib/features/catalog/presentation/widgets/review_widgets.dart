@@ -139,14 +139,20 @@ class ReviewTile extends ConsumerWidget {
             children: [
               RatingStars(average: review.rating.toDouble(), showValue: false),
               const Gap(AppSpace.xs),
-              if (review.verifiedPurchase)
-                StatusChip(
-                  label: l10n.verifiedPurchase,
-                  tone: StatusTone.success,
-                  icon: Icons.verified_outlined,
-                  dense: true,
+              // Takes the room between the stars and the menu; the chip's label gives way (…) on a narrow phone.
+              Expanded(
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: review.verifiedPurchase
+                      ? StatusChip(
+                          label: l10n.verifiedPurchase,
+                          tone: StatusTone.success,
+                          icon: Icons.verified_outlined,
+                          dense: true,
+                        )
+                      : const SizedBox.shrink(),
                 ),
-              const Spacer(),
+              ),
               PopupMenuButton<String>(
                 tooltip: l10n.menu,
                 icon: const Icon(Icons.more_horiz_rounded, size: 20),

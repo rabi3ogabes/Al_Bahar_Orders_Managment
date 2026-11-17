@@ -46,14 +46,16 @@ class PushNotifier
     public function dispatchUpdated(DispatchUpdated $e): void
     {
         // Driver and staff pushes are Firebase's; the customer's card below also feeds the iPhone Live Activity, which needs no Firebase.
+        // Each of these alerts has a switch in the notification controls (Content > Notification controls).
         if ($this->fcm->configured()) {
-            if ($e->kind === 'delivery' && $e->status === 'assigned' && $e->driverId) {
+            $rules = app(NotificationRules::class);
+            if ($e->kind === 'delivery' && $e->status === 'assigned' && $e->driverId && $rules->allows('staff.driver_assigned', 'push')) {
                 $this->plain($e->driverId, 'push.driver_new_job', $e->orderNumber, 'dispatch.updated');
             }
-            if ($e->kind === 'delivery' && $e->status === 'failed') {
+            if ($e->kind === 'delivery' && $e->status === 'failed' && $rules->allows('staff.delivery_failed', 'push')) {
                 $this->branch($e->branchId, 'push.staff_failed', $e->orderNumber);
             }
-            if ($e->kind === 'order' && $e->status === 'ready') {
+            if ($e->kind === 'order' && $e->status === 'ready' && $rules->allows('staff.order_ready', 'push')) {
                 $this->branch($e->branchId, 'push.staff_ready', $e->orderNumber);
             }
         }
@@ -106,6 +108,12 @@ class PushNotifier
         $locales = [...$devices->map(fn (UserDevice $d) => (string) $d->locale)->all(), ...$tokens->map(fn (LiveActivityToken $t) => (string) $t->locale)->all()];
         $built = $this->progress->build($order, $locales);
         if ($built === null || $built['expired']) {
+            return;
+        }
+        // The notification controls can switch a step of the card off together with its message (order accepted, ready, ...): that step is
+        // skipped, so the card stays on the step before it until the next step that is on. Nothing is recorded, so a later step still sends.
+        $step = NotificationCatalog::cardEvent((string) (reset($built['payloads'])['phase'] ?? ''));
+        if ($step !== null && ! app(NotificationRules::class)->allows($step, NotificationRules::LIVE_CARD)) {
             return;
         }
         try {

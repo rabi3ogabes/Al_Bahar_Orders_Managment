@@ -188,6 +188,27 @@
                         <x-admin.field :label="__('catalog_admin.cost_price')" for="form.cost_price" :hint="__('catalog_admin.cost_price_hint')" class="sm:w-1/2"><input id="form.cost_price" wire:model="form.cost_price" inputmode="decimal" class="input tabular-nums" dir="ltr"></x-admin.field>
                     </div>
 
+                    {{-- Delivery: the extra fee of a bulky product (docs/api/CHECKOUT_FEES_V2.md section 3). Saved with the rest of this tab. --}}
+                    <div class="card card-pad space-y-5">
+                        <div><h2 class="font-display text-xl font-semibold">{{ __('catalog_admin.delivery') }}</h2><p class="mt-1 text-sm text-ink-500">{{ __('catalog_admin.delivery_hint') }}</p></div>
+                        <x-admin.field :label="__('catalog_admin.extra_fee')" for="form.extra_delivery_fee" :hint="__('catalog_admin.extra_fee_hint')" class="sm:w-1/2"><input id="form.extra_delivery_fee" wire:model="form.extra_delivery_fee" inputmode="decimal" class="input tabular-nums" dir="ltr" maxlength="9" autocomplete="off"></x-admin.field>
+                        <fieldset>
+                            <legend class="field-label">{{ __('catalog_admin.extra_fee_mode') }}</legend>
+                            @error('form.extra_delivery_fee_mode')<p class="field-error" role="alert">{{ $message }}</p>@enderror
+                            <div class="mt-1 grid gap-2 sm:grid-cols-2" role="radiogroup">
+                                @foreach (['per_unit', 'per_line'] as $mode)
+                                    <label class="block cursor-pointer" wire:key="extra-fee-{{ $mode }}">
+                                        <input type="radio" name="extra-fee-mode" value="{{ $mode }}" wire:model="form.extra_delivery_fee_mode" class="peer sr-only" @disabled(! $canEdit)>
+                                        <span class="block min-h-11 rounded-xl border border-sand-200 p-3 transition peer-checked:border-brass-500 peer-checked:bg-brass-50 peer-focus-visible:outline-2 peer-focus-visible:outline-brass-500 dark:border-ink-700 dark:peer-checked:bg-brass-500/10">
+                                            <span class="block text-sm font-medium">{{ __('catalog_admin.extra_fee_'.$mode) }}</span>
+                                            <span class="mt-0.5 block text-xs text-ink-500">{{ __('catalog_admin.extra_fee_'.$mode.'_hint') }}</span>
+                                        </span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </fieldset>
+                    </div>
+
                     <div class="card card-pad space-y-5">
                         <h2 class="font-display text-xl font-semibold">{{ __('catalog_admin.warranty') }}</h2>
                         <div class="grid gap-4 sm:grid-cols-2">

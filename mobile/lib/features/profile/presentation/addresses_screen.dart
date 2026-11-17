@@ -166,7 +166,8 @@ class _AddressCard extends ConsumerWidget {
                   style: context.text.bodySmall,
                 ),
                 if (address.deliveryZone != null) Text(address.deliveryZone!.name, style: context.text.bodySmall),
-                Text('${address.recipientName} · ${address.recipientPhone}', style: context.text.bodySmall),
+                // The number is isolated left-to-right, so in Arabic its "+" stays in front of the digits.
+                Text('${address.recipientName} · \u2066${address.recipientPhone}\u2069', style: context.text.bodySmall),
               ],
             ),
           ),

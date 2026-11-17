@@ -5,6 +5,16 @@ Quick, task-based instructions for showroom, warehouse and driver staff. You onl
 
 ---
 
+## Your account: signing in on a tablet, computer or phone
+Your manager or an administrator creates your account and ticks the features you can use; you see only those menus, only for your branch.
+1. Open the dashboard address (`/admin`) in any browser: a tablet at the counter, a computer or your phone. Sign in with your **mobile number or e-mail** and the **temporary password** you were given.
+2. The first time, you are taken to **My profile**: type the temporary password as the current one and **choose your own password** (12+ characters, upper and lower case, a number). Then the dashboard opens.
+3. **Phone or tablet app:** install the *Al Bahar Branch* app from your store (or the link your manager sends) and sign in with the same mobile number or e-mail and your own password. If it says you must choose a password first, do step 2 once on the dashboard.
+4. A page you do not see is a feature you were not given: ask your manager to tick it (Employees › your name › *Features & branches*). Nobody can give you more than they have themselves.
+5. If you cannot sign in, ask your manager to switch your account on or reset your password. A new temporary password has to be changed again at your next sign-in.
+
+---
+
 ## Showroom / cashier
 **Prepare an order** — Sales › Orders › filter *Needs action* → open → **Accept** → **Preparing** → **Ready** (or **Ready for pickup**).
 Online-paid orders appear only after payment succeeds.
@@ -48,6 +58,16 @@ dispatched can't be cancelled; register a return instead.
 - Reschedule failed deliveries onto one of the branch's free delivery slots, and keep the branch's delivery slots up to date (Branches › Slots).
 - Approve adjustments and transfers, post stocktakes, set branch prices (a reason is required), manage branch staff
   within your branch, watch **Dashboard** and **Reports** (low stock, orders, collections) for your branch.
+
+---
+
+## حسابك: تسجيل الدخول من جهاز لوحي أو حاسوب أو هاتف
+ينشئ مديرك أو المسؤول حسابك ويحدد الميزات التي تستخدمها؛ ولا ترى إلا هذه القوائم ولفرعك فقط.
+١. افتح عنوان لوحة التحكم (`/admin`) في أي متصفح: جهاز لوحي عند الكاونتر أو حاسوب أو هاتفك. سجّل الدخول برقم **جوالك أو بريدك** و**كلمة المرور المؤقتة** التي أُعطيت لك.
+٢. في أول مرة تنتقل إلى **ملفي الشخصي**: اكتب كلمة المرور المؤقتة ككلمة المرور الحالية ثم **اختر كلمة مرور خاصة بك** (١٢ حرفًا فأكثر مع أحرف كبيرة وصغيرة ورقم). بعدها تُفتح لوحة التحكم.
+٣. **تطبيق الهاتف أو الجهاز اللوحي:** ثبّت تطبيق *موظف فرع البحار* من متجر التطبيقات (أو من الرابط الذي يرسله مديرك) وسجّل الدخول بالرقم أو البريد نفسه وكلمة مرورك الخاصة. إن طلب منك اختيار كلمة مرور أولًا فنفّذ الخطوة ٢ مرة واحدة على لوحة التحكم.
+٤. الصفحة التي لا تراها هي ميزة لم تُمنح لك: اطلب من مديرك تحديدها (الموظفون › اسمك › *الميزات والفروع*). لا يستطيع أحد أن يمنحك أكثر مما يملكه.
+٥. إن تعذّر الدخول فاطلب من مديرك تفعيل حسابك أو إعادة تعيين كلمة المرور؛ وكلمة المرور المؤقتة الجديدة تُغيَّر عند الدخول التالي.
 
 ---
 

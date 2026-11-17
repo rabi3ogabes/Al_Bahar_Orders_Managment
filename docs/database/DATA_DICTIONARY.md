@@ -2,7 +2,7 @@
 
 Generated from the live PostgreSQL schema (`docs/database/generate.py`). Regenerate after every migration.
 
-**133 tables**, 250 foreign keys, 68 CHECK constraints, 314 indexes.
+**133 tables**, 250 foreign keys, 70 CHECK constraints, 314 indexes.
 
 ## Append-only (immutable) tables
 
@@ -374,7 +374,7 @@ Indexes:
 | `delivery_zone_id` | uuid | no |  |
 | `delivery_fee` | numeric | no | '0'::numeric |
 | `free_delivery_threshold` | numeric | yes | no longer used, always NULL |
-| `min_order_amount` | numeric | yes |  |
+| `min_order_amount` | numeric | yes | no longer used, always NULL |
 | `max_order_amount` | numeric | yes |  |
 | `oversized_surcharge` | numeric | no | '0'::numeric |
 | `cod_enabled` | boolean | no | true |
@@ -2165,10 +2165,12 @@ Indexes:
 | `updated_by` | uuid | yes |  |
 | `created_at` | timestamp with time zone | yes |  |
 | `updated_at` | timestamp with time zone | yes |  |
+| `extra_delivery_fee` | numeric | no | '0'::numeric |
+| `extra_delivery_fee_mode` | character varying(16) | no | 'per_unit'::character varying |
 
 Foreign keys: `brand_id` → `brands` (on delete set null); `category_id` → `categories` (on delete set null); `created_by` → `users` (on delete set null); `updated_by` → `users` (on delete set null)
 
-Checks: `CHECK (((price >= (0)::numeric) AND ((sale_price IS NULL) OR (sale_price >= (0)::numeric))))`; `CHECK (((sale_price IS NULL) OR allow_sale_above_price OR (sale_price <= price)))`; `CHECK (((sale_starts_at IS NULL) OR (sale_ends_at IS NULL) OR (sale_ends_at > sale_starts_at)))`; `CHECK (((status)::text = ANY ((ARRAY['draft'::character varying, 'active'::character varying, 'inactive'::character varying, 'archived'::character varying])::text[])))`
+Checks: `CHECK ((extra_delivery_fee >= (0)::numeric))`; `CHECK (((extra_delivery_fee_mode)::text = ANY ((ARRAY['per_unit'::character varying, 'per_line'::character varying])::text[])))`; `CHECK (((price >= (0)::numeric) AND ((sale_price IS NULL) OR (sale_price >= (0)::numeric))))`; `CHECK (((sale_price IS NULL) OR allow_sale_above_price OR (sale_price <= price)))`; `CHECK (((sale_starts_at IS NULL) OR (sale_ends_at IS NULL) OR (sale_ends_at > sale_starts_at)))`; `CHECK (((status)::text = ANY ((ARRAY['draft'::character varying, 'active'::character varying, 'inactive'::character varying, 'archived'::character varying])::text[])))`
 
 Indexes:
 

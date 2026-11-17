@@ -45,9 +45,12 @@ class OrderPresenter
         return $this->summary($o) + [
             'totals' => [
                 'subtotal' => $m('subtotal'), 'discount' => $m('discount_total'), 'delivery_fee' => $m('delivery_fee_total'),
+                // The part of the delivery fee that comes from bulky products ("0.00" when none); see `delivery_extras` for which ones.
+                'extra_delivery_fee' => $o->extraDeliveryFee()->jsonSerialize(),
                 'service_fee' => $m('service_fee_total'), 'tax' => $m('tax_total'), 'loyalty_discount' => $m('loyalty_discount'),
                 'grand_total' => $m('grand_total'), 'paid' => $m('paid_total'), 'refunded' => $m('refunded_total'),
             ],
+            'delivery_extras' => $this->deliveryExtras($o),
             'discounts' => $o->coupons->map(fn ($c) => ['label' => app()->getLocale() === 'ar' ? $c->label_ar : $c->label_en, 'code' => $c->code,
                 'amount' => Money::of($c->discount_amount)->jsonSerialize(), 'free_delivery' => $c->free_delivery])->values(),
             'address' => $o->address_snapshot,
@@ -71,6 +74,22 @@ class OrderPresenter
             // The live order card (null for an order with nothing to show); never waits on the routing server.
             'progress' => app(OrderProgress::class)->forOrder($o, remote: false),
         ];
+    }
+
+    /**
+     * The bulky-item fees inside the delivery fee, as placed: [{product_id, name, mode, quantity, fee_each, amount}] (empty list when none).
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function deliveryExtras(Order $o): array
+    {
+        $ar = app()->getLocale() === 'ar';
+
+        return array_map(fn (array $l) => [
+            'product_id' => $l['product_id'] ?? null, 'name' => ($ar ? ($l['name_ar'] ?? null) : null) ?: ($l['name_en'] ?? ''), 'mode' => $l['mode'] ?? 'per_unit',
+            'quantity' => (int) ($l['quantity'] ?? 0), 'fee_each' => Money::of((string) ($l['fee_each'] ?? '0'))->jsonSerialize(),
+            'amount' => Money::of((string) ($l['amount'] ?? '0'))->jsonSerialize(),
+        ], $o->deliveryExtras());
     }
 
     /** Days after delivery/collection during which a customer may ask to return goods. */

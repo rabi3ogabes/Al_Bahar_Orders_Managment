@@ -18,6 +18,8 @@ final deliverySlotWindowProvider = FutureProvider.autoDispose.family<SlotWindow,
 /// Same for store pickup.
 final pickupSlotWindowProvider = FutureProvider.autoDispose.family<SlotWindow, String>((ref, branchId) async {
   final (:from, :to) = slotWindowDates(ref.read(slotClockProvider)());
-  final days = await ref.watch(branchRepositoryProvider).pickupSlotDays(branchId, from: from, to: to, onlyAvailable: true);
+  final days = await ref
+      .watch(branchRepositoryProvider)
+      .pickupSlotDays(branchId, from: from, to: to, onlyAvailable: true);
   return SlotWindow(from: from, to: to, days: days);
 });

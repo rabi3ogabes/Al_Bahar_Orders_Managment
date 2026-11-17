@@ -25,11 +25,12 @@ use Illuminate\Support\Collection;
  * Builds an authoritative, informational checkout quote. Nothing the client sends about prices, stock,
  * discounts or fees is trusted — everything is re-read from the database. A quote never reserves stock.
  *
- * Fee rules:
- *  - Delivery fee per fulfillment = branch-zone fee, waived when that fulfillment's subtotal reaches the zone's
- *    free-delivery threshold; + oversized surcharge if any oversized item; + express fee when requested & offered.
- *  - Zone min/max order limits are checked per fulfillment subtotal.
- *  - COD fee applies only to cash on delivery. Service fee from settings. Tax per configured rate (default 0%).
+ * Fee rules (docs/api/CHECKOUT_FEES_V2.md):
+ *  - Delivery fee per delivery fulfillment = branch-zone fee + oversized surcharge if any oversized item + the extra delivery fee of the products in
+ *    that fulfillment (ExtraDeliveryFee: per unit or once per product) + express fee when requested & offered. Nothing but a free-delivery coupon
+ *    waives it (PromotionEngine, after the fees). Pickup has no delivery fee.
+ *  - The zone's maximum order amount is checked per fulfillment subtotal. There is no minimum order.
+ *  - Cash on delivery costs nothing extra. Service fee from settings. Tax per configured rate (default 0%).
  *  - Splitting an order across branches is possible only while the admin setting checkout.show_split_shipment is on; when it is off the
  *    client's allow_split is ignored (no split). The same setting decides whether clients show the switch (quote.split_choice).
  *  - A delivery order may carry the customer's second number for the driver (alternate_phone / no_alternate_phone, see alternatePhone()),
@@ -172,7 +173,6 @@ class QuoteService
             $line->tax = $line->subtotal()->minus($line->discount)->percent($taxRate);
         }
         $this->paymentMethods($q, $user);
-        $q->codFee = $q->paymentMethod === 'cod' ? Money::of((string) $this->settings->get('checkout.cod_fee', '0.00')) : Money::zero();
 
         return $this->finalize($q, $user, $o);
     }
@@ -268,20 +268,19 @@ class QuoteService
             return;
         }
         $cfg = $plan->zoneConfig;
-        $subtotal = $plan->subtotal();
-        if ($cfg->min_order_amount !== null && $subtotal->lessThan(Money::of($cfg->min_order_amount))) {
-            $q->error('below_min_order', ['branch' => $plan->branch->localized('name'), 'minimum' => Money::of($cfg->min_order_amount)->jsonSerialize(),
-                'shortfall' => Money::of($cfg->min_order_amount)->minus($subtotal)->jsonSerialize()]);
-        }
-        if ($cfg->max_order_amount !== null && $subtotal->greaterThan(Money::of($cfg->max_order_amount))) {
+        // There is no minimum order any more (docs/api/CHECKOUT_FEES_V2.md section 2); only the zone's maximum is checked.
+        if ($cfg->max_order_amount !== null && $plan->subtotal()->greaterThan(Money::of($cfg->max_order_amount))) {
             $q->error('above_max_order', ['branch' => $plan->branch->localized('name'), 'maximum' => Money::of($cfg->max_order_amount)->jsonSerialize()]);
         }
         // Every delivery pays the zone fee, whatever the basket is worth. The only way to waive it is a free-delivery coupon:
         // PromotionEngine zeroes it later through a discount line, so the quote shows the fee and what the code took off.
+        // delivery fee = zone fee + oversized surcharge + the extra delivery fees of the products in this fulfillment + express fee.
         $fee = Money::of($cfg->delivery_fee);
         if (collect($plan->lines)->contains(fn (QuoteLine $l) => $l->isOversized())) {
             $fee = $fee->plus(Money::of($cfg->oversized_surcharge ?? '0'));
         }
+        $plan->deliveryExtras = ExtraDeliveryFee::forLines($plan->lines);
+        $fee = $fee->plus($plan->extraDeliveryFee());
         if ($plan->express) {
             $cfg->express_enabled && $cfg->express_fee !== null
                 ? $fee = $fee->plus(Money::of($cfg->express_fee))
@@ -313,7 +312,7 @@ class QuoteService
 
     private function paymentMethods(Quote $q, User $user): void
     {
-        $grand = $q->grandTotalBeforeCod();
+        $grand = $q->grandTotal();
         $branches = collect($q->plans)->pluck('branch');
         $sadad = (bool) config('platform.payments.sadad.enabled');
         $codReason = null;

@@ -3,33 +3,85 @@
     @if ($wide)<a href="{{ route('admin.employees.index') }}" wire:navigate class="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-brass-600"><x-icon name="chevron-left" class="size-4 rtl-flip" />{{ __('nav.employees') }}</a>@endif
 
     @if ($isNew)
-        @if ($wide)<x-admin.page-header :title="__('org_admin.new_employee')" :eyebrow="__('nav.organization')" :description="__('org_admin.new_employee_hint')" />@endif
-        <form wire:submit="create" class="grid gap-6 [&>*]:min-w-0 {{ $wide ? 'lg:grid-cols-3' : '' }}">
-            <div class="min-w-0 card card-pad space-y-5 {{ $wide ? 'lg:col-span-2' : '' }}">
-                <h2 class="font-display text-xl font-semibold">{{ __('admin.personal_details') }}</h2>
+        @if ($wide)<x-admin.page-header :title="__('branch_access.add_employee')" :eyebrow="__('nav.organization')" :description="__('branch_access.add_employee_hint')" />@endif
+        @php $company = $kind === 'company'; @endphp
+        <form wire:submit="create" class="space-y-6 [&>*]:min-w-0" novalidate>
+            @if ($company)
+                <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brass-300/40 bg-brass-50/60 p-4 text-sm text-ink-700 dark:bg-brass-500/10 dark:text-sand-200">
+                    <p class="flex items-start gap-2"><x-icon name="crown" class="mt-0.5 size-4 shrink-0 text-brass-600" />{{ __('branch_access.company_mode_note') }}</p>
+                    <button type="button" wire:click="useBranch" class="btn-secondary btn-sm min-h-11">{{ __('branch_access.back_to_branch') }}</button>
+                </div>
+            @endif
+
+            <section class="card card-pad space-y-5" aria-labelledby="ne-who">
+                <h2 id="ne-who" class="font-display text-xl font-semibold">{{ __('branch_access.section_who') }}</h2>
                 <div class="grid gap-5 sm:grid-cols-2">
-                    <x-admin.field :label="__('admin.name')" for="form.name" required class="sm:col-span-2"><input id="form.name" wire:model="form.name" class="input" autocomplete="off"></x-admin.field>
-                    <x-admin.field :label="__('admin.email')" for="form.email" required><input id="form.email" type="email" wire:model="form.email" class="input" dir="ltr" autocomplete="off"></x-admin.field>
-                    <x-admin.field :label="__('org_admin.phone')" for="form.phone"><input id="form.phone" wire:model="form.phone" class="input" dir="ltr" placeholder="+974 5555 0000"></x-admin.field>
-                    <x-admin.field :label="__('org_admin.job_title')" for="form.job_title"><input id="form.job_title" wire:model="form.job_title" class="input"></x-admin.field>
+                    <x-admin.field :label="__('admin.name')" for="form.name" required class="sm:col-span-2"><input id="form.name" wire:model="form.name" class="input" autocomplete="off" maxlength="120"></x-admin.field>
+                    <x-admin.field :label="__('org_admin.phone')" for="form.phone"><input id="form.phone" type="tel" inputmode="tel" wire:model="form.phone" class="input" dir="ltr" placeholder="+974 5555 0000" autocomplete="off"></x-admin.field>
+                    <x-admin.field :label="__('admin.email')" for="form.email"><input id="form.email" type="email" inputmode="email" wire:model="form.email" class="input" dir="ltr" autocomplete="off"></x-admin.field>
+                    <p class="-mt-2 text-xs text-ink-500 sm:col-span-2">{{ __('branch_access.contact_hint') }}</p>
+                    <x-admin.field :label="__('org_admin.job_title')" for="form.job_title"><input id="form.job_title" wire:model="form.job_title" class="input" maxlength="120"></x-admin.field>
                     <x-admin.field :label="__('admin.language')" for="form.locale">
                         <select id="form.locale" wire:model="form.locale" class="input pe-10 rtl:[background-position:left_0.5rem_center]"><option value="en">English</option><option value="ar">العربية</option></select>
                     </x-admin.field>
                 </div>
-            </div>
-            <div class="space-y-6">
-                <div class="card card-pad space-y-4">
-                    <h2 class="font-display text-xl font-semibold">{{ __('org_admin.initial_password') }}</h2>
-                    <x-admin.field :label="__('admin.password')" for="form.password" required :hint="__('admin.password_policy')">
-                        <div class="flex gap-2">
-                            <input id="form.password" type="{{ $showPassword ? 'text' : 'password' }}" wire:model="form.password" class="input font-mono" dir="ltr" autocomplete="new-password">
-                            <button type="button" wire:click="generatePassword" class="btn-secondary shrink-0 px-3" title="{{ __('org_admin.generate') }}" aria-label="{{ __('org_admin.generate') }}"><x-icon name="sparkles" class="size-4" /></button>
+            </section>
+
+            <section class="card card-pad space-y-5" aria-labelledby="ne-where">
+                <h2 id="ne-where" class="font-display text-xl font-semibold">{{ $company ? __('branch_access.section_signin') : __('branch_access.section_where') }}</h2>
+                <div class="grid gap-5 sm:grid-cols-2">
+                    @unless ($company)
+                        <x-admin.field :label="__('admin.branch')" for="branchId" required error="branchId" class="sm:col-span-2">
+                            @if ($newBranches->isEmpty())
+                                <p class="rounded-xl bg-sand-50 p-3 text-sm text-ink-600 dark:bg-ink-800 dark:text-ink-300">{{ __('branch_access.no_branch_to_add') }}</p>
+                            @else
+                                <select id="branchId" wire:model.live="branchId" class="input pe-10 rtl:[background-position:left_0.5rem_center]">
+                                    <option value="">{{ __('branch_access.choose_branch') }}</option>
+                                    @foreach ($newBranches as $b)<option value="{{ $b->id }}">{{ $b->code }} · {{ $b->localized('name') }}</option>@endforeach
+                                </select>
+                            @endif
+                        </x-admin.field>
+                    @endunless
+                    <x-admin.field :label="__('branch_access.temp_password')" for="form.password" required :hint="__('branch_access.temp_password_hint')" class="sm:col-span-2">
+                        <div class="flex gap-2" x-data="{ copied: false }">
+                            <input id="form.password" x-ref="pw" type="{{ $showPassword ? 'text' : 'password' }}" wire:model="form.password" class="input font-mono" dir="ltr" autocomplete="new-password" spellcheck="false">
+                            <button type="button" wire:click="generatePassword" class="btn-secondary min-h-11 shrink-0 px-3" title="{{ __('org_admin.generate') }}" aria-label="{{ __('org_admin.generate') }}"><x-icon name="sparkles" class="size-4" /></button>
+                            <button type="button" class="btn-secondary min-h-11 shrink-0 px-3" @click="navigator.clipboard.writeText($refs.pw.value).then(() => { copied = true; setTimeout(() => copied = false, 1800) })"
+                                    title="{{ __('branch_access.copy_password') }}" aria-label="{{ __('branch_access.copy_password') }}"><x-icon name="check" class="size-4" x-show="copied" x-cloak /><x-icon name="clipboard" class="size-4" x-show="!copied" /></button>
                         </div>
                     </x-admin.field>
-                    <p class="rounded-xl bg-sand-50 p-3 text-xs leading-relaxed text-ink-500 dark:bg-ink-800 dark:text-ink-400">{{ __('org_admin.initial_password_hint') }}</p>
                 </div>
-                <button class="btn-primary w-full py-3" wire:loading.attr="disabled" wire:target="create"><x-icon name="check" class="size-4" />{{ __('org_admin.create_employee') }}</button>
-            </div>
+                <p class="flex items-start gap-2 rounded-xl bg-sand-50 p-3 text-xs leading-relaxed text-ink-600 dark:bg-ink-800 dark:text-ink-300"><x-icon name="lock" class="mt-0.5 size-3.5 shrink-0" />{{ __('branch_access.signin_how') }}</p>
+            </section>
+
+            @unless ($company)
+                <section class="card card-pad space-y-5" aria-labelledby="ne-what">
+                    <div><h2 id="ne-what" class="font-display text-xl font-semibold">{{ __('branch_access.section_what') }}</h2><p class="mt-1 text-sm text-ink-500">{{ __('branch_access.section_what_hint') }}</p></div>
+                    @if ($branchId === '')
+                        <p class="rounded-xl bg-sand-50 p-4 text-sm text-ink-600 dark:bg-ink-800 dark:text-ink-300">{{ __('branch_access.pick_branch_first') }}</p>
+                    @else
+                        <x-admin.feature-picker :picker="$picker" :baseline="[]" wire:key="picker-new-{{ $branchId }}" />
+                    @endif
+                </section>
+            @endunless
+
+            @if ($canCompanyWide && ! $company)
+                <p class="text-xs text-ink-500">{{ __('branch_access.company_wide_prompt') }} <button type="button" wire:click="useCompanyWide" class="font-medium text-brass-600 underline-offset-2 hover:underline">{{ __('branch_access.company_wide_link') }}</button></p>
+            @endif
+
+            @if ($wide)
+                <div class="sticky bottom-4 z-20 flex justify-end">
+                    <div class="card flex items-center gap-3 p-2 shadow-[var(--shadow-lift)]">
+                        <span class="hidden px-3 text-sm text-ink-500 sm:inline">{{ __('org_admin.changes_audited') }}</span>
+                        <button class="btn-primary min-h-11" wire:loading.attr="disabled" wire:target="create"><x-icon name="check" class="size-4" />{{ __('branch_access.create_button') }}</button>
+                    </div>
+                </div>
+            @else
+                <div class="sticky bottom-0 z-10 -mx-5 flex items-center justify-end gap-2 border-t border-sand-200/70 bg-ivory px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:-mx-6 sm:px-6 dark:border-ink-800 dark:bg-ink-900">
+                    <button type="button" class="btn-secondary min-h-11" @click="requestClose()">{{ __('admin.cancel') }}</button>
+                    <button class="btn-primary min-h-11" wire:loading.attr="disabled" wire:target="create"><x-icon name="check" class="size-4" />{{ __('branch_access.create_button') }}</button>
+                </div>
+            @endif
         </form>
     @else
         @if ($wide)
@@ -39,7 +91,7 @@
                 <div class="min-w-0">
                     <p class="eyebrow mb-1">{{ $employee->job_title ?: __('admin.staff') }}</p>
                     <h1 class="truncate font-display text-3xl font-semibold tracking-tight text-ink-900 dark:text-ivory">{{ $employee->name }}</h1>
-                    <p class="truncate text-sm text-ink-500" dir="ltr">{{ $employee->email }}</p>
+                    <p class="truncate text-sm text-ink-500" dir="ltr">{{ $employee->email ?: $employee->phone }}</p>
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2">
@@ -57,7 +109,7 @@
             </div>
         @endif
 
-        <x-admin.tabs :current="$tab" :tabs="['profile' => ['user', __('org_admin.tab_profile')], 'access' => ['shield', __('org_admin.tab_access')], 'security' => ['lock', __('org_admin.tab_security')], 'activity' => ['history', __('org_admin.tab_activity')]]" />
+        <x-admin.tabs :current="$tab" :tabs="['profile' => ['user', __('org_admin.tab_profile')], 'access' => ['shield', __('branch_access.tab_access')], 'security' => ['lock', __('org_admin.tab_security')], 'activity' => ['history', __('org_admin.tab_activity')]]" />
 
         @if ($tab === 'profile')
             <form wire:submit="saveProfile" class="card card-pad {{ $wide ? 'max-w-3xl' : '' }} space-y-5">
@@ -81,6 +133,52 @@
         @elseif ($tab === 'access')
             <div class="grid gap-6 [&>*]:min-w-0 {{ $wide ? 'lg:grid-cols-3' : '' }}">
                 <div class="min-w-0 space-y-6 {{ $wide ? 'lg:col-span-2' : '' }}">
+                    {{-- Feature access: the plain-words checklist of what this person may use at one branch (their personal role). --}}
+                    @if ($employee->branchAssignments->isNotEmpty())
+                    <div class="card card-pad space-y-5" id="feature-access">
+                        <div class="flex flex-wrap items-start justify-between gap-3">
+                            <div class="min-w-0"><h2 class="font-display text-xl font-semibold">{{ __('branch_access.feature_access') }}</h2><p class="mt-1 text-sm text-ink-500">{{ __('branch_access.feature_access_hint') }}</p></div>
+                            @if ($canEditFeatures && $accessBranches->count() > 1)
+                                <x-admin.field :label="__('admin.branch')" for="branchId" class="w-full sm:w-56">
+                                    <select id="branchId" wire:model.live="branchId" class="input pe-10 rtl:[background-position:left_0.5rem_center]">
+                                        @foreach ($accessBranches as $b)<option value="{{ $b->id }}">{{ $b->code }} · {{ $b->localized('name') }}</option>@endforeach
+                                    </select>
+                                </x-admin.field>
+                            @elseif ($canEditFeatures)
+                                <span class="badge-neutral"><span class="font-mono" dir="ltr">{{ $accessBranches->first()->code }}</span> · {{ $accessBranches->first()->localized('name') }}</span>
+                            @endif
+                        </div>
+
+                        @if ($canEditFeatures)
+                            <form wire:submit="saveFeatures" class="space-y-5">
+                                @if ($replacedRoles->isNotEmpty())
+                                    <p class="flex items-start gap-2 rounded-xl border border-amber-soft/30 bg-amber-soft/5 p-3 text-xs leading-relaxed text-ink-700 dark:text-sand-200"><x-icon name="info" class="mt-0.5 size-3.5 shrink-0 text-amber-soft" />{{ __('branch_access.replaces_roles', ['roles' => $replacedRoles->implode('، ')]) }}</p>
+                                @endif
+                                <x-admin.feature-picker :picker="$picker" :baseline="$baseline" wire:key="picker-{{ $employee->id }}-{{ $branchId }}-{{ md5(implode(',', $baseline)) }}">
+                                    <x-slot:footer>
+                                        <div class="flex flex-wrap items-center justify-end gap-3 border-t border-sand-100 pt-5 dark:border-ink-800">
+                                            <span class="text-xs text-ink-500" x-show="dirty" x-cloak>{{ __('branch_access.unsaved') }}</span>
+                                            <button class="btn-primary min-h-11" :disabled="!dirty" wire:loading.attr="disabled" wire:target="saveFeatures">
+                                                <span wire:loading.remove wire:target="saveFeatures" class="inline-flex items-center gap-2"><x-icon name="check" class="size-4" />{{ __('admin.save_changes') }}</span>
+                                                <span wire:loading wire:target="saveFeatures">{{ __('branch_access.saving') }}</span>
+                                            </button>
+                                        </div>
+                                    </x-slot:footer>
+                                </x-admin.feature-picker>
+                            </form>
+                        @else
+                            <div class="space-y-3">
+                                @if (count($readOnlyFeatures))
+                                    <div class="flex flex-wrap gap-1.5">@foreach ($readOnlyFeatures as $f)<span class="badge-neutral">{{ \App\Domain\Identity\Support\BranchFeatureCatalog::label($f) }}</span>@endforeach</div>
+                                @else
+                                    <p class="text-sm text-ink-500">{{ __('branch_access.no_features') }}</p>
+                                @endif
+                                <p class="flex items-start gap-2 rounded-xl bg-sand-50 p-3 text-xs leading-relaxed text-ink-600 dark:bg-ink-800 dark:text-ink-300"><x-icon name="lock" class="mt-0.5 size-3.5 shrink-0" />{{ $isSelf ? __('branch_access.read_only_self') : ($employee->isSuperAdmin() || $employee->roleAssignments->whereNull('branch_id')->isNotEmpty() ? __('branch_access.read_only_company') : __('branch_access.read_only_scope')) }}</p>
+                            </div>
+                        @endif
+                    </div>
+                    @endif
+
                     <div class="card overflow-hidden">
                         <div class="p-5 sm:p-6"><h2 class="font-display text-xl font-semibold">{{ __('org_admin.branch_assignments') }}</h2><p class="mt-1 text-sm text-ink-500">{{ __('org_admin.branch_assignments_hint') }}</p></div>
                         @if ($employee->branchAssignments->isEmpty())
@@ -97,7 +195,7 @@
                                                 @if ($a->is_delivery_driver)<span class="badge-info"><x-icon name="truck" class="size-3" />{{ __('org_admin.driver') }}</span>@endif
                                             </div>
                                             <div class="mt-1 flex flex-wrap gap-1.5">
-                                                @forelse ($rolesByBranch[$a->branch_id] ?? [] as $ur)<span class="badge-brass">{{ $ur->role->localized('name') }}</span>@empty<span class="text-xs text-ink-400">{{ __('org_admin.no_roles') }}</span>@endforelse
+                                                @forelse ($rolesByBranch[$a->branch_id] ?? [] as $ur)<span class="{{ $ur->role->isPersonal() ? 'badge-info' : 'badge-brass' }}">{{ $ur->role->isPersonal() ? __('branch_access.personal_role') : $ur->role->localized('name') }}</span>@empty<span class="text-xs text-ink-400">{{ __('org_admin.no_roles') }}</span>@endforelse
                                                 @if ($a->job_title)<span class="text-xs text-ink-500">· {{ $a->job_title }}</span>@endif
                                             </div>
                                         </div>
@@ -181,7 +279,7 @@
                 </div>
                 <form wire:submit="resetPassword" class="card card-pad h-fit space-y-4">
                     <h2 class="font-display text-xl font-semibold">{{ __('org_admin.reset_password') }}</h2>
-                    <p class="text-sm text-ink-500">{{ __('org_admin.reset_password_hint') }}</p>
+                    <p class="text-sm text-ink-500">{{ __('org_admin.reset_password_hint') }} {{ __('branch_access.reset_temporary') }}</p>
                     <x-admin.field :label="__('admin.new_password')" for="newPassword" :hint="__('admin.password_policy')">
                         <div class="flex gap-2">
                             <input id="newPassword" type="{{ $showPassword ? 'text' : 'password' }}" wire:model="newPassword" class="input font-mono" dir="ltr" autocomplete="new-password" @disabled(! $canManage)>

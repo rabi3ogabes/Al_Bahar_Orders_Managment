@@ -41,7 +41,8 @@ class AlternatePhoneInput {
 
   AlternatePhoneInput typed(String value) => AlternatePhoneInput(text: value);
 
-  AlternatePhoneInput decline(bool value) => value ? const AlternatePhoneInput(declined: true) : const AlternatePhoneInput();
+  AlternatePhoneInput decline(bool value) =>
+      value ? const AlternatePhoneInput(declined: true) : const AlternatePhoneInput();
 
   AlternatePhoneStatus status({String? mainPhone}) {
     if (hasText) {
@@ -65,7 +66,10 @@ class AlternatePhoneInput {
   JsonMap requestFields({String? mainPhone}) {
     final s = status(mainPhone: mainPhone);
     if (s != AlternatePhoneStatus.valid && s != AlternatePhoneStatus.declined) return const {};
-    return {'alternate_phone': s == AlternatePhoneStatus.valid ? e164 : null, 'no_alternate_phone': s == AlternatePhoneStatus.declined};
+    return {
+      'alternate_phone': s == AlternatePhoneStatus.valid ? e164 : null,
+      'no_alternate_phone': s == AlternatePhoneStatus.declined,
+    };
   }
 
   @override

@@ -7,7 +7,7 @@ the customer applies a coupon code that belongs to a `free_delivery` promotion. 
 
 * Removed: the per-zone `free_delivery_threshold` (read, write, validation, admin field, API fields, seeders, docs) and the quote hint
   `free_delivery_progress`. Old app versions that look for the hint simply show nothing.
-* Kept: `min_order_amount` and `max_order_amount` (a different rule: the smallest/largest order a zone accepts).
+* Kept: `max_order_amount` (a different rule: the largest order a zone accepts). The minimum (`min_order_amount`) was removed later: see [CHECKOUT_FEES_V2.md](CHECKOUT_FEES_V2.md) section 2.
 * Database: the column `branch_delivery_zones.free_delivery_threshold` stays (nullable, unused). A migration sets it to NULL on every row
   so no stale numbers survive. A later release may drop the column.
 * Promotions: a `free_delivery` promotion must require a coupon (`requires_coupon = true`). The Promotions form forces it and says why;
@@ -25,7 +25,7 @@ An abandoned order is a customer cart (`carts.status = 'active'`, at least one l
   (30 min / 1 h / 24 h / 7 days), search by name or phone, has coupon, branch. Newest idle first, keyset pagination, 25 per page.
 * Side window per cart (bottom sheet on phones): lines with image, name, variant, unit price, quantity stepper, remove (with Undo),
   "Add item" search-and-add, coupon box (apply / remove, plain error text), delivery fee and totals from the **real quote engine**
-  (same numbers the customer sees), warnings (out of stock, price changed, zone minimum), and these actions:
+  (same numbers the customer sees), warnings (out of stock, price changed, zone maximum), and these actions:
   Send reminder (consent aware, uses the existing abandoned-cart message), Place order for customer (copies the cart into the staff
   order panel at the checkout step; the customer's cart is converted when the order is placed), Discard cart (sets
   `status = 'abandoned'` so reminders stop; reversible, so an Undo toast instead of a confirm).

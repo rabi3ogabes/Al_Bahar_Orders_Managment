@@ -142,6 +142,9 @@
         @endforeach
         @if ((float) $o['loyalty_discount'] > 0)<tr><td>{!! $lab('Loyalty points', 'نقاط الولاء') !!}</td><td class="r">−{{ $m($o['loyalty_discount']) }}</td></tr>@endif
         <tr><td>{!! $lab('Delivery', 'التوصيل') !!}</td><td class="r">{{ (float) $o['delivery_fee_total'] > 0 ? $m($o['delivery_fee_total']) : 'Free' }}</td></tr>
+        @if ((float) ($s['extra_delivery_fee'] ?? 0) > 0)
+            <tr><td class="muted small" style="padding-left:16px">{!! $lab('of which extra delivery fee for bulky items', 'منها رسوم توصيل إضافية للقطع الكبيرة') !!}</td><td class="r muted small">{{ $m($s['extra_delivery_fee']) }}</td></tr>
+        @endif
         @if ((float) $o['service_fee_total'] > 0)<tr><td>{!! $lab('Service fees', 'رسوم الخدمة') !!}</td><td class="r">{{ $m($o['service_fee_total']) }}</td></tr>@endif
         <tr><td>{!! $lab('Tax ('.($o['tax_snapshot']['rate_percent'] ?? 0).'%)', 'الضريبة') !!}</td><td class="r">{{ $m($o['tax_total']) }}</td></tr>
         <tr class="grand"><td>{!! $lab('Total', 'الإجمالي') !!}</td><td class="r">{{ $m($o['grand_total']) }}</td></tr>

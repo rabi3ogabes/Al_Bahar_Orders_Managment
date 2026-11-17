@@ -74,6 +74,8 @@ class InvoiceService
                 'order' => $order->only(['number', 'placed_at', 'payment_method', 'payment_status', 'fulfillment_type', 'currency', 'subtotal', 'discount_total',
                     'delivery_fee_total', 'service_fee_total', 'tax_total', 'loyalty_discount', 'grand_total', 'paid_total', 'refunded_total', 'customer_name',
                     'customer_phone', 'customer_email', 'address_snapshot', 'tax_snapshot']),
+                // The part of the delivery fee that comes from bulky products (the invoice shows it as a sub-line under Delivery); "0.00" when none.
+                'extra_delivery_fee' => $order->extraDeliveryFee()->toDecimal(),
                 // Only what the customer receives: lines the branch removed or swapped out are listed under "Order changes" instead.
                 'items' => $order->items->filter(fn (OrderItem $i) => $i->quantity > 0)->map(fn (OrderItem $i) => $i->only(['sku', 'name_en', 'name_ar', 'variant_name_en', 'variant_name_ar', 'quantity', 'unit_final_price',
                     'discount_amount', 'tax_amount', 'line_total', 'adjustment_kind', 'original_quantity']) + [

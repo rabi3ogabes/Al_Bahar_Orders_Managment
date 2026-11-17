@@ -64,7 +64,6 @@ return [
         // On (default): the switch appears, but only while more than one active branch holds part of the customer's cart.
         'show_split_shipment' => true,
         'service_fee' => '0.00',
-        'cod_fee' => '10.00',
         'tax_rate_percent' => '0',               // Qatar: no VAT at time of writing; configurable.
         'allocation' => [
             'prefer_selected_branch' => true,

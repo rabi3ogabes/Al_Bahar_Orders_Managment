@@ -6,6 +6,19 @@ use App\Http\Requests\Api\V1\ApiRequest;
 
 class PasswordLoginRequest extends ApiRequest
 {
+    /**
+     * One "e-mail or mobile number" box: a value without an "@" cannot be an e-mail, so it is the mobile number
+     * (a branch employee may have a number and no e-mail address).
+     */
+    protected function prepareForValidation(): void
+    {
+        $email = $this->input('email');
+        if (is_string($email) && $email !== '' && ! str_contains($email, '@') && ! $this->filled('phone')) {
+            $this->merge(['phone' => $email, 'email' => null]);
+        }
+        parent::prepareForValidation();
+    }
+
     public function rules(): array
     {
         return [

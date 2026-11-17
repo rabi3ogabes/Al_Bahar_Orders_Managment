@@ -1,0 +1,205 @@
+# Branch employees · موظفو الفروع
+
+An account for someone who works at **one branch** (a cashier, order desk, stock keeper, delivery coordinator or a branch manager), who
+signs in from a **tablet, computer or phone** and sees **only the features you tick**, **only for their branch**. It is not an admin account:
+it has no company-wide role and no access to settings, roles, marketing, content or other branches.
+
+## How to add one
+
+1. **Organization › Employees › Add branch employee** (a side window; **Open full page** gives the same form as a page).
+2. **Who is this?** Name, mobile number (Qatar numbers are normalised to `+974…`), e-mail (give at least one of the two: they sign in with it),
+   job title, language.
+3. **Branch and sign-in.** Choose the branch (a branch manager only sees their own). Write or **generate** a *temporary password* (copy button next to it).
+4. **What can they use?** Tap a ready-made set, then tick or untick anything:
+
+   | Preset | For |
+   |---|---|
+   | Branch manager | runs the branch day to day (orders, stock, prices, cash, reports) |
+   | Order desk | takes, prepares and dispatches orders, answers customers |
+   | Cashier / pickup | hands orders to customers and handles the cash drawer |
+   | Stock keeper | stock levels, counts and transfers |
+   | Delivery coordinator | plans deliveries and assigns drivers |
+   | Read only | looks at orders, stock, products and reports; changes nothing |
+
+   Ticking a feature also ticks what it cannot work without ("Create orders" also ticks "See orders" and "See products and prices");
+   unticking one unticks what needs it. A set that matches no preset is shown as *Custom*.
+5. **Add employee.** The person is told nothing automatically: give them the temporary password privately.
+
+The employee **signs in** at `/admin` (or in the staff app) with their e-mail *or* mobile number and the temporary password, and is taken to
+**My profile** to choose their own password. Until they do, every other page and every staff API call is refused. **Reset password** (Security tab)
+does the same again.
+
+## Changing access later
+
+Open the employee › **Features & branches**: the same checklist, pre-filled from what they can do now, per branch (choose the branch if they work at
+several). **Save changes** stays disabled until something changes. If the person had ready-made *roles* at that branch, saving the checklist
+**replaces** them (the page says which). A change is written to the audit log as `employee.access_changed` with the old and new permission keys.
+
+The **Roles** page keeps working for admins who prefer roles: you can still give someone *Order Manager* instead of ticking features, and switch back.
+
+## The employees list
+
+Role / preset, branches, **Features** (count, with the feature names in a tooltip: hover or keyboard focus), last sign-in, and an **active / disabled switch**
+per row with **Undo**. Search, branch filter (only your branches), role filter (including *Custom feature access*) and status filter. A person marked
+*Has not chosen a password yet* has not signed in since you created or reset them.
+
+## What each feature opens
+
+| Group | Feature | What it opens | Permission keys | Needs |
+|---|---|---|---|---|
+| Home | **Home overview** | Opens the dashboard home with today’s numbers. | `dashboard.view` | — |
+| Orders | **See orders** | Opens the orders list and the details of each order. | `orders.view` | — |
+|  | **Accept and prepare orders** | Accept an order, mark it preparing and ready, and fix missing items. | `orders.edit` | See orders |
+|  | **Create orders for customers** | Take an order for a customer by phone or in the branch. | `orders.create` | See orders, See products and prices |
+|  | **Cancel orders** | Cancel an order and answer a customer’s cancellation request. | `orders.approve` | See orders |
+|  | **Ask for refunds** | Send a refund request for an order. An administrator approves it. | `refunds.view`, `refunds.create` | See orders |
+| Pickup and delivery | **See store pickups** | Opens the pickup list and the code scanner. | `pickup.view` | — |
+|  | **Prepare and hand over pickups** | Mark an order ready for pickup and hand it to the customer. | `pickup.edit`, `pickup.approve` | See store pickups |
+|  | **See deliveries and drivers** | Opens deliveries, the driver list and the live map. | `deliveries.view` | — |
+|  | **Create and update deliveries** | Book a delivery for an order and move it through its steps. | `deliveries.create`, `deliveries.edit` | See deliveries and drivers |
+|  | **Assign a driver** | Choose which driver takes a delivery. | `deliveries.assign` | See deliveries and drivers |
+| Stock | **See stock** | Opens the stock levels and the stock history of this branch. | `inventory.view` | — |
+|  | **Adjust stock** | Record damaged, found or corrected items and set low-stock levels. | `inventory.create`, `inventory.edit` | See stock |
+|  | **Count stock** | Run a stock count (stocktake) for this branch. | `stocktaking.view`, `stocktaking.create`, `stocktaking.edit` | See stock |
+|  | **Transfer stock** | Send stock to another branch or receive it. | `transfers.view`, `transfers.create`, `transfers.edit` | See stock |
+|  | **Approve stock changes** | Approve the adjustments, counts and transfers that others made. | `inventory.approve`, `stocktaking.approve`, `transfers.approve` | See stock |
+| Prices and products | **See products and prices** | Opens the product list with this branch’s prices. | `catalog.view`, `pricing.view` | — |
+|  | **Change this branch’s prices** | Set the selling price and availability for this branch only. | `pricing.edit` | See products and prices |
+|  | **Edit product details** | Change names, descriptions and photos. This changes the product for every branch and the website. | `catalog.edit` | See products and prices |
+| Customers | **See customers** | Opens the customers who ordered from this branch. | `customers.view` | — |
+| Support | **See support requests** | Opens the support inbox of this branch. | `support.view` | — |
+|  | **Reply to support requests** | Answer customers and add internal notes. | `support.create`, `support.edit` | See support requests |
+| Reports | **See reports** | Opens the sales and stock reports of this branch. | `reports.view` | — |
+|  | **Download reports** | Export report data to a file. | `reports.export` | See reports |
+| Cash drawer | **See cash drawer and payments** | Opens the cash drawer and the payments list of this branch. | `payments.view` | — |
+|  | **Collect cash from customers** | Record cash taken at pickup or on delivery. | `payments.create` | — |
+|  | **Hand in and deposit cash** | Hand collected cash to the office and record bank deposits. | `payments.edit` | See cash drawer and payments |
+| Staff of this branch | **See staff of this branch** | Opens the list of people who work at this branch (no changes). | `employees.view` | — |
+
+*"Edit product details" is the only company-wide feature in the list (it changes the product for every branch and the website); a branch manager does not hold it, so it is locked for them.*
+
+### Presets
+
+| Feature | Branch manager | Order desk | Cashier / pickup | Stock keeper | Delivery coordinator | Read only |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|
+| Home overview | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| See orders | ✓ | ✓ | ✓ |  | ✓ | ✓ |
+| Accept and prepare orders | ✓ | ✓ |  |  |  |  |
+| Create orders for customers | ✓ | ✓ |  |  |  |  |
+| Cancel orders | ✓ |  |  |  |  |  |
+| Ask for refunds | ✓ | ✓ |  |  |  |  |
+| See store pickups | ✓ | ✓ | ✓ |  | ✓ | ✓ |
+| Prepare and hand over pickups | ✓ | ✓ | ✓ |  |  |  |
+| See deliveries and drivers | ✓ | ✓ |  |  | ✓ | ✓ |
+| Create and update deliveries | ✓ | ✓ |  |  | ✓ |  |
+| Assign a driver | ✓ | ✓ |  |  | ✓ |  |
+| See stock | ✓ | ✓ |  | ✓ |  | ✓ |
+| Adjust stock | ✓ |  |  | ✓ |  |  |
+| Count stock | ✓ |  |  | ✓ |  |  |
+| Transfer stock | ✓ |  |  | ✓ |  |  |
+| Approve stock changes | ✓ |  |  |  |  |  |
+| See products and prices | ✓ | ✓ |  | ✓ |  | ✓ |
+| Change this branch’s prices | ✓ |  |  |  |  |  |
+| Edit product details |  |  |  |  |  |  |
+| See customers | ✓ | ✓ | ✓ |  | ✓ | ✓ |
+| See support requests | ✓ | ✓ |  |  |  | ✓ |
+| Reply to support requests |  |  |  |  |  |  |
+| See reports | ✓ |  |  |  |  | ✓ |
+| Download reports | ✓ |  |  |  |  |  |
+| See cash drawer and payments | ✓ |  | ✓ |  |  |  |
+| Collect cash from customers | ✓ |  | ✓ |  |  |  |
+| Hand in and deposit cash | ✓ |  |  |  |  |  |
+| See staff of this branch | ✓ |  |  |  |  |  |
+
+
+## Security model
+
+* **Stored as a personal role** (decision below). Authorisation (`AccessControl`, the `permission:` route middleware, branch scope, the API) is unchanged: the checklist is an
+  ordinary *branch-scoped* role owned by one employee at one branch. The employee's account is `type = staff`, `is_super_admin = false`, with **no company-wide role**.
+* **Nobody grants what they do not hold.** Every permission that changes (on or off) must be one the person saving holds *at that branch*; features they lack are shown locked.
+  This is checked on the server (`BranchEmployeeService`), so a tampered request is refused with *You cannot grant permissions or branches beyond your own authority*.
+* **Branch scope.** The person needs `employees.assign` at the branch; a manager only sees and changes staff of their own branches, and can switch a person on/off only
+  if every branch that person works at is theirs. Nobody changes their own access. An admin, a super admin or anyone with a company-wide role is never touched through the checklist.
+* **Never offered:** `roles.*`, `settings.*`, `notifications.*`, `cms.*`, `marketing.*`, `audit.*`, `branches.*`, `zones.*`, `auctions.*`, `loyalty.*`, `reviews.*`, and
+  `employees.create/edit/delete/assign`, catalog create/delete/approve. Staff of the branch can be *viewed* only.
+* **Pages and APIs.** Every dashboard page and staff API route is guarded by the permission *and* the branch scope in the page or controller: a feature that is not ticked answers
+  **403**, another branch's data is empty or **403/404**. The menu shows only what is permitted (and direct URLs are closed anyway).
+* **Disabling** (the row switch, or Suspend/Deactivate) revokes every API token and refresh token at once, deletes the browser sessions (database session driver) and cycles the
+  "remember me" token; a disabled account is also refused on every request. Taking away someone's last active branch does the same.
+* **First sign-in.** `users.must_change_password` is set when the account is created and when the password is reset; the dashboard sends the person to **My profile** and the staff API
+  answers `403 password_change_required` until `PUT /api/v1/admin/me/password` (or the profile form) succeeds.
+* **Two-factor** stays as the team setting says (Settings › Security); an employee with it on is asked for the code as before.
+* **Rate limit:** at most 20 accounts per person per hour; sign-in is limited as before. **Audit:** `employee.created` (branch, sign-in method; no password), `employee.access_changed`
+  (old and new permission keys and features, replaced roles), `employee.status_changed`, `employee.password_reset`. No secret is ever written to a log.
+
+## Design decision: a personal role, not per-user grants
+
+Permissions are resolved in one place (`AccessControl::grantsFor`: user → `user_roles` → role → permissions, with branch scope and an *active assignment* check) and every page, route and API relies on it.
+Per-user grants would need a second table and a change to that resolver (a security-critical path used on every request). A **personal role** needs none: it is a normal role row
+(`roles.personal_user_id` / `personal_branch_id`, unique per employee and branch, `scope = branch`, `is_system = false`) assigned through `user_roles`.
+It is hidden from the Roles page, the role pickers (employee editor, branch editor) and the role filter, cannot be opened in the role editor or granted to anyone else
+(`EmployeeService::assertCanGrantRole` refuses it), and is deleted with its employee or branch (and when the assignment is replaced by shared roles).
+Migration: `2026_11_17_300000_add_branch_employee_access.php` (`roles.personal_*`, `users.must_change_password`).
+
+## Tablet, computer, phone
+
+The dashboard is one responsive app: the same pages and rules on every device (side windows become bottom sheets on phones, touch targets are at least 44 px). The feature picker is one column on phones
+and two on tablets and larger. The staff app (Flutter, `mobile/lib/ops`) follows the same permissions from `GET /api/v1/admin/me`.
+
+## API additions (staff API)
+
+| Call | What |
+|---|---|
+| `POST /api/v1/admin/auth/login` | now also accepts a mobile number in `email` or in `phone`; the answer includes `must_change_password` |
+| `GET /api/v1/admin/me` | now includes `must_change_password` |
+| `PUT /api/v1/admin/me/password` | `current_password`, `password`, `password_confirmation` (12+ characters, upper and lower case, a number, different from the current one); signs out the other devices |
+| any other `/api/v1/admin/*` call while the flag is set | `403`, code `password_change_required` |
+
+## Known limits
+
+* There is no e-mailed **invite link** (the platform has no staff mail channel yet): the temporary password is shared by the person who adds the employee.
+* Browser sessions can be deleted per user only with the `database` session driver; with Redis/file sessions a disabled account is refused at once on every request (the check is per request), and the "remember me" cookie is invalidated.
+* The staff app does not yet have a "choose your own password" screen (see `docs/guides/BRANCH_STAFF_GUIDE.md`): the first sign-in is done on the dashboard.
+
+## For developers: adding a feature
+
+Add it to `PermissionRegistry::BRANCH_FEATURES` (group, `keys`, `needs`), optionally to a preset, and add `branch_access.<id>` and `branch_access.<id>_hint` in `lang/en` and `lang/ar`.
+`tests/Feature/Identity/BranchFeatureCatalogTest.php` fails if a key does not exist, an admin-only permission is offered, a preset is not closed under `needs`, a preset is beyond a system branch
+manager's authority, or a text is missing or not Arabic.
+
+---
+
+# موظفو الفروع (العربية)
+
+حساب لشخص يعمل في **فرع واحد** (أمين صندوق، مكتب الطلبات، أمين مخزن، منسق توصيل أو مدير فرع) يسجّل الدخول من **جهاز لوحي أو حاسوب أو هاتف** ويرى **الميزات التي تحددها فقط** و**لفرعه فقط**.
+ليس حساب مسؤول: لا دور على مستوى الشركة ولا وصول إلى الإعدادات أو الأدوار أو التسويق أو المحتوى أو الفروع الأخرى.
+
+## كيف تضيف موظفًا
+
+١. **المؤسسة › الموظفون › إضافة موظف فرع** (نافذة جانبية، و**فتح الصفحة الكاملة** يعرض النموذج نفسه كصفحة).
+٢. **من هو؟** الاسم ورقم الجوال (أرقام قطر تُحوَّل إلى `+974…`) والبريد (أدخل أحدهما على الأقل: به يسجّل الدخول) والمسمى الوظيفي واللغة.
+٣. **الفرع وتسجيل الدخول.** اختر الفرع (مدير الفرع يرى فرعه فقط). اكتب كلمة مرور *مؤقتة* أو **ولّدها** (مع زر نسخ).
+٤. **ماذا يستطيع أن يستخدم؟** اضغط على مجموعة جاهزة (مدير الفرع، مكتب الطلبات، أمين الصندوق / الاستلام، أمين المخزن، منسق التوصيل، قراءة فقط) ثم أضف أو أزل ما تشاء.
+   تحديد ميزة يحدد معها ما تحتاجه، وإلغاؤها يلغي ما يعتمد عليها. وما لا يطابق مجموعة جاهزة يظهر كـ *مخصص*.
+٥. **إضافة الموظف.** لا يُرسَل أي شيء تلقائيًا: سلّم الموظف كلمة المرور المؤقتة بشكل خاص.
+
+يسجّل الموظف الدخول من `/admin` (أو من تطبيق الموظفين) برقم جواله **أو** بريده وكلمة المرور المؤقتة، فينتقل إلى **ملفي الشخصي** ليختار كلمة مرور خاصة به. إلى ذلك الحين تُرفض كل الصفحات
+وكل طلبات واجهة الموظفين الأخرى. **إعادة تعيين كلمة المرور** (تبويب الأمان) تفعل الأمر نفسه من جديد.
+
+## تغيير الصلاحيات لاحقًا
+
+افتح الموظف › **الميزات والفروع**: القائمة نفسها معبّأة بما يستطيعه الآن، لكل فرع (اختر الفرع إن كان يعمل في أكثر من فرع). زر **حفظ التغييرات** معطّل حتى يتغير شيء.
+إذا كان له *أدوار* جاهزة في ذلك الفرع فإن الحفظ **يستبدلها** بالقائمة (تذكر الصفحة أسماءها). يُسجَّل التغيير في سجل التدقيق `employee.access_changed` بمفاتيح الصلاحيات قبل وبعد.
+صفحة **الأدوار** تعمل كما كانت لمن يفضّل الأدوار.
+
+## قائمة الموظفين
+
+الدور / القالب، الفروع، **الميزات** (العدد مع أسماء الميزات في تلميح عند التمرير أو التركيز بلوحة المفاتيح)، آخر دخول، و**مفتاح تفعيل / تعطيل** في كل صف مع **تراجع**. بحث وتصفية بالفرع (فروعك فقط) وبالدور (ومنه *صلاحيات ميزات مخصصة*) وبالحالة.
+
+## الأمان
+
+* الميزات تُحفظ كـ **دور شخصي** لموظف واحد في فرع واحد؛ نظام الصلاحيات نفسه لم يتغير. الحساب `staff` وليس مشرفًا عامًا ولا يحمل أي دور على مستوى الشركة.
+* **لا أحد يمنح ما لا يملكه:** كل صلاحية تتغير (تفعيلًا أو إلغاءً) يجب أن يملكها من يحفظ في ذلك الفرع؛ والميزات التي لا يملكها تظهر مقفلة، ويتحقق الخادم من ذلك دائمًا.
+* **نطاق الفرع:** يلزم `employees.assign` في الفرع؛ المدير يرى ويعدّل موظفي فروعه فقط، ولا يعدّل أحد صلاحياته بنفسه، ولا تُعدَّل بهذه القائمة حسابات المسؤولين أو من لديهم دور على مستوى الشركة.
+* **لا تُعرض إطلاقًا:** الأدوار، الإعدادات، الإشعارات، المحتوى، التسويق، التدقيق، الفروع، المناطق، المزادات، الولاء، التقييمات، وإنشاء الموظفين وتعديلهم.
+* **التعطيل** يلغي كل الرموز والجلسات فورًا، ويُرفض الحساب المعطّل في كل طلب. **أول دخول:** يجب اختيار كلمة مرور خاصة قبل أي شيء آخر. **المصادقة الثنائية** كما في إعدادات الفريق. يُسجَّل `employee.created` و`employee.access_changed` في سجل التدقيق دون أي سر.

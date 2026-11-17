@@ -9,6 +9,7 @@ use App\Domain\Marketing\Models\Journey;
 use App\Domain\Messaging\Services\ContactHistory;
 use App\Domain\Notifications\Models\MarketingCampaign;
 use App\Domain\Notifications\Models\Notification;
+use App\Domain\Notifications\Services\NotificationRules;
 use App\Domain\Notifications\Services\NotificationService;
 use App\Domain\Notifications\Services\TemplateRenderer;
 use App\Domain\Orders\Models\Cart;
@@ -40,6 +41,10 @@ class CampaignService
     public function send(MarketingCampaign $campaign): int
     {
         if (! in_array($campaign->status, ['draft', 'scheduled'], true)) {
+            return 0;
+        }
+        // Campaign messages switched off in the notification controls: the campaign stays as it is (a scheduled one waits) and nobody is told "sent".
+        if (! app(NotificationRules::class)->enabled('campaign')) {
             return 0;
         }
         $campaign->update(['status' => 'sending']);

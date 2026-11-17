@@ -88,6 +88,7 @@ it('creates an employee and assigns branch roles through EmployeeService', funct
     $this->actingAs($this->manager);
     Livewire::test(EmployeeEditor::class)
         ->set('form.name', 'Salma Ahmed')->set('form.email', 'Salma@Albahar.qa')->set('form.locale', 'ar')->set('form.password', 'Str0ngPassword!')
+        ->set('features', ['orders_view'])
         ->call('create')->assertHasNoErrors()->assertRedirect();
     $salma = User::where('email', 'salma@albahar.qa')->firstOrFail();
     expect($salma->isStaff())->toBeTrue();
@@ -167,9 +168,9 @@ it('creates custom roles and blocks granting permissions the actor lacks', funct
 
 it('saves settings, masks secrets and audits changes', function () {
     $this->actingAs($this->admin);
-    Livewire::test(SettingsIndex::class)->set('tab', 'checkout')->set('values.checkout.checkout__cod_fee', '12.50')->call('save')->assertHasNoErrors();
-    expect(app(Settings::class)->get('checkout.cod_fee'))->toBe('12.50');
-    Livewire::test(SettingsIndex::class)->set('tab', 'checkout')->set('values.checkout.checkout__cod_fee', '-1')->call('save')->assertHasErrors();
+    Livewire::test(SettingsIndex::class)->set('tab', 'checkout')->set('values.checkout.checkout__service_fee', '12.50')->call('save')->assertHasNoErrors();
+    expect(app(Settings::class)->get('checkout.service_fee'))->toBe('12.50');
+    Livewire::test(SettingsIndex::class)->set('tab', 'checkout')->set('values.checkout.checkout__service_fee', '-1')->call('save')->assertHasErrors();
 
     Livewire::test(SettingsIndex::class)->set('tab', 'integrations')->set('secrets.payments__sadad__secret_key', 'sk_live_abcdef123456')->call('save')
         ->assertDontSee('sk_live_abcdef123456')->assertSee('3456');

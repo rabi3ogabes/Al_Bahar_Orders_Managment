@@ -19,7 +19,7 @@ use Livewire\Livewire;
 
 /**
  * Delivery fee rule: every delivery order pays its zone fee. There is no "free above X QAR"; free delivery comes only from a coupon code that
- * belongs to a free-delivery promotion. (commerceWorld: zone fee 15.00 at branch A, minimum order 50, cash on delivery fee 10.)
+ * belongs to a free-delivery promotion. (commerceWorld: zone fee 15.00 at branch A; cash on delivery costs nothing extra.)
  */
 function freeDeliveryPromotion(array $attrs = []): Promotion
 {
@@ -52,16 +52,16 @@ it('charges the zone fee on every delivery order, below, at and far above any ol
         ->and($q['can_place_order'])->toBeTrue()
         ->and(json_encode($q))->not->toContain('free_delivery_progress');
 })->with([
-    'below the old threshold' => ['v2', 1, '250.00', '275.00'],
-    'exactly at it' => ['v1', 1, '1000.00', '1025.00'],
-    'far above it' => ['v1', 6, '6000.00', '6025.00'],
+    'below the old threshold' => ['v2', 1, '250.00', '265.00'],
+    'exactly at it' => ['v1', 1, '1000.00', '1015.00'],
+    'far above it' => ['v1', 6, '6000.00', '6015.00'],
 ]);
 
-it('keeps the minimum and maximum order amounts of a zone', function () {
+it('keeps the maximum order amount of a zone (the minimum is gone, see CheckoutFeesV2Test)', function () {
     $w = commerceWorld([20, 20], [20, 20]);
-    BranchDeliveryZone::query()->update(['min_order_amount' => '300.00', 'max_order_amount' => '2000.00']);
+    BranchDeliveryZone::query()->update(['max_order_amount' => '2000.00']);
     $this->postJson('/api/v1/cart/items', ['variant_id' => $w->v2->id, 'quantity' => 1])->assertSuccessful();
-    expect(collect(quoteOf($w)['errors'])->pluck('code'))->toContain('below_min_order');
+    expect(collect(quoteOf($w)['errors'])->pluck('code'))->not->toContain('above_max_order');
 
     $this->postJson('/api/v1/cart/items', ['variant_id' => $w->v1->id, 'quantity' => 3])->assertSuccessful();
     expect(collect(quoteOf($w)['errors'])->pluck('code'))->toContain('above_max_order');
@@ -75,18 +75,18 @@ it('waives the delivery fee only with a free-delivery coupon, and shows it in th
 
     $plain = quoteOf($w);
     expect($plain['totals']['delivery_fee']['amount'])->toBe('15.00')->and($plain['totals']['discount']['amount'])->toBe('0.00')
-        ->and($plain['totals']['grand_total']['amount'])->toBe('275.00')->and($plain['discounts'])->toBe([]);
+        ->and($plain['totals']['grand_total']['amount'])->toBe('265.00')->and($plain['discounts'])->toBe([]);
 
     $q = quoteOf($w, ['coupon_code' => 'freeship']);
     expect($q['totals']['delivery_fee']['amount'])->toBe('15.00') // the fee line stays, so the app can strike it through
         ->and($q['totals']['discount']['amount'])->toBe('15.00')
-        ->and($q['totals']['grand_total']['amount'])->toBe('260.00') // 250 + 15 - 15 + 10 cash on delivery
+        ->and($q['totals']['grand_total']['amount'])->toBe('250.00') // 250 + 15 - 15
         ->and($q['discounts'])->toHaveCount(1)
         ->and($q['discounts'][0]['free_delivery'])->toBeTrue()->and($q['discounts'][0]['code'])->toBe('FREESHIP')->and($q['discounts'][0]['amount']['amount'])->toBe('15.00')
         ->and($q['hints'])->toBe([]);
 
     $order = Order::findOrFail(quoteAndPlace($opts + ['coupon_code' => 'FREESHIP'])->assertCreated()->json('data.order.id'));
-    expect($order->delivery_fee_total)->toBe('15.00')->and($order->discount_total)->toBe('15.00')->and($order->grand_total)->toBe('260.00')
+    expect($order->delivery_fee_total)->toBe('15.00')->and($order->discount_total)->toBe('15.00')->and($order->grand_total)->toBe('250.00')
         ->and($order->fee_breakdown['delivery_discount'])->toBe('15.00')
         ->and(OrderCoupon::where('order_id', $order->id)->where('free_delivery', true)->count())->toBe(1);
 });
@@ -122,7 +122,7 @@ it('ignores an automatic free-delivery promotion: with no code, or even with a c
 
     $q = quoteOf($w);
     expect($q['totals']['delivery_fee']['amount'])->toBe('15.00')->and($q['totals']['discount']['amount'])->toBe('0.00')->and($q['discounts'])->toBe([])
-        ->and($q['totals']['grand_total']['amount'])->toBe('6025.00');
+        ->and($q['totals']['grand_total']['amount'])->toBe('6015.00');
 
     // An old coupon row that points at such a promotion does not turn it back on.
     Coupon::create(['promotion_id' => $automatic->id, 'code' => 'OLDSHIP']);
@@ -138,7 +138,7 @@ it('lets item promotions that are automatic keep working next to a coupon-only f
     $this->postJson('/api/v1/cart/items', ['variant_id' => $w->v1->id, 'quantity' => 1])->assertSuccessful();
 
     $q = quoteOf($w);
-    expect($q['totals']['discount']['amount'])->toBe('100.00')->and($q['totals']['delivery_fee']['amount'])->toBe('15.00')->and($q['totals']['grand_total']['amount'])->toBe('925.00');
+    expect($q['totals']['discount']['amount'])->toBe('100.00')->and($q['totals']['delivery_fee']['amount'])->toBe('15.00')->and($q['totals']['grand_total']['amount'])->toBe('915.00');
 });
 
 /* ───────────────────────── an order that already exists ───────────────────────── */

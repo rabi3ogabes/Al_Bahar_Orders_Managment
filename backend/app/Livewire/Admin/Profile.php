@@ -44,7 +44,7 @@ class Profile extends Component
         $this->redirectRoute('admin.profile', navigate: true);
     }
 
-    public function changePassword(AuditLogger $audit): void
+    public function changePassword(AuditLogger $audit)
     {
         $this->validate([
             'current_password' => 'required|string',
@@ -56,10 +56,17 @@ class Profile extends Component
 
             return;
         }
-        $user->forceFill(['password' => $this->password])->save();
+        $wasForced = $user->must_change_password;
+        $user->forceFill(['password' => $this->password, 'must_change_password' => false])->save();
         $user->tokens()->delete();
         $audit->log('staff.password_changed', $user);
         $this->reset('current_password', 'password', 'password_confirmation');
+        if ($wasForced) {
+            // The first sign-in is done: on to the dashboard.
+            session()->flash('toast', ['type' => 'success', 'message' => __('admin.password_updated')]);
+
+            return $this->redirectRoute('admin.dashboard', navigate: true);
+        }
         $this->dispatch('toast', type: 'success', message: __('admin.password_updated'));
     }
 

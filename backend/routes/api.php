@@ -51,6 +51,7 @@ Route::prefix('v1')->name('api.v1.')->middleware('throttle:api')->group(function
 
         Route::middleware(['auth:sanctum', 'staff', 'staff.query'])->group(function () {
             Route::get('me', [V1\Admin\StaffAuthController::class, 'me'])->name('me');
+            Route::put('me/password', [V1\Admin\StaffAuthController::class, 'changePassword'])->middleware('throttle:10,60')->name('me.password');
             require __DIR__.'/api_admin.php';
         });
     });

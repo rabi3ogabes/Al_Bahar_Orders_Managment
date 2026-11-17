@@ -720,6 +720,19 @@ class AppLocalizationsAr extends AppLocalizations {
   String get selectBranchToBuy => 'اختر فرعًا لعرض السعر والمخزون';
 
   @override
+  String extraDeliveryFeePerUnit(String fee) {
+    return 'رسوم توصيل إضافية $fee لكل قطعة';
+  }
+
+  @override
+  String extraDeliveryFeePerLine(String fee) {
+    return 'رسوم توصيل إضافية $fee لهذا المنتج مهما كانت الكمية';
+  }
+
+  @override
+  String get viewImageFullScreen => 'عرض الصورة بملء الشاشة';
+
+  @override
   String imageOf(int index, int total) {
     return 'الصورة $index من $total';
   }
@@ -1000,6 +1013,37 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get codFee => 'رسوم الدفع عند التوصيل';
+
+  @override
+  String get bulkyDeliveryFee => 'رسوم توصيل إضافية للأغراض الكبيرة';
+
+  @override
+  String bulkyDeliveryEach(int quantity, String fee) {
+    return '×$quantity · $fee للقطعة';
+  }
+
+  @override
+  String bulkyDeliveryOnce(int quantity) {
+    return '×$quantity · تُحتسب مرة واحدة';
+  }
+
+  @override
+  String get bulkyDeliveryIncluded => 'محتسبة ضمن رسوم التوصيل أعلاه.';
+
+  @override
+  String get bulkyDeliveryShow => 'عرض التفاصيل';
+
+  @override
+  String get bulkyDeliveryHide => 'إخفاء التفاصيل';
+
+  @override
+  String get quoteRefreshFailed => 'تعذّر تحديث الإجماليات. يُرجى المحاولة مجددًا.';
+
+  @override
+  String get placingOrderWait => 'جارٍ إرسال طلبك. يُرجى الانتظار لحظة.';
+
+  @override
+  String get paymentWaitBack => 'جارٍ تأكيد الدفع. يُرجى الانتظار لحظة.';
 
   @override
   String get tax => 'الضريبة';

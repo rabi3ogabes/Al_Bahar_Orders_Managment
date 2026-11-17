@@ -41,3 +41,15 @@ export function altPhoneFields(text: string, declined: boolean, mainPhone?: stri
   if (!altPhoneDone(s)) return {};
   return { alternate_phone: s === 'valid' ? toE164(text) : null, no_alternate_phone: s === 'declined' };
 }
+
+/**
+ * The dashboard switch "Ask for an alternative phone number" (`alternate_phone_enabled` of `/app-config`) and the way of receiving decide whether the
+ * question exists at all: delivery orders only, and only while the switch is on. Off means no field, no blocked button and nothing sent.
+ */
+export const altPhoneAsked = (enabled: boolean, fulfillment: string): boolean => enabled && fulfillment === 'delivery';
+
+/** May the order go ahead as far as this number goes? Always, when the question is not asked. */
+export const altPhoneReady = (asked: boolean, status: AltPhoneStatus): boolean => !asked || altPhoneDone(status);
+
+/** The fields to send with the order: none at all when the question is not asked. */
+export const altPhoneRequest = (asked: boolean, text: string, declined: boolean, mainPhone?: string | null) => (asked ? altPhoneFields(text, declined, mainPhone) : {});

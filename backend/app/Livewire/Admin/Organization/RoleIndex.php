@@ -25,7 +25,8 @@ class RoleIndex extends Component
     /** Roles are company-level: whoever may open the list may open any role (the page's own rule), but only an id that exists. */
     protected function editable(string $id): bool
     {
-        return ctype_digit($id) && $this->canGlobally('roles.view') && Role::whereKey((int) $id)->exists();
+        // A personal feature role (one employee's checklist) is never shown here: it is edited from that employee's "Feature access".
+        return ctype_digit($id) && $this->canGlobally('roles.view') && Role::shared()->whereKey((int) $id)->exists();
     }
 
     protected function creatable(): bool
@@ -36,7 +37,7 @@ class RoleIndex extends Component
     public function render()
     {
         $s = $this->search;
-        $roles = Role::query()->withCount(['permissions'])
+        $roles = Role::shared()->withCount(['permissions'])
             ->selectSub(fn ($q) => $q->from('user_roles')->selectRaw('count(distinct user_id)')->whereColumn('user_roles.role_id', 'roles.id'), 'members_count')
             ->when($s, fn ($q) => $q->where(fn ($w) => $w->where('name_en', 'ilike', "%{$s}%")->orWhere('name_ar', 'like', "%{$s}%")->orWhere('key', 'ilike', "%{$s}%")))
             ->when($this->filterScope, fn ($q, $sc) => $q->where('scope', $sc))
@@ -47,7 +48,7 @@ class RoleIndex extends Component
             'totalPermissions' => count(PermissionRegistry::permissions()),
             'canCreate' => $this->canGlobally('roles.create'),
             'editing' => $this->editing(),
-            'editRole' => ($id = $this->editing()) ? Role::find((int) $id) : null,
+            'editRole' => ($id = $this->editing()) ? Role::shared()->find((int) $id) : null,
         ])->title(__('nav.roles'));
     }
 }

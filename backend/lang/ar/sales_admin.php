@@ -330,6 +330,7 @@ return [
     'sum_subtotal' => 'المجموع الفرعي',
     'sum_discount' => 'الخصومات',
     'sum_delivery_fee' => 'التوصيل',
+    'sum_extra_delivery' => 'منها رسوم إضافية للقطع الكبيرة',
     'sum_service_fee' => 'رسوم الخدمة',
     'sum_loyalty' => 'نقاط الولاء',
     'sum_tax' => 'الضريبة',

@@ -175,7 +175,7 @@ class CheckoutService
             'subtotal' => $quote->subtotal()->toDecimal(),
             'discount_total' => $quote->discountTotal()->toDecimal(),
             'delivery_fee_total' => $quote->deliveryFeeTotal()->toDecimal(),
-            'service_fee_total' => $quote->serviceFee->plus($quote->codFee)->toDecimal(),
+            'service_fee_total' => $quote->serviceFee->toDecimal(),
             'tax_total' => $quote->taxTotal()->toDecimal(),
             'loyalty_discount' => $quote->loyaltyDiscount->toDecimal(),
             'loyalty_points_redeemed' => $quote->loyaltyPoints,
@@ -185,11 +185,14 @@ class CheckoutService
             'alternate_phone' => $quote->alternatePhone,
             'customer_email' => $user->email,
             'address_snapshot' => $quote->address?->snapshot() ?? ($quote->fulfillmentType === 'pickup' ? ['pickup_branch_id' => $plan0->branch->id, 'pickup_branch' => $plan0->branch->name_en] : null),
+            // `delivery[].fee` is each fulfillment's whole delivery fee (zone fee, oversized, express AND its products' extra fees; `extra` is that last part).
+            // `extra_delivery` keeps what each product added, so the order page, the invoice and an order adjustment never read the live catalog.
+            // Orders placed before cash on delivery became free still carry their own `cod_fee` here; new orders have none.
             'fee_breakdown' => [
-                'delivery' => array_map(fn ($p) => ['branch_id' => $p->branch->id, 'fee' => $p->deliveryFee->toDecimal(), 'express' => $p->express], $quote->plans),
+                'delivery' => array_map(fn ($p) => ['branch_id' => $p->branch->id, 'fee' => $p->deliveryFee->toDecimal(), 'express' => $p->express, 'extra' => $p->extraDeliveryFee()->toDecimal()], $quote->plans),
                 'delivery_discount' => $quote->deliveryDiscountTotal()->toDecimal(),
                 'service_fee' => $quote->serviceFee->toDecimal(),
-                'cod_fee' => $quote->codFee->toDecimal(),
+                'extra_delivery' => ['amount' => $quote->extraDeliveryFeeTotal()->toDecimal(), 'lines' => array_map(fn ($e) => $e->toStored(), $quote->deliveryExtras())],
             ],
             'tax_snapshot' => ['rate_percent' => $quote->taxRate, 'total' => $quote->taxTotal()->toDecimal(), 'inclusive' => false],
             'locale' => $user->preferredLocale(),

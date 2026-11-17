@@ -80,6 +80,7 @@ describe('employees', function () {
 
         Livewire::test(EmployeeEditor::class, ['embedded' => true])
             ->set('form.name', 'Salma Ahmed')->set('form.email', 'salma@albahar.qa')->set('form.locale', 'en')->set('form.password', 'Str0ngPassword!')
+            ->set('features', ['orders_view'])
             ->call('create')->assertHasNoErrors()->assertNoRedirect()->assertDispatched('record-created', tab: 'access');
         $salma = User::where('email', 'salma@albahar.qa')->firstOrFail();
 

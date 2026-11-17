@@ -54,6 +54,7 @@ return [
     'banners' => 'Home banners',
     'pages' => 'Pages',
     'notification_templates' => 'Notification templates',
+    'notification_rules' => 'Notification controls',
     'insights' => 'Insights',
     'reports' => 'Reports',
     'exports' => 'Exports',

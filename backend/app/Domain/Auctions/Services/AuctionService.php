@@ -12,6 +12,7 @@ use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Branches\Services\DeliveryZoneResolver;
 use App\Domain\Catalog\Models\ProductVariant;
+use App\Domain\Checkout\Services\ExtraDeliveryFee;
 use App\Domain\Fulfillment\Models\PickupReservation;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
@@ -123,6 +124,7 @@ class AuctionService
             $branch = Branch::findOrFail($o['branch_id'] ?? $product?->branch_id ?? $auction->branches()->value('branches.id'));
 
             $fee = Money::zero();
+            $extraFee = Money::zero();
             $address = null;
             if ($type === 'delivery') {
                 $address = UserAddress::where('user_id', $user->id)->findOrFail($o['address_id'] ?? null);
@@ -132,6 +134,9 @@ class AuctionService
                     throw DomainException::make('delivery_unavailable_area');
                 }
                 $fee = Money::of($cfg->delivery_fee)->plus($product?->variant->product->is_oversized ? Money::of($cfg->oversized_surcharge) : Money::zero());
+                // The lot is one unit of its product, so both modes of the product's extra delivery fee give the same amount.
+                $extraFee = $product ? ExtraDeliveryFee::amount(Money::of((string) $product->variant->product->extra_delivery_fee), (string) $product->variant->product->extra_delivery_fee_mode, 1) : Money::zero();
+                $fee = $fee->plus($extraFee);
             }
             $price = Money::of($winner->amount)->times(1);
             $total = $price->plus($fee);
@@ -140,6 +145,9 @@ class AuctionService
                 'number' => DocumentNumber::order(), 'user_id' => $user->id, 'source' => 'auction', 'status' => $online ? OrderStatus::PendingPayment : OrderStatus::Confirmed,
                 'payment_status' => PaymentStatus::Pending, 'payment_method' => $method, 'fulfillment_type' => $type, 'currency' => 'QAR',
                 'subtotal' => $price->toDecimal(), 'delivery_fee_total' => $fee->toDecimal(), 'grand_total' => $total->toDecimal(),
+                'fee_breakdown' => ['extra_delivery' => ['amount' => $extraFee->toDecimal(), 'lines' => $extraFee->isPositive() ? [[
+                    'branch_id' => $branch->id, 'product_id' => $product->variant->product_id, 'name_en' => $lot->title_en, 'name_ar' => $lot->title_ar,
+                    'mode' => (string) $product->variant->product->extra_delivery_fee_mode, 'quantity' => 1, 'fee_each' => $extraFee->toDecimal(), 'amount' => $extraFee->toDecimal()]] : []]],
                 'customer_name' => $user->name, 'customer_phone' => $user->phone, 'customer_email' => $user->email,
                 'address_snapshot' => $address?->snapshot() ?? ['pickup_branch_id' => $branch->id, 'pickup_branch' => $branch->name_en],
                 'locale' => $user->preferredLocale(), 'idempotency_key' => 'auction-win:'.$winner->id, 'auction_winner_id' => $winner->id,

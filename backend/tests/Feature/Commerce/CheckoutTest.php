@@ -23,8 +23,9 @@ it('builds a server-authoritative quote from the cart and preferred branch', fun
         ->and($q['fulfillments'][0]['branch']['id'])->toBe($this->w->a->id) // zone priority
         ->and($q['totals']['subtotal']['amount'])->toBe('2250.00')
         ->and($q['totals']['delivery_fee']['amount'])->toBe('15.00')
-        ->and($q['totals']['cod_fee']['amount'])->toBe('10.00')
-        ->and($q['totals']['grand_total']['amount'])->toBe('2275.00')
+        ->and($q['totals']['cod_fee']['amount'])->toBe('0.00') // cash on delivery costs nothing extra (the key stays for older app builds)
+        ->and($q['totals']['extra_delivery_fee']['amount'])->toBe('0.00')->and($q['delivery_extras'])->toBe([])
+        ->and($q['totals']['grand_total']['amount'])->toBe('2265.00')
         ->and(strlen($q['quote_hash']))->toBe(64);
 });
 
@@ -39,7 +40,7 @@ it('places an order transactionally with reservations, snapshots and fulfillment
     $res = quoteAndPlace(['address_id' => $this->w->address->id, 'payment_method' => 'cod'])->assertCreated();
 
     $order = Order::with('items', 'fulfillments')->findOrFail($res->json('data.order.id'));
-    expect($order->status->value)->toBe('confirmed')->and($order->grand_total)->toBe('2025.00')
+    expect($order->status->value)->toBe('confirmed')->and($order->grand_total)->toBe('2015.00')
         ->and($order->fulfillments)->toHaveCount(1)->and($order->items[0]->name_ar)->not->toBeEmpty()
         ->and($order->address_snapshot['zone_number'])->toBe('66')
         ->and(stockOf($this->w->a, $this->w->v1))->toBe(['on_hand' => 5, 'reserved' => 2])
@@ -136,11 +137,13 @@ it('enforces pickup branch, pay-at-pickup and payment method availability', func
     expect($res->json('data.order.fulfillments.0.type'))->toBe('pickup')->and($res->json('data.order.totals.delivery_fee.amount'))->toBe('0.00');
 });
 
-it('enforces zone minimum order amounts with a helpful shortfall', function () {
+it('has no minimum order: even a number still stored on a zone never blocks a small order', function () {
     $this->postJson('/api/v1/cart/items', ['variant_id' => $this->w->v2->id, 'quantity' => 1]);
-    BranchDeliveryZone::query()->update(['min_order_amount' => '300.00']);
+    BranchDeliveryZone::query()->update(['min_order_amount' => '5000.00']); // a stale value written by hand: nothing reads it
     $q = $this->postJson('/api/v1/checkout/quote', ['address_id' => $this->w->address->id, 'payment_method' => 'cod'])->json('data');
-    expect($q['errors'][0]['code'])->toBe('below_min_order')->and($q['errors'][0]['shortfall']['amount'])->toBe('50.00');
+    expect($q['errors'])->toBe([])->and($q['can_place_order'])->toBeTrue()->and($q['totals']['subtotal']['amount'])->toBe('250.00')
+        ->and(json_encode($q))->not->toContain('below_min_order');
+    quoteAndPlace(['address_id' => $this->w->address->id, 'payment_method' => 'cod'])->assertCreated();
 });
 
 it('never exposes another customer\'s address or order', function () {

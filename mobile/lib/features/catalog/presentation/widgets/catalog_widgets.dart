@@ -25,11 +25,21 @@ void openProduct(BuildContext context, ProductSummary p, {String heroScope = ''}
 
 /// Heart toggle wired to the wishlist (prompts sign-in for guests).
 class WishlistHeart extends ConsumerWidget {
-  const WishlistHeart({super.key, required this.product, this.variantId, this.onImage = true, this.size});
+  const WishlistHeart({
+    super.key,
+    required this.product,
+    this.variantId,
+    this.onImage = true,
+    this.size,
+    this.background,
+  });
   final ProductSummary product;
   final String? variantId;
   final bool onImage;
   final double? size;
+
+  /// The disc behind the heart (default: a soft surface disc over a photo, none off a photo).
+  final Color? background;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -38,7 +48,7 @@ class WishlistHeart extends ConsumerWidget {
     return RoundIconButton(
       icon: saved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
       color: saved ? context.palette.danger : null,
-      background: onImage ? null : Colors.transparent,
+      background: background ?? (onImage ? null : Colors.transparent),
       size: size ?? (onImage ? 36 : 44),
       tooltip: saved ? l10n.removeFromWishlist : l10n.addToWishlist,
       onPressed: () async {

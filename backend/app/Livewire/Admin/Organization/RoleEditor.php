@@ -37,6 +37,7 @@ class RoleEditor extends Component
     {
         if ($role?->exists) {
             abort_unless($this->canGlobally('roles.view'), 403);
+            abort_if($role->isPersonal(), 404); // one employee's checklist: edited from that employee's "Feature access", never as a role
             $this->role = $role;
             $this->form = $role->only(['key', 'name_en', 'name_ar', 'description', 'scope']);
             $this->form['description'] = (string) $role->description;

@@ -4,6 +4,7 @@ namespace App\Livewire\Admin\Auth;
 
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Identity\Models\User;
+use App\Support\Phone;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
@@ -16,7 +17,8 @@ use Livewire\Component;
 #[Layout('layouts.guest')]
 class Login extends Component
 {
-    #[Validate('required|email')]
+    /** E-mail address or mobile number: a branch employee may have a number and no address. */
+    #[Validate('required|string|max:191')]
     public string $email = '';
 
     #[Validate('required|string')]
@@ -32,7 +34,12 @@ class Login extends Component
             throw ValidationException::withMessages(['email' => __('auth.throttle', ['seconds' => RateLimiter::availableIn($key)])]);
         }
 
-        $user = User::whereRaw('lower(email) = ?', [Str::lower($this->email)])->where('type', 'staff')->first();
+        $identifier = trim($this->email);
+        $user = User::where('type', 'staff')->when(
+            str_contains($identifier, '@'),
+            fn ($q) => $q->whereRaw('lower(email) = ?', [Str::lower($identifier)]),
+            fn ($q) => $q->where('phone', Phone::normalize($identifier) ?? '__invalid__'),
+        )->first();
         if (! $user || ! $user->password || ! Hash::check($this->password, $user->password) || ! $user->isActive()) {
             RateLimiter::hit($key, 300);
             $audit->log('auth.login_failed', 'User', [], [], ['channel' => 'admin_web', 'user_id' => $user?->id]);

@@ -6,6 +6,7 @@ use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Catalog\Contracts\ProductSearch;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Catalog\Models\ProductVariant;
+use App\Domain\Checkout\Services\ExtraDeliveryFee;
 use App\Domain\Fulfillment\Enums\DeliveryStatus as DS;
 use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Fulfillment\Services\DeliveryService;
@@ -427,10 +428,16 @@ class OrderAdjustmentService
         $afterParts['subtotal'] = $beforeParts['subtotal']->plus($dSubtotal)->max($zero);
         $afterParts['item_discount'] = $beforeParts['item_discount']->plus($dDiscount)->max($zero);
         $afterParts['tax'] = $beforeParts['tax']->plus($dTax)->max($zero);
+        // The extra delivery fee of a bulky product goes with the product: units that are gone are not charged for delivery (per unit), a product that is
+        // gone entirely is not charged at all (once per product). A product that stays costs exactly what it did: this never raises a fee.
+        $extra = $this->extraDeliveryAfter($order, $f, $parcel, $resolved, $zero);
+        $afterParts['delivery_fee'] = $beforeParts['delivery_fee']->minus($extra['cut']);
         if ($fulfillmentEmpty && ! $orderCancelled) {
-            // A parcel that will never be delivered is not charged for its delivery.
-            $afterParts['delivery_fee'] = $beforeParts['delivery_fee']->minus(Money::of($f->delivery_fee, $cur)->min($beforeParts['delivery_fee']));
-            $afterParts['delivery_discount'] = $beforeParts['delivery_discount']->min($afterParts['delivery_fee']);
+            // A parcel that will never be delivered is not charged for its delivery (what is left of it once the bulky-item fees came off).
+            $afterParts['delivery_fee'] = $afterParts['delivery_fee']->minus(Money::of($f->delivery_fee, $cur)->minus($extra['cut'])->max($zero)->min($afterParts['delivery_fee']));
+        }
+        if ($extra['cut']->isPositive() || ($fulfillmentEmpty && ! $orderCancelled)) {
+            $afterParts['delivery_discount'] = $beforeParts['delivery_discount']->min($afterParts['delivery_fee']); // a free-delivery coupon waived all of it: it waives what is left
         }
         $payableBeforePoints = $afterParts['subtotal']->minus($afterParts['item_discount'])->plus($afterParts['delivery_fee'])->minus($afterParts['delivery_discount'])
             ->plus($afterParts['service_fee'])->plus($afterParts['tax']);
@@ -463,10 +470,57 @@ class OrderAdjustmentService
             'before' => $totalsBefore, 'after_totals' => $totalsAfter, 'difference' => $grandAfter->minus($grandBefore),
             'after' => ['item_discount' => $afterParts['item_discount'], 'delivery_discount' => $afterParts['delivery_discount'], 'delivery_fee' => $afterParts['delivery_fee'],
                 'grand_total' => $grandAfter, 'subtotal' => $afterParts['subtotal'], 'tax' => $afterParts['tax'], 'loyalty' => $afterParts['loyalty']],
-            'loyalty_points' => $fit['points'], 'loyalty_returned' => $fit['returned'],
+            'loyalty_points' => $fit['points'], 'loyalty_returned' => $fit['returned'], 'extra' => $extra,
             'fulfillment_empty' => $fulfillmentEmpty, 'order_cancelled' => $orderCancelled, 'payment' => $payment, 'refund' => $refund,
             'parcel' => $parcel, 'rest' => $rest,
         ];
+    }
+
+    /**
+     * The bulky-item delivery fees (fee_breakdown.extra_delivery, docs/api/CHECKOUT_FEES_V2.md section 3) of THIS parcel once the changes are made:
+     * how much comes off, and the stored lines as they will read. Units still in the parcel (including a substitute of the same product) keep
+     * their fee; a fee never goes up. An order without stored fees (placed before the feature, or none owed) changes nothing.
+     *
+     * @param  Collection<string, OrderItem>  $parcel
+     * @param  list<array<string, mixed>>  $resolved
+     * @return array{cut: Money, amount: Money, lines: list<array<string, mixed>>}
+     */
+    private function extraDeliveryAfter(Order $order, OrderFulfillment $f, Collection $parcel, array $resolved, Money $zero): array
+    {
+        $cur = $zero->currency;
+        /** @var list<array<string, mixed>> $stored */
+        $stored = array_values((array) data_get($order->fee_breakdown, 'extra_delivery.lines', []));
+        $changed = collect($resolved)->keyBy(fn (array $c) => $c['item']->id);
+        $left = [];
+        foreach ($parcel as $item) {
+            $units = $changed->has($item->id) ? (int) $changed[$item->id]['to'] : (int) $item->quantity;
+            if ($item->product_id !== null && $units > 0) {
+                $left[$item->product_id] = ($left[$item->product_id] ?? 0) + $units;
+            }
+        }
+        foreach ($resolved as $c) {
+            if ($c['sub'] !== null) {
+                $left[$c['sub']['variant']->product_id] = ($left[$c['sub']['variant']->product_id] ?? 0) + (int) $c['sub']['quantity'];
+            }
+        }
+
+        $cut = $zero;
+        $amount = $zero;
+        $lines = [];
+        foreach ($stored as $line) {
+            $old = Money::of((string) ($line['amount'] ?? '0'), $cur);
+            if (($line['branch_id'] ?? null) === $f->branch_id) {
+                $units = min((int) ($line['quantity'] ?? 0), $left[(string) ($line['product_id'] ?? '')] ?? 0);
+                $new = ExtraDeliveryFee::amount(Money::of((string) ($line['fee_each'] ?? '0'), $cur), (string) ($line['mode'] ?? ExtraDeliveryFee::PER_UNIT), $units)->min($old);
+                $cut = $cut->plus($old->minus($new));
+                $line = array_merge($line, ['quantity' => $units, 'amount' => $new->toDecimal()]);
+                $old = $new;
+            }
+            $amount = $amount->plus($old);
+            $lines[] = $line;
+        }
+
+        return ['cut' => $cut, 'amount' => $amount, 'lines' => $lines];
     }
 
     /**
@@ -620,6 +674,18 @@ class OrderAdjustmentService
         $totals = $plan['after_totals'];
         $liveSubtotal = OrderItem::where('order_fulfillment_id', $f->id)->where('quantity', '>', 0)->get()->reduce(fn (Money $c, OrderItem $i) => $c->plus(Money::of($i->line_subtotal)), Money::zero());
         $fee = (array) ($order->fee_breakdown ?? []);
+        /** @var array{cut: Money, amount: Money, lines: list<array<string, mixed>>} $extra */
+        $extra = $plan['extra'];
+        if ($extra['lines'] !== []) {
+            $fee['extra_delivery'] = ['amount' => $extra['amount']->toDecimal(), 'lines' => $extra['lines']]; // units shown on the order follow what is left, even when the fee stays
+        }
+        if ($extra['cut']->isPositive()) {
+            // The bulky-item fees that went with the units that are gone: off the parcel's delivery fee and off the stored breakdown.
+            $fee['delivery'] = collect($fee['delivery'] ?? [])->map(fn ($d) => ($d['branch_id'] ?? null) === $f->branch_id ? array_merge($d, [
+                'fee' => Money::of((string) ($d['fee'] ?? '0'))->minus($extra['cut'])->max(Money::zero())->toDecimal(),
+                'extra' => Money::of((string) ($d['extra'] ?? '0'))->minus($extra['cut'])->max(Money::zero())->toDecimal()]) : $d)->all();
+            $f->forceFill(['delivery_fee' => Money::of($f->delivery_fee)->minus($extra['cut'])->max(Money::zero())->toDecimal()]);
+        }
         if ($plan['fulfillment_empty']) {
             $fee['delivery'] = collect($fee['delivery'] ?? [])->map(fn ($d) => ($d['branch_id'] ?? null) === $f->branch_id ? array_merge($d, ['fee' => '0.00']) : $d)->all();
             $f->forceFill(['delivery_fee' => '0.00']);

@@ -103,7 +103,11 @@ class _PaymentStatusScreenState extends ConsumerState<PaymentStatusScreen> {
       _retryKey = null;
       _paymentId = action.paymentId;
       if (action.requiresRedirect) await openSecurePayment(action);
-      if (mounted) _start();
+      if (mounted) {
+        // A new payment starts from nothing: the old "failed" must not stay on screen while the new one is being checked.
+        setState(() => _status = null);
+        _start();
+      }
     } catch (e) {
       if (mounted) showErrorSnack(context, e);
     } finally {
@@ -146,6 +150,10 @@ class _PaymentStatusScreenState extends ConsumerState<PaymentStatusScreen> {
 
     return PopScope(
       canPop: terminal || !_polling,
+      // Back is held while the payment is being confirmed: say why, so it never feels like a frozen button.
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) showInfoSnack(context, l10n.paymentWaitBack);
+      },
       child: Scaffold(
         appBar: AppBar(title: Text(l10n.paymentTitle), automaticallyImplyLeading: false),
         body: SafeArea(

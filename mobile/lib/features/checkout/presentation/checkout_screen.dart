@@ -19,6 +19,7 @@ import 'package:albahar_customer/features/checkout/domain/alternate_phone.dart';
 import 'package:albahar_customer/features/checkout/domain/checkout_models.dart';
 import 'package:albahar_customer/features/checkout/presentation/delivery_fee_row.dart';
 import 'package:albahar_customer/features/checkout/presentation/delivery_slot_section.dart';
+import 'package:albahar_customer/features/checkout/presentation/extra_delivery_fee_row.dart';
 import 'package:albahar_customer/features/checkout/presentation/payment_flow.dart';
 import 'package:albahar_customer/features/checkout/presentation/state/checkout_controller.dart';
 import 'package:albahar_customer/features/profile/domain/profile_models.dart';
@@ -93,6 +94,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        scrollable: true,
         title: Text(l10n.quoteChangedTitle),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -135,116 +137,129 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final o = state.options;
     final quote = state.quote;
 
-    return Scaffold(
-      appBar: AppBar(title: Text(l10n.checkoutTitle)),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(AppSpace.gutter, AppSpace.sm, AppSpace.gutter, AppSpace.xxl),
-        children: [
-          ContentWidth(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                CheckoutSteps(current: 1, labels: [l10n.cartTitle, l10n.delivery, l10n.paymentMethod]),
-                const Gap(AppSpace.md),
-                _FulfillmentToggle(
-                  selected: o.fulfillmentType,
-                  onChanged: (t) {
-                    Haptics.tap();
-                    controller.update((x) => x.copyWith(fulfillmentType: t));
-                  },
-                ),
-                const Gap(AppSpace.md),
-                if (o.fulfillmentType == FulfillmentType.delivery) ...[
-                  _AddressSection(
-                    addressId: o.addressId,
-                    onChanged: (id) => controller.update((x) => x.copyWith(addressId: () => id)),
-                  ),
-                  if (state.alternateEnabled) ...[
+    // Leaving while the order is being sent would place it with nobody to open the payment page or show the order: back waits.
+    return PopScope(
+      canPop: !state.placing,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && state.placing) showInfoSnack(context, l10n.placingOrderWait);
+      },
+      child: Scaffold(
+        appBar: AppBar(title: Text(l10n.checkoutTitle)),
+        body: IgnorePointer(
+          ignoring: state.placing,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(AppSpace.gutter, AppSpace.sm, AppSpace.gutter, AppSpace.xxl),
+            children: [
+              ContentWidth(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    CheckoutSteps(current: 1, labels: [l10n.cartTitle, l10n.delivery, l10n.paymentMethod]),
                     const Gap(AppSpace.md),
-                    _AlternatePhoneSection(
-                      input: state.alternate,
-                      mainPhone: state.mainPhone,
-                      onText: controller.setAlternateText,
-                      onDeclined: controller.setAlternateDeclined,
+                    _FulfillmentToggle(
+                      selected: o.fulfillmentType,
+                      onChanged: (t) {
+                        Haptics.tap();
+                        controller.update((x) => x.copyWith(fulfillmentType: t));
+                      },
+                    ),
+                    const Gap(AppSpace.md),
+                    if (o.fulfillmentType == FulfillmentType.delivery) ...[
+                      _AddressSection(
+                        addressId: o.addressId,
+                        onChanged: (id) => controller.update((x) => x.copyWith(addressId: () => id)),
+                      ),
+                      if (state.alternateEnabled) ...[
+                        const Gap(AppSpace.md),
+                        _AlternatePhoneSection(
+                          input: state.alternate,
+                          mainPhone: state.mainPhone,
+                          onText: controller.setAlternateText,
+                          onDeclined: controller.setAlternateDeclined,
+                        ),
+                      ],
+                    ] else
+                      _PickupSection(state: state, controller: controller),
+                    if (o.fulfillmentType == FulfillmentType.delivery &&
+                        quote != null &&
+                        quote.slotRequired &&
+                        quote.singleFulfillment != null) ...[
+                      const Gap(AppSpace.lg),
+                      DeliverySlotSection(
+                        key: ValueKey('slots-${quote.singleFulfillment!.branch.id}'),
+                        branchId: quote.singleFulfillment!.branch.id,
+                        selectedSlotId: o.deliverySlotId,
+                        selectedDate: o.deliveryDate,
+                        unavailable: state.slotUnavailable,
+                        slotRequired: quote.issue('slot_required') != null,
+                        auto: state.slotAuto,
+                        onSwitch: (ref.watch(pickupBranchesProvider).value?.isNotEmpty ?? false)
+                            ? () => controller.update(
+                                (x) => x.copyWith(
+                                  fulfillmentType: FulfillmentType.pickup,
+                                  // A showroom is needed for pickup times: the chosen one, else the first that offers pickup.
+                                  branchId: () => x.branchId ?? ref.read(pickupBranchesProvider).value?.firstOrNull?.id,
+                                ),
+                              )
+                            : null,
+                        onSelect: (slot, date) => controller.selectDeliverySlot(
+                          slot,
+                          branchId: quote.singleFulfillment!.branch.id,
+                          date: date,
+                        ),
+                      ),
+                    ],
+                    if (quote != null && (quote.isSplit || quote.fulfillments.length > 1)) ...[
+                      const Gap(AppSpace.lg),
+                      _SplitPlan(quote: quote),
+                    ],
+                    const Gap(AppSpace.lg),
+                    _StepTitle(l10n.paymentMethod),
+                    _PaymentMethods(
+                      quote: quote,
+                      selected: o.paymentMethod,
+                      onChanged: (m) => controller.update((x) => x.copyWith(paymentMethod: () => m)),
+                    ),
+                    if (quote?.loyalty != null && quote!.loyalty!.balance > 0) ...[
+                      const Gap(AppSpace.lg),
+                      _LoyaltySection(
+                        loyalty: quote.loyalty!,
+                        points: o.loyaltyPoints,
+                        onChanged: (p) => controller.update((x) => x.copyWith(loyaltyPoints: p)),
+                      ),
+                    ],
+                    const Gap(AppSpace.lg),
+                    _StepTitle(l10n.orderSummary),
+                    _QuoteSummary(state: state, onRetry: controller.refreshQuote),
+                    const Gap(AppSpace.md),
+                    // The server decides whether the choice exists: the admin setting is on AND more than one active branch holds
+                    // part of this cart. Otherwise the switch would only confuse.
+                    if (quote?.splitChoice ?? false) ...[
+                      SwitchListTile(
+                        key: const ValueKey('allow-split-switch'),
+                        contentPadding: EdgeInsets.zero,
+                        value: o.allowSplit,
+                        onChanged: (v) => controller.update((x) => x.copyWith(allowSplit: v)),
+                        title: Text(l10n.allowSplit),
+                        subtitle: Text(l10n.allowSplitHint),
+                      ),
+                      const Gap(AppSpace.sm),
+                    ],
+                    AppTextField(
+                      controller: _notes,
+                      label: '${l10n.customerNotes} (${l10n.optional})',
+                      maxLines: 3,
+                      minLines: 1,
+                      maxLength: 500,
                     ),
                   ],
-                ] else
-                  _PickupSection(state: state, controller: controller),
-                if (o.fulfillmentType == FulfillmentType.delivery &&
-                    quote != null &&
-                    quote.slotRequired &&
-                    quote.singleFulfillment != null) ...[
-                  const Gap(AppSpace.lg),
-                  DeliverySlotSection(
-                    key: ValueKey('slots-${quote.singleFulfillment!.branch.id}'),
-                    branchId: quote.singleFulfillment!.branch.id,
-                    selectedSlotId: o.deliverySlotId,
-                    selectedDate: o.deliveryDate,
-                    unavailable: state.slotUnavailable,
-                    slotRequired: quote.issue('slot_required') != null,
-                    auto: state.slotAuto,
-                    onSwitch: (ref.watch(pickupBranchesProvider).value?.isNotEmpty ?? false)
-                        ? () => controller.update(
-                            (x) => x.copyWith(
-                              fulfillmentType: FulfillmentType.pickup,
-                              // A showroom is needed for pickup times: the chosen one, else the first that offers pickup.
-                              branchId: () => x.branchId ?? ref.read(pickupBranchesProvider).value?.firstOrNull?.id,
-                            ),
-                          )
-                        : null,
-                    onSelect: (slot, date) =>
-                        controller.selectDeliverySlot(slot, branchId: quote.singleFulfillment!.branch.id, date: date),
-                  ),
-                ],
-                if (quote != null && (quote.isSplit || quote.fulfillments.length > 1)) ...[
-                  const Gap(AppSpace.lg),
-                  _SplitPlan(quote: quote),
-                ],
-                const Gap(AppSpace.lg),
-                _StepTitle(l10n.paymentMethod),
-                _PaymentMethods(
-                  quote: quote,
-                  selected: o.paymentMethod,
-                  onChanged: (m) => controller.update((x) => x.copyWith(paymentMethod: () => m)),
                 ),
-                if (quote?.loyalty != null && quote!.loyalty!.balance > 0) ...[
-                  const Gap(AppSpace.lg),
-                  _LoyaltySection(
-                    loyalty: quote.loyalty!,
-                    points: o.loyaltyPoints,
-                    onChanged: (p) => controller.update((x) => x.copyWith(loyaltyPoints: p)),
-                  ),
-                ],
-                const Gap(AppSpace.lg),
-                _StepTitle(l10n.orderSummary),
-                _QuoteSummary(state: state, onRetry: controller.refreshQuote),
-                const Gap(AppSpace.md),
-                // The server decides whether the choice exists: the admin setting is on AND more than one active branch holds
-                // part of this cart. Otherwise the switch would only confuse.
-                if (quote?.splitChoice ?? false) ...[
-                  SwitchListTile(
-                    key: const ValueKey('allow-split-switch'),
-                    contentPadding: EdgeInsets.zero,
-                    value: o.allowSplit,
-                    onChanged: (v) => controller.update((x) => x.copyWith(allowSplit: v)),
-                    title: Text(l10n.allowSplit),
-                    subtitle: Text(l10n.allowSplitHint),
-                  ),
-                  const Gap(AppSpace.sm),
-                ],
-                AppTextField(
-                  controller: _notes,
-                  label: '${l10n.customerNotes} (${l10n.optional})',
-                  maxLines: 3,
-                  minLines: 1,
-                  maxLength: 500,
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
+        bottomNavigationBar: _PlaceOrderBar(state: state, onPlace: _place),
       ),
-      bottomNavigationBar: _PlaceOrderBar(state: state, onPlace: _place),
     );
   }
 }
@@ -612,12 +627,15 @@ class _SplitPlan extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                  if (f.deliveryFee != null)
+                  // A pickup plan has no delivery fee to show.
+                  if (f.deliveryFee != null && (f.type == 'delivery' || !f.deliveryFee!.isZero))
                     DeliveryFeeRow(
                       fee: f.deliveryFee!,
                       waived: f.type == 'delivery' && quote.freeDeliveryDiscount != null,
                       code: quote.freeDeliveryDiscount?.code,
                     ),
+                  if (quote.extrasOf(f) case final extras?)
+                    ExtraDeliveryFeeRow(extras: extras, waived: quote.freeDeliveryDiscount != null),
                 ],
               ),
             ),
@@ -845,8 +863,9 @@ class _QuoteSummary extends StatelessWidget {
                 ),
             if (quote.discounts.isEmpty) ?fee(l10n.discount, t.discount, negative: true),
             ?deliveryRow,
+            // A part of the delivery line above (never added to it): the products that cost extra to deliver. Pickup has none.
+            if (delivery && quote.extras != null) ExtraDeliveryFeeRow(extras: quote.extras!, waived: waivedFee != null),
             ?fee(l10n.serviceFee, t.serviceFee),
-            ?fee(l10n.codFee, t.codFee),
             ?fee(l10n.tax, t.tax),
             ?fee(l10n.loyaltyDiscount, t.loyaltyDiscount, negative: true),
             Divider(color: context.palette.line, height: AppSpace.lg),
@@ -862,7 +881,7 @@ class _QuoteSummary extends StatelessWidget {
                 padding: const EdgeInsets.only(top: AppSpace.xs),
                 child: Text(e.message, style: context.text.bodySmall?.copyWith(color: context.palette.danger)),
               ),
-            if (state.quoteError != null)
+            if (state.quoteError != null) ...[
               Padding(
                 padding: const EdgeInsets.only(top: AppSpace.xs),
                 child: Text(
@@ -870,6 +889,17 @@ class _QuoteSummary extends StatelessWidget {
                   style: context.text.bodySmall?.copyWith(color: context.palette.danger),
                 ),
               ),
+              // The totals above are the last good ones, not those of the latest choice: one tap asks again.
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton.icon(
+                  key: const ValueKey('quote-retry'),
+                  onPressed: state.quoting ? null : onRetry,
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: Text(l10n.retry),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -898,6 +928,7 @@ class _PlaceOrderBar extends StatelessWidget {
       },
       'slot' => l10n.deliverySlotRequiredHint,
       'payment' => l10n.selectPaymentFirst,
+      _ when state.quote != null && state.quoteError != null => l10n.quoteRefreshFailed,
       _ => (state.quote != null && !state.quote!.canPlaceOrder) ? l10n.cannotPlaceOrder : null,
     };
     // Nothing is holding the button back: say which time the order is booked for, so what is about to be placed is plain.

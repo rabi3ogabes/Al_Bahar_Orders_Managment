@@ -59,6 +59,7 @@ return [
     'slot_unavailable' => 'This time slot is no longer available.',
     'slot_full' => 'This time slot is fully booked. Please choose another.',
     'sku_taken' => 'This SKU is already in use.',
+    'invalid_extra_delivery_fee' => 'The extra delivery fee must be between 0 and 100,000 QAR, with at most two decimals, and be charged per unit or once.',
     'barcode_taken' => 'This barcode is already in use.',
     'media_invalid' => 'This file type or size is not allowed.',
     'media_in_use' => 'This image is used elsewhere and cannot be deleted.',

@@ -89,6 +89,98 @@ final class PermissionRegistry
         'auditor' => ['global', 'Auditor (read-only)', 'مدقق (قراءة فقط)', ['*.view', 'audit.export', 'reports.export']],
     ];
 
+    /**
+     * Branch-employee features: the plain-words checklist an admin or branch manager ticks when adding a branch employee.
+     * group => [feature id => ['keys' => permission keys it switches on, 'needs' => features it cannot work without]].
+     * Group and feature texts live in lang/{en,ar}/branch_access.php (branch_access.group_<group>, branch_access.<feature>[_hint]).
+     * Only permissions that are safe at ONE branch are listed here; everything else (see ADMIN_ONLY_MODULES) is never offered.
+     * BranchFeatureCatalog reads this table; tests/Feature/Identity/BranchFeatureCatalogTest keeps it consistent with MODULES.
+     */
+    public const BRANCH_FEATURES = [
+        'home' => [
+            'home' => ['keys' => ['dashboard.view']],
+        ],
+        'orders' => [
+            'orders_view' => ['keys' => ['orders.view']],
+            'orders_prepare' => ['keys' => ['orders.edit'], 'needs' => ['orders_view']],
+            'orders_create' => ['keys' => ['orders.create'], 'needs' => ['orders_view', 'products_view']],
+            'orders_cancel' => ['keys' => ['orders.approve'], 'needs' => ['orders_view']],
+            'refunds_request' => ['keys' => ['refunds.view', 'refunds.create'], 'needs' => ['orders_view']],
+        ],
+        'pickup' => [
+            'pickup_view' => ['keys' => ['pickup.view']],
+            'pickup_handover' => ['keys' => ['pickup.edit', 'pickup.approve'], 'needs' => ['pickup_view']],
+            'deliveries_view' => ['keys' => ['deliveries.view']],
+            'deliveries_manage' => ['keys' => ['deliveries.create', 'deliveries.edit'], 'needs' => ['deliveries_view']],
+            'deliveries_assign' => ['keys' => ['deliveries.assign'], 'needs' => ['deliveries_view']],
+        ],
+        'stock' => [
+            'stock_view' => ['keys' => ['inventory.view']],
+            'stock_adjust' => ['keys' => ['inventory.create', 'inventory.edit'], 'needs' => ['stock_view']],
+            'stock_count' => ['keys' => ['stocktaking.view', 'stocktaking.create', 'stocktaking.edit'], 'needs' => ['stock_view']],
+            'stock_transfer' => ['keys' => ['transfers.view', 'transfers.create', 'transfers.edit'], 'needs' => ['stock_view']],
+            'stock_approve' => ['keys' => ['inventory.approve', 'stocktaking.approve', 'transfers.approve'], 'needs' => ['stock_view']],
+        ],
+        'products' => [
+            'products_view' => ['keys' => ['catalog.view', 'pricing.view']],
+            'prices_edit' => ['keys' => ['pricing.edit'], 'needs' => ['products_view']],
+            'products_edit' => ['keys' => ['catalog.edit'], 'needs' => ['products_view']],
+        ],
+        'customers' => [
+            'customers_view' => ['keys' => ['customers.view']],
+        ],
+        'support' => [
+            'support_view' => ['keys' => ['support.view']],
+            'support_reply' => ['keys' => ['support.create', 'support.edit'], 'needs' => ['support_view']],
+        ],
+        'reports' => [
+            'reports_view' => ['keys' => ['reports.view']],
+            'reports_export' => ['keys' => ['reports.export'], 'needs' => ['reports_view']],
+        ],
+        'cash' => [
+            'cash_view' => ['keys' => ['payments.view']],
+            'cash_collect' => ['keys' => ['payments.create']],
+            'cash_handover' => ['keys' => ['payments.edit'], 'needs' => ['cash_view']],
+        ],
+        'staff' => [
+            'staff_view' => ['keys' => ['employees.view']],
+        ],
+    ];
+
+    /** One-tap presets: preset id => the features it ticks (the person can still adjust them by hand). Texts: branch_access.preset_<id>. */
+    public const BRANCH_PRESETS = [
+        'branch_manager' => [
+            'home', 'orders_view', 'orders_prepare', 'orders_create', 'orders_cancel', 'refunds_request', 'pickup_view', 'pickup_handover',
+            'deliveries_view', 'deliveries_manage', 'deliveries_assign', 'stock_view', 'stock_adjust', 'stock_count', 'stock_transfer',
+            'stock_approve', 'products_view', 'prices_edit', 'customers_view', 'support_view', 'reports_view', 'reports_export',
+            'cash_view', 'cash_collect', 'cash_handover', 'staff_view',
+        ],
+        'order_desk' => [
+            'home', 'orders_view', 'orders_prepare', 'orders_create', 'refunds_request', 'pickup_view', 'pickup_handover', 'deliveries_view',
+            'deliveries_manage', 'deliveries_assign', 'stock_view', 'products_view', 'customers_view', 'support_view',
+        ],
+        'cashier' => [
+            'home', 'orders_view', 'pickup_view', 'pickup_handover', 'cash_view', 'cash_collect', 'customers_view',
+        ],
+        'stock_keeper' => [
+            'home', 'stock_view', 'stock_adjust', 'stock_count', 'stock_transfer', 'products_view',
+        ],
+        'delivery_coordinator' => [
+            'home', 'orders_view', 'deliveries_view', 'deliveries_manage', 'deliveries_assign', 'pickup_view', 'customers_view',
+        ],
+        'read_only' => [
+            'home', 'orders_view', 'pickup_view', 'deliveries_view', 'stock_view', 'products_view', 'customers_view', 'support_view', 'reports_view',
+        ],
+    ];
+
+    /**
+     * Modules that configure the whole company (or the public site) and therefore never appear in a branch employee's checklist,
+     * plus the employees.* actions that would let a branch employee create or change other accounts.
+     */
+    public const ADMIN_ONLY_MODULES = ['roles', 'settings', 'notifications', 'cms', 'marketing', 'audit', 'branches', 'zones', 'auctions', 'loyalty', 'reviews'];
+
+    public const ADMIN_ONLY_KEYS = ['employees.create', 'employees.edit', 'employees.delete', 'employees.assign', 'catalog.create', 'catalog.delete', 'catalog.approve'];
+
     /** @return list<array{key:string,module:string,action:string,name_en:string,name_ar:string}> */
     public static function permissions(): array
     {

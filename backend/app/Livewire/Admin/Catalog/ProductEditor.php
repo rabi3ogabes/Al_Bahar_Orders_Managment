@@ -50,7 +50,7 @@ class ProductEditor extends Component
             $this->product = $product->load(['translations', 'warranty']);
             $this->form = $product->only(['sku', 'barcode', 'category_id', 'brand_id', 'status', 'cost_price', 'weight', 'weight_unit', 'length', 'width', 'height',
                 'dimension_unit', 'is_featured', 'is_bestseller', 'is_new_arrival', 'requires_assembly', 'assembly_service_available', 'is_oversized',
-                'available_in_all_branches', 'allow_sale_above_price']);
+                'extra_delivery_fee', 'extra_delivery_fee_mode', 'available_in_all_branches', 'allow_sale_above_price']);
             $this->form = array_map(fn ($v) => $v ?? '', $this->form);
             foreach (['en', 'ar'] as $l) {
                 $t = $product->translations->firstWhere('locale', $l);
@@ -183,14 +183,20 @@ class ProductEditor extends Component
         foreach (['cost_price', 'weight', 'length', 'width', 'height'] as $f) {
             $rules["form.{$f}"] = $base[$f];
         }
+        // The extra delivery fee box may be left empty (= no extra fee); the same limits as the API apply.
+        $rules['form.extra_delivery_fee'] = ['nullable', ...array_values(array_diff($base['extra_delivery_fee'], ['sometimes']))];
+        $rules['form.extra_delivery_fee_mode'] = ['required', ...array_values(array_diff($base['extra_delivery_fee_mode'], ['sometimes']))];
         $rules['form.weight_unit'] = 'required|in:kg,g';
         $rules['form.dimension_unit'] = 'required|in:cm,m,mm';
         foreach (['is_featured', 'is_bestseller', 'is_new_arrival', 'requires_assembly', 'assembly_service_available', 'is_oversized', 'available_in_all_branches', 'allow_sale_above_price'] as $f) {
             $rules["form.{$f}"] = 'boolean';
         }
-        $this->validate($rules, [], ['warranty.duration_months' => __('catalog_admin.warranty_months')]);
+        $this->validate($rules, [], ['warranty.duration_months' => __('catalog_admin.warranty_months'), 'form.extra_delivery_fee' => __('catalog_admin.extra_fee'),
+            'form.extra_delivery_fee_mode' => __('catalog_admin.extra_fee_mode')]);
 
         $data = $this->nullable(collect($this->form)->only(['cost_price', 'weight', 'weight_unit', 'length', 'width', 'height', 'dimension_unit'])->all());
+        $data['extra_delivery_fee'] = Money::of(trim((string) ($this->form['extra_delivery_fee'] ?? '')))->toDecimal();
+        $data['extra_delivery_fee_mode'] = (string) $this->form['extra_delivery_fee_mode'];
         foreach (['is_featured', 'is_bestseller', 'is_new_arrival', 'requires_assembly', 'assembly_service_available', 'is_oversized', 'available_in_all_branches', 'allow_sale_above_price'] as $f) {
             $data[$f] = (bool) $this->form[$f];
         }

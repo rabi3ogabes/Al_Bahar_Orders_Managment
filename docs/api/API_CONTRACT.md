@@ -138,8 +138,12 @@ ProductCard (lists):
 { "id":"uuid","slug":"oslo-3-seater-sofa","sku":"SOF-001","name":"Oslo 3-Seater Sofa",
   "brand":{"id":"uuid","name":"Nordic Living"},"image":{"url":"…","thumb_url":"…","alt":"…"},
   "price": EffectivePrice, "rating": {"average": 4.6, "count": 18},
-  "badges":["new","sale","bestseller"], "in_stock": true, "has_variants": true }
+  "badges":["new","sale","bestseller"], "in_stock": true, "has_variants": true,
+  "extra_delivery_fee": "50.00", "extra_delivery_fee_mode": "per_unit" }
 ```
+`extra_delivery_fee` (string money, `"0.00"` = none) and `extra_delivery_fee_mode` (`per_unit` = charged for every unit, `per_line` = charged once whatever the
+quantity) are on every product card and on the detail. Clients show a small note on the product page when the fee is above zero ("Extra delivery fee QAR 50.00
+per item" / "… for this item"). Delivery orders only; pickup never pays it. See [CHECKOUT_FEES_V2.md](CHECKOUT_FEES_V2.md).
 EffectivePrice (always computed server-side for the requested/preferred branch):
 ```json
 { "regular": Money, "sale": Money|null, "final": Money, "discount_percent": 15,
@@ -214,17 +218,25 @@ Quote:
 ```json
 { "quote_hash":"sha256…", "currency":"QAR",
   "fulfillments":[{"branch":{"id","name"}, "type":"delivery", "items":[{"variant_id","name","quantity","unit_price":EffectivePrice,"line_total":Money}],
-                   "subtotal":Money, "delivery_fee":Money, "eta_minutes":120, "slot":{"id","date":"YYYY-MM-DD","starts_at":"16:00","ends_at":"18:00"}|null,
+                   "subtotal":Money, "delivery_fee":Money, "extra_delivery_fee":Money, "delivery_extras":[DeliveryExtra], "eta_minutes":120, "slot":{"id","date":"YYYY-MM-DD","starts_at":"16:00","ends_at":"18:00"}|null,
                    "slot_required":true}],
   "is_split": false,
   "lines":[{"variant_id","name","variant_name","image_url","quantity","unit_price":EffectivePrice,"line_subtotal":Money,"discount":Money,"line_total":Money,"branch_id"}],
-  "totals":{"subtotal":Money,"discount":Money,"delivery_fee":Money,"service_fee":Money,"cod_fee":Money,"tax":Money,"loyalty_discount":Money,"grand_total":Money},
+  "delivery_extras":[{"product_id":"uuid","name":"Corner sofa","mode":"per_unit|per_line","quantity":2,"fee_each":Money,"amount":Money,"branch_id":"uuid"}],
+  "totals":{"subtotal":Money,"discount":Money,"delivery_fee":Money,"extra_delivery_fee":Money,"service_fee":Money,"cod_fee":Money,"tax":Money,"loyalty_discount":Money,"grand_total":Money},
   "discounts":[{"label":"Welcome 10%","code":"WELCOME10","amount":Money}],
   "payment_methods":[{"code":"sadad","available":true},{"code":"cod","available":false,"reason":"exceeds_cod_limit"}],
   "loyalty":{"balance":1200,"max_redeemable_points":600,"points_to_earn":350},
   "warnings":[{"code":"price_changed","message":"…"}], "errors":[{"code":"insufficient_stock","variant_id":"…","message":"…"}],
   "can_place_order": true, "expires_at":"…" }
 ```
+**Fees (CHECKOUT_FEES_V2.md).** `totals.delivery_fee` is the whole delivery fee: zone fee + oversized surcharge + the extra delivery fees of bulky products + express.
+`totals.extra_delivery_fee` is the part that comes from products (`"0.00"` when none) and `delivery_extras` lists them (empty when none), so a client can show
+"Extra delivery fee for bulky items" under the delivery line; per fulfillment the same two fields sit on `fulfillments[]`. A free-delivery coupon waives the whole
+`delivery_fee` (the discount line has `free_delivery: true`). `totals.cod_fee` is **always `"0.00"`**: cash on delivery costs nothing extra (the key stays only so
+older app builds keep working; never show a row for it). There is **no minimum order**: the quote never answers `below_min_order` (clients should still show an
+unknown error `message` as a normal error); `above_max_order` (the zone's maximum) still exists.
+
 Placing an order re-validates everything. If totals differ from `quote_hash` the server answers **409 `quote_changed`** with `context.quote` (the new Quote) — the app must show the new totals and ask the customer to confirm again. Retrying with the same `Idempotency-Key` returns the original order (no duplicate).
 
 PaymentAction (returned with new orders and by `POST /orders/{id}/payments`):
@@ -255,7 +267,7 @@ Order:
 ```json
 { "id":"uuid","number":"AB100123","status":"processing","status_label":"Processing",
   "payment_status":"paid","payment_method":"sadad","fulfillment_type":"delivery",
-  "placed_at":"…","totals":{…same keys as quote…},"address":{…snapshot…},
+  "placed_at":"…","totals":{…same keys as quote…},"delivery_extras":[{"product_id","name","mode","quantity","fee_each":Money,"amount":Money}],"address":{…snapshot…},
   "items":[{"id","product_id","variant_id","sku","name","variant_name","image_url","quantity","unit_price":Money,"line_total":Money,"branch_id","fulfillment_id"}],
   "fulfillments":[{"id","number":"AB100123-1","branch":{"id","name","phone","latitude","longitude"},"type":"pickup","status":"pickup_ready","status_label":"Ready for pickup",
                    "slot":{"date","starts_at","ends_at"}|null,"delivery":{"tracking_number","status","provider","driver_name","driver_phone","eta"}|null,

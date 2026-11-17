@@ -55,8 +55,6 @@ final class Quote
 
     public Money $serviceFee;
 
-    public Money $codFee;
-
     public string $taxRate = '0';
 
     public array $paymentMethods = [];
@@ -75,7 +73,6 @@ final class Quote
     {
         $this->loyaltyDiscount = Money::zero();
         $this->serviceFee = Money::zero();
-        $this->codFee = Money::zero();
     }
 
     public function error(string $code, array $context = []): void
@@ -121,6 +118,18 @@ final class Quote
         return $free ? $this->deliveryFeeTotal() : Money::zero();
     }
 
+    /** The part of the delivery fee that comes from products with an extra delivery fee (already inside `deliveryFeeTotal()`). */
+    public function extraDeliveryFeeTotal(): Money
+    {
+        return array_reduce($this->plans, fn (Money $c, FulfillmentPlan $p) => $c->plus($p->extraDeliveryFee()), Money::zero());
+    }
+
+    /** @return list<DeliveryExtra> every product's extra delivery fee in this quote, fulfillment by fulfillment */
+    public function deliveryExtras(): array
+    {
+        return array_values(array_merge(...array_map(fn (FulfillmentPlan $p) => $p->deliveryExtras, $this->plans)));
+    }
+
     public function taxTotal(): Money
     {
         return $this->lines()->reduce(fn (Money $c, QuoteLine $l) => $c->plus($l->tax), Money::zero());
@@ -131,17 +140,13 @@ final class Quote
         return $this->itemDiscountTotal()->plus($this->deliveryDiscountTotal());
     }
 
-    public function grandTotalBeforeCod(): Money
+    /** Cash on delivery costs nothing extra (docs/api/CHECKOUT_FEES_V2.md section 1): the total is the same for every payment method. */
+    public function grandTotal(): Money
     {
         $total = $this->subtotal()->minus($this->itemDiscountTotal())->plus($this->deliveryFeeTotal())->minus($this->deliveryDiscountTotal())
             ->plus($this->serviceFee)->plus($this->taxTotal())->minus($this->loyaltyDiscount);
 
         return $total->isNegative() ? Money::zero() : $total;
-    }
-
-    public function grandTotal(): Money
-    {
-        return $this->grandTotalBeforeCod()->plus($this->codFee);
     }
 
     public function computeHash(): string
@@ -192,6 +197,8 @@ final class Quote
                 'items' => array_map($line, $p->lines),
                 'subtotal' => $p->subtotal()->jsonSerialize(),
                 'delivery_fee' => $p->deliveryFee->jsonSerialize(),
+                'extra_delivery_fee' => $p->extraDeliveryFee()->jsonSerialize(),
+                'delivery_extras' => array_map(fn (DeliveryExtra $e) => $e->toArray(), $p->deliveryExtras),
                 'eta_minutes' => $p->zoneConfig?->estimated_minutes,
                 'slot' => $p->slotId ? ['id' => $p->slotId, 'date' => $p->slotDate] + ($p->slotInfo ?? []) : null,
                 'slot_required' => $p->slotRequired,
@@ -202,12 +209,15 @@ final class Quote
                 'subtotal' => $this->subtotal()->jsonSerialize(),
                 'discount' => $this->discountTotal()->jsonSerialize(),
                 'delivery_fee' => $this->deliveryFeeTotal()->jsonSerialize(),
+                'extra_delivery_fee' => $this->extraDeliveryFeeTotal()->jsonSerialize(),
                 'service_fee' => $this->serviceFee->jsonSerialize(),
-                'cod_fee' => $this->codFee->jsonSerialize(),
+                // Kept so older app builds that read it keep working: cash on delivery never costs extra, so it is always "0.00".
+                'cod_fee' => Money::zero()->jsonSerialize(),
                 'tax' => $this->taxTotal()->jsonSerialize(),
                 'loyalty_discount' => $this->loyaltyDiscount->jsonSerialize(),
                 'grand_total' => $this->grandTotal()->jsonSerialize(),
             ],
+            'delivery_extras' => array_map(fn (DeliveryExtra $e) => $e->toArray(), $this->deliveryExtras()),
             'discounts' => array_map(fn (AppliedDiscount $d) => $d->toArray(), $this->discounts),
             'payment_methods' => $this->paymentMethods,
             'loyalty' => ['balance' => $this->loyaltyBalance, 'max_redeemable_points' => $this->loyaltyMax, 'points_applied' => $this->loyaltyPoints, 'points_to_earn' => $this->pointsToEarn],

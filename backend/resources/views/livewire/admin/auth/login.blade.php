@@ -4,8 +4,8 @@
     <p class="mt-3 text-sm text-ink-500 dark:text-ink-400">{{ __('admin.sign_in_hint') }}</p>
 
     <form wire:submit="login" class="mt-10 space-y-5" novalidate>
-        <x-admin.field :label="__('admin.email')" for="email" required>
-            <input id="email" type="email" wire:model="email" autocomplete="username" autofocus class="input @error('email') input-error @enderror" dir="ltr">
+        <x-admin.field :label="__('branch_access.sign_in_identifier')" for="email" required>
+            <input id="email" type="text" inputmode="email" wire:model="email" autocomplete="username" autocapitalize="none" spellcheck="false" autofocus class="input @error('email') input-error @enderror" dir="ltr">
         </x-admin.field>
         <x-admin.field :label="__('admin.password')" for="password" required>
             <div x-data="{ show: false }" class="relative">

@@ -7,6 +7,7 @@ use App\Domain\Branches\Models\Branch;
 use App\Domain\Marketing\Models\CustomerGroup;
 use App\Domain\Marketing\Services\CampaignService;
 use App\Domain\Notifications\Models\MarketingCampaign;
+use App\Domain\Notifications\Services\NotificationRules;
 use App\Livewire\Admin\Concerns\WithAdminTable;
 use App\Support\BusinessTime;
 use Carbon\CarbonImmutable;
@@ -118,6 +119,11 @@ class CampaignIndex extends Component
         $c = MarketingCampaign::findOrFail($id);
         if (! in_array($c->status, ['draft', 'scheduled'], true)) {
             $this->toast(__('marketing_admin.campaign_not_sendable'), 'error');
+
+            return;
+        }
+        if (! app(NotificationRules::class)->enabled('campaign')) {
+            $this->toast(__('notification_rules_admin.campaign_off'), 'error'); // switched off in Content > Notification controls
 
             return;
         }

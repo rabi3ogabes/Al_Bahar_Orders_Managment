@@ -5,8 +5,10 @@ namespace App\Domain\Catalog\Services;
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Catalog\Models\ProductVariant;
+use App\Domain\Checkout\Services\ExtraDeliveryFee;
 use App\Domain\Inventory\Models\BranchInventory;
 use App\Domain\Pricing\Services\PriceResolver;
+use App\Support\Money;
 use Illuminate\Support\Collection;
 
 /**
@@ -65,6 +67,10 @@ class CatalogPresenter
             'in_stock' => $inStock,
             'purchasable' => $best !== null,
             'has_variants' => $p->variants->count() > 1,
+            // An extra delivery fee for bulky items (string money like "50.00", "0.00" = none) and how it is charged: `per_unit` for every unit,
+            // `per_line` once whatever the quantity. Clients show a small note on the product page when the fee is above zero.
+            'extra_delivery_fee' => Money::of((string) $p->extra_delivery_fee)->toDecimal(),
+            'extra_delivery_fee_mode' => in_array($p->extra_delivery_fee_mode, ExtraDeliveryFee::MODES, true) ? $p->extra_delivery_fee_mode : ExtraDeliveryFee::PER_UNIT,
         ];
     }
 

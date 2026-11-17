@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Domain\Checkout\Services\ExtraDeliveryFee;
 use App\Rules\ProductBarcode;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class ProductRequest extends FormRequest
 {
@@ -34,6 +36,9 @@ class ProductRequest extends FormRequest
             'is_featured' => ['sometimes', 'boolean'], 'is_bestseller' => ['sometimes', 'boolean'], 'is_new_arrival' => ['sometimes', 'boolean'],
             'requires_assembly' => ['sometimes', 'boolean'], 'assembly_service_available' => ['sometimes', 'boolean'], 'is_oversized' => ['sometimes', 'boolean'],
             'available_in_all_branches' => ['sometimes', 'boolean'],
+            // An extra delivery fee for bulky items (docs/api/CHECKOUT_FEES_V2.md section 3): money with at most two decimals, 0 = none; how it is charged is a fixed choice.
+            'extra_delivery_fee' => ['sometimes', 'numeric', 'min:0', 'max:'.ExtraDeliveryFee::MAX, 'regex:/^\d+(\.\d{1,2})?$/'],
+            'extra_delivery_fee_mode' => ['sometimes', 'string', Rule::in(ExtraDeliveryFee::MODES)],
             'tags' => ['nullable', 'array'], 'tags.*' => ['string', 'max:40'],
             'specifications' => ['nullable', 'array'],
             'specifications.*.label_en' => ['required_with:specifications', 'string', 'max:80'],

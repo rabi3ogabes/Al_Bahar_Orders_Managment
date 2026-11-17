@@ -17,6 +17,7 @@ import { BranchPicker, CartDrawer, Logo, MenuDrawer, SearchOverlay, SeasonBanner
 import { DrawerLink } from './drawerLink';
 import { FreshFooter, FreshHeader } from './FreshChrome';
 import { PageBackdrop } from './PageBackdrop';
+import { useAppConfig } from '../lib/appConfig';
 
 export { Logo, LogoMark } from './shell';
 
@@ -195,6 +196,8 @@ function PreviewBar() {
 export function Layout() {
   const loc = useLocation();
   const { layout, ready } = useDesign();
+  // The dashboard switches (alternative phone number) are fetched as the store opens, so checkout and the profile already know them when they appear.
+  useAppConfig();
   // Page or filter changes start at the top; opening a side window (?order=, ?quick=) keeps the page where it was.
   const pageSearch = stripOverlayParams(loc.search);
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }); }, [loc.pathname, pageSearch]);

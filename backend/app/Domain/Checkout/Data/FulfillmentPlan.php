@@ -14,6 +14,13 @@ final class FulfillmentPlan
     /** @var array{starts_at: string, ends_at: string}|null */
     public ?array $slotInfo = null;
 
+    /**
+     * What the products of this fulfillment add to its delivery fee (already part of `deliveryFee`); empty for pickup and when no product has a fee.
+     *
+     * @var list<DeliveryExtra>
+     */
+    public array $deliveryExtras = [];
+
     /** @param list<QuoteLine> $lines */
     public function __construct(
         public readonly Branch $branch,
@@ -27,6 +34,12 @@ final class FulfillmentPlan
         public readonly string $allocationReason = 'selected_branch',
     ) {
         $this->deliveryFee ??= Money::zero();
+    }
+
+    /** The part of the delivery fee that comes from products with an extra delivery fee. */
+    public function extraDeliveryFee(): Money
+    {
+        return array_reduce($this->deliveryExtras, fn (Money $c, DeliveryExtra $e) => $c->plus($e->amount), Money::zero());
     }
 
     public function subtotal(): Money

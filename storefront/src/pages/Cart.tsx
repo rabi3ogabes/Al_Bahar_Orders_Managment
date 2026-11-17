@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingBag, Trash2, ShieldCheck, Truck, ArrowRight, ArrowLeft } from 'lucide-react';
 import { useCart } from '../lib/cart';
@@ -16,6 +17,7 @@ export default function CartPage() {
   const authModal = useAuthModal();
   const nav = useNavigate();
   const Arrow = dir === 'rtl' ? ArrowLeft : ArrowRight;
+  const [busy, setBusy] = useState(false);
   useDocTitle(t('cart.title'));
 
   if (cart.loading) return <div className="wrap py-12"><Skeleton className="h-10 w-60" /><Skeleton className="mt-8 h-40" /></div>;
@@ -23,21 +25,28 @@ export default function CartPage() {
     return <div className="wrap py-16"><EmptyState icon={<ShoppingBag size={30} />} title={t('cart.empty')} text={t('cart.empty_text')} action={<Button size="lg" onClick={() => nav('/shop')}>{t('cart.continue')}</Button>} /></div>;
   }
   const blocked = cart.lines.some((l) => !l.available);
-  const go = async () => { await cart.flush(); if (user) nav('/checkout'); else authModal.open({ reason: t('auth.reason_checkout'), onDone: () => nav('/checkout') }); };
+  // Pending changes reach the server first; a second tap while that happens does nothing (the same as the cart panel).
+  const go = async () => {
+    if (busy) return;
+    setBusy(true);
+    try { await cart.flush(); } finally { setBusy(false); }
+    if (user) nav('/checkout'); else authModal.open({ reason: t('auth.reason_checkout'), onDone: () => nav('/checkout') });
+  };
 
   return (
     <div className="wrap py-8 md:py-12">
       <h1 className="text-[clamp(38px,5vw,60px)] leading-none">{t('cart.title')} <span className="text-muted">({cart.count})</span></h1>
-      <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="mt-10 grid grid-cols-[minmax(0,1fr)] gap-10 lg:grid-cols-[minmax(0,1fr)_380px]">
         <section aria-label={t('cart.items')}>
           {cart.cart?.warnings?.map((w, i) => <div key={i} className="mb-4"><Alert tone="warning">{w.message ?? w.code}</Alert></div>)}
           <ul className="divide-y divide-line border-y border-line">
             {cart.lines.map((l) => (
-              <li key={l.key} className="flex gap-5 py-6">
-                <Link to={`/products/${l.slug}`} className="w-28 shrink-0 sm:w-36"><Pic src={l.image} alt={l.name} ratio="1/1" className="rounded-3xl" label={l.brand ?? undefined} /></Link>
+              <li key={l.key} className="flex gap-4 py-6 sm:gap-5">
+                <Link to={`/products/${l.slug}`} className="w-24 shrink-0 min-[400px]:w-28 sm:w-36"><Pic src={l.image} alt={l.name} ratio="1/1" className="rounded-3xl" label={l.brand ?? undefined} /></Link>
                 <div className="flex min-w-0 flex-1 flex-col">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
+                  {/* On a phone the price drops under the name instead of squeezing it into one word per line. */}
+                  <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+                    <div className="min-w-0 flex-1 basis-36">
                       {l.brand && <p className="eyebrow !text-[10px] text-muted">{l.brand}</p>}
                       <Link to={`/products/${l.slug}`} className="font-display text-2xl leading-tight hover:text-brass-deep">{l.name}</Link>
                       {l.variantName && <p className="text-sm text-muted">{l.variantName}</p>}
@@ -47,7 +56,7 @@ export default function CartPage() {
                   {l.priceChanged && <p className="mt-1 text-xs font-medium text-warning">{t('cart.price_changed')}</p>}
                   {l.issue && <p className="mt-1 text-xs font-medium text-danger">{t(`cart.issue.${l.issue}`)}</p>}
                   <p className="mt-1 text-sm text-muted">{l.unit.formatted} × {l.qty}</p>
-                  <div className="mt-auto flex items-center justify-between pt-4">
+                  <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pt-4">
                     <QtyStepper value={l.qty} max={l.max} onChange={(n) => cart.setQty(l, n)} />
                     <button onClick={() => cart.remove(l)} className="flex items-center gap-1.5 text-sm text-muted hover:text-danger"><Trash2 size={15} />{t('cart.remove')}</button>
                   </div>
@@ -63,7 +72,7 @@ export default function CartPage() {
             <div className="flex justify-between"><dt className="text-muted">{t('cart.subtotal')}</dt><dd className="font-semibold tabular-nums">{cart.subtotal.formatted}</dd></div>
             <DeliveryFeeRow />
           </dl>
-          <Button size="lg" block className="mt-6" disabled={blocked} onClick={() => void go()}>{t('cart.checkout')}<Arrow size={18} /></Button>
+          <Button size="lg" block className="mt-6" disabled={blocked} loading={busy} onClick={() => void go()}>{t('cart.checkout')}<Arrow size={18} /></Button>
           {blocked && <p className="mt-2 text-center text-xs text-danger">{t('cart.fix_items')}</p>}
           <ul className="mt-6 space-y-2 text-[13px] text-muted">
             <li className="flex gap-2"><ShieldCheck size={16} className="shrink-0 text-brass" />{t('checkout.secure')}</li>

@@ -43,7 +43,7 @@ class BranchEditor extends Component
 
     public array $holiday = ['type' => 'holiday', 'name_en' => '', 'name_ar' => '', 'starts_at' => '', 'ends_at' => '', 'reason' => ''];
 
-    public array $zone = ['delivery_zone_id' => '', 'delivery_fee' => '15.00', 'min_order_amount' => '', 'max_order_amount' => '', 'cod_enabled' => true, 'estimated_minutes' => 180, 'priority' => 100];
+    public array $zone = ['delivery_zone_id' => '', 'delivery_fee' => '15.00', 'max_order_amount' => '', 'cod_enabled' => true, 'estimated_minutes' => 180, 'priority' => 100];
 
     public array $slot = ['fulfillment_type' => 'pickup', 'day_of_week' => 0, 'starts_at' => '16:00', 'ends_at' => '18:00', 'capacity' => 10];
 
@@ -149,8 +149,7 @@ class BranchEditor extends Component
         $this->authorizeBranch('zones.edit', $this->branch->id);
         $data = $this->validate([
             'zone.delivery_zone_id' => 'required|uuid|exists:delivery_zones,id', 'zone.delivery_fee' => 'required|numeric|min:0',
-            'zone.min_order_amount' => 'nullable|numeric|min:0',
-            'zone.max_order_amount' => 'nullable|numeric|min:0|gte:zone.min_order_amount', 'zone.cod_enabled' => 'boolean',
+            'zone.max_order_amount' => 'nullable|numeric|min:0', 'zone.cod_enabled' => 'boolean',
             'zone.estimated_minutes' => 'nullable|integer|min:0', 'zone.priority' => 'nullable|integer|min:0',
         ])['zone'];
         $data = collect($data)->map(fn ($v) => $v === '' ? null : $v)->all();
@@ -207,7 +206,7 @@ class BranchEditor extends Component
             $data += [
                 'status' => app(BranchHoursService::class)->status($this->branch->load('hours')),
                 'zones' => DeliveryZone::where('is_active', true)->orderBy('name_en')->get(),
-                'roles' => Role::where('scope', 'branch')->orderBy('name_en')->get(),
+                'roles' => Role::shared()->where('scope', 'branch')->orderBy('name_en')->get(),
                 'staff' => User::where('type', 'staff')->where('status', 'active')->whereNotIn('id', $this->branch->employeeAssignments->pluck('user_id'))->orderBy('name')->limit(200)->get(['id', 'name', 'email']),
                 'canEdit' => $this->can('branches.edit', $this->branch->id),
                 'canGlobal' => $this->canGlobally('branches.edit'),

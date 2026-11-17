@@ -61,7 +61,7 @@ class MarketCatalogSeeder extends DemoSeeder
         foreach ($zones as [$code, $en, $ar, $numbers, $fee, $remote]) {
             $zone = DeliveryZone::create(['code' => $code, 'name_en' => $en, 'name_ar' => $ar, 'zone_numbers' => $numbers, 'is_remote' => $remote]);
             BranchDeliveryZone::create(['branch_id' => $b['MRK']->id, 'delivery_zone_id' => $zone->id, 'delivery_fee' => number_format($fee, 2, '.', ''),
-                'min_order_amount' => '100.00', 'oversized_surcharge' => '50.00', 'cod_enabled' => true,
+                'oversized_surcharge' => '50.00', 'cod_enabled' => true,
                 'estimated_minutes' => 240, 'priority' => 10]);
         }
     }

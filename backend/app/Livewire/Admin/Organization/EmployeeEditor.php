@@ -6,12 +6,16 @@ use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Branches\Models\BranchEmployee;
+use App\Domain\Branches\Services\BranchEmployeeService;
 use App\Domain\Branches\Services\EmployeeService;
 use App\Domain\Identity\Models\Role;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Identity\Services\TokenService;
+use App\Domain\Identity\Support\BranchFeatureCatalog;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
+use App\Support\Phone;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
@@ -20,9 +24,11 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
- * Staff account: profile, lifecycle status, branch assignments (branch roles), company-wide roles and password reset.
- * Role/assignment changes go through EmployeeService, which enforces authority rules (no self-elevation,
- * cannot grant beyond what the actor holds, super admin only by super admin).
+ * Staff account. A NEW account is a branch employee: profile, the one branch they work at, a temporary password they must change at
+ * first sign-in, and a plain-words checklist of the features they may use (stored as a personal role, see BranchEmployeeService).
+ * An existing account has the profile, the same checklist for each of their branches, the branch assignments (roles), company-wide roles,
+ * and the security tools. Every change goes through a service that enforces authority (no self-elevation, nothing beyond what the actor
+ * holds at that branch, company-wide staff and super admins only by their own authority).
  */
 class EmployeeEditor extends Component
 {
@@ -38,6 +44,15 @@ class EmployeeEditor extends Component
     public string $tab = 'profile';
 
     public array $form = [];
+
+    /** New account: 'branch' (the normal case) or 'company' (company-wide staff such as an accountant; only for those who may grant company-wide roles). */
+    public string $kind = 'branch';
+
+    /** New account: the branch they work at. Existing account: the branch whose checklist is shown. */
+    public string $branchId = '';
+
+    /** @var list<string> the ticked features (BranchFeatureCatalog ids) */
+    public array $features = [];
 
     public array $assign = ['branch_id' => '', 'roles' => [], 'job_title' => '', 'is_delivery_driver' => false];
 
@@ -55,9 +70,13 @@ class EmployeeEditor extends Component
             $this->employee = $employee;
             $this->form = $employee->only(['name', 'email', 'phone', 'job_title', 'locale']);
             $this->globalRoles = $employee->roleAssignments()->whereNull('branch_id')->with('role')->get()->pluck('role.key')->all();
+            $this->branchId = (string) ($this->accessBranches()->first()?->id ?? '');
+            $this->loadFeatures();
         } else {
             abort_unless($this->can('employees.create'), 403);
             $this->form = ['name' => '', 'email' => '', 'phone' => '', 'job_title' => '', 'locale' => 'en', 'password' => ''];
+            $branches = $this->assignableBranches();
+            $this->branchId = $branches->count() === 1 ? (string) $branches->first()->id : '';
         }
     }
 
@@ -90,30 +109,86 @@ class EmployeeEditor extends Component
         return ! BranchEmployee::where('user_id', $employee->id)->exists() && ! $employee->roleAssignments()->exists();
     }
 
-    /**
-     * Whether the actor may change this person's profile, status or password. A branch-level manager may only manage
-     * staff who work exclusively within branches they manage and who hold no company-wide role.
-     */
+    /** Whether the actor may change this person's profile, status or password (one rule, EmployeeService::canManage). */
     private function canManage(): bool
     {
-        $actor = auth()->user();
         $e = $this->employee;
-        if (! $e || $e->is($actor) || ($e->isSuperAdmin() && ! $actor->isSuperAdmin())) {
+        if (! $e) {
             return false;
-        }
-        $acl = app(AccessControl::class);
-        if ($acl->allowsGlobally($actor, 'employees.edit')) {
-            return true;
-        }
-        if ($e->roleAssignments()->whereNull('branch_id')->exists()) {
-            return false;
-        }
-        $branchIds = BranchEmployee::where('user_id', $e->id)->pluck('branch_id');
-        if ($branchIds->isEmpty()) {
-            return $acl->allows($actor, 'employees.edit') && self::unassigned($e);
         }
 
-        return $branchIds->every(fn ($id) => $acl->allows($actor, 'employees.edit', $id));
+        return app(EmployeeService::class)->canManage(
+            auth()->user(),
+            $e,
+            $e->roleAssignments()->whereNull('branch_id')->exists(),
+            BranchEmployee::where('user_id', $e->id)->pluck('branch_id')->all(),
+        );
+    }
+
+    /** Branches the actor may put somebody to work at (employees.assign there). @return Collection<int, Branch> */
+    private function assignableBranches(): Collection
+    {
+        $acl = app(AccessControl::class);
+        $actor = auth()->user();
+
+        return Branch::query()->orderBy('sort_order')->get(['id', 'code', 'name_en', 'name_ar'])
+            ->filter(fn (Branch $b) => $acl->allows($actor, 'employees.assign', $b->id))->values();
+    }
+
+    /**
+     * Existing account: the branches whose checklist the actor may edit (the employee works there and the actor assigns there).
+     * Empty for yourself, a super admin or anyone with a company-wide role: they are not branch employees.
+     *
+     * @return Collection<int, Branch>
+     */
+    private function accessBranches(): Collection
+    {
+        $e = $this->employee;
+        $actor = auth()->user();
+        if (! $e || $e->is($actor) || $e->isSuperAdmin() || $e->roleAssignments()->whereNull('branch_id')->exists()) {
+            return collect();
+        }
+        $mine = BranchEmployee::where('user_id', $e->id)->pluck('branch_id')->all();
+
+        return $this->assignableBranches()->filter(fn (Branch $b) => in_array($b->id, $mine, true))->values();
+    }
+
+    private function loadFeatures(): void
+    {
+        $this->features = $this->employee && $this->branchId !== ''
+            ? app(BranchEmployeeService::class)->featuresOf($this->employee, $this->branchId)
+            : [];
+    }
+
+    /** Another branch's checklist, or (new account) another branch: the choice must be one the actor may use. */
+    public function updatedBranchId(): void
+    {
+        $actor = auth()->user();
+        if ($this->employee) {
+            if (! $this->accessBranches()->contains('id', $this->branchId)) {
+                $this->branchId = (string) ($this->accessBranches()->first()?->id ?? '');
+            }
+            $this->loadFeatures();
+
+            return;
+        }
+        if ($this->branchId !== '' && ! $this->assignableBranches()->contains('id', $this->branchId)) {
+            $this->branchId = '';
+        }
+        // Keep only what the actor may hand out at the chosen branch.
+        $allowed = $this->branchId === '' ? [] : app(BranchEmployeeService::class)->grantable($actor, $this->branchId);
+        $this->features = array_values(array_intersect($this->features, $allowed));
+    }
+
+    public function useCompanyWide(): void
+    {
+        abort_unless($this->employee === null && $this->canGlobally('roles.assign'), 403);
+        $this->kind = 'company';
+    }
+
+    public function useBranch(): void
+    {
+        $this->kind = 'branch';
     }
 
     public function generatePassword(): void
@@ -129,56 +204,93 @@ class EmployeeEditor extends Component
         $this->showPassword = true;
     }
 
-    /** Stored form is lower-case e-mail and a space-free phone, so uniqueness must be checked on that same form. */
+    /** Stored form is lower-case e-mail and an E.164 phone, so uniqueness must be checked on that same form. */
     private function normaliseContact(): void
     {
         $this->form['email'] = strtolower(trim((string) ($this->form['email'] ?? '')));
-        $this->form['phone'] = preg_replace('/\s+/', '', (string) ($this->form['phone'] ?? ''));
+        $phone = trim((string) ($this->form['phone'] ?? ''));
+        $this->form['phone'] = $phone === '' ? '' : (Phone::normalize($phone) ?? $phone);
     }
 
-    public function create(EmployeeService $svc)
+    /** @return array<string, mixed> */
+    private function contactRules(?string $ignoreId = null): array
+    {
+        $phoneOk = function (string $attribute, mixed $value, \Closure $fail): void {
+            if (is_string($value) && $value !== '' && ! Phone::isValid($value)) {
+                $fail(__('branch_access.phone_invalid'));
+            }
+        };
+        $email = Rule::unique('users', 'email');
+        $phone = Rule::unique('users', 'phone');
+        if ($ignoreId) {
+            $email->ignore($ignoreId);
+            $phone->ignore($ignoreId);
+        }
+
+        return [
+            'form.name' => 'required|string|max:120',
+            'form.email' => ['nullable', 'required_without:form.phone', 'email', 'max:191', $email],
+            'form.phone' => ['nullable', 'required_without:form.email', 'string', 'max:20', $phoneOk, $phone],
+            'form.job_title' => 'nullable|string|max:120',
+            'form.locale' => 'required|in:en,ar',
+        ];
+    }
+
+    public function create(EmployeeService $svc, BranchEmployeeService $branchSvc)
     {
         abort_unless($this->can('employees.create'), 403);
         $this->normaliseContact();
-        $data = $this->validate([
-            'form.name' => 'required|string|max:120',
-            'form.email' => 'required|email|max:191|unique:users,email',
-            'form.phone' => ['nullable', 'string', 'max:20', 'regex:/^\+?[0-9 ]{8,20}$/', 'unique:users,phone'],
-            'form.job_title' => 'nullable|string|max:120',
-            'form.locale' => 'required|in:en,ar',
-            'form.password' => ['required', Password::min(12)->mixedCase()->numbers()],
-        ], [], $this->attributeNames())['form'];
-        $data['phone'] = $data['phone'] ? preg_replace('/\s+/', '', $data['phone']) : null;
+        $company = $this->kind === 'company';
+        abort_if($company && ! $this->canGlobally('roles.assign'), 403);
 
-        $user = $this->attempt(fn () => $svc->create(auth()->user(), $data));
-        if ($user instanceof User) {
-            if ($this->embedded) {
-                $this->dispatch('toast', type: 'success', message: __('org_admin.employee_created'));
-
-                // The list closes this window and opens the new employee's, straight on the access tab (their first job: a branch and a role).
-                $this->dispatch('record-created', id: $user->id, tab: 'access');
-
-                return null;
-            }
-            session()->flash('toast', ['type' => 'success', 'message' => __('org_admin.employee_created')]);
-
-            return $this->redirectRoute('admin.employees.edit', ['employee' => $user, 'tab' => 'access'], navigate: true);
+        $rules = $this->contactRules() + ['form.password' => ['required', Password::min(12)->mixedCase()->numbers()]];
+        if (! $company) {
+            $rules += [
+                'branchId' => ['required', 'uuid', 'exists:branches,id'],
+                'features' => ['required', 'array', 'min:1'],
+                'features.*' => ['string', Rule::in(BranchFeatureCatalog::ids())],
+            ];
         }
+        $data = $this->validate($rules, [
+            'features.required' => __('branch_access.features_required'),
+            'features.min' => __('branch_access.features_required'),
+            'form.email.required_without' => __('branch_access.contact_required'),
+            'form.phone.required_without' => __('branch_access.contact_required'),
+        ], $this->attributeNames());
+        $form = $data['form'];
+        $form['email'] = $form['email'] ? strtolower($form['email']) : null;
+        $form['phone'] = $form['phone'] ?: null;
+
+        $user = $company
+            ? $this->attempt(fn () => $svc->create(auth()->user(), $form))
+            : $this->attempt(fn () => $branchSvc->create(auth()->user(), Branch::findOrFail($data['branchId']), $form, $data['features']));
+        if (! $user instanceof User) {
+            return null;
+        }
+        $message = $company ? __('org_admin.employee_created') : __('branch_access.employee_added');
+        if ($this->embedded) {
+            $this->dispatch('toast', type: 'success', message: $message);
+
+            // The list closes this window and opens the new employee's, straight on the access tab.
+            $this->dispatch('record-created', id: $user->id, tab: 'access');
+
+            return null;
+        }
+        session()->flash('toast', ['type' => 'success', 'message' => $message]);
+
+        return $this->redirectRoute('admin.employees.edit', ['employee' => $user, 'tab' => 'access'], navigate: true);
     }
 
     public function saveProfile(AuditLogger $audit): void
     {
         abort_unless($this->canManage(), 403);
         $this->normaliseContact();
-        $data = $this->validate([
-            'form.name' => 'required|string|max:120',
-            'form.email' => ['required', 'email', 'max:191', Rule::unique('users', 'email')->ignore($this->employee->id)],
-            'form.phone' => ['nullable', 'string', 'max:20', 'regex:/^\+?[0-9 ]{8,20}$/', Rule::unique('users', 'phone')->ignore($this->employee->id)],
-            'form.job_title' => 'nullable|string|max:120',
-            'form.locale' => 'required|in:en,ar',
-        ], [], $this->attributeNames())['form'];
-        $data['email'] = strtolower($data['email']);
-        $data['phone'] = $data['phone'] ? preg_replace('/\s+/', '', $data['phone']) : null;
+        $data = $this->validate($this->contactRules($this->employee->id), [
+            'form.email.required_without' => __('branch_access.contact_required'),
+            'form.phone.required_without' => __('branch_access.contact_required'),
+        ], $this->attributeNames())['form'];
+        $data['email'] = $data['email'] ? strtolower($data['email']) : null;
+        $data['phone'] = $data['phone'] ?: null;
         $this->employee->fill($data);
         $dirty = $this->employee->getDirty();
         $old = array_intersect_key($this->employee->getOriginal(), $dirty);
@@ -201,8 +313,10 @@ class EmployeeEditor extends Component
     {
         abort_unless($this->canManage(), 403);
         $this->validate(['newPassword' => ['required', Password::min(12)->mixedCase()->numbers()]], [], ['newPassword' => __('admin.new_password')]);
-        $this->employee->forceFill(['password' => $this->newPassword, 'remember_token' => Str::random(60)])->save();
+        // The new password is temporary: the person must choose their own at the next sign-in, and every device they were signed in on is signed out.
+        $this->employee->forceFill(['password' => $this->newPassword, 'must_change_password' => true, 'remember_token' => Str::random(60)])->save();
         $tokens->revokeAll($this->employee, 'password_reset');
+        $tokens->forgetWebSessions($this->employee);
         $audit->log('employee.password_reset', $this->employee);
         $this->reset('newPassword', 'showPassword');
         $this->toast(__('org_admin.password_reset_done'));
@@ -223,12 +337,29 @@ class EmployeeEditor extends Component
         $this->toast(__('org_admin.two_factor_turned_off'));
     }
 
+    /** Saves the ticked features for the chosen branch. The service re-checks every permission against what the actor holds there. */
+    public function saveFeatures(BranchEmployeeService $svc): void
+    {
+        abort_unless($this->employee && $this->accessBranches()->contains('id', $this->branchId), 403);
+        $data = $this->validate([
+            'features' => ['required', 'array', 'min:1'],
+            'features.*' => ['string', Rule::in(BranchFeatureCatalog::ids())],
+        ], ['features.required' => __('branch_access.features_required'), 'features.min' => __('branch_access.features_required')]);
+        $branch = Branch::findOrFail($this->branchId);
+        $ok = $this->attempt(fn () => $svc->setFeatures(auth()->user(), $this->employee, $branch, $data['features']), __('branch_access.saved'));
+        $this->employee->refresh();
+        if ($ok) {
+            $this->loadFeatures();
+        }
+    }
+
     public function editAssignment(string $branchId): void
     {
         $a = BranchEmployee::where('user_id', $this->employee->id)->where('branch_id', $branchId)->firstOrFail();
         $this->assign = [
             'branch_id' => $branchId,
-            'roles' => $this->employee->roleAssignments()->where('branch_id', $branchId)->with('role')->get()->pluck('role.key')->all(),
+            'roles' => $this->employee->roleAssignments()->where('branch_id', $branchId)->with('role')->get()
+                ->reject(fn ($ur) => $ur->role->isPersonal())->pluck('role.key')->values()->all(),
             'job_title' => (string) $a->job_title,
             'is_delivery_driver' => (bool) $a->is_delivery_driver,
         ];
@@ -242,8 +373,8 @@ class EmployeeEditor extends Component
             'assign.job_title' => 'nullable|string|max:120',
             'assign.is_delivery_driver' => 'boolean',
         ], [], ['assign.branch_id' => __('admin.branch')])['assign'];
-        // Branch assignments may only carry branch-scoped roles.
-        if (Role::whereIn('key', $data['roles'])->where('scope', '!=', 'branch')->exists()) {
+        // Branch assignments may only carry shared, branch-scoped roles (a personal checklist is saved from "Feature access").
+        if (Role::whereIn('key', $data['roles'])->where(fn ($q) => $q->where('scope', '!=', 'branch')->orWhereNotNull('personal_user_id'))->exists()) {
             $this->addError('assign.roles', __('org_admin.branch_roles_only'));
 
             return;
@@ -252,6 +383,8 @@ class EmployeeEditor extends Component
         $ok = $this->attempt(fn () => $svc->assignToBranch(auth()->user(), $this->employee, $branch, $data['roles'], $data['job_title'] ?: null, (bool) $data['is_delivery_driver']), __('org_admin.assignment_saved'));
         if ($ok) {
             $this->reset('assign');
+            $this->employee->refresh();
+            $this->loadFeatures();
         }
     }
 
@@ -265,6 +398,10 @@ class EmployeeEditor extends Component
     {
         $branch = Branch::findOrFail($branchId);
         $this->attempt(fn () => $svc->removeFromBranch(auth()->user(), $this->employee, $branch), __('org_admin.assignment_removed'));
+        if ($this->branchId === $branchId) {
+            $this->branchId = (string) ($this->accessBranches()->first()?->id ?? '');
+        }
+        $this->loadFeatures();
     }
 
     public function saveGlobalRoles(EmployeeService $svc): void
@@ -276,26 +413,72 @@ class EmployeeEditor extends Component
     private function attributeNames(): array
     {
         return ['form.name' => __('admin.name'), 'form.email' => __('admin.email'), 'form.phone' => __('org_admin.phone'),
-            'form.job_title' => __('org_admin.job_title'), 'form.password' => __('admin.password')];
+            'form.job_title' => __('org_admin.job_title'), 'form.password' => __('admin.password'), 'branchId' => __('admin.branch'),
+            'features' => __('branch_access.features')];
+    }
+
+    /**
+     * What the feature picker needs: every group with its texts, the dependency map, the presets, and which features the actor may switch.
+     *
+     * @param  list<string>  $grantable
+     * @return array<string, mixed>
+     */
+    private function pickerData(array $grantable): array
+    {
+        $needs = BranchFeatureCatalog::needsMap();
+        $groups = [];
+        foreach (BranchFeatureCatalog::groups() as $group => $ids) {
+            $groups[] = [
+                'id' => $group,
+                'label' => BranchFeatureCatalog::groupLabel($group),
+                'features' => array_map(fn (string $id) => [
+                    'id' => $id, 'label' => BranchFeatureCatalog::label($id), 'hint' => BranchFeatureCatalog::hint($id),
+                    'needs' => array_map(fn (string $n) => BranchFeatureCatalog::label($n), $needs[$id]),
+                ], $ids),
+            ];
+        }
+        $presets = [];
+        foreach (BranchFeatureCatalog::presets() as $id => $set) {
+            $presets[] = ['id' => $id, 'label' => BranchFeatureCatalog::presetLabel($id), 'hint' => __('branch_access.preset_'.$id.'_hint'), 'features' => BranchFeatureCatalog::withNeeds($set)];
+        }
+
+        return ['groups' => $groups, 'presets' => $presets, 'needs' => $needs, 'allIds' => BranchFeatureCatalog::ids(), 'grantable' => $grantable];
     }
 
     public function render()
     {
         $acl = app(AccessControl::class);
+        $branchSvc = app(BranchEmployeeService::class);
         $actor = auth()->user();
         $data = ['isSelf' => $this->employee?->is($actor) ?? false];
         if ($this->employee) {
             $this->employee->load(['branchAssignments.branch:id,code,name_en,name_ar', 'roleAssignments.role']);
-            $assignable = Branch::query()->orderBy('sort_order')->get(['id', 'code', 'name_en', 'name_ar'])
-                ->filter(fn ($b) => $acl->allows($actor, 'employees.assign', $b->id))->values();
+            $assignable = $this->assignableBranches();
+            $accessBranches = $this->accessBranches();
+            $canEditFeatures = $accessBranches->contains('id', $this->branchId);
+            $grantable = $canEditFeatures ? $branchSvc->grantable($actor, $this->branchId) : [];
+            $shared = $this->employee->roleAssignments->where('branch_id', $this->branchId)->filter(fn ($ur) => ! $ur->role->isPersonal())->map(fn ($ur) => $ur->role->localized('name'))->values();
             $data += [
                 'canManage' => $this->canManage(),
                 'assignableBranches' => $assignable,
-                'branchRoles' => Role::where('scope', 'branch')->orderBy('name_en')->get(),
-                'globalRoleOptions' => Role::where('scope', 'global')->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('key', '!=', Role::SUPER_ADMIN))->orderBy('name_en')->get(),
+                'accessBranches' => $accessBranches,
+                'canEditFeatures' => $canEditFeatures,
+                'picker' => $this->pickerData($grantable),
+                'baseline' => $canEditFeatures ? $branchSvc->featuresOf($this->employee, $this->branchId) : [],
+                'replacedRoles' => $shared,
+                'readOnlyFeatures' => $canEditFeatures ? [] : ($branchSvc->featuresForList([$this->employee])[$this->employee->id] ?? []),
+                'branchRoles' => Role::shared()->where('scope', 'branch')->orderBy('name_en')->get(),
+                'globalRoleOptions' => Role::shared()->where('scope', 'global')->when(! $actor->isSuperAdmin(), fn ($q) => $q->where('key', '!=', Role::SUPER_ADMIN))->orderBy('name_en')->get(),
                 'canAssignGlobal' => $acl->allowsGlobally($actor, 'roles.assign') && ! $data['isSelf'],
                 'rolesByBranch' => $this->employee->roleAssignments->whereNotNull('branch_id')->groupBy('branch_id'),
                 'recentActivity' => AuditLog::with('actor:id,name')->where('auditable_type', 'User')->where('auditable_id', $this->employee->id)->latest('id')->limit(8)->get(),
+            ];
+        } else {
+            $branches = $this->assignableBranches();
+            $data += [
+                'newBranches' => $branches,
+                'picker' => $this->pickerData($this->branchId !== '' ? $branchSvc->grantable($actor, $this->branchId) : []),
+                'canCompanyWide' => $this->canGlobally('roles.assign'),
             ];
         }
 

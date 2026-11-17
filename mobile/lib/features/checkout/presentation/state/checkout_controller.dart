@@ -92,7 +92,10 @@ class CheckoutState {
     return null;
   }
 
-  bool get canPlace => quote != null && quote!.canPlaceOrder && !quoting && !placing && missingRequirement == null;
+  /// The totals on screen belong to the choices made (a refresh that failed leaves the last good quote on screen, but it is no longer
+  /// the quote of what the customer chose, so it never places an order).
+  bool get canPlace =>
+      quote != null && quote!.canPlaceOrder && !quoting && !placing && quoteError == null && missingRequirement == null;
 
   CheckoutState copyWith({
     CheckoutOptions? options,
@@ -160,7 +163,12 @@ class CheckoutController extends Notifier<CheckoutState> {
       );
     });
     // The dashboard can switch the question off (or on) while the screen is open.
-    ref.listen(alternatePhoneEnabledProvider, (_, enabled) => state = state.copyWith(alternateEnabled: enabled));
+    ref.listen(alternatePhoneEnabledProvider, (_, enabled) {
+      if (enabled == state.alternateEnabled) return;
+      state = state.copyWith(alternateEnabled: enabled);
+      // An `alternate_phone_*` answer of the last quote must not keep holding the order back (or be missing) now the question changed.
+      if (state.quote != null) unawaited(refreshQuote());
+    });
     return CheckoutState(
       options: CheckoutOptions(
         fulfillmentType: type,
@@ -435,6 +443,8 @@ class CheckoutController extends Notifier<CheckoutState> {
         return null;
       }
       state = state.copyWith(placing: false, placeError: () => e);
+      // The server refused for a reason the totals may show (stock, a limit, a coupon): look again so the screen says what is true now.
+      if (e.statusCode == 409 || e.statusCode == 422) unawaited(refreshQuote());
       return null;
     } catch (e) {
       if (ref.mounted) state = state.copyWith(placing: false, placeError: () => e);

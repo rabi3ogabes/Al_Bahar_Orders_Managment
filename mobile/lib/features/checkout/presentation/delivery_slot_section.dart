@@ -306,7 +306,9 @@ class _SlotPickerSectionState extends ConsumerState<SlotPickerSection> {
   void initState() {
     super.initState();
     _date = widget.selectedDate;
-    final provider = _delivery ? deliverySlotWindowProvider(widget.branchId) : pickupSlotWindowProvider(widget.branchId);
+    final provider = _delivery
+        ? deliverySlotWindowProvider(widget.branchId)
+        : pickupSlotWindowProvider(widget.branchId);
     ref.listenManual<AsyncValue<SlotWindow>>(provider, (_, next) {
       if (next.isLoading || !next.hasValue) return;
       _window = next.value;
@@ -367,7 +369,9 @@ class _SlotPickerSectionState extends ConsumerState<SlotPickerSection> {
       helpText: context.l10n.deliverySlotMoreDates,
       firstDate: first,
       lastDate: first.add(const Duration(days: 29)),
-      initialDate: initial == null || initial.isBefore(first) ? first : DateTime(initial.year, initial.month, initial.day),
+      initialDate: initial == null || initial.isBefore(first)
+          ? first
+          : DateTime(initial.year, initial.month, initial.day),
     );
     if (picked == null || !mounted) return;
     setState(() {

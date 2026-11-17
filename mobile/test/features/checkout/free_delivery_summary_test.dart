@@ -194,7 +194,8 @@ void main() {
     testWidgets('a screen reader hears one sentence: free with the code, and what the fee was', (t) async {
       final handle = t.ensureSemantics();
       await _pump(t, _shop(coupon: true, total: '100.00'));
-      final sentence = '${_en.deliveryFee}. ${_en.deliveryFreeWithCode('FREESHIP')}. ${_en.deliveryFeeWas('QAR 25.00')}';
+      final sentence =
+          '${_en.deliveryFee}. ${_en.deliveryFreeWithCode('FREESHIP')}. ${_en.deliveryFeeWas('QAR 25.00')}';
       expect(find.bySemanticsLabel(sentence), findsOneWidget);
       handle.dispose();
     });
@@ -202,7 +203,12 @@ void main() {
     testWidgets('Arabic on a small phone with larger text: the line fits and keeps its words', (t) async {
       t.platformDispatcher.textScaleFactorTestValue = 1.3;
       addTearDown(t.platformDispatcher.clearAllTestValues);
-      await _pump(t, _shop(coupon: true, total: '100.00'), locale: const Locale('ar'), size: const Size(320, 3200));
+      await _pump(
+        t,
+        _shop(coupon: true, total: '100.00'),
+        locale: const Locale('ar'),
+        size: const Size(320, 3200),
+      );
       final row = find.byType(DeliveryFeeRow);
       expect(row, findsOneWidget);
       expect(find.descendant(of: row, matching: find.text(_ar.free)), findsOneWidget);

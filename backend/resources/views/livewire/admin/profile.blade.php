@@ -1,6 +1,13 @@
 <div class="mx-auto max-w-5xl">
     <x-admin.page-header :title="__('admin.profile')" :eyebrow="__('admin.account')" :description="__('admin.profile_hint')" />
 
+    @if ($user->must_change_password)
+        <div class="mb-6 flex items-start gap-3 rounded-2xl border border-amber-soft/30 bg-amber-soft/5 p-4 text-sm text-ink-700 dark:text-sand-200" role="alert">
+            <x-icon name="lock" class="mt-0.5 size-4 shrink-0 text-amber-soft" />
+            <div><p class="font-medium">{{ __('branch_access.must_change_title') }}</p><p class="mt-0.5 text-ink-500">{{ __('branch_access.must_change_body') }}</p></div>
+        </div>
+    @endif
+
     <div class="grid gap-6 lg:grid-cols-3">
         <div class="card card-pad lg:col-span-1">
             <div class="flex items-center gap-4">
@@ -11,7 +18,7 @@
                 <div><dt class="text-ink-500">{{ __('admin.roles') }}</dt>
                     <dd class="mt-1.5 flex flex-wrap gap-1.5">
                         @if ($user->isSuperAdmin())<span class="badge-brass">{{ __('admin.super_admin') }}</span>@endif
-                        @foreach ($user->roles as $role)<span class="badge-neutral">{{ $role->localized('name') }}</span>@endforeach
+                        @foreach ($user->roles->unique('id') as $role)<span class="badge-neutral">{{ $role->isPersonal() ? __('branch_access.personal_role') : $role->localized('name') }}</span>@endforeach
                     </dd></div>
                 <div><dt class="text-ink-500">{{ __('admin.branches') }}</dt>
                     <dd class="mt-1.5 flex flex-wrap gap-1.5">@forelse ($user->branches as $b)<span class="badge-neutral">{{ $b->localized('name') }}</span>@empty<span class="text-ink-400">{{ __('admin.company_wide') }}</span>@endforelse</dd></div>

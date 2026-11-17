@@ -18,8 +18,11 @@ class BranchDeliveryZone extends Pivot
 
     protected $guarded = ['id'];
 
-    /** The column `free_delivery_threshold` is no longer used (always NULL): free delivery now only comes from a coupon code. It is never sent out. */
-    protected $hidden = ['free_delivery_threshold'];
+    /**
+     * Two columns are no longer used (always NULL) and are never sent out: `free_delivery_threshold` (free delivery now only comes from a coupon code)
+     * and `min_order_amount` (there is no minimum order any more, docs/api/CHECKOUT_FEES_V2.md section 2).
+     */
+    protected $hidden = ['free_delivery_threshold', 'min_order_amount'];
 
     protected $casts = ['cod_enabled' => 'boolean', 'express_enabled' => 'boolean', 'is_active' => 'boolean'];
 

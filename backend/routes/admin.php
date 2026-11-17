@@ -98,6 +98,7 @@ Route::get('appearance/footer', Admin\Content\AppFooterIndex::class)->middleware
 Route::get('appearance/background', Admin\Content\BackdropIndex::class)->middleware('permission:cms.view')->name('appearance.background');
 Route::get('pages', Admin\Content\PageIndex::class)->middleware('permission:cms.view')->name('pages.index');
 Route::get('notification-templates', Admin\Content\NotificationTemplateIndex::class)->middleware('permission:notifications.view')->name('notification-templates.index');
+Route::get('notification-rules', Admin\Content\NotificationRulesIndex::class)->middleware('permission:notifications.view')->name('notification-rules');
 
 // ── Insights ──────────────────────────────────────────────────────────────────
 Route::get('app-updates', Admin\Organization\AppUpdatesPage::class)->middleware('permission:settings.view')->name('app-updates.index');

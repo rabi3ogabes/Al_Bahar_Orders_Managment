@@ -19,6 +19,7 @@ import { Rail } from '../components/Rail';
 import { ProductCard } from '../components/ProductCard';
 import { Badge, Breadcrumbs, Button, EmptyState, Input, Pic, PriceTag, QtyStepper, Rating, Skeleton } from '../components/ui';
 import { AttributePicker, useVariantPicker } from '../components/AttributePicker';
+import { ExtraDeliveryNote } from '../components/ExtraDeliveryNote';
 import { ReviewWindow } from '../components/windows';
 
 function Accordion({ title, children, open: o = false }: { title: string; children: React.ReactNode; open?: boolean }) {
@@ -183,6 +184,7 @@ export default function Product() {
           <h1 className="mt-2 text-[clamp(34px,4.5vw,56px)] leading-[1.02]">{p.name}</h1>
           <div className="mt-3 flex flex-wrap items-center gap-4">{p.rating.count > 0 && <Rating value={p.rating.average} count={p.rating.count} />}<span className="text-xs text-muted">SKU {variant?.sku ?? p.sku}</span></div>
           <div className="mt-5"><PriceTag price={price} size="lg" /></div>
+          <ExtraDeliveryNote p={p} className="mt-3" />
           {p.short_description && <p className="mt-5 text-[16px] leading-relaxed text-ink-soft">{p.short_description}</p>}
 
           <AttributePicker p={p} picker={picker} />

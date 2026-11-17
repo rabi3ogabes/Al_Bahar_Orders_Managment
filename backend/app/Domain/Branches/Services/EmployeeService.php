@@ -29,6 +29,37 @@ class EmployeeService
         private readonly TokenService $tokens,
     ) {}
 
+    /**
+     * Whether the actor may change this person's profile, status or password. Company-wide authority (employees.edit without a branch)
+     * may manage anyone except a super admin; a branch manager only staff who work exclusively in branches they manage and hold no
+     * company-wide role. Nobody manages themselves. One rule for the editor, the list's status switch and this service.
+     *
+     * @param  list<string>  $branchIds  the branches the employee is assigned to
+     */
+    public function canManage(User $actor, User $employee, bool $hasGlobalRole, array $branchIds): bool
+    {
+        if ($employee->is($actor) || ($employee->isSuperAdmin() && ! $actor->isSuperAdmin())) {
+            return false;
+        }
+        if ($this->access->allowsGlobally($actor, 'employees.edit')) {
+            return true;
+        }
+        if ($hasGlobalRole) {
+            return false;
+        }
+        if ($branchIds === []) {
+            return $this->access->allows($actor, 'employees.edit') && ! UserRole::where('user_id', $employee->id)->exists();
+        }
+
+        foreach ($branchIds as $branchId) {
+            if (! $this->access->allows($actor, 'employees.edit', $branchId)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public function create(User $actor, array $data): User
     {
         $this->assertCan($actor, 'employees.create', null);
@@ -40,6 +71,7 @@ class EmployeeService
             'phone' => $data['phone'] ?? null,
             'job_title' => $data['job_title'] ?? null,
             'password' => $data['password'],
+            'must_change_password' => true,
             'locale' => $data['locale'] ?? 'en',
         ]);
         $this->audit->log('employee.created', $user, [], $user->only(['name', 'email', 'job_title']), actor: $actor);
@@ -71,6 +103,7 @@ class EmployeeService
             foreach ($roles as $role) {
                 UserRole::create(['user_id' => $employee->id, 'role_id' => $role->id, 'branch_id' => $branch->id, 'assigned_by' => $actor->id]);
             }
+            $this->dropPersonalRole($employee, $branch->id);
             $this->access->forget($employee);
             $this->audit->log('employee.branch_assigned', $employee, ['roles' => $before], ['roles' => $roles->pluck('key')->all(), 'job_title' => $jobTitle], ['branch_id' => $branch->id], branchId: $branch->id, actor: $actor);
 
@@ -84,6 +117,9 @@ class EmployeeService
         $this->assertCan($actor, 'employees.assign', $assignment->branch_id);
         $assignment->update(['is_active' => $active]);
         $this->access->forget($assignment->user);
+        if (! $active) {
+            $this->endSessionsWithoutAccess($assignment->user);
+        }
         $this->audit->log($active ? 'employee.branch_activated' : 'employee.branch_deactivated', $assignment->user, [], [], ['branch_id' => $assignment->branch_id], branchId: $assignment->branch_id, actor: $actor);
     }
 
@@ -94,8 +130,10 @@ class EmployeeService
         DB::transaction(function () use ($employee, $branch) {
             UserRole::where('user_id', $employee->id)->where('branch_id', $branch->id)->delete();
             BranchEmployee::where('user_id', $employee->id)->where('branch_id', $branch->id)->delete();
+            $this->dropPersonalRole($employee, $branch->id);
         });
         $this->access->forget($employee);
+        $this->endSessionsWithoutAccess($employee);
         $this->audit->log('employee.branch_removed', $employee, [], [], ['branch_id' => $branch->id], branchId: $branch->id, actor: $actor);
     }
 
@@ -146,6 +184,7 @@ class EmployeeService
         $employee->update(['status' => $status]);
         if ($status !== 'active') {
             $this->tokens->revokeAll($employee, 'deactivated');
+            $this->tokens->forgetWebSessions($employee);
         }
         $this->access->forget($employee);
         $this->audit->log('employee.status_changed', $employee, ['status' => $old], ['status' => $status], actor: $actor);
@@ -168,8 +207,33 @@ class EmployeeService
         }
     }
 
+    /**
+     * Signs the person out everywhere once no branch assignment of theirs is active any more (and they hold no company-wide role):
+     * their tokens would only ever answer 403, so there is no reason to keep them alive.
+     */
+    private function endSessionsWithoutAccess(User $employee): void
+    {
+        $stillWorks = BranchEmployee::where('user_id', $employee->id)->where('is_active', true)->exists()
+            || UserRole::where('user_id', $employee->id)->whereNull('branch_id')->exists();
+        if (! $stillWorks && ! $employee->isSuperAdmin()) {
+            $this->tokens->revokeAll($employee, 'no_branch_access');
+            $this->tokens->forgetWebSessions($employee);
+        }
+    }
+
+    /** A personal feature role that no assignment uses any more is deleted (its permission rows go with it). */
+    private function dropPersonalRole(User $employee, string $branchId): void
+    {
+        Role::where('personal_user_id', $employee->id)->where('personal_branch_id', $branchId)
+            ->whereNotExists(fn ($q) => $q->from('user_roles')->whereColumn('user_roles.role_id', 'roles.id'))->delete();
+    }
+
     private function assertCanGrantRole(User $actor, Role $role, ?string $branchId): void
     {
+        // A personal checklist role belongs to one employee at one branch: it is changed through BranchEmployeeService only.
+        if ($role->isPersonal()) {
+            throw DomainException::make('cannot_grant_beyond_authority', 403);
+        }
         if ($actor->isSuperAdmin()) {
             return;
         }

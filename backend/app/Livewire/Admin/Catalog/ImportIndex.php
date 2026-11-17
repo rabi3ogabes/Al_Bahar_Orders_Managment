@@ -45,7 +45,7 @@ class ImportIndex extends Component
     public function template()
     {
         $example = ['OSLO-3S-OAK', 'Oslo three-seater sofa', 'كنبة أوسلو ثلاثية', '4250.00', '3990.00', 'draft', 'sofas', '', '6291234567890',
-            'Soft linen, solid oak legs', 'كتان ناعم وأرجل من خشب البلوط', '', '', '68', '220', '95', '85', '1', '1', '0', '1', '1', 'linen,oak'];
+            'Soft linen, solid oak legs', 'كتان ناعم وأرجل من خشب البلوط', '', '', '68', '220', '95', '85', '1', '1', '0', '1', '1', 'linen,oak', '0.00', 'per_unit'];
 
         return response()->streamDownload(function () use ($example) {
             $out = fopen('php://output', 'w');

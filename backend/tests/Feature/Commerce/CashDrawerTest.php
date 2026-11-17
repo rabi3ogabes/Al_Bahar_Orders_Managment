@@ -16,7 +16,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
-/** One COD order (QAR 275.00 = lamp 250 + delivery 15 + COD fee 10) whose payment $collector collects. */
+/** One COD order (QAR 275.00 = lamp 260 + delivery 15) whose payment $collector collects. */
 function collectCod(object $w, User $collector, string $tender = 'cash'): CashCollection
 {
     test()->postJson('/api/v1/cart/items', ['variant_id' => $w->v2->id, 'quantity' => 1])->assertCreated();
@@ -39,6 +39,7 @@ function drawerCode(callable $fn): ?string
 
 beforeEach(function () {
     $this->w = commerceWorld([5, 5]);
+    $this->w->p2->update(['price' => '260.00']); // every collection is QAR 275.00 (lamp 260 + delivery 15)
     $this->driver = staffWithRole('delivery_employee', $this->w->a);
     $this->cashier = staffWithRole('branch_manager', $this->w->a);
     $this->finance = staffWithRole('accountant');

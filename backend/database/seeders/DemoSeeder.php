@@ -104,7 +104,7 @@ class DemoSeeder extends Seeder
             $zone = DeliveryZone::create(['code' => $z[0], 'name_en' => $z[1], 'name_ar' => $z[2], 'zone_numbers' => $z[3], 'is_remote' => $z[4] ?? false]);
             foreach ($map[$z[0]] as $code => [$fee, $priority]) {
                 BranchDeliveryZone::create(['branch_id' => $b[$code]->id, 'delivery_zone_id' => $zone->id, 'delivery_fee' => number_format($fee, 2, '.', ''),
-                    'min_order_amount' => '100.00', 'oversized_surcharge' => '50.00', 'cod_enabled' => $code !== 'LUS' || $z[0] !== 'KHOR',
+                    'oversized_surcharge' => '50.00', 'cod_enabled' => $code !== 'LUS' || $z[0] !== 'KHOR',
                     'estimated_minutes' => $fee === 0 ? 120 : 240, 'priority' => $priority, 'express_enabled' => $fee <= 15, 'express_fee' => $fee <= 15 ? '35.00' : null]);
             }
         }

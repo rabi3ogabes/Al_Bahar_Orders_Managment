@@ -72,7 +72,6 @@ class SettingsIndex extends Component
             ],
             'checkout' => [
                 'checkout.service_fee' => ['type' => 'money', 'rules' => $money],
-                'checkout.cod_fee' => ['type' => 'money', 'rules' => $money],
                 'checkout.tax_rate_percent' => ['type' => 'percent', 'rules' => ['required', 'numeric', 'min:0', 'max:100']],
                 'checkout.reservation_ttl_minutes' => ['type' => 'int', 'rules' => $int(5, 1440), 'suffix' => 'min'],
                 'checkout.max_quantity_per_line' => ['type' => 'int', 'rules' => $int(1, 999)],

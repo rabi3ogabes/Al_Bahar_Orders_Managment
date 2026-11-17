@@ -63,6 +63,7 @@
         'download' => '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>',
         'upload' => '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>',
         'filter' => '<path d="M22 3H2l8 9.5V19l4 2v-8.5z"/>',
+        'sliders' => '<path d="M21 4h-7M10 4H3"/><path d="M21 12h-9M8 12H3"/><path d="M21 20h-5M12 20H3"/><path d="M14 2v4M8 10v4M16 18v4"/>',
         'more' => '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
         'menu' => '<path d="M4 6h16M4 12h16M4 18h16"/>',
         'refresh' => '<path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5M3 21v-5h5"/>',

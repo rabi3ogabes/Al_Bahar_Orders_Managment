@@ -227,6 +227,12 @@ class PurchaseAvailability {
   final String? reason;
 }
 
+/// `extra_delivery_fee_mode`: charged for every unit of the product in the order.
+const extraDeliveryPerUnit = 'per_unit';
+
+/// `extra_delivery_fee_mode`: charged once for the product, whatever the quantity.
+const extraDeliveryPerLine = 'per_line';
+
 @immutable
 class ProductDetail {
   const ProductDetail({
@@ -253,6 +259,8 @@ class ProductDetail {
     required this.shareUrl,
     this.deliveryAvailable,
     this.pickupAvailable,
+    this.extraDeliveryFee,
+    this.extraDeliveryFeeMode = extraDeliveryPerUnit,
   });
 
   factory ProductDetail.fromJson(JsonMap json) {
@@ -279,13 +287,35 @@ class ProductDetail {
       availability: json['availability'] is Map
           ? PurchaseAvailability.fromJson(asMap(json['availability']))
           : const PurchaseAvailability(purchasable: true),
-      related: mapList(json['related'], ProductSummary.fromJson),
-      upsell: mapList(json['upsell'], ProductSummary.fromJson),
+      related: _suggestions(json['related'], summary.id),
+      upsell: _suggestions(json['upsell'], summary.id),
       shareUrl: asStringOrNull(json['share_url']),
       // Optional fulfilment hints (see API_ASSUMPTIONS.md); null = unknown.
       deliveryAvailable: asBoolOrNull(asMapOrNull(json['fulfillment'])?['delivery']),
       pickupAvailable: asBoolOrNull(asMapOrNull(json['fulfillment'])?['pickup']),
+      extraDeliveryFee: _extraFee(json['extra_delivery_fee'], summary.price?.finalPrice.currency ?? 'QAR'),
+      extraDeliveryFeeMode: json['extra_delivery_fee_mode'] == extraDeliveryPerLine
+          ? extraDeliveryPerLine
+          : extraDeliveryPerUnit,
     );
+  }
+
+  /// Related / "complete the set" products: never the product itself, each product once (a card image flies with a tag
+  /// that has to be unique on the page).
+  static List<ProductSummary> _suggestions(Object? raw, String ownId) {
+    final seen = <String>{ownId};
+    return mapList(raw, ProductSummary.fromJson).where((p) => seen.add(p.id)).toList();
+  }
+
+  /// The extra delivery fee of a bulky product, from a money object or a plain decimal ("50.00" / 50).
+  /// Missing, zero, negative or unreadable values mean "no extra fee" (null).
+  static Money? _extraFee(Object? raw, String currency) {
+    // A bare decimal is shown with two places ("35.5" -> "QAR 35.50"); a money object keeps what the server formatted.
+    final Object? value = raw is num || raw is String
+        ? asDoubleOrNull(raw is String ? raw.trim() : raw)?.toStringAsFixed(2)
+        : raw;
+    final fee = Money.lenient(value, currency: currency);
+    return fee != null && fee.displayValue > 0 && fee.displayValue.isFinite ? fee : null;
   }
 
   final ProductSummary summary;
@@ -313,6 +343,14 @@ class ProductDetail {
   final String? shareUrl;
   final bool? deliveryAvailable;
   final bool? pickupAvailable;
+
+  /// Extra delivery fee added for this bulky product (null = none). See [extraDeliveryFeeMode] for how it is charged.
+  final Money? extraDeliveryFee;
+
+  /// [extraDeliveryPerUnit] (for every unit) or [extraDeliveryPerLine] (once, whatever the quantity).
+  final String extraDeliveryFeeMode;
+
+  bool get hasExtraDeliveryFee => extraDeliveryFee != null;
 
   String get id => summary.id;
   String get name => summary.name;

@@ -704,6 +704,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get selectBranchToBuy => 'Choose a branch to see price & stock';
 
   @override
+  String extraDeliveryFeePerUnit(String fee) {
+    return 'Extra delivery fee $fee per item';
+  }
+
+  @override
+  String extraDeliveryFeePerLine(String fee) {
+    return 'Extra delivery fee $fee for this item, whatever the quantity';
+  }
+
+  @override
+  String get viewImageFullScreen => 'View image full screen';
+
+  @override
   String imageOf(int index, int total) {
     return 'Image $index of $total';
   }
@@ -981,6 +994,37 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get codFee => 'Cash on delivery fee';
+
+  @override
+  String get bulkyDeliveryFee => 'Extra delivery fee for bulky items';
+
+  @override
+  String bulkyDeliveryEach(int quantity, String fee) {
+    return '×$quantity · $fee each';
+  }
+
+  @override
+  String bulkyDeliveryOnce(int quantity) {
+    return '×$quantity · charged once';
+  }
+
+  @override
+  String get bulkyDeliveryIncluded => 'Already included in the delivery fee above.';
+
+  @override
+  String get bulkyDeliveryShow => 'Show details';
+
+  @override
+  String get bulkyDeliveryHide => 'Hide details';
+
+  @override
+  String get quoteRefreshFailed => 'Your totals couldn’t be refreshed. Please try again.';
+
+  @override
+  String get placingOrderWait => 'We’re placing your order. Please wait a moment.';
+
+  @override
+  String get paymentWaitBack => 'We’re confirming your payment. Please wait a moment.';
 
   @override
   String get tax => 'Tax';

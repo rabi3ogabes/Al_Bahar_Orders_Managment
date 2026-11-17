@@ -47,6 +47,7 @@ class CatalogAdminController extends ApiController
             'data' => $page->getCollection()->map(fn (Product $p) => [
                 'id' => $p->id, 'sku' => $p->sku, 'name_en' => $p->trans('name', 'en'), 'name_ar' => $p->trans('name', 'ar'),
                 'status' => $p->status, 'price' => $p->price, 'sale_price' => $p->sale_price, 'variants_count' => $p->variants_count,
+                'extra_delivery_fee' => $p->extra_delivery_fee, 'extra_delivery_fee_mode' => $p->extra_delivery_fee_mode,
                 'brand' => $p->brand?->name_en, 'category' => $p->category?->trans('name'), 'updated_at' => $p->updated_at?->toIso8601String(),
             ]),
             'meta' => ['current_page' => $page->currentPage(), 'per_page' => $page->perPage(), 'total' => $page->total(), 'last_page' => $page->lastPage()],

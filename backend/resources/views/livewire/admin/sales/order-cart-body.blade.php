@@ -3,7 +3,7 @@
     $units = $cart ? (int) $cart['items_count'] : 0;
     $hasPlans = $quote && count($quote->plans) > 0;
     $so = $draft?->staff_options ?? [];
-    $cartErrorCodes = ['insufficient_stock', 'item_unavailable', 'below_min_order', 'above_max_order', 'branch_not_allowed', 'delivery_unavailable_area'];
+    $cartErrorCodes = ['insufficient_stock', 'item_unavailable', 'above_max_order', 'branch_not_allowed', 'delivery_unavailable_area'];
     $errors_ = $quote ? collect($quote->errors)->when($step === 'cart', fn ($c) => $c->whereIn('code', $cartErrorCodes)) : collect();
     $warnings_ = $quote ? collect($quote->warnings)->reject(fn ($w) => $w['code'] === 'payment_method_required') : collect();
     $title = match ($step) { 'checkout' => __('neworder_admin.checkout'), 'drafts' => __('neworder_admin.held_orders'), 'done' => __('neworder_admin.order_placed_title'), default => __('neworder_admin.panel_title') };
@@ -302,8 +302,8 @@
                 @if (! $quote->discountTotal()->isZero())<div class="flex justify-between text-emerald-soft"><dt>{{ __('neworder_admin.discount') }}</dt><dd>−<x-admin.money :value="$quote->discountTotal()->toDecimal()" /></dd></div>@endif
                 @if (! $quote->loyaltyDiscount->isZero())<div class="flex justify-between text-emerald-soft"><dt>{{ __('neworder_admin.loyalty') }}</dt><dd>−<x-admin.money :value="$quote->loyaltyDiscount->toDecimal()" /></dd></div>@endif
                 <div class="flex justify-between"><dt class="text-ink-500">{{ __('neworder_admin.delivery') }}</dt><dd><x-admin.money :value="$quote->deliveryFeeTotal()->toDecimal()" /></dd></div>
+                @if (! $quote->extraDeliveryFeeTotal()->isZero())<div class="flex justify-between ps-3 text-xs text-ink-500"><dt>{{ __('neworder_admin.extra_delivery') }}</dt><dd><x-admin.money :value="$quote->extraDeliveryFeeTotal()->toDecimal()" /></dd></div>@endif
                 @if (! $quote->serviceFee->isZero())<div class="flex justify-between"><dt class="text-ink-500">{{ __('neworder_admin.service_fee') }}</dt><dd><x-admin.money :value="$quote->serviceFee->toDecimal()" /></dd></div>@endif
-                @if (! $quote->codFee->isZero())<div class="flex justify-between"><dt class="text-ink-500">{{ __('neworder_admin.cod_fee') }}</dt><dd><x-admin.money :value="$quote->codFee->toDecimal()" /></dd></div>@endif
                 @if (! $quote->taxTotal()->isZero())<div class="flex justify-between"><dt class="text-ink-500">{{ __('neworder_admin.tax') }}</dt><dd><x-admin.money :value="$quote->taxTotal()->toDecimal()" /></dd></div>@endif
                 <div class="flex justify-between border-t border-sand-200 pt-2 text-base font-semibold dark:border-ink-700"><dt>{{ __('neworder_admin.total') }}</dt><dd><x-admin.money :value="$quote->grandTotal()->toDecimal()" /></dd></div>
             @else

@@ -26,6 +26,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property UserStatus $status
  * @property Carbon|null $date_of_birth
  * @property string|null $email
+ * @property bool $must_change_password
  */
 class User extends Authenticatable
 {
@@ -42,6 +43,7 @@ class User extends Authenticatable
         'status' => 'active',
         'locale' => 'en',
         'is_super_admin' => false,
+        'must_change_password' => false,
     ];
 
     /** E-mail addresses are stored lower-case so "A@x.com" and "a@x.com" can never be two accounts (login looks up case-insensitively). */
@@ -56,6 +58,7 @@ class User extends Authenticatable
             'type' => UserType::class,
             'status' => UserStatus::class,
             'is_super_admin' => 'boolean',
+            'must_change_password' => 'boolean',
             'phone_verified_at' => 'immutable_datetime',
             'email_verified_at' => 'immutable_datetime',
             'marketing_consent_at' => 'immutable_datetime',

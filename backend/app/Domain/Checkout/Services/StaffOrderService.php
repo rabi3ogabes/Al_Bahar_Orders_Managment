@@ -13,6 +13,7 @@ use App\Domain\Identity\Enums\UserType;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Identity\Support\BranchScope;
+use App\Domain\Notifications\Services\NotificationRules;
 use App\Domain\Notifications\Services\NotificationService;
 use App\Domain\Notifications\Services\WhatsAppClient;
 use App\Domain\Orders\Models\Cart;
@@ -550,6 +551,10 @@ class StaffOrderService
     {
         $this->authorizeOrder($staff, $order);
         $this->throttle($staff, 'send-link', 10);
+        if (! app(NotificationRules::class)->enabled('payment.link')) {
+            // Switched off in Content > Notification controls: say so instead of reporting a link that was never sent.
+            throw new DomainException('payment_link_off', __('notification_rules_admin.err_payment_link_off'), 422);
+        }
         $link = $this->paymentLink($staff, $order);
         if (! $link || ! $order->user) {
             $this->fail('link_unavailable');

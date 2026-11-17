@@ -11,6 +11,7 @@ import { useWishlist } from '../lib/wishlist';
 import { cx, money } from '../lib/format';
 import type { ProductDetail } from '../lib/types';
 import { AttributePicker, useVariantPicker } from './AttributePicker';
+import { ExtraDeliveryNote } from './ExtraDeliveryNote';
 import { useAuthModal } from './AuthModal';
 import { DrawerLink } from './drawerLink';
 import { SideDrawer } from './SideDrawer';
@@ -93,6 +94,7 @@ export default function QuickView({ slug, open, onClose, onAdded }: { slug: stri
             {p.brand && <p className="eyebrow mt-5">{p.brand.name}</p>}
             <div className="mt-2 flex flex-wrap items-center gap-3">{p.rating.count > 0 && <Rating value={p.rating.average} count={p.rating.count} />}<span className="text-xs text-muted">SKU {variant?.sku ?? p.sku}</span></div>
             <div className="mt-3"><PriceTag price={price} size="lg" /></div>
+            <ExtraDeliveryNote p={p} className="mt-3" />
             {p.short_description && <p className="mt-4 leading-relaxed text-ink-soft">{p.short_description}</p>}
             <AttributePicker p={p} picker={picker} />
             <div className="mt-6 min-h-6 text-sm" aria-live="polite">

@@ -293,6 +293,7 @@
                         @if ($k === 'subtotal' || (float) $o->{$field} > 0)
                             <div class="flex justify-between gap-4"><dt class="text-ink-500">{{ __('sales_admin.sum_'.$k) }}</dt><dd>@if (in_array($k, ['discount', 'loyalty'], true))−@endif<x-admin.money :value="$o->{$field}" /></dd></div>
                         @endif
+                        @if ($k === 'delivery_fee' && ! $o->extraDeliveryFee()->isZero())<div class="flex justify-between gap-4 ps-3 text-xs"><dt class="text-ink-500">{{ __('sales_admin.sum_extra_delivery') }}</dt><dd class="text-ink-500"><x-admin.money :value="$o->extraDeliveryFee()->toDecimal()" /></dd></div>@endif
                     @endforeach
                     @foreach ($o->coupons as $c)<div class="flex justify-between gap-4 text-xs"><dt class="text-ink-500">{{ app()->getLocale() === 'ar' ? $c->label_ar : $c->label_en }} @if ($c->code)<span class="font-mono" dir="ltr">({{ $c->code }})</span>@endif</dt><dd>−<x-admin.money :value="$c->discount_amount" /></dd></div>@endforeach
                     <div class="flex justify-between gap-4 border-t border-sand-100 pt-3 text-base font-semibold dark:border-ink-800"><dt>{{ __('admin.total') }}</dt><dd><x-admin.money :value="$o->grand_total" /></dd></div>

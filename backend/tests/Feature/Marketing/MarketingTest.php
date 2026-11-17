@@ -65,11 +65,11 @@ it('picks the better of the best non-stackable vs all stackable promotions, and 
     Coupon::create(['promotion_id' => promo(['type' => 'free_delivery', 'value' => '0'])->id, 'code' => 'FREESHIP']);
     $q = $this->postJson('/api/v1/checkout/quote', $this->opts + ['coupon_code' => 'FREESHIP'])->json('data');
     expect($q['totals']['discount']['amount'])->toBe('240.00') // 225 item + 15 delivery
-        ->and($q['totals']['grand_total']['amount'])->toBe('1285.00'); // 1500 - 225 + 15 - 15 + 10 cod
+        ->and($q['totals']['grand_total']['amount'])->toBe('1275.00'); // 1500 - 225 + 15 - 15
 
     // Without the code the same basket pays the delivery fee.
     $plain = $this->postJson('/api/v1/checkout/quote', $this->opts)->json('data');
-    expect($plain['totals']['discount']['amount'])->toBe('225.00')->and($plain['totals']['grand_total']['amount'])->toBe('1300.00');
+    expect($plain['totals']['discount']['amount'])->toBe('225.00')->and($plain['totals']['grand_total']['amount'])->toBe('1290.00');
 });
 
 it('supports buy-one-get-one on the cheapest eligible units', function () {
