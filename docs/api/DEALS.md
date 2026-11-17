@@ -172,11 +172,11 @@ the product, and `deal_price` is the price for the cheapest variant ("from"); va
 * `totals.deal_savings` (Money, "0.00" when none) and `discounts[]` entries with `source: "deal"`.
 * Each quote line gains `deal` (null or): `{ deal_id, name, units_at_deal_price, units_at_regular_price, savings, ends_at, note }`
   where `note` is `null | "limit_per_order" | "limit_per_customer" | "sold_out" | "ended"`.
-* Error `409 deal_changed` (context: `deal_id`, `product_id`) on place order, with the fresh quote in `data.quote`.
+* Error `409 deal_changed` on place order: `context` is `{deal_id, product_id, quote}`, the fresh quote sitting in `context.quote` exactly like `409 quote_changed` (see Decisions).
 * Placed order lines expose `deal` (snapshot): `{ deal_id, name, units, unit_savings }`.
 
 Error codes (translated in `lang/{en,ar}/errors.php`): `deal_changed`, `deal_not_found`, `deal_product_overlap`
-(admin), `deal_invalid_window` (admin).
+(admin), `deal_invalid_window` (admin), `deal_has_orders` (admin, a deal with orders cannot be deleted).
 
 ## 6. Footer middle button
 
@@ -199,7 +199,7 @@ Error codes (translated in `lang/{en,ar}/errors.php`): `deal_changed`, `deal_not
 
 * List: name, phase badge, **live countdown** (ticks), products count, units sold / total with a small bar, orders, savings
   given; row actions: Pause / Resume (instant), End now (confirm), Duplicate, Edit, Delete (only when it has no orders).
-  Filters (saved in the URL): Live, Scheduled, Ended, All.
+  Filters (saved in the URL): Live, Scheduled, Paused, Ended, All.
 * Editor in a **side window** (docs/guides/SIDE_WINDOWS.md): 1 Basics (names and taglines in both languages, window with
   quick presets: +1 h, +6 h, +24 h, +3 days, end of today, custom date and time in the business time zone), 2 Products (search
   and pick many, each row: deal price when fixed price, quantity, per-order and per-account limit overrides, remove),
@@ -224,3 +224,47 @@ admin Livewire flows, permissions and the audit log. Storefront: countdown maths
 reaching zero, skew), cart wording, Arabic digits and RTL, 320 px layout. App: parsing, countdown, widget in every style
 (English/Arabic, light/dark, 320 dp), centre footer layout (3, 4 and 5 items, RTL), product page and cart integration,
 `flutter analyze` clean.
+
+## 10. Decisions (backend builder; the owner can change any of them)
+
+Where the contract was silent or the code showed a better shape. Field names that differ from sections 1 to 9 are listed first so the app and the store follow them.
+
+**Differences to read first**
+
+1. **`deal_changed` carries the quote in `context.quote`**, not `data.quote`: the error envelope has no `data`; `quote_changed` already uses `context.quote`, so clients reuse one code path. `context` is `{deal_id, product_id, quote}`.
+2. `Deal.seconds_to_start` (extra, additive): seconds until `starts_at` while the deal is `scheduled`, else `null`. `seconds_left` is always seconds until `ends_at`, rounded up, never negative.
+3. `GET /deals/{id}` returns `products: {data: [ProductCard], meta: {current_page, per_page, total, last_page}}` and `server_time` (as the list does).
+4. Cart lines (`GET /cart` → `items[].deal`) carry the product's `deal` block **plus** `units_at_deal_price`, `units_at_regular_price`, `note` (the same words as the quote); the cart also has `deal_savings` (Money). The quote is still the final word.
+5. `discounts[]` entries (quote and placed order) all have `source` (`"deal"` | `"promotion"`); a deal entry has `deal_id` and `promotion_id: null`. A placed order's `totals.deal_savings` is the sum of its deal discounts.
+6. Quote line `deal.note` `"ended"` is sent for 30 minutes after a deal ended (with `units_at_deal_price: 0`), so a customer who was in checkout is told why the price changed. `"sold_out"` is also used when the deal still has fewer units than the customer wants (the remaining units get the deal price, the rest the normal one).
+7. Extra error code `deal_has_orders` (admin). Extra list filter `paused` in the dashboard.
+
+**Rules**
+
+* **Phases** are computed (never stored): `ended` wins over `paused`, `paused` over `scheduled`, `scheduled` over `sold_out`/`live`. `starts_at` is inclusive and `ends_at` exclusive (a deal is live at exactly `starts_at` and ended at exactly `ends_at`). `sold_out` needs every product to have a quantity and every quantity sold; one unlimited product keeps the deal live. The 15 minutes of visibility count from `sold_out_at` (the moment the last unit went; cleared when a unit comes back).
+* **Overlap** is checked only when the deal being saved is switched on (a paused draft may overlap; switching it on checks again) against other deals that are switched on and not ended. Windows are half-open: a deal may start exactly when another ends. A deal with no start counts as started.
+* A deal that was **ended with "End now" is read-only** (Duplicate it). A deal that merely passed its end time can still be edited (a later end time brings it back).
+* A **per-product deal price** always overrides the computed price for that product (also under percent and amount off). A computed deal price is rounded half-up, never below 0.01 and never above the normal price; a variant the rule would not make cheaper gets no deal.
+* **Which units get the deal price** when a product sits on several cart lines (variants, branches): the lines that save the most per unit first, ties by line key, so the answer is the same on every run.
+* **Custom colours:** text on background and highlight on background must each reach 3:1 (the API refuses below that); the dashboard warns below 4.5:1. The `brand` palette follows the live brand colour of the current theme and picks white or black text.
+* The **stored design** keeps the picture as `image_path` (a media-disk path); responses always expose `image_url` and never the path.
+
+**Money and stock**
+
+* Deal units are **claimed under row locks**, taken before the quote is rebuilt inside the order transaction (cart, then deal rows by id, then stock rows; every other path that touches both takes them in this order). The claim is also an atomic guarded update, and a CHECK keeps `quantity_sold <= quantity_total`.
+* **`deal_changed` vs `quote_changed`:** the quote remembers (30 minutes, in the cache) a short fingerprint of its deal units under its hash. If the confirmed hash no longer matches and the stored fingerprint differs from the fresh one, the answer is `deal_changed`; otherwise `quote_changed`. A claim that fails at the last step (it cannot happen while the locks hold) is also `deal_changed`, with a quote built after the rollback.
+* **Release** gives back what an order no longer holds, once: a cancelled fulfillment (customer, staff, an unpaid online order that expired, an adjustment that emptied it; the units of a parcel that already left stay sold), a fully refunded order (everything), and an item adjustment (a removed unit; a replaced line keeps the share its substitute carries). A line that shrinks keeps `ceil(deal units x new quantity / old quantity)` deal units, the same rule AdjustmentMath uses for the discount.
+* **A failed payment attempt does not release**: the order stays payable (retry) until its payment window ends, and the stock stays reserved the same way. When the window ends the unpaid order is cancelled and the units come back. The same "abandoned online order" path covers an abandoned checkout; a plain abandoned cart claims nothing.
+* The deal appears on the order as one `order_coupons` row with `deal_id` (no promotion, no coupon), so the order page, the invoice and the revised invoice need no change; an order line keeps `deal_id`, `deal_name_en/ar`, `deal_units`, `deal_unit_savings`.
+* Free-delivery coupons are checked against the whole basket, so a basket of nothing but deal units can still use one.
+* **Staff-made orders and auctions get no deal prices:** the staff quote options carry `apply_deals: false` (set by the server, never read from a client).
+
+**Public API and caching**
+
+* Nothing about deals is cached between requests (units left change with every order; an admin change must show at once). The home feed keeps its one-minute cache and is dropped whenever a deal changes; cards in it carry no `customer_remaining`.
+* Deals on the list are built from one product query and one set of cards for all deals, so the number of queries does not grow with the number of deals (a test counts them).
+* Anyone can call both endpoints; a bearer token only adds `customer_remaining`. A product of a deal that is not active in the catalog, or not sold at the chosen `branch_id`, is left out of that deal's cards (and of `products_total` on the list).
+
+**Footer**
+
+* `center` must name an item that is in the menu and switched on, in a menu of 3 to 5 items with Home on; the dashboard puts it back to `none` by itself when its item is switched off or removed. The app (not the server) puts the middle item in the exact middle.

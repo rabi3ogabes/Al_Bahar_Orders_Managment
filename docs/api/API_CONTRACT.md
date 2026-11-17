@@ -304,6 +304,20 @@ Lot:
 ```
 Real-time: Pusher protocol (Laravel Reverb) — public channel `auction-lot.{lotId}`, events `bid.accepted`, `lot.extended`, `lot.status` with payload `{sequence, lot: Lot (without my_*), bid?}`; private channel `private-users.{userId}` event `auction.outbid`/`auction.won`. **Clients must treat the REST lot state as authoritative**: on (re)connect, fetch `/auctions/lots/{id}` and replay `/events?after_sequence=` — never trust a local countdown.
 
+## 9b. Deals (countdown offers)
+Full contract: [DEALS.md](DEALS.md). Public; a signed-in customer's token only adds `customer_remaining`.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/deals?home=1&limit_products=8&branch_id=` | `{server_time, live:[Deal], upcoming:[Deal]}`: `live` ends-soonest first (a sold-out deal stays 15 min), `upcoming` by start; paused and ended deals are never listed |
+| GET | `/deals/{id}?page=&branch_id=` | One `Deal` with `products:{data:[ProductCard], meta}` (24 a page) and `server_time`; 404 `deal_not_found` when ended or paused |
+
+* **Counting down:** use `ends_at` with the server clock (`server_time` of the same response), never the phone clock alone; `seconds_left` is the same figure at the moment of the response.
+* **The `deal` block** is on every ProductCard, on ProductDetail (variant rows also carry `deal_price`) and on cart lines (`items[].deal`, with `units_at_deal_price`, `units_at_regular_price`, `note`). `price.final` always stays the normal price: show `deal.deal_price` with the normal price struck through while `phase` is `live`.
+* **Quote / order:** `totals.deal_savings`, `lines[].deal` (`units_at_deal_price`, `units_at_regular_price`, `savings`, `note`) and `discounts[].source` (`deal`|`promotion`); placed orders expose `items[].deal` and `totals.deal_savings`. Units beyond a limit are simply charged at the normal price.
+* **409 `deal_changed`** on `POST /checkout/orders` (a deal ended, sold out or hit a limit between the quote and the order) carries `context: {deal_id, product_id, quote}` exactly like `quote_changed`: show "A deal changed, your total was updated" and ask the customer to confirm the new total.
+* The footer menu (`GET /theme` → `footer`) has `center`: `none|auctions|deals`; see DEALS.md section 6.
+
 ## 10. Home, CMS, notifications, support
 `GET /home?branch_id=&platform=` →
 ```json

@@ -3,6 +3,10 @@ import '../../helpers/fakes.dart';
 /// The instant every deals test treats as "now" (the server's clock and, unless a test skews it, the phone's).
 final dealsNow = DateTime.utc(2026, 11, 17, 6, 12);
 
+/// The moment the default deal times are built around. Tests that run on the real clock (a product card, the product page and the
+/// cart have no fake clock) point it at `DateTime.now`.
+DateTime Function() dealsBase = () => dealsNow;
+
 String iso(DateTime t) => t.toUtc().toIso8601String();
 
 Map<String, dynamic> designJson({
@@ -57,8 +61,8 @@ Map<String, dynamic> dealBlockJson({
   'deal_id': id,
   'name': name,
   'phase': phase,
-  'starts_at': iso(startsAt ?? dealsNow.subtract(const Duration(hours: 1))),
-  'ends_at': iso(endsAt ?? dealsNow.add(const Duration(hours: 5))),
+  'starts_at': iso(startsAt ?? dealsBase().subtract(const Duration(hours: 1))),
+  'ends_at': iso(endsAt ?? dealsBase().add(const Duration(hours: 5))),
   'deal_price': money(dealPrice),
   'regular_price': money(regular),
   'percent': percent,
@@ -94,15 +98,15 @@ Map<String, dynamic> dealJson({
   int? perOrder = 2,
   int? perCustomer = 3,
 }) {
-  final end = endsAt ?? dealsNow.add(const Duration(days: 1, hours: 2, minutes: 3, seconds: 4));
+  final end = endsAt ?? dealsBase().add(const Duration(days: 1, hours: 2, minutes: 3, seconds: 4));
   return {
     'id': id,
     'name': name,
     'tagline': tagline,
     'phase': phase,
-    'starts_at': iso(startsAt ?? dealsNow.subtract(const Duration(hours: 2))),
+    'starts_at': iso(startsAt ?? dealsBase().subtract(const Duration(hours: 2))),
     'ends_at': iso(end),
-    'seconds_left': secondsLeft ?? end.difference(dealsNow).inSeconds,
+    'seconds_left': secondsLeft ?? end.difference(dealsBase()).inSeconds,
     'discount': {'type': discountType, 'value': discountValue},
     'limits': {'per_order': perOrder, 'per_customer': perCustomer},
     'products_total': productsTotal ?? (products ?? [1, 2]).length,

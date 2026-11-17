@@ -4,8 +4,8 @@ import 'package:albahar_customer/core/network/api_client.dart';
 import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/network/interceptors.dart';
 import 'package:albahar_customer/core/providers.dart';
-import 'package:albahar_customer/core/storage/token_storage.dart';
 import 'package:albahar_customer/core/utils/json.dart';
+import 'package:albahar_customer/ops/ops_account.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
@@ -16,8 +16,9 @@ class OpsRepository {
   OpsRepository(this._api);
   final ApiClient _api;
 
-  /// Email + password staff sign-in. Returns the token pair.
-  Future<AuthTokens> login(String email, String password, {String? twoFactorCode}) async {
+  /// Staff sign-in with an e-mail or a mobile number (both go in `email`) and the password. Returns the token pair and whether the
+  /// person must now choose their own password (`must_change_password`).
+  Future<OpsLogin> login(String email, String password, {String? twoFactorCode}) async {
     final data = await _api.post(
       '/admin/auth/login',
       data: {
@@ -28,7 +29,7 @@ class OpsRepository {
       },
       options: Options(extra: {RequestFlags.skipAuth: true}),
     );
-    return AuthTokens.fromJson(asMap(asMap(data)['tokens']));
+    return OpsLogin.fromJson(asMap(data));
   }
 
   /// Revokes this device's token on the server.
@@ -51,11 +52,20 @@ class OpsRepository {
   /// How this app should ask for a status change (see [appConfig]).
   Future<OpsStatusStyle> statusStyle() async => (await appConfig()).statusStyle;
 
+  /// The signed-in staff member: permission keys and whether they still have to choose their own password. `me` is the one staff call
+  /// the server answers even before that.
+  Future<OpsAccount> account() async => OpsAccount.fromJson(asMap(await _api.get('/admin/me')));
+
   /// Permission keys of the signed-in staff member.
-  Future<List<String>> permissions() async {
-    final data = asMap(await _api.get('/admin/me'));
-    if (asBool(data['is_super_admin'])) return const ['*'];
-    return asStringList(data['permissions']);
+  Future<List<String>> permissions() async => (await account()).permissions;
+
+  /// The employee chooses their own password (`PUT /admin/me/password`): the server signs their other devices out, this one stays
+  /// signed in with the same tokens. A refusal is a 422 whose `errors` name `current_password`, `password` or `password_confirmation`.
+  Future<void> changePassword({required String current, required String password, required String confirmation}) async {
+    await _api.put(
+      '/admin/me/password',
+      data: {'current_password': current, 'password': password, 'password_confirmation': confirmation},
+    );
   }
 
   // Driver

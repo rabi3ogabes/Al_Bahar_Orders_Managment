@@ -134,7 +134,7 @@ function ItemRow({ i, compact }: { i: OrderDetail['items'][number]; compact?: bo
   const a = i.adjustment ?? null;
   const gone = !!a && (a.kind === 'removed' || a.kind === 'replaced' || i.quantity <= 0);
   return (
-    <li className={cx('flex gap-4 py-4', gone && 'opacity-60')}>
+    <li className={cx('flex flex-wrap gap-x-4 gap-y-2 py-4', gone && 'opacity-60')}>
       <div className={compact ? 'w-16 shrink-0' : 'w-20 shrink-0'}><Pic src={i.image_url} alt={i.name} ratio="1/1" className={cx('rounded-2xl', gone && 'grayscale')} /></div>
       <div className="min-w-0 flex-1">
         <p className={cx('font-display leading-tight', compact ? 'text-lg' : 'text-xl', gone && 'line-through')}>{i.name}</p>
@@ -142,11 +142,11 @@ function ItemRow({ i, compact }: { i: OrderDetail['items'][number]; compact?: bo
         {gone
           ? <p className="text-sm font-medium text-warning">{a?.kind === 'replaced' && a.replaced_by_name ? t('order.replaced_by', { n: a.replaced_by_name }) : t('order.not_available')}</p>
           : <p className="text-sm text-muted">{i.quantity} × {i.unit_price.formatted}</p>}
-        {!gone && deal && <p className="mt-0.5 flex items-start gap-1.5 text-sm font-medium text-brass-deep" data-testid="order-deal"><Flame size={14} aria-hidden="true" className="mt-1 shrink-0" /><span>{deal.name ? t('deal.order_line', { name: deal.name }) : t('deal.label')}{deal.saved ? <span className="font-normal text-success"> · {t('deal.line_saved', { v: deal.saved.formatted })}</span> : null}</span></p>}
         {!gone && a?.kind === 'reduced' && <p className="text-sm font-medium text-warning">{t('order.reduced_from', { n: a.original_quantity })}</p>}
         {!gone && a?.kind === 'replacement' && <p className="text-sm font-medium text-brass-deep">{a.replaces_name ? t('order.replaces', { n: a.replaces_name }) : t('order.replacement')}</p>}
       </div>
       {!gone && <p className="font-semibold tabular-nums">{i.line_total.formatted}</p>}
+      {!gone && deal && <p className="flex basis-full items-start gap-1.5 rounded-xl bg-brass-tint/70 px-3 py-2 text-[13px] font-medium text-brass-deep" data-testid="order-deal"><Flame size={14} aria-hidden="true" className="mt-0.5 shrink-0" /><span>{deal.name ? t('deal.order_line', { name: deal.name }) : t('deal.label')}{deal.saved ? <span className="font-normal text-success"> · {t('deal.line_saved', { v: deal.saved.formatted })}</span> : null}</span></p>}
     </li>
   );
 }

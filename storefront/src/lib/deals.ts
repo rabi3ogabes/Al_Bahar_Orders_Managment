@@ -37,6 +37,8 @@ export interface DealBlock {
   remaining?: number | null; remaining_percent?: number | null
   limit_per_order?: number | null; limit_per_customer?: number | null; customer_remaining?: number | null
   sold_out?: boolean | null; design?: Partial<DealDesign> | Record<string, unknown> | null
+  /** Only on a server cart line (`items[].deal`): how many of THIS line's units the server prices at the deal price, and why not all of them. */
+  units_at_deal_price?: number | null; units_at_regular_price?: number | null; note?: DealNote | string | null
 }
 /** What a variant row of the product detail may carry (`deal_price`, or a whole `deal` block). */
 export interface VariantDeal { deal_price?: Money | string | number | null; deal?: Pick<DealBlock, 'deal_price'> | null; price?: { final?: Money | null } | null }
@@ -376,9 +378,11 @@ export function cartLineText(t: Tr, locale: string, line: { qty: number; deal?: 
   const phase = effectivePhase(b, nowMs, skew);
   if (phase !== 'live' || b.sold_out === true) return null;
   const lim = limitLines(t, locale, b);
-  const d = unitsAtDealPrice(b, line.qty);
+  // The server cart says how many units of this line it prices at the deal price (the checkout quote is the final word); without that, the same rules worked out here.
+  const d = isCount(b.units_at_deal_price) ? Math.min(Math.floor(b.units_at_deal_price), line.qty) : unitsAtDealPrice(b, line.qty);
   const summary = d <= 0 ? null : d < line.qty ? plural(t, locale, 'deal.partial', line.qty, { a: fmtNum(locale, d), b: fmtNum(locale, line.qty) }) : line.qty === 1 ? t('deal.line_one') : t('deal.line_all');
-  return { name: str(b.name), summary, limits: lim.lines, reached: lim.reached };
+  const limits = b.note === 'sold_out' ? [...lim.lines, t(d > 0 ? 'deal.note.running_out' : 'deal.note.sold_out')] : lim.lines;
+  return { name: str(b.name), summary, limits, reached: lim.reached };
 }
 
 /**
@@ -405,15 +409,24 @@ export function minusDeal(m: Money | null | undefined, split: DealSplit, fmt: Fm
   return left > 0 ? { amount: (left / 100).toFixed(2), currency: m.currency, formatted: fmt(left / 100, m.currency) } : null;
 }
 
+/** An amount that is more than zero, as `Money`; null for "0.00", nothing, or anything that is not an amount (the cart's and the quote's "Deal savings" rows). */
+export function positiveMoney(v: unknown, fmt?: Fmt): Money | null {
+  const m = moneyOf(v, fmt);
+  return m && cents(m) > 0 ? m : null;
+}
+
 /** `409 deal_changed` from place order: the deal moved under the customer's feet. Matches the shape of `ApiError` without importing it. */
 export function isDealChanged(e: unknown): boolean {
   return isObj(e) && e.status === 409 && e.code === 'deal_changed';
 }
-/** The fresh quote the server sends with `deal_changed` (`data.quote`), when it is complete enough to show. */
+/**
+ * The fresh quote the server sends with `deal_changed`, when it is complete enough to show. The error envelope carries it as `context.quote`
+ * (what the server does today); the contract names `data.quote`, so that is read too.
+ */
 export function quoteFromDealChanged(e: unknown): Quote | null {
   const body = isObj(e) && isObj(e.body) ? e.body : null;
-  const data = body && isObj(body.data) ? body.data : null;
-  const q = data && isObj(data.quote) ? data.quote : null;
+  const where = (k: string) => { const o = body && isObj(body[k]) ? (body[k] as Record<string, unknown>) : null; return o && isObj(o.quote) ? o.quote : null; };
+  const q = where('context') ?? where('data');
   if (!q || typeof q.quote_hash !== 'string' || !isObj(q.totals) || !isObj(q.totals.grand_total) || !Array.isArray(q.payment_methods) || !Array.isArray(q.fulfillments)) return null;
   return q as unknown as Quote;
 }

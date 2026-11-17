@@ -3,6 +3,7 @@ import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
+import 'package:albahar_customer/ops/ops_account_screens.dart';
 import 'package:albahar_customer/ops/ops_app.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_strings.dart';
@@ -42,11 +43,19 @@ class _StaffHomeState extends ConsumerState<StaffHome> {
   @override
   Widget build(BuildContext context) {
     final t = OpsStrings.of(context);
+    final permsAsync = ref.watch(staffPermissionsProvider);
+    final perms = permsAsync.value ?? const <String>[];
+    // An account that cannot see orders (the manager did not tick it, or took it away later) gets a plain explanation instead of
+    // error messages. The order screens below are never built for it, so none of their requests are sent.
+    if (permsAsync.hasValue && !hasPermission(perms, 'orders.view')) {
+      return OpsNoAccessScreen(
+        checking: permsAsync.isLoading,
+        onCheckAgain: () => ref.invalidate(staffPermissionsProvider),
+      );
+    }
     final overview = ref.watch(staffOverviewViewProvider);
     final link = ref.watch(staffLiveProvider.select((s) => s.link));
     final o = overview.value;
-    final permsAsync = ref.watch(staffPermissionsProvider);
-    final perms = permsAsync.value ?? const <String>[];
     final canAddProduct = hasPermission(perms, 'catalog.create');
     final canSeeDrivers = hasPermission(perms, 'deliveries.view');
     final canEdit = hasPermission(perms, 'orders.edit');

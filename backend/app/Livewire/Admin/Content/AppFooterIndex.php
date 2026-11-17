@@ -29,9 +29,61 @@ class AppFooterIndex extends Component
         $this->form = $this->baseline;
     }
 
+    /** Set when the middle button had to go back to "None" because its item was switched off, removed or changed (the page explains it once). */
+    public bool $centerReset = false;
+
     public function updated(): void
     {
         $this->justSaved = false;
+        $this->normaliseCenter();
+    }
+
+    /**
+     * The middle button: None, Auctions or Deals. Choosing one switches that item on (adding it when it is not in the menu yet and there is room),
+     * and the bar then draws it as the raised round button in the exact middle. Everything else stays as it was.
+     */
+    public function pickCenter(string $center): void
+    {
+        abort_unless($this->can('cms.edit'), 403);
+        if (! in_array($center, AppFooterService::CENTERS, true)) {
+            return;
+        }
+        $this->centerReset = false;
+        if ($center === 'none') {
+            $this->form['center'] = 'none';
+            $this->justSaved = false;
+
+            return;
+        }
+        $items = array_values($this->form['items']);
+        $at = array_search($center, array_column($items, 'key'), true);
+        if ($at === false) {
+            if (count($items) >= AppFooterService::MAX_ITEMS) {
+                $this->toast(__('footer_admin.center_full', ['max' => AppFooterService::MAX_ITEMS]), 'warning');
+
+                return;
+            }
+            $items[] = ['key' => $center, 'enabled' => true, 'icon' => null, 'label_en' => null, 'label_ar' => null];
+        } else {
+            $items[$at]['enabled'] = true;
+        }
+        $this->form['items'] = $items;
+        $this->form['center'] = $center;
+        $this->justSaved = false;
+    }
+
+    /** A middle button whose item is no longer in the menu (or switched off) cannot stay: it goes back to None, and the page says so. */
+    private function normaliseCenter(): void
+    {
+        $center = (string) ($this->form['center'] ?? 'none');
+        if ($center === 'none') {
+            return;
+        }
+        $on = collect($this->form['items'] ?? [])->contains(fn ($i) => ($i['key'] ?? null) === $center && filter_var($i['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN));
+        if (! $on) {
+            $this->form['center'] = 'none';
+            $this->centerReset = true;
+        }
     }
 
     public function pickDesign(string $design): void
@@ -78,6 +130,7 @@ class AppFooterIndex extends Component
         unset($items[$index]);
         $this->form['items'] = array_values($items);
         $this->justSaved = false;
+        $this->normaliseCenter();
     }
 
     public function clearAccent(): void
@@ -137,7 +190,7 @@ class AppFooterIndex extends Component
             'primary' => $themes->active()?->colors['primary'] ?? '#8A1538',
             'canEdit' => $this->can('cms.edit'),
             'designs' => AppFooterService::DESIGNS, 'itemKeys' => AppFooterService::ITEMS, 'icons' => AppFooterService::ICONS,
-            'defaultIcons' => AppFooterService::DEFAULT_ICONS, 'max' => AppFooterService::MAX_ITEMS,
+            'defaultIcons' => AppFooterService::DEFAULT_ICONS, 'max' => AppFooterService::MAX_ITEMS, 'centers' => AppFooterService::CENTERS,
         ])->title(__('footer_admin.title'));
     }
 }

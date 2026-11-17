@@ -17,7 +17,7 @@ import 'package:flutter/material.dart';
 /// The countdown reads the screen's shared clock ([DealClockScope]); with none above it, it shows the moment it was built.
 /// A screen reader hears one label that changes once a minute.
 class DealWidget extends StatelessWidget {
-  const DealWidget({super.key, required this.data, this.onTap, this.compact = false});
+  const DealWidget({super.key, required this.data, this.onTap, this.compact = false, this.showButton = true});
 
   final DealCardData data;
 
@@ -27,9 +27,12 @@ class DealWidget extends StatelessWidget {
   /// A smaller widget for lists and the home strip: no tagline, no button.
   final bool compact;
 
+  /// Draws the "Shop the deal" button (never on a compact widget). Off on the product page, where the shopper is already there.
+  final bool showButton;
+
   @override
   Widget build(BuildContext context) {
-    final v = _DealView.of(context, data, compact: compact, tappable: onTap != null);
+    final v = _DealView.of(context, data, compact: compact, tappable: onTap != null, showButton: showButton);
     final d = data.design;
     final radius = BorderRadius.circular(v.cardRadius);
     final dark = Theme.of(context).brightness == Brightness.dark;
@@ -134,7 +137,13 @@ class _DealView {
     required this.urgent,
   });
 
-  factory _DealView.of(BuildContext context, DealCardData data, {required bool compact, required bool tappable}) {
+  factory _DealView.of(
+    BuildContext context,
+    DealCardData data, {
+    required bool compact,
+    required bool tappable,
+    required bool showButton,
+  }) {
     final l10n = context.l10n;
     final lang = context.localeCode;
     final d = data.design;
@@ -158,7 +167,7 @@ class _DealView {
       phase: phase,
       secondsLeft: left,
       headline: phase == DealPhase.scheduled ? l10n.dealStartsIn : (d.headlineFor(lang) ?? l10n.dealEndsIn),
-      cta: live && !compact ? (d.ctaFor(lang) ?? l10n.dealShopCta) : null,
+      cta: live && !compact && showButton ? (d.ctaFor(lang) ?? l10n.dealShopCta) : null,
       compact: compact,
       tappable: tappable,
       urgent: live && dealIsUrgent(left, d.urgencyMinutes),

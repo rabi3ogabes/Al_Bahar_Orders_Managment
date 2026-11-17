@@ -7,6 +7,7 @@ import 'package:albahar_customer/core/widgets/app_button.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
+import 'package:albahar_customer/features/deals/presentation/widgets/deal_line_text.dart';
 import 'package:albahar_customer/features/orders/domain/order_models.dart';
 import 'package:albahar_customer/features/orders/presentation/state/order_providers.dart';
 import 'package:flutter/material.dart';
@@ -325,6 +326,15 @@ class _ItemRow extends StatelessWidget {
                     Text(
                       [if (item.variantName != null) item.variantName!, '× ${item.quantity}'].join(' · '),
                       style: context.text.bodySmall,
+                    ),
+                  // The deal the line was sold under: how many units got the deal price and what each saved.
+                  if (item.deal != null && !gone)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        dealOrderLineText(l10n, item.deal!, item.quantity),
+                        style: context.text.bodySmall?.copyWith(color: p.brassDeep, fontWeight: FontWeight.w600),
+                      ),
                     ),
                   if (item.isReduced && a?.originalQuantity != null)
                     Padding(
@@ -720,13 +730,24 @@ class _Totals extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final t = order.totals!;
+    final hasDeal = t.dealSavings != null && !t.dealSavings!.isZero;
     Widget? row(String label, Money? m, {bool negative = false}) =>
         (m == null || m.isZero) ? null : SummaryRow(label: label, value: negative ? '− ${m.formatted}' : m.formatted);
     return SurfaceCard(
       child: Column(
         children: [
           SummaryRow(label: l10n.subtotal, value: t.subtotal.formatted),
-          ?row(l10n.discount, t.discount, negative: true),
+          // With deals: one "Deal savings" row, then what else was taken off (a coupon, a promotion) one by one.
+          if (hasDeal) ...[
+            ?row(l10n.dealSavingsRow, t.dealSavings, negative: true),
+            for (final d in order.discounts)
+              if (!d.isDeal && !d.freeDelivery && !d.amount.isZero)
+                SummaryRow(
+                  label: d.code != null ? '${d.label} (${d.code})' : d.label,
+                  value: '− ${d.amount.formatted}',
+                ),
+          ] else
+            ?row(l10n.discount, t.discount, negative: true),
           ?row(l10n.deliveryFee, t.deliveryFee),
           ?row(l10n.serviceFee, t.serviceFee),
           ?row(l10n.codFee, t.codFee),

@@ -2990,6 +2990,138 @@ abstract class AppLocalizations {
   /// **'Password updated'**
   String get passwordChanged;
 
+  /// No description provided for @staffSignInIdentifier.
+  ///
+  /// In en, this message translates to:
+  /// **'Email or mobile number'**
+  String get staffSignInIdentifier;
+
+  /// No description provided for @staffSignInRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your email or mobile number and your password.'**
+  String get staffSignInRequired;
+
+  /// No description provided for @staffNoAccessTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No access to orders'**
+  String get staffNoAccessTitle;
+
+  /// No description provided for @staffNoAccessMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account has no orders access in this app. Use the dashboard on a tablet or computer.'**
+  String get staffNoAccessMessage;
+
+  /// No description provided for @staffNoAccessCheckAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Check again'**
+  String get staffNoAccessCheckAgain;
+
+  /// No description provided for @staffPwTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose your own password'**
+  String get staffPwTitle;
+
+  /// No description provided for @staffPwIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Your manager gave you a temporary password. Choose your own to continue.'**
+  String get staffPwIntro;
+
+  /// No description provided for @staffPwCurrent.
+  ///
+  /// In en, this message translates to:
+  /// **'Temporary password'**
+  String get staffPwCurrent;
+
+  /// No description provided for @staffPwNew.
+  ///
+  /// In en, this message translates to:
+  /// **'New password'**
+  String get staffPwNew;
+
+  /// No description provided for @staffPwRepeat.
+  ///
+  /// In en, this message translates to:
+  /// **'Repeat new password'**
+  String get staffPwRepeat;
+
+  /// No description provided for @staffPwCurrentName.
+  ///
+  /// In en, this message translates to:
+  /// **'temporary password'**
+  String get staffPwCurrentName;
+
+  /// No description provided for @staffPwNewName.
+  ///
+  /// In en, this message translates to:
+  /// **'new password'**
+  String get staffPwNewName;
+
+  /// No description provided for @staffPwRepeatName.
+  ///
+  /// In en, this message translates to:
+  /// **'repeated password'**
+  String get staffPwRepeatName;
+
+  /// No description provided for @staffPwShowField.
+  ///
+  /// In en, this message translates to:
+  /// **'Show {field}'**
+  String staffPwShowField(String field);
+
+  /// No description provided for @staffPwHideField.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide {field}'**
+  String staffPwHideField(String field);
+
+  /// No description provided for @staffPwRulesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your new password needs'**
+  String get staffPwRulesTitle;
+
+  /// No description provided for @staffPwRuleLength.
+  ///
+  /// In en, this message translates to:
+  /// **'At least 12 characters'**
+  String get staffPwRuleLength;
+
+  /// No description provided for @staffPwRuleCase.
+  ///
+  /// In en, this message translates to:
+  /// **'An upper case and a lower case letter'**
+  String get staffPwRuleCase;
+
+  /// No description provided for @staffPwRuleNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'A number'**
+  String get staffPwRuleNumber;
+
+  /// No description provided for @staffPwRuleDifferent.
+  ///
+  /// In en, this message translates to:
+  /// **'Different from the temporary password'**
+  String get staffPwRuleDifferent;
+
+  /// No description provided for @staffPwSubmit.
+  ///
+  /// In en, this message translates to:
+  /// **'Save and continue'**
+  String get staffPwSubmit;
+
+  /// No description provided for @staffPwWrongCurrent.
+  ///
+  /// In en, this message translates to:
+  /// **'That is not the temporary password. Check the one your manager gave you.'**
+  String get staffPwWrongCurrent;
+
   /// No description provided for @memberSince.
   ///
   /// In en, this message translates to:
@@ -5294,12 +5426,6 @@ abstract class AppLocalizations {
   /// **'Shop the deal'**
   String get dealShopCta;
 
-  /// No description provided for @dealSoldOut.
-  ///
-  /// In en, this message translates to:
-  /// **'Sold out'**
-  String get dealSoldOut;
-
   /// No description provided for @dealSoldOutNotice.
   ///
   /// In en, this message translates to:
@@ -5396,12 +5522,6 @@ abstract class AppLocalizations {
   /// **'{percent}% off'**
   String dealOffSpoken(int percent);
 
-  /// No description provided for @dealPriceLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Deal price'**
-  String get dealPriceLabel;
-
   /// No description provided for @dealYourLimit.
   ///
   /// In en, this message translates to:
@@ -5468,11 +5588,11 @@ abstract class AppLocalizations {
   /// **'A deal changed, your total was updated'**
   String get dealChangedBanner;
 
-  /// No description provided for @dealSaved.
+  /// No description provided for @dealSavedEach.
   ///
   /// In en, this message translates to:
-  /// **'You saved {amount}'**
-  String dealSaved(String amount);
+  /// **'saved {amount} each'**
+  String dealSavedEach(String amount);
 
   /// No description provided for @switchLanguageTo.
   ///

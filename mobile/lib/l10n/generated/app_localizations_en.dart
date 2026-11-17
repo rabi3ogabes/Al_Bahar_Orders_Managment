@@ -1648,6 +1648,77 @@ class AppLocalizationsEn extends AppLocalizations {
   String get passwordChanged => 'Password updated';
 
   @override
+  String get staffSignInIdentifier => 'Email or mobile number';
+
+  @override
+  String get staffSignInRequired => 'Enter your email or mobile number and your password.';
+
+  @override
+  String get staffNoAccessTitle => 'No access to orders';
+
+  @override
+  String get staffNoAccessMessage =>
+      'Your account has no orders access in this app. Use the dashboard on a tablet or computer.';
+
+  @override
+  String get staffNoAccessCheckAgain => 'Check again';
+
+  @override
+  String get staffPwTitle => 'Choose your own password';
+
+  @override
+  String get staffPwIntro => 'Your manager gave you a temporary password. Choose your own to continue.';
+
+  @override
+  String get staffPwCurrent => 'Temporary password';
+
+  @override
+  String get staffPwNew => 'New password';
+
+  @override
+  String get staffPwRepeat => 'Repeat new password';
+
+  @override
+  String get staffPwCurrentName => 'temporary password';
+
+  @override
+  String get staffPwNewName => 'new password';
+
+  @override
+  String get staffPwRepeatName => 'repeated password';
+
+  @override
+  String staffPwShowField(String field) {
+    return 'Show $field';
+  }
+
+  @override
+  String staffPwHideField(String field) {
+    return 'Hide $field';
+  }
+
+  @override
+  String get staffPwRulesTitle => 'Your new password needs';
+
+  @override
+  String get staffPwRuleLength => 'At least 12 characters';
+
+  @override
+  String get staffPwRuleCase => 'An upper case and a lower case letter';
+
+  @override
+  String get staffPwRuleNumber => 'A number';
+
+  @override
+  String get staffPwRuleDifferent => 'Different from the temporary password';
+
+  @override
+  String get staffPwSubmit => 'Save and continue';
+
+  @override
+  String get staffPwWrongCurrent => 'That is not the temporary password. Check the one your manager gave you.';
+
+  @override
   String memberSince(String date) {
     return 'Member since $date';
   }
@@ -2934,9 +3005,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dealShopCta => 'Shop the deal';
 
   @override
-  String get dealSoldOut => 'Sold out';
-
-  @override
   String get dealSoldOutNotice => 'This deal is sold out';
 
   @override
@@ -2996,9 +3064,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get dealPriceLabel => 'Deal price';
-
-  @override
   String get dealYourLimit => 'You reached your limit for this deal';
 
   @override
@@ -3046,8 +3111,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dealChangedBanner => 'A deal changed, your total was updated';
 
   @override
-  String dealSaved(String amount) {
-    return 'You saved $amount';
+  String dealSavedEach(String amount) {
+    return 'saved $amount each';
   }
 
   @override

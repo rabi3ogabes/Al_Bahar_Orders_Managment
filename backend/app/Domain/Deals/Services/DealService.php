@@ -21,6 +21,7 @@ use App\Support\DomainException;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -374,7 +375,7 @@ class DealService
      * Validate and normalise a save request.
      *
      * @param  array<string, mixed>  $data
-     * @param  \Illuminate\Support\Collection<string, DealProduct>  $existing  the deal's current rows by product id
+     * @param  Collection<string, DealProduct>  $existing  the deal's current rows by product id
      * @return array{0: array<string, mixed>, 1: list<array<string, mixed>>}
      */
     private function clean(?Deal $deal, array $data, $existing): array
@@ -464,7 +465,7 @@ class DealService
 
     /**
      * @param  list<array<string, mixed>>  $rows
-     * @param  \Illuminate\Support\Collection<string, DealProduct>  $existing
+     * @param  Collection<string, DealProduct>  $existing
      */
     private function writeProducts(Deal $deal, array $rows, $existing): void
     {

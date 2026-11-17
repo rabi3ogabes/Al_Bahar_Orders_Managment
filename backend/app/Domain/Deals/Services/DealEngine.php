@@ -11,6 +11,7 @@ use App\Domain\Deals\Models\DealProduct;
 use App\Domain\Deals\Support\DealPricing;
 use App\Domain\Identity\Models\User;
 use App\Support\Money;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -151,7 +152,7 @@ class DealEngine
      * The open deal rows of these products that a customer can buy from now (running), one per product (the one ending first if data is odd).
      *
      * @param  list<string>  $productIds
-     * @return \Illuminate\Support\Collection<int, DealProduct>
+     * @return Collection<int, DealProduct>
      */
     private function runningRows(array $productIds)
     {

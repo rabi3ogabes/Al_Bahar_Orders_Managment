@@ -1681,6 +1681,77 @@ class AppLocalizationsAr extends AppLocalizations {
   String get passwordChanged => 'تم تحديث كلمة المرور';
 
   @override
+  String get staffSignInIdentifier => 'البريد الإلكتروني أو رقم الجوال';
+
+  @override
+  String get staffSignInRequired => 'أدخل بريدك الإلكتروني أو رقم جوالك مع كلمة المرور.';
+
+  @override
+  String get staffNoAccessTitle => 'لا توجد صلاحية للطلبات';
+
+  @override
+  String get staffNoAccessMessage =>
+      'ليس لحسابك صلاحية على الطلبات في هذا التطبيق. استخدم لوحة التحكم من جهاز لوحي أو حاسوب.';
+
+  @override
+  String get staffNoAccessCheckAgain => 'تحقق مرة أخرى';
+
+  @override
+  String get staffPwTitle => 'اختر كلمة مرورك الخاصة';
+
+  @override
+  String get staffPwIntro => 'أعطاك مديرك كلمة مرور مؤقتة. اختر كلمة مرورك الخاصة للمتابعة.';
+
+  @override
+  String get staffPwCurrent => 'كلمة المرور المؤقتة';
+
+  @override
+  String get staffPwNew => 'كلمة المرور الجديدة';
+
+  @override
+  String get staffPwRepeat => 'أعد كتابة كلمة المرور الجديدة';
+
+  @override
+  String get staffPwCurrentName => 'كلمة المرور المؤقتة';
+
+  @override
+  String get staffPwNewName => 'كلمة المرور الجديدة';
+
+  @override
+  String get staffPwRepeatName => 'تأكيد كلمة المرور';
+
+  @override
+  String staffPwShowField(String field) {
+    return 'إظهار $field';
+  }
+
+  @override
+  String staffPwHideField(String field) {
+    return 'إخفاء $field';
+  }
+
+  @override
+  String get staffPwRulesTitle => 'شروط كلمة المرور الجديدة';
+
+  @override
+  String get staffPwRuleLength => '12 حرفًا على الأقل';
+
+  @override
+  String get staffPwRuleCase => 'حرف كبير وحرف صغير (A وa)';
+
+  @override
+  String get staffPwRuleNumber => 'رقم واحد على الأقل';
+
+  @override
+  String get staffPwRuleDifferent => 'مختلفة عن كلمة المرور المؤقتة';
+
+  @override
+  String get staffPwSubmit => 'حفظ ومتابعة';
+
+  @override
+  String get staffPwWrongCurrent => 'هذه ليست كلمة المرور المؤقتة. تأكد من الكلمة التي أعطاك إياها مديرك.';
+
+  @override
   String memberSince(String date) {
     return 'عضو منذ $date';
   }
@@ -2971,9 +3042,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get dealShopCta => 'تسوّق العرض';
 
   @override
-  String get dealSoldOut => 'نفدت الكمية';
-
-  @override
   String get dealSoldOutNotice => 'نفدت كمية هذا العرض';
 
   @override
@@ -3057,9 +3125,6 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get dealPriceLabel => 'سعر العرض';
-
-  @override
   String get dealYourLimit => 'وصلت إلى الحد الأقصى لهذا العرض';
 
   @override
@@ -3110,8 +3175,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get dealChangedBanner => 'تغيّر أحد العروض وتم تحديث إجمالي طلبك';
 
   @override
-  String dealSaved(String amount) {
-    return 'وفّرت $amount';
+  String dealSavedEach(String amount) {
+    return 'وفّرت $amount على كل قطعة';
   }
 
   @override

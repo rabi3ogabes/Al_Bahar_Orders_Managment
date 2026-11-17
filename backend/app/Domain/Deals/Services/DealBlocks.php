@@ -38,6 +38,9 @@ class DealBlocks
         $rows = DealProduct::query()->whereIn('product_id', $ids)->whereHas('deal', fn ($q) => $q->open($now))
             ->with(['deal.products' => fn ($q) => $q->select('id', 'deal_id', 'quantity_total', 'quantity_sold')])->get();
         $picked = $rows->sortBy(fn (DealProduct $r) => [$this->deals->isRunning($r->deal, $now) ? 0 : 1, ($r->deal->starts_at ?? $now)->getTimestamp(), $r->id])->unique('product_id');
+        if ($picked->isEmpty()) {
+            return []; // the common case: no deal on this page, and nothing else is read
+        }
         $used = $user ? $this->deals->usedBy($user->id, $picked->pluck('id')->all()) : [];
 
         $brand = DealDesign::brandPrimary();

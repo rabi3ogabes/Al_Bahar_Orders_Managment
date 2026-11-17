@@ -10,6 +10,7 @@ import { useAuthModal } from '../components/AuthModal';
 import { CartSuggestions } from '../components/Upsell';
 import { DeliveryFeeRow } from '../components/DeliveryFeeRow';
 import { CartDealNote, CartDealsHint } from '../components/DealBits';
+import { positiveMoney } from '../lib/deals';
 
 export default function CartPage() {
   const { t, dir } = useI18n();
@@ -26,6 +27,7 @@ export default function CartPage() {
     return <div className="wrap py-16"><EmptyState icon={<ShoppingBag size={30} />} title={t('cart.empty')} text={t('cart.empty_text')} action={<Button size="lg" onClick={() => nav('/shop')}>{t('cart.continue')}</Button>} /></div>;
   }
   const blocked = cart.lines.some((l) => !l.available);
+  const dealSavings = positiveMoney(cart.cart?.deal_savings);
   // Pending changes reach the server first; a second tap while that happens does nothing (the same as the cart panel).
   const go = async () => {
     if (busy) return;
@@ -72,6 +74,7 @@ export default function CartPage() {
           <h2 className="text-3xl">{t('checkout.summary')}</h2>
           <dl className="mt-5 space-y-3 text-sm">
             <div className="flex justify-between"><dt className="text-muted">{t('cart.subtotal')}</dt><dd className="font-semibold tabular-nums">{cart.subtotal.formatted}</dd></div>
+            {dealSavings && <div className="flex justify-between"><dt className="text-muted">{t('deal.savings')}</dt><dd className="font-semibold tabular-nums text-success">− {dealSavings.formatted}</dd></div>}
             <DeliveryFeeRow />
           </dl>
           <CartDealsHint lines={cart.lines} className="mt-4" />

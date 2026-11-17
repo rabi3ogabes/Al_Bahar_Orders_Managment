@@ -18,6 +18,7 @@ import 'package:albahar_customer/features/cart/presentation/state/cart_controlle
 import 'package:albahar_customer/features/catalog/presentation/widgets/catalog_widgets.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/upsell_widgets.dart';
 import 'package:albahar_customer/features/checkout/presentation/total_action_bar.dart';
+import 'package:albahar_customer/features/deals/presentation/widgets/deal_line_text.dart';
 import 'package:albahar_customer/features/scan/presentation/widgets/scan_entry.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -103,6 +104,12 @@ class CartScreen extends ConsumerWidget {
                               children: [
                                 SummaryRow(label: l10n.itemsCount(c.itemsCount), value: ''),
                                 SummaryRow(label: l10n.subtotal, value: c.subtotal.formatted, emphasize: true),
+                                if (c.dealSavings != null && !c.dealSavings!.isZero)
+                                  SummaryRow(
+                                    label: l10n.dealSavingsRow,
+                                    value: '− ${c.dealSavings!.formatted}',
+                                    valueColor: context.palette.success,
+                                  ),
                                 const Gap(AppSpace.xxs),
                                 Align(
                                   alignment: AlignmentDirectional.centerStart,
@@ -245,6 +252,7 @@ class CartLine extends ConsumerWidget {
                       const Gap(AppSpace.xxs),
                       if (item.unitPrice != null)
                         PriceTag(price: item.unitPrice!, size: PriceTagSize.small, showBadge: false),
+                      DealCartNote(deal: item.deal, units: item.dealUnits),
                       if (item.priceChanged && item.previousPrice != null)
                         Text(
                           l10n.priceChangedFrom(item.previousPrice!.formatted),

@@ -15,15 +15,12 @@ class OpsStrings {
   String get driverApp => _t('Al Bahar Driver', 'سائق البحار');
   String get staffApp => _t('Al Bahar Branch', 'موظف فرع البحار');
   String get signIn => _t('Sign in', 'تسجيل الدخول');
-  String get email => _t('Email', 'البريد الإلكتروني');
   String get password => _t('Password', 'كلمة المرور');
   String get signOut => _t('Sign out', 'تسجيل الخروج');
   String get signInHintDriver =>
       _t('Use the account your branch manager created for you.', 'استخدم الحساب الذي أنشأه لك مدير الفرع.');
   String get signInHintStaff => _t('Sign in with your branch staff account.', 'سجّل الدخول بحساب موظف الفرع.');
   String get notDriver => _t('This account is not set up as a delivery driver.', 'هذا الحساب غير مفعّل كسائق توصيل.');
-  String get notStaff =>
-      _t('This account cannot manage branch orders.', 'هذا الحساب لا يملك صلاحية إدارة طلبات الفرع.');
   String get retry => _t('Try again', 'حاول مرة أخرى');
   String get refresh => _t('Refresh', 'تحديث');
 
@@ -187,7 +184,6 @@ class OpsStrings {
   String get hidePassword => _t('Hide password', 'إخفاء كلمة المرور');
   String get twoFactorCode => _t('Verification code', 'رمز التحقق');
   String get twoFactorHint => _t('Enter the code from your authenticator app.', 'أدخل الرمز من تطبيق المصادقة.');
-  String get signInHintRequired => _t('Enter your email and password.', 'أدخل البريد الإلكتروني وكلمة المرور.');
   String get menu => _t('Menu', 'القائمة');
   String get signOutDriverQ => _t('Sign out and go off duty?', 'تسجيل الخروج وإنهاء التواجد؟');
   String get signOutDriverBody => _t(

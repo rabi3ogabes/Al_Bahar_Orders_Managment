@@ -67,10 +67,11 @@ final class DealDesign
      */
     public static function validate(?array $input): array
     {
-        $input = array_replace_recursive(self::defaults(), self::only($input ?? []));
-        // A list replaces the default list (array_replace_recursive would merge them by index).
-        if (isset($input['timer']) && is_array($input['timer']) && is_array(($given = $input['timer']['units'] ?? null))) {
-            $input['timer']['units'] = array_values($given);
+        $given = self::only($input ?? []);
+        $input = array_replace_recursive(self::defaults(), $given);
+        // A list the admin chose replaces the default list (array_replace_recursive would merge the two by index).
+        if (is_array($given['timer']['units'] ?? null)) {
+            $input['timer']['units'] = array_values($given['timer']['units']);
         }
         $hex = ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'];
         $validator = Validator::make($input, [
@@ -160,8 +161,8 @@ final class DealDesign
             return self::PRESETS[$palette];
         }
         $bg = Contrast::isHex($brand) ? strtoupper((string) $brand) : self::brandPrimary();
-        $text = Contrast::ratio('#FFFFFF', $bg) >= Contrast::ratio('#1B1B1B', $bg) ? '#FFFFFF' : '#1B1B1B';
-        $accent = collect(['#F5C451', '#B91C1C', '#FFFFFF', '#1B1B1B'])->first(fn (string $c) => Contrast::ratio($c, $bg) >= self::WARN_CONTRAST && $c !== $text) ?? $text;
+        $text = Contrast::ratio('#FFFFFF', $bg) >= Contrast::ratio('#000000', $bg) ? '#FFFFFF' : '#000000'; // one of the two always reaches 4.58:1
+        $accent = collect(['#F5C451', '#B91C1C', '#FFFFFF', '#000000'])->first(fn (string $c) => Contrast::ratio($c, $bg) >= self::WARN_CONTRAST && $c !== $text) ?? $text;
 
         return ['background' => $bg, 'text' => $text, 'accent' => $accent];
     }

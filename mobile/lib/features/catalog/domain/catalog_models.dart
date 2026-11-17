@@ -121,6 +121,7 @@ class ProductVariant {
     required this.availableInBranch,
     required this.inStock,
     required this.imageUrl,
+    this.dealPrice,
   });
 
   factory ProductVariant.fromJson(JsonMap json) => ProductVariant(
@@ -132,6 +133,7 @@ class ProductVariant {
     availableInBranch: asBool(json['available_in_branch'], true),
     inStock: asBool(json['in_stock'], true),
     imageUrl: asStringOrNull(json['image_url']),
+    dealPrice: Money.lenient(json['deal_price']),
   );
 
   final String id;
@@ -142,6 +144,9 @@ class ProductVariant {
   final bool availableInBranch;
   final bool inStock;
   final String? imageUrl;
+
+  /// What this variant costs while its product's deal is on; null when it gets no deal (and always null on an older server).
+  final Money? dealPrice;
 
   bool get purchasable => availableInBranch && inStock;
 }

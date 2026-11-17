@@ -10141,6 +10141,228 @@
                 }
             }
         },
+        "/deals": {
+            "get": {
+                "operationId": "v1.deals.index",
+                "summary": "Live deals (the one ending soonest first) and upcoming ones, with a few products each and the server clock to count down from",
+                "description": "Public; a bearer token only adds `customer_remaining`. Paused and ended deals are never listed; a sold-out deal inside its window stays in `live` (phase `sold_out`) for 15 minutes. Contract: docs/api/DEALS.md.",
+                "tags": [
+                    "Deals",
+                    "Deal"
+                ],
+                "parameters": [
+                    {
+                        "name": "home",
+                        "in": "query",
+                        "description": "Only deals shown on the home page",
+                        "schema": {
+                            "type": [
+                                "boolean",
+                                "null"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "limit_products",
+                        "in": "query",
+                        "description": "Products shown per deal (default 8)",
+                        "schema": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "minimum": 1,
+                            "maximum": 12
+                        }
+                    },
+                    {
+                        "name": "branch_id",
+                        "in": "query",
+                        "description": "Price and show products for this branch",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "server_time": {
+                                                    "type": "string"
+                                                },
+                                                "live": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/Deal"
+                                                    }
+                                                },
+                                                "upcoming": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/Deal"
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "server_time",
+                                                "live",
+                                                "upcoming"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/deals/{id}": {
+            "get": {
+                "operationId": "v1.deals.show",
+                "summary": "One deal with a page (24) of its products as catalog cards",
+                "description": "`products` is `{data: ProductCard[], meta: {current_page, per_page, total, last_page}}`. 404 `deal_not_found` when the deal is ended or paused.",
+                "tags": [
+                    "Deals",
+                    "Deal"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Page of products (24 a page)",
+                        "schema": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "branch_id",
+                        "in": "query",
+                        "description": "Price and show products for this branch",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "allOf": [
+                                                {
+                                                    "$ref": "#/components/schemas/Deal"
+                                                },
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "server_time": {
+                                                            "type": "string"
+                                                        },
+                                                        "products": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "data": {
+                                                                    "type": "array",
+                                                                    "items": {
+                                                                        "type": "object"
+                                                                    }
+                                                                },
+                                                                "meta": {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "current_page": {
+                                                                            "type": "integer"
+                                                                        },
+                                                                        "per_page": {
+                                                                            "type": "integer"
+                                                                        },
+                                                                        "total": {
+                                                                            "type": "integer"
+                                                                        },
+                                                                        "last_page": {
+                                                                            "type": "integer"
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "deal_not_found: the deal is ended or paused (a sold-out deal still answers)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "example": "deal_not_found"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
         "/auctions": {
             "get": {
                 "operationId": "v1.auctions.index",
@@ -28755,6 +28977,346 @@
                 ],
                 "title": "DataExport"
             },
+        "Deal": {
+            "type": "object",
+            "description": "A countdown offer (docs/api/DEALS.md). Count down from `ends_at` with the server clock (`server_time` of the response).",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "tagline": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "phase": {
+                    "type": "string",
+                    "enum": [
+                        "scheduled",
+                        "live",
+                        "sold_out"
+                    ]
+                },
+                "starts_at": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "ends_at": {
+                    "type": "string"
+                },
+                "seconds_left": {
+                    "type": "integer"
+                },
+                "seconds_to_start": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ]
+                },
+                "discount": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "enum": [
+                                "percent",
+                                "amount_off",
+                                "fixed_price"
+                            ]
+                        },
+                        "value": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        }
+                    }
+                },
+                "limits": {
+                    "type": "object",
+                    "properties": {
+                        "per_order": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ]
+                        },
+                        "per_customer": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ]
+                        }
+                    }
+                },
+                "products_total": {
+                    "type": "integer"
+                },
+                "products": {
+                    "type": "array",
+                    "description": "ProductCard[] (each with its `deal` block)",
+                    "items": {
+                        "type": "object"
+                    }
+                },
+                "design": {
+                    "$ref": "#/components/schemas/DealDesign"
+                },
+                "show_on_home": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "id",
+                "name",
+                "phase",
+                "ends_at",
+                "seconds_left",
+                "discount",
+                "limits",
+                "products_total",
+                "products",
+                "design",
+                "show_on_home"
+            ]
+        },
+        "DealBlock": {
+            "type": "object",
+            "description": "The `deal` block of a product card, the product detail and a cart line (a cart line adds `units_at_deal_price`, `units_at_regular_price`, `note`). The field is null when the product is in no live or scheduled deal.",
+            "properties": {
+                "deal_id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "phase": {
+                    "type": "string",
+                    "enum": [
+                        "scheduled",
+                        "live",
+                        "sold_out"
+                    ]
+                },
+                "starts_at": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "ends_at": {
+                    "type": "string"
+                },
+                "deal_price": {
+                    "type": "object",
+                    "properties": {
+                        "amount": {
+                            "type": "string",
+                            "example": "700.00"
+                        },
+                        "currency": {
+                            "type": "string",
+                            "example": "QAR"
+                        },
+                        "formatted": {
+                            "type": "string",
+                            "example": "QAR 700.00"
+                        }
+                    },
+                    "required": [
+                        "amount",
+                        "currency",
+                        "formatted"
+                    ]
+                },
+                "regular_price": {
+                    "type": "object",
+                    "properties": {
+                        "amount": {
+                            "type": "string",
+                            "example": "700.00"
+                        },
+                        "currency": {
+                            "type": "string",
+                            "example": "QAR"
+                        },
+                        "formatted": {
+                            "type": "string",
+                            "example": "QAR 700.00"
+                        }
+                    },
+                    "required": [
+                        "amount",
+                        "currency",
+                        "formatted"
+                    ]
+                },
+                "percent": {
+                    "type": "integer"
+                },
+                "remaining": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ]
+                },
+                "remaining_percent": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ]
+                },
+                "limit_per_order": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ]
+                },
+                "limit_per_customer": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ]
+                },
+                "customer_remaining": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ]
+                },
+                "sold_out": {
+                    "type": "boolean"
+                },
+                "design": {
+                    "$ref": "#/components/schemas/DealDesign"
+                }
+            }
+        },
+        "DealDesign": {
+            "type": "object",
+            "description": "The widget look with the colours already resolved by the server: never invent a colour on the client.",
+            "properties": {
+                "style": {
+                    "type": "string",
+                    "enum": [
+                        "classic",
+                        "bold",
+                        "minimal",
+                        "luxe",
+                        "ribbon"
+                    ]
+                },
+                "palette": {
+                    "type": "string",
+                    "enum": [
+                        "brand",
+                        "gold",
+                        "night",
+                        "emerald",
+                        "rose",
+                        "custom"
+                    ]
+                },
+                "colors": {
+                    "type": "object",
+                    "properties": {
+                        "background": {
+                            "type": "string"
+                        },
+                        "text": {
+                            "type": "string"
+                        },
+                        "accent": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "background",
+                        "text",
+                        "accent"
+                    ]
+                },
+                "shape": {
+                    "type": "string",
+                    "enum": [
+                        "rounded",
+                        "sharp",
+                        "pill"
+                    ]
+                },
+                "timer": {
+                    "type": "object",
+                    "properties": {
+                        "units": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "d",
+                                    "h",
+                                    "m",
+                                    "s"
+                                ]
+                            }
+                        },
+                        "look": {
+                            "type": "string",
+                            "enum": [
+                                "boxes",
+                                "digits",
+                                "text"
+                            ]
+                        },
+                        "urgency_minutes": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "stock_bar": {
+                    "type": "boolean"
+                },
+                "percent_badge": {
+                    "type": "boolean"
+                },
+                "icon": {
+                    "type": "string",
+                    "enum": [
+                        "flame",
+                        "bolt",
+                        "timer",
+                        "tag",
+                        "gift",
+                        "star",
+                        "crown"
+                    ]
+                },
+                "headline_en": {
+                    "type": "string"
+                },
+                "headline_ar": {
+                    "type": "string"
+                },
+                "cta_en": {
+                    "type": "string"
+                },
+                "cta_ar": {
+                    "type": "string"
+                },
+                "image_url": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                }
+            }
+        },
             "Delivery": {
                 "type": "object",
                 "properties": {

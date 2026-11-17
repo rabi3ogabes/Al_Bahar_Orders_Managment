@@ -198,4 +198,5 @@ class _Lifecycle with WidgetsBindingObserver {
   }
 }
 
-final liveDealsProvider = NotifierProvider<LiveDealsController, bool>(LiveDealsController.new);
+/// Auto-disposed: the footer is what watches it, so the timer and the lifecycle watcher live exactly as long as the footer does.
+final liveDealsProvider = NotifierProvider.autoDispose<LiveDealsController, bool>(LiveDealsController.new);

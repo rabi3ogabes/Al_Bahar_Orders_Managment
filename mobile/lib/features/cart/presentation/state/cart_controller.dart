@@ -101,6 +101,7 @@ class CartController extends AsyncNotifier<Cart> {
     itemsCount: itemsCount,
     subtotal: c.subtotal,
     warnings: c.warnings,
+    dealSavings: c.dealSavings,
   );
 
   Future<void> updateQuantity(String itemId, int quantity) async {

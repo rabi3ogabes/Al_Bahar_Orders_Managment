@@ -28,7 +28,7 @@
                         <label class="relative cursor-pointer rounded-2xl border p-3 transition focus-within:ring-2 focus-within:ring-brass-500 {{ $sel ? 'border-brass-500 bg-brass-500/5 ring-1 ring-brass-500' : 'border-sand-200 hover:border-brass-400 dark:border-ink-700' }}">
                             <input type="radio" name="design" value="{{ $d }}" class="sr-only" wire:click="pickDesign('{{ $d }}')" @checked($sel) @disabled(! $canEdit)>
                             <div class="mb-3 flex h-24 flex-col justify-end overflow-hidden rounded-xl bg-sand-50 dark:bg-ink-900">
-                                <x-admin.footer-mock :design="$d" :items="$sample" :active="0" :labels="$form['show_labels'] ?? true" :accent="$accent" :badge="$form['cart_badge'] ?? true" />
+                                <x-admin.footer-mock :design="$d" :items="$sample" :active="0" :labels="$form['show_labels'] ?? true" :accent="$accent" :badge="$form['cart_badge'] ?? true" :center="$form['center'] ?? 'none'" />
                             </div>
                             <p class="flex items-center justify-between text-sm font-semibold">{{ __('footer_admin.design_'.$d) }}@if ($sel)<x-icon name="check" class="size-4 text-brass-600" />@endif</p>
                             <p class="mt-0.5 text-xs text-ink-500">{{ __('footer_admin.design_'.$d.'_hint') }}</p>
@@ -84,6 +84,27 @@
                 @endif
             </section>
 
+            <section class="card p-4 sm:p-6" aria-labelledby="mid-h" data-footer-center>
+                <h2 id="mid-h" class="font-display text-lg font-semibold">{{ __('footer_admin.center') }}</h2>
+                <p class="mb-4 text-sm text-ink-500">{{ __('footer_admin.center_hint') }}</p>
+                <div class="grid gap-3 sm:grid-cols-3" role="radiogroup" aria-labelledby="mid-h">
+                    @foreach ($centers as $c)
+                        @php $selC = ($form['center'] ?? 'none') === $c; @endphp
+                        <label class="relative flex min-h-11 cursor-pointer items-start gap-3 rounded-2xl border p-3 transition focus-within:ring-2 focus-within:ring-brass-500 {{ $selC ? 'border-brass-500 bg-brass-500/5 ring-1 ring-brass-500' : 'border-sand-200 hover:border-brass-400 dark:border-ink-700' }}">
+                            <input type="radio" name="center" value="{{ $c }}" class="sr-only" wire:click="pickCenter('{{ $c }}')" @checked($selC) @disabled(! $canEdit)>
+                            <span class="grid size-10 shrink-0 place-items-center rounded-full {{ $selC && $c !== 'none' ? 'bg-brass-500 text-white shadow-md' : 'bg-sand-100 text-ink-500 dark:bg-ink-800' }}"><x-icon :name="['none' => 'minus', 'auctions' => 'gavel', 'deals' => 'flame'][$c]" class="size-5" /></span>
+                            <span class="min-w-0">
+                                <span class="flex items-center justify-between gap-2 text-sm font-semibold">{{ __('footer_admin.center_'.$c) }}@if ($selC)<x-icon name="check" class="size-4 text-brass-600" />@endif</span>
+                                <span class="mt-0.5 block text-xs text-ink-500">{{ __('footer_admin.center_'.$c.'_hint') }}</span>
+                            </span>
+                        </label>
+                    @endforeach
+                </div>
+                @if (($form['center'] ?? 'none') !== 'none')<p class="mt-3 flex items-start gap-2 rounded-xl bg-brass-500/10 p-3 text-sm" role="note"><x-icon name="info" class="mt-0.5 size-4 shrink-0 text-brass-600" />{{ __('footer_admin.center_note') }}</p>@endif
+                @if ($centerReset)<p class="mt-3 text-sm text-ruby-soft" role="status">{{ __('footer_admin.center_reset') }}</p>@endif
+                @error('form.center')<p class="field-error" role="alert">{{ $message }}</p>@enderror
+            </section>
+
             <section class="card p-4 sm:p-6" aria-labelledby="opt-h">
                 <h2 id="opt-h" class="mb-3 font-display text-lg font-semibold">{{ __('footer_admin.options') }}</h2>
                 <div class="grid gap-3 sm:grid-cols-2 [&>*]:min-w-0">
@@ -124,7 +145,7 @@
                     <div class="h-20 rounded-2xl bg-white shadow-sm dark:bg-ink-800"></div>
                     <div class="h-14 rounded-2xl bg-white shadow-sm dark:bg-ink-800"></div>
                 </div>
-                <x-admin.footer-mock large :design="$form['design'] ?? 'classic'" :items="$preview" :active="0" :labels="$form['show_labels'] ?? true" :accent="$accent" :badge="$form['cart_badge'] ?? true" />
+                <x-admin.footer-mock large :design="$form['design'] ?? 'classic'" :items="$preview" :active="0" :labels="$form['show_labels'] ?? true" :accent="$accent" :badge="$form['cart_badge'] ?? true" :center="$form['center'] ?? 'none'" />
             </div>
         </aside>
     </form>

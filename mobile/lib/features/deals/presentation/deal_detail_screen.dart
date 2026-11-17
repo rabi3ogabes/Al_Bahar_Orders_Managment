@@ -46,6 +46,7 @@ class DealDetailScreen extends ConsumerWidget {
             child: NotificationListener<ScrollNotification>(
               onNotification: (n) => handleLoadMoreScroll(n, () => ref.read(provider.notifier).loadMore()),
               child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
                   SliverToBoxAdapter(
                     child: Column(

@@ -59,6 +59,7 @@ final class AdminNavigation
             ]],
             ['label' => 'nav.marketing', 'items' => [
                 ['label' => 'nav.promotions', 'route' => 'admin.promotions.index', 'icon' => 'percent', 'permission' => 'marketing.view'],
+                ['label' => 'nav.deals', 'route' => 'admin.deals.index', 'icon' => 'flame', 'permission' => 'marketing.view'],
                 ['label' => 'nav.campaigns', 'route' => 'admin.campaigns.index', 'icon' => 'megaphone', 'permission' => 'marketing.view'],
                 ['label' => 'nav.journeys', 'route' => 'admin.journeys.index', 'icon' => 'gift', 'permission' => 'marketing.view'],
                 ['label' => 'nav.customer_messages', 'route' => 'admin.messages.index', 'icon' => 'megaphone', 'permission' => 'notifications.view'],

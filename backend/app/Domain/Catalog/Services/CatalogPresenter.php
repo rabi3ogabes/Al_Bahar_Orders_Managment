@@ -24,8 +24,8 @@ class CatalogPresenter
     public function __construct(private readonly PriceResolver $prices, private readonly DealBlocks $deals) {}
 
     /**
-     * @param Collection<int, Product> $products
-     * @param ?User $user the signed-in customer, so a card's `deal` block can say how many units of the deal they may still buy
+     * @param  Collection<int, Product>  $products
+     * @param  ?User  $user  the signed-in customer, so a card's `deal` block can say how many units of the deal they may still buy
      */
     public function cards(Collection $products, ?Branch $branch, ?User $user = null): array
     {
@@ -39,7 +39,7 @@ class CatalogPresenter
     }
 
     /**
-     * @param ?array<string, array<string, mixed>> $deals the deal entries of a page of products (DealBlocks::load); null = look this product up
+     * @param  ?array<string, array<string, mixed>>  $deals  the deal entries of a page of products (DealBlocks::load); null = look this product up
      */
     public function card(Product $p, ?Branch $branch, array $stock = [], ?User $user = null, ?array $deals = null): array
     {

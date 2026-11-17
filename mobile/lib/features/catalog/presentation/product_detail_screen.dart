@@ -23,6 +23,8 @@ import 'package:albahar_customer/features/catalog/presentation/widgets/product_o
 import 'package:albahar_customer/features/catalog/presentation/widgets/product_page_sections.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/review_widgets.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/upsell_widgets.dart';
+import 'package:albahar_customer/features/deals/presentation/widgets/deal_price_tag.dart';
+import 'package:albahar_customer/features/deals/presentation/widgets/deal_product_strip.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
@@ -92,6 +94,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final selection = _currentSelection(product);
     final variant = product.attributes.isEmpty ? product.defaultVariant : product.resolveVariant(selection);
     final price = variant?.price ?? product.summary.price;
+    // The deal this product is in, as it reads for the chosen variant (null: none, or this variant is not in it).
+    final deal = dealForVariant(product.summary.deal, product.variants, variant);
+    final dealOn = dealShowsPrice(context, deal);
     final branch = ref.watch(preferredBranchProvider);
     final colourAttr = product.colourAttribute;
     final multi = colourAttr != null;
@@ -163,8 +168,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           if (price != null) ...[
-                            PriceTag(price: price, size: PriceTagSize.large),
-                            if (price.isOnSale && price.saleEndsAt != null)
+                            if (dealOn)
+                              DealPriceTag(deal: deal!, price: price, size: PriceTagSize.large)
+                            else
+                              PriceTag(price: price, size: PriceTagSize.large),
+                            if (!dealOn && price.isOnSale && price.saleEndsAt != null)
                               Padding(
                                 padding: const EdgeInsets.only(top: 4),
                                 child: Text(
@@ -178,6 +186,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       ),
                     ),
                   ),
+                  // The deal: its countdown, the stock bar and what one order and this customer can buy at the deal price.
+                  if (deal != null) ...[const Gap(AppSpace.md), DealProductStrip(deal: deal)],
                   if (product.shortDescription != null) ...[
                     const Gap(AppSpace.md),
                     Text(

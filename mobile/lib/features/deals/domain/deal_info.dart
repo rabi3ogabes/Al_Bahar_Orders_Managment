@@ -338,13 +338,38 @@ class DealInfo {
   /// The phase at [serverNow]: see [dealPhaseAt].
   DealPhase phaseAt(DateTime serverNow) => dealPhaseAt(phase, startsAt, endsAt, serverNow);
 
+  /// The block as it reads for one variant of the product: that variant's own deal price and normal price. The percent is
+  /// kept only while the price is the block's own (another price has another percent, and the app does not work it out).
+  DealInfo forVariant({required Money dealPrice, Money? regularPrice}) {
+    if (dealPrice == this.dealPrice) return this;
+    return DealInfo(
+      dealId: dealId,
+      name: name,
+      phase: phase,
+      startsAt: startsAt,
+      endsAt: endsAt,
+      dealPrice: dealPrice,
+      regularPrice: regularPrice ?? this.regularPrice,
+      remaining: remaining,
+      remainingPercent: remainingPercent,
+      limitPerOrder: limitPerOrder,
+      limitPerCustomer: limitPerCustomer,
+      customerRemaining: customerRemaining,
+      soldOut: soldOut,
+      design: design,
+    );
+  }
+
   /// This customer has used all the units they may buy at the deal price.
   bool get limitReached => customerRemaining == 0;
 
   /// Show the deal price (struck regular price, badge...) at [serverNow]: live, not sold out, a price to show, and the
-  /// customer still has units at that price.
-  bool showsDealPriceAt(DateTime serverNow) =>
-      phaseAt(serverNow) == DealPhase.live && !soldOut && dealPrice != null && !limitReached;
+  /// customer still has units at that price. Without a server-corrected clock ([serverNow] null) the phase the server
+  /// reported is trusted as it is: a phone's own clock is never used to second-guess it.
+  bool showsDealPriceAt(DateTime? serverNow) {
+    final p = serverNow == null ? phase : phaseAt(serverNow);
+    return p == DealPhase.live && !soldOut && dealPrice != null && !limitReached;
+  }
 
   /// Units are running out: the stock line and bar make sense.
   bool get hasStock => remaining != null;

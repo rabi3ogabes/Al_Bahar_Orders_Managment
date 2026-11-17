@@ -19,15 +19,21 @@ class AppFooterService
     public const DESIGNS = ['classic', 'floating', 'minimal', 'bubble', 'glass'];
 
     /** Where a footer item can lead. The app owns the route behind each key. */
-    public const ITEMS = ['home', 'categories', 'auctions', 'cart', 'account', 'orders', 'wishlist', 'search', 'support', 'notifications'];
+    public const ITEMS = ['home', 'categories', 'auctions', 'deals', 'cart', 'account', 'orders', 'wishlist', 'search', 'support', 'notifications'];
 
     /** Icon keys the app can draw. Each item has a default one (see DEFAULT_ICONS). */
-    public const ICONS = ['home', 'grid', 'gavel', 'bag', 'person', 'receipt', 'heart', 'search', 'headset', 'bell', 'tag', 'star', 'store', 'gift'];
+    public const ICONS = ['home', 'grid', 'gavel', 'bag', 'person', 'receipt', 'heart', 'search', 'headset', 'bell', 'tag', 'star', 'store', 'gift', 'flame', 'bolt', 'timer', 'crown'];
 
     public const DEFAULT_ICONS = [
-        'home' => 'home', 'categories' => 'grid', 'auctions' => 'gavel', 'cart' => 'bag', 'account' => 'person',
+        'home' => 'home', 'categories' => 'grid', 'auctions' => 'gavel', 'deals' => 'flame', 'cart' => 'bag', 'account' => 'person',
         'orders' => 'receipt', 'wishlist' => 'heart', 'search' => 'search', 'support' => 'headset', 'notifications' => 'bell',
     ];
+
+    /**
+     * The "middle button": which item the app draws as the raised round button in the exact middle of the bar. `none` is the plain bar (and what an
+     * older saved footer, without the field, means). Only an item that is switched on can be the middle button; today that is Auctions or Deals.
+     */
+    public const CENTERS = ['none', 'auctions', 'deals'];
 
     public const MAX_ITEMS = 5;
 
@@ -39,7 +45,7 @@ class AppFooterService
     public function defaults(): array
     {
         return [
-            'design' => 'classic', 'show_labels' => true, 'cart_badge' => true, 'accent' => null,
+            'design' => 'classic', 'show_labels' => true, 'cart_badge' => true, 'accent' => null, 'center' => 'none',
             'items' => array_map(fn (string $k) => ['key' => $k, 'enabled' => true, 'icon' => null, 'label_en' => null, 'label_ar' => null], ['home', 'categories', 'auctions', 'cart', 'account']),
         ];
     }
@@ -72,6 +78,7 @@ class AppFooterService
             'show_labels' => ['required', 'boolean'],
             'cart_badge' => ['required', 'boolean'],
             'accent' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'center' => ['nullable', 'string', Rule::in(self::CENTERS)],
             'items' => ['required', 'array', 'min:'.self::MIN_ENABLED, 'max:'.self::MAX_ITEMS],
             'items.*' => ['array'],
             'items.*.key' => ['required', 'string', Rule::in(self::ITEMS), 'distinct'],
@@ -92,6 +99,10 @@ class AppFooterService
             if (! array_filter($enabled, fn ($i) => $i['key'] === 'home')) {
                 $v->errors()->add('items', __('footer_admin.err_home'));
             }
+            $center = (string) ($input['center'] ?? 'none');
+            if ($center !== 'none' && ! array_filter($enabled, fn ($i) => $i['key'] === $center)) {
+                $v->errors()->add('center', __('footer_admin.err_center', ['item' => __('footer_admin.item_'.$center)]));
+            }
         });
         $data = $validator->validate();
 
@@ -102,6 +113,7 @@ class AppFooterService
             'show_labels' => (bool) $data['show_labels'],
             'cart_badge' => (bool) $data['cart_badge'],
             'accent' => ! empty($data['accent']) ? strtoupper($data['accent']) : null,
+            'center' => $data['center'] ?? 'none',
             'items' => array_map(fn (array $i) => [
                 'key' => $i['key'], 'enabled' => (bool) $i['enabled'], 'icon' => $i['icon'] ?? null,
                 'label_en' => $label($i['label_en'] ?? null), 'label_ar' => $label($i['label_ar'] ?? null),

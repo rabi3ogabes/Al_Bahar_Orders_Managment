@@ -72,10 +72,14 @@ export interface DeliveryZone { id: string; code: string; name: string; zone_num
 export interface CartItem {
   id: string; variant_id: string; product: ProductCard; variant_name: string | null; quantity: number; unit_price: Price; line_total: Money
   available: boolean; available_quantity: number; price_changed: boolean; previous_price: Money | null; issue: string | null
+  /** The product's deal block plus `units_at_deal_price`, `units_at_regular_price` and `note` for this line (the checkout quote is the final word). */
+  deal?: DealBlock | null
 }
 export interface Cart {
   id: string; branch_id: string | null; fulfillment_type: 'delivery' | 'pickup'; address_id: string | null; coupon_code: string | null
   loyalty_points: number; items: CartItem[]; items_count: number; subtotal: Money; warnings: { code?: string; message?: string }[]
+  /** What the deals will take off at checkout (the subtotal is at regular prices); absent from an older server. */
+  deal_savings?: Money | null
 }
 
 /** One product's share of the extra delivery fee (`delivery_extras` of a quote). */

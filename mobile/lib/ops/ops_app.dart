@@ -8,6 +8,7 @@ import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/update/app_update.dart';
 import 'package:albahar_customer/ops/driver/driver_home.dart';
+import 'package:albahar_customer/ops/ops_account_screens.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_session.dart';
 import 'package:albahar_customer/ops/ops_status_style.dart';
@@ -63,8 +64,9 @@ class _OpsAppState extends ConsumerState<OpsApp> {
     final auth = ref.watch(opsSessionProvider);
     ref.listen(opsSessionProvider, (_, next) {
       if (next == OpsAuth.signedIn) _registerPush();
-      // Signed out (or expired) while a pushed screen or sheet is open: close them so only the sign-in screen is left.
-      if (next == OpsAuth.signedOut) _navigator.currentState?.popUntil((r) => r.isFirst);
+      // Signed out (or expired), or told to choose a password first, while a pushed screen or sheet is open: close them so only the
+      // sign-in (or the password) screen is left.
+      if (next != OpsAuth.signedIn) _navigator.currentState?.popUntil((r) => r.isFirst);
     });
     return MaterialApp(
       navigatorKey: _navigator,
@@ -83,9 +85,11 @@ class _OpsAppState extends ConsumerState<OpsApp> {
       themeMode: ref.watch(themeModeProvider),
       builder: (context, child) =>
           UpdateGate(baseUrl: ref.read(appConfigProvider).apiBaseUrl, child: child ?? const SizedBox.shrink()),
-      home: auth == OpsAuth.signedIn
-          ? (role == OpsRole.driver ? const DriverHome() : const StaffHome())
-          : const OpsLoginScreen(),
+      home: switch (auth) {
+        OpsAuth.signedIn => role == OpsRole.driver ? const DriverHome() : const StaffHome(),
+        OpsAuth.passwordChange => const OpsPasswordScreen(),
+        OpsAuth.signedOut => const OpsLoginScreen(),
+      },
     );
   }
 }
@@ -146,16 +150,25 @@ class _OpsLoginScreenState extends ConsumerState<OpsLoginScreen> {
 
   String _describe(Object e) {
     if (e is ApiException && e.kind == ApiErrorKind.validation) {
-      return e.fieldError('email') ?? e.fieldError('password') ?? describeError(context.l10n, e);
+      return e.fieldError('email') ??
+          e.fieldError('phone') ??
+          e.fieldError('password') ??
+          describeError(context.l10n, e);
     }
     return describeError(context.l10n, e);
   }
+
+  /// Why the account cannot use this app, in plain words (and what to do instead).
+  String _refusal(OpsStrings t, OpsRole role) =>
+      role == OpsRole.driver ? t.notDriver : context.l10n.staffNoAccessMessage;
 
   Future<void> _submit(OpsStrings t, OpsRole role) async {
     if (_busy) return;
     final email = _email.text.trim();
     if (email.isEmpty || _password.text.isEmpty || (_needsCode && _code.text.trim().isEmpty)) {
-      setState(() => _error = _needsCode && _code.text.trim().isEmpty ? t.twoFactorHint : t.signInHintRequired);
+      setState(
+        () => _error = _needsCode && _code.text.trim().isEmpty ? t.twoFactorHint : context.l10n.staffSignInRequired,
+      );
       return;
     }
     FocusScope.of(context).unfocus();
@@ -171,8 +184,11 @@ class _OpsLoginScreenState extends ConsumerState<OpsLoginScreen> {
       switch (outcome) {
         case OpsSignIn.success:
           TextInput.finishAutofillContext();
+        case OpsSignIn.passwordChangeRequired:
+          // The password just typed is the temporary one: the phone must not offer to remember it.
+          TextInput.finishAutofillContext(shouldSave: false);
         case OpsSignIn.notEligible:
-          error = role == OpsRole.driver ? t.notDriver : t.notStaff;
+          error = _refusal(t, role);
         case OpsSignIn.twoFactorRequired:
           _needsCode = true;
           error = t.twoFactorHint;
@@ -192,8 +208,10 @@ class _OpsLoginScreenState extends ConsumerState<OpsLoginScreen> {
   Widget build(BuildContext context) {
     final t = OpsStrings.of(context);
     final role = ref.watch(opsRoleProvider);
-    final expired = ref.read(opsSessionProvider.notifier).expired;
-    final message = _error ?? (expired ? t.sessionExpired : null);
+    final session = ref.read(opsSessionProvider.notifier);
+    final expired = session.expired;
+    // An account that was only found not to suit this app after it chose its own password has no form to come back to: say it here.
+    final message = _error ?? (session.refusal == null ? (expired ? t.sessionExpired : null) : _refusal(t, role));
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -231,15 +249,18 @@ class _OpsLoginScreenState extends ConsumerState<OpsLoginScreen> {
                     TextField(
                       controller: _email,
                       enabled: !_busy,
+                      // An e-mail address or a mobile number: the e-mail keyboard has the digits and the plus sign. Nothing is lower-cased
+                      // or refused (digits and "+" pass); only spaces are dropped, as before (neither kind of login name has any).
                       keyboardType: TextInputType.emailAddress,
                       autofillHints: const [AutofillHints.username, AutofillHints.email],
                       autocorrect: false,
                       enableSuggestions: false,
+                      textCapitalization: TextCapitalization.none,
                       textInputAction: TextInputAction.next,
                       inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
                       decoration: InputDecoration(
-                        labelText: t.email,
-                        prefixIcon: const Icon(Icons.alternate_email_rounded),
+                        labelText: context.l10n.staffSignInIdentifier,
+                        prefixIcon: const Icon(Icons.person_outline_rounded),
                       ),
                     ),
                     const Gap(AppSpace.sm),

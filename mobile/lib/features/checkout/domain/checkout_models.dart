@@ -1,5 +1,6 @@
 import 'package:albahar_customer/core/models/money.dart';
 import 'package:albahar_customer/core/utils/json.dart';
+import 'package:albahar_customer/features/deals/domain/deal_lines.dart';
 import 'package:flutter/foundation.dart';
 
 enum FulfillmentType {
@@ -122,6 +123,7 @@ class QuoteLine {
     this.lineSubtotal,
     this.discount,
     this.branchId,
+    this.deal,
   });
   factory QuoteLine.fromJson(JsonMap json) => QuoteLine(
     variantId: asString(json['variant_id']),
@@ -134,6 +136,7 @@ class QuoteLine {
     discount: Money.maybe(json['discount']),
     lineTotal: Money.maybe(json['line_total']) ?? Money.zero,
     branchId: asStringOrNull(json['branch_id']),
+    deal: QuoteLineDeal.maybe(json['deal']),
   );
   final String variantId;
   final String name;
@@ -145,6 +148,9 @@ class QuoteLine {
   final Money? discount;
   final Money lineTotal;
   final String? branchId;
+
+  /// What a deal did to this line (how many units got the deal price and why not all); null when the line is in no deal.
+  final QuoteLineDeal? deal;
 }
 
 /// `fulfillments[i].slot` of a quote: `{id, date, starts_at, ends_at}`.
@@ -225,6 +231,7 @@ class OrderTotals {
     this.codFee,
     this.tax,
     this.loyaltyDiscount,
+    this.dealSavings,
   });
   factory OrderTotals.fromJson(JsonMap json) => OrderTotals(
     subtotal: Money.maybe(json['subtotal']) ?? Money.zero,
@@ -235,6 +242,7 @@ class OrderTotals {
     codFee: Money.maybe(json['cod_fee']),
     tax: Money.maybe(json['tax']),
     loyaltyDiscount: Money.maybe(json['loyalty_discount']),
+    dealSavings: Money.lenient(json['deal_savings']),
     grandTotal: Money.maybe(json['grand_total']) ?? Money.zero,
   );
   final Money subtotal;
@@ -252,6 +260,9 @@ class OrderTotals {
   final Money? codFee;
   final Money? tax;
   final Money? loyaltyDiscount;
+
+  /// The part of [discount] that comes from deal prices (null or zero: none, and always null from an older server).
+  final Money? dealSavings;
   final Money grandTotal;
 }
 
@@ -300,13 +311,21 @@ class DeliveryExtras {
 
 @immutable
 class QuoteDiscount {
-  const QuoteDiscount({required this.label, this.code, required this.amount, this.freeDelivery = false});
+  const QuoteDiscount({required this.label, this.code, required this.amount, this.freeDelivery = false, this.source});
   factory QuoteDiscount.fromJson(JsonMap json) => QuoteDiscount(
     label: asString(json['label']),
     code: asStringOrNull(json['code']),
     amount: Money.maybe(json['amount']) ?? Money.zero,
     freeDelivery: asBool(json['free_delivery']),
+    source: asStringOrNull(json['source']),
   );
+
+  /// Where the discount comes from: `deal`, `promotion`, `coupon`... (null from an older server).
+  final String? source;
+
+  /// A deal price: it is counted in the "Deal savings" row, not listed on its own.
+  bool get isDeal => source == 'deal';
+
   final String label;
   final String? code;
   final Money amount;

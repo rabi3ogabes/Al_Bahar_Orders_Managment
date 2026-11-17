@@ -110,7 +110,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return (server.data?.items ?? []).map((i) => ({
         key: i.variant_id, variantId: i.variant_id, productId: i.product.id, slug: i.product.slug, name: i.product.name, variantName: i.variant_name,
         image: i.product.image?.thumb_url ?? null, brand: i.product.brand?.name ?? null, unit: i.unit_price.final, total: i.line_total, qty: i.quantity,
-        max: Math.min(MAX_QTY, i.available_quantity || MAX_QTY), available: i.available, issue: i.issue, priceChanged: i.price_changed, deal: i.product.deal ?? null,
+        max: Math.min(MAX_QTY, i.available_quantity || MAX_QTY), available: i.available, issue: i.issue, priceChanged: i.price_changed, deal: i.deal ?? i.product.deal ?? null,
       }));
     }
     return guest.map((g) => ({

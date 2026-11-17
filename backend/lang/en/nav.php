@@ -34,6 +34,7 @@ return [
     'auctions_all' => 'All auctions',
     'marketing' => 'Marketing',
     'promotions' => 'Promotions & coupons',
+    'deals' => 'Deals',
     'journeys' => 'Customer journeys',
     'customer_messages' => 'Customer messages',
     'campaigns' => 'Campaigns',

@@ -1,7 +1,6 @@
 import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:albahar_customer/features/deals/data/deals_repository.dart';
 import 'package:albahar_customer/features/deals/domain/deal_info.dart';
-import 'package:albahar_customer/features/deals/domain/deal_models.dart';
 import 'package:albahar_customer/features/deals/presentation/widgets/deal_card_data.dart';
 import 'package:albahar_customer/features/deals/presentation/widgets/deal_clock.dart';
 import 'package:albahar_customer/features/deals/presentation/widgets/deal_widget.dart';
@@ -371,7 +370,7 @@ void main() {
   });
 
   group('the last stretch', () {
-    final nearEnd = const Duration(minutes: 30);
+    const nearEnd = Duration(minutes: 30);
 
     testWidgets('digits turn to the accent colour and pulse once a second', (tester) async {
       final phone = _Phone();

@@ -111,7 +111,7 @@ Future<void> _fillAndSubmit(
   String email = '  omar@albahar.qa ',
   String password = 'secret123',
 }) async {
-  await tester.enterText(find.widgetWithText(TextField, 'Email'), email);
+  await tester.enterText(find.widgetWithText(TextField, 'Email or mobile number'), email);
   await tester.enterText(find.widgetWithText(TextField, 'Password'), password);
   await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
   await settle(tester);
@@ -123,7 +123,7 @@ void main() {
       final h = await _harness(tester, OpsRole.staff, _api());
       await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
       await settle(tester);
-      expect(find.text('Enter your email and password.'), findsOneWidget);
+      expect(find.text('Enter your email or mobile number and your password.'), findsOneWidget);
       // Nothing is sent but the public look-up of how a status is changed (buttons or slide), made on start-up.
       expect(h.adapter.requests.where((r) => r.path != '/app-config'), isEmpty);
     });
@@ -228,13 +228,16 @@ void main() {
     testWidgets('a staff account without order access is refused', (tester) async {
       final h = await _harness(tester, OpsRole.staff, _api(permissions: const ['catalog.view']));
       await _fillAndSubmit(tester);
-      expect(find.text('This account cannot manage branch orders.'), findsOneWidget);
+      expect(
+        find.text('Your account has no orders access in this app. Use the dashboard on a tablet or computer.'),
+        findsOneWidget,
+      );
       expect(h.tokenStore.cached, isNull);
     });
 
     testWidgets('a double tap on Sign in sends one request', (tester) async {
       final h = await _harness(tester, OpsRole.staff, _api(loginDelay: const Duration(seconds: 2)));
-      await tester.enterText(find.widgetWithText(TextField, 'Email'), 'omar@albahar.qa');
+      await tester.enterText(find.widgetWithText(TextField, 'Email or mobile number'), 'omar@albahar.qa');
       await tester.enterText(find.widgetWithText(TextField, 'Password'), 'secret123');
       await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
       await tester.pump();
@@ -248,7 +251,7 @@ void main() {
 
     testWidgets('fields are autofill-ready: username, password, correction off, password can be shown', (tester) async {
       await _harness(tester, OpsRole.staff, _api());
-      final email = tester.widget<TextField>(find.widgetWithText(TextField, 'Email'));
+      final email = tester.widget<TextField>(find.widgetWithText(TextField, 'Email or mobile number'));
       final password = tester.widget<TextField>(find.widgetWithText(TextField, 'Password'));
       expect(email.keyboardType, TextInputType.emailAddress);
       expect(email.autofillHints, contains(AutofillHints.username));
@@ -268,7 +271,7 @@ void main() {
       await tester.tap(find.text('العربية'));
       await settle(tester);
       expect(find.text('تسجيل الدخول'), findsWidgets);
-      expect(find.text('البريد الإلكتروني'), findsOneWidget);
+      expect(find.text('البريد الإلكتروني أو رقم الجوال'), findsOneWidget);
       expect(Directionality.of(tester.element(find.byType(OpsLoginScreen))), TextDirection.rtl);
       await tester.tap(find.text('English'));
       await settle(tester);

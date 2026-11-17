@@ -61,6 +61,8 @@ class _DealsBody extends ConsumerWidget {
             await ref.read(dealsFeedProvider.future);
           },
           child: CustomScrollView(
+            // Pull to refresh works even when one deal does not fill the screen.
+            physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverToBoxAdapter(
                 child: ContentWidth(

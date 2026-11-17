@@ -89,7 +89,7 @@ export function DealWidget({ variant = 'full', design: rawDesign, name, tagline,
     const shown = cd.hasDays ? `${cd.parts[0].text.replace(/^0/, '')}${short('d')} · ${cd.parts.slice(1, 3).map((p) => p.text).join(':')}` : cd.parts.slice(0, 3).map((p) => p.text).join(':');
     return (
       <span className={cx(bits, 'dw--compact', urgent && 'dw--urgent', className)} style={style} data-testid="deal-compact">
-        <span className="dw-c__badge" aria-hidden={timing ? true : undefined}>{badgeText ? <bdi dir="ltr">{badgeText}</bdi> : <><Icon size={12} aria-hidden="true" />{soldOut || !timing ? <span>{soldOut ? t('deal.sold_out') : t('deal.label')}</span> : null}</>}</span>
+        <span className="dw-c__badge">{badgeText ? <bdi dir="ltr">{badgeText}</bdi> : <><Icon size={12} aria-hidden="true" />{soldOut || !timing ? <span>{soldOut ? t('deal.sold_out') : t('deal.label')}</span> : null}</>}</span>
         {timing && <span className="dw-c__time" aria-hidden="true"><span dir="ltr">{shown}</span></span>}
         {spoken && <span role="timer" className="sr-only">{spoken}</span>}
       </span>

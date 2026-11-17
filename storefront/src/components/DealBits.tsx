@@ -13,7 +13,7 @@ import { DealWidget } from './DealWidget';
 const minus = '−';
 type Sized = 'sm' | 'md' | 'lg';
 
-/** `PriceTag`, or the deal price with the regular price struck through while this product's deal is live. */
+/** `PriceTag`, or the deal price with the regular price struck through while this product's deal is live (the percent is the badge next to it, see `DealCardMeta`). */
 export function DealPriceTag({ p, variant, price, size = 'md' }: { p: { deal?: DealBlock | null }; variant?: VariantDeal | null; price: Price; size?: Sized }) {
   if (!p.deal) return <PriceTag price={price} size={size} />;
   return <LiveDealPrice p={p} variant={variant} price={price} size={size} />;
@@ -28,7 +28,6 @@ function LiveDealPrice({ p, variant, price, size }: { p: { deal?: DealBlock | nu
     <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5" data-testid="deal-price">
       <span className={cx('font-semibold tabular-nums text-danger', big)}><span className="sr-only">{t('deal.deal_price')} </span>{moneyShort(dp.price, locale)}</span>
       <span className="text-[13px] text-muted line-through tabular-nums"><span className="sr-only">{t('deal.regular_price')} </span>{moneyShort(dp.regular, locale)}</span>
-      <span className="rounded-full bg-danger/10 px-2 py-0.5 text-[11px] font-semibold text-danger"><bdi dir="ltr">{minus}{dp.percent}%</bdi></span>
     </div>
   );
 }
@@ -112,7 +111,7 @@ export function CartDealNote({ deal, qty, className }: { deal?: DealBlock | null
   const { t, locale } = useI18n();
   const x = deal ? cartLineText(t, locale, { qty, deal }) : null;
   if (!x) return null;
-  return <DealLineNote name={x.name} className={className} text={{ summary: x.summary, note: x.limits.join(' \u00b7 ') || null, warn: x.reached }} />;
+  return <DealLineNote name={x.name} className={className} text={{ summary: x.summary, note: x.limits.join('. ') || null, warn: x.reached }} />;
 }
 
 /** "Deal prices are applied at checkout": once under the cart, when any line is in a live deal (the cart shows regular prices; the server prices the deal). */

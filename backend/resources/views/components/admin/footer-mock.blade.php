@@ -1,7 +1,13 @@
-@props(['design' => 'classic', 'items' => [], 'active' => 0, 'labels' => true, 'accent' => '#8A1538', 'badge' => true, 'large' => false])
-{{-- A small HTML/CSS stand-in for the customer app's bottom menu. $items: list of ['key', 'icon', 'label']. Logical properties only, so it mirrors in Arabic. --}}
+@props(['design' => 'classic', 'items' => [], 'active' => 0, 'labels' => true, 'accent' => '#8A1538', 'badge' => true, 'large' => false, 'center' => 'none'])
+{{-- A small HTML/CSS stand-in for the customer app's bottom menu. $items: list of ['key', 'icon', 'label']. Logical properties only, so it mirrors in Arabic.
+     $center: the key of the item drawn as the raised round middle button (it is put in the exact middle, the others share both sides), or 'none'. --}}
 @php
-    $iconFor = ['home' => 'home', 'grid' => 'layers', 'gavel' => 'gavel', 'bag' => 'bag', 'person' => 'user', 'receipt' => 'receipt', 'heart' => 'heart', 'search' => 'search', 'headset' => 'life-buoy', 'bell' => 'bell', 'tag' => 'tag', 'star' => 'star', 'store' => 'store', 'gift' => 'gift'];
+    $iconFor = ['home' => 'home', 'grid' => 'layers', 'gavel' => 'gavel', 'bag' => 'bag', 'person' => 'user', 'receipt' => 'receipt', 'heart' => 'heart', 'search' => 'search', 'headset' => 'life-buoy', 'bell' => 'bell', 'tag' => 'tag', 'star' => 'star', 'store' => 'store', 'gift' => 'gift', 'flame' => 'flame', 'bolt' => 'zap', 'timer' => 'timer', 'crown' => 'crown'];
+    if ($center !== 'none' && ($mid = collect($items)->firstWhere('key', $center))) {
+        $others = collect($items)->reject(fn ($i) => $i['key'] === $center)->values();
+        $half = intdiv($others->count(), 2);
+        $items = $others->slice(0, $half)->push($mid)->concat($others->slice($half))->values()->all();
+    }
     $sz = $large ? 'size-5' : 'size-4';
     $text = $large ? 'text-[10px]' : 'text-[8px]';
     $bar = match ($design) {
@@ -15,7 +21,12 @@
 <div dir="{{ app()->getLocale() === 'ar' ? 'rtl' : 'ltr' }}" class="pointer-events-none flex items-center justify-around gap-0.5 {{ $large ? 'h-14 px-2' : 'h-10 px-1' }} {{ $bar }}" aria-hidden="true">
     @foreach ($items as $i => $it)
         @php $on = $i === $active; @endphp
-        @if ($design === 'bubble')
+        @if ($center !== 'none' && $it['key'] === $center)
+            <span class="relative -mt-5 flex min-w-0 flex-col items-center gap-0.5">
+                <span class="grid {{ $large ? 'size-12' : 'size-8' }} place-items-center rounded-full text-white shadow-lg ring-4 ring-white dark:ring-ink-800" style="background: {{ $accent }}"><x-icon :name="$iconFor[$it['icon']] ?? 'star'" :class="$sz" /></span>
+                @if ($labels && $design !== 'minimal')<span class="{{ $text }} max-w-full truncate font-semibold" style="color: {{ $accent }}">{{ $it['label'] }}</span>@endif
+            </span>
+        @elseif ($design === 'bubble')
             <span class="flex items-center gap-1 rounded-full {{ $large ? 'px-3 py-1.5' : 'px-1.5 py-1' }}" style="{{ $on ? 'background: '.$accent.'; color:#fff' : 'color: #8a7f83' }}">
                 <span class="relative"><x-icon :name="$iconFor[$it['icon']] ?? 'star'" :class="$sz" />@if ($badge && $it['key'] === 'cart')<i class="absolute -top-0.5 -end-0.5 size-1.5 rounded-full" style="background: {{ $accent }}"></i>@endif</span>
                 @if ($on && $labels)<span class="{{ $text }} font-semibold">{{ $it['label'] }}</span>@endif

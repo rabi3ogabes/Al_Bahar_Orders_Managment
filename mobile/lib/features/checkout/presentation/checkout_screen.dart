@@ -23,6 +23,7 @@ import 'package:albahar_customer/features/checkout/presentation/extra_delivery_f
 import 'package:albahar_customer/features/checkout/presentation/payment_flow.dart';
 import 'package:albahar_customer/features/checkout/presentation/state/checkout_controller.dart';
 import 'package:albahar_customer/features/checkout/presentation/total_action_bar.dart';
+import 'package:albahar_customer/features/deals/presentation/widgets/deal_line_text.dart';
 import 'package:albahar_customer/features/profile/domain/profile_models.dart';
 import 'package:albahar_customer/features/profile/presentation/addresses_screen.dart';
 import 'package:albahar_customer/features/profile/presentation/state/profile_providers.dart';
@@ -81,6 +82,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       if (state.quoteChanged) {
         Haptics.warning();
         await _showQuoteChanged(state);
+      } else if (state.dealChanged) {
+        // A deal changed: the banner above the summary says so and the new total is on screen. Nothing is sent again by itself.
+        Haptics.warning();
       } else if (state.placeError != null) {
         showErrorSnack(context, state.placeError!);
       }
@@ -231,6 +235,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     ],
                     const Gap(AppSpace.lg),
                     _StepTitle(l10n.orderSummary),
+                    if (state.dealChanged)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpace.sm),
+                        child: DealChangedBanner(
+                          previousTotal: state.previousTotal,
+                          onDismiss: controller.acknowledgeDealChange,
+                        ),
+                      ),
                     _QuoteSummary(state: state, onRetry: controller.refreshQuote),
                     const Gap(AppSpace.md),
                     // The server decides whether the choice exists: the admin setting is on AND more than one active branch holds
@@ -822,6 +834,8 @@ class _QuoteSummary extends StatelessWidget {
                             [if (line.variantName != null) line.variantName!, '× ${line.quantity}'].join(' · '),
                             style: context.text.bodySmall,
                           ),
+                          // "Deal price on 2 of 3 · limit 2 per order": the quote's own words for what the deal did to this line.
+                          if (line.deal != null) DealLineNote(name: line.deal!.name, units: line.deal!.units),
                         ],
                       ),
                     ),
@@ -855,8 +869,10 @@ class _QuoteSummary extends StatelessWidget {
             ],
             Divider(color: context.palette.line, height: AppSpace.lg),
             SummaryRow(label: l10n.subtotal, value: t.subtotal.formatted),
+            // The deal prices are one row ("Deal savings"); coupons and promotions are listed one by one.
+            ?fee(l10n.dealSavingsRow, t.dealSavings, negative: true),
             for (final d in quote.discounts)
-              if (!(d.freeDelivery && waivedFee != null))
+              if (!d.isDeal && !(d.freeDelivery && waivedFee != null))
                 SummaryRow(
                   label: d.code != null ? '${d.label} (${d.code})' : d.label,
                   value: '− ${d.amount.formatted}',

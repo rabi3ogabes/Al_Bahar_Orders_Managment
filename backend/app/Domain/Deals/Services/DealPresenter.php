@@ -105,8 +105,8 @@ class DealPresenter
             'phase' => $deal->phase($now),
             'starts_at' => BusinessTime::iso($deal->starts_at), 'ends_at' => BusinessTime::iso($deal->ends_at),
             // Seconds to the end (what the countdown shows) and, for a deal that has not started, seconds to its start: the client adds its own offset to the server clock.
-            'seconds_left' => max(0, (int) $now->diffInSeconds($deal->ends_at, false)),
-            'seconds_to_start' => $deal->starts_at !== null && $deal->starts_at->greaterThan($now) ? (int) $now->diffInSeconds($deal->starts_at, false) : null,
+            'seconds_left' => max(0, (int) ceil($now->diffInSeconds($deal->ends_at, false))),
+            'seconds_to_start' => $deal->starts_at !== null && $deal->starts_at->greaterThan($now) ? (int) ceil($now->diffInSeconds($deal->starts_at, false)) : null,
             'discount' => ['type' => $deal->discount_type, 'value' => $deal->discount_type === Deal::FIXED_PRICE ? null : DealPricing::plain($deal->discount_value)],
             'limits' => ['per_order' => $deal->limit_per_order, 'per_customer' => $perCustomer],
             'products_total' => $total,

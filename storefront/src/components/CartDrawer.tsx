@@ -13,6 +13,7 @@ import { SideDrawer } from './SideDrawer';
 import { Alert, Button, Pic, PriceTag, Skeleton } from './ui';
 import { DeliveryFeeRow } from './DeliveryFeeRow';
 import { CartDealNote, CartDealsHint } from './DealBits';
+import { positiveMoney } from '../lib/deals';
 
 /**
  * The cart panel. "Add to cart" anywhere opens it over the current page (end side drawer, a bottom sheet on phones) and it
@@ -40,6 +41,7 @@ function CartFooter() {
   const { close } = useContext(DrawerCtx);
   const [busy, setBusy] = useState(false);
   const blocked = cart.lines.some((l) => !l.available);
+  const dealSavings = positiveMoney(cart.cart?.deal_savings);
   // Same guards as the cart page: signed in (else the sign-in window first), nothing unavailable. Pending cart changes reach the server first.
   const checkout = async () => {
     if (busy) return;
@@ -51,6 +53,7 @@ function CartFooter() {
     <div>
       <dl className="mb-1.5 space-y-1">
         <div className="flex items-baseline justify-between"><dt className="text-sm text-muted">{t('cart.subtotal')}</dt><dd className="text-xl font-semibold tabular-nums" aria-live="polite" data-testid="cart-subtotal">{cart.subtotal.formatted}</dd></div>
+        {dealSavings && <div className="flex items-baseline justify-between text-sm"><dt className="text-muted">{t('deal.savings')}</dt><dd className="font-semibold tabular-nums text-success">− {dealSavings.formatted}</dd></div>}
         <div className="text-sm"><DeliveryFeeRow /></div>
       </dl>
       <CartDealsHint lines={cart.lines} className="mb-2 !text-[12px]" />

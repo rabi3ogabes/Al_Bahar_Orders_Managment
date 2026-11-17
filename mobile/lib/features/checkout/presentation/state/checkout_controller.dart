@@ -28,6 +28,7 @@ class CheckoutState {
     this.placing = false,
     this.placeError,
     this.quoteChanged = false,
+    this.dealChanged = false,
     this.previousTotal,
     this.notes = '',
     this.slotUnavailable = false,
@@ -48,6 +49,10 @@ class CheckoutState {
   /// True after a 409 `quote_changed`: the UI must show the new totals and
   /// require an explicit re-confirmation.
   final bool quoteChanged;
+
+  /// True after a 409 `deal_changed` (a deal ended, ran out or hit a limit while the customer was paying): the quote on screen is
+  /// the new one and a calm banner says so. Nothing is placed again until the customer confirms.
+  final bool dealChanged;
   final Money? previousTotal;
   final String notes;
 
@@ -105,6 +110,7 @@ class CheckoutState {
     bool? placing,
     Object? Function()? placeError,
     bool? quoteChanged,
+    bool? dealChanged,
     Money? Function()? previousTotal,
     String? notes,
     bool? slotUnavailable,
@@ -121,6 +127,7 @@ class CheckoutState {
     placing: placing ?? this.placing,
     placeError: placeError != null ? placeError() : this.placeError,
     quoteChanged: quoteChanged ?? this.quoteChanged,
+    dealChanged: dealChanged ?? this.dealChanged,
     previousTotal: previousTotal != null ? previousTotal() : this.previousTotal,
     notes: notes ?? this.notes,
     slotUnavailable: slotUnavailable ?? this.slotUnavailable,
@@ -287,6 +294,7 @@ class CheckoutController extends Notifier<CheckoutState> {
     state = state.copyWith(
       options: next,
       quoteChanged: false,
+      dealChanged: false,
       previousTotal: () => null,
       slotUnavailable: context ? false : null,
       slotBranchId: next.deliverySlotId == null ? () => null : null,
@@ -386,12 +394,15 @@ class CheckoutController extends Notifier<CheckoutState> {
   /// Clears the "totals changed" banner once the customer has reviewed it.
   void acknowledgeQuoteChange() => state = state.copyWith(quoteChanged: false, previousTotal: () => null);
 
+  /// Clears the "a deal changed" banner.
+  void acknowledgeDealChange() => state = state.copyWith(dealChanged: false, previousTotal: () => null);
+
   /// Places the order. Returns null when the quote changed (state then holds
   /// the new quote with `quoteChanged = true`) or on error (`placeError`).
   Future<PlacedOrder?> placeOrder() async {
     final quote = state.quote;
     if (quote == null || state.placing) return null;
-    state = state.copyWith(placing: true, placeError: () => null);
+    state = state.copyWith(placing: true, placeError: () => null, dealChanged: false);
     // One key per confirmed quote: network retries of the same confirmation
     // reuse it (no duplicate orders); a changed quote gets a new key.
     final key = _idempotencyKeys.putIfAbsent(quote.quoteHash, Idempotency.newKey);
@@ -424,6 +435,19 @@ class CheckoutController extends Notifier<CheckoutState> {
           state = state.copyWith(placing: false, quoteChanged: true, previousTotal: () => quote.totals.grandTotal);
           await refreshQuote();
         }
+        return null;
+      }
+      if (e.statusCode == 409 && e.code == 'deal_changed') {
+        // A deal no longer covers the order as the customer saw it. The server sends the fresh quote; the screen shows it with a calm
+        // banner and waits: the customer confirms again (a new quote has a new key, so nothing is ever placed twice).
+        final fresh = e.context['quote'];
+        state = state.copyWith(
+          placing: false,
+          quote: fresh is Map ? () => Quote.fromJson(asMap(fresh)) : null,
+          dealChanged: true,
+          previousTotal: () => quote.totals.grandTotal,
+        );
+        if (fresh is! Map) await refreshQuote();
         return null;
       }
       if (e.code == 'slot_unavailable') {

@@ -2,6 +2,7 @@ import 'package:albahar_customer/core/map/map_geo.dart';
 import 'package:albahar_customer/core/models/money.dart';
 import 'package:albahar_customer/core/utils/json.dart';
 import 'package:albahar_customer/features/checkout/domain/checkout_models.dart';
+import 'package:albahar_customer/features/deals/domain/deal_lines.dart';
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -147,6 +148,7 @@ class OrderItem {
     this.branchId,
     this.fulfillmentId,
     this.adjustment,
+    this.deal,
   });
   factory OrderItem.fromJson(JsonMap json) => OrderItem(
     id: asString(json['id']),
@@ -162,6 +164,7 @@ class OrderItem {
     branchId: asStringOrNull(json['branch_id']),
     fulfillmentId: asStringOrNull(json['fulfillment_id']),
     adjustment: ItemAdjustment.maybe(json['adjustment']),
+    deal: OrderLineDeal.maybe(json['deal']),
   );
   final String id;
   final String? productId;
@@ -178,6 +181,9 @@ class OrderItem {
 
   /// What the branch did to this line, or null when nothing (and for every order from a server that does not send it).
   final ItemAdjustment? adjustment;
+
+  /// The deal this line was sold under (how many units got the deal price and what each saved); null for a line with none.
+  final OrderLineDeal? deal;
 
   /// A line the branch took out (removed, or swapped for another item): it stays in the list, struck through, with nothing to pay.
   bool get isGone =>
@@ -441,6 +447,7 @@ class Order {
     this.seq = 0,
     this.wasAdjusted = false,
     this.revisions = const [],
+    this.discounts = const [],
   });
 
   factory Order.fromJson(JsonMap json) {
@@ -468,6 +475,7 @@ class Order {
     canReview: asBool(json['can_review']),
     wasAdjusted: asBoolOrNull(json['was_adjusted']) ?? revisions.isNotEmpty,
     revisions: revisions,
+    discounts: mapList(json['discounts'], QuoteDiscount.fromJson),
   );
 
   final String id;
@@ -498,6 +506,9 @@ class Order {
 
   /// The corrections, oldest first; empty when the order was never changed (and for a server that does not send them).
   final List<OrderRevision> revisions;
+
+  /// What was taken off the order, one entry each (a deal's price, a promotion, a coupon). Empty from a server that does not send it.
+  final List<QuoteDiscount> discounts;
 
   /// The same order after a real-time message. The buttons that depend on the state are only ever switched OFF here (an order that
   /// finished or is awaiting a decision cannot be paid or cancelled); the read that confirms the message switches the right ones on.
@@ -538,6 +549,7 @@ class Order {
       seq: seq,
       wasAdjusted: wasAdjusted,
       revisions: revisions,
+      discounts: discounts,
     );
   }
 

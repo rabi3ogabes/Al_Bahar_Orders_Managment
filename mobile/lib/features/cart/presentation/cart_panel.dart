@@ -16,6 +16,7 @@ import 'package:albahar_customer/features/cart/domain/cart_models.dart';
 import 'package:albahar_customer/features/cart/presentation/cart_screen.dart';
 import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
+import 'package:albahar_customer/features/deals/presentation/widgets/deal_line_text.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -348,6 +349,7 @@ class _CartPanelLine extends ConsumerWidget {
                       ),
                     const Gap(AppSpace.xxs),
                     if (unit != null) PriceTag(price: unit, size: PriceTagSize.small, showBadge: false),
+                    DealCartNote(deal: item.deal, units: item.dealUnits),
                     const Gap(AppSpace.xxs),
                     QuantityStepper(
                       value: item.quantity,

@@ -4,6 +4,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { Flame, Hourglass } from 'lucide-react';
 import { ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { useBranch } from '../lib/branch';
 import { useI18n } from '../lib/i18n';
 import { useDocTitle } from '../lib/hooks';
 import { fetchDeal, useDeals } from '../lib/useDeals';
@@ -75,9 +76,10 @@ export function DealPage() {
   const { id = '' } = useParams();
   const { t, locale, num } = useI18n();
   const { user } = useAuth();
+  const { branchId } = useBranch();
   const q = useInfiniteQuery({
-    queryKey: ['deal', id, user?.id ?? null], initialPageParam: 1, staleTime: 30_000, refetchOnWindowFocus: true,
-    queryFn: ({ pageParam, signal }) => fetchDeal(id, pageParam, signal),
+    queryKey: ['deal', id, user?.id ?? null, branchId || null], initialPageParam: 1, staleTime: 30_000, refetchOnWindowFocus: true,
+    queryFn: ({ pageParam, signal }) => fetchDeal(id, pageParam, signal, branchId),
     getNextPageParam: (last) => (last.products_meta && last.products_meta.current_page < last.products_meta.last_page ? last.products_meta.current_page + 1 : undefined),
     retry: (n, e) => !(e instanceof ApiError && e.status === 404) && n < 2,
   });

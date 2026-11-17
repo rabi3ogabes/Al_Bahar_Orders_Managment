@@ -34,6 +34,7 @@ return [
     'auctions_all' => 'جميع المزادات',
     'marketing' => 'التسويق',
     'promotions' => 'العروض والقسائم',
+    'deals' => 'العروض',
     'journeys' => 'رحلات العملاء',
     'customer_messages' => 'رسائل العملاء',
     'campaigns' => 'الحملات',

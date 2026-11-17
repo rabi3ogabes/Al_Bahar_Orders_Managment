@@ -14,11 +14,11 @@ Color dealAccentOn(BuildContext context, DealInfo deal, Color on) {
 }
 
 /// Whether [deal] shows its price now: it is on sale, has units left and a price to show, and this customer still has
-/// units at that price. Reads the screen's clock when there is one, without rebuilding the caller every second.
+/// units at that price. Reads the screen's server-corrected clock when there is one (without rebuilding the caller every
+/// second); with none it trusts the phase the server reported.
 bool dealShowsPrice(BuildContext context, DealInfo? deal) {
   if (deal == null) return false;
-  final now = DealClockScope.peek(context)?.now() ?? DateTime.now();
-  return deal.showsDealPriceAt(now);
+  return deal.showsDealPriceAt(DealClockScope.peek(context)?.now());
 }
 
 /// A product's price while a deal is on: the deal price, the regular price struck through and the "-30%" pill.
