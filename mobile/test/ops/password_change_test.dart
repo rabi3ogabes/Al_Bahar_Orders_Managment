@@ -460,6 +460,22 @@ void main() {
       expect(server.calls(h), ['POST /admin/auth/login', 'PUT /admin/me/password', 'GET /admin/me']);
     });
 
+    test('if the server ever answers with a new token pair, it replaces the stored one', () async {
+      final server = _Server();
+      server.onChange = (_) {
+        server.mustChange = false;
+        return ok({'updated': true, 'must_change_password': false, 'tokens': tokens('A2', 'R2')});
+      };
+      final h = await TestHarness.create(handler: server.handler, overrides: _overrides(OpsRole.staff));
+      final session = h.read(opsSessionProvider.notifier);
+      await session.signIn('new.hire@albahar.qa', _temp);
+      await session.changePassword(current: _temp, password: _mine, confirmation: _mine);
+      expect(h.tokenStore.cached?.accessToken, 'A2');
+      expect(h.tokenStore.cached?.refreshToken, 'R2');
+      expect(h.adapter.where('GET', '/admin/me').single.header('authorization'), 'Bearer A2');
+      expect(h.read(opsSessionProvider), OpsAuth.signedIn);
+    });
+
     test('an account that is not for this app is let go after its password is chosen, with the reason kept', () async {
       final server = _Server(permissions: const ['catalog.view']);
       final h = await TestHarness.create(handler: server.handler, overrides: _overrides(OpsRole.staff));

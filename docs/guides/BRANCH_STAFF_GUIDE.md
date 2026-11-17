@@ -9,7 +9,7 @@ Quick, task-based instructions for showroom, warehouse and driver staff. You onl
 Your manager or an administrator creates your account and ticks the features you can use; you see only those menus, only for your branch.
 1. Open the dashboard address (`/admin`) in any browser: a tablet at the counter, a computer or your phone. Sign in with your **mobile number or e-mail** and the **temporary password** you were given.
 2. The first time, you are taken to **My profile**: type the temporary password as the current one and **choose your own password** (12+ characters, upper and lower case, a number). Then the dashboard opens.
-3. **Phone or tablet app:** install the *Al Bahar Branch* app from your store (or the link your manager sends) and sign in with the same mobile number or e-mail and your own password. If it says you must choose a password first, do step 2 once on the dashboard.
+3. **Phone or tablet app:** install the *Al Bahar Branch* app from your store (or the link your manager sends) and sign in with your **mobile number or e-mail** and the temporary password. The app opens **Choose your own password** (12+ characters, upper and lower case, a number, different from the temporary one; the checklist ticks as you type): do it once there or on the dashboard, whichever you open first. If your account has no access to orders, the app says so and suggests the dashboard.
 4. A page you do not see is a feature you were not given: ask your manager to tick it (Employees › your name › *Features & branches*). Nobody can give you more than they have themselves.
 5. If you cannot sign in, ask your manager to switch your account on or reset your password. A new temporary password has to be changed again at your next sign-in.
 

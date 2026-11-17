@@ -4,6 +4,7 @@ import 'package:albahar_customer/core/network/api_client.dart';
 import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/network/interceptors.dart';
 import 'package:albahar_customer/core/providers.dart';
+import 'package:albahar_customer/core/storage/token_storage.dart';
 import 'package:albahar_customer/core/utils/json.dart';
 import 'package:albahar_customer/ops/ops_account.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
@@ -60,12 +61,22 @@ class OpsRepository {
   Future<List<String>> permissions() async => (await account()).permissions;
 
   /// The employee chooses their own password (`PUT /admin/me/password`): the server signs their other devices out, this one stays
-  /// signed in with the same tokens. A refusal is a 422 whose `errors` name `current_password`, `password` or `password_confirmation`.
-  Future<void> changePassword({required String current, required String password, required String confirmation}) async {
-    await _api.put(
-      '/admin/me/password',
-      data: {'current_password': current, 'password': password, 'password_confirmation': confirmation},
+  /// signed in with the same tokens (today the answer is only `{updated, must_change_password}`; if it ever carries a new token pair
+  /// it is returned, so the caller keeps the session). A refusal is a 422 whose `errors` name `current_password`, `password` or
+  /// `password_confirmation`.
+  Future<AuthTokens?> changePassword({
+    required String current,
+    required String password,
+    required String confirmation,
+  }) async {
+    final data = asMap(
+      await _api.put(
+        '/admin/me/password',
+        data: {'current_password': current, 'password': password, 'password_confirmation': confirmation},
+      ),
     );
+    final fresh = asMapOrNull(data['tokens']);
+    return fresh == null ? null : AuthTokens.fromJson(fresh);
   }
 
   // Driver

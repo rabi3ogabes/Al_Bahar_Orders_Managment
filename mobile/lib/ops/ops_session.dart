@@ -121,11 +121,12 @@ class OpsSession extends Notifier<OpsAuth> {
   }
 
   /// Sends the person's own password. The server keeps this device signed in (and signs the others out), so the same tokens go on
-  /// working; on success the app opens like after a normal sign-in. A refusal is thrown as an [ApiException] (422 with the field
+  /// working (new ones, if the answer ever carries them, are kept); on success the app opens like after a normal sign-in. A refusal is thrown as an [ApiException] (422 with the field
   /// messages in `errors`) for the screen to show next to the field.
   Future<void> changePassword({required String current, required String password, required String confirmation}) async {
     final repo = ref.read(opsRepositoryProvider);
-    await repo.changePassword(current: current, password: password, confirmation: confirmation);
+    final fresh = await repo.changePassword(current: current, password: password, confirmation: confirmation);
+    if (fresh != null && fresh.accessToken.isNotEmpty) await ref.read(tokenStoreProvider).write(fresh);
     await _remember(false);
     await _enterAfterPasswordStep(repo);
   }

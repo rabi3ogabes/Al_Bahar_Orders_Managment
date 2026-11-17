@@ -159,7 +159,7 @@ and two on tablets and larger. The staff app (Flutter, `mobile/lib/ops`) follows
 
 * There is no e-mailed **invite link** (the platform has no staff mail channel yet): the temporary password is shared by the person who adds the employee.
 * Browser sessions can be deleted per user only with the `database` session driver; with Redis/file sessions a disabled account is refused at once on every request (the check is per request), and the "remember me" cookie is invalidated.
-* The staff app does not yet have a "choose your own password" screen (see `docs/guides/BRANCH_STAFF_GUIDE.md`): the first sign-in is done on the dashboard.
+* The staff apps (branch and driver) have the same first-sign-in step: they read `must_change_password` from the sign-in answer, and treat `403 password_change_required` from any call as "show **Choose your own password**" (the server keeps the same tokens signed in after `PUT /api/v1/admin/me/password`, so the app just carries on). A staff account with no `orders.view` is told so in the branch app (use the dashboard).
 
 ## For developers: adding a feature
 

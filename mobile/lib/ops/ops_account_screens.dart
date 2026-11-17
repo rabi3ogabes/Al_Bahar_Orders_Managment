@@ -469,7 +469,6 @@ class _RuleRow extends StatelessWidget {
           children: [
             Icon(
               met ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-              key: ValueKey(met),
               size: 20,
               color: met ? p.success : p.muted,
             ),
