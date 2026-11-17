@@ -388,7 +388,7 @@ void main() {
       body['items'] = [variantLine('a', 1, 1), variantLine('b', 1, 0), variantLine('c', 0, 2)];
       await pumpCart(t, body);
       expect(find.text('Weekend Furniture Drop · Deal price on 1 of 2 · limit 2 per order'), findsOneWidget);
-      expect(find.text('Weekend Furniture Drop · Deal price on all 1'), findsOneWidget);
+      expect(find.text('Weekend Furniture Drop · Deal price on all 1 · limit 2 per order'), findsOneWidget);
       expect(find.text('Weekend Furniture Drop · per-order limit reached'), findsOneWidget);
       expect(find.textContaining('limit 0'), findsNothing);
       expect(find.textContaining('limit 1'), findsNothing);

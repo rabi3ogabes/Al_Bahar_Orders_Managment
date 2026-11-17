@@ -48,6 +48,7 @@
                                     <h2 class="truncate font-display text-lg font-semibold text-ink-900 dark:text-ivory">{{ $r->localized('name') }}</h2>
                                     <span class="{{ $badge[$phase] }}"><span class="size-1.5 rounded-full bg-current opacity-70"></span>{{ __('deals_admin.phase_'.$phase) }}</span>
                                     @if ($r->show_on_home)<span class="badge-neutral" title="{{ __('deals_admin.on_home') }}"><x-icon name="home" class="size-3" />{{ __('deals_admin.on_home') }}</span>@endif
+                                    @if ($r->lacksBuyerLimit() && $phase !== Deal::ENDED)<span class="badge-warning" title="{{ __('deals_admin.chip_no_limit_hint') }}" data-no-buyer-limit><x-icon name="alert" class="size-3" />{{ __('deals_admin.chip_no_limit') }}</span>@endif
                                 </div>
                                 <p class="mt-1 text-xs text-ink-500">
                                     {{ __('deals_admin.rule_'.$r->discount_type, ['value' => \App\Domain\Deals\Support\DealPricing::plain($r->discount_value)]) }}
@@ -180,6 +181,7 @@
                                         </x-admin.field>
                                         <x-admin.field :label="__('deals_admin.quantity')" :for="'dp-qty-'.$i" :error="'products.'.$i.'.quantity_total'">
                                             <input id="dp-qty-{{ $i }}" type="number" min="1" inputmode="numeric" wire:model.live.debounce.400ms="products.{{ $i }}.quantity_total" class="input tabular-nums" dir="ltr" placeholder="{{ __('deals_admin.unlimited') }}">
+                                            @if (in_array($i, $editor['no_limit_rows'], true))<p class="mt-1 flex items-start gap-1 text-xs text-amber-700 dark:text-amber-300" role="note" data-no-buyer-limit><x-icon name="alert" class="mt-0.5 size-3 shrink-0" />{{ __('deals_admin.warn_no_limit_row') }}</p>@endif
                                         </x-admin.field>
                                         <x-admin.field :label="__('deals_admin.per_order')" :for="'dp-po-'.$i" :error="'products.'.$i.'.limit_per_order'">
                                             <input id="dp-po-{{ $i }}" type="number" min="1" inputmode="numeric" wire:model="products.{{ $i }}.limit_per_order" class="input tabular-nums" dir="ltr" placeholder="{{ __('deals_admin.same_as_deal') }}">
@@ -231,6 +233,7 @@
                 <section aria-labelledby="d4" class="space-y-4">
                     <h3 id="d4" class="flex items-center gap-2 font-display text-lg font-semibold"><span class="grid size-7 place-items-center rounded-full bg-ink-900 text-xs text-ivory dark:bg-brass-500 dark:text-ink-950">4</span>{{ __('deals_admin.s_limits') }}</h3>
                     <p class="text-sm text-ink-500">{{ __('deals_admin.limits_hint') }}</p>
+                    @if ($editor['no_limit_rows'])<p class="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200" role="alert" data-no-buyer-limit><x-icon name="alert" class="mt-0.5 size-4 shrink-0" />{{ __('deals_admin.warn_no_limit', ['n' => count($editor['no_limit_rows'])]) }}</p>@endif
                     <div class="grid gap-4 sm:grid-cols-2 [&>*]:min-w-0">
                         <x-admin.field :label="__('deals_admin.per_order')" for="deal-lpo" error="form.limit_per_order" :hint="__('deals_admin.per_order_hint')"><input id="deal-lpo" type="number" min="1" inputmode="numeric" wire:model="form.limit_per_order" class="input tabular-nums" dir="ltr" placeholder="{{ __('deals_admin.no_limit') }}"></x-admin.field>
                         <x-admin.field :label="__('deals_admin.per_customer')" for="deal-lpc" error="form.limit_per_customer" :hint="__('deals_admin.per_customer_hint')"><input id="deal-lpc" type="number" min="1" inputmode="numeric" wire:model="form.limit_per_customer" class="input tabular-nums" dir="ltr" placeholder="{{ __('deals_admin.no_limit') }}"></x-admin.field>

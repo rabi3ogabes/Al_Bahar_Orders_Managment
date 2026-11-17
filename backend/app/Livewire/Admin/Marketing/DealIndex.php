@@ -20,6 +20,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -309,7 +310,7 @@ class DealIndex extends Component
             ->addSelect(['orders_count' => DealRedemption::query()->selectRaw('count(distinct order_id)')->whereColumn('deal_id', 'deals.id')->whereNull('released_at'),
                 'savings_given' => DealRedemption::query()->selectRaw('coalesce(sum(units * unit_savings), 0)')->whereColumn('deal_id', 'deals.id')->whereNull('released_at'),
                 'any_orders' => DealRedemption::query()->selectRaw('count(*)')->whereColumn('deal_id', 'deals.id')])
-            ->with(['products' => fn ($q) => $q->select('id', 'deal_id', 'quantity_total', 'quantity_sold')])->withCount('products')
+            ->with(['products' => fn ($q) => $q->select('id', 'deal_id', 'product_id', 'quantity_total', 'quantity_sold', 'limit_per_order', 'limit_per_customer')->with('product:id,status')])->withCount('products')
             ->when($s !== '', fn ($q) => $q->where(fn ($w) => $w->where('name_en', 'ilike', "%{$s}%")->orWhere('name_ar', 'ilike', "%{$s}%")))
             ->when($this->filterState === 'live', fn ($q) => $q->running($now))
             ->when($this->filterState === 'scheduled', fn ($q) => $q->open($now)->where('starts_at', '>', $now))
@@ -356,14 +357,27 @@ class DealIndex extends Component
         }
         $colors = $palettes[$resolved['palette'] ?? 'brand'] ?? $palettes['brand'];
         $path = $resolved['image_path'] ?? null;
-        $image = ($this->image && method_exists($this->image, 'isPreviewable') && $this->image->isPreviewable()) ? $this->image->temporaryUrl() : self::mediaUrl($path);
+        $image = $this->image instanceof TemporaryUploadedFile && $this->image->isPreviewable() ? $this->image->temporaryUrl() : self::mediaUrl($path);
 
         return [
-            'matches' => $matches, 'palettes' => $palettes, 'colors' => $colors, 'look' => $resolved, 'image_url' => $image,
+            'matches' => $matches, 'palettes' => $palettes, 'colors' => $colors, 'look' => $resolved, 'image_url' => $image, 'no_limit_rows' => $this->rowsWithoutBuyerLimit(),
             // The warning follows what is typed, not the safe look the preview falls back to while a custom colour is unreadable.
             'example' => $this->example($prices), 'warning' => DealDesign::contrastWarning(['palette' => in_array($this->design['palette'] ?? null, DealDesign::PALETTES, true) ? $this->design['palette'] : 'brand', 'colors' => $this->customColors()]),
             'dirty' => $this->fingerprint() !== $this->baseline,
         ];
+    }
+
+    /**
+     * Rows that have a quantity but nothing limits how much one customer can take (no limit per order or per account on the product or the deal): the editor warns,
+     * because one account could take every unit, cancel and do it again.
+     *
+     * @return list<int>
+     */
+    private function rowsWithoutBuyerLimit(): array
+    {
+        $dealLimit = filled($this->form['limit_per_order'] ?? null) || filled($this->form['limit_per_customer'] ?? null);
+
+        return array_keys(array_filter($this->products, fn (array $r) => filled($r['quantity_total'] ?? null) && ! $dealLimit && blank($r['limit_per_order'] ?? null) && blank($r['limit_per_customer'] ?? null)));
     }
 
     /** The first product's price and what it costs at the deal price, from the rule as typed so far ("customer pays"). @return array<string, mixed>|null */

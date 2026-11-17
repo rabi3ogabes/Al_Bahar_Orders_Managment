@@ -5,6 +5,7 @@ use App\Broadcasting\DriverChannel;
 use App\Broadcasting\FleetChannel;
 use App\Broadcasting\LiveOrdersChannel;
 use App\Broadcasting\OrderChannel;
+use App\Http\Middleware\EnsureStaffWhenStaff;
 use Illuminate\Support\Facades\Broadcast;
 
 /*
@@ -23,7 +24,8 @@ Broadcast::channel('live-orders', LiveOrdersChannel::class, ['guards' => ['sanct
 Broadcast::channel('live-orders.{branch}', LiveOrdersChannel::class, ['guards' => ['sanctum', 'web']]);
 
 // Mobile clients authorise private channels with their Sanctum bearer token: POST /api/v1/broadcasting/auth.
-Broadcast::routes(['prefix' => 'api/v1', 'middleware' => ['auth:sanctum']]);
+// A staff member must pass the staff policy here too (a person who still has to choose their own password subscribes to nothing); customers use it as before.
+Broadcast::routes(['prefix' => 'api/v1', 'middleware' => ['auth:sanctum', EnsureStaffWhenStaff::class]]);
 
 // The admin dashboard (session login) authorises its private channels, e.g. the live fleet map, here.
-Broadcast::routes(['middleware' => ['web', 'auth']]);
+Broadcast::routes(['middleware' => ['web', 'auth', 'staff']]);
