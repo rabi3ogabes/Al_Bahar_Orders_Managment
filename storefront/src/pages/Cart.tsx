@@ -9,6 +9,7 @@ import { Alert, Button, EmptyState, Pic, QtyStepper, Skeleton } from '../compone
 import { useAuthModal } from '../components/AuthModal';
 import { CartSuggestions } from '../components/Upsell';
 import { DeliveryFeeRow } from '../components/DeliveryFeeRow';
+import { CartDealNote, CartDealsHint } from '../components/DealBits';
 
 export default function CartPage() {
   const { t, dir } = useI18n();
@@ -56,6 +57,7 @@ export default function CartPage() {
                   {l.priceChanged && <p className="mt-1 text-xs font-medium text-warning">{t('cart.price_changed')}</p>}
                   {l.issue && <p className="mt-1 text-xs font-medium text-danger">{t(`cart.issue.${l.issue}`)}</p>}
                   <p className="mt-1 text-sm text-muted">{l.unit.formatted} × {l.qty}</p>
+                  <CartDealNote deal={l.deal} qty={l.qty} className="mt-2.5" />
                   <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pt-4">
                     <QtyStepper value={l.qty} max={l.max} onChange={(n) => cart.setQty(l, n)} />
                     <button onClick={() => cart.remove(l)} className="flex items-center gap-1.5 text-sm text-muted hover:text-danger"><Trash2 size={15} />{t('cart.remove')}</button>
@@ -72,6 +74,7 @@ export default function CartPage() {
             <div className="flex justify-between"><dt className="text-muted">{t('cart.subtotal')}</dt><dd className="font-semibold tabular-nums">{cart.subtotal.formatted}</dd></div>
             <DeliveryFeeRow />
           </dl>
+          <CartDealsHint lines={cart.lines} className="mt-4" />
           <Button size="lg" block className="mt-6" disabled={blocked} loading={busy} onClick={() => void go()}>{t('cart.checkout')}<Arrow size={18} /></Button>
           {blocked && <p className="mt-2 text-center text-xs text-danger">{t('cart.fix_items')}</p>}
           <ul className="mt-6 space-y-2 text-[13px] text-muted">

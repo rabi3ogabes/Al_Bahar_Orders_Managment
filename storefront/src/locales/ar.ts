@@ -771,4 +771,5 @@ export const ar: Record<string, string> = {
   "deal.changed_text": "يرجى مراجعة الإجمالي الجديد ثم تأكيد طلبك مرة أخرى.",
   "deal.order_saved": "وفّرت {v} بفضل العروض في هذا الطلب",
   "deal.order_line": "العرض: {name}",
+  "deal.kicker": "عرض لفترة محدودة",
 };

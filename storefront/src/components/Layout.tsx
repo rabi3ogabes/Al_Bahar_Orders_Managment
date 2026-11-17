@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Heart, Languages, MapPin, Menu, Moon, Search, ShoppingBag, Sun, User as UserIcon, Phone, Mail, ArrowRight, ArrowLeft, Truck, ShieldCheck, Gavel, X } from 'lucide-react';
+import { Heart, Languages, MapPin, Menu, Moon, Search, ShoppingBag, Sun, User as UserIcon, Phone, Mail, ArrowRight, ArrowLeft, Truck, ShieldCheck, Gavel, Flame, X } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { useBranch } from '../lib/branch';
 import { useCart } from '../lib/cart';
@@ -18,6 +18,8 @@ import { DrawerLink } from './drawerLink';
 import { FreshFooter, FreshHeader } from './FreshChrome';
 import { PageBackdrop } from './PageBackdrop';
 import { useAppConfig } from '../lib/appConfig';
+import { useLiveDeal } from '../lib/useDeals';
+import { LiveDot } from './DealBits';
 
 export { Logo, LogoMark } from './shell';
 
@@ -30,6 +32,7 @@ export function Header() {
   const cart = useCart();
   const authModal = useAuthModal();
   const cats = useCategories();
+  const liveDeal = useLiveDeal();
   const nav = useNavigate();
   const loc = useLocation();
   const [menu, setMenu] = useState(false);
@@ -66,7 +69,8 @@ export function Header() {
             <IconButton label={t('nav.menu')} className="lg:hidden" onClick={() => setMenu(true)} onPointerEnter={preload.menu} onFocus={preload.menu} onTouchStart={preload.menu}><Menu size={22} /></IconButton>
             <nav aria-label={t('nav.main')} className="hidden items-center gap-7 lg:flex">
               <Link to="/shop" aria-current={onShop && !activeCat ? 'page' : undefined} className={link({ isActive: onShop && !activeCat })}>{t('nav.shop')}</Link>
-              {top.slice(0, 3).map((c) => { const on = onShop && activeCat === c.slug; return <Link key={c.id} to={`/shop?category=${c.slug}`} aria-current={on ? 'page' : undefined} className={link({ isActive: on })}>{c.name}</Link>; })}
+              <NavLink to="/deals" className={link}>{t('nav.deals')}{liveDeal && <LiveDot className="ms-1.5 align-middle" />}</NavLink>
+              {top.slice(0, 3).map((c, i) => { const on = onShop && activeCat === c.slug; return <Link key={c.id} to={`/shop?category=${c.slug}`} aria-current={on ? 'page' : undefined} className={cx(link({ isActive: on }), i === 2 && 'max-xl:hidden')}>{c.name}</Link>; })}
             </nav>
           </div>
           <Logo />
@@ -105,6 +109,7 @@ export function Header() {
           <ul className="divide-y divide-line font-display text-[26px]">
             <li><DrawerLink className="flex items-center justify-between py-4" to="/shop">{t('nav.shop')}</DrawerLink></li>
             {top.map((c) => <li key={c.id}><DrawerLink className="block py-4" to={`/shop?category=${c.slug}`}>{c.name}</DrawerLink></li>)}
+            <li><DrawerLink className="flex items-center gap-2 py-4" to="/deals"><Flame size={20} className="text-brass" />{t('nav.deals')}{liveDeal && <LiveDot className="ms-1" />}</DrawerLink></li>
             <li><DrawerLink className="flex items-center gap-2 py-4" to="/auctions"><Gavel size={20} className="text-brass" />{t('nav.auctions')}</DrawerLink></li>
             <li><DrawerLink className="block py-4" to="/showrooms">{t('nav.showrooms')}</DrawerLink></li>
           </ul>
@@ -146,6 +151,7 @@ export function Footer() {
             <li><Link className="hover:text-brass" to="/shop">{t('nav.shop')}</Link></li>
             <li><Link className="hover:text-brass" to="/shop?sale=1">{t('footer.sale')}</Link></li>
             <li><Link className="hover:text-brass" to="/shop?new=1">{t('footer.new')}</Link></li>
+            <li><Link className="hover:text-brass" to="/deals">{t('nav.deals')}</Link></li>
             <li><Link className="hover:text-brass" to="/auctions">{t('nav.auctions')}</Link></li>
           </ul>
         </div>

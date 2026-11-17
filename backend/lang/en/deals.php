@@ -1,0 +1,20 @@
+<?php
+
+// Plain-words messages of the Deals domain (docs/api/DEALS.md): validation of a deal, its look and its products. The dashboard's own labels are in deals_admin.php.
+return [
+    'now' => 'now',
+    'f_name_en' => 'name (English)',
+    'f_name_ar' => 'name (Arabic)',
+    'f_ends_at' => 'end time',
+    'f_discount_value' => 'discount',
+    'err_ended_locked' => 'This deal was ended. Duplicate it to run it again.',
+    'err_ends_in_past' => 'The end time must be in the future for a deal that is switched on.',
+    'err_cannot_resume_ended' => 'This deal has ended, so it cannot be switched on again. Duplicate it to run it again.',
+    'err_price_required' => 'Enter the deal price for this product.',
+    'err_quantity_below_sold' => 'This product already sold :n units in the deal, so the quantity cannot be lower.',
+    'err_product_has_orders' => 'These products already have orders in this deal and cannot be removed: :names. Set their quantity to what is sold instead.',
+    'err_product_archived' => 'An archived product cannot be added to a deal.',
+    'err_contrast_text' => 'The text colour is too close to the background colour: it would be hard to read.',
+    'err_contrast_accent' => 'The highlight colour is too close to the background colour: the countdown would be hard to read.',
+    'warn_contrast' => 'These colours are legal but a little hard to read. A darker background or a lighter text reads better.',
+];

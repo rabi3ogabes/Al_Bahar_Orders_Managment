@@ -106,6 +106,11 @@ final class Quote
         return $this->lines()->reduce(fn (Money $c, QuoteLine $l) => $c->plus($l->discount), Money::zero());
     }
 
+    public function dealSavingsTotal(): Money
+    {
+        return $this->lines()->reduce(fn (Money $c, QuoteLine $l) => $c->plus($l->dealSavings()), Money::zero());
+    }
+
     public function deliveryFeeTotal(): Money
     {
         return array_reduce($this->plans, fn (Money $c, FulfillmentPlan $p) => $c->plus($p->deliveryFee), Money::zero());
@@ -158,9 +163,9 @@ final class Quote
             'points' => $this->loyaltyPoints,
             'plans' => array_map(fn (FulfillmentPlan $p) => [
                 'b' => $p->branch->id, 'fee' => $p->deliveryFee->minor, 'slot' => [$p->slotId, $p->slotDate], 'x' => $p->express,
-                'l' => array_map(fn (QuoteLine $l) => [$l->variant->id, $l->quantity, $l->price->final()->minor, $l->discount->minor, $l->tax->minor], $p->lines),
+                'l' => array_map(fn (QuoteLine $l) => [$l->variant->id, $l->quantity, $l->price->final()->minor, $l->discount->minor, $l->tax->minor, $l->deal?->deal->id, $l->deal?->units ?? 0], $p->lines),
             ], $this->plans),
-            'disc' => array_map(fn (AppliedDiscount $d) => [$d->promotion->id, $d->amount->minor, $d->deliveryDiscount->minor], $this->discounts),
+            'disc' => array_map(fn (AppliedDiscount $d) => [$d->sourceId(), $d->amount->minor, $d->deliveryDiscount->minor], $this->discounts),
             'total' => $this->grandTotal()->minor,
             'address' => $this->address?->id,
         ];
@@ -182,6 +187,8 @@ final class Quote
             'line_subtotal' => $l->subtotal()->jsonSerialize(),
             'discount' => $l->discount->jsonSerialize(),
             'line_total' => $l->subtotal()->minus($l->discount)->jsonSerialize(),
+            // The deal that covers this product: how many units get the deal price and, when not all, why (docs/api/DEALS.md section 5). Null = no deal.
+            'deal' => $l->deal?->toArray(),
         ];
 
         return [
@@ -208,6 +215,8 @@ final class Quote
             'totals' => [
                 'subtotal' => $this->subtotal()->jsonSerialize(),
                 'discount' => $this->discountTotal()->jsonSerialize(),
+                // The part of `discount` that comes from deal prices ("0.00" when none).
+                'deal_savings' => $this->dealSavingsTotal()->jsonSerialize(),
                 'delivery_fee' => $this->deliveryFeeTotal()->jsonSerialize(),
                 'extra_delivery_fee' => $this->extraDeliveryFeeTotal()->jsonSerialize(),
                 'service_fee' => $this->serviceFee->jsonSerialize(),

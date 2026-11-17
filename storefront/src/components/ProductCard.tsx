@@ -9,9 +9,10 @@ import { get } from '../lib/api';
 import { cx, moneyShort } from '../lib/format';
 import { useDesign } from '../lib/brand';
 import type { ProductCard as P, ProductDetail } from '../lib/types';
-import { Badge, PriceTag, Pic, Rating } from './ui';
+import { Badge, Pic, Rating } from './ui';
 import { useUrlOverlay } from '../lib/useUrlOverlay';
 import { preloadQuick } from './OverlayHosts';
+import { DealCardMeta, DealPriceTag } from './DealBits';
 
 const BADGE_TONE: Record<string, 'brass' | 'ink' | 'danger' | 'success'> = { new: 'ink', sale: 'danger', bestseller: 'brass', featured: 'brass', limited: 'danger' };
 
@@ -67,14 +68,16 @@ export function ProductCard({ p, priority }: { p: P; priority?: boolean }) {
             {quickBtn('bottom-2 start-2 md:translate-y-2 md:opacity-0 md:focus-visible:translate-y-0 md:focus-visible:opacity-100 md:group-hover:translate-y-0 md:group-hover:opacity-100')}
           </div>
           <div className="flex flex-1 flex-col px-1.5 pt-3">
+            <DealCardMeta p={p} className="mb-2" />
             {p.brand && <p className="truncate text-[12px] text-muted">{p.brand.name}</p>}
             <h3 className="mt-0.5 line-clamp-2 min-h-[2.5em] text-[15px] font-semibold leading-[1.25]">{p.name}</h3>
             <div className="mt-1 h-4">{p.rating.count > 0 && <Rating value={p.rating.average} count={p.rating.count} size={12} />}</div>
             <div className="mt-auto flex items-end justify-between gap-2 pt-2">
+              {p.deal ? <div className="min-w-0"><DealPriceTag p={p} price={p.price} size="md" /></div> : (
               <div className="min-w-0">
                 <p className={cx('text-[19px] font-bold leading-none tabular-nums', sale && 'text-danger')}>{moneyShort(p.price.final, locale)}</p>
                 {sale && <p className="mt-1 text-[12px] text-muted line-through tabular-nums">{moneyShort(p.price.regular, locale)}</p>}
-              </div>
+              </div>)}
               {canAdd && (
                 <button onClick={quickAdd} aria-busy={busy} aria-label={t('product.add_to_cart')}
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary transition-transform hover:scale-105 hover:bg-primary-soft disabled:opacity-60">
@@ -110,10 +113,11 @@ export function ProductCard({ p, priority }: { p: P; priority?: boolean }) {
           )}
         </div>
         <div className="px-1 pt-3.5">
+          <DealCardMeta p={p} className="mb-2.5" />
           {p.brand && <p className="eyebrow !text-[10px] !tracking-[0.16em] text-muted">{p.brand.name}</p>}
           <h3 className="mt-0.5 line-clamp-2 min-h-[2.6em] text-[19px] leading-[1.25]">{p.name}</h3>
           <div className="mt-1.5 flex items-center justify-between gap-2">
-            <PriceTag price={p.price} size="sm" />
+            <DealPriceTag p={p} price={p.price} size="sm" />
           </div>
           {p.rating.count > 0 && <div className="mt-1"><Rating value={p.rating.average} count={p.rating.count} size={12} /></div>}
         </div>

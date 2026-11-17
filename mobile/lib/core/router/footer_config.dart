@@ -73,6 +73,15 @@ final Map<String, FooterDestination> footerDestinations = {
       label: (l) => l.navAuctions,
     ),
     FooterDestination(
+      key: 'deals',
+      path: '/deals',
+      prefixes: ['/deals'],
+      icon: Icons.local_fire_department_outlined,
+      iconOn: Icons.local_fire_department_rounded,
+      label: (l) => l.navDeals,
+      parent: 'home',
+    ),
+    FooterDestination(
       key: 'cart',
       path: '/cart',
       prefixes: ['/cart', '/checkout', '/payments'],
@@ -163,6 +172,10 @@ const Map<String, (IconData, IconData)> footerIcons = {
   'store': (Icons.storefront_outlined, Icons.storefront_rounded),
   'gift': (Icons.card_giftcard_outlined, Icons.card_giftcard_rounded),
   'qr': (Icons.qr_code_scanner_rounded, Icons.qr_code_scanner_rounded),
+  'flame': (Icons.local_fire_department_outlined, Icons.local_fire_department_rounded),
+  'bolt': (Icons.bolt_outlined, Icons.bolt_rounded),
+  'timer': (Icons.timer_outlined, Icons.timer_rounded),
+  'crown': (Icons.workspace_premium_outlined, Icons.workspace_premium_rounded),
 };
 
 /// One switched-on item of the footer.
@@ -210,6 +223,7 @@ class FooterConfig {
     this.showLabels = true,
     this.cartBadge = true,
     this.accent,
+    this.center,
   });
 
   /// The original five-tab menu: what the app shows before the server answers, offline, and when the config is invalid.
@@ -267,6 +281,9 @@ class FooterConfig {
     }
     if (items.length < 3 || !seen.contains('home') || !items.any((i) => i.key == 'home')) return null;
     final accent = j['accent'];
+    // The middle button: Auctions or Deals, and only when that item is switched on. Old servers send nothing (= none); a
+    // value this app does not know reads as none.
+    final center = j['center'];
     return FooterConfig(
       design: design,
       items: List.unmodifiable(items),
@@ -275,8 +292,12 @@ class FooterConfig {
       accent: accent is String && RegExp(_hex).hasMatch(accent)
           ? Color(int.parse('FF${accent.substring(1)}', radix: 16))
           : null,
+      center: center is String && centerKeys.contains(center) && items.any((i) => i.key == center) ? center : null,
     );
   }
+
+  /// The items that can be the raised middle button (`center` of the footer payload; `none` is no key at all).
+  static const centerKeys = ['auctions', 'deals'];
 
   final FooterDesign design;
   final List<FooterEntry> items;
@@ -286,7 +307,20 @@ class FooterConfig {
   /// Null means "follow the current look's main colour".
   final Color? accent;
 
+  /// The key of the item drawn as the raised round middle button (`auctions` or `deals`), or null for none. When it is
+  /// set the bar is drawn in the centre-action look whatever [design] is saved.
+  final String? center;
+
   List<String> get keys => [for (final i in items) i.key];
+
+  /// The look the bar is really drawn in: the centre-action bar whenever a middle button is chosen.
+  FooterDesign get effectiveDesign => center == null ? design : FooterDesign.centerAction;
+
+  /// Where the middle button sits in [items], or null when the bar has none chosen.
+  int? get centerIndex {
+    final i = center == null ? -1 : keys.indexOf(center!);
+    return i < 0 ? null : i;
+  }
 
   @override
   bool operator ==(Object other) =>
@@ -295,11 +329,12 @@ class FooterConfig {
       other.showLabels == showLabels &&
       other.cartBadge == cartBadge &&
       other.accent == accent &&
+      other.center == center &&
       other.items.length == items.length &&
       [for (var i = 0; i < items.length; i++) other.items[i] == items[i]].every((e) => e);
 
   @override
-  int get hashCode => Object.hash(design, showLabels, cartBadge, accent, Object.hashAll(items));
+  int get hashCode => Object.hash(design, showLabels, cartBadge, accent, center, Object.hashAll(items));
 }
 
 /// Which item of [keys] a page belongs to. A page whose own item is not in the footer counts under its parent (an order

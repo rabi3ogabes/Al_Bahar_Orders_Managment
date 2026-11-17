@@ -49,9 +49,11 @@ class OrderPresenter
                 'extra_delivery_fee' => $o->extraDeliveryFee()->jsonSerialize(),
                 'service_fee' => $m('service_fee_total'), 'tax' => $m('tax_total'), 'loyalty_discount' => $m('loyalty_discount'),
                 'grand_total' => $m('grand_total'), 'paid' => $m('paid_total'), 'refunded' => $m('refunded_total'),
+                // The part of `discount` that came from deal prices ("0.00" when none).
+                'deal_savings' => $o->coupons->whereNotNull('deal_id')->reduce(fn (Money $c, $d) => $c->plus(Money::of($d->discount_amount)), Money::zero())->jsonSerialize(),
             ],
             'delivery_extras' => $this->deliveryExtras($o),
-            'discounts' => $o->coupons->map(fn ($c) => ['label' => app()->getLocale() === 'ar' ? $c->label_ar : $c->label_en, 'code' => $c->code,
+            'discounts' => $o->coupons->map(fn ($c) => ['source' => $c->deal_id ? 'deal' : 'promotion', 'label' => app()->getLocale() === 'ar' ? $c->label_ar : $c->label_en, 'code' => $c->code,
                 'amount' => Money::of($c->discount_amount)->jsonSerialize(), 'free_delivery' => $c->free_delivery])->values(),
             'address' => $o->address_snapshot,
             'customer_notes' => $o->customer_notes,
@@ -62,6 +64,9 @@ class OrderPresenter
                 'unit_price' => Money::of($i->unit_final_price)->jsonSerialize(), 'discount' => Money::of($i->discount_amount)->jsonSerialize(),
                 'line_total' => Money::of($i->line_total)->jsonSerialize(), 'branch_id' => $i->branch_id, 'fulfillment_id' => $i->order_fulfillment_id,
                 'adjustment' => $this->adjustment($i, $byId, $replacedBy),
+                // The deal price the line got, as placed (null when none): `units` of the line were sold at the deal price, `unit_savings` each.
+                'deal' => $i->deal_id !== null && $i->deal_units > 0 ? ['deal_id' => $i->deal_id, 'name' => app()->getLocale() === 'ar' ? ($i->deal_name_ar ?: $i->deal_name_en) : $i->deal_name_en,
+                    'units' => $i->deal_units, 'unit_savings' => Money::of($i->deal_unit_savings ?? '0')->jsonSerialize()] : null,
             ])->values(),
             'was_adjusted' => $o->wasAdjusted(),
             'revisions' => $o->wasAdjusted() ? $o->revisions->map(fn ($r) => $this->revision($r))->values() : [],

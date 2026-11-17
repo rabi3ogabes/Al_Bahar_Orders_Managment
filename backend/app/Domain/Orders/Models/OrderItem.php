@@ -13,7 +13,7 @@ class OrderItem extends Model
 
     protected $guarded = ['id'];
 
-    protected $casts = ['variant_attributes' => 'array', 'quantity' => 'integer', 'quantity_cancelled' => 'integer', 'quantity_returned' => 'integer', 'quantity_handed_over' => 'integer', 'original_quantity' => 'integer'];
+    protected $casts = ['variant_attributes' => 'array', 'quantity' => 'integer', 'quantity_cancelled' => 'integer', 'quantity_returned' => 'integer', 'quantity_handed_over' => 'integer', 'original_quantity' => 'integer', 'deal_units' => 'integer'];
 
     /** @return BelongsTo<Order, $this> */
     public function order(): BelongsTo

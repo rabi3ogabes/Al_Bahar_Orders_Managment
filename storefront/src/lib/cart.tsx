@@ -7,11 +7,14 @@ import { useToast } from './toast';
 import { MAX_QTY, addGuestRow, cartAdd, cartSetQty, lineTotal, removeGuestRow, setGuestQty, sumMoney, type GuestRow } from './cartMath';
 import { money } from './format';
 import type { Cart, Money, Price, ProductCard, Variant } from './types';
+import type { DealBlock } from './deals';
 
 /** One cart row, whether it lives on the server (signed in) or in this browser (guest). `key` is the variant id. */
 export interface Line {
   key: string; variantId: string; productId: string; slug: string; name: string; variantName: string | null; image: string | null
   brand: string | null; unit: Money; total: Money; qty: number; max: number; available: boolean; issue: string | null; priceChanged: boolean
+  /** The product's countdown offer (docs/api/DEALS.md), from the server cart; the server prices it at checkout. Null for a guest's browser cart. */
+  deal?: DealBlock | null
 }
 
 const GUEST = 'albahar.guest_cart';
@@ -107,7 +110,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return (server.data?.items ?? []).map((i) => ({
         key: i.variant_id, variantId: i.variant_id, productId: i.product.id, slug: i.product.slug, name: i.product.name, variantName: i.variant_name,
         image: i.product.image?.thumb_url ?? null, brand: i.product.brand?.name ?? null, unit: i.unit_price.final, total: i.line_total, qty: i.quantity,
-        max: Math.min(MAX_QTY, i.available_quantity || MAX_QTY), available: i.available, issue: i.issue, priceChanged: i.price_changed,
+        max: Math.min(MAX_QTY, i.available_quantity || MAX_QTY), available: i.available, issue: i.issue, priceChanged: i.price_changed, deal: i.product.deal ?? null,
       }));
     }
     return guest.map((g) => ({

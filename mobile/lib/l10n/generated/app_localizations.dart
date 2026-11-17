@@ -5204,12 +5204,6 @@ abstract class AppLocalizations {
   /// **'Deals'**
   String get dealsTitle;
 
-  /// No description provided for @dealsLiveNow.
-  ///
-  /// In en, this message translates to:
-  /// **'Deals, on sale now'**
-  String get dealsLiveNow;
-
   /// No description provided for @dealsLiveSection.
   ///
   /// In en, this message translates to:

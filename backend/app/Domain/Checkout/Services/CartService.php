@@ -5,6 +5,9 @@ namespace App\Domain\Checkout\Services;
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Catalog\Models\ProductVariant;
 use App\Domain\Catalog\Services\CatalogPresenter;
+use App\Domain\Deals\Services\DealBlocks;
+use App\Domain\Deals\Services\DealEngine;
+use App\Domain\Deals\Support\DealPricing;
 use App\Domain\Identity\Models\User;
 use App\Domain\Marketing\Services\PromotionEngine;
 use App\Domain\Orders\Models\Cart;
@@ -22,7 +25,7 @@ use Illuminate\Validation\ValidationException;
  */
 class CartService
 {
-    public function __construct(private readonly PriceResolver $prices, private readonly CatalogPresenter $presenter) {}
+    public function __construct(private readonly PriceResolver $prices, private readonly CatalogPresenter $presenter, private readonly DealBlocks $deals, private readonly DealEngine $dealEngine) {}
 
     public function current(User $user): Cart
     {
@@ -172,8 +175,12 @@ class CartService
         $stock = $this->presenter->stockMap($variants->pluck('id')->all(), $branch?->id);
         $subtotal = Money::zero();
         $warnings = [];
+        // Deals (a staff draft never gets them): what each line gets at the deal price, worked out once for the whole cart.
+        $customer = $cart->status === Cart::STAFF_DRAFT ? null : $cart->user;
+        $dealEntries = $customer ? $this->deals->load($variants->pluck('product_id'), $customer) : [];
+        [$dealUnits, $dealSavings] = $this->dealUnits($cart, $dealEntries, $branch);
 
-        $items = $cart->items->sortBy('created_at')->map(function (CartItem $item) use ($branch, $stock, &$subtotal, &$warnings) {
+        $items = $cart->items->sortBy('created_at')->map(function (CartItem $item) use ($branch, $stock, $customer, $dealEntries, $dealUnits, &$subtotal, &$warnings) {
             $v = $item->variant;
             $price = $this->prices->resolve($v, $branch);
             $available = max(0, $stock[$v->id] ?? 0);
@@ -195,11 +202,15 @@ class CartService
             return [
                 'id' => $item->id,
                 'variant_id' => $v->id,
-                'product' => $this->presenter->card($v->product->setRelation('variants', collect([$v])), $branch, $stock),
+                'product' => $card = $this->presenter->card($v->product->setRelation('variants', collect([$v])), $branch, $stock, $customer, $dealEntries),
                 'variant_name' => $v->displayName(),
                 'quantity' => $item->quantity,
                 'unit_price' => $price?->toArray(),
                 'line_total' => $line->jsonSerialize(),
+                // The deal on this line: the product's deal block plus how many of THIS line's units get the deal price (the quote is the final word).
+                'deal' => $card['deal'] !== null && isset($dealUnits[$item->id])
+                    ? $card['deal'] + ['units_at_deal_price' => $dealUnits[$item->id]['units'], 'units_at_regular_price' => $item->quantity - $dealUnits[$item->id]['units'], 'note' => $dealUnits[$item->id]['note']]
+                    : $card['deal'],
                 'available' => $issue === null,
                 'available_quantity' => min(10, $available),
                 'price_changed' => $changed,
@@ -218,8 +229,47 @@ class CartService
             'items' => $items,
             'items_count' => $cart->items->sum('quantity'),
             'subtotal' => $subtotal->jsonSerialize(),
+            'deal_savings' => $dealSavings->jsonSerialize(),
             'warnings' => $warnings,
         ];
+    }
+
+    /**
+     * How many units of each cart line get the deal price (the same rules as DealEngine, without any reservation): the per-order limit and the
+     * units left count per PRODUCT, so two lines of one product share them. Lines are filled in the order the cart shows them.
+     *
+     * @param  array<string, array<string, mixed>>  $entries  DealBlocks::load() for the cart's products
+     * @return array{0: array<string, array{units: int, note: ?string}>, 1: Money} line id → units and the reason fewer than all; the total saving
+     */
+    private function dealUnits(Cart $cart, array $entries, ?Branch $branch): array
+    {
+        $lines = [];
+        $wanted = [];
+        foreach ($cart->items->sortBy('created_at') as $item) {
+            $entry = $entries[$item->variant->product_id] ?? null;
+            $price = $entry ? $this->prices->resolve($item->variant, $branch) : null;
+            $unit = $entry && $price ? DealPricing::unitPrice($entry['deal'], $entry['row'], $price->final()) : null;
+            if ($unit !== null) {
+                $pid = $item->variant->product_id;
+                $lines[] = [$item, $pid, $price->final()->minus($unit)];
+                $wanted[$pid] = ($wanted[$pid] ?? 0) + $item->quantity;
+            }
+        }
+        $left = [];
+        $notes = [];
+        $units = [];
+        $saved = Money::zero();
+        foreach ($lines as [$item, $pid, $saving]) {
+            if (! isset($left[$pid])) {
+                [$left[$pid], $notes[$pid]] = $this->dealEngine->allowance($entries[$pid]['deal'], $entries[$pid]['row'], $wanted[$pid], $entries[$pid]['used']);
+            }
+            $n = min($left[$pid], $item->quantity);
+            $left[$pid] -= $n;
+            $units[$item->id] = ['units' => $n, 'note' => $n < $item->quantity ? $notes[$pid] : null];
+            $saved = $saved->plus($saving->times($n));
+        }
+
+        return [$units, $saved];
     }
 
     private function touch(Cart $cart): void

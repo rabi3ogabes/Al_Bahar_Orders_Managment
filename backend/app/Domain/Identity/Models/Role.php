@@ -39,7 +39,11 @@ class Role extends Model
         return $this->personal_user_id !== null;
     }
 
-    /** Roles an admin can see, pick and assign: everything except personal roles. */
+    /**
+     * Roles an admin can see, pick and assign: everything except personal roles.
+     *
+     * @param  Builder<Role>  $query
+     */
     public function scopeShared(Builder $query): void
     {
         $query->whereNull('personal_user_id');

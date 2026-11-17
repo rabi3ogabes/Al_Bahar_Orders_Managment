@@ -382,23 +382,27 @@ export function cartLineText(t: Tr, locale: string, line: { qty: number; deal?: 
 }
 
 /**
- * The "Deal savings" row and the discount that is left once it is taken out. Whether `totals.discount` already holds the deal savings
- * is read from the numbers (subtotal + fees - discount - points = total): when it does, the deal part is taken out of the "Discount" row.
+ * The "Deal savings" row. Whether the quote's `totals.discount` already holds the deal savings is read from the numbers
+ * (subtotal + fees - discount - points = total): when it does, the deal part is taken out of the "Discount" row (`minusDeal`),
+ * so nothing is shown twice. When neither reading fits (a fee this file does not know), the deal is assumed to be inside `discount`.
  */
-export function dealSavingsSplit(q: Pick<Quote, 'totals' | 'discounts'> | null | undefined, fmt: Fmt): { deal: Money | null; other: Money | null } {
-  if (!q) return { deal: null, other: null };
+export interface DealSplit { deal: Money | null; inDiscount: boolean }
+export function dealSavingsSplit(q: Pick<Quote, 'totals'> | null | undefined, fmt: Fmt): DealSplit {
+  if (!q) return { deal: null, inDiscount: false };
   const x = q.totals as Quote['totals'] & { deal_savings?: Money | null };
   const deal = moneyOf(x.deal_savings, fmt, x.subtotal?.currency);
-  const discount = cents(x.discount);
-  const dealC = deal ? cents(deal) : 0;
-  if (dealC <= 0) return { deal: null, other: discount > 0 ? x.discount : null };
+  if (!deal || cents(deal) <= 0) return { deal: null, inDiscount: false };
   const base = cents(x.subtotal) + cents(x.delivery_fee) + cents(x.service_fee) + cents(x.tax) - cents(x.loyalty_discount);
-  const grand = cents(x.grand_total);
-  // The two shapes the numbers can take; when neither matches (a fee this file does not know), the deal is assumed to be inside `discount`.
-  const separate = Math.abs(base - discount - dealC - grand) <= 1 && Math.abs(base - discount - grand) > 1;
-  const left = separate ? discount : Math.max(0, discount - dealC);
-  const cur = x.discount?.currency ?? deal!.currency;
-  return { deal, other: left > 0 ? (separate ? x.discount : { amount: (left / 100).toFixed(2), currency: cur, formatted: fmt(left / 100, cur) }) : null };
+  const discount = cents(x.discount), grand = cents(x.grand_total);
+  const separate = Math.abs(base - discount - cents(deal) - grand) <= 1 && Math.abs(base - discount - grand) > 1;
+  return { deal, inDiscount: !separate };
+}
+/** A discount amount without the deal part (null when nothing is left). */
+export function minusDeal(m: Money | null | undefined, split: DealSplit, fmt: Fmt): Money | null {
+  if (!m || cents(m) <= 0) return null;
+  if (!split.deal || !split.inDiscount) return m;
+  const left = cents(m) - cents(split.deal);
+  return left > 0 ? { amount: (left / 100).toFixed(2), currency: m.currency, formatted: fmt(left / 100, m.currency) } : null;
 }
 
 /** `409 deal_changed` from place order: the deal moved under the customer's feet. Matches the shape of `ApiError` without importing it. */

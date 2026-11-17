@@ -75,6 +75,12 @@ Route::middleware(['auth:sanctum', 'customer'])->group(function () {
     });
 });
 
+// ── Deals: countdown offers (public; a signed-in customer also sees how many units they may still buy) ──────────
+Route::controller(V1\Deals\DealController::class)->group(function () {
+    Route::get('deals', 'index')->name('deals.index');
+    Route::get('deals/{id}', 'show')->whereUuid('id')->name('deals.show');
+});
+
 // ── Auctions ──────────────────────────────────────────────────────────────────
 Route::controller(V1\Auctions\AuctionController::class)->group(function () {
     Route::get('auctions', 'index')->name('auctions.index');

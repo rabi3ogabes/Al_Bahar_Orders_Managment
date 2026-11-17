@@ -3,6 +3,7 @@
 namespace App\Domain\Payments\Services;
 
 use App\Domain\Audit\Services\AuditLogger;
+use App\Domain\Deals\Services\DealService;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Marketing\Services\LoyaltyService;
@@ -164,6 +165,11 @@ class RefundService
                 'payment_status' => $full ? PS::Refunded : PS::PartiallyRefunded])->save();
             if ($full && $order->user) {
                 app(LoyaltyService::class)->reverseForOrder($order->user, $order->id, 'Order refunded');
+            }
+            if ($full) {
+                // A fully refunded order no longer holds its deal units, whatever its parcels did (a cancelled one has already given them back).
+                app(DealService::class)->lockForOrder($order->id);
+                app(DealService::class)->release($order->id, everything: true);
             }
         }
         $this->audit->log('refund.processed', $r, [], ['amount' => $r->amount, 'reference' => $reference], actor: $actor);

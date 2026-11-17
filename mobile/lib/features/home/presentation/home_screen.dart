@@ -16,6 +16,8 @@ import 'package:albahar_customer/features/auth/presentation/state/session_contro
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/catalog_widgets.dart';
+import 'package:albahar_customer/features/deals/presentation/home_deals_strip.dart';
+import 'package:albahar_customer/features/deals/presentation/state/deals_providers.dart';
 import 'package:albahar_customer/features/home/data/home_repository.dart';
 import 'package:albahar_customer/features/home/domain/home_models.dart';
 import 'package:albahar_customer/features/home/presentation/buy_again_section.dart';
@@ -47,6 +49,7 @@ class HomeScreen extends ConsumerWidget {
         onRefresh: () async {
           unawaited(ref.read(brandThemeProvider.notifier).refresh());
           ref.invalidate(activeOrdersProvider);
+          ref.invalidate(homeDealsProvider);
           ref.invalidate(homeFeedProvider);
           await ref.read(homeFeedProvider.future);
         },
@@ -69,6 +72,7 @@ class HomeScreen extends ConsumerWidget {
                   return [
                     const SliverToBoxAdapter(child: SeasonBanner()),
                     const SliverToBoxAdapter(child: ActiveOrderCard()),
+                    const SliverToBoxAdapter(child: HomeDealsStrip()),
                     for (final s in freshSectionOrder(data.sections))
                       SliverToBoxAdapter(
                         child: HomeSectionView(key: ValueKey(s.id), section: s),
@@ -80,6 +84,7 @@ class HomeScreen extends ConsumerWidget {
                 return [
                   const SliverToBoxAdapter(child: SeasonBanner()),
                   const SliverToBoxAdapter(child: ActiveOrderCard()),
+                  const SliverToBoxAdapter(child: HomeDealsStrip()),
                   const SliverToBoxAdapter(child: BuyAgainSection()),
                   for (final s in data.sections)
                     SliverToBoxAdapter(

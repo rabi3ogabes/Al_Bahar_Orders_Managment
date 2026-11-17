@@ -10,12 +10,14 @@ import { useToast } from '../lib/toast';
 import { useWishlist } from '../lib/wishlist';
 import { cx, money } from '../lib/format';
 import type { ProductDetail } from '../lib/types';
+import { dealPriceFor, dealTotal, partialText, unitsAtDealPrice } from '../lib/deals';
+import { DealCardMeta, DealPriceTag } from './DealBits';
 import { AttributePicker, useVariantPicker } from './AttributePicker';
 import { ExtraDeliveryNote } from './ExtraDeliveryNote';
 import { useAuthModal } from './AuthModal';
 import { DrawerLink } from './drawerLink';
 import { SideDrawer } from './SideDrawer';
-import { Badge, Button, EmptyState, Pic, PriceTag, QtyStepper, Rating, Skeleton } from './ui';
+import { Badge, Button, EmptyState, Pic, QtyStepper, Rating, Skeleton } from './ui';
 
 /**
  * Quick view (`?quick=<slug>`): photos, price, options, quantity and "Add to bag" without leaving the list.
@@ -66,7 +68,10 @@ export default function QuickView({ slug, open, onClose, onAdded }: { slug: stri
     try { await post('/me/stock-alerts', { variant_id: variant.id, type: 'back_in_stock', branch_id: branchId || undefined }); toast.push(t('product.notify_ok')); } catch (e) { toast.push(e instanceof ApiError ? e.message : t('error.generic'), 'error'); }
   };
 
-  const total = price ? money(parseFloat(price.final.amount) * qty, price.final.currency, locale) : '';
+  // While the product's deal is live the first units (up to its limits) are priced at the deal price; the total says so.
+  const dp = p?.deal && price ? dealPriceFor({ deal: p.deal, price }, variant) : null;
+  const total = price ? money(dp ? dealTotal(dp, qty) : parseFloat(price.final.amount) * qty, price.final.currency, locale) : '';
+  const partial = dp ? partialText(t, locale, unitsAtDealPrice(dp.block, qty), qty) : null;
   const footer = p ? (
     <Button size="lg" block disabled={!canBuy} loading={adding} onClick={() => void add()}>
       {!variant ? t('product.choose_options') : canBuy ? <>{t('product.add_to_cart')} · <span className="tabular-nums" lang={locale}>{total}</span></> : t('product.out_of_stock')}
@@ -93,7 +98,8 @@ export default function QuickView({ slug, open, onClose, onAdded }: { slug: stri
             )}
             {p.brand && <p className="eyebrow mt-5">{p.brand.name}</p>}
             <div className="mt-2 flex flex-wrap items-center gap-3">{p.rating.count > 0 && <Rating value={p.rating.average} count={p.rating.count} />}<span className="text-xs text-muted">SKU {variant?.sku ?? p.sku}</span></div>
-            <div className="mt-3"><PriceTag price={price} size="lg" /></div>
+            <DealCardMeta p={p} className="mt-3" />
+            <div className="mt-3"><DealPriceTag p={p} variant={variant} price={price} size="lg" /></div>
             <ExtraDeliveryNote p={p} className="mt-3" />
             {p.short_description && <p className="mt-4 leading-relaxed text-ink-soft">{p.short_description}</p>}
             <AttributePicker p={p} picker={picker} />
@@ -102,6 +108,7 @@ export default function QuickView({ slug, open, onClose, onAdded }: { slug: stri
                 : canBuy ? <span className="flex items-center gap-2 text-success"><Check size={16} />{low ? t('product.low_stock', { n: variant.available_quantity }) : t('product.in_stock')}</span>
                 : <span className="text-danger">{t('product.out_of_stock')}</span>}
             </div>
+            {partial && <p className="mt-3 text-[13px] font-medium text-brass-deep" role="status">{partial}</p>}
             <div className="mt-4 flex items-center gap-3"><QtyStepper value={qty} onChange={setQty} max={stockMax} />{variant && !canBuy && <button type="button" onClick={() => void notify()} className="flex min-h-11 items-center gap-2 text-sm font-medium text-brass-deep hover:underline"><Bell size={15} />{t('product.notify')}</button>}</div>
             <DrawerLink to={`/products/${slug}`} className="mt-6 flex min-h-11 items-center justify-center rounded-full border border-line text-sm font-medium text-ink transition-colors hover:border-primary">{t('quick.full')}</DrawerLink>
           </div>

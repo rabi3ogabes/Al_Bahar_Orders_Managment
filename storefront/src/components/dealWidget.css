@@ -1,0 +1,226 @@
+/*
+ * Deal widget (components/DealWidget.tsx). Five looks, three shapes, three timer looks, one component.
+ * Colours come only from the four variables the component sets from the server's resolved palette:
+ *   --dw-bg  --dw-text  --dw-accent   (the deal's design.colors)
+ *   --dw-on-accent  (whichever of bg / text reads better on an accent fill)   --dw-accent-fg  (accent when readable on bg, else text)
+ * Everything else here is a mix of those. Logical properties only, so it mirrors in Arabic. The widget is a size container:
+ * it lays itself out by its own width (a column on a phone, two columns when there is room), not by the window's.
+ */
+.dw {
+  --dw-r: 24px; --dw-r-sm: 12px; --dw-r-btn: 999px;
+  --dw-soft: color-mix(in srgb, var(--dw-text) 84%, var(--dw-bg));
+  --dw-faint: color-mix(in srgb, var(--dw-text) 9%, var(--dw-bg));
+  --dw-tint: color-mix(in srgb, var(--dw-accent) 16%, var(--dw-bg));
+  --dw-edge: color-mix(in srgb, var(--dw-accent) 52%, var(--dw-bg));
+  --dw-num: clamp(26px, 7.4cqw, 44px);
+  --dw-dir: 90deg;
+  position: relative; isolation: isolate; overflow: hidden; color: var(--dw-text); background: var(--dw-bg); border-radius: var(--dw-r);
+  container: dw / inline-size; font-family: var(--font-sans); line-height: 1.35; text-align: start;
+}
+:root[dir='rtl'] .dw { --dw-dir: 270deg; }
+.dw--s-sharp { --dw-r: 3px; --dw-r-sm: 2px; --dw-r-btn: 2px; }
+.dw--s-pill { --dw-r: 38px; --dw-r-sm: 999px; --dw-r-btn: 999px; }
+.dw a:focus-visible { outline: 2px solid var(--dw-accent-fg); outline-offset: 3px; border-radius: var(--dw-r-btn); }
+.dw--off { filter: saturate(0.55); }
+
+/* ───────────── picture behind the words ───────────── */
+.dw__img { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; max-width: none; object-fit: cover; }
+.dw__veil { position: absolute; inset: 0; z-index: -1; background: linear-gradient(var(--dw-dir), color-mix(in srgb, var(--dw-bg) 96%, transparent) 0%, color-mix(in srgb, var(--dw-bg) 84%, transparent) 55%, color-mix(in srgb, var(--dw-bg) 74%, transparent) 100%); }
+.dw__deco { position: absolute; pointer-events: none; z-index: -1; }
+
+/* ───────────── layout ───────────── */
+.dw__body { position: relative; display: grid; gap: 22px; padding: clamp(18px, 4.6cqw, 36px); }
+.dw__main { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; gap: 10px; }
+.dw__side { display: flex; min-width: 0; flex-direction: column; gap: 14px; }
+@container dw (min-width: 700px) {
+  .dw--full .dw__body { grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); align-items: center; gap: clamp(28px, 4cqw, 56px); }
+  .dw--full { --dw-num: clamp(30px, 4.3cqw, 54px); }
+}
+.dw--strip { --dw-num: clamp(22px, 6.6cqw, 32px); }
+.dw--strip .dw__body { gap: 14px; padding: 16px 18px 18px; }
+.dw--strip .dw__main { gap: 8px; }
+
+.dw__head { display: flex; width: 100%; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; }
+.dw__kicker { display: inline-flex; min-width: 0; align-items: center; gap: 8px; margin: 0; color: var(--dw-accent-fg); font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; }
+.dw__kicker span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html[lang='ar'] .dw__kicker { font-size: 12.5px; letter-spacing: 0; text-transform: none; }
+.dw__title { margin: 0; color: var(--dw-text); font-size: clamp(27px, 6.2cqw, 46px); line-height: 1.04; text-wrap: balance; overflow-wrap: anywhere; }
+html[lang='ar'] .dw__title { line-height: 1.25; }
+.dw--strip .dw__title { font-size: clamp(22px, 6cqw, 29px); }
+.dw__tag { margin: 0; max-width: 46ch; color: var(--dw-soft); font-size: 15px; line-height: 1.5; }
+.dw--strip .dw__tag { font-size: 14px; }
+.dw__slot { width: 100%; margin-top: 4px; }
+
+.dw__badge {
+  display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; background: var(--dw-accent); color: var(--dw-on-accent);
+  border-radius: var(--dw-r-btn); padding: 5px 12px; font-size: 13px; font-weight: 700; letter-spacing: 0.02em; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+
+/* ───────────── timer ───────────── */
+.dw__timer { display: flex; flex-direction: column; gap: 10px; }
+.dw__tlabel { margin: 0; color: var(--dw-soft); font-size: 11.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; }
+html[lang='ar'] .dw__tlabel { font-size: 13px; letter-spacing: 0; text-transform: none; }
+.dw-t { display: flex; align-items: stretch; gap: clamp(6px, 1.6cqw, 12px); }
+.dw-t__num { display: block; font-family: var(--font-sans); font-size: var(--dw-num); font-weight: 600; line-height: 1; letter-spacing: -0.01em; font-variant-numeric: tabular-nums lining-nums; }
+.dw-t__lab { display: block; color: var(--dw-soft); font-size: 10px; font-weight: 600; letter-spacing: 0.14em; line-height: 1.1; text-transform: uppercase; white-space: nowrap; }
+html[lang='ar'] .dw-t__lab { font-size: 11.5px; letter-spacing: 0; text-transform: none; }
+
+.dw-t--boxes .dw-t__cell {
+  display: flex; flex: 1 1 0; min-width: 0; flex-direction: column; align-items: center; gap: 8px; padding: clamp(11px, 2.6cqw, 18px) 2px clamp(8px, 1.6cqw, 12px);
+  border: 1px solid var(--dw-edge); border-radius: var(--dw-r-sm); background: var(--dw-tint);
+}
+.dw--s-pill .dw-t--boxes .dw-t__cell { border-radius: 999px; }
+.dw-t--digits { align-items: flex-start; gap: clamp(4px, 1.4cqw, 10px); }
+.dw-t--digits .dw-t__cell { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; }
+.dw-t--digits .dw-t__num { font-size: calc(var(--dw-num) * 1.18); }
+.dw-t__sep { align-self: flex-start; color: var(--dw-accent-fg); font-size: calc(var(--dw-num) * 1.1); font-weight: 500; line-height: 0.95; opacity: 0.85; }
+.dw-t--text { flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+.dw-t--text .dw-t__cell { display: inline-flex; align-items: baseline; gap: 3px; }
+.dw-t--text .dw-t__num { display: inline; font-size: calc(var(--dw-num) * 0.72); }
+.dw-t--text .dw-t__lab { display: inline; font-size: 13px; letter-spacing: 0; text-transform: none; }
+.dw--urgent .dw-t__num { color: var(--dw-accent-fg); }
+.dw--urgent .dw-t--boxes .dw-t__cell { border-color: var(--dw-accent-fg); }
+@keyframes dw-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+@media (prefers-reduced-motion: no-preference) {
+  .dw--urgent .dw-t__num, .dw--urgent .dw-c__time { animation: dw-pulse 1s ease-in-out infinite; }
+}
+
+.dw__status { margin: 0; align-self: flex-start; border: 1px solid var(--dw-edge); border-radius: var(--dw-r-btn); padding: 9px 18px; background: var(--dw-tint); font-size: 14px; font-weight: 600; }
+
+/* ───────────── stock ───────────── */
+.dw__stock { display: flex; flex-direction: column; gap: 7px; }
+.dw__stock-txt { margin: 0; color: var(--dw-soft); font-size: 13px; font-weight: 600; }
+.dw__stock-txt--low { color: var(--dw-accent-fg); }
+.dw__bar { height: 6px; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--dw-text) 14%, var(--dw-bg)); }
+.dw__bar i { display: block; height: 100%; border-radius: inherit; background: var(--dw-accent); transition: width 0.6s ease; }
+.dw__foot { display: flex; flex-direction: column; gap: 4px; }
+
+/* ───────────── button ───────────── */
+.dw__cta {
+  display: inline-flex; min-height: 48px; align-items: center; justify-content: center; align-self: flex-start; gap: 10px; border-radius: var(--dw-r-btn); padding: 0 26px;
+  background: var(--dw-accent); color: var(--dw-on-accent); font-size: 14.5px; font-weight: 600; letter-spacing: 0.02em; text-decoration: none; transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+.dw__cta:hover { transform: translateY(-1px); box-shadow: 0 10px 22px -12px color-mix(in srgb, var(--dw-accent) 80%, black); }
+.dw__cta svg { transition: transform 0.2s ease; }
+.dw__cta:hover svg { transform: translateX(3px); }
+:root[dir='rtl'] .dw__cta:hover svg { transform: translateX(-3px); }
+
+/* ───────────── classic: a calm card, accent boxes, solid button ───────────── */
+.dw--classic { border: 1px solid var(--dw-edge); box-shadow: 0 1px 2px rgb(0 0 0 / 0.08), 0 22px 44px -26px rgb(0 0 0 / 0.55); }
+
+/* ───────────── bold: a poster, split into the words and an accent block that holds the clock ───────────── */
+.dw--bold { box-shadow: 0 24px 50px -28px rgb(0 0 0 / 0.6); }
+.dw--bold .dw__body { gap: 0; padding: 0; }
+.dw--bold .dw__main { padding: clamp(20px, 4.6cqw, 34px); gap: 12px; }
+.dw--bold .dw__title { font-size: clamp(30px, 7.2cqw, 56px); font-weight: 600; }
+.dw--bold .dw__badge { background: transparent; color: var(--dw-accent-fg); padding: 0; font-family: var(--font-display); font-size: clamp(38px, 10cqw, 76px); font-weight: 600; letter-spacing: -0.02em; line-height: 0.95; }
+.dw--bold.dw--strip .dw__badge { font-size: clamp(30px, 9cqw, 44px); }
+.dw--bold .dw__side {
+  --dw-tint: color-mix(in srgb, var(--dw-on-accent) 13%, transparent); --dw-edge: color-mix(in srgb, var(--dw-on-accent) 34%, transparent); --dw-soft: color-mix(in srgb, var(--dw-on-accent) 88%, var(--dw-accent)); --dw-accent-fg: var(--dw-on-accent);
+  position: relative; padding: calc(clamp(20px, 4.6cqw, 34px) + 12px) clamp(20px, 4.6cqw, 34px) clamp(20px, 4.6cqw, 34px); background: var(--dw-accent); color: var(--dw-on-accent);
+  clip-path: polygon(0 14px, 100% 0, 100% 100%, 0 100%);
+}
+:root[dir='rtl'] .dw--bold .dw__side { clip-path: polygon(0 0, 100% 14px, 100% 100%, 0 100%); }
+.dw--bold .dw__tlabel, .dw--bold .dw__stock-txt { color: var(--dw-on-accent); }
+.dw--bold .dw__bar { background: color-mix(in srgb, var(--dw-on-accent) 26%, transparent); }
+.dw--bold .dw__bar i { background: var(--dw-on-accent); }
+.dw--bold .dw__cta { background: var(--dw-on-accent); color: var(--dw-accent); }
+.dw--bold .dw__cta:hover { box-shadow: 0 12px 24px -12px rgb(0 0 0 / 0.5); }
+.dw--bold .dw__side a:focus-visible { outline-color: var(--dw-on-accent); }
+.dw--bold .dw__status { background: var(--dw-tint); }
+.dw--bold .dw__foot { color: var(--dw-on-accent); }
+.dw--bold.dw--strip .dw__main { padding: 16px 18px 12px; }
+.dw--bold.dw--strip .dw__side { padding: 26px 18px 18px; }
+@container dw (min-width: 700px) {
+  .dw--bold.dw--full .dw__body { gap: 0; }
+  .dw--bold.dw--full .dw__side { padding: clamp(24px, 4cqw, 44px) clamp(24px, 4cqw, 44px) clamp(24px, 4cqw, 44px) calc(clamp(24px, 4cqw, 44px) + 34px); align-self: stretch; justify-content: center; clip-path: polygon(34px 0, 100% 0, 100% 100%, 0 100%); }
+  :root[dir='rtl'] .dw--bold.dw--full .dw__side { padding: clamp(24px, 4cqw, 44px) calc(clamp(24px, 4cqw, 44px) + 34px) clamp(24px, 4cqw, 44px) clamp(24px, 4cqw, 44px); clip-path: polygon(0 0, calc(100% - 34px) 0, 100% 100%, 0 100%); }
+}
+
+/* ───────────── minimal: air, hairlines, no fills ───────────── */
+.dw--minimal { border: 1px solid var(--dw-edge); }
+.dw--minimal .dw__title { font-weight: 500; }
+.dw--minimal .dw__badge { border: 1px solid var(--dw-accent-fg); background: transparent; color: var(--dw-accent-fg); font-weight: 600; }
+.dw--minimal .dw-t--boxes { gap: 0; }
+.dw--minimal .dw-t--boxes .dw-t__cell { border: 0; border-radius: 0; background: transparent; padding-inline: 2px; }
+.dw--minimal .dw-t--boxes .dw-t__cell + .dw-t__cell { border-inline-start: 1px solid var(--dw-edge); }
+.dw--minimal .dw-t--boxes .dw-t__num { font-weight: 500; }
+.dw--minimal .dw__cta { min-height: 44px; padding: 0 2px; border-radius: 0; border-bottom: 1px solid currentColor; background: transparent; color: var(--dw-text); }
+.dw--minimal .dw__cta:hover { transform: none; box-shadow: none; color: var(--dw-accent-fg); }
+.dw--minimal .dw__bar { height: 2px; }
+
+/* ───────────── luxe: framed twice, serif, spaced capitals, a thin gold line ───────────── */
+.dw--luxe { border: 1px solid var(--dw-edge); background-image: radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--dw-accent) 17%, transparent), transparent 62%); box-shadow: 0 26px 54px -30px rgb(0 0 0 / 0.65); }
+.dw--luxe .dw__deco { inset: 7px; z-index: 0; border: 1px solid color-mix(in srgb, var(--dw-accent) 38%, var(--dw-bg)); border-radius: max(0px, calc(var(--dw-r) - 7px)); }
+.dw--luxe .dw__body { z-index: 1; padding: clamp(24px, 5cqw, 44px); }
+.dw--luxe .dw__main { align-items: center; text-align: center; }
+.dw--luxe .dw__head { justify-content: center; }
+.dw--luxe .dw__kicker { letter-spacing: 0.32em; }
+html[lang='ar'] .dw--luxe .dw__kicker { letter-spacing: 0; }
+.dw--luxe .dw__title { font-size: clamp(30px, 6.8cqw, 54px); font-weight: 500; letter-spacing: 0.01em; }
+.dw--luxe .dw__tag { color: var(--dw-soft); font-style: italic; font-family: var(--font-display); font-size: 18px; }
+html[lang='ar'] .dw--luxe .dw__tag { font-style: normal; font-size: 15px; }
+.dw--luxe .dw__badge { position: absolute; z-index: 2; inset-block-start: 20px; inset-inline-end: 22px; width: 62px; height: 62px; padding: 0; border: 1px solid var(--dw-accent-fg); border-radius: 50%; background: var(--dw-bg); color: var(--dw-accent-fg); font-family: var(--font-display); font-size: 19px; font-weight: 600; box-shadow: 0 0 0 3px var(--dw-bg), 0 0 0 4px color-mix(in srgb, var(--dw-accent) 45%, var(--dw-bg)); }
+.dw--luxe.dw--strip .dw__badge { inset-block-start: 14px; inset-inline-end: 16px; width: 50px; height: 50px; font-size: 16px; }
+.dw__orn { display: flex; width: min(260px, 70%); align-items: center; gap: 10px; align-self: center; }
+.dw__orn i { height: 1px; flex: 1; background: linear-gradient(90deg, transparent, var(--dw-edge)); }
+.dw__orn i:last-child { background: linear-gradient(270deg, transparent, var(--dw-edge)); }
+.dw__orn b { width: 7px; height: 7px; flex: none; transform: rotate(45deg); background: var(--dw-accent-fg); }
+.dw--luxe .dw__side { align-items: stretch; }
+.dw--luxe .dw__tlabel { text-align: center; letter-spacing: 0.3em; }
+html[lang='ar'] .dw--luxe .dw__tlabel { letter-spacing: 0; }
+.dw--luxe .dw-t--boxes .dw-t__cell { border-color: var(--dw-edge); background: transparent; }
+.dw--luxe .dw-t__num { font-family: var(--font-display); font-weight: 500; font-size: calc(var(--dw-num) * 1.12); font-variant-numeric: lining-nums tabular-nums; }
+.dw--luxe .dw-t--digits { justify-content: center; }
+.dw--luxe .dw-t--text { justify-content: center; }
+.dw--luxe .dw__stock-txt { text-align: center; }
+.dw--luxe .dw__bar { height: 3px; }
+.dw--luxe .dw__cta { align-self: center; border: 1px solid var(--dw-accent-fg); background: transparent; color: var(--dw-accent-fg); letter-spacing: 0.14em; text-transform: uppercase; font-size: 13px; padding: 0 30px; }
+html[lang='ar'] .dw--luxe .dw__cta { letter-spacing: 0; text-transform: none; font-size: 14.5px; }
+.dw--luxe .dw__cta:hover { background: var(--dw-accent); color: var(--dw-on-accent); }
+.dw--luxe .dw__foot, .dw--luxe .dw__slot { text-align: center; }
+@container dw (min-width: 700px) {
+  .dw--luxe.dw--full .dw__body { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+
+/* ───────────── ribbon: a bookmark hangs from the top edge, the clock sits in a rounded strip ───────────── */
+.dw--ribbon { border: 1px solid var(--dw-edge); }
+.dw--ribbon .dw__head { padding-inline-start: 74px; min-height: 40px; }
+.dw--ribbon .dw__badge {
+  position: absolute; z-index: 2; inset-block-start: -1px; inset-inline-start: clamp(18px, 4.6cqw, 34px); width: 58px; padding: 18px 4px 26px; border-radius: 0;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 13px), 0 100%); font-size: 16px; font-weight: 800; flex-direction: column;
+}
+.dw--ribbon.dw--strip .dw__badge { inset-inline-start: 18px; width: 52px; padding: 14px 4px 22px; font-size: 14.5px; }
+.dw--ribbon .dw__title { margin-top: 2px; }
+.dw--ribbon .dw__timer { padding: 14px 14px 12px; border-radius: var(--dw-r); background: var(--dw-tint); border: 1px solid var(--dw-edge); }
+.dw--ribbon.dw--s-sharp .dw__timer { border-radius: 2px; }
+.dw--ribbon .dw-t--boxes .dw-t__cell { border: 0; background: transparent; padding-block: 2px; }
+.dw--ribbon .dw-t--boxes .dw-t__cell + .dw-t__cell { border-inline-start: 1px dashed var(--dw-edge); border-radius: 0; }
+.dw--ribbon .dw__cta { border-radius: var(--dw-r-btn); }
+
+/* ───────────── compact: the badge and a small clock on a product card ───────────── */
+.dw--compact { display: flex; width: fit-content; max-width: 100%; container-type: normal; align-items: stretch; border: 1px solid var(--dw-edge); border-radius: 10px; font-size: 12px; font-weight: 600; line-height: 1; }
+.dw--compact.dw--s-sharp { border-radius: 2px; }
+.dw--compact.dw--s-pill { border-radius: 999px; }
+.dw-c__badge { display: inline-flex; align-items: center; gap: 5px; padding: 7px 9px; background: var(--dw-accent); color: var(--dw-on-accent); font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dw-c__time { display: inline-flex; align-items: center; padding: 7px 10px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dw--compact.dw--minimal { background: transparent; color: inherit; border-color: var(--dw-accent-fg); }
+.dw--compact.dw--minimal .dw-c__badge { background: transparent; color: var(--dw-accent-fg); }
+.dw--compact.dw--ribbon .dw-c__badge { clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 50%, calc(100% - 7px) 100%, 0 100%); padding-inline-end: 14px; }
+:root[dir='rtl'] .dw--compact.dw--ribbon .dw-c__badge { clip-path: polygon(7px 0, 100% 0, 100% 100%, 7px 100%, 0 50%); }
+.dw--compact.dw--luxe { box-shadow: inset 0 0 0 2px var(--dw-bg), inset 0 0 0 3px color-mix(in srgb, var(--dw-accent) 45%, var(--dw-bg)); }
+.dw--compact.dw--bold .dw-c__badge { font-weight: 800; letter-spacing: 0.02em; }
+.dw--compact .dw-c__time { color: var(--dw-text); }
+.dw--compact.dw--urgent .dw-c__time { color: var(--dw-accent-fg); }
+
+/* ───────────── pieces the product page puts inside the widget ───────────── */
+.dw__price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.dw__price-now { font-size: clamp(27px, 7.4cqw, 38px); font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums lining-nums; }
+.dw__price-from { color: var(--dw-soft); font-size: 13px; font-weight: 500; margin-inline-end: 6px; }
+.dw__price-was { color: var(--dw-soft); font-size: 15px; font-variant-numeric: tabular-nums; text-decoration: line-through; text-decoration-thickness: 1px; }
+.dw__note { margin: 0; color: var(--dw-soft); font-size: 13px; line-height: 1.45; }
+.dw__note--strong { color: var(--dw-text); font-weight: 600; }
+.dw__note--warn { color: var(--dw-accent-fg); font-weight: 600; }
+.dw--bold .dw__note { color: var(--dw-on-accent); }
+.dw--bold .dw__note--warn { color: var(--dw-on-accent); }
+.dw--luxe .dw__price { justify-content: center; }

@@ -19,6 +19,8 @@ import { useAuthModal } from '../components/AuthModal';
 import { Alert, Button, Checkbox, EmptyState, Input, Pic, Segmented, Skeleton, Spinner, Textarea } from '../components/ui';
 import { AddressWindow } from '../components/windows';
 import { DeliveryFeeRow, ExtraDeliveryRow } from '../components/DeliveryFeeRow';
+import { DealLineNote } from '../components/DealBits';
+import { dealSavingsSplit, isDealChanged, minusDeal, quoteFromDealChanged, quoteLineText, readQuoteDeal } from '../lib/deals';
 
 type Method = 'sadad' | 'cod' | 'pay_at_pickup';
 
@@ -149,6 +151,8 @@ export default function Checkout() {
   const [notes, setNotes] = useState('');
   const [newAddr, setNewAddr] = useState(false);
   const [err, setErr] = useState('');
+  // A deal changed between the quote and the order (409 deal_changed): the new total is shown and the customer confirms again. Never placed on its own.
+  const [dealChanged, setDealChanged] = useState(false);
   const idem = useRef(uuid());
   // Taken the instant the button is pressed (the mutation's own "pending" state arrives a moment later, and a fast double press fits in between).
   // Given back only when the order did not go through; after an accepted order the page is leaving.
@@ -184,6 +188,8 @@ export default function Checkout() {
 
   // A new quote means a new order intent: a fresh idempotency key, and an error about the earlier attempt is no longer true.
   useEffect(() => { idem.current = uuid(); setErr(''); }, [q?.quote_hash]);
+  // The bag changed (a different quantity or item): the note about the deal that changed is old news.
+  useEffect(() => { setDealChanged(false); }, [cart.count]);
   // A new address, showroom or way of receiving has its own times: forget the old one (the earliest of the new ones is chosen when they load).
   useEffect(() => { setSlotId(null); setSlotDate(null); setSlotAuto(false); setSlotReplaced(false); autoPicks.current = 0; }, [ful, addressId, pickBranch]);
   const pickSlot = (id: string | null, d: string | null, meta?: PickMeta) => {
@@ -237,6 +243,13 @@ export default function Checkout() {
       nav(`/orders/${r.order.id}?placed=1`, { replace: true });
     },
     onError: (e) => {
+      // The server sends the fresh quote with the error: it replaces the one on screen at once (else it is asked for again).
+      if (isDealChanged(e)) {
+        const fresh = quoteFromDealChanged(e);
+        if (fresh) qc.setQueryData(['quote', options, cart.count], fresh); else void quote.refetch();
+        setDealChanged(true);
+        return;
+      }
       if (e instanceof ApiError && e.code === 'quote_changed') { toast.push(t('checkout.quote_changed'), 'info'); void quote.refetch(); return; }
       // Someone took the time meanwhile: the earliest free one is chosen again from fresh lists.
       if (e instanceof ApiError && e.code === 'slot_unavailable') { setSlotId(null); setSlotDate(null); setSlotAuto(false); setSlotReplaced(true); void qc.invalidateQueries({ queryKey: ['slots'] }); void quote.refetch(); return; }
@@ -260,6 +273,9 @@ export default function Checkout() {
   };
   const grand = q?.totals.grand_total.formatted;
   const feeLine = deliveryFeeLine(q, (v, cur) => money(v, cur, locale));
+  // The deal part of the discount is its own row ("Deal savings"), so it is not counted twice.
+  const dealSplit = dealSavingsSplit(q, (v, cur) => money(v, cur, locale));
+  const discountRow = minusDeal(feeLine.discount, dealSplit, (v, cur) => money(v, cur, locale));
   const quoteErrors = (q?.errors ?? []).filter((e) => e.code !== 'slot_required' && e.code !== 'slot_unavailable');
   const extra = extraDelivery(q, (v, cur) => money(v, cur, locale));
   // Never twice: not while an order is on its way, nor after it was accepted (the page is then leaving for the payment page or the order). Not while a bag change is still travelling to the server.
@@ -372,20 +388,29 @@ export default function Checkout() {
           <div className="rounded-[28px] border border-line bg-paper p-6">
             <h2 className="text-3xl">{t('checkout.summary')}</h2>
             <ul className="mt-5 max-h-64 space-y-4 overflow-y-auto pe-1">
-              {cart.lines.map((l) => (
-                <li key={l.key} className="flex gap-3.5">
+              {cart.lines.map((l) => {
+                const dealLine = readQuoteDeal(q?.lines.find((x) => x.variant_id === l.variantId)?.deal);
+                const dealText = quoteLineText(t, locale, dealLine, { per_order: l.deal?.limit_per_order, per_customer: l.deal?.limit_per_customer });
+                return (
+                <li key={l.key}>
+                  <div className="flex gap-3.5">
                   <div className="relative w-16 shrink-0"><Pic src={l.image} alt={l.name} ratio="1/1" className="rounded-xl" /><span className="absolute -end-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold text-bg">{l.qty}</span></div>
                   <div className="min-w-0 flex-1 text-sm"><p className="line-clamp-2 font-display text-lg leading-tight">{l.name}</p>{l.variantName && <p className="text-xs text-muted">{l.variantName}</p>}</div>
                   <span className="text-sm font-semibold tabular-nums">{l.total.formatted}</span>
+                  </div>
+                  {dealText && <DealLineNote name={dealLine?.name ?? l.deal?.name ?? null} text={dealText} className="mt-2" />}
                 </li>
-              ))}
+                );
+              })}
             </ul>
+            {dealChanged && <div className="mt-5" data-testid="deal-changed"><Alert tone="info"><p className="font-semibold">{t('deal.changed')}</p><p className="mt-0.5">{t('deal.changed_text')}</p></Alert></div>}
             {quoteErr && <div className="mt-5"><Alert tone="danger">{quoteErr.message}</Alert></div>}
             {q?.warnings?.map((w, i) => <div key={i} className="mt-4"><Alert tone="warning">{w.message ?? w.code}</Alert></div>)}
             {quoteErrors.map((e, i) => <div key={i} className="mt-4"><Alert tone="danger">{e.message ?? e.code}</Alert></div>)}
             <dl className={cx('mt-5 space-y-2.5 border-t border-line pt-5 text-sm transition-opacity', quote.isFetching && 'opacity-60')}>
               <Row k={t('cart.subtotal')} v={(q?.totals.subtotal ?? cart.subtotal).formatted} />
-              {feeLine.discount && <Row k={t('checkout.discount')} v={`− ${feeLine.discount.formatted}`} good />}
+              {dealSplit.deal && <Row k={t('deal.savings')} v={`− ${dealSplit.deal.formatted}`} good />}
+              {discountRow && <Row k={t('checkout.discount')} v={`− ${discountRow.formatted}`} good />}
               {q && parseFloat(q.totals.loyalty_discount.amount) > 0 && <Row k={t('checkout.points_discount')} v={`− ${q.totals.loyalty_discount.formatted}`} good />}
               <DeliveryFeeRow line={feeLine} />
               <ExtraDeliveryRow extra={extra} />
@@ -396,7 +421,7 @@ export default function Checkout() {
             {q && q.loyalty.points_to_earn ? <p className="mt-3 flex items-center gap-2 text-[13px] text-brass-deep"><Gift size={14} />{t('checkout.earn', { n: q.loyalty.points_to_earn })}</p> : null}
             {err && <div className="mt-4"><Alert tone="danger">{err}</Alert></div>}
             {holdReason && <p className="mt-5 text-center text-sm font-medium text-warning" role="status" data-testid="place-hold-reason">{holdReason}</p>}
-            <Button size="lg" block className="mt-6" disabled={!canPlace} loading={place.isPending || place.isSuccess} onClick={() => { if (placing.current) return; placing.current = true; setErr(''); place.mutate(); }}>
+            <Button size="lg" block className="mt-6" disabled={!canPlace} loading={place.isPending || place.isSuccess} onClick={() => { if (placing.current) return; placing.current = true; setErr(''); setDealChanged(false); place.mutate(); }}>
               <Lock size={16} />{method === 'sadad' ? t('checkout.pay_now') : t('checkout.place')}{grand && <span className="max-[360px]:hidden">{` · ${grand}`}</span>}
             </Button>
             <p className="mt-3 text-center text-xs text-muted">{t('checkout.agree')} <Link to="/pages/terms" className="underline">{t('footer.terms')}</Link></p>

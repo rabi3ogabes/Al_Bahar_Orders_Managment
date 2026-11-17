@@ -6,6 +6,8 @@ use App\Domain\Branches\Models\Branch;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Catalog\Models\ProductVariant;
 use App\Domain\Checkout\Services\ExtraDeliveryFee;
+use App\Domain\Deals\Services\DealBlocks;
+use App\Domain\Identity\Models\User;
 use App\Domain\Inventory\Models\BranchInventory;
 use App\Domain\Pricing\Services\PriceResolver;
 use App\Support\Money;
@@ -19,30 +21,43 @@ class CatalogPresenter
 {
     private const STOCK_DISPLAY_CAP = 10;
 
-    public function __construct(private readonly PriceResolver $prices) {}
+    public function __construct(private readonly PriceResolver $prices, private readonly DealBlocks $deals) {}
 
-    /** @param Collection<int, Product> $products */
-    public function cards(Collection $products, ?Branch $branch): array
+    /**
+     * @param Collection<int, Product> $products
+     * @param ?User $user the signed-in customer, so a card's `deal` block can say how many units of the deal they may still buy
+     */
+    public function cards(Collection $products, ?Branch $branch, ?User $user = null): array
     {
         $variants = $products->flatMap(fn (Product $p) => $p->variants->each(fn ($v) => $v->setRelation('product', $p)));
         $this->prices->prime($variants, $branch?->id);
         $stock = $this->stockMap($variants->pluck('id')->all(), $branch?->id);
 
-        return $products->map(fn (Product $p) => $this->card($p, $branch, $stock))->values()->all();
+        $deals = $this->deals->load($products->pluck('id'), $user);
+
+        return $products->map(fn (Product $p) => $this->card($p, $branch, $stock, $user, $deals))->values()->all();
     }
 
-    public function card(Product $p, ?Branch $branch, array $stock = []): array
+    /**
+     * @param ?array<string, array<string, mixed>> $deals the deal entries of a page of products (DealBlocks::load); null = look this product up
+     */
+    public function card(Product $p, ?Branch $branch, array $stock = [], ?User $user = null, ?array $deals = null): array
     {
         $best = null;
         $inStock = false;
+        $normalPrices = [];
         foreach ($p->variants as $v) {
             $v->setRelation('product', $p);
             $price = $this->prices->resolve($v, $branch);
+            if ($price) {
+                $normalPrices[] = $price;
+            }
             if ($price && ($best === null || $price->final()->lessThan($best->final()))) {
                 $best = $price;
             }
             $inStock = $inStock || (($stock[$v->id] ?? 0) > 0);
         }
+        $entry = ($deals ?? $this->deals->load([$p->id], $user))[$p->id] ?? null;
         $image = $p->images->firstWhere('product_variant_id', null) ?? $p->images->first();
         $badges = array_values(array_filter([
             $p->is_new_arrival ? 'new' : null,
@@ -71,10 +86,12 @@ class CatalogPresenter
             // `per_line` once whatever the quantity. Clients show a small note on the product page when the fee is above zero.
             'extra_delivery_fee' => Money::of((string) $p->extra_delivery_fee)->toDecimal(),
             'extra_delivery_fee_mode' => in_array($p->extra_delivery_fee_mode, ExtraDeliveryFee::MODES, true) ? $p->extra_delivery_fee_mode : ExtraDeliveryFee::PER_UNIT,
+            // The countdown offer this product is in (docs/api/DEALS.md section 5), or null. `price` above stays the normal price.
+            'deal' => $entry ? $this->deals->block($entry, $normalPrices) : null,
         ];
     }
 
-    public function detail(Product $p, ?Branch $branch): array
+    public function detail(Product $p, ?Branch $branch, ?User $user = null): array
     {
         $p->loadMissing(['translations', 'brand', 'category.translations', 'images', 'videos', 'warranty',
             'variants' => fn ($q) => $q->where('status', 'active')->with('attributeValues.attribute', 'images'),
@@ -91,13 +108,16 @@ class CatalogPresenter
                     'values' => $values->sortBy('sort_order')->map(fn ($v) => ['id' => $v->id, 'code' => $v->code, 'name' => $v->localized('value'), 'color_hex' => $v->color_hex])->values()];
             })->values();
 
-        $variantRows = $variants->map(function (ProductVariant $v) use ($branch, $stock) {
+        $dealEntry = $this->deals->load([$p->id], $user)[$p->id] ?? null;
+        $variantRows = $variants->map(function (ProductVariant $v) use ($branch, $stock, $dealEntry) {
             $price = $this->prices->resolve($v, $branch);
 
             return [
                 'id' => $v->id, 'sku' => $v->sku, 'name' => $v->displayName(),
                 'attribute_value_ids' => $v->attributeValues->pluck('id')->values(),
                 'price' => $price?->toArray(),
+                // What this variant costs while the product's deal is on (null when it gets no deal): the card's `deal.deal_price` is the cheapest of these.
+                'deal_price' => $dealEntry && $price ? $this->deals->variantPrice($dealEntry, $price)?->jsonSerialize() : null,
                 'available_in_branch' => $price !== null,
                 'in_stock' => ($stock[$v->id] ?? 0) > 0,
                 'available_quantity' => min(self::STOCK_DISPLAY_CAP, max(0, $stock[$v->id] ?? 0)),
@@ -110,7 +130,7 @@ class CatalogPresenter
         $inStock = $variantRows->contains('in_stock', true);
         $locale = app()->getLocale();
 
-        return array_merge($this->card($p, $branch, $stock), [
+        return array_merge($this->card($p, $branch, $stock, $user, $dealEntry ? [$p->id => $dealEntry] : []), [
             'description' => $p->trans('description'),
             'material' => $p->trans('material'),
             'category' => $p->category ? ['id' => $p->category->id, 'slug' => $p->category->slug, 'name' => $p->category->trans('name')] : null,
@@ -131,7 +151,7 @@ class CatalogPresenter
             'default_variant_id' => $default?->id,
             'availability' => ['branch_id' => $branch?->id, 'purchasable' => $purchasable && $inStock,
                 'reason' => ! $purchasable ? 'not_in_branch' : (! $inStock ? 'out_of_stock' : null)],
-            'related' => $this->cards($p->related, $branch),
+            'related' => $this->cards($p->related, $branch, $user),
             'upsell' => app(UpsellService::class)->forProduct($p, $branch),
             'share_url' => rtrim(config('app.url'), '/').'/products/'.($p->trans('slug') ?: $p->id),
             'seo' => ['title' => $p->trans('seo_title') ?? $p->trans('name'), 'description' => $p->trans('seo_description') ?? $p->trans('short_description')],

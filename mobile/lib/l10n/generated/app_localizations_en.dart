@@ -2877,9 +2877,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dealsTitle => 'Deals';
 
   @override
-  String get dealsLiveNow => 'Deals, on sale now';
-
-  @override
   String get dealsLiveSection => 'On sale now';
 
   @override

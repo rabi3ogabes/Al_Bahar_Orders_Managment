@@ -457,8 +457,9 @@ class _Bold extends StatelessWidget {
         color: v.colors.accent,
         borderRadius: BorderRadius.circular(v.innerRadius.clamp(2, 22)),
       ),
+      // The block is as tall as the text beside it, its content in the middle.
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(dealIconData(v.design.icon), color: v.onAccent, size: v.compact ? 20 : 26),
           if (p != null)
@@ -480,38 +481,40 @@ class _Bold extends StatelessWidget {
     );
     return Padding(
       padding: v.padding,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          block,
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: _spaced([
-                Text(
-                  v.headline.toUpperCase(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: v
-                      .small(context, alpha: 1, bold: true)
-                      ?.copyWith(color: v.colors.accent, letterSpacing: v.lang == 'ar' ? 0 : 1.2),
-                ),
-                Text(
-                  v.data.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: v.title(context)?.copyWith(fontSize: v.compact ? 17 : 21, fontWeight: FontWeight.w800),
-                ),
-                v.tagline(context),
-                v.clockOrStatus(context, size: v.compact ? DealTimerSize.small : DealTimerSize.large),
-                v.stock(context),
-                v.ctaButton(context),
-              ], 8),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            block,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: _spaced([
+                  Text(
+                    v.headline.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: v
+                        .small(context, alpha: 1, bold: true)
+                        ?.copyWith(color: v.colors.accent, letterSpacing: v.lang == 'ar' ? 0 : 1.2),
+                  ),
+                  Text(
+                    v.data.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: v.title(context)?.copyWith(fontSize: v.compact ? 17 : 21, fontWeight: FontWeight.w800),
+                  ),
+                  v.tagline(context),
+                  v.clockOrStatus(context, size: v.compact ? DealTimerSize.small : DealTimerSize.large),
+                  v.stock(context),
+                  v.ctaButton(context),
+                ], 8),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

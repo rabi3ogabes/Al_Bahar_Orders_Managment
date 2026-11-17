@@ -9,6 +9,7 @@ import 'package:albahar_customer/core/theme/page_backdrop.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
+import 'package:albahar_customer/features/deals/presentation/state/deals_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -110,7 +111,7 @@ class _FooterScopeState extends State<FooterScope> {
     final pageColor = context.pageColor;
     return Consumer(
       builder: (context, ref, _) {
-        if (ref.watch(footerConfigProvider).design != FooterDesign.centerAction) {
+        if (ref.watch(footerConfigProvider).effectiveDesign != FooterDesign.centerAction) {
           return Column(
             children: [
               Expanded(child: page),
@@ -175,6 +176,9 @@ class AppFooter extends ConsumerWidget {
     final count = ref.watch(cartCountProvider);
     final selected = footerIndexForKeys(path, config.keys);
     final accent = config.accent ?? Theme.of(context).colorScheme.primary;
+    // The Deals button shows a small dot while a deal is on sale. Nothing is watched (and nothing is asked of the server)
+    // when the footer has no Deals button.
+    final liveDeals = config.keys.contains('deals') && ref.watch(liveDealsProvider);
 
     final views = <_FooterItemView>[
       for (final e in config.items)
@@ -186,11 +190,13 @@ class AppFooter extends ConsumerWidget {
           label: e.labelFor(l10n, lang),
           badge: e.key == 'cart' && config.cartBadge ? count : 0,
           route: e.destination.path,
+          liveDot: e.key == 'deals' && liveDeals,
+          note: e.key == 'deals' && liveDeals ? l10n.dealsLiveSection : null,
         ),
     ];
     void select(int i) => onGo(views[i].route);
 
-    return switch (config.design) {
+    return switch (config.effectiveDesign) {
       FooterDesign.classic => _ClassicBar(
         items: views,
         selected: selected,
@@ -226,6 +232,8 @@ class AppFooter extends ConsumerWidget {
         onSelect: select,
         showLabels: config.showLabels,
         accent: accent,
+        // A chosen middle button (Auctions or Deals) is raised wherever it sits in the list; otherwise the middle item is.
+        centre: config.centerIndex ?? views.length ~/ 2,
       ),
     };
   }
@@ -240,6 +248,8 @@ class _FooterItemView {
     required this.badge,
     required this.route,
     this.raisedIcon,
+    this.liveDot = false,
+    this.note,
   });
 
   final IconData icon;
@@ -247,6 +257,10 @@ class _FooterItemView {
   final String label;
   final int badge;
   final String route;
+
+  /// A small "live" dot on the icon (a deal is on sale), and what a screen reader adds to the word for it.
+  final bool liveDot;
+  final String? note;
 
   /// Icon for the raised centre button, when it should differ from [iconOn].
   final IconData? raisedIcon;
@@ -258,8 +272,40 @@ Duration _motion(BuildContext context) => MediaQuery.disableAnimationsOf(context
 /// A null [color] lets the surrounding bar (the Material one) colour the icon itself.
 Widget _iconWithBadge(BuildContext context, _FooterItemView v, bool on, Color? color, {double size = 24}) {
   final icon = Icon(on ? v.iconOn : v.icon, color: color, size: color == null ? null : size);
+  if (v.liveDot) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        icon,
+        const PositionedDirectional(top: -1, end: -2, child: _LiveDot()),
+      ],
+    );
+  }
   if (v.badge <= 0) return icon;
   return Badge.count(count: v.badge, backgroundColor: context.palette.brass, child: icon);
+}
+
+/// The small green dot of a button with something live behind it, ringed in the bar's colour so it reads on any icon.
+class _LiveDot extends StatelessWidget {
+  const _LiveDot();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 11,
+    height: 11,
+    decoration: BoxDecoration(
+      color: context.palette.success,
+      shape: BoxShape.circle,
+      border: Border.all(color: Theme.of(context).colorScheme.surface, width: 2),
+    ),
+  );
+}
+
+/// The word of an item as a screen reader says it: with the cart count, or with what is live behind it.
+String _spokenLabel(_FooterItemView item) {
+  if (item.badge > 0) return '${item.label}, ${item.badge}';
+  final note = item.note;
+  return note == null ? item.label : '${item.label}, $note';
 }
 
 /// One tappable item: at least 48 x 48, announced as a selected button with its word (and the cart count).
@@ -273,7 +319,7 @@ class _Tap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final spoken = item.badge > 0 ? '${item.label}, ${item.badge}' : item.label;
+    final spoken = _spokenLabel(item);
     return Semantics(
       button: true,
       selected: selected,
@@ -640,6 +686,7 @@ class _CenterActionBar extends StatelessWidget {
     required this.onSelect,
     required this.showLabels,
     required this.accent,
+    required this.centre,
   });
 
   final List<_FooterItemView> items;
@@ -647,6 +694,9 @@ class _CenterActionBar extends StatelessWidget {
   final ValueChanged<int> onSelect;
   final bool showLabels;
   final Color accent;
+
+  /// Which of [items] is the raised round button.
+  final int centre;
 
   static const double _button = 56;
   static const double _ring = 4;
@@ -659,10 +709,17 @@ class _CenterActionBar extends StatelessWidget {
     // Active text must stay AA on the bar surface whatever colour the dashboard picked.
     final activeInk = Contrast.ensure(accent, scheme.surface);
     final onAccent = Contrast.onColor(accent);
-    final centre = items.length ~/ 2;
     final raised = items[centre];
     final inset = MediaQuery.paddingOf(context).bottom;
     final radius = context.design.isFresh ? 28.0 : 24.0;
+    final others = [
+      for (var i = 0; i < items.length; i++)
+        if (i != centre) i,
+    ];
+    final leftCount = (others.length + 1) ~/ 2;
+    final left = others.take(leftCount).toList();
+    final right = others.skip(leftCount).toList();
+    final side = left.length > right.length ? left.length : right.length;
 
     Widget slot(int i) => Expanded(
       child: _Tap(
@@ -691,7 +748,7 @@ class _CenterActionBar extends StatelessWidget {
       ),
     );
 
-    final spoken = raised.badge > 0 ? '${raised.label}, ${raised.badge}' : raised.label;
+    final spoken = _spokenLabel(raised);
     final icon = Icon(raised.raisedIcon ?? raised.iconOn, color: onAccent, size: 30);
     return SizedBox(
       height: kCenterButtonRise + kCenterBarHeight + inset,
@@ -713,10 +770,19 @@ class _CenterActionBar extends StatelessWidget {
               ),
               child: Padding(
                 padding: EdgeInsets.only(bottom: inset),
+                // The other items go evenly on both sides of the button (4 others: 2 + 2, 3: 2 + 1, 2: 1 + 1). Both sides get
+                // the same width, so the button is at the exact middle of the bar whatever the split.
                 child: Row(
                   children: [
-                    for (var i = 0; i < items.length; i++)
-                      if (i == centre) const Expanded(child: SizedBox(height: kMinTouchTarget)) else slot(i),
+                    Expanded(
+                      flex: side,
+                      child: Row(children: [for (final i in left) slot(i)]),
+                    ),
+                    const Expanded(child: SizedBox(height: kMinTouchTarget)),
+                    Expanded(
+                      flex: side,
+                      child: Row(children: [for (final i in right) slot(i)]),
+                    ),
                   ],
                 ),
               ),
@@ -746,10 +812,14 @@ class _CenterActionBar extends StatelessWidget {
                     child: InkWell(
                       customBorder: const CircleBorder(),
                       onTap: () => onSelect(centre),
-                      child: Center(
-                        child: raised.badge > 0
-                            ? Badge.count(count: raised.badge, backgroundColor: context.palette.brass, child: icon)
-                            : icon,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          raised.badge > 0
+                              ? Badge.count(count: raised.badge, backgroundColor: context.palette.brass, child: icon)
+                              : icon,
+                          if (raised.liveDot) const PositionedDirectional(top: 5, end: 5, child: _LiveDot()),
+                        ],
                       ),
                     ),
                   ),

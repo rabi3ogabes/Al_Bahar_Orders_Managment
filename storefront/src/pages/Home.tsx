@@ -11,6 +11,7 @@ import type { Auction, Brand, HomeSection, ProductCard as P } from '../lib/types
 import { Rail } from '../components/Rail';
 import { BannerSlider } from '../components/BannerSlider';
 import { BuyAgain } from '../components/BuyAgain';
+import { DealsStrip } from '../components/DealsStrip';
 import { CardSkeletons, ProductCard } from '../components/ProductCard';
 import { Badge, LinkButton, Pic, SectionHead, Skeleton } from '../components/ui';
 
@@ -196,6 +197,7 @@ function ClassicHome() {
       <Hero />
       <PromiseStrip />
       <BuyAgain />
+      <DealsStrip />
 
       {home.isLoading && <div className="wrap mt-24"><Skeleton className="mb-8 h-10 w-72" /><CardSkeletons n={4} /></div>}
       {rest.map(render)}

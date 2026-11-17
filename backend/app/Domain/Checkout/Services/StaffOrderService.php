@@ -576,7 +576,9 @@ class StaffOrderService
     {
         $so = $draft->staff_options ?? [];
         $o = ['fulfillment_type' => $draft->fulfillment_type, 'branch_id' => $draft->branch_id, 'address_id' => $draft->address_id, 'coupon_code' => $draft->coupon_code,
-            'payment_method' => $so['payment_method'] ?? null, 'allow_split' => true, 'express' => (bool) ($so['express'] ?? false)];
+            'payment_method' => $so['payment_method'] ?? null, 'allow_split' => true, 'express' => (bool) ($so['express'] ?? false),
+            // Orders made by staff do not get deal prices (docs/api/DEALS.md section 1): the quote and the placement both read this.
+            'apply_deals' => false];
         foreach (['delivery_slot_id', 'delivery_date', 'pickup_slot_id', 'pickup_date'] as $k) {
             $o[$k] = $so[$k] ?? null;
         }

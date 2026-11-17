@@ -17,7 +17,9 @@ import type { Paged, ProductDetail, Review } from '../lib/types';
 import { useAuthModal } from '../components/AuthModal';
 import { Rail } from '../components/Rail';
 import { ProductCard } from '../components/ProductCard';
-import { Badge, Breadcrumbs, Button, EmptyState, Input, Pic, PriceTag, QtyStepper, Rating, Skeleton } from '../components/ui';
+import { Badge, Breadcrumbs, Button, EmptyState, Input, Pic, QtyStepper, Rating, Skeleton } from '../components/ui';
+import { DealPriceTag, ProductPrice } from '../components/DealBits';
+import { dealPriceFor } from '../lib/deals';
 import { AttributePicker, useVariantPicker } from '../components/AttributePicker';
 import { ExtraDeliveryNote } from '../components/ExtraDeliveryNote';
 import { ReviewWindow } from '../components/windows';
@@ -157,7 +159,9 @@ export default function Product() {
     try { await post('/me/stock-alerts', { variant_id: variant.id, type: 'back_in_stock', branch_id: branchId || undefined }); toast.push(t('product.notify_ok')); } catch (e) { toast.push(e instanceof ApiError ? e.message : t('error.generic'), 'error'); }
   };
 
-  const jsonLd = { '@context': 'https://schema.org', '@type': 'Product', name: p.name, sku: p.sku, brand: p.brand?.name, image: p.images.map((i) => i.url), description: p.short_description, offers: { '@type': 'Offer', priceCurrency: price.final.currency, price: price.final.amount, availability: canBuy ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock', url: productHref } };
+  // While a deal is live the offer is the deal price, valid until the deal ends.
+  const dp = p.deal ? dealPriceFor({ deal: p.deal, price }, variant) : null;
+  const jsonLd = { '@context': 'https://schema.org', '@type': 'Product', name: p.name, sku: p.sku, brand: p.brand?.name, image: p.images.map((i) => i.url), description: p.short_description, offers: { '@type': 'Offer', priceCurrency: price.final.currency, price: dp ? dp.price.amount : price.final.amount, ...(dp?.block.ends_at ? { priceValidUntil: dp.block.ends_at } : {}), availability: canBuy ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock', url: productHref } };
 
   return (
     <div className="wrap pb-28 pt-6 md:pt-8 lg:pb-12">
@@ -183,7 +187,7 @@ export default function Product() {
           {p.brand && <Link to={`/shop?brand=${p.brand.id}`} className="eyebrow hover:text-ink">{p.brand.name}</Link>}
           <h1 className="mt-2 text-[clamp(34px,4.5vw,56px)] leading-[1.02]">{p.name}</h1>
           <div className="mt-3 flex flex-wrap items-center gap-4">{p.rating.count > 0 && <Rating value={p.rating.average} count={p.rating.count} />}<span className="text-xs text-muted">SKU {variant?.sku ?? p.sku}</span></div>
-          <div className="mt-5"><PriceTag price={price} size="lg" /></div>
+          <div className="mt-5"><ProductPrice p={p} variant={variant} price={price} qty={qty} /></div>
           <ExtraDeliveryNote p={p} className="mt-3" />
           {p.short_description && <p className="mt-5 text-[16px] leading-relaxed text-ink-soft">{p.short_description}</p>}
 
@@ -277,7 +281,7 @@ export default function Product() {
       {/* Mobile sticky bar */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-bg/95 px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))] backdrop-blur lg:hidden">
         <div className="flex items-center gap-3">
-          <div className="min-w-0"><p className="truncate text-[13px] text-muted">{p.name}</p><PriceTag price={price} size="sm" /></div>
+          <div className="min-w-0"><p className="truncate text-[13px] text-muted">{p.name}</p><DealPriceTag p={p} variant={variant} price={price} size="sm" /></div>
           <Button className="ms-auto shrink-0" disabled={!canBuy} loading={adding} onClick={() => add(false)}>{t('product.add_to_cart')}</Button>
         </div>
       </div>

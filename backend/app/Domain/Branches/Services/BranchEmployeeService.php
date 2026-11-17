@@ -143,7 +143,7 @@ class BranchEmployeeService
      * Opens a branch employee: the staff account, their place at the branch and the personal role holding the ticked features, in one go.
      * The password is temporary: the person must choose their own at first sign-in.
      *
-     * @param  array{name: string, email?: ?string, phone?: ?string, locale?: ?string, job_title?: ?string, password: string}  $profile  phone is already normalised
+     * @param  array<string, mixed>  $profile  name, email, phone (already E.164), locale, job_title and the temporary password
      * @param  array<int, string>  $featureIds
      */
     public function create(User $actor, Branch $branch, array $profile, array $featureIds): User

@@ -9,6 +9,8 @@ import { useTheme } from '../lib/theme';
 import { useDesign } from '../lib/brand';
 import { cx, telHref } from '../lib/format';
 import { useAuthModal } from './AuthModal';
+import { useLiveDeal } from '../lib/useDeals';
+import { LiveDot } from './DealBits';
 import { BranchPicker, CartDrawer, Logo, MenuDrawer, SearchOverlay, SeasonBanner, prefetchHeaderChunks, preload, useCategories } from './shell';
 import { DrawerLink } from './drawerLink';
 
@@ -29,6 +31,7 @@ export function FreshHeader() {
   const cart = useCart();
   const authModal = useAuthModal();
   const cats = useCategories();
+  const liveDeal = useLiveDeal();
   const nav = useNavigate();
   const loc = useLocation();
   const [menu, setMenu] = useState(false);
@@ -43,11 +46,11 @@ export function FreshHeader() {
   const links = useMemo(() => [
     { to: '/', label: t('fresh.nav_home'), on: loc.pathname === '/' },
     { to: '/shop', label: t('nav.shop'), on: loc.pathname === '/shop' && !loc.search.includes('sale=1') },
-    { to: '/shop?sale=1', label: t('fresh.nav_deals'), on: loc.pathname === '/shop' && loc.search.includes('sale=1') },
+    { to: '/deals', label: t('nav.deals'), on: loc.pathname.startsWith('/deals'), live: liveDeal },
     { to: '/auctions', label: t('nav.auctions'), on: loc.pathname.startsWith('/auctions') },
     { to: '/showrooms', label: t('nav.showrooms'), on: loc.pathname === '/showrooms' },
     { to: '/pages/about', label: t('fresh.nav_about'), on: loc.pathname === '/pages/about' },
-  ], [t, loc.pathname, loc.search]);
+  ], [t, loc.pathname, loc.search, liveDeal]);
   const topCats = (cats.data ?? []).slice(0, 8);
 
   return (
@@ -61,7 +64,7 @@ export function FreshHeader() {
           <nav aria-label={t('nav.main')} className={cx('hidden min-w-0 flex-1 items-center gap-1 lg:flex xl:gap-3', centre ? 'justify-center' : 'ms-4 justify-start')}>
             {links.map((l) => (
               <Link key={l.to} to={l.to} aria-current={l.on ? 'page' : undefined}
-                className={cx('relative whitespace-nowrap rounded-full px-3 py-2 text-[14px] font-medium transition-colors after:absolute after:inset-x-3 after:-bottom-0.5 after:h-[3px] after:rounded-full after:bg-accent after:transition-transform', l.on ? 'after:scale-x-100' : 'after:scale-x-0 hover:after:scale-x-50', brand ? 'text-on-band/90 hover:text-on-band' : 'text-ink-soft hover:text-ink')}>{l.label}</Link>
+                className={cx('relative whitespace-nowrap rounded-full px-3 py-2 text-[14px] font-medium transition-colors after:absolute after:inset-x-3 after:-bottom-0.5 after:h-[3px] after:rounded-full after:bg-accent after:transition-transform', l.on ? 'after:scale-x-100' : 'after:scale-x-0 hover:after:scale-x-50', brand ? 'text-on-band/90 hover:text-on-band' : 'text-ink-soft hover:text-ink')}>{l.label}{l.live && <LiveDot className="ms-1.5 align-middle" />}</Link>
             ))}
           </nav>
           <div className="ms-auto flex items-center gap-1 lg:ms-0">
@@ -88,7 +91,7 @@ export function FreshHeader() {
       <MenuDrawer open={menu} onClose={() => setMenu(false)}>
         <nav className="px-6 py-4">
           <ul className="divide-y divide-line text-[18px] font-semibold">
-            {links.map((l) => <li key={l.to}><DrawerLink className={cx('flex items-center justify-between py-3.5', l.on && 'text-brass-deep')} to={l.to}>{l.label}</DrawerLink></li>)}
+            {links.map((l) => <li key={l.to}><DrawerLink className={cx('flex items-center justify-between py-3.5', l.on && 'text-brass-deep')} to={l.to}><span>{l.label}</span>{l.live && <LiveDot />}</DrawerLink></li>)}
           </ul>
           {topCats.length > 0 && (
             <div className="mt-5 flex flex-wrap gap-2">
@@ -129,6 +132,7 @@ export function FreshFooter() {
             <li><Link className={a} to="/shop">{t('nav.shop')}</Link></li>
             <li><Link className={a} to="/shop?sale=1">{t('footer.sale')}</Link></li>
             <li><Link className={a} to="/shop?new=1">{t('footer.new')}</Link></li>
+            <li><Link className={a} to="/deals">{t('nav.deals')}</Link></li>
             <li><Link className={a} to="/auctions">{t('nav.auctions')}</Link></li>
             <li><Link className={a} to="/pages/about">{t('footer.about_us')}</Link></li>
           </ul>

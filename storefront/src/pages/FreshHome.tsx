@@ -8,6 +8,7 @@ import { useDocTitle } from '../lib/hooks';
 import { useBrand } from '../lib/brand';
 import type { Auction, Brand, Category, HomeSection, Paged, ProductCard as P } from '../lib/types';
 import { BuyAgain } from '../components/BuyAgain';
+import { DealsStrip } from '../components/DealsStrip';
 import { CardSkeletons, ProductCard } from '../components/ProductCard';
 import { Pic, Skeleton } from '../components/ui';
 import { BannerSlider } from '../components/BannerSlider';
@@ -208,6 +209,7 @@ export default function FreshHome() {
       {leading.map(render)}
       <Hero />
       <BuyAgain />
+      <DealsStrip />
       {!has('categories') && <Categories items={catApi.data ?? []} />}
       {home.isLoading && <div className="wrap fx-sec"><Skeleton className="mb-8 h-10 w-72" /><CardSkeletons n={6} /></div>}
       {!has('best_sellers', 'featured_products', 'recommended') && <ProductRow eyebrow={t('fresh.best_eyebrow')} title={t('fresh.best_title')} items={bestApi.data ?? []} />}

@@ -31,6 +31,8 @@ const Overview = acc('Overview'), Orders = acc('Orders'), Addresses = acc('Addre
 const AuctionList = lazy(() => import('./pages/Auctions').then((m) => ({ default: m.AuctionList })));
 const AuctionPage = lazy(() => import('./pages/Auctions').then((m) => ({ default: m.AuctionPage })));
 const LotPage = lazy(() => import('./pages/Auctions').then((m) => ({ default: m.LotPage })));
+const DealsPage = lazy(() => import('./pages/Deals').then((m) => ({ default: m.DealsPage })));
+const DealPage = lazy(() => import('./pages/Deals').then((m) => ({ default: m.DealPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -72,6 +74,8 @@ export default function App() {
                               <Route path="cart" element={<Cart />} />
                               <Route path="checkout" element={<Checkout />} />
                               <Route path="orders/:id" element={<Order />} />
+                              <Route path="deals" element={<DealsPage />} />
+                              <Route path="deals/:id" element={<DealPage />} />
                               <Route path="auctions" element={<AuctionList />} />
                               <Route path="auctions/lots/:lotId" element={<LotPage />} />
                               <Route path="auctions/:id" element={<AuctionPage />} />

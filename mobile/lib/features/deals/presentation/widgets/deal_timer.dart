@@ -110,19 +110,27 @@ class DealTimerView extends StatelessWidget {
           ],
         ],
       ),
-      DealTimerLook.text => Text.rich(
-        TextSpan(
-          children: [
-            for (var i = 0; i < parts.length; i++) ...[
-              if (i > 0) const TextSpan(text: ' '),
-              TextSpan(text: fmt.format(parts[i].value), style: digits),
+      // One small paragraph per part, so Arabic unit letters never reorder the numbers around them.
+      DealTimerLook.text => Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
+        children: [
+          for (var i = 0; i < parts.length; i++) ...[
+            if (i > 0) SizedBox(width: fontSize * 0.4),
+            Text.rich(
               TextSpan(
-                text: dealUnitLabel(l10n, parts[i].unit, short: true),
-                style: digits.copyWith(fontSize: fontSize * 0.62, fontWeight: FontWeight.w600),
+                children: [
+                  TextSpan(text: fmt.format(parts[i].value), style: digits),
+                  TextSpan(
+                    text: dealUnitLabel(l10n, parts[i].unit, short: true),
+                    style: digits.copyWith(fontSize: fontSize * 0.62, fontWeight: FontWeight.w600),
+                  ),
+                ],
               ),
-            ],
+            ),
           ],
-        ),
+        ],
       ),
     };
 

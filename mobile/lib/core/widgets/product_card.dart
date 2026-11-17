@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../features/catalog/domain/catalog_models.dart';
+import '../../features/deals/presentation/widgets/deal_price_tag.dart';
 import '../l10n/l10n.dart';
+import '../theme/contrast.dart';
 import '../theme/design_tokens.dart';
 import '../theme/tokens.dart';
 import 'common.dart';
@@ -43,13 +45,20 @@ class ProductCardView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final badge = _primaryBadge(context, l10n, context.colors.primary);
+    // A product in a live deal shows the deal price and its own "-30%" badge. The block comes from the server; a product
+    // whose customer already used the deal's limit, or whose deal is sold out or over, shows its normal price.
+    final dealOn = dealShowsPrice(context, product.deal);
+    final badge = _primaryBadge(context, l10n, context.colors.primary, dealOn: dealOn);
 
     return Semantics(
       button: true,
       label: [
         product.name,
-        if (product.price != null) product.price!.finalPrice.formatted,
+        if (dealOn && product.deal!.dealPrice != null)
+          product.deal!.dealPrice!.formatted
+        else if (product.price != null)
+          product.price!.finalPrice.formatted,
+        if (dealOn && product.deal!.percent != null) l10n.dealOffSpoken(product.deal!.percent!),
         if (!product.inStock) l10n.outOfStock,
       ].join(', '),
       child: SizedBox(
@@ -85,10 +94,24 @@ class ProductCardView extends StatelessWidget {
                         ),
                       ],
                       const Gap(AppSpace.xs),
-                      if (product.price != null)
+                      if (dealOn)
+                        DealPriceTag(deal: product.deal!, price: product.price, showBadge: false)
+                      else if (product.price != null)
                         PriceTag(price: product.price!, size: PriceTagSize.medium, showBadge: false)
                       else
                         Text(l10n.productUnavailable, style: context.text.bodySmall),
+                      if (dealOn && product.deal!.design.stockBar && product.deal!.remaining != null) ...[
+                        const Gap(2),
+                        Text(
+                          l10n.onlyLeft(product.deal!.remaining!),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: context.text.labelSmall?.copyWith(
+                            color: dealAccentOn(context, product.deal!, context.colors.surface),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                       if (product.rating.count > 0) ...[
                         const Gap(2),
                         RatingStars(average: product.rating.average, count: product.rating.count, size: 12),
@@ -159,7 +182,12 @@ class ProductCardView extends StatelessWidget {
     ],
   );
 
-  ({String label, Color bg, Color fg})? _primaryBadge(BuildContext context, AppLocalizations l10n, Color primary) {
+  ({String label, Color bg, Color fg})? _primaryBadge(
+    BuildContext context,
+    AppLocalizations l10n,
+    Color primary, {
+    bool dealOn = false,
+  }) {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final p = context.palette;
     // Pastel pill in light mode, translucent tint on the night surface.
@@ -171,6 +199,10 @@ class ProductCardView extends StatelessWidget {
         bg: dark ? p.surfaceMuted : AppPalette.sand,
         fg: dark ? p.muted : AppPalette.inkSoft,
       );
+    }
+    if (dealOn && product.deal!.percent != null) {
+      final accent = product.deal!.design.colors?.accent ?? p.danger;
+      return (label: l10n.discountOff(product.deal!.percent!), bg: accent, fg: Contrast.onColor(accent));
     }
     final pct = product.price?.discountPercent;
     if (product.badges.contains('sale') || (product.price?.isOnSale ?? false)) {

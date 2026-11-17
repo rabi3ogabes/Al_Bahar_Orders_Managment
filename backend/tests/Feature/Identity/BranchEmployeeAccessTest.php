@@ -15,6 +15,7 @@ use App\Livewire\Admin\Profile;
 use App\Livewire\Admin\Sales\OrderIndex;
 use App\Support\AdminNavigation;
 use App\Support\DomainException;
+use App\Support\StaffLanding;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -232,6 +233,27 @@ describe('first sign-in on the dashboard', function () {
         auth()->guard('web')->logout();
         Livewire::test(Login::class)->set('email', '55123456')->set('password', 'wrong')->call('login')->assertHasErrors(['email']);
         Livewire::test(Login::class)->set('email', '12345')->set('password', 'TempPassw0rdXyz')->call('login')->assertHasErrors(['email']);
+    });
+});
+
+describe('landing page', function () {
+    it('lands on the dashboard when the features allow it, otherwise on the first page of the person’s own menu', function () {
+        $w = commerceWorld();
+        $stockOnly = branchStaff($w->a, ['stock_view'], ['phone' => '+97455123457', 'password' => 'TempPassw0rdXyz']);
+        $home = branchStaff($w->a, ['home', 'orders_view']);
+        $driver = driverFor($w->a);
+        expect(StaffLanding::url($stockOnly))->toBe(route('admin.inventory.index'))
+            ->and(StaffLanding::url($home))->toBe(route('admin.dashboard'))
+            ->and(StaffLanding::url($driver))->toBe(route('admin.dashboard'))      // drivers keep the dashboard (deliveries.view)
+            ->and(StaffLanding::url($this->super))->toBe(route('admin.dashboard'));
+
+        // signing in, and choosing the first password, both go there instead of a 403 page
+        Livewire::test(Login::class)->set('email', '5512 3457')->set('password', 'TempPassw0rdXyz')->call('login')->assertRedirect(route('admin.inventory.index'));
+        auth()->guard('web')->logout();
+        $stockOnly->forceFill(['must_change_password' => true])->save();
+        $this->actingAs($stockOnly->fresh());
+        Livewire::test(Profile::class)->set('current_password', 'TempPassw0rdXyz')->set('password', 'BrandNewPassw0rd!')->set('password_confirmation', 'BrandNewPassw0rd!')
+            ->call('changePassword')->assertRedirect(route('admin.inventory.index'));
     });
 });
 

@@ -157,10 +157,8 @@ class DealDesign {
     if (raw is! Map) return fallback;
     final j = asMap(raw);
     final timer = asMap(j['timer']);
-    final units = <DealUnit>{
-      for (final u in asList(timer['units']))
-        if (DealUnit.parse(u) case final unit?) unit,
-    }.toList()..sort((a, b) => b.inSeconds.compareTo(a.inSeconds));
+    final units = <DealUnit>{for (final u in asList(timer['units'])) ?DealUnit.parse(u)}.toList()
+      ..sort((a, b) => b.inSeconds.compareTo(a.inSeconds));
     final urgency = timer.containsKey('urgency_minutes') ? asInt(timer['urgency_minutes'], 60) : 60;
     final image = asStringOrNull(j['image_url']);
     return DealDesign(

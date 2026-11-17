@@ -4,6 +4,7 @@ namespace App\Livewire\Admin;
 
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Identity\Services\TwoFactorService;
+use App\Support\StaffLanding;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
 use Illuminate\Support\Facades\Hash;
@@ -62,10 +63,10 @@ class Profile extends Component
         $audit->log('staff.password_changed', $user);
         $this->reset('current_password', 'password', 'password_confirmation');
         if ($wasForced) {
-            // The first sign-in is done: on to the dashboard.
+            // The first sign-in is done: on to the dashboard (or the first page of their own menu).
             session()->flash('toast', ['type' => 'success', 'message' => __('admin.password_updated')]);
 
-            return $this->redirectRoute('admin.dashboard', navigate: true);
+            return $this->redirect(StaffLanding::url($user), navigate: true);
         }
         $this->dispatch('toast', type: 'success', message: __('admin.password_updated'));
     }

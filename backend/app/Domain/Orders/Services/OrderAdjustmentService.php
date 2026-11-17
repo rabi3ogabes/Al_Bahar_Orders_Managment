@@ -7,6 +7,7 @@ use App\Domain\Catalog\Contracts\ProductSearch;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Catalog\Models\ProductVariant;
 use App\Domain\Checkout\Services\ExtraDeliveryFee;
+use App\Domain\Deals\Services\DealService;
 use App\Domain\Fulfillment\Enums\DeliveryStatus as DS;
 use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Fulfillment\Services\DeliveryService;
@@ -181,6 +182,7 @@ class OrderAdjustmentService
         if (($replay = $this->replayOf($fulfillmentId, $actor, $hash)) !== null) {
             return $replay;
         }
+        app(DealService::class)->lockForFulfillment($fulfillmentId); // deal rows before the stock rows plan() locks, the same order checkout uses
         $plan = $this->plan($fulfillmentId, $actor, $changes, $reasonCode, lock: true);
         /** @var Order $order */
         $order = $plan['order'];
@@ -211,7 +213,10 @@ class OrderAdjustmentService
             if ($c['sub'] !== null) {
                 $this->reserveSubstitute($newItems[$item->id], $actor);
             }
+            // The line's deal units shrink with its quantity (a substitute keeps the share it carries); the units no line holds go back to the deal below.
+            app(DealService::class)->adjusted($item, $c['from'], $c['to'], $newItems[$item->id] ?? null, (int) ($c['sub']['quantity'] ?? 0));
         }
+        app(DealService::class)->release($order->id);
 
         // 2. Money on the order, its parcel, its discounts and its payment.
         $refundId = null;
@@ -713,7 +718,9 @@ class OrderAdjustmentService
             $new = $c->free_delivery ? $deliveryDiscount : $shares[$c->id];
             if (! Money::of($c->discount_amount)->equals($new)) {
                 $c->forceFill(['discount_amount' => $new->toDecimal()])->save();
-                CouponUsage::where('order_id', $order->id)->where('promotion_id', $c->promotion_id)->update(['discount_amount' => $new->toDecimal()]);
+                if ($c->promotion_id !== null) { // a deal's line has no promotion usage row
+                    CouponUsage::where('order_id', $order->id)->where('promotion_id', $c->promotion_id)->update(['discount_amount' => $new->toDecimal()]);
+                }
             }
         }
     }

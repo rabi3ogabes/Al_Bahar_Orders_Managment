@@ -18,6 +18,8 @@ import 'package:albahar_customer/features/catalog/presentation/product_list_scre
 import 'package:albahar_customer/features/catalog/presentation/search_screen.dart';
 import 'package:albahar_customer/features/checkout/presentation/checkout_screen.dart';
 import 'package:albahar_customer/features/checkout/presentation/payment_status_screen.dart';
+import 'package:albahar_customer/features/deals/presentation/deal_detail_screen.dart';
+import 'package:albahar_customer/features/deals/presentation/deals_screen.dart';
 import 'package:albahar_customer/features/home/presentation/home_screen.dart';
 import 'package:albahar_customer/features/notifications/presentation/notifications_screen.dart';
 import 'package:albahar_customer/features/onboarding/presentation/onboarding_screens.dart';
@@ -237,6 +239,17 @@ final routerProvider = Provider<GoRouter>((ref) {
                     WriteReviewScreen(productId: s.pathParameters['id']!, productName: s.uri.queryParameters['name']),
               ),
             ],
+          ),
+        ],
+      ),
+      // Deals: countdown offers. The footer's Deals button (or middle button) opens the list; a deal opens its own page.
+      GoRoute(
+        path: '/deals',
+        builder: (_, _) => const DealsScreen(),
+        routes: [
+          GoRoute(
+            path: ':id',
+            builder: (_, s) => DealDetailScreen(dealId: s.pathParameters['id']!),
           ),
         ],
       ),

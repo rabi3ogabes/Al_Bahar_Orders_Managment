@@ -2911,9 +2911,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get dealsTitle => 'العروض';
 
   @override
-  String get dealsLiveNow => 'العروض، متاحة الآن';
-
-  @override
   String get dealsLiveSection => 'متاحة الآن';
 
   @override

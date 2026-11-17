@@ -21,13 +21,13 @@ class DealSkew extends Notifier<Duration> {
 final dealSkewProvider = NotifierProvider<DealSkew, Duration>(DealSkew.new);
 
 class DealsRepository {
-  DealsRepository(this._api, {required DateTime Function() now, required void Function(Duration skew) onSkew})
-    : _now = now,
-      _onSkew = onSkew;
+  DealsRepository(this._api, {required this.now, required this.onSkew});
 
   final ApiClient _api;
-  final DateTime Function() _now;
-  final void Function(Duration skew) _onSkew;
+
+  /// The phone's clock, and what to tell when the server's clock is known.
+  final DateTime Function() now;
+  final void Function(Duration skew) onSkew;
 
   /// `GET /deals`. [home] asks only for the deals the admin put on the home page; [limitProducts] (1 to 12) is how many
   /// products come with each deal.
@@ -37,10 +37,10 @@ class DealsRepository {
     );
     final feed = DealsFeed.fromJson(
       asMap(body['data']),
-      deviceNow: _now(),
+      deviceNow: now(),
       fallbackServerTime: body['server_time'] ?? asMap(body['meta'])['server_time'],
     );
-    if (feed.serverTime != null) _onSkew(feed.skew);
+    if (feed.serverTime != null) onSkew(feed.skew);
     return feed;
   }
 
@@ -50,10 +50,10 @@ class DealsRepository {
     final data = asMap(body['data']);
     final result = DealPage.fromJson(
       data,
-      deviceNow: _now(),
+      deviceNow: now(),
       fallbackServerTime: body['server_time'] ?? asMap(body['meta'])['server_time'],
     );
-    if (data['server_time'] != null || body['server_time'] != null) _onSkew(result.skew);
+    if (data['server_time'] != null || body['server_time'] != null) onSkew(result.skew);
     return result;
   }
 }

@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import QRCode from 'qrcode';
-import { Clock, MapPin, PackageCheck, Phone, Store, Truck } from 'lucide-react';
+import { Clock, Flame, MapPin, PackageCheck, Phone, Store, Truck } from 'lucide-react';
 import { ApiError, get, post, uuid } from '../lib/api';
 import { useCart } from '../lib/cart';
 import { useI18n } from '../lib/i18n';
 import { useLivePoll } from '../lib/realtime';
 import { useToast } from '../lib/toast';
-import { cx, mapsHref, telHref } from '../lib/format';
+import { cx, mapsHref, money, telHref } from '../lib/format';
+import { orderDealSavings, orderLineDeal } from '../lib/deals';
 import type { OrderDetail, PaymentAction, TimelineEvent } from '../lib/types';
 import { Alert, Badge, Pic, QtyStepper, Select, Skeleton, Textarea } from './ui';
 import { Button } from './ui';
@@ -128,7 +129,8 @@ const card = (compact?: boolean) => (compact ? 'rounded-3xl border border-line b
 
 /** One item of the parcel; lines the branch removed or swapped out stay visible, struck through, so nothing changes silently. */
 function ItemRow({ i, compact }: { i: OrderDetail['items'][number]; compact?: boolean }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const deal = orderLineDeal(i.deal, (v, cur) => money(v, cur, locale));
   const a = i.adjustment ?? null;
   const gone = !!a && (a.kind === 'removed' || a.kind === 'replaced' || i.quantity <= 0);
   return (
@@ -140,6 +142,7 @@ function ItemRow({ i, compact }: { i: OrderDetail['items'][number]; compact?: bo
         {gone
           ? <p className="text-sm font-medium text-warning">{a?.kind === 'replaced' && a.replaced_by_name ? t('order.replaced_by', { n: a.replaced_by_name }) : t('order.not_available')}</p>
           : <p className="text-sm text-muted">{i.quantity} × {i.unit_price.formatted}</p>}
+        {!gone && deal && <p className="mt-0.5 flex items-start gap-1.5 text-sm font-medium text-brass-deep" data-testid="order-deal"><Flame size={14} aria-hidden="true" className="mt-1 shrink-0" /><span>{deal.name ? t('deal.order_line', { name: deal.name }) : t('deal.label')}{deal.saved ? <span className="font-normal text-success"> · {t('deal.line_saved', { v: deal.saved.formatted })}</span> : null}</span></p>}
         {!gone && a?.kind === 'reduced' && <p className="text-sm font-medium text-warning">{t('order.reduced_from', { n: a.original_quantity })}</p>}
         {!gone && a?.kind === 'replacement' && <p className="text-sm font-medium text-brass-deep">{a.replaces_name ? t('order.replaces', { n: a.replaces_name }) : t('order.replacement')}</p>}
       </div>
@@ -206,7 +209,8 @@ export function TimelineCard({ events, loading, compact }: { events: TimelineEve
 }
 
 export function TotalsCard({ o, compact }: { o: OrderDetail; compact?: boolean }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const saved = orderDealSavings(o.items, (v, cur) => money(v, cur, locale));
   return (
     <section className={card(compact)}>
       <h3 className={compact ? 'text-xl' : 'text-2xl'}>{t('checkout.summary')}</h3>
@@ -220,6 +224,7 @@ export function TotalsCard({ o, compact }: { o: OrderDetail; compact?: boolean }
         {o.totals.paid && parseFloat(o.totals.paid.amount) > 0 && <div className="flex justify-between text-success"><dt>{t('order.paid')}</dt><dd className="tabular-nums">{o.totals.paid.formatted}</dd></div>}
         {o.totals.refunded && parseFloat(o.totals.refunded.amount) > 0 && <div className="flex justify-between"><dt className="text-muted">{t('order.refunded')}</dt><dd className="tabular-nums">{o.totals.refunded.formatted}</dd></div>}
       </dl>
+      {saved && <p className="mt-4 flex items-start gap-2 rounded-2xl bg-brass-tint/70 px-3 py-2 text-[13px] font-medium text-brass-deep" data-testid="order-deal-saved"><Flame size={15} aria-hidden="true" className="mt-0.5 shrink-0" />{t('deal.order_saved', { v: saved.formatted })}</p>}
       <p className="mt-4 text-xs text-muted">{t('order.method')}: {t(`pay.${o.payment_method === 'pay_at_pickup' ? 'pickup' : o.payment_method}`)}</p>
       {o.customer_notes && <p className="mt-3 rounded-2xl bg-sand/60 p-3 text-sm text-ink-soft">“{o.customer_notes}”</p>}
     </section>

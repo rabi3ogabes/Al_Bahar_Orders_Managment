@@ -6,6 +6,8 @@ use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Branches\Services\SlotService;
 use App\Domain\Checkout\Data\Quote;
 use App\Domain\Checkout\Data\QuoteLine;
+use App\Domain\Deals\Services\DealEngine;
+use App\Domain\Deals\Services\DealService;
 use App\Domain\Fulfillment\Models\PickupReservation;
 use App\Domain\Identity\Models\User;
 use App\Domain\Inventory\Services\ReservationService;
@@ -45,6 +47,8 @@ class CheckoutService
         private readonly PaymentService $payments,
         private readonly OrderService $orders,
         private readonly AuditLogger $audit,
+        private readonly DealService $deals,
+        private readonly DealEngine $dealEngine,
     ) {}
 
     /** @return array{order: Order, payment: Payment, replayed: bool} */
@@ -68,7 +72,35 @@ class CheckoutService
             return $existing;
         }
 
-        $result = DB::transaction(function () use ($user, $draft, $staff, $options, $quoteHash, $idempotencyKey, $notes) {
+        try {
+            $result = $this->placeInTransaction($user, $draft, $staff, $options, $quoteHash, $idempotencyKey, $notes);
+        } catch (DomainException $e) {
+            throw $this->withFreshQuote($e, $user, $draft, $options);
+        }
+
+        DB::afterCommit(fn () => event(new OrderPlaced($result['order']->id)));
+
+        return $result;
+    }
+
+    /**
+     * A deal that stops covering the order at the very last step (the claim) is answered like any other deal change: `409 deal_changed` carrying the
+     * fresh quote, built after the failed attempt was rolled back, so the customer sees the new total and confirms again.
+     */
+    private function withFreshQuote(DomainException $e, User $user, ?Cart $draft, array $options): DomainException
+    {
+        if ($e->errorCode !== 'deal_changed' || isset($e->context['quote'])) {
+            return $e;
+        }
+        $cart = $draft ?? Cart::where('user_id', $user->id)->where('status', 'active')->first();
+
+        return $cart ? new DomainException('deal_changed', $e->getMessage(), 409, $e->context + ['quote' => $this->quotes->quote($user, $cart, $options)->toArray()]) : $e;
+    }
+
+    /** @return array{order: Order, payment: Payment, replayed: bool} */
+    private function placeInTransaction(User $user, ?Cart $draft, ?User $staff, array $options, string $quoteHash, string $idempotencyKey, ?string $notes): array
+    {
+        return DB::transaction(function () use ($user, $draft, $staff, $options, $quoteHash, $idempotencyKey, $notes) {
             DB::select('SELECT pg_advisory_xact_lock(hashtext(?))', ['checkout:'.$user->id.':'.$idempotencyKey]);
             if ($existing = $this->existing($user, $idempotencyKey)) {
                 return $existing;
@@ -79,12 +111,22 @@ class CheckoutService
             if (! $cart) {
                 throw DomainException::make('cart_empty', 422);
             }
+            // Deals: lock the deal rows of the cart's products BEFORE quoting, so the quote below is read from rows nobody else can change
+            // (two orders for the last unit take turns). A staff-made order gets no deal prices and takes no lock.
+            if (! $staff) {
+                $this->deals->lockForCart($cart);
+            }
 
             $quote = $this->quotes->quote($user, $cart, $options);
             if (! $quote->canPlace()) {
                 throw new DomainException('checkout_invalid', $quote->errors[0]['message'] ?? __('checkout.checkout_invalid'), 422, ['quote' => $quote->toArray()]);
             }
             if (! hash_equals($quote->hash, $quoteHash)) {
+                // The customer confirmed a quote with deal prices that this quote no longer gives: say so ("a deal changed"), not just "prices changed".
+                if ($this->dealEngine->changedSince($quoteHash, $quote)) {
+                    $line = $quote->lines()->first(fn (QuoteLine $l) => $l->deal !== null);
+                    throw new DomainException('deal_changed', __('errors.deal_changed'), 409, array_filter(['deal_id' => $line?->deal?->deal->id, 'product_id' => $line?->productId()]) + ['quote' => $quote->toArray()]);
+                }
                 throw new DomainException('quote_changed', __('checkout.quote_changed'), 409, ['quote' => $quote->toArray()]);
             }
 
@@ -119,13 +161,16 @@ class CheckoutService
             // Lock inventory rows (deterministic order) and reserve everything — or roll back the whole order.
             $this->reservations->reserve($lines, $dueAt, $user->id);
 
-            // Promotions & loyalty.
+            // Deals: take the units the quote promised (the rows are already locked); a unit that is gone is `deal_changed`, never a silent new price.
+            $this->deals->claim($order, $user, $quote->lines()->all());
+
+            // Promotions, deal prices & loyalty.
             foreach ($quote->discounts as $d) {
-                OrderCoupon::create(['order_id' => $order->id, 'coupon_id' => $d->coupon?->id, 'promotion_id' => $d->promotion->id, 'code' => $d->coupon?->code,
-                    'label_en' => $d->promotion->name_en, 'label_ar' => $d->promotion->name_ar, 'discount_amount' => $d->amount->plus($d->deliveryDiscount)->toDecimal(),
-                    'free_delivery' => $d->freeDelivery]);
+                OrderCoupon::create(['order_id' => $order->id, 'coupon_id' => $d->coupon?->id, 'promotion_id' => $d->promotion?->id, 'deal_id' => $d->deal?->id, 'code' => $d->coupon?->code,
+                    'label_en' => $d->deal?->name_en ?? $d->promotion?->name_en, 'label_ar' => $d->deal?->name_ar ?? $d->promotion?->name_ar,
+                    'discount_amount' => $d->amount->plus($d->deliveryDiscount)->toDecimal(), 'free_delivery' => $d->freeDelivery]);
             }
-            $this->promotions->recordUsage($quote->discounts, $order->id, $user);
+            $this->promotions->recordUsage(array_values(array_filter($quote->discounts, fn ($d) => $d->promotion !== null)), $order->id, $user);
             if ($quote->loyaltyPoints > 0) {
                 $this->loyalty->redeem($user, $quote->loyaltyPoints, $order->id);
             }
@@ -152,10 +197,6 @@ class CheckoutService
 
             return ['order' => $order, 'payment' => $payment, 'replayed' => false];
         });
-
-        DB::afterCommit(fn () => event(new OrderPlaced($result['order']->id)));
-
-        return $result;
     }
 
     private function createOrder(User $user, Quote $quote, string $key, ?string $notes, bool $online, $dueAt, ?User $staff = null): Order
@@ -212,6 +253,7 @@ class CheckoutService
         $p = $v->product;
         $attributes = $v->attributeValues->map(fn ($av) => ['attribute' => $av->attribute?->code, 'value_en' => $av->value_en, 'value_ar' => $av->value_ar])->values()->all();
         $subtotal = $line->subtotal();
+        $deal = $line->deal !== null && $line->deal->units > 0 ? $line->deal : null;
 
         return OrderItem::create([
             'order_id' => $order->id, 'order_fulfillment_id' => $f->id, 'branch_id' => $line->branch->id,
@@ -230,6 +272,9 @@ class CheckoutService
             'tax_amount' => $line->tax->toDecimal(),
             'line_total' => $subtotal->minus($line->discount)->plus($line->tax)->toDecimal(),
             'price_source' => $line->price->source,
+            // What the deal did to this line, as placed (invoices and revised invoices never read the live deal).
+            'deal_id' => $deal?->deal->id, 'deal_name_en' => $deal?->deal->name_en, 'deal_name_ar' => $deal?->deal->name_ar,
+            'deal_units' => $deal?->units ?? 0, 'deal_unit_savings' => $deal?->unitSavings->toDecimal(),
         ]);
     }
 

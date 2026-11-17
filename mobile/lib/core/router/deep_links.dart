@@ -11,6 +11,8 @@
 ///   albahar://support/{ticketId}       …/app/support/{ticketId}
 ///   albahar://referral (or invite)     …/app/invite
 ///   albahar://loyalty                  …/app/loyalty
+///   albahar://deals                    …/app/deals
+///   albahar://deals/{id}               …/app/deals/{id}
 ///   albahar://my-auctions              …/app/my-auctions
 ///   albahar://scan                     …/app/scan
 library;
@@ -30,6 +32,8 @@ abstract final class DeepLinks {
     RegExp(r'^/auctions$'),
     RegExp(r'^/categories/[^/]+$'),
     RegExp(r'^/categories$'),
+    RegExp(r'^/deals/[^/]+$'),
+    RegExp(r'^/deals$'),
     RegExp(r'^/payments/[^/]+/return$'),
     RegExp(r'^/support/[^/]+$'),
     RegExp(r'^/support$'),

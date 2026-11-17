@@ -12,6 +12,7 @@ import { DrawerCtx, DrawerLink, useDrawerNavigate } from './drawerLink';
 import { SideDrawer } from './SideDrawer';
 import { Alert, Button, Pic, PriceTag, Skeleton } from './ui';
 import { DeliveryFeeRow } from './DeliveryFeeRow';
+import { CartDealNote, CartDealsHint } from './DealBits';
 
 /**
  * The cart panel. "Add to cart" anywhere opens it over the current page (end side drawer, a bottom sheet on phones) and it
@@ -52,6 +53,7 @@ function CartFooter() {
         <div className="flex items-baseline justify-between"><dt className="text-sm text-muted">{t('cart.subtotal')}</dt><dd className="text-xl font-semibold tabular-nums" aria-live="polite" data-testid="cart-subtotal">{cart.subtotal.formatted}</dd></div>
         <div className="text-sm"><DeliveryFeeRow /></div>
       </dl>
+      <CartDealsHint lines={cart.lines} className="mb-2 !text-[12px]" />
       <p className="mb-3 text-xs text-muted">{t('cart.shipping_note')}</p>
       <Button size="lg" block loading={busy} disabled={blocked || cart.lines.length === 0} onClick={() => void checkout()}>{t('cart.checkout')}</Button>
       {blocked && <p role="alert" className="mt-2 text-center text-xs text-danger">{t('cart.fix_items')}</p>}
@@ -136,6 +138,7 @@ function CartLine({ l, size, onRemove }: { l: Line; size: 'focus' | 'regular' | 
         {l.priceChanged && <p className="mt-1 text-[12px] font-medium text-warning">{t('cart.price_changed')}</p>}
         {l.issue && <p className="mt-1 text-[12px] font-medium text-danger">{t(`cart.issue.${l.issue}`)}</p>}
         <p className="mt-0.5 text-[14px] text-ink-soft tabular-nums" lang={locale}>{l.unit.formatted}</p>
+        <CartDealNote deal={l.deal} qty={l.qty} className="mt-1.5" />
         <div className="mt-2 flex items-center justify-between gap-2">
           <PanelQty l={l} onRemove={onRemove} />
           <span className="shrink-0 whitespace-nowrap text-[15px] font-semibold tabular-nums" lang={locale}>{l.total.formatted}</span>

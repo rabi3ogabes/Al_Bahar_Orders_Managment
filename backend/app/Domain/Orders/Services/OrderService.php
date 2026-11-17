@@ -4,6 +4,7 @@ namespace App\Domain\Orders\Services;
 
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Branches\Services\SlotService;
+use App\Domain\Deals\Services\DealService;
 use App\Domain\Fulfillment\Services\DispatchService;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
@@ -84,7 +85,11 @@ class OrderService
                 $this->consumeAll($f, $actor);
             }
             if ($to === FS::Cancelled) {
+                // Whatever cancels a parcel (the customer, staff, an unpaid-order expiry, an adjustment that emptied it) also gives its deal units back, once:
+                // the deal rows are locked before any stock row, the same order checkout uses, so the two never wait for each other.
+                app(DealService::class)->lockForOrder($order->id);
                 $this->releaseAll($f, $actor, $reason ?? 'cancelled');
+                app(DealService::class)->release($order->id);
             }
             if ($to === FS::Returned) {
                 $this->restockReturn($f, $actor);

@@ -9,6 +9,7 @@ use App\Domain\Branches\Services\SlotService;
 use App\Domain\Checkout\Data\FulfillmentPlan;
 use App\Domain\Checkout\Data\Quote;
 use App\Domain\Checkout\Data\QuoteLine;
+use App\Domain\Deals\Services\DealEngine;
 use App\Domain\Identity\Models\User;
 use App\Domain\Marketing\Services\LoyaltyService;
 use App\Domain\Marketing\Services\PromotionEngine;
@@ -46,13 +47,14 @@ class QuoteService
         private readonly PromotionEngine $promotions,
         private readonly LoyaltyService $loyalty,
         private readonly Settings $settings,
+        private readonly DealEngine $deals,
     ) {}
 
     /**
      * @param  array{fulfillment_type?: string, address_id?: ?string, branch_id?: ?string, payment_method?: ?string, coupon_code?: ?string,
      *               loyalty_points?: int, allow_split?: bool, express?: bool, pickup_slot_id?: ?string, pickup_date?: ?string,
      *               delivery_slot_id?: ?string, delivery_date?: ?string, latitude?: ?float, longitude?: ?float, restrict_branch_ids?: list<string>,
-     *               alternate_phone?: ?string, no_alternate_phone?: bool}  $o
+     *               alternate_phone?: ?string, no_alternate_phone?: bool, apply_deals?: bool}  $o
      */
     public function quote(User $user, Cart $cart, array $o): Quote
     {
@@ -149,9 +151,11 @@ class QuoteService
             $this->validateSlot($plan, $q);
         }
 
-        // 7. Promotions, 8. loyalty, 9. fees & tax, 10. payment methods.
+        // 7. Deals first (units that get a deal price are not discounted twice), then promotions; 8. loyalty, 9. fees & tax, 10. payment methods.
+        // A staff-made order (`apply_deals` false, set by StaffOrderService, never by a client) does not get deal prices.
+        $dealDiscounts = ($o['apply_deals'] ?? true) ? $this->deals->apply($q->lines()->all(), $user) : [];
         $promo = $this->promotions->evaluate($q->lines()->all(), $user, $q->couponCode, $q->deliveryFeeTotal());
-        $q->discounts = $promo['discounts'];
+        $q->discounts = array_merge($dealDiscounts, $promo['discounts']);
         if ($q->couponCode && $promo['coupon_error']) {
             $q->warning($promo['coupon_error'], ['code' => $q->couponCode]);
         }
@@ -347,6 +351,7 @@ class QuoteService
         }
         $q->expiresAt = now()->addMinutes(15);
         $q->hash = $q->computeHash();
+        $this->deals->remember($q); // what the deals promised, so placing it can tell "a deal changed" from any other change
 
         return $q;
     }

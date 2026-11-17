@@ -742,4 +742,5 @@ export const en: Record<string, string> = {
   "deal.changed_text": "Please check the new total, then confirm your order again.",
   "deal.order_saved": "You saved {v} with deals on this order",
   "deal.order_line": "Deal: {name}",
+  "deal.kicker": "Limited-time deal",
 };

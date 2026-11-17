@@ -26,7 +26,7 @@ Phones (< 768 px): a side window becomes a tall bottom sheet (max 92 % of the sc
    share and notification deep links still work; the full page route keeps working too, and the window offers
    "Open full page".
 6. Right-to-left: use logical properties only (`start`/`end`, `ms-`/`me-`, `rtl:`), the window slides from the left in Arabic.
-7. 44 px touch targets (48 dp in the apps), visible focus, dark mode, reduced motion.
+7. 44 px touch targets (48 dp in the apps), visible focus, dark mode, reduced motion. On touch screens (`@media (pointer: coarse)` in `resources/css/app.css`) buttons, fields and menu links are raised to 44 px, and tab bars are 44 px everywhere; mouse users keep the compact sizes.
 8. Toggle = instant save + "Saved" toast, never next to a Save button. Checkbox group = waits for Save, disabled until dirty.
 9. The same permissions and branch scoping as the page the window replaces — a window must never show more than the page would.
 10. Dirty form + close → ask "Discard changes?" (modal), do not just close.
