@@ -7,6 +7,7 @@ import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/providers.dart' show supportedLocales;
 import 'package:albahar_customer/core/storage/token_storage.dart';
 import 'package:albahar_customer/core/theme/app_theme.dart';
+import 'package:albahar_customer/core/widgets/common.dart' show SummaryRow;
 import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
 import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
 import 'package:albahar_customer/features/checkout/presentation/checkout_screen.dart';
@@ -439,6 +440,79 @@ void main() {
       expect(find.textContaining('Deal price'), findsNothing);
       expect(find.text('Deal savings'), findsNothing);
       expect(find.text('Discount'), findsOneWidget);
+    });
+
+    /// The totals card as (label, number) rows: a "−" in front of the amount is a deduction.
+    List<(String, double)> totalsRows(WidgetTester t) => [
+      for (final r in t.widgetList<SummaryRow>(find.byType(SummaryRow)))
+        (r.label, double.parse(r.value.replaceAll(RegExp(r'[^0-9.]'), '')) * (r.value.startsWith('−') ? -1 : 1)),
+    ];
+
+    /// Subtotal plus every middle row (a deduction counts negative) must be the total: the card adds up.
+    void expectAddsUp(WidgetTester t) {
+      final rows = totalsRows(t);
+      final subtotal = rows.first.$2;
+      final total = rows.last.$2;
+      final middle = rows.sublist(1, rows.length - 1).fold<double>(0, (a, r) => a + r.$2);
+      expect(subtotal + middle, closeTo(total, 0.001), reason: rows.toString());
+    }
+
+    Order moneyOrder({
+      required String discount,
+      String? dealSavings,
+      required String total,
+      required List<Map<String, dynamic>> discounts,
+    }) => Order.fromJson({
+      'id': 'o1',
+      'number': 'AB1',
+      'status': 'processing',
+      'items': <Object?>[],
+      'fulfillments': <Object?>[],
+      'totals': {
+        'subtotal': money('500.00'),
+        'discount': money(discount),
+        'deal_savings': dealSavings == null ? null : money(dealSavings),
+        'delivery_fee': money('30.00'),
+        'grand_total': money(total),
+      },
+      'discounts': discounts,
+    });
+
+    final dealEntry = {'source': 'deal', 'label': 'Weekend Furniture Drop', 'amount': money('20.00')};
+    final freeDelivery = {
+      'source': 'promotion',
+      'label': 'Free delivery',
+      'code': 'FREESHIP',
+      'amount': money('30.00'),
+      'free_delivery': true,
+    };
+
+    testWidgets('a deal and a free-delivery coupon: every deduction is listed, so the rows add up to the total', (
+      t,
+    ) async {
+      // discount_total counts the waived delivery: 20 (deal) + 30 (delivery) = 50; the delivery line is the full 30.
+      await pumpOrder(
+        t,
+        moneyOrder(discount: '50.00', dealSavings: '20.00', total: '480.00', discounts: [dealEntry, freeDelivery]),
+      );
+      expect(find.text('Deal savings'), findsOneWidget);
+      expect(find.text('Free delivery (FREESHIP)'), findsOneWidget);
+      expect(find.text('− QAR 30.00'), findsOneWidget);
+      expectAddsUp(t);
+      expect(totalsRows(t).last.$2, 480);
+    });
+
+    testWidgets('a deal without a coupon adds up', (t) async {
+      await pumpOrder(t, moneyOrder(discount: '20.00', dealSavings: '20.00', total: '510.00', discounts: [dealEntry]));
+      expect(find.text('Deal savings'), findsOneWidget);
+      expectAddsUp(t);
+    });
+
+    testWidgets('a free-delivery coupon without a deal adds up (the one discount row, as before)', (t) async {
+      await pumpOrder(t, moneyOrder(discount: '30.00', total: '500.00', discounts: [freeDelivery]));
+      expect(find.text('Deal savings'), findsNothing);
+      expect(find.text('Discount'), findsOneWidget);
+      expectAddsUp(t);
     });
 
     testWidgets('an older server (no deal fields at all)', (t) async {

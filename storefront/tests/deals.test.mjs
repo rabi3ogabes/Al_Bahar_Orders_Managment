@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   cartLineText, contrast, countdown, dealBadgeLabel, dealPriceFor, dealSavingsSplit, dealTotal, dealVisible, designWord, effectivePhase, fmtNum, humanRemaining, isDealChanged, limitLines, minusDeal,
-  nextChangeAt, normalizeDesign, normalizeUnits, orderDealSavings, orderLineDeal, partialText, plural, positiveMoney, quoteFromDealChanged, quoteLineText, readDeal, readDealsData, readQuoteDeal,
-  readableOn, remainingText, setServerTime, skewFrom, stockInfo, unitsAtDealPrice,
+  nextChangeAt, normalizeDesign, normalizeUnits, orderDealSavings, orderLineDeal, orderLineGone, partialText, plural, positiveMoney, quoteFromDealChanged, quoteLineText, readDeal, readDealsData, readQuoteDeal,
+  readableOn, remainingText, resetServerTime, setServerTime, skewFrom, stockInfo, unitsAtDealPrice,
 } from '../src/lib/deals.ts';
 import { en } from '../src/locales/en.ts';
 import { ar } from '../src/locales/ar.ts';
@@ -78,14 +78,49 @@ test('the countdown follows the server clock, not the phone clock', () => {
   // A phone 2 hours ahead of the server: more time, never a negative number.
   assert.equal(countdown(end, NOW, { skewMs: -2 * HOUR }).text, '03:00:00');
   assert.equal(countdown(end, NOW, { skewMs: 3 * HOUR }).done, true);
-  // A missing or odd server_time means no correction.
-  assert.equal(skewFrom(undefined, NOW), 0);
-  assert.equal(skewFrom('not a time', NOW), 0);
+  // A missing or odd server_time teaches nothing.
+  for (const bad of [undefined, null, '', 'not a time']) assert.equal(skewFrom(bad, NOW), null);
   // The clock the whole store shares.
   setServerTime(at(10 * MIN), NOW);
   assert.equal(countdown(end, NOW).text, '00:50:00');
-  setServerTime(null);
+  resetServerTime();
   assert.equal(countdown(end, NOW).text, '01:00:00');
+});
+
+test('a response without a usable server_time keeps the clock already learned', () => {
+  resetServerTime();
+  assert.equal(setServerTime(at(10 * MIN), NOW), 10 * MIN);
+  // One response with no server_time (an older server, a cached copy, a field that is missing): the good offset stays.
+  for (const bad of [undefined, null, '', 'garbage', Number.NaN]) {
+    assert.equal(setServerTime(bad, NOW + 5 * SEC), 10 * MIN);
+    assert.equal(countdown(at(HOUR), NOW).text, '00:50:00');
+  }
+  // A later good one replaces it.
+  assert.equal(setServerTime(at(-3 * MIN), NOW), -3 * MIN);
+  resetServerTime();
+});
+
+test('server_time is cut to the whole second: the store clock never runs behind the real one, so nothing shows time left after the end', () => {
+  resetServerTime();
+  const whole = (ms) => new Date(Math.floor(ms / 1000) * 1000).toISOString().replace('.000Z', 'Z'); // what the server writes: no fraction
+  assert.doesNotMatch(whole(NOW), /\./);
+  const end = NOW + 5 * SEC;
+  // Whatever fraction of the second the server's real clock was at when it wrote the time, the store's copy of the clock is at or ahead of the real one.
+  for (let frac = 0; frac < 1000; frac += 37) {
+    const real = NOW + frac; // the server's clock the moment the answer left (the phone is in step with it, so the offset is 0 apart from the cut-off)
+    const skew = skewFrom(whole(real), real);
+    assert.ok(skew >= 0, `skew ${skew} for a fraction of ${frac} ms`);
+    // The deal ends 5 s later by the real clock. At that instant the store must already read zero, not 00:00:01.
+    const at5 = countdown(new Date(end + frac).toISOString(), real + 5 * SEC, { skewMs: skew });
+    assert.equal(at5.done, true, `fraction ${frac} ms: ${at5.text}`);
+    assert.equal(at5.text, '00:00:00');
+    // And it never reads zero more than a second early.
+    assert.equal(countdown(new Date(end + frac).toISOString(), real + 3 * SEC, { skewMs: skew }).done, false);
+  }
+  // A time that carries a fraction is exact: no correction.
+  assert.equal(skewFrom('2026-11-17T09:12:00.250+03:00', Date.parse('2026-11-17T09:12:00.250+03:00')), 0);
+  assert.equal(skewFrom('2026-11-17T09:12:00.250+03:00', Date.parse('2026-11-17T09:12:00.250+03:00') - 40), 40);
+  assert.equal(skewFrom('2026-11-17T09:12:00+03:00', Date.parse('2026-11-17T09:12:00+03:00')), 1000);
 });
 
 test('urgency starts below urgency_minutes, and not at zero or when it is off', () => {
@@ -422,6 +457,37 @@ test('a placed order line keeps its deal: name, units and what they saved', () =
   assert.equal(orderDealSavings(items, fmt).amount, '800.00');
   assert.equal(orderDealSavings([{ deal: null }], fmt), null);
   assert.equal(orderDealSavings([], fmt), null);
+});
+
+test('the order\'s deal savings leave out the lines the branch took out, count a reduced line by what is left, and fall back to the order total', () => {
+  const deal = (units, each) => ({ deal_id: 'd1', name: 'Weekend Furniture Drop', units, unit_savings: M(each) });
+  const sold = { quantity: 2, deal: deal(2, 360) }; // 720
+  // Removed or replaced lines keep their snapshot but nothing was sold.
+  const removed = { quantity: 2, adjustment: { kind: 'removed' }, deal: deal(2, 100) };
+  const replaced = { quantity: 1, adjustment: { kind: 'replaced' }, deal: deal(1, 50) };
+  const zero = { quantity: 0, deal: deal(3, 10) };
+  assert.equal(orderDealSavings([sold, removed, replaced, zero], fmt).amount, '720.00');
+  assert.equal(orderLineGone(removed), true);
+  assert.equal(orderLineGone(replaced), true);
+  assert.equal(orderLineGone(zero), true);
+  assert.equal(orderLineGone(sold), false);
+  assert.equal(orderLineGone({ quantity: 1, adjustment: { kind: 'reduced' } }), false);
+  assert.equal(orderLineGone({}), false);
+  // A reduced line keeps its snapshot of 3 deal units but has 1 piece left: 1 unit saved.
+  const reduced = { quantity: 1, adjustment: { kind: 'reduced' }, deal: deal(3, 100) };
+  assert.equal(orderDealSavings([reduced], fmt).amount, '100.00');
+  assert.equal(orderLineDeal(reduced.deal, fmt, 1).units, 1);
+  assert.equal(orderLineDeal(reduced.deal, fmt, 1).saved.amount, '100.00');
+  assert.equal(orderLineDeal(reduced.deal, fmt).units, 3);
+  assert.equal(orderLineDeal(reduced.deal, fmt, 0), null);
+  // Every deal line was taken out: nothing was saved, and the order's own figure (which may still include them) is not used.
+  assert.equal(orderDealSavings([removed, replaced], fmt, M(150)), null);
+  // No line carries a deal snapshot (an order placed before it existed, or a payload without it): the order's own figure.
+  assert.equal(orderDealSavings([{ quantity: 1 }, { quantity: 2, deal: null }], fmt, M(150)).amount, '150.00');
+  assert.equal(orderDealSavings([{ quantity: 1 }], fmt, M(0)), null);
+  assert.equal(orderDealSavings([{ quantity: 1 }], fmt, undefined), null);
+  // The lines win over the order's figure when they have a snapshot.
+  assert.equal(orderDealSavings([sold], fmt, M(999)).amount, '720.00');
 });
 
 /* ───────────── API payloads ───────────── */

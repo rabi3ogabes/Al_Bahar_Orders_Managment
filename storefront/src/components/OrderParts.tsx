@@ -130,7 +130,7 @@ const card = (compact?: boolean) => (compact ? 'rounded-3xl border border-line b
 /** One item of the parcel; lines the branch removed or swapped out stay visible, struck through, so nothing changes silently. */
 function ItemRow({ i, compact }: { i: OrderDetail['items'][number]; compact?: boolean }) {
   const { t, locale } = useI18n();
-  const deal = orderLineDeal(i.deal, (v, cur) => money(v, cur, locale));
+  const deal = orderLineDeal(i.deal, (v, cur) => money(v, cur, locale), i.quantity);
   const a = i.adjustment ?? null;
   const gone = !!a && (a.kind === 'removed' || a.kind === 'replaced' || i.quantity <= 0);
   return (
@@ -210,7 +210,7 @@ export function TimelineCard({ events, loading, compact }: { events: TimelineEve
 
 export function TotalsCard({ o, compact }: { o: OrderDetail; compact?: boolean }) {
   const { t, locale } = useI18n();
-  const saved = orderDealSavings(o.items, (v, cur) => money(v, cur, locale));
+  const saved = orderDealSavings(o.items, (v, cur) => money(v, cur, locale), o.totals.deal_savings);
   return (
     <section className={card(compact)}>
       <h3 className={compact ? 'text-xl' : 'text-2xl'}>{t('checkout.summary')}</h3>

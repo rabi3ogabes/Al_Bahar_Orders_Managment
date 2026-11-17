@@ -737,11 +737,13 @@ class _Totals extends StatelessWidget {
       child: Column(
         children: [
           SummaryRow(label: l10n.subtotal, value: t.subtotal.formatted),
-          // With deals: one "Deal savings" row, then what else was taken off (a coupon, a promotion) one by one.
+          // With deals: one "Deal savings" row, then what else was taken off one by one: a promotion, a coupon and a free-delivery coupon.
+          // The free-delivery one stays in the list on purpose: `totals.discount` counts the delivery fee it waived and the delivery line
+          // below is the full fee, so leaving it out would make the rows add up to more than the total.
           if (hasDeal) ...[
             ?row(l10n.dealSavingsRow, t.dealSavings, negative: true),
             for (final d in order.discounts)
-              if (!d.isDeal && !d.freeDelivery && !d.amount.isZero)
+              if (!d.isDeal && !d.amount.isZero)
                 SummaryRow(
                   label: d.code != null ? '${d.label} (${d.code})' : d.label,
                   value: '− ${d.amount.formatted}',

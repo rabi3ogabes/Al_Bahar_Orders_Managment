@@ -85,13 +85,31 @@ export const fmtNum = (locale: string, n: number): string => new Intl.NumberForm
 
 /* ───────────── server clock ───────────── */
 let skewMs = 0;
-/** Offset to add to the visitor's clock to get the server's: taken from `server_time` of any deals response (or 0 when it is missing or odd). */
-export function skewFrom(serverIso: string | null | undefined, nowMs = Date.now()): number {
+/**
+ * The server writes `server_time` to the whole second (ISO-8601 without a fraction, cut down), so its real clock was up to one second later than
+ * the text says. The offset is moved forward by that second: the store's copy of the server clock then runs a little ahead of the real one, never
+ * behind it, so a countdown reaches zero no later than the server ends the deal (a clock that was behind showed 00:00:01 for a moment after the end,
+ * and an order placed then came back as `deal_changed`). A time that carries a fraction is exact and is left alone.
+ */
+export const WHOLE_SECOND_BIAS_MS = 1000;
+const hasFraction = (iso: string) => /\d{2}:\d{2}:\d{2}[.,]\d/.test(iso);
+/** Offset to add to the visitor's clock to get the server's, from a `server_time`; null when it is missing or not a time (nothing to learn from it). */
+export function skewFrom(serverIso: string | null | undefined, nowMs = Date.now()): number | null {
   const s = timeMs(serverIso);
-  return s === null ? 0 : s - nowMs;
+  if (s === null || typeof serverIso !== 'string') return null;
+  return s - nowMs + (hasFraction(serverIso) ? 0 : WHOLE_SECOND_BIAS_MS);
 }
-/** Remember the clock offset. Every countdown of the store uses it, so all of them agree with the server and with each other. */
-export function setServerTime(serverIso: string | null | undefined, nowMs = Date.now()): number { skewMs = skewFrom(serverIso, nowMs); return skewMs; }
+/**
+ * Remember the clock offset. Every countdown of the store uses it, so all of them agree with the server and with each other.
+ * A response without a usable `server_time` keeps the offset learned before (it never resets a good clock to "the phone is right").
+ */
+export function setServerTime(serverIso: string | null | undefined, nowMs = Date.now()): number {
+  const s = skewFrom(serverIso, nowMs);
+  if (s !== null) skewMs = s;
+  return skewMs;
+}
+/** Back to "the phone's clock is right" (tests, and nothing else: a page never forgets the offset). */
+export function resetServerTime(): void { skewMs = 0; }
 export const getSkew = (): number => skewMs;
 export const serverNow = (nowMs = Date.now()): number => nowMs + skewMs;
 
@@ -432,21 +450,37 @@ export function quoteFromDealChanged(e: unknown): Quote | null {
 }
 
 export interface OrderLineDeal { name: string | null; units: number; saved: Money | null }
-/** The deal snapshot of a placed order line: its name and what its units saved. */
-export function orderLineDeal(raw: unknown, fmt: Fmt): OrderLineDeal | null {
+/** The deal snapshot of a placed order line: its name and what its units saved. `maxUnits` (the quantity still on the line) caps the units, as a reduced line keeps its snapshot. */
+export function orderLineDeal(raw: unknown, fmt: Fmt, maxUnits?: number | null): OrderLineDeal | null {
   if (!isObj(raw)) return null;
-  const units = count(raw.units) ?? 0;
+  const cap = typeof maxUnits === 'number' && Number.isFinite(maxUnits) ? Math.max(0, Math.floor(maxUnits)) : null;
+  const units = Math.min(count(raw.units) ?? 0, cap ?? Infinity);
   if (units <= 0) return null;
   const per = moneyOf(raw.unit_savings, fmt);
   const cur = per?.currency ?? 'QAR';
   const total = per ? parseFloat(per.amount) * units : 0;
   return { name: str(raw.name), units, saved: per && total > 0 ? { amount: total.toFixed(2), currency: cur, formatted: fmt(total, cur) } : null };
 }
-/** What the whole order saved with deals (the sum over its lines), or null. */
-export function orderDealSavings(items: { deal?: unknown }[], fmt: Fmt): Money | null {
-  let sum = 0, cur = 'QAR';
-  for (const i of items) { const l = orderLineDeal(i.deal, fmt); if (l?.saved) { sum += parseFloat(l.saved.amount); cur = l.saved.currency; } }
-  return sum > 0 ? { amount: sum.toFixed(2), currency: cur, formatted: fmt(sum, cur) } : null;
+/** A line the branch took out of the order (removed, or swapped for another): it keeps its deal snapshot but nothing was sold. */
+export function orderLineGone(item: { quantity?: number | null; adjustment?: { kind?: string | null } | null }): boolean {
+  const kind = item.adjustment?.kind;
+  return kind === 'removed' || kind === 'replaced' || (typeof item.quantity === 'number' && item.quantity <= 0);
+}
+/**
+ * What the whole order saved with deals: the sum over the lines that were really sold (removed and replaced lines are left out, a reduced line counts
+ * only the units it still has). An order whose lines carry no deal snapshot at all falls back to the order's own `totals.deal_savings`.
+ */
+export function orderDealSavings(items: { deal?: unknown; quantity?: number | null; adjustment?: { kind?: string | null } | null }[], fmt: Fmt, orderTotal?: unknown): Money | null {
+  let sum = 0, cur = 'QAR', snapshots = 0;
+  for (const i of items) {
+    if (orderLineDeal(i.deal, fmt) === null) continue;
+    snapshots += 1;
+    if (orderLineGone(i)) continue;
+    const l = orderLineDeal(i.deal, fmt, i.quantity);
+    if (l?.saved) { sum += parseFloat(l.saved.amount); cur = l.saved.currency; }
+  }
+  if (sum > 0) return { amount: sum.toFixed(2), currency: cur, formatted: fmt(sum, cur) };
+  return snapshots === 0 ? positiveMoney(orderTotal, fmt) : null;
 }
 
 /* ───────────── API payloads → the shapes above ───────────── */
