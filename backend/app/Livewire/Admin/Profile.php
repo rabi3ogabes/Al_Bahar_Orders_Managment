@@ -114,6 +114,6 @@ class Profile extends Component
                 ->render($tfa->otpauthUri(auth()->user(), $this->pendingSecret));
         }
 
-        return view('livewire.admin.profile', ['qr' => $qr, 'user' => auth()->user()->load('branches', 'roles')])->title(__('admin.profile'));
+        return view('livewire.admin.profile', ['qr' => $qr, 'user' => auth()->user()->load('branches', 'roles'), 'teamRequired' => $tfa->required()])->title(__('admin.profile'));
     }
 }

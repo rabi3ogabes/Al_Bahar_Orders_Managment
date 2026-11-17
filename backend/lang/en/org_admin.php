@@ -248,7 +248,7 @@ return [
         'map__routing_url' => 'Routing service URL (delivery time estimate)',
     ],
     'setting_hint' => [
-        'auth__staff_two_factor_required' => 'When on, every dashboard user must sign in with a 6-digit code from an authenticator app and cannot turn it off. When off, each person decides for themselves (Profile → Two-factor) and an administrator can turn it off for anyone from Employees. Turning it on asks anyone without it to set it up at their next page.',
+        'auth__staff_two_factor_required' => 'When on, every dashboard user must sign in with a 6-digit code from an authenticator app and cannot turn it off. When off, each person decides for themselves (Profile → Two-factor) and an administrator can turn it off for anyone from Employees. Turning it on asks anyone without it to set it up at their next page. Anyone who already turned it on for themselves keeps the code step at sign-in until they switch it off in Profile → Two-factor.',
         'checkout__tax_rate_percent' => 'Qatar currently has no VAT; leave at 0 unless advised otherwise.',
         'checkout__reservation_ttl_minutes' => 'Unpaid online orders release their stock after this time.',
         'checkout__show_split_shipment' => 'When on, customers can choose whether an order may be split across branches, but the switch only appears when more than one active branch holds part of their cart. When off, the switch is hidden everywhere (app, web) and an order is never split: it ships from a single branch or cannot be placed. With only one active branch it makes no difference to customers either way.',

@@ -43,8 +43,8 @@ class TwoFactorChallenge extends Component
         return $this->redirectIntended(route('admin.dashboard'), navigate: false);
     }
 
-    public function render()
+    public function render(TwoFactorService $twoFactor)
     {
-        return view('livewire.admin.auth.two-factor')->title(__('admin.two_factor'));
+        return view('livewire.admin.auth.two-factor', ['optional' => ! $twoFactor->required()])->title(__('admin.two_factor'));
     }
 }

@@ -65,6 +65,8 @@ return [
     'two_factor_enabled' => 'Two-factor authentication is now active.',
     'two_factor_disabled' => 'Two-factor authentication has been disabled.',
     'two_factor_enrolment_required' => 'Two-factor authentication is required for staff accounts. Enable it to continue.',
+    'two_factor_optional_hint' => 'Two-factor is on for your own account. The team requirement is off, so you can turn it off after you sign in: Profile → Two-factor → Disable.',
+    'two_factor_optional_profile' => 'The team requirement is off, so you can switch two-factor off for your own account here (you need your current password).',
     'two_factor_mandatory' => 'Two-factor sign-in is required for the whole team. An administrator can turn the requirement off in Settings → Security.',
     'good_morning' => 'Good morning',
     'good_afternoon' => 'Good afternoon',

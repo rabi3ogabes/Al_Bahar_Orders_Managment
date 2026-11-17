@@ -106,3 +106,44 @@ it('turns two-factor off from the server for a locked-out admin', function () {
 
     $this->artisan('staff:two-factor-off', ['email' => 'nobody@example.com'])->assertFailed();
 });
+
+it('tells a person who turned two-factor on for themselves that the team requirement is off and how to switch theirs off', function () {
+    app(Settings::class)->set('auth.staff_two_factor_required', false);
+    $staff = staffWithRole('super_admin');
+    enrolTwoFactor($staff);
+
+    $this->actingAs($staff)->get(route('admin.two-factor.challenge'))
+        ->assertOk()
+        ->assertSee(__('admin.two_factor_optional_hint'), false);
+
+    $this->actingAs($staff)->withSession(['two_factor_passed' => true])->get(route('admin.profile'))
+        ->assertOk()
+        ->assertSee(__('admin.two_factor_optional_profile'), false);
+});
+
+it('does not show the "you can switch it off" hint while the whole team is required to use two-factor', function () {
+    app(Settings::class)->set('auth.staff_two_factor_required', true);
+    $staff = staffWithRole('super_admin');
+    enrolTwoFactor($staff);
+
+    $this->actingAs($staff)->get(route('admin.two-factor.challenge'))
+        ->assertOk()
+        ->assertDontSee(__('admin.two_factor_optional_hint'), false);
+
+    $this->actingAs($staff)->withSession(['two_factor_passed' => true])->get(route('admin.profile'))
+        ->assertOk()
+        ->assertDontSee(__('admin.two_factor_optional_profile'), false);
+});
+
+it('lets a person with two-factor on switch it off themselves with their password while the team requirement is off', function () {
+    app(Settings::class)->set('auth.staff_two_factor_required', false);
+    $staff = staffWithRole('super_admin');
+    enrolTwoFactor($staff);
+    session(['two_factor_passed' => true]);
+
+    Livewire::actingAs($staff)->test(Profile::class)
+        ->set('current_password', 'Password123')
+        ->call('disableTwoFactor');
+
+    expect($staff->fresh()->hasTwoFactorEnabled())->toBeFalse();
+});

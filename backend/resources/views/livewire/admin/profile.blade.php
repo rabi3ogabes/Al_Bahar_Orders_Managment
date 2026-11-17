@@ -72,6 +72,9 @@
                         <button wire:click="startTwoFactor" class="btn-brass mt-6"><x-icon name="shield" class="size-4" />{{ __('admin.enable_two_factor') }}</button>
                     @endif
                 @else
+                    @unless ($teamRequired)
+                        <p class="mt-4 text-sm text-ink-500">{{ __('admin.two_factor_optional_profile') }}</p>
+                    @endunless
                     <form wire:submit="disableTwoFactor" class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-end">
                         <x-admin.field :label="__('admin.current_password')" for="tfa_pw" error="current_password" class="flex-1"><input id="tfa_pw" type="password" wire:model="current_password" class="input"></x-admin.field>
                         <button class="btn-danger" wire:confirm="{{ __('admin.confirm_disable_2fa') }}">{{ __('admin.disable') }}</button>
