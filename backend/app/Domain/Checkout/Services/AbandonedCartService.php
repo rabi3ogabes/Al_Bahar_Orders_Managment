@@ -273,10 +273,14 @@ class AbandonedCartService
         ];
     }
 
-    /** The quote the customer would get for this cart right now: the same engine, the same saved choices, nothing the staff member can set. */
+    /**
+     * The quote of the order the team can place for this customer right now: the same engine and the same saved choices, nothing the
+     * staff member can set. Deals are left out because "Place order for customer" makes a staff order, which never gets deal prices
+     * (the same switch the staff New order panel uses), so the total shown here is the total that order will have.
+     */
     public function quote(Cart $cart, User $customer): Quote
     {
-        return $this->quotes->quote($customer, $cart, []);
+        return $this->quotes->quote($customer, $cart, ['apply_deals' => false]);
     }
 
     /** A short fingerprint of what the cart holds (lines, quantities, coupon, branch, address, type): it changes when anyone changes the cart. */

@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Audit\Models\AuditLog;
+use App\Domain\Checkout\Services\AbandonedCartService;
 use App\Domain\Checkout\Services\StaffOrderService;
 use App\Domain\Deals\Models\Deal;
 use App\Domain\Deals\Models\DealProduct;
@@ -9,6 +10,7 @@ use App\Domain\Deals\Services\DealService;
 use App\Domain\Identity\Models\User;
 use App\Domain\Marketing\Models\Coupon;
 use App\Domain\Marketing\Models\Promotion;
+use App\Domain\Orders\Models\Cart;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Services\OrderService;
 use App\Domain\Payments\Services\PaymentService;
@@ -318,4 +320,17 @@ it('writes an "updated" audit entry with what changed when a deal is edited', fu
 
     $log = AuditLog::where('action', 'deals.updated')->firstOrFail();
     expect($log->auditable_id)->toBe($deal->id)->and($log->new_values)->toMatchArray(['name_en' => 'Renamed', 'discount_value' => '40.00'])->and($log->old_values)->toMatchArray(['name_en' => 'Weekend Furniture Drop']);
+});
+
+it('quotes the abandoned-cart window without deal prices, because the order the team places for the customer is a staff order', function () {
+    makeDeal(); // 30 % off a 1000.00 sofa while it runs
+    dealAddToCart($this->w->v1->id, 1);
+
+    $customerQuote = dealQuote();
+    $cart = Cart::where('user_id', $this->w->customer->id)->firstOrFail();
+    $teamQuote = app(AbandonedCartService::class)->quote($cart, $this->w->customer);
+
+    expect($customerQuote['totals']['deal_savings']['amount'])->toBe('300.00')
+        ->and($teamQuote->toArray()['totals']['deal_savings']['amount'])->toBe('0.00')
+        ->and($teamQuote->toArray()['lines'][0]['deal'] ?? null)->toBeNull();
 });
