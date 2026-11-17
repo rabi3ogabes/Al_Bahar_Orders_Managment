@@ -1,6 +1,7 @@
 import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:albahar_customer/core/theme/contrast.dart';
+import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/features/deals/domain/deal_countdown.dart';
 import 'package:albahar_customer/features/deals/domain/deal_info.dart';
@@ -226,11 +227,12 @@ class _DealView {
     );
   }
 
-  TextStyle? small(BuildContext context, {double alpha = 0.82, bool bold = false}) => context.text.labelMedium?.copyWith(
-    color: colors.text.withValues(alpha: alpha),
-    fontWeight: bold ? FontWeight.w700 : null,
-    letterSpacing: 0,
-  );
+  TextStyle? small(BuildContext context, {double alpha = 0.82, bool bold = false}) =>
+      context.text.labelMedium?.copyWith(
+        color: colors.text.withValues(alpha: alpha),
+        fontWeight: bold ? FontWeight.w700 : null,
+        letterSpacing: 0,
+      );
 
   /// The icon of the design, in a disc of the accent colour.
   Widget iconDisc({double size = 36}) => Container(
@@ -257,12 +259,21 @@ class _DealView {
         l10n.discountOff(p),
         textDirection: TextDirection.ltr,
         maxLines: 1,
-        style: TextStyle(color: outlined ? colors.accent : fg, fontSize: fontSize, fontWeight: FontWeight.w800, height: 1.1),
+        style: TextStyle(
+          color: outlined ? colors.accent : fg,
+          fontSize: fontSize,
+          fontWeight: FontWeight.w800,
+          height: 1.1,
+        ),
       ),
     );
   }
 
-  Widget timer({DealTimerSize? size, bool display = false, AlignmentGeometry align = AlignmentDirectional.centerStart}) {
+  Widget timer({
+    DealTimerSize? size,
+    bool display = false,
+    AlignmentGeometry align = AlignmentDirectional.centerStart,
+  }) {
     final parts = splitDealTime(secondsLeft ?? 0, design.units);
     return DealTimerView(
       parts: parts,
@@ -303,7 +314,12 @@ class _DealView {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(l10n.onlyLeft(left), maxLines: 1, overflow: TextOverflow.ellipsis, style: small(context, alpha: 0.95, bold: true)),
+        Text(
+          l10n.onlyLeft(left),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: small(context, alpha: 0.95, bold: true),
+        ),
         if (fraction != null) ...[
           const SizedBox(height: 5),
           ClipRRect(
@@ -327,7 +343,9 @@ class _DealView {
   Widget? ctaButton(BuildContext context, {bool outlined = false, bool stretch = false}) {
     final text = cta;
     if (text == null) return null;
-    final radius = BorderRadius.circular(design.shape == DealShape.pill ? 999 : (design.shape == DealShape.sharp ? 3 : 12));
+    final radius = BorderRadius.circular(
+      design.shape == DealShape.pill ? 999 : (design.shape == DealShape.sharp ? 3 : 12),
+    );
     final fg = outlined ? colors.accent : onAccent;
     final button = Container(
       constraints: const BoxConstraints(minHeight: 44),
@@ -350,7 +368,11 @@ class _DealView {
             ),
           ),
           const SizedBox(width: 6),
-          Icon(Directionality.of(context) == TextDirection.rtl ? Icons.arrow_back_rounded : Icons.arrow_forward_rounded, color: fg, size: 18),
+          Icon(
+            Directionality.of(context) == TextDirection.rtl ? Icons.arrow_back_rounded : Icons.arrow_forward_rounded,
+            color: fg,
+            size: 18,
+          ),
         ],
       ),
     );
@@ -364,8 +386,12 @@ class _DealView {
   }
 
   /// The countdown, or the word for why there is none.
-  Widget clockOrStatus(BuildContext context, {DealTimerSize? size, bool display = false, AlignmentGeometry align = AlignmentDirectional.centerStart}) =>
-      counting ? timer(size: size, display: display, align: align) : status(context, align: align);
+  Widget clockOrStatus(
+    BuildContext context, {
+    DealTimerSize? size,
+    bool display = false,
+    AlignmentGeometry align = AlignmentDirectional.centerStart,
+  }) => counting ? timer(size: size, display: display, align: align) : status(context, align: align);
 }
 
 /// Stacks [children] with [gap] between them, leaving out the nulls.
@@ -427,7 +453,10 @@ class _Bold extends StatelessWidget {
     final block = Container(
       width: v.compact ? 76 : 96,
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-      decoration: BoxDecoration(color: v.colors.accent, borderRadius: BorderRadius.circular(v.innerRadius.clamp(2, 22))),
+      decoration: BoxDecoration(
+        color: v.colors.accent,
+        borderRadius: BorderRadius.circular(v.innerRadius.clamp(2, 22)),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -438,7 +467,12 @@ class _Bold extends StatelessWidget {
               child: Text(
                 v.l10n.discountOff(p),
                 textDirection: TextDirection.ltr,
-                style: TextStyle(color: v.onAccent, fontSize: v.compact ? 24 : 32, fontWeight: FontWeight.w900, height: 1.15),
+                style: TextStyle(
+                  color: v.onAccent,
+                  fontSize: v.compact ? 24 : 32,
+                  fontWeight: FontWeight.w900,
+                  height: 1.15,
+                ),
               ),
             ),
         ],
@@ -460,7 +494,9 @@ class _Bold extends StatelessWidget {
                   v.headline.toUpperCase(),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: v.small(context, alpha: 1, bold: true)?.copyWith(color: v.colors.accent, letterSpacing: v.lang == 'ar' ? 0 : 1.2),
+                  style: v
+                      .small(context, alpha: 1, bold: true)
+                      ?.copyWith(color: v.colors.accent, letterSpacing: v.lang == 'ar' ? 0 : 1.2),
                 ),
                 Text(
                   v.data.name,
@@ -500,7 +536,12 @@ class _Minimal extends StatelessWidget {
               Icon(dealIconData(v.design.icon), color: v.colors.accent, size: 20),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(v.data.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: v.title(context)?.copyWith(fontSize: 16)),
+                child: Text(
+                  v.data.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: v.title(context)?.copyWith(fontSize: 16),
+                ),
               ),
               if (badge != null) ...[const SizedBox(width: 8), badge],
             ],
@@ -510,9 +551,7 @@ class _Minimal extends StatelessWidget {
             children: [
               Text(v.headline, style: v.small(context)),
               const SizedBox(width: 10),
-              Expanded(
-                child: v.clockOrStatus(context, size: DealTimerSize.small),
-              ),
+              Expanded(child: v.clockOrStatus(context, size: DealTimerSize.small)),
             ],
           ),
           v.stock(context, height: 4),
@@ -551,7 +590,9 @@ class _Luxe extends StatelessWidget {
                   v.headline.toUpperCase(),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: v.small(context, alpha: 1, bold: true)?.copyWith(color: accent, letterSpacing: v.lang == 'ar' ? 0 : 2.2),
+                  style: v
+                      .small(context, alpha: 1, bold: true)
+                      ?.copyWith(color: accent, letterSpacing: v.lang == 'ar' ? 0 : 2.2),
                 ),
               ),
               const SizedBox(width: 8),
@@ -603,7 +644,11 @@ class _Ribbon extends StatelessWidget {
                     v.headline,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.text.labelLarge?.copyWith(color: v.onAccent, fontWeight: FontWeight.w800, letterSpacing: 0),
+                    style: context.text.labelLarge?.copyWith(
+                      color: v.onAccent,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
+                    ),
                   ),
                 ),
                 if (p != null)

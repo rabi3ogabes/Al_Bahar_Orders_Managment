@@ -1,5 +1,6 @@
 import 'package:albahar_customer/core/models/money.dart';
 import 'package:albahar_customer/core/utils/json.dart';
+import 'package:albahar_customer/features/deals/domain/deal_countdown.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
@@ -159,7 +160,7 @@ class DealDesign {
     final units = <DealUnit>{
       for (final u in asList(timer['units']))
         if (DealUnit.parse(u) case final unit?) unit,
-    }.toList()..sort((a, b) => b.seconds.compareTo(a.seconds));
+    }.toList()..sort((a, b) => b.inSeconds.compareTo(a.inSeconds));
     final urgency = timer.containsKey('urgency_minutes') ? asInt(timer['urgency_minutes'], 60) : 60;
     final image = asStringOrNull(j['image_url']);
     return DealDesign(

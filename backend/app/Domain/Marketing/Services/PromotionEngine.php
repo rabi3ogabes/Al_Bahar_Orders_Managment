@@ -73,7 +73,8 @@ class PromotionEngine
 
                 continue;
             }
-            $reason = $this->ineligibility($promo, $lines, $user);
+            // A free-delivery code only waives the delivery fee, so a basket of nothing but deal-priced units still qualifies for it.
+            $reason = $this->ineligibility($promo, $promo->type === 'free_delivery' ? $all : $lines, $user);
             if ($reason !== null) {
                 if ($coupon && $coupon->promotion_id === $promo->id) {
                     $couponError = $reason;

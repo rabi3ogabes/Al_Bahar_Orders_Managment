@@ -4,7 +4,6 @@ import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/features/deals/domain/deal_countdown.dart';
 import 'package:albahar_customer/features/deals/domain/deal_info.dart';
 import 'package:albahar_customer/features/deals/domain/deal_models.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// What [DealWidget] draws, whether it comes from a deal of the Deals list or from the `deal` block of a product.
@@ -71,10 +70,7 @@ IconData dealIconData(DealIconKey key) => switch (key) {
 
 /// The three colours of a widget whose server design carried none (an old server, a broken payload): the app's own brand.
 /// Never used when the server sent colours.
-@immutable
-class DealPalette {
-  const DealPalette._();
-
+abstract final class DealPalette {
   static DealColors fromTheme(BuildContext context) {
     final scheme = context.colors;
     final bg = scheme.primary;

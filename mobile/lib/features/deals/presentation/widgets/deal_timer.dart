@@ -1,12 +1,10 @@
-import 'dart:ui' show FontFeature;
-
 import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:albahar_customer/features/deals/domain/deal_countdown.dart';
 import 'package:albahar_customer/features/deals/domain/deal_info.dart';
 import 'package:albahar_customer/features/deals/presentation/widgets/deal_card_data.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' show NumberFormat;
 
 /// How big the countdown is drawn.
 enum DealTimerSize { small, medium, large }

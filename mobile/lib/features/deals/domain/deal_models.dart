@@ -172,7 +172,11 @@ class DealsFeed {
   factory DealsFeed.fromJson(JsonMap json, {required DateTime deviceNow, Object? fallbackServerTime}) {
     final serverTime = asDate(json['server_time']) ?? asDate(fallbackServerTime);
     Deal? deal(JsonMap j, DealPhase fallback) {
-      final d = Deal.fromJson(j, fallbackPhase: fallback, receivedAt: deviceNow.add(dealServerSkew(serverTime, deviceNow)));
+      final d = Deal.fromJson(
+        j,
+        fallbackPhase: fallback,
+        receivedAt: deviceNow.add(dealServerSkew(serverTime, deviceNow)),
+      );
       return d.id.isEmpty ? null : d;
     }
 

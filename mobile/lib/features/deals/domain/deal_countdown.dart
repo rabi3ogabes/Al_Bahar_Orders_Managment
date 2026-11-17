@@ -7,13 +7,13 @@ enum DealUnit {
   minutes('m', 60),
   seconds('s', 1);
 
-  const DealUnit(this.wire, this.seconds);
+  const DealUnit(this.wire, this.inSeconds);
 
   /// The letter the server uses.
   final String wire;
 
   /// How many seconds one of this unit is.
-  final int seconds;
+  final int inSeconds;
 
   static DealUnit? parse(Object? raw) {
     if (raw is! String) return null;
@@ -63,13 +63,13 @@ Duration dealServerSkew(DateTime? serverTime, DateTime deviceNow) =>
 /// * Never negative, never more than 59 in a unit that has a bigger unit shown before it.
 List<DealPart> splitDealTime(int totalSeconds, List<DealUnit> units) {
   var left = totalSeconds < 0 ? 0 : totalSeconds;
-  var shown = [...units.toSet()]..sort((a, b) => b.seconds.compareTo(a.seconds));
+  var shown = [...units.toSet()]..sort((a, b) => b.inSeconds.compareTo(a.inSeconds));
   if (shown.isEmpty) shown = [DealUnit.hours, DealUnit.minutes, DealUnit.seconds];
-  if (left < DealUnit.days.seconds && shown.length > 1) shown = [...shown.where((u) => u != DealUnit.days)];
+  if (left < DealUnit.days.inSeconds && shown.length > 1) shown = [...shown.where((u) => u != DealUnit.days)];
   final parts = <DealPart>[];
   for (final u in shown) {
-    final value = left ~/ u.seconds;
-    left -= value * u.seconds;
+    final value = left ~/ u.inSeconds;
+    left -= value * u.inSeconds;
     parts.add(DealPart(u, value));
   }
   return parts;

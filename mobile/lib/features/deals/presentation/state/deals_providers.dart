@@ -77,7 +77,12 @@ class DealDetailController extends AsyncNotifier<DealDetailState> {
     ref.watch(localeCodeProvider);
     ref.watch(isAuthenticatedProvider);
     final first = await ref.read(dealsRepositoryProvider).detail(dealId);
-    return DealDetailState(deal: first.deal, products: first.deal.products, page: first.currentPage, hasMore: first.hasMore);
+    return DealDetailState(
+      deal: first.deal,
+      products: first.deal.products,
+      page: first.currentPage,
+      hasMore: first.hasMore,
+    );
   }
 
   Future<void> loadMore() async {
