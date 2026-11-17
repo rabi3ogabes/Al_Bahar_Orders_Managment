@@ -36,6 +36,16 @@ void main() {
       );
     });
 
+    test('passes the branch the customer shops at, like the other catalogue calls', () async {
+      final h = await start(routes({'GET /deals': (_) => ok(feedJson())}));
+      final repo = h.read(dealsRepositoryProvider);
+      await repo.feed(home: true, limitProducts: 1, branchId: 'br2');
+      await repo.feed(branchId: 'br2');
+      final calls = h.adapter.where('GET', '/deals');
+      expect(calls[0].query, {'home': '1', 'limit_products': '1', 'branch_id': 'br2'});
+      expect(calls[1].query, {'limit_products': '8', 'branch_id': 'br2'});
+    });
+
     test('learns how far the phone clock is from the server clock', () async {
       phone = dealsNow.subtract(const Duration(minutes: 7));
       final h = await start(routes({'GET /deals': (_) => ok(feedJson())}));
@@ -99,6 +109,16 @@ void main() {
       final calls = h.adapter.where('GET', '/deals/d1');
       expect(calls[0].query, isEmpty);
       expect(calls[1].query, {'page': '2'});
+    });
+
+    test('a deal page asks for the branch too, with the page number when it is not the first', () async {
+      final h = await start(routes({'GET /deals/d1': (_) => ok(dealJson())}));
+      final repo = h.read(dealsRepositoryProvider);
+      await repo.detail('d1', branchId: 'br2');
+      await repo.detail('d1', page: 3, branchId: 'br2');
+      final calls = h.adapter.where('GET', '/deals/d1');
+      expect(calls[0].query, {'branch_id': 'br2'});
+      expect(calls[1].query, {'page': '3', 'branch_id': 'br2'});
     });
 
     test('an ended deal is a 404 the screen can word', () async {

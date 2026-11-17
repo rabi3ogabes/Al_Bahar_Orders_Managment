@@ -51,6 +51,12 @@ class Deal {
     if (endsAt == null && secondsLeft != null && receivedAt != null) {
       endsAt = receivedAt.add(Duration(seconds: secondsLeft));
     }
+    // A scheduled deal's start, from `seconds_to_start` when `starts_at` is missing.
+    var startsAt = asDate(json['starts_at']);
+    final toStart = json['seconds_to_start'] == null ? null : asInt(json['seconds_to_start']).clamp(0, 1 << 31);
+    if (startsAt == null && toStart != null && receivedAt != null) {
+      startsAt = receivedAt.add(Duration(seconds: toStart));
+    }
     final discount = asMap(json['discount']);
     final limits = asMap(json['limits']);
     final products = _products(json['products']);
@@ -59,7 +65,7 @@ class Deal {
       name: asString(json['name']),
       tagline: asStringOrNull(json['tagline'])?.trim(),
       phase: parsed == DealPhase.unknown ? fallbackPhase : parsed,
-      startsAt: asDate(json['starts_at']),
+      startsAt: startsAt,
       endsAt: endsAt,
       secondsLeft: secondsLeft,
       discountType: DealDiscountType.parse(discount['type']),

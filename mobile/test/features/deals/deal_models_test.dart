@@ -314,6 +314,22 @@ void main() {
       expect(feed.live.single.endsAt, dealsNow.add(const Duration(seconds: 600)));
     });
 
+    test('seconds_to_start gives a scheduled deal its start when starts_at is missing', () {
+      final deal = Deal.fromJson(
+        {...dealJson(phase: 'scheduled'), 'starts_at': null, 'seconds_to_start': 600},
+        fallbackPhase: DealPhase.scheduled,
+        receivedAt: dealsNow,
+      );
+      expect(deal.startsAt, dealsNow.add(const Duration(seconds: 600)));
+      expect(deal.dueAt, deal.startsAt);
+      final withDate = Deal.fromJson({...dealJson(phase: 'scheduled'), 'seconds_to_start': 5}, receivedAt: dealsNow);
+      expect(
+        withDate.startsAt,
+        isNot(dealsNow.add(const Duration(seconds: 5))),
+        reason: 'starts_at wins when it is there',
+      );
+    });
+
     test('garbage inside one deal degrades that field only', () {
       final deal = Deal.fromJson({
         'id': 'z',

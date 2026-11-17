@@ -147,7 +147,19 @@ class _OpsPasswordScreenState extends ConsumerState<OpsPasswordScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const OpsLanguageButton(),
+                      // The way out is at the top, in sight without scrolling (next to the language, for someone who does not read this one).
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          const OpsLanguageButton(),
+                          TextButton.icon(
+                            onPressed: locked ? null : () => unawaited(_signOut()),
+                            icon: const Icon(Icons.logout_rounded, size: 18),
+                            label: Text(t.signOut),
+                          ),
+                        ],
+                      ),
                       Center(
                         child: OpsAccountEmblem(role: role, icon: Icons.lock_reset_rounded),
                       ),
@@ -209,14 +221,6 @@ class _OpsPasswordScreenState extends ConsumerState<OpsPasswordScreen> {
                         onPressed: _canSubmit ? () => unawaited(_submit()) : null,
                         child: _busy ? const _ButtonSpinner() : Text(l10n.staffPwSubmit),
                       ),
-                      const Gap(AppSpace.xs),
-                      Center(
-                        child: TextButton.icon(
-                          onPressed: locked ? null : () => unawaited(_signOut()),
-                          icon: const Icon(Icons.logout_rounded, size: 18),
-                          label: Text(t.signOut),
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -255,7 +259,7 @@ class OpsNoAccessScreen extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const OpsLanguageButton(),
+                  const Align(alignment: AlignmentDirectional.centerEnd, child: OpsLanguageButton()),
                   Center(
                     child: OpsAccountEmblem(role: ref.watch(opsRoleProvider), icon: Icons.lock_outline_rounded),
                   ),
@@ -332,12 +336,9 @@ class OpsLanguageButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = OpsStrings.of(context);
-    return Align(
-      alignment: AlignmentDirectional.centerEnd,
-      child: TextButton(
-        onPressed: () => ref.read(localeControllerProvider.notifier).setLocale(Locale(t.ar ? 'en' : 'ar')),
-        child: Text(t.language),
-      ),
+    return TextButton(
+      onPressed: () => ref.read(localeControllerProvider.notifier).setLocale(Locale(t.ar ? 'en' : 'ar')),
+      child: Text(t.language),
     );
   }
 }

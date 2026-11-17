@@ -30,10 +30,13 @@ class DealsRepository {
   final void Function(Duration skew) onSkew;
 
   /// `GET /deals`. [home] asks only for the deals the admin put on the home page; [limitProducts] (1 to 12) is how many
-  /// products come with each deal.
-  Future<DealsFeed> feed({bool home = false, int limitProducts = 8}) async {
+  /// products come with each deal. [branchId] is the branch the customer shops at (a product not sold there is left out).
+  Future<DealsFeed> feed({bool home = false, int limitProducts = 8, String? branchId}) async {
     final body = asMap(
-      await _api.getRaw('/deals', query: {'home': home ? true : null, 'limit_products': limitProducts.clamp(1, 12)}),
+      await _api.getRaw(
+        '/deals',
+        query: {'home': home ? true : null, 'limit_products': limitProducts.clamp(1, 12), 'branch_id': branchId},
+      ),
     );
     final feed = DealsFeed.fromJson(
       asMap(body['data']),
@@ -44,9 +47,14 @@ class DealsRepository {
     return feed;
   }
 
-  /// `GET /deals/{id}`: the deal and one page (24) of its products.
-  Future<DealPage> detail(String id, {int page = 1}) async {
-    final body = asMap(await _api.getRaw('/deals/${Uri.encodeComponent(id)}', query: {'page': page > 1 ? page : null}));
+  /// `GET /deals/{id}`: the deal and one page (24) of its products, as sold at [branchId].
+  Future<DealPage> detail(String id, {int page = 1, String? branchId}) async {
+    final body = asMap(
+      await _api.getRaw(
+        '/deals/${Uri.encodeComponent(id)}',
+        query: {'page': page > 1 ? page : null, 'branch_id': branchId},
+      ),
+    );
     final data = asMap(body['data']);
     final result = DealPage.fromJson(
       data,

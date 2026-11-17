@@ -4,6 +4,7 @@ import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/theme/brand_theme.dart';
 import 'package:albahar_customer/core/widgets/paged.dart';
 import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
+import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
 import 'package:albahar_customer/features/deals/data/deals_repository.dart';
 import 'package:albahar_customer/features/deals/domain/deal_models.dart';
@@ -14,14 +15,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 final dealsFeedProvider = FutureProvider.autoDispose<DealsFeed>((ref) {
   ref.watch(localeCodeProvider);
   ref.watch(isAuthenticatedProvider);
-  return ref.watch(dealsRepositoryProvider).feed();
+  final branchId = ref.watch(preferredBranchIdProvider);
+  return ref.watch(dealsRepositoryProvider).feed(branchId: branchId);
 });
 
 /// The deals the admin put on the home page, without their products (the strip needs only the widget).
 final homeDealsProvider = FutureProvider.autoDispose<DealsFeed>((ref) {
   ref.watch(localeCodeProvider);
   ref.watch(isAuthenticatedProvider);
-  return ref.watch(dealsRepositoryProvider).feed(home: true, limitProducts: 1);
+  final branchId = ref.watch(preferredBranchIdProvider);
+  return ref.watch(dealsRepositoryProvider).feed(home: true, limitProducts: 1, branchId: branchId);
 });
 
 /// One deal and its products, page by page.
@@ -76,7 +79,8 @@ class DealDetailController extends AsyncNotifier<DealDetailState> {
   Future<DealDetailState> build() async {
     ref.watch(localeCodeProvider);
     ref.watch(isAuthenticatedProvider);
-    final first = await ref.read(dealsRepositoryProvider).detail(dealId);
+    final branchId = ref.watch(preferredBranchIdProvider);
+    final first = await ref.read(dealsRepositoryProvider).detail(dealId, branchId: branchId);
     return DealDetailState(
       deal: first.deal,
       products: first.deal.products,
@@ -90,7 +94,9 @@ class DealDetailController extends AsyncNotifier<DealDetailState> {
     if (current == null || !current.hasMore || current.loadingMore || state.isLoading) return;
     state = AsyncData(current.copyWith(loadingMore: true, loadMoreError: () => null));
     try {
-      final next = await ref.read(dealsRepositoryProvider).detail(dealId, page: current.page + 1);
+      final next = await ref
+          .read(dealsRepositoryProvider)
+          .detail(dealId, page: current.page + 1, branchId: ref.read(preferredBranchIdProvider));
       if (!ref.mounted) return;
       final seen = {for (final p in current.products) p.id};
       final fresh = [
@@ -142,6 +148,7 @@ class LiveDealsController extends Notifier<bool> {
     ref.onDispose(_stop);
     if (!ref.watch(footerHasDealsProvider)) return false;
     ref.watch(localeCodeProvider);
+    ref.watch(preferredBranchIdProvider);
     final binding = WidgetsBinding.instance;
     _observer = _Lifecycle(
       onResumed: () {
@@ -174,7 +181,9 @@ class LiveDealsController extends Notifier<bool> {
 
   Future<void> _poll() async {
     try {
-      final feed = await ref.read(dealsRepositoryProvider).feed(home: true, limitProducts: 1);
+      final feed = await ref
+          .read(dealsRepositoryProvider)
+          .feed(home: true, limitProducts: 1, branchId: ref.read(preferredBranchIdProvider));
       if (!ref.mounted) return;
       state = feed.hasLive;
     } catch (_) {

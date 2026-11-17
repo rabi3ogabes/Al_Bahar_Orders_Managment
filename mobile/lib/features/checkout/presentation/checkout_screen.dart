@@ -878,7 +878,9 @@ class _QuoteSummary extends StatelessWidget {
                   value: '− ${d.amount.formatted}',
                   valueColor: context.palette.success,
                 ),
-            if (quote.discounts.isEmpty) ?fee(l10n.discount, t.discount, negative: true),
+            // `totals.discount` already includes the deal savings: when the deals have their own row it is not shown a second time.
+            if (quote.discounts.isEmpty && (t.dealSavings == null || t.dealSavings!.isZero))
+              ?fee(l10n.discount, t.discount, negative: true),
             ?deliveryRow,
             // A part of the delivery line above (never added to it): the products that cost extra to deliver. Pickup has none.
             if (delivery && quote.extras != null) ExtraDeliveryFeeRow(extras: quote.extras!, waived: waivedFee != null),

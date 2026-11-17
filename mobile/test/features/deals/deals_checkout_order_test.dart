@@ -1,4 +1,6 @@
 // A deal at checkout (the quote's words for each line, the "Deal savings" row, `409 deal_changed`) and on a placed order.
+import 'dart:async';
+
 import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/models/money.dart';
 import 'package:albahar_customer/core/network/api_exception.dart';
@@ -130,6 +132,15 @@ class _Shop {
   };
 }
 
+/// A [_Shop] answering through [replace] (a test that changes what the server sends).
+class _ShopWith extends _Shop {
+  _ShopWith(_Shop inner, this.replace) : super(promotion: inner.promotion, deals: inner.deals);
+  final FakeHandler replace;
+
+  @override
+  FakeHandler get handler => replace;
+}
+
 Future<void> _settle(WidgetTester t, [int frames = 24]) async {
   for (var i = 0; i < frames; i++) {
     await t.pump(const Duration(milliseconds: 50));
@@ -186,6 +197,25 @@ void main() {
       expect(find.text('Weekend Furniture Drop'), findsNothing);
       expect(find.text('Autumn sale'), findsOneWidget);
       expect(t.takeException(), isNull);
+    });
+
+    testWidgets('totals.discount already includes the deals: it is never shown next to the "Deal savings" row', (
+      t,
+    ) async {
+      final shop = _Shop();
+      final inner = shop.handler;
+      // A quote whose `discounts` list is empty but whose totals carry the deal savings (and the discount that includes them).
+      FutureOr<FakeReply> handler(RecordedRequest r) async {
+        final reply = await inner(r);
+        if (r.path != '/checkout/quote') return reply;
+        final body = reply.body! as Map<String, dynamic>;
+        final quote = Map<String, dynamic>.from(body['data'] as Map<String, dynamic>)..['discounts'] = <Object?>[];
+        return ok(quote);
+      }
+
+      await _pumpCheckout(t, _ShopWith(shop, handler));
+      expect(find.text('Deal savings'), findsOneWidget);
+      expect(find.text('Discount'), findsNothing);
     });
 
     testWidgets('a quote with no deal fields (an older server) draws nothing about deals', (t) async {
