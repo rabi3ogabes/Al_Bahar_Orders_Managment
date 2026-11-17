@@ -13,7 +13,7 @@ beforeEach(function () {
     $this->w = commerceWorld();
 });
 
-function asGuest(): void
+function dealGuest(): void
 {
     app('auth')->forgetGuards();
 }
@@ -144,15 +144,15 @@ it('puts the deal block on catalog cards and on the product page, with the cheap
 
 it('fills customer_remaining only for a signed-in customer with a per-account limit', function () {
     makeDeal(['limit_per_customer' => 3]);
-    addToCart($this->w->v1->id, 2);
+    dealAddToCart($this->w->v1->id, 2);
     placeDealOrder()->assertCreated();
 
     expect($this->getJson('/api/v1/products/'.$this->w->p1->id)->json('data.deal.customer_remaining'))->toBe(1);
-    asGuest();
+    dealGuest();
     expect($this->getJson('/api/v1/products/'.$this->w->p1->id)->json('data.deal.customer_remaining'))->toBeNull();
     // 0 means this customer used it all.
     actingAsCustomer($this->w->customer);
-    addToCart($this->w->v1->id, 1);
+    dealAddToCart($this->w->v1->id, 1);
     placeDealOrder()->assertCreated();
     expect($this->getJson('/api/v1/products/'.$this->w->p1->id)->json('data.deal.customer_remaining'))->toBe(0);
 });
@@ -165,8 +165,8 @@ it('has no per-customer figure when the deal has no per-account limit', function
 
 it('says how many units of each cart line get the deal price', function () {
     $deal = makeDeal();
-    addToCart($this->w->v1->id, 3);
-    addToCart($this->w->v2->id, 1);
+    dealAddToCart($this->w->v1->id, 3);
+    dealAddToCart($this->w->v2->id, 1);
 
     $cart = $this->getJson('/api/v1/cart')->assertOk()->json('data');
     $sofa = collect($cart['items'])->firstWhere('variant_id', $this->w->v1->id);

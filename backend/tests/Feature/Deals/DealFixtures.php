@@ -52,7 +52,7 @@ function dealProduct(string $price, int $stock = 20): Product
     return $p;
 }
 
-function addToCart(string $variantId, int $quantity): void
+function dealAddToCart(string $variantId, int $quantity): void
 {
     test()->postJson('/api/v1/cart/items', ['variant_id' => $variantId, 'quantity' => $quantity])->assertCreated();
 }
@@ -76,7 +76,7 @@ function placeDealOrder(array $extra = [], ?string $hash = null)
     return test()->postJson('/api/v1/checkout/orders', dealOptions($extra) + ['quote_hash' => $hash], ['Idempotency-Key' => (string) Str::uuid()]);
 }
 
-function orderOf($response): Order
+function dealOrderOf($response): Order
 {
     return Order::with('items')->findOrFail($response->json('data.order.id'));
 }

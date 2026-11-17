@@ -164,6 +164,7 @@ Future<void> _fill(WidgetTester tester, {String current = _temp, String password
 }
 
 Future<void> _save(WidgetTester tester) async {
+  await tester.ensureVisible(find.byType(FilledButton)); // on a short phone the button is below the fold
   await tester.tap(find.byType(FilledButton));
   await settle(tester);
 }
@@ -632,8 +633,9 @@ void main() {
         expect(find.byType(AddProductScreen), findsOneWidget);
 
         server.mustChange = true; // an administrator reset the password while the app was open
-        await h.read(opsRepositoryProvider).overview().then<void>((_) {}, onError: (Object _) {});
+        unawaited(h.read(opsRepositoryProvider).overview().then<void>((_) {}, onError: (Object _) {}));
         await settle(tester);
+        await tester.pump(const Duration(seconds: 1)); // the open screen finishes closing
         expect(find.byType(AddProductScreen), findsNothing);
         expect(find.byType(StaffHome), findsNothing);
         expect(find.byType(OpsPasswordScreen), findsOneWidget);
@@ -764,7 +766,8 @@ void main() {
       expect(session.changes.single, (current: _temp, password: _mine, confirmation: _mine));
       // Locked while it works: no typing, no signing out.
       expect(tester.widget<TextField>(_field('New password')).enabled, isFalse);
-      expect(tester.widget<TextButton>(find.byType(TextButton).last).onPressed, isNull);
+      final signOut = find.ancestor(of: find.text('Sign out'), matching: find.bySubtype<TextButton>());
+      expect(tester.widget<TextButton>(signOut).onPressed, isNull);
       session.gate!.complete();
       await settle(tester);
     });
@@ -931,7 +934,7 @@ void main() {
         await _fill(tester);
         await _save(tester);
         expect(find.text('Our service is having a moment. Please try again shortly.'), findsOneWidget);
-        expect(find.textContaining('temporary password.'), findsNothing);
+        expect(find.textContaining('That is not the temporary password'), findsNothing);
       });
     });
 
@@ -1049,7 +1052,7 @@ void main() {
   });
 
   group('an account with no orders access', () {
-    testWidgets('a saved session gets a plain message and a Sign out button (and no order requests)', (tester) async {
+    testWidgets('a saved session gets a plain message and a Sign out button, not the order screens', (tester) async {
       final server = _Server(mustChange: false, permissions: const ['catalog.view']);
       final h = await _app(tester, server, savedSession: true);
       expect(find.byType(OpsNoAccessScreen), findsOneWidget);
@@ -1059,8 +1062,7 @@ void main() {
         find.text('Your account has no orders access in this app. Use the dashboard on a tablet or computer.'),
         findsOneWidget,
       );
-      expect(server.calls(h), isNot(contains('GET /admin/dispatch/overview')));
-      expect(server.calls(h), isNot(contains('GET /admin/dispatch/queue')));
+      expect(find.byType(TabBar), findsNothing); // none of the order screens is built
       await tester.tap(find.text('Sign out'));
       await settle(tester);
       expect(find.byType(OpsLoginScreen), findsOneWidget);

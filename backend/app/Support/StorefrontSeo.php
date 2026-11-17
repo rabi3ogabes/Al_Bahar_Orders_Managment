@@ -6,6 +6,9 @@ use App\Domain\Catalog\Models\Category;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Catalog\Services\CatalogPresenter;
 use App\Domain\Cms\Models\CmsPage;
+use App\Domain\Deals\Models\Deal;
+use App\Domain\Deals\Models\DealProduct;
+use App\Domain\Deals\Support\DealPricing;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
@@ -35,12 +38,14 @@ class StorefrontSeo
         $path = trim($path, '/');
         $key = 'storefront:seo:'.md5($path.'|'.json_encode(array_intersect_key($query, array_flip(['category', 'q', 'brand', 'min', 'max', 'sale', 'new', 'stock']))));
 
-        $cached = Cache::get($key);
+        // Deals are never remembered: a deal ends, sells out or is paused at any moment, and its page must say noindex the moment it does.
+        $remember = $path !== 'deals' && ! str_starts_with($path, 'deals/');
+        $cached = $remember ? Cache::get($key) : null;
         if (is_array($cached)) {
             return $cached;
         }
         $meta = $this->build($path, $query);
-        if ($meta['status'] === 200) { // a missing product may be created a minute later: only found pages are remembered
+        if ($remember && $meta['status'] === 200) { // a missing product may be created a minute later: only found pages are remembered
             Cache::put($key, $meta, (int) config('platform.seo.cache_seconds', 300));
         }
 
@@ -64,6 +69,8 @@ class StorefrontSeo
                 (bool) preg_match('#^products/([^/]+)$#', $path, $m) => $this->product(rawurldecode($m[1])),
                 (bool) preg_match('#^pages/([^/]+)$#', $path, $m) => $this->page(rawurldecode($m[1])),
                 $path === 'showrooms' => $this->plain('Showrooms', 'Find an Al Bahar showroom: address, opening hours and directions.', '/showrooms'),
+                $path === 'deals' => $this->deals(),
+                (bool) preg_match('#^deals/([^/]+)$#', $path, $m) => $this->deal(rawurldecode($m[1])),
                 $path === 'auctions' => $this->plain('Auctions', 'Bid on home and living pieces in Al Bahar auctions.', '/auctions'),
                 (bool) preg_match(self::PRIVATE, $path) => $this->hidden(),
                 str_starts_with($path, 'auctions/') => $this->plain(null, null, '/'.$path),
@@ -177,6 +184,73 @@ class StorefrontSeo
             'type' => 'product', 'image' => $images[0] ?? null, 'jsonld' => [$ld, $this->breadcrumbs($crumbs)],
             'product' => $final ? ['amount' => (string) $final['amount'], 'currency' => (string) $final['currency'], 'availability' => $card['in_stock'] ? 'in stock' : 'out of stock'] : null,
         ]);
+    }
+
+    /** /deals: the countdown deals page, titled and described in English and Arabic (one address serves both languages). */
+    private function deals(): array
+    {
+        $base = $this->base();
+        $name = __('deals.seo_list_title', [], 'en').' | '.__('deals.seo_list_title', [], 'ar');
+        $description = __('deals.seo_list_description', [], 'en').' '.__('deals.seo_list_description', [], 'ar');
+
+        return $this->result([
+            'title' => $name.' · '.self::SUFFIX, 'description' => $description, 'canonical' => $base.'/deals',
+            'jsonld' => [$this->collection($base.'/deals', [__('deals.seo_list_title', [], 'en'), __('deals.seo_list_title', [], 'ar')], [__('deals.seo_list_description', [], 'en'), __('deals.seo_list_description', [], 'ar')]),
+                $this->breadcrumbs([['Home', $base.'/'], [__('deals.seo_list_title', [], 'en'), $base.'/deals']])],
+        ]);
+    }
+
+    /**
+     * /deals/{id}: a deal that is running (or about to) is indexable with its own bilingual title, description and structured data; an ended or paused one
+     * is still answered (the page explains it) but asks not to be indexed; an address that is no deal at all answers 404.
+     */
+    private function deal(string $id): array
+    {
+        $deal = Str::isUuid($id) ? Deal::with(['products' => fn ($q) => $q->select('id', 'deal_id', 'product_id', 'quantity_total', 'quantity_sold')->with('product:id,status')])->find($id) : null;
+        if ($deal === null) {
+            return $this->result(['status' => 404, 'title' => 'Not found · '.self::SUFFIX, 'robots' => 'noindex,follow']);
+        }
+        $base = $this->base();
+        $url = $base.'/deals/'.$deal->id;
+        $en = (string) $deal->name_en;
+        $ar = (string) ($deal->name_ar ?: $deal->name_en);
+        if (! in_array($deal->phase(), [Deal::LIVE, Deal::SOLD_OUT, Deal::SCHEDULED], true)) {
+            return $this->result(['title' => __('deals.seo_deal_ended', [], 'en').' | '.__('deals.seo_deal_ended', [], 'ar').' · '.self::SUFFIX,
+                'description' => __('deals.seo_deal_ended_description', [], 'en').' '.__('deals.seo_deal_ended_description', [], 'ar'), 'canonical' => $url, 'robots' => 'noindex,follow']);
+        }
+        $count = $deal->products->filter(fn (DealProduct $p) => $p->product?->status === 'active')->count();
+        $discount = fn (string $locale) => match ($deal->discount_type) {
+            Deal::PERCENT => __('deals.seo_off_percent', ['value' => DealPricing::plain($deal->discount_value)], $locale),
+            Deal::AMOUNT_OFF => __('deals.seo_off_amount', ['value' => DealPricing::plain($deal->discount_value)], $locale),
+            default => __('deals.seo_off_fixed', [], $locale),
+        };
+        $text = fn (string $locale, ?string $tagline) => $this->excerpt((string) ($tagline ?: __('deals.seo_deal_description', [
+            'discount' => $discount($locale), 'count' => trans_choice('deals.seo_products', $count, ['count' => $count], $locale),
+            'end' => (string) BusinessTime::local($deal->ends_at)?->locale($locale)->translatedFormat('d M Y, H:i'),
+        ], $locale)));
+        $descriptions = [$text('en', $deal->tagline_en), $text('ar', $deal->tagline_ar)];
+        $title = $en.' | '.$ar.' · '.self::SUFFIX;
+        $title = mb_strlen($title) <= 70 ? $title : (mb_strlen($en.' | '.$ar) <= 70 ? $en.' | '.$ar : $this->defaultTitle($en));
+        $image = ($deal->design['image_path'] ?? null) ? $this->storageUrl((string) $deal->design['image_path']) : null;
+
+        return $this->result([
+            'title' => $title, 'description' => implode(' ', $descriptions), 'canonical' => $url, 'image' => $image,
+            'jsonld' => [$this->collection($url, [$en, $ar], $descriptions), $this->breadcrumbs([['Home', $base.'/'], [__('deals.seo_list_title', [], 'en'), $base.'/deals'], [$en, $url]])],
+        ]);
+    }
+
+    /**
+     * A schema.org CollectionPage whose name and description carry both languages.
+     *
+     * @param  array{0: string, 1: string}  $names  English, Arabic
+     * @param  array{0: string, 1: string}  $descriptions  English, Arabic
+     * @return array<string, mixed>
+     */
+    private function collection(string $url, array $names, array $descriptions): array
+    {
+        $both = fn (array $v) => [['@language' => 'en', '@value' => $v[0]], ['@language' => 'ar', '@value' => $v[1]]];
+
+        return ['@context' => 'https://schema.org', '@type' => 'CollectionPage', 'name' => $both($names), 'description' => $both($descriptions), 'url' => $url, 'inLanguage' => ['en', 'ar']];
     }
 
     private function page(string $slug): array

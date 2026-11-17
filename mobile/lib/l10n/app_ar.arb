@@ -500,7 +500,7 @@
   "staffPwHideField": "إخفاء {field}",
   "staffPwRulesTitle": "شروط كلمة المرور الجديدة",
   "staffPwRuleLength": "12 حرفًا على الأقل",
-  "staffPwRuleCase": "حرف كبير وحرف صغير (A وa)",
+  "staffPwRuleCase": "حرف كبير وحرف صغير بالإنجليزية",
   "staffPwRuleNumber": "رقم واحد على الأقل",
   "staffPwRuleDifferent": "مختلفة عن كلمة المرور المؤقتة",
   "staffPwSubmit": "حفظ ومتابعة",

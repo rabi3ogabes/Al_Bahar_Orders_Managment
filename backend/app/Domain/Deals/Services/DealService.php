@@ -22,6 +22,7 @@ use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -523,6 +524,7 @@ class DealService
     private function changed(): void
     {
         HomepageService::flush();
+        Cache::forget('storefront:sitemap'); // the sitemap lists the live deals
     }
 
     /** ceil($units × $part / $whole): the share of a line that stays, rounded up the customer's way (the same rule as AdjustmentMath::keptShare). */

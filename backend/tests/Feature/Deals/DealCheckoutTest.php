@@ -25,7 +25,7 @@ beforeEach(function () {
 
 it('gives the deal price to the units the per-order limit allows and the normal price to the rest', function () {
     $deal = makeDeal(); // 30 % off a 1000.00 sofa, at most 2 per order
-    addToCart($this->w->v1->id, 3);
+    dealAddToCart($this->w->v1->id, 3);
 
     $q = dealQuote();
 
@@ -43,7 +43,7 @@ it('gives the deal price to the units the per-order limit allows and the normal 
 
 it('sells every unit at the deal price while the limits allow it and says nothing when nothing was cut', function () {
     makeDeal(['limit_per_order' => 5]);
-    addToCart($this->w->v1->id, 2);
+    dealAddToCart($this->w->v1->id, 2);
 
     $line = dealQuote()['lines'][0];
 
@@ -52,7 +52,7 @@ it('sells every unit at the deal price while the limits allow it and says nothin
 
 it('has no deal on products outside any deal, and an empty "deal" key on their lines', function () {
     makeDeal();
-    addToCart($this->w->v2->id, 1);
+    dealAddToCart($this->w->v2->id, 1);
 
     $q = dealQuote();
 
@@ -61,7 +61,7 @@ it('has no deal on products outside any deal, and an empty "deal" key on their l
 
 it('never charges more than the normal price: a fixed deal price above the unit price gives no deal', function () {
     makeDeal(['discount_type' => 'fixed_price', 'discount_value' => '0', 'products' => [['product_id' => $this->w->p2->id, 'deal_price' => '300.00', 'quantity_total' => 5]]], []);
-    addToCart($this->w->v2->id, 1); // 250.00, cheaper than the 300.00 "deal"
+    dealAddToCart($this->w->v2->id, 1); // 250.00, cheaper than the 300.00 "deal"
 
     $q = dealQuote();
 
@@ -70,7 +70,7 @@ it('never charges more than the normal price: a fixed deal price above the unit 
 
 it('caps the deal at the units the deal still has and says it ran out', function () {
     makeDeal(['limit_per_order' => 5], [$this->w->p1->id => 2]);
-    addToCart($this->w->v1->id, 3);
+    dealAddToCart($this->w->v1->id, 3);
 
     $line = dealQuote()['lines'][0];
 
@@ -79,12 +79,12 @@ it('caps the deal at the units the deal still has and says it ran out', function
 
 it('claims the units inside the order, snapshots the deal on the line and the order, and keeps the paid total equal to the quote', function () {
     $deal = makeDeal();
-    addToCart($this->w->v1->id, 3);
+    dealAddToCart($this->w->v1->id, 3);
     $q = dealQuote();
 
     $res = placeDealOrder(hash: $q['quote_hash'])->assertCreated();
 
-    $order = orderOf($res);
+    $order = dealOrderOf($res);
     $item = $order->items->first();
     $row = DealProduct::where('deal_id', $deal->id)->first();
     expect($order->grand_total)->toBe($q['totals']['grand_total']['amount'])->and($order->discount_total)->toBe('600.00')
@@ -98,15 +98,15 @@ it('claims the units inside the order, snapshots the deal on the line and the or
 
 it('holds the per-account limit over two orders', function () {
     makeDeal(['limit_per_order' => 5, 'limit_per_customer' => 3]);
-    addToCart($this->w->v1->id, 2);
+    dealAddToCart($this->w->v1->id, 2);
     placeDealOrder()->assertCreated();
 
-    addToCart($this->w->v1->id, 2);
+    dealAddToCart($this->w->v1->id, 2);
     $line = dealQuote()['lines'][0];
     expect($line['deal']['units_at_deal_price'])->toBe(1)->and($line['deal']['units_at_regular_price'])->toBe(1)->and($line['deal']['note'])->toBe('limit_per_customer');
     placeDealOrder()->assertCreated();
 
-    addToCart($this->w->v1->id, 1);
+    dealAddToCart($this->w->v1->id, 1);
     $third = dealQuote()['lines'][0]['deal'];
     expect($third['units_at_deal_price'])->toBe(0)->and($third['note'])->toBe('limit_per_customer');
     expect(DealProduct::first()->quantity_sold)->toBe(3);
@@ -114,13 +114,13 @@ it('holds the per-account limit over two orders', function () {
 
 it('does not count another customer in a per-account limit', function () {
     makeDeal(['limit_per_order' => 5, 'limit_per_customer' => 2]);
-    addToCart($this->w->v1->id, 2);
+    dealAddToCart($this->w->v1->id, 2);
     placeDealOrder()->assertCreated();
 
     $other = User::factory()->create();
     $other->addresses()->create(['recipient_name' => 'Sara', 'recipient_phone' => '+97455123457', 'zone_number' => '66', 'street_number' => '850', 'building_number' => '12', 'is_default' => true]);
     actingAsCustomer($other);
-    addToCart($this->w->v1->id, 2);
+    dealAddToCart($this->w->v1->id, 2);
 
     expect(dealQuote(['address_id' => $other->addresses()->first()->id])['lines'][0]['deal']['units_at_deal_price'])->toBe(2);
 });
@@ -131,11 +131,11 @@ it('gives the last unit to one order only: the second placement gets deal_change
     $second->addresses()->create(['recipient_name' => 'Sara', 'recipient_phone' => '+97455123457', 'zone_number' => '66', 'street_number' => '850', 'building_number' => '12', 'is_default' => true]);
 
     // Both customers see the same quote with the last unit at the deal price.
-    addToCart($this->w->v1->id, 1);
+    dealAddToCart($this->w->v1->id, 1);
     $firstQuote = dealQuote();
     $firstOptions = dealOptions();
     actingAsCustomer($second);
-    addToCart($this->w->v1->id, 1);
+    dealAddToCart($this->w->v1->id, 1);
     $opts = ['address_id' => $second->addresses()->first()->id, 'payment_method' => 'cod'];
     $secondQuote = dealQuote($opts);
     expect($firstQuote['lines'][0]['deal']['units_at_deal_price'])->toBe(1)->and($secondQuote['lines'][0]['deal']['units_at_deal_price'])->toBe(1);
@@ -159,7 +159,7 @@ it('gives the last unit to one order only: the second placement gets deal_change
 
 it('answers deal_changed, not a silent new price, when the deal ended while the customer was in checkout', function () {
     $deal = makeDeal();
-    addToCart($this->w->v1->id, 1);
+    dealAddToCart($this->w->v1->id, 1);
     $q = dealQuote();
     expect($q['totals']['deal_savings']['amount'])->toBe('300.00');
 
@@ -172,7 +172,7 @@ it('answers deal_changed, not a silent new price, when the deal ended while the 
 
 it('keeps saying quote_changed when something other than a deal changed', function () {
     makeDeal();
-    addToCart($this->w->v1->id, 1);
+    dealAddToCart($this->w->v1->id, 1);
     $q = dealQuote();
     app(Settings::class)->set('checkout.service_fee', '5.00'); // a change the deal has nothing to do with
 
@@ -181,8 +181,8 @@ it('keeps saying quote_changed when something other than a deal changed', functi
 
 it('releases the units when the order is cancelled, and a second cancel releases nothing more', function () {
     $deal = makeDeal(['limit_per_customer' => 2]);
-    addToCart($this->w->v1->id, 2);
-    $order = orderOf(placeDealOrder()->assertCreated());
+    dealAddToCart($this->w->v1->id, 2);
+    $order = dealOrderOf(placeDealOrder()->assertCreated());
     expect(DealProduct::first()->quantity_sold)->toBe(2);
 
     app(OrderService::class)->cancelOrder($order, null, 'customer_request', system: true);
@@ -193,15 +193,15 @@ it('releases the units when the order is cancelled, and a second cancel releases
         ->and(app(DealService::class)->release($order->id))->toBe(0)->and(DealProduct::first()->quantity_sold)->toBe(0);
 
     // The customer has their allowance back.
-    addToCart($this->w->v1->id, 2);
+    dealAddToCart($this->w->v1->id, 2);
     expect(dealQuote()['lines'][0]['deal']['units_at_deal_price'])->toBe(2);
 });
 
 it('releases the units of an unpaid online order that expired', function () {
     config(['platform.payments.sadad' => array_merge(config('platform.payments.sadad'), ['enabled' => true])]);
     makeDeal();
-    addToCart($this->w->v1->id, 2);
-    $order = orderOf(placeDealOrder(['payment_method' => 'sadad'])->assertCreated());
+    dealAddToCart($this->w->v1->id, 2);
+    $order = dealOrderOf(placeDealOrder(['payment_method' => 'sadad'])->assertCreated());
     expect(DealProduct::first()->quantity_sold)->toBe(2);
 
     $this->travel(2)->hours();
@@ -212,8 +212,8 @@ it('releases the units of an unpaid online order that expired', function () {
 
 it('releases everything on a full refund', function () {
     makeDeal();
-    addToCart($this->w->v1->id, 2);
-    $order = orderOf(placeDealOrder()->assertCreated());
+    dealAddToCart($this->w->v1->id, 2);
+    $order = dealOrderOf(placeDealOrder()->assertCreated());
 
     expect(app(DealService::class)->release($order->id, everything: true))->toBe(2)
         ->and(DealProduct::first()->quantity_sold)->toBe(0)->and(app(DealService::class)->release($order->id, everything: true))->toBe(0);
@@ -223,7 +223,7 @@ it('does not discount deal units twice: an automatic promotion only sees the uni
     makeDeal(['limit_per_order' => 1]);
     Promotion::create(['name_en' => '10 off', 'name_ar' => 'خصم', 'type' => 'percentage', 'value' => '10', 'scope' => 'order', 'requires_coupon' => false, 'is_active' => true,
         'priority' => 10, 'is_stackable' => false]);
-    addToCart($this->w->v1->id, 3);
+    dealAddToCart($this->w->v1->id, 3);
 
     $q = dealQuote();
 
@@ -234,7 +234,7 @@ it('does not discount deal units twice: an automatic promotion only sees the uni
 
     // A basket of deal units only gets no promotion at all.
     $this->deleteJson('/api/v1/cart/items/'.$this->getJson('/api/v1/cart')->json('data.items.0.id'));
-    addToCart($this->w->v1->id, 1);
+    dealAddToCart($this->w->v1->id, 1);
     $only = dealQuote();
     expect($only['totals']['discount']['amount'])->toBe('300.00')->and(collect($only['discounts'])->pluck('source')->all())->toBe(['deal']);
 });
@@ -243,7 +243,7 @@ it('still lets a free-delivery code waive delivery on a basket of nothing but de
     makeDeal(['limit_per_order' => 5]);
     $promo = Promotion::create(['name_en' => 'Free delivery', 'name_ar' => 'توصيل مجاني', 'type' => 'free_delivery', 'value' => 0, 'scope' => 'order', 'requires_coupon' => true, 'is_active' => true, 'priority' => 10]);
     Coupon::create(['promotion_id' => $promo->id, 'code' => 'FREESHIP', 'is_active' => true]);
-    addToCart($this->w->v1->id, 1);
+    dealAddToCart($this->w->v1->id, 1);
 
     $q = dealQuote(['coupon_code' => 'FREESHIP']);
 
@@ -275,8 +275,8 @@ it('refuses to let quantity_sold pass quantity_total at the database level', fun
 
 it('returns a deal unit when an item adjustment removes a deal unit', function () {
     $deal = makeDeal(['limit_per_order' => 2, 'limit_per_customer' => 2]);
-    addToCart($this->w->v1->id, 2);
-    $order = orderOf(placeDealOrder()->assertCreated());
+    dealAddToCart($this->w->v1->id, 2);
+    $order = dealOrderOf(placeDealOrder()->assertCreated());
     $item = $order->items->first();
     $manager = actingAsStaff(staffWithRole('order_manager', $this->w->a));
     $f = $order->fulfillments()->first();
@@ -293,8 +293,8 @@ it('returns a deal unit when an item adjustment removes a deal unit', function (
 
 it('gives every deal unit back when the whole line is taken off the order, and only the removed share when it shrinks', function () {
     makeDeal(['limit_per_order' => 4, 'limit_per_customer' => 4], [$this->w->p1->id => 10]);
-    addToCart($this->w->v1->id, 4);
-    $order = orderOf(placeDealOrder()->assertCreated());
+    dealAddToCart($this->w->v1->id, 4);
+    $order = dealOrderOf(placeDealOrder()->assertCreated());
     $item = $order->items->first();
     actingAsStaff(staffWithRole('order_manager', $this->w->a));
     $f = $order->fulfillments()->first();

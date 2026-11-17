@@ -16,7 +16,7 @@ beforeEach(function () {
     Cache::flush();
 });
 
-function footerWith(array $over): array
+function dealFooterWith(array $over): array
 {
     return array_replace(app(AppFooterService::class)->defaults(), $over);
 }
@@ -30,7 +30,7 @@ function dealsItems(bool $dealsOn = true): array
 it('publishes the middle button in the theme payload, and "none" by default', function () {
     expect($this->getJson('/api/v1/theme')->assertOk()->json('data.footer.center'))->toBe('none');
 
-    app(AppFooterService::class)->save(footerWith(['center' => 'deals', 'items' => dealsItems()]));
+    app(AppFooterService::class)->save(dealFooterWith(['center' => 'deals', 'items' => dealsItems()]));
     $f = $this->getJson('/api/v1/theme')->json('data.footer');
 
     expect($f['center'])->toBe('deals')->and(array_column($f['items'], 'key'))->toBe(['home', 'categories', 'deals', 'cart', 'account']);
@@ -39,19 +39,19 @@ it('publishes the middle button in the theme payload, and "none" by default', fu
 it('knows the Deals destination and its icons', function () {
     expect(AppFooterService::ITEMS)->toContain('deals')->and(AppFooterService::DEFAULT_ICONS['deals'])->toBe('flame')->and(AppFooterService::ICONS)->toContain('flame', 'bolt', 'timer', 'crown')
         ->and(AppFooterService::CENTERS)->toBe(['none', 'auctions', 'deals']);
-    $saved = app(AppFooterService::class)->save(footerWith(['items' => [['key' => 'home', 'enabled' => true, 'icon' => 'crown'], ['key' => 'deals', 'enabled' => true, 'icon' => 'bolt'], ['key' => 'cart', 'enabled' => true, 'icon' => 'timer']]]));
+    $saved = app(AppFooterService::class)->save(dealFooterWith(['items' => [['key' => 'home', 'enabled' => true, 'icon' => 'crown'], ['key' => 'deals', 'enabled' => true, 'icon' => 'bolt'], ['key' => 'cart', 'enabled' => true, 'icon' => 'timer']]]));
     expect(array_column($saved['items'], 'icon'))->toBe(['crown', 'bolt', 'timer']);
 });
 
 it('accepts a middle button only when its item is in the menu and switched on', function () {
     $svc = app(AppFooterService::class);
-    expect($svc->save(footerWith(['center' => 'deals', 'items' => dealsItems()]))['center'])->toBe('deals');
-    expect($svc->save(footerWith(['center' => 'auctions', 'items' => [['key' => 'home', 'enabled' => true], ['key' => 'auctions', 'enabled' => true], ['key' => 'cart', 'enabled' => true]]]))['center'])->toBe('auctions');
-    expect($svc->save(footerWith(['center' => 'none', 'items' => dealsItems(false)]))['center'])->toBe('none');
+    expect($svc->save(dealFooterWith(['center' => 'deals', 'items' => dealsItems()]))['center'])->toBe('deals');
+    expect($svc->save(dealFooterWith(['center' => 'auctions', 'items' => [['key' => 'home', 'enabled' => true], ['key' => 'auctions', 'enabled' => true], ['key' => 'cart', 'enabled' => true]]]))['center'])->toBe('auctions');
+    expect($svc->save(dealFooterWith(['center' => 'none', 'items' => dealsItems(false)]))['center'])->toBe('none');
 });
 
 it('refuses a bad middle button', function (array $over) {
-    expect(fn () => app(AppFooterService::class)->validate(footerWith($over)))->toThrow(ValidationException::class);
+    expect(fn () => app(AppFooterService::class)->validate(dealFooterWith($over)))->toThrow(ValidationException::class);
 })->with([
     'deals switched off' => [['center' => 'deals', 'items' => dealsItems(false)]],
     'deals not in the menu' => [['center' => 'deals']],
@@ -88,7 +88,7 @@ it('lets staff choose the middle button in the dashboard: it switches the item o
 });
 
 it('switches an item that was off back on when it becomes the middle button', function () {
-    app(AppFooterService::class)->save(footerWith(['items' => dealsItems(false)]));
+    app(AppFooterService::class)->save(dealFooterWith(['items' => dealsItems(false)]));
     $c = Livewire::actingAs(staffWithRole('marketing_manager'))->test(AppFooterIndex::class);
 
     $c->call('pickCenter', 'deals');
@@ -118,7 +118,7 @@ it('cannot be talked into a middle button whose item is off: the page puts it ba
     $c = Livewire::actingAs(staffWithRole('marketing_manager'))->test(AppFooterIndex::class);
     $c->set('form.center', 'deals')->assertSet('form.center', 'none')->call('save')->assertHasNoErrors();
     expect(app(AppFooterService::class)->config()['center'])->toBe('none');
-    expect(fn () => app(AppFooterService::class)->save(footerWith(['center' => 'deals'])))->toThrow(ValidationException::class);
+    expect(fn () => app(AppFooterService::class)->save(dealFooterWith(['center' => 'deals'])))->toThrow(ValidationException::class);
 });
 
 it('draws the raised round button in the preview, in the middle of the bar', function () {

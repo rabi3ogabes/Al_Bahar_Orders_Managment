@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Domain\Catalog\Models\Category;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Cms\Models\CmsPage;
+use App\Domain\Deals\Models\Deal;
 use App\Support\StorefrontSeo;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
@@ -48,6 +49,15 @@ class SitemapController extends Controller
                 $rows[] = $this->url($base.'/products/'.rawurlencode($slug), $p->updated_at, 'weekly', '0.7', $image ? $image->url() : null);
             }
         });
+        // Deals: the page that lists them (only while one is running, an empty page is thin) and every deal that is live right now.
+        $live = Deal::running()->with(['products' => fn ($q) => $q->select('id', 'deal_id', 'quantity_total', 'quantity_sold', 'product_id')->with('product:id,status')])->orderBy('ends_at')->get()
+            ->filter(fn (Deal $d) => $d->phase() === Deal::LIVE && $d->products->contains(fn ($p) => $p->product?->status === 'active'));
+        if ($live->isNotEmpty()) {
+            $rows[] = $this->url($base.'/deals', null, 'hourly', '0.6');
+        }
+        foreach ($live as $d) {
+            $rows[] = $this->url($base.'/deals/'.$d->id, $d->updated_at, 'hourly', '0.6');
+        }
         CmsPage::where('status', 'published')->orderBy('slug')->get(['slug', 'updated_at'])->each(function (CmsPage $p) use (&$rows, $base) {
             $rows[] = $this->url($base.'/pages/'.rawurlencode($p->slug), $p->updated_at, 'yearly', '0.3');
         });

@@ -167,6 +167,24 @@ normal price). `deal` is `null` when the product is in no live or scheduled deal
 the product, and `deal_price` is the price for the cheapest variant ("from"); variant rows inside the detail carry their own
 `deal_price`.
 
+### Cart payload (`GET /cart`, and every cart response)
+
+Each `items[]` line keeps its `product` card (which carries the product's `deal` block) and adds a line-level `deal`, with the same fields as the block plus the
+words of the cart ("Deal price on 2 of 3 · limit 2 per order"):
+
+```json
+{ "id": "uuid", "variant_id": "uuid", "quantity": 3,
+  "deal": { "deal_id": "uuid", "name": "...", "phase": "live", "deal_price": {Money}, "regular_price": {Money}, "percent": 30, "ends_at": "...",
+            "remaining": 12, "limit_per_order": 2, "limit_per_customer": 3, "customer_remaining": 3, "sold_out": false, "design": { ... },
+            "units_at_deal_price": 2, "units_at_regular_price": 1, "note": "limit_per_order" } }
+```
+
+* `items[].deal` is `null` when the line's variant gets no deal; otherwise `units_at_deal_price + units_at_regular_price = quantity`, and `note` is `null` when
+  every unit gets the deal price, else `"limit_per_order" | "limit_per_customer" | "sold_out"` (the reason the rest cost the normal price). Units are shared per
+  **product** (two variants of one product share its per-order limit), lines are filled in the order the cart lists them. A staff draft cart has no deals.
+* **`deal_savings`** (Money, `"0.00"` when none) at the top level of the cart: what the deal prices save in all. `subtotal` and `items[].line_total` stay at the
+  normal price; the quote (below) is the final word on what the customer pays.
+
 ### Quote and order payloads (additions)
 
 * `totals.deal_savings` (Money, "0.00" when none) and `discounts[]` entries with `source: "deal"`.
@@ -174,6 +192,22 @@ the product, and `deal_price` is the price for the cheapest variant ("from"); va
   where `note` is `null | "limit_per_order" | "limit_per_customer" | "sold_out" | "ended"`.
 * Error `409 deal_changed` on place order: `context` is `{deal_id, product_id, quote}`, the fresh quote sitting in `context.quote` exactly like `409 quote_changed` (see Decisions).
 * Placed order lines expose `deal` (snapshot): `{ deal_id, name, units, unit_savings }`.
+
+### Never cached, and the clock
+
+Both deal endpoints answer `Cache-Control: no-store, private, max-age=0` and `Vary: Authorization, Accept-Language`. `server_time` (and `seconds_left`,
+`seconds_to_start`, the units left) are read from the server clock at the moment of each request, never remembered, so a CDN or a browser holding an old copy
+can never make a countdown drift. Clients correct their clock from `server_time` of every response and count down to `ends_at`; they do not cache these
+responses either.
+
+### Search engines (web store)
+
+The server writes the storefront page head for `/deals` and `/deals/{id}` (`StorefrontSeo`, like products and pages): the title and description carry **both
+languages** (`Deals | العروض`, a deal's two names, its two taglines, or a description generated from its price rule, product count and end time), `canonical`,
+Open Graph tags and a `CollectionPage` with `@language`-tagged names and a breadcrumb. A **live, sold-out or scheduled** deal is indexable; an **ended or
+paused** deal still answers 200 (the page explains it) with `noindex,follow`; an unknown id answers 404. Deal pages are never remembered by the SEO cache, so
+`noindex` appears the moment a deal ends. `/sitemap.xml` lists `/deals` while at least one deal is live, and every live deal (`/deals/{id}`); it is refreshed
+at once when a deal changes.
 
 Error codes (translated in `lang/{en,ar}/errors.php`): `deal_changed`, `deal_not_found`, `deal_product_overlap`
 (admin), `deal_invalid_window` (admin), `deal_has_orders` (admin, a deal with orders cannot be deleted).

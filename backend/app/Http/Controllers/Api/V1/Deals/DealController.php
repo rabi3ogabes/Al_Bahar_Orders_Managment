@@ -24,7 +24,7 @@ class DealController extends ApiController
     {
         $f = $request->validate(['home' => 'nullable|boolean', 'limit_products' => 'nullable|integer|min:1|max:12', 'branch_id' => 'nullable|uuid']);
 
-        return response()->json(['data' => $this->presenter->index($request->user('sanctum'), $this->branch($f['branch_id'] ?? null), (bool) ($f['home'] ?? false), (int) ($f['limit_products'] ?? 8))]);
+        return $this->live($this->presenter->index($request->user('sanctum'), $this->branch($f['branch_id'] ?? null), (bool) ($f['home'] ?? false), (int) ($f['limit_products'] ?? 8)));
     }
 
     /** One deal with a page (24) of its products as catalog cards. 404 `deal_not_found` when it is ended or paused (a sold-out deal still answers). */
@@ -36,7 +36,18 @@ class DealController extends ApiController
             throw DomainException::make('deal_not_found', 404);
         }
 
-        return response()->json(['data' => $this->presenter->show($deal, $request->user('sanctum'), $this->branch($f['branch_id'] ?? null), (int) ($f['page'] ?? 1))]);
+        return $this->live($this->presenter->show($deal, $request->user('sanctum'), $this->branch($f['branch_id'] ?? null), (int) ($f['page'] ?? 1)));
+    }
+
+    /**
+     * Never cached anywhere: `server_time`, `seconds_left` and the units left are only true at the moment of the response, and a client's countdown clock is
+     * corrected from them, so a CDN or a browser serving an old copy would make every countdown drift. The answer also depends on who asks and in which language.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function live(array $data): JsonResponse
+    {
+        return response()->json(['data' => $data])->header('Cache-Control', 'no-store, private, max-age=0')->header('Vary', 'Authorization, Accept-Language');
     }
 
     private function branch(?string $id): ?Branch

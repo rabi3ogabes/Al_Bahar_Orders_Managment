@@ -25,9 +25,10 @@ class DealPresenter
 
     public function __construct(private readonly CatalogPresenter $catalog) {}
 
-    public function serverTime(): string
+    /** The server clock at this request, ISO-8601 with offset. Never remembered: every response reads the clock again. */
+    public function serverTime(?CarbonInterface $now = null): string
     {
-        return (string) BusinessTime::iso(now());
+        return (string) BusinessTime::iso($now ?? now());
     }
 
     /**
@@ -68,7 +69,7 @@ class DealPresenter
         $brand = DealDesign::brandPrimary();
         $present = fn (array $pair) => $this->deal($pair[0], $pair[1]->count(), array_values(array_filter(array_map(fn (string $id) => $cards[$id] ?? null, $shown[$pair[0]->id]))), $brand, $now);
 
-        return ['server_time' => $this->serverTime(), 'live' => array_map($present, $live), 'upcoming' => array_map($present, $upcoming)];
+        return ['server_time' => $this->serverTime($now), 'live' => array_map($present, $live), 'upcoming' => array_map($present, $upcoming)];
     }
 
     /**
@@ -83,10 +84,11 @@ class DealPresenter
             ->orderBy('sort_order')->orderBy('created_at')->orderBy('id')->paginate(self::PAGE_SIZE, ['*'], 'page', max(1, $page));
         $ids = $rows->getCollection()->pluck('product_id')->all();
         $cards = $this->cardsFor($ids, $user, $branch);
-        $out = $this->deal($deal, $rows->total(), array_values(array_filter(array_map(fn (string $id) => $cards[$id] ?? null, $ids))), DealDesign::brandPrimary(), now());
+        $now = now();
+        $out = $this->deal($deal, $rows->total(), array_values(array_filter(array_map(fn (string $id) => $cards[$id] ?? null, $ids))), DealDesign::brandPrimary(), $now);
         $out['products'] = ['data' => $out['products'], 'meta' => ['current_page' => $rows->currentPage(), 'per_page' => $rows->perPage(), 'total' => $rows->total(), 'last_page' => $rows->lastPage()]];
 
-        return ['server_time' => $this->serverTime()] + $out;
+        return ['server_time' => $this->serverTime($now)] + $out;
     }
 
     /**

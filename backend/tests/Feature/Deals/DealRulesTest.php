@@ -13,13 +13,13 @@ use Illuminate\Validation\ValidationException;
 
 require_once __DIR__.'/DealFixtures.php';
 
-function rule(string $type, string $value, ?string $rowPrice = null): array
+function dealRule(string $type, string $value, ?string $rowPrice = null): array
 {
     return [new Deal(['discount_type' => $type, 'discount_value' => $value]), new DealProduct(['deal_price' => $rowPrice])];
 }
 
 it('prices a percent deal half-up to two decimals and never above the normal price', function (string $percent, string $normal, string $expected) {
-    [$deal, $row] = rule('percent', $percent);
+    [$deal, $row] = dealRule('percent', $percent);
 
     expect(DealPricing::unitPrice($deal, $row, Money::of($normal))->toDecimal())->toBe($expected);
 })->with([
@@ -32,26 +32,26 @@ it('prices a percent deal half-up to two decimals and never above the normal pri
 ]);
 
 it('takes an amount off, never below 0.01, and gives no deal when nothing is saved', function () {
-    [$deal, $row] = rule('amount_off', '150');
+    [$deal, $row] = dealRule('amount_off', '150');
     expect(DealPricing::unitPrice($deal, $row, Money::of('1000.00'))->toDecimal())->toBe('850.00');
 
-    [$deal, $row] = rule('amount_off', '5');
+    [$deal, $row] = dealRule('amount_off', '5');
     expect(DealPricing::unitPrice($deal, $row, Money::of('3.00'))->toDecimal())->toBe('0.01');
     expect(DealPricing::unitPrice($deal, $row, Money::of('0.01')))->toBeNull(); // already the floor: nothing to give
 });
 
 it('uses the product price for a fixed-price deal, only for variants that cost more', function () {
-    [$deal, $row] = rule('fixed_price', '0', '640.00');
+    [$deal, $row] = dealRule('fixed_price', '0', '640.00');
 
     expect(DealPricing::unitPrice($deal, $row, Money::of('900.00'))->toDecimal())->toBe('640.00')
         ->and(DealPricing::unitPrice($deal, $row, Money::of('640.00')))->toBeNull()
         ->and(DealPricing::unitPrice($deal, $row, Money::of('600.00')))->toBeNull();
-    [$deal, $missing] = rule('fixed_price', '0');
+    [$deal, $missing] = dealRule('fixed_price', '0');
     expect(DealPricing::unitPrice($deal, $missing, Money::of('900.00')))->toBeNull(); // incomplete: it never discounts
 });
 
 it('lets a product price override the rule', function () {
-    [$deal, $row] = rule('percent', '10', '500.00');
+    [$deal, $row] = dealRule('percent', '10', '500.00');
 
     expect(DealPricing::unitPrice($deal, $row, Money::of('1000.00'))->toDecimal())->toBe('500.00');
 });
@@ -132,7 +132,7 @@ beforeEach(function () {
     $this->w = commerceWorld();
 });
 
-function saveFails(array $over, string $field): void
+function dealSaveFails(array $over, string $field): void
 {
     try {
         makeDeal($over);
@@ -143,25 +143,25 @@ function saveFails(array $over, string $field): void
 }
 
 it('checks the price rule values', function () {
-    saveFails(['discount_value' => '0'], 'discount_value');
-    saveFails(['discount_value' => '96'], 'discount_value');
-    saveFails(['discount_type' => 'amount_off', 'discount_value' => '0'], 'discount_value');
-    saveFails(['discount_type' => 'nonsense'], 'discount_type');
-    saveFails(['limit_per_order' => 0], 'limit_per_order');
-    saveFails(['limit_per_customer' => -2], 'limit_per_customer');
-    saveFails(['name_en' => ''], 'name_en');
-    saveFails(['products' => []], 'products');
+    dealSaveFails(['discount_value' => '0'], 'discount_value');
+    dealSaveFails(['discount_value' => '96'], 'discount_value');
+    dealSaveFails(['discount_type' => 'amount_off', 'discount_value' => '0'], 'discount_value');
+    dealSaveFails(['discount_type' => 'nonsense'], 'discount_type');
+    dealSaveFails(['limit_per_order' => 0], 'limit_per_order');
+    dealSaveFails(['limit_per_customer' => -2], 'limit_per_customer');
+    dealSaveFails(['name_en' => ''], 'name_en');
+    dealSaveFails(['products' => []], 'products');
     expect(makeDeal(['discount_value' => '95'])->discount_value)->toBe('95.00');
 });
 
 it('checks each product row', function () {
     $row = fn (array $x) => ['products' => [['product_id' => $this->w->p1->id] + $x]];
-    saveFails($row(['quantity_total' => 0]), 'products.0.quantity_total');
-    saveFails($row(['deal_price' => '0']), 'products.0.deal_price');
-    saveFails($row(['limit_per_order' => 0]), 'products.0.limit_per_order');
-    saveFails(['products' => [['product_id' => $this->w->p1->id], ['product_id' => $this->w->p1->id]]], 'products.0.product_id');
-    saveFails(['products' => [['product_id' => (string) Str::uuid()]]], 'products.0.product_id');
-    saveFails(['discount_type' => 'fixed_price', 'discount_value' => '0'], 'products.0.deal_price');
+    dealSaveFails($row(['quantity_total' => 0]), 'products.0.quantity_total');
+    dealSaveFails($row(['deal_price' => '0']), 'products.0.deal_price');
+    dealSaveFails($row(['limit_per_order' => 0]), 'products.0.limit_per_order');
+    dealSaveFails(['products' => [['product_id' => $this->w->p1->id], ['product_id' => $this->w->p1->id]]], 'products.0.product_id');
+    dealSaveFails(['products' => [['product_id' => (string) Str::uuid()]]], 'products.0.product_id');
+    dealSaveFails(['discount_type' => 'fixed_price', 'discount_value' => '0'], 'products.0.deal_price');
 });
 
 it('refuses a window that ends before it starts, and a switched-on deal that ends in the past', function () {
@@ -213,7 +213,7 @@ it('lets a deal be edited without clashing with itself', function () {
 
 it('never lets the quantity drop below what is sold, nor a product with orders leave the deal', function () {
     $deal = makeDeal();
-    addToCart($this->w->v1->id, 2);
+    dealAddToCart($this->w->v1->id, 2);
     placeDealOrder()->assertCreated();
 
     try {

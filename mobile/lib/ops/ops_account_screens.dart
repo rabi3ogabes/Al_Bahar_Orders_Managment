@@ -170,7 +170,7 @@ class _OpsPasswordScreenState extends ConsumerState<OpsPasswordScreen> {
                       ),
                       const Gap(AppSpace.xs),
                       Text(l10n.staffPwIntro, textAlign: TextAlign.center, style: context.text.bodyMedium),
-                      const Gap(AppSpace.lg),
+                      const Gap(AppSpace.md),
                       _PasswordField(
                         controller: _current,
                         focusNode: _currentFocus,
@@ -216,7 +216,7 @@ class _OpsPasswordScreenState extends ConsumerState<OpsPasswordScreen> {
                         onSubmitted: (_) => unawaited(_submit()),
                       ),
                       if (_banner != null) ...[const Gap(AppSpace.sm), _Notice(message: _banner!)],
-                      const Gap(AppSpace.lg),
+                      const Gap(AppSpace.md),
                       FilledButton(
                         onPressed: _canSubmit ? () => unawaited(_submit()) : null,
                         child: _busy ? const _ButtonSpinner() : Text(l10n.staffPwSubmit),
@@ -299,7 +299,7 @@ class OpsNoAccessScreen extends ConsumerWidget {
 
 /// The app's icon tile (the same look as the sign-in screen's) with a glyph that fits the screen.
 class OpsAccountEmblem extends StatelessWidget {
-  const OpsAccountEmblem({super.key, required this.role, required this.icon, this.size = 76});
+  const OpsAccountEmblem({super.key, required this.role, required this.icon, this.size = 64});
 
   final OpsRole role;
   final IconData icon;

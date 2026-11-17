@@ -138,7 +138,7 @@ it('deletes a deal nobody ordered from, and refuses one with orders', function (
 
     $sold = makeDeal(['name_en' => 'Sold'], [$this->w->p1->id => 5]);
     actingAsCustomer($this->w->customer);
-    addToCart($this->w->v1->id, 1);
+    dealAddToCart($this->w->v1->id, 1);
     placeDealOrder()->assertCreated();
     $c = Livewire::actingAs($this->admin)->test(DealIndex::class);
     $c->call('askDelete', $sold->id)->call('deleteDeal');
