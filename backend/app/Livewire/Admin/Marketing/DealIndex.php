@@ -360,7 +360,8 @@ class DealIndex extends Component
 
         return [
             'matches' => $matches, 'palettes' => $palettes, 'colors' => $colors, 'look' => $resolved, 'image_url' => $image,
-            'example' => $this->example($prices), 'warning' => DealDesign::contrastWarning($resolved + ['colors' => $resolved['colors'] ?? DealDesign::defaults()['colors']]),
+            // The warning follows what is typed, not the safe look the preview falls back to while a custom colour is unreadable.
+            'example' => $this->example($prices), 'warning' => DealDesign::contrastWarning(['palette' => in_array($this->design['palette'] ?? null, DealDesign::PALETTES, true) ? $this->design['palette'] : 'brand', 'colors' => $this->customColors()]),
             'dirty' => $this->fingerprint() !== $this->baseline,
         ];
     }

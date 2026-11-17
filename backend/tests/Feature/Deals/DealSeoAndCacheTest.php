@@ -101,6 +101,7 @@ it('lists /deals and the live deals in the sitemap, never a paused, ended or sch
 });
 
 it('never lets the deals API be cached, and reads the clock again on every request', function () {
+    $this->freezeTime();
     $deal = makeDeal();
 
     foreach (['/api/v1/deals', '/api/v1/deals/'.$deal->id] as $url) {

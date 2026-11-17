@@ -1737,7 +1737,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get staffPwRuleLength => '12 حرفًا على الأقل';
 
   @override
-  String get staffPwRuleCase => 'حرف كبير وحرف صغير (A وa)';
+  String get staffPwRuleCase => 'حرف كبير وحرف صغير بالإنجليزية';
 
   @override
   String get staffPwRuleNumber => 'رقم واحد على الأقل';

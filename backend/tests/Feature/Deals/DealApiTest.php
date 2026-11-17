@@ -19,6 +19,7 @@ function dealGuest(): void
 }
 
 it('lists live and upcoming deals with the server clock, each with its products and look', function () {
+    $this->freezeTime(); // a stored time has whole seconds: with a running clock the countdown could cross a second between the two lines
     $live = makeDeal(['name_en' => 'Weekend Furniture Drop', 'tagline_en' => 'Big pieces, small prices', 'limit_per_customer' => 3, 'ends_at' => now()->addHours(26)]);
     $later = makeDeal(['name_en' => 'Lamp week', 'name_ar' => 'أسبوع المصابيح', 'starts_at' => now()->addDays(2), 'ends_at' => now()->addDays(4)], [$this->w->p2->id => 20]);
 
