@@ -420,7 +420,7 @@ class MessageComposer extends Component
             return;
         }
         $batch = $this->svc()->visibleBatches(auth()->user())->whereKey((string) ($this->result['id'] ?? ''))->first();
-        if (! $batch) {
+        if (! $batch instanceof MessageBatch) {
             return;
         }
         $this->polls++;
