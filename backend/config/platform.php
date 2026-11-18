@@ -93,24 +93,25 @@ return [
         // shows them as placeholders and in its live preview, and the app carries the same words in its language files (app_en.arb / app_ar.arb,
         // keys onboardingTitle1..3 / onboardingBody1..3; tests/Feature/Commerce/IntroSlidesTest.php keeps the two copies equal). They are NOT
         // settings values: an empty field in the dashboard means "use these", and GET /api/v1/app-config then sends null for that text.
-        // Limits: a title up to 40 characters, a body up to 120 (App\Support\IntroSlides::TITLE_MAX / BODY_MAX).
+        // Limits: a title up to 40 characters, a body up to 120 (App\Support\IntroSlides::TITLE_MAX / BODY_MAX). Three titles carry a no-break
+        // space (U+00A0) so a line never ends on a lone word; text typed in the dashboard has its spaces folded.
         'intro_defaults' => [
             1 => [
-                'title' => ['en' => 'Hala! For homes across Qatar', 'ar' => 'حيّاكم الله! لكل بيت في ديرتنا قطر'],
+                'title' => ['en' => 'Hala! For homes across Qatar', 'ar' => "حيّاكم الله! لكل بيت في\u{00A0}ديرتنا قطر"],
                 'body' => [
                     'en' => 'Furniture, décor and everyday essentials, all in one place. Take your time and pick what suits your home.',
                     'ar' => 'أثاث وديكور وأغراض يومية لبيتكم، كلها في مكان واحد. اختاروا اللي يعجبكم، على راحتكم.',
                 ],
             ],
             2 => [
-                'title' => ['en' => 'From our branches to your door', 'ar' => 'من فروعنا إلى باب بيتكم'],
+                'title' => ['en' => "From our branches to\u{00A0}you", 'ar' => 'من فروعنا إلى باب بيتكم'],
                 'body' => [
-                    'en' => 'No trouble at all: pick a delivery time, or collect from the nearest branch. Stock and prices are always live.',
-                    'ar' => 'ما يحتاج تتعبون: اختاروا وقت التوصيل اللي يناسبكم، أو استلموا من أقرب فرع. المخزون والأسعار محدّثة أول بأول.',
+                    'en' => 'No trouble: pick a delivery time, or collect from the nearest branch. Stock and prices are live.',
+                    'ar' => 'ما يحتاج تتعبون: اختاروا وقت التوصيل، أو استلموا من أقرب فرع. المخزون والأسعار محدّثة أول بأول.',
                 ],
             ],
             3 => [
-                'title' => ['en' => 'Live auctions and majlis style', 'ar' => 'مزادات مباشرة وقطع تزيّن مجلسكم'],
+                'title' => ['en' => 'Live auctions and majlis style', 'ar' => "مزادات مباشرة وقطع تزيّن\u{00A0}مجلسكم"],
                 'body' => [
                     'en' => 'Bid live on special pieces, and browse collections styled for your majlis and the rest of your home.',
                     'ar' => 'تفضّلوا، زايدوا مباشرة على قطع مميزة، وشوفوا تشكيلات منسّقة للمجلس وباقي البيت.',
@@ -222,8 +223,6 @@ return [
     ],
 
     'notifications' => [
-        'abandoned_cart_after_minutes' => 120,
-        'abandoned_cart_max_messages' => 2,
         'abandoned_cart_min_interval_hours' => 24,
         'max_attempts' => 5,
     ],

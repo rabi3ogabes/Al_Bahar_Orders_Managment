@@ -66,7 +66,8 @@ void main() {
         h.read(appPreferencesProvider).publicConfig,
         _config()
           ..remove('returns_enabled')
-          ..['alternate_phone_enabled'] = true,
+          ..['alternate_phone_enabled'] = true
+          ..['intro'] = {'slides': <Object?>[]},
       );
     });
 

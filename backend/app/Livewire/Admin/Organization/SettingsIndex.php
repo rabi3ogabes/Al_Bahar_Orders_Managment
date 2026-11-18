@@ -107,8 +107,6 @@ class SettingsIndex extends Component
                 'auctions.bid_rate_limit_per_minute' => ['type' => 'int', 'rules' => $int(1, 600)],
             ],
             'notifications' => [
-                'notifications.abandoned_cart_after_minutes' => ['type' => 'int', 'rules' => $int(10, 10080), 'suffix' => 'min'],
-                'notifications.abandoned_cart_max_messages' => ['type' => 'int', 'rules' => $int(0, 10)],
                 'notifications.abandoned_cart_min_interval_hours' => ['type' => 'int', 'rules' => $int(1, 720), 'suffix' => 'hours'],
                 'notifications.max_attempts' => ['type' => 'int', 'rules' => $int(1, 20)],
                 'messaging.cooldown_hours' => ['type' => 'int', 'rules' => $int(0, 720), 'suffix' => 'hours'],

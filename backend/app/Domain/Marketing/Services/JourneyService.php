@@ -2,6 +2,9 @@
 
 namespace App\Domain\Marketing\Services;
 
+use App\Domain\Audit\Services\AuditLogger;
+use App\Domain\Checkout\Services\CartService;
+use App\Domain\Checkout\Support\AbandonedCarts;
 use App\Domain\Identity\Models\User;
 use App\Domain\Marketing\Models\Coupon;
 use App\Domain\Marketing\Models\Journey;
@@ -9,6 +12,8 @@ use App\Domain\Marketing\Models\JourneyDelivery;
 use App\Domain\Marketing\Models\JourneyRun;
 use App\Domain\Marketing\Models\JourneyStep;
 use App\Domain\Marketing\Models\JourneyTemplate;
+use App\Domain\Marketing\Models\Promotion;
+use App\Domain\Marketing\Support\ReminderText;
 use App\Domain\Messaging\Services\ContactHistory;
 use App\Domain\Messaging\Services\CustomerMessaging;
 use App\Domain\Notifications\Models\Notification;
@@ -19,9 +24,11 @@ use App\Domain\Notifications\Services\WhatsAppClient;
 use App\Domain\Orders\Models\Cart;
 use App\Domain\Orders\Models\Order;
 use App\Support\BusinessTime;
+use App\Support\Money;
 use App\Support\Phone;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
@@ -36,10 +43,17 @@ class JourneyService
 {
     public const CHANNELS = ['push', 'in_app', 'whatsapp'];
 
-    /** Messages are skipped, never sent late: abandoned-cart steps expire after this many hours, birthday steps after the hour count below. */
-    private const ABANDONED_GRACE_HOURS = 48;
-
+    /** Messages are skipped, never sent late: abandoned-cart steps expire after AbandonedCartReminders::GRACE_HOURS, birthday steps after the hour count below. */
     private const BIRTHDAY_GRACE_HOURS = 18;
+
+    /** Runs started, settled and handled per scheduler pass: the work of one minute stays bounded, the rest follows on the next passes. */
+    private const BATCH = 100;
+
+    /** A run being handled is leased for this long, so an overlapping pass skips it (and a pass that died gives it back). */
+    private const LEASE_MINUTES = 3;
+
+    /** A delivery still `queued` after this long belongs to a pass that died: it is closed as failed so it shows in the history. */
+    private const STUCK_MINUTES = 10;
 
     public function __construct(
         private readonly NotificationService $notify,
@@ -53,6 +67,7 @@ class JourneyService
     {
         $out = ['started' => 0, 'sent' => 0, 'converted' => 0, 'stopped' => 0];
         $this->ensureDefaults();
+        $this->closeStuckDeliveries();
         foreach (Journey::all() as $any) {
             $out['converted'] += $this->attributeLateOrders($any); // a paused journey still gets credit for earlier messages
         }
@@ -64,14 +79,31 @@ class JourneyService
                 [$c, $s] = $this->settleAbandonedRuns($journey);
                 $out['converted'] += $c;
                 $out['stopped'] += $s;
+                if (! app(AbandonedCartReminders::class)->allowed()) {
+                    continue; // the Cart reminder (or campaign messages) is switched off in the notification controls: nothing starts, nothing is sent
+                }
                 $out['started'] += $this->startAbandonedRuns($journey);
             } elseif ($journey->key === 'birthday') {
                 $out['started'] += $this->startBirthdayRuns($journey);
             }
             $out['sent'] += $this->dispatchDue($journey);
         }
+        if ($out['sent'] + $out['converted'] > 0) {
+            app(AbandonedCartReminders::class)->forgetResults(); // the results on the abandoned orders page are cached for a minute
+        }
 
         return $out;
+    }
+
+    /** Something about the steps of a journey changed: every active run looks at its steps again on the next pass instead of waiting for its old wake-up time. */
+    public function wake(Journey $journey): void
+    {
+        JourneyRun::where('journey_id', $journey->id)->where('status', 'active')->update(['next_at' => now()]);
+    }
+
+    private function closeStuckDeliveries(): void
+    {
+        JourneyDelivery::where('status', 'queued')->where('created_at', '<', now()->subMinutes(self::STUCK_MINUTES))->update(['status' => 'failed', 'reason' => 'interrupted']);
     }
 
     /* ───────────────────────── runs ───────────────────────── */
@@ -81,25 +113,46 @@ class JourneyService
         $first = (int) $journey->steps->min('delay_minutes');
         $n = 0;
         Cart::query()->where('status', 'active')->whereNotNull('user_id')->has('items')
-            ->where('last_activity_at', '<=', now()->subMinutes($first))->where('last_activity_at', '>=', now()->subDays(7))
+            ->where('last_activity_at', '<=', now()->subMinutes($first))->where('last_activity_at', '>=', now()->subDays(min(7, AbandonedCarts::maxAgeDays())))
             ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('journey_runs')->whereColumn('journey_runs.user_id', 'carts.user_id')
                 ->where('journey_runs.journey_id', $journey->id)->where('journey_runs.status', 'active'))
+            // A cart that already has a run for this very idle period is done with, unless the run was stopped because staff discarded the cart (an undo wakes it again below).
             ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('journey_runs')->whereColumn('journey_runs.cart_id', 'carts.id')
-                ->where('journey_runs.journey_id', $journey->id)->whereColumn('journey_runs.anchor_at', 'carts.last_activity_at'))
-            ->orderBy('last_activity_at')->limit(300)->get(['id', 'user_id', 'last_activity_at'])
-            ->each(function (Cart $cart) use ($journey, &$n) {
-                $run = JourneyRun::firstOrCreate(['journey_id' => $journey->id, 'user_id' => $cart->user_id, 'anchor_at' => $cart->last_activity_at], ['cart_id' => $cart->id]);
+                ->where('journey_runs.journey_id', $journey->id)->whereColumn('journey_runs.anchor_at', 'carts.last_activity_at')
+                ->whereRaw("(journey_runs.status <> 'stopped' or journey_runs.stop_reason is distinct from 'cart_discarded')"))
+            ->orderBy('last_activity_at')->limit(self::BATCH)->get(['id', 'user_id', 'last_activity_at'])
+            ->each(function (Cart $cart) use ($journey, $first, &$n) {
+                $keys = ['journey_id' => $journey->id, 'user_id' => $cart->user_id, 'anchor_at' => $cart->last_activity_at];
+                $run = JourneyRun::where($keys)->first();
+                if ($run && $run->status === 'stopped' && $run->stop_reason === 'cart_discarded') {
+                    $run->update(['status' => 'active', 'stop_reason' => null, 'finished_at' => null, 'next_at' => now()]); // the discard was undone
+                    $n++;
+
+                    return;
+                }
+                $run = JourneyRun::firstOrCreate($keys, ['cart_id' => $cart->id, 'next_at' => $cart->last_activity_at?->addMinutes($first)]);
                 $n += $run->wasRecentlyCreated ? 1 : 0;
             });
 
         return $n;
     }
 
-    /** Active abandoned-cart runs end when the customer orders (converted), empties the cart or comes back and leaves again. @return array{0: int, 1: int} */
+    /**
+     * Active abandoned-cart runs end when the customer orders (converted), empties the cart, comes back and leaves again, or staff discard the cart.
+     * One indexed query finds exactly the runs that have to end (not "all active runs"), so a long list of runs waiting for their next reminder is never read.
+     *
+     * @return array{0: int, 1: int}
+     */
     private function settleAbandonedRuns(Journey $journey): array
     {
         $converted = $stopped = 0;
-        JourneyRun::with('user')->where('journey_id', $journey->id)->where('status', 'active')->limit(500)->get()->each(function (JourneyRun $run) use (&$converted, &$stopped) {
+        $ids = DB::table('journey_runs as r')->leftJoin('carts as c', 'c.id', '=', 'r.cart_id')->where('r.journey_id', $journey->id)->where('r.status', 'active')
+            ->where(fn ($w) => $w->whereNull('c.id')->orWhere('c.status', '<>', 'active')->orWhereColumn('c.last_activity_at', '>', 'r.anchor_at')
+                ->orWhereNotExists(fn ($q) => $q->select(DB::raw(1))->from('cart_items as i')->whereColumn('i.cart_id', 'c.id'))
+                ->orWhereExists(fn ($q) => $q->select(DB::raw(1))->from('orders as o')->whereColumn('o.user_id', 'r.user_id')->whereColumn('o.placed_at', '>=', 'r.anchor_at')
+                    ->whereNotIn('o.status', ['cancelled', 'pending_payment'])))
+            ->orderBy('r.anchor_at')->limit(self::BATCH * 2)->pluck('r.id');
+        JourneyRun::with(['user', 'journey'])->whereIn('id', $ids)->get()->each(function (JourneyRun $run) use (&$converted, &$stopped) {
             $cart = $run->cart_id ? Cart::withCount('items')->find($run->cart_id) : null;
             $order = Order::where('user_id', $run->user_id)->where('placed_at', '>=', $run->anchor_at)->whereNotIn('status', ['cancelled', 'pending_payment'])->orderBy('placed_at')->first();
             if ($order || $cart?->status === 'converted') {
@@ -110,6 +163,9 @@ class JourneyService
                     $this->finish($run, 'stopped', 'ordered_on_their_own'); // they ordered before any message reached them: not our win
                     $stopped++;
                 }
+            } elseif ($cart && $cart->status !== 'active') {
+                $this->finish($run, 'stopped', $cart->status === 'abandoned' ? 'cart_discarded' : 'cart_closed');
+                $stopped++;
             } elseif (! $cart || $cart->items_count === 0) {
                 $this->finish($run, 'stopped', 'cart_empty');
                 $stopped++;
@@ -140,7 +196,7 @@ class JourneyService
                         $q->orWhere(fn ($w) => $w->whereRaw('EXTRACT(MONTH FROM date_of_birth) = ?', [$day->month])->whereRaw('EXTRACT(DAY FROM date_of_birth) = ?', [$day->day]));
                     }
                 })->limit(1000)->get(['id'])->each(function (User $u) use ($journey, $d, &$n) {
-                    $run = JourneyRun::firstOrCreate(['journey_id' => $journey->id, 'user_id' => $u->id, 'anchor_at' => $d->startOfDay()->utc()]);
+                    $run = JourneyRun::firstOrCreate(['journey_id' => $journey->id, 'user_id' => $u->id, 'anchor_at' => $d->startOfDay()->utc()], ['next_at' => now()]);
                     $n += $run->wasRecentlyCreated ? 1 : 0;
                 });
         }
@@ -190,46 +246,172 @@ class JourneyService
 
     /* ───────────────────────── dispatching ───────────────────────── */
 
+    /**
+     * Sends what is due. Only runs that are due (`next_at` has passed) are read, oldest first, so work per pass is bounded and a run waiting for its
+     * second reminder costs nothing until then. Each run is leased for a few minutes before it is handled (one UPDATE decides who owns it), so an
+     * overlapping pass skips it; the delivery rows (unique per run, step and channel) are the second guard against a double send.
+     */
     private function dispatchDue(Journey $journey): int
     {
         $sent = 0;
-        JourneyRun::with(['user', 'deliveries'])->where('journey_id', $journey->id)->where('status', 'active')->orderBy('anchor_at')->limit(300)->get()
-            ->each(function (JourneyRun $run) use ($journey, &$sent) {
-                $pending = 0;
-                foreach ($journey->steps as $step) {
-                    [$due, $expires] = $this->window($journey, $run, $step);
-                    if (now()->lt($due)) {
-                        $pending++;
-
-                        continue;
-                    }
-                    if (now()->gt($expires) || ! $step->template || ! $step->template->is_active) {
-                        continue; // too late to be useful (or nothing to send): skipped, never sent late
-                    }
-                    if ($this->inQuietHours($journey)) {
-                        $pending++;
-
-                        continue;
-                    }
-                    foreach (array_intersect(self::CHANNELS, $step->channels ?? []) as $channel) {
-                        if ($run->deliveries->contains(fn ($d) => $d->step_id === $step->id && $d->channel === $channel)) {
-                            continue;
-                        }
-                        if ($this->overDailyCap($journey, $run->user_id)) {
-                            $pending++;
-
-                            continue 2;
-                        }
-                        $d = $this->deliver($run, $step, $channel);
-                        $sent += $d?->status === 'sent' ? 1 : 0;
-                    }
-                }
-                if ($pending === 0) {
-                    $this->finish($run->fresh(), 'completed');
-                }
-            });
+        $ids = JourneyRun::where('journey_id', $journey->id)->where('status', 'active')->where('next_at', '<=', now())->orderBy('next_at')->limit(self::BATCH)->pluck('id');
+        foreach ($ids as $id) {
+            if (JourneyRun::where('id', $id)->where('status', 'active')->where('next_at', '<=', now())->update(['next_at' => now()->addMinutes(self::LEASE_MINUTES)]) !== 1) {
+                continue; // another pass has it
+            }
+            $run = JourneyRun::with(['user', 'deliveries'])->find($id);
+            if ($run && $run->user) {
+                $sent += $this->handleRun($journey, $run);
+            }
+        }
 
         return $sent;
+    }
+
+    /** One run: send each step that is due and worth sending, and work out when the run needs attention again. @return int messages (steps) sent */
+    private function handleRun(Journey $journey, JourneyRun $run): int
+    {
+        $abandoned = $journey->key === 'abandoned_cart';
+        $reminders = app(AbandonedCartReminders::class);
+        $quiet = AbandonedCartReminders::quietHours($journey);
+        $pending = 0;
+        $wake = null;
+        $sent = 0;
+        foreach ($journey->steps as $step) {
+            [$due, $expires] = $this->window($journey, $run, $step);
+            if (now()->lt($due)) {
+                $pending++;
+                $wake = $this->earlier($wake, $due);
+
+                continue;
+            }
+            $channels = array_values(array_filter(array_intersect(self::CHANNELS, $step->channels ?? []), fn (string $c) => ! $abandoned || $reminders->channelAllowed($c)));
+            $todo = array_values(array_filter($channels, fn (string $c) => ! $run->deliveries->contains(fn ($d) => $d->step_id === $step->id && $d->channel === $c)));
+            if (now()->gt($expires) || ! $step->template || ! $step->template->is_active || $todo === []) {
+                continue; // too late to be useful, nothing to send, or already handled: skipped, never sent late
+            }
+            if ($quiet->contains(now()->toImmutable())) {
+                $pending++; // held until the quiet period ends (and dropped then only if it has expired by that time)
+                $wake = $this->earlier($wake, $quiet->endAfter(now()->toImmutable()));
+
+                continue;
+            }
+            $view = null;
+            if ($abandoned) {
+                $gate = $this->cartGate($journey, $run, $reminders);
+                if ($gate['stop'] ?? null) {
+                    $this->finish($run, 'stopped', $gate['stop']);
+
+                    return $sent;
+                }
+                if ($gate['hold'] ?? null) {
+                    $pending++;
+                    $wake = $this->earlier($wake, $gate['hold']);
+
+                    continue;
+                }
+                if ($gate['skip'] ?? null) {
+                    foreach ($todo as $channel) {
+                        $this->recordSkip($run, $step, $channel, $gate['skip']);
+                    }
+
+                    continue;
+                }
+                $view = $gate['view'] ?? null;
+            }
+            if (! $abandoned && $this->overDailyCap($journey, $run->user_id)) {
+                $pending++;
+                $wake = $this->earlier($wake, now()->addMinutes(15)->toImmutable());
+
+                continue;
+            }
+            $delivered = [];
+            foreach ($todo as $channel) {
+                $d = $this->deliver($run, $step, $channel, $view);
+                $run->deliveries->push($d);
+                if ($d->status === 'sent') {
+                    $delivered[] = $channel;
+                }
+            }
+            if ($delivered !== []) {
+                $sent++;
+                if ($abandoned) {
+                    $this->countReminder($run, $step, $delivered);
+                }
+            }
+        }
+        if ($pending === 0) {
+            $this->finish($run->fresh() ?? $run, 'completed');
+        } else {
+            JourneyRun::where('id', $run->id)->where('status', 'active')->update(['next_at' => $wake ?? now()->addMinute()]);
+        }
+
+        return $sent;
+    }
+
+    private function earlier(?CarbonImmutable $a, CarbonImmutable $b): CarbonImmutable
+    {
+        return $a === null || $b->lt($a) ? $b : $a;
+    }
+
+    /**
+     * Is the cart still worth a reminder, right now? Read fresh from the database at the moment of sending.
+     *  - stop: the customer is not in that situation any more (ordered elsewhere, emptied it, shopping again, staff discarded it): the run ends;
+     *  - skip: this reminder is not sent (the limit per cart is reached, nothing in the cart can be bought);
+     *  - hold: wait (another reminder about this cart went out a moment ago, the customer is at the daily limit).
+     *
+     * @return array{stop?: string, skip?: string, hold?: CarbonImmutable, view?: array<string, mixed>}
+     */
+    private function cartGate(Journey $journey, JourneyRun $run, AbandonedCartReminders $reminders): array
+    {
+        $cart = $run->cart_id ? Cart::withCount('items')->find($run->cart_id) : null;
+        if (! $cart || $cart->status !== 'active') {
+            return ['stop' => $cart?->status === 'abandoned' ? 'cart_discarded' : 'cart_closed'];
+        }
+        if ($cart->items_count === 0) {
+            return ['stop' => 'cart_empty'];
+        }
+        if ($cart->last_activity_at && $cart->last_activity_at->gt($run->anchor_at)) {
+            return ['stop' => 'customer_returned'];
+        }
+        if ((int) $cart->abandoned_notifications >= $reminders->maxPerCart()) {
+            return ['skip' => 'cart_limit'];
+        }
+        $gap = $cart->abandoned_notified_at?->addMinutes(AbandonedCartReminders::MIN_GAP_MINUTES);
+        if ($gap && $gap->isFuture()) {
+            return ['hold' => $gap];
+        }
+        if ($this->overDailyCap($journey, $run->user_id)) {
+            return ['hold' => now()->addMinutes(15)->toImmutable()];
+        }
+        $cart->setRelation('user', $run->user);
+        $view = app(CartService::class)->present($cart);
+        if (collect($view['items'])->every(fn (array $line) => $line['issue'] !== null)) {
+            return ['skip' => 'out_of_stock'];
+        }
+
+        return ['view' => $view];
+    }
+
+    /** A reminder about this cart went out: the cart's counters (shared with the staff "Send reminder" button) move once, and it is audited. @param  list<string>  $channels */
+    private function countReminder(JourneyRun $run, JourneyStep $step, array $channels): void
+    {
+        if (! $run->cart_id) {
+            return;
+        }
+        DB::table('carts')->where('id', $run->cart_id)->update(['abandoned_notified_at' => now(), 'abandoned_notifications' => DB::raw('abandoned_notifications + 1')]);
+        $cart = Cart::find($run->cart_id);
+        app(AuditLogger::class)->log('cart.reminder_sent', $cart, [], ['channels' => $channels, 'reminders' => (int) $cart?->abandoned_notifications],
+            ['customer_id' => $run->user_id, 'source' => 'automatic', 'reminder' => $step->position, 'run' => $run->id], actor: null);
+    }
+
+    private function recordSkip(JourneyRun $run, JourneyStep $step, string $channel, string $reason): void
+    {
+        $d = JourneyDelivery::firstOrCreate(['run_id' => $run->id, 'step_id' => $step->id, 'channel' => $channel], ['user_id' => $run->user_id, 'locale' => $run->user?->preferredLocale(), 'status' => 'queued']);
+        if ($d->wasRecentlyCreated) {
+            $this->mark($d, 'skipped', $reason);
+        }
+        $run->deliveries->push($d);
     }
 
     /** @return array{0: CarbonImmutable, 1: CarbonImmutable} when the step becomes due and when it stops being worth sending (UTC) */
@@ -244,28 +426,24 @@ class JourneyService
         }
         $due = CarbonImmutable::instance($run->anchor_at)->addMinutes((int) $step->delay_minutes);
 
-        return [$due, $due->addHours(self::ABANDONED_GRACE_HOURS)];
+        return [$due, $due->addHours(AbandonedCartReminders::GRACE_HOURS)];
     }
 
-    private function inQuietHours(Journey $journey): bool
-    {
-        [$from, $to] = [$journey->setting('quiet_start'), $journey->setting('quiet_end')];
-        if (! $from || ! $to || $from === $to) {
-            return false;
-        }
-        $now = BusinessTime::now()->format('H:i');
-
-        return $from < $to ? ($now >= $from && $now < $to) : ($now >= $from || $now < $to);
-    }
-
+    /** Messages (steps, not channels) this customer was sent in the last 24 hours, against the journey's daily limit. */
     private function overDailyCap(Journey $journey, string $userId): bool
     {
         $cap = (int) $journey->setting('max_per_day', 3);
 
-        return $cap > 0 && JourneyDelivery::where('user_id', $userId)->where('status', 'sent')->where('sent_at', '>=', now()->subDay())->count() >= $cap;
+        return $cap > 0 && (int) JourneyDelivery::where('user_id', $userId)->where('status', 'sent')->where('sent_at', '>=', now()->subDay())
+            ->selectRaw('count(distinct (run_id::text || coalesce(step_id::text, id::text))) as messages')->value('messages') >= $cap;
     }
 
-    private function deliver(JourneyRun $run, JourneyStep $step, string $channel): JourneyDelivery
+    /**
+     * Sends one step on one channel. The delivery row is created first (unique per run, step and channel), so only the pass that created it sends.
+     *
+     * @param  array<string, mixed>|null  $cartView  the cart as the customer would see it now (abandoned-cart reminders)
+     */
+    private function deliver(JourneyRun $run, JourneyStep $step, string $channel, ?array $cartView = null): JourneyDelivery
     {
         $user = $run->user;
         $locale = $user->preferredLocale();
@@ -279,7 +457,7 @@ class JourneyService
                 return $this->mark($d, 'skipped', $skip);
             }
             $coupon = $this->couponFor($run, $step, $user);
-            $vars = $this->variables($run, $user, $step->template, $coupon);
+            $vars = $this->variables($run, $user, $step->template, $coupon, $cartView);
             $d->update(['coupon_code' => $coupon?->code]);
 
             return match ($channel) {
@@ -379,41 +557,64 @@ class JourneyService
 
     /* ───────────────────────── content ───────────────────────── */
 
-    /** @return array{0: string, 1: string} localized title + body with placeholders filled */
+    /** @return array{0: string, 1: string} localized title + body with placeholders filled (a recovery offer the text does not mention is added as one sentence) */
     public function text(JourneyTemplate $t, string $locale, array $vars): array
     {
         $ar = $locale === 'ar';
+        $body = ReminderText::fill($ar ? $t->body_ar : $t->body_en, $vars);
 
-        return [$this->fill($ar ? $t->title_ar : $t->title_en, $vars), $this->fill($ar ? $t->body_ar : $t->body_en, $vars)];
+        return [ReminderText::fill($ar ? $t->title_ar : $t->title_en, $vars), $this->withOffer($body, $t, $vars, $locale)];
     }
 
     public function whatsAppText(JourneyTemplate $t, string $locale, array $vars): string
     {
         $ar = $locale === 'ar';
         $own = $ar ? $t->whatsapp_ar : $t->whatsapp_en;
+        if ($own) {
+            return ReminderText::fill($own, $vars);
+        }
+        // No wording of its own: the title and message of the push, with the way back to the cart on a line of its own (WhatsApp has no "tap to open").
+        $text = ReminderText::fill(($ar ? $t->title_ar : $t->title_en)."\n".($ar ? $t->body_ar : $t->body_en), $vars);
+        $text = $this->withOffer($text, $t, $vars, $locale);
+        $link = (string) ($vars['link'] ?? '');
 
-        return $this->fill($own ?: (($ar ? $t->title_ar : $t->title_en)."\n".($ar ? $t->body_ar : $t->body_en)), $vars);
+        return $link !== '' && ! str_contains($text, $link) ? $text."\n".$link : $text;
     }
 
-    private function fill(string $s, array $vars): string
+    private function withOffer(string $text, JourneyTemplate $t, array $vars, string $locale): string
     {
-        return trim(preg_replace_callback('/\{\{\s*([a-z0-9_]+)\s*\}\}/i', fn ($m) => (string) ($vars[$m[1]] ?? ''), $s));
+        $ar = $locale === 'ar';
+
+        return ReminderText::withOffer($text, $ar ? $t->title_ar.' '.$t->body_ar.' '.$t->whatsapp_ar : $t->title_en.' '.$t->body_en.' '.$t->whatsapp_en, $vars, $locale);
     }
 
-    /** Placeholders available to every template. */
-    public function variables(?JourneyRun $run, User $user, JourneyTemplate $t, ?Coupon $coupon): array
+    /**
+     * Placeholders available to every template.
+     *
+     * @param  array<string, mixed>|null  $cartView  CartService::present() of the cart: the numbers count what can be bought right now
+     * @return array<string, string>
+     */
+    public function variables(?JourneyRun $run, User $user, JourneyTemplate $t, ?Coupon $coupon, ?array $cartView = null): array
     {
-        $ar = $user->preferredLocale() === 'ar';
+        $locale = $user->preferredLocale();
+        $ar = $locale === 'ar';
         $cart = $run?->cart_id ? Cart::with('items.variant.product')->find($run->cart_id) : null;
         $first = $cart?->items->first()?->variant?->product;
+        $lines = $cartView !== null ? collect($cartView['items'])->filter(fn (array $l) => $l['issue'] === null) : null;
+        $units = $lines !== null ? (int) $lines->sum('quantity') : (int) ($cart?->items->sum('quantity') ?? 0);
+        $offer = $coupon && $t->promotion_id ? Promotion::find($t->promotion_id) : null;
 
         return [
             'name' => Str::before(trim($user->name), ' '),
             'coupon' => $coupon?->code ?? '',
             'expires' => $coupon?->ends_at ? BusinessTime::local($coupon->ends_at)->locale($ar ? 'ar' : 'en')->isoFormat('D MMM, HH:mm') : '',
-            'items' => (string) ($cart?->items->sum('quantity') ?? ''),
+            'offer' => $offer ? (string) $offer->localized('name', $locale) : '',
+            'items' => $cart ? (string) $units : '',
+            'items_text' => $cart ? ReminderText::itemsText($units, $locale) : '',
+            'total' => $cartView !== null ? Money::of($cartView['subtotal']['amount'])->format($locale) : '',
             'first_item' => $first ? (string) $first->trans('name', $ar ? 'ar' : 'en') : '',
             'app_link' => rtrim((string) config('app.url'), '/'),
+            'link' => $cart ? rtrim((string) (config('platform.storefront_url') ?: config('app.url')), '/').'/cart' : '',
         ];
     }
 
@@ -452,7 +653,8 @@ class JourneyService
     /** Sends a template to one staff member on the chosen channels (consent bypassed: internal recipient, no coupon issued). @return array<string, string> channel => result */
     public function sendTest(JourneyTemplate $t, User $to, array $channels, string $locale): array
     {
-        $vars = ['name' => Str::before(trim($to->name), ' '), 'coupon' => 'TEST-0000', 'expires' => '', 'items' => '2', 'first_item' => $locale === 'ar' ? 'منتج تجريبي' : 'Sample product', 'app_link' => rtrim((string) config('app.url'), '/')];
+        $vars = ['name' => Str::before(trim($to->name), ' ')] + ReminderText::sample($locale, $t->promotion_id !== null);
+        $vars['coupon'] = $t->promotion_id !== null || in_array('coupon', ReminderText::used($t->body_en.' '.$t->body_ar.' '.$t->title_en.' '.$t->title_ar.' '.$t->whatsapp_en.' '.$t->whatsapp_ar), true) ? 'TEST-0000' : '';
         [$title, $body] = $this->text($t, $locale, $vars);
         $out = [];
         foreach (array_intersect(self::CHANNELS, $channels) as $ch) {
@@ -552,26 +754,21 @@ class JourneyService
     /** First visit: both journeys exist (switched off) with sensible steps and bilingual starter templates the admin can edit. */
     public function ensureDefaults(): void
     {
-        if (Journey::exists()) {
+        app(AbandonedCartReminders::class)->ensure(); // the abandoned-cart journey, with its own defaults (see AbandonedCartReminders)
+        if (Journey::where('key', 'birthday')->exists()) {
             return;
         }
-        DB::transaction(function () {
-            $t = fn (string $name, string $kind, array $en, array $ar, ?string $wa_en = null, ?string $wa_ar = null) => JourneyTemplate::create(['name' => $name, 'kind' => $kind,
-                'title_en' => $en[0], 'body_en' => $en[1], 'title_ar' => $ar[0], 'body_ar' => $ar[1], 'whatsapp_en' => $wa_en, 'whatsapp_ar' => $wa_ar, 'deep_link' => $kind === 'offer' ? 'albahar://cart' : 'albahar://cart']);
-            $remind = $t('Cart reminder', 'reminder', ['Your cart is waiting', 'Hi {{name}}, you left {{items}} item(s) in your cart. Complete your order before they sell out.'],
-                ['سلتك بانتظارك', 'مرحباً {{name}}، لديك {{items}} منتج في السلة. أكمل طلبك قبل نفاد الكمية.']);
-            $offer = $t('Cart offer', 'offer', ['A little something for you', 'Hi {{name}}, use code {{coupon}} on your cart before {{expires}}.'],
-                ['هدية صغيرة لك', 'مرحباً {{name}}، استخدم الرمز {{coupon}} على سلتك قبل {{expires}}.'],
-                "Hi {{name}} 👋\nYour cart at Al Bahar is still waiting. Use code {{coupon}} before {{expires}}.\n{{app_link}}", "مرحباً {{name}} 👋\nسلتك في البحار بانتظارك. استخدم الرمز {{coupon}} قبل {{expires}}.\n{{app_link}}");
-            $bday = $t('Birthday wish', 'offer', ['Happy birthday, {{name}}! 🎂', 'A gift from Al Bahar: use code {{coupon}} before {{expires}}.'],
-                ['كل عام وأنت بخير يا {{name}}! 🎂', 'هدية من البحار: استخدم الرمز {{coupon}} قبل {{expires}}.'],
-                "Happy birthday {{name}}! 🎂\nA gift from Al Bahar: use code {{coupon}} before {{expires}}.", "كل عام وأنت بخير {{name}}! 🎂\nهدية من البحار: استخدم الرمز {{coupon}} قبل {{expires}}.");
-            $cart = Journey::create(['key' => 'abandoned_cart', 'name' => 'Abandoned cart', 'is_enabled' => false, 'settings' => ['quiet_start' => '22:00', 'quiet_end' => '08:00', 'max_per_day' => 3]]);
-            foreach ([[30, ['push', 'in_app'], $remind, 'Reminder'], [240, ['push', 'whatsapp'], $offer, 'Offer'], [4320, ['push', 'whatsapp'], $offer, 'Last chance']] as $i => [$min, $ch, $tpl, $label]) {
-                JourneyStep::create(['journey_id' => $cart->id, 'position' => $i + 1, 'label' => $label, 'delay_minutes' => $min, 'channels' => $ch, 'template_id' => $tpl->id]);
-            }
-            $b = Journey::create(['key' => 'birthday', 'name' => 'Birthday', 'is_enabled' => false, 'settings' => ['quiet_start' => '21:00', 'quiet_end' => '08:00', 'max_per_day' => 3]]);
-            JourneyStep::create(['journey_id' => $b->id, 'position' => 1, 'label' => 'Birthday wish', 'offset_days' => 0, 'send_time' => '10:00', 'channels' => ['push', 'in_app', 'whatsapp'], 'template_id' => $bday->id]);
-        });
+        try {
+            DB::transaction(function () {
+                $bday = JourneyTemplate::create(['name' => 'Birthday wish', 'kind' => 'offer', 'deep_link' => 'albahar://cart',
+                    'title_en' => 'Happy birthday, {{name}}! 🎂', 'body_en' => 'A gift from Al Bahar: use code {{coupon}} before {{expires}}.',
+                    'title_ar' => 'كل عام وأنت بخير يا {{name}}! 🎂', 'body_ar' => 'هدية من البحار: استخدم الرمز {{coupon}} قبل {{expires}}.',
+                    'whatsapp_en' => "Happy birthday {{name}}! 🎂\nA gift from Al Bahar: use code {{coupon}} before {{expires}}.", 'whatsapp_ar' => "كل عام وأنت بخير {{name}}! 🎂\nهدية من البحار: استخدم الرمز {{coupon}} قبل {{expires}}."]);
+                $b = Journey::create(['key' => 'birthday', 'name' => 'Birthday', 'is_enabled' => false, 'settings' => ['quiet_start' => '21:00', 'quiet_end' => '08:00', 'max_per_day' => 3]]);
+                JourneyStep::create(['journey_id' => $b->id, 'position' => 1, 'label' => 'Birthday wish', 'offset_days' => 0, 'send_time' => '10:00', 'channels' => ['push', 'in_app', 'whatsapp'], 'template_id' => $bday->id]);
+            });
+        } catch (UniqueConstraintViolationException) {
+            // the scheduler and a page created it at the same moment
+        }
     }
 }

@@ -10,10 +10,8 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Marketing\Models\Coupon;
 use App\Domain\Marketing\Models\Journey;
 use App\Domain\Marketing\Models\JourneyDelivery;
-use App\Domain\Marketing\Models\JourneyRun;
-use App\Domain\Marketing\Models\JourneyStep;
 use App\Domain\Marketing\Models\Promotion;
-use App\Domain\Marketing\Services\CampaignService;
+use App\Domain\Marketing\Services\JourneyService;
 use App\Domain\Notifications\Models\Notification;
 use App\Domain\Orders\Models\Cart;
 use App\Domain\Orders\Models\CartItem;
@@ -113,7 +111,7 @@ describe('the list', function () {
             ->and($this->svc->stats($this->admin)['carts'])->toBe(1)->and($this->svc->badge($this->admin))->toBe(1);
     });
 
-    it('counts what is waiting, what it is worth and how many were reminded; no made-up recovery figure', function () {
+    it('counts what is waiting, what it is worth and how many were reminded; carts won back come only from reminder results', function () {
         abCart($this, ['qty' => 2, 'extra' => ['abandoned_notifications' => 1, 'abandoned_notified_at' => now()->subHour()]]);   // 2 x 1000.00
         abCart($this, ['customer' => User::factory()->create(), 'variant' => $this->w->v2->id, 'qty' => 3, 'extra' => ['coupon_code' => 'X']]); // 3 x 250.00
         abCart($this, ['customer' => User::factory()->create(), 'idle' => 3]);
@@ -121,8 +119,9 @@ describe('the list', function () {
         $s = $this->svc->stats($this->admin);
 
         expect($s)->toBe(['carts' => 2, 'value' => '2750.00', 'reminded' => 1, 'with_coupon' => 1]);
-        $page = Livewire::actingAs($this->admin)->test(AbandonedCartsIndex::class)->assertSee(__('abandoned_admin.kpi_carts'))->assertSee('QAR 2,750');
-        expect(strtolower($page->html()))->not->toContain('recovered');
+        $page = Livewire::actingAs($this->admin)->test(AbandonedCartsIndex::class)->assertSee(__('abandoned_admin.kpi_carts'))->assertSee('QAR 2,750')
+            ->assertSee(__('cart_reminders.res_recovered'));
+        expect($page->html())->toContain('data-result="recovered">0<');   // nothing was won back by a reminder: the figure is a real zero, not a guess from the carts
     });
 
     it('pages with a keyset cursor (25 per page, no OFFSET) and ignores a made-up cursor', function () {
@@ -444,11 +443,14 @@ describe('discard and undo', function () {
 
     it('stops the automatic reminders for a discarded cart', function () {
         $this->w->customer->forceFill(['marketing_consent_at' => now()])->save();
+        Journey::query()->delete();
+        app(JourneyService::class)->ensureDefaults();
+        Journey::where('key', 'abandoned_cart')->update(['is_enabled' => true]);
         $cart = abCart($this);
         $this->svc->discard($this->mgrA, $cart->id);
+        app(JourneyService::class)->tick();
 
-        expect(app(CampaignService::class)->remindAbandonedCarts())->toBe(0)
-            ->and(Notification::where('user_id', $this->w->customer->id)->count())->toBe(0);
+        expect(Notification::where('user_id', $this->w->customer->id)->count())->toBe(0)->and(JourneyDelivery::count())->toBe(0);
     });
 
     it('replaces an empty new cart on undo but never overwrites one with items', function () {
@@ -504,19 +506,16 @@ describe('reminders', function () {
             ->and(AuditLog::where('action', 'cart.reminder_sent')->where('auditable_id', $cart->id)->where('actor_id', $this->mgrA->id)->exists())->toBeTrue();
     });
 
-    it('counts the steps of the abandoned-cart journey as reminders too, and holds a staff reminder back after them', function () {
+    it('counts the automatic reminders on the same counters as the staff ones, and holds a staff reminder back after them', function () {
         $cart = abCart($this);
-        $journey = Journey::create(['key' => 'abandoned_cart', 'name' => 'Abandoned cart', 'is_enabled' => true]);
-        $step = JourneyStep::create(['journey_id' => $journey->id, 'position' => 1, 'delay_minutes' => 60, 'channels' => ['push', 'in_app']]);
-        $run = JourneyRun::create(['journey_id' => $journey->id, 'user_id' => $this->w->customer->id, 'cart_id' => $cart->id, 'anchor_at' => $cart->last_activity_at]);
-        foreach (['push', 'in_app'] as $channel) { // one step sent on two channels is one reminder
-            JourneyDelivery::create(['run_id' => $run->id, 'step_id' => $step->id, 'user_id' => $this->w->customer->id, 'channel' => $channel, 'status' => 'sent', 'sent_at' => now()->subHours(2)]);
-        }
+        app(JourneyService::class)->ensureDefaults();
+        Journey::where('key', 'abandoned_cart')->update(['is_enabled' => true]);
+        app(JourneyService::class)->tick(); // the first reminder: one step sent on push and the in-app inbox is ONE reminder
 
         $row = $this->svc->page($this->admin)['rows']->first();
         $summary = AbandonedCartService::reminderSummary($row);
 
-        expect($summary['sent'])->toBe(1)->and($summary['last']->lt(now()->subHour()))->toBeTrue()
+        expect($cart->fresh()->abandoned_notifications)->toBe(1)->and($summary['sent'])->toBe(1)->and($summary['last']->gt(now()->subMinute()))->toBeTrue()
             ->and($this->svc->stats($this->admin)['reminded'])->toBe(1)
             ->and($this->svc->present($this->admin, $cart->id)['reminders']['sent'])->toBe(1)
             ->and($this->svc->remind($this->admin, $cart->id)['status'])->toBe('too_soon');

@@ -109,9 +109,9 @@
                                                       :class="theme === 'dark' ? '{{ $dot === $n ? 'bg-[#E58AA5]' : 'bg-[#3A2E34]' }}' : '{{ $dot === $n ? 'bg-[#B3254F]' : 'bg-[#F0E4E8]' }}'"></span>
                                             @endforeach
                                         </div>
-                                        <p class="m-0 font-bold {{ $lang === 'ar' ? 'font-arabic' : 'font-display' }}" style="font-size: 7.78cqw; line-height: 1.15; overflow-wrap: anywhere"
+                                        <p class="m-0 font-bold {{ $lang === 'ar' ? 'font-arabic' : 'font-sans' }}" style="font-size: 7.78cqw; line-height: 1.15; letter-spacing: {{ $lang === 'ar' ? '0' : '-0.04cqw' }}; overflow-wrap: anywhere"
                                            :class="theme === 'dark' ? 'text-[#F1ECE3]' : 'text-[#2A1A20]'" x-text="show('{{ $tf }}', @js($tDefault))" data-intro-preview-title>{{ $tDefault }}</p>
-                                        <p class="m-0 font-sans" style="font-size: 4.44cqw; line-height: 1.5; margin-top: 2.2cqw; overflow-wrap: anywhere"
+                                        <p class="m-0 {{ $lang === 'ar' ? 'font-arabic' : 'font-sans' }}" style="font-size: 4.44cqw; line-height: 1.5; margin-top: 2.2cqw; overflow-wrap: anywhere"
                                            :class="theme === 'dark' ? 'text-[#A6B0BE]' : 'text-[#736369]'" x-text="show('{{ $bf }}', @js($bDefault))" data-intro-preview-body>{{ $bDefault }}</p>
                                     </div>
                                 </div>

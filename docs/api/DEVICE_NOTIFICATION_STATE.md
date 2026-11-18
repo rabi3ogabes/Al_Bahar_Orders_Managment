@@ -19,7 +19,7 @@ order, so a customer without orders got pushes accepted by FCM (`pushed 1 of 1 d
 * `user_devices.notification_permission` (nullable string, check in the allowed set) and `notification_permission_at` (timestamptz). Updated
   by the same upsert as the token. Old app versions never send it (null = unknown). Both the customer and the driver / staff device endpoints accept it.
 * Message delivery meta (`customer_messages.meta`) gets `silent`: how many of the phones reached have notifications off or not asked. `pushed`
-  keeps meaning "Google accepted it".
+  keeps meaning "Google accepted it". Also `rejected` (phones Google refused) with the first error word in `error`, and `push_skip` (`customer` = the customer switched push off, `not_set_up` = Firebase off) when `push_tried` is false, so the dashboard's result window and history can say what really happened instead of a bare "sent" (see [CUSTOMER_MESSAGES.md](../guides/CUSTOMER_MESSAGES.md)).
 
 ## Dashboard (Customers page, messages)
 * In the single-customer message window and the customer timeline: a "Phones" line per customer: "1 phone · notifications on", or

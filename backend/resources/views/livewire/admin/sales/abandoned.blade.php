@@ -8,6 +8,9 @@
 <div>
     <x-admin.page-header :title="__('abandoned_admin.title')" :eyebrow="__('nav.sales')" :description="__('abandoned_admin.hint')" />
 
+    {{-- The automatic reminders: one switch, one sentence, the results and the settings window --}}
+    @livewire(\App\Livewire\Admin\Sales\AbandonedAutoReminders::class, [], key('auto-reminders'))
+
     {{-- Numbers right now: a 2 x 2 grid on phones, one row on wide screens --}}
     <section aria-label="{{ __('abandoned_admin.kpi_label') }}" class="mb-6 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         @foreach ([

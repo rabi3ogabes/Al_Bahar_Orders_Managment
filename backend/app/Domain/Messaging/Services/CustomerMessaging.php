@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * Messages that staff send to customers by hand: one customer, several ticked ones, or everyone matching the customers list filters.
@@ -206,7 +207,9 @@ class CustomerMessaging
         });
 
         if (! $scheduleAt) {
-            $this->dispatchBatch($batch);
+            // One customer is delivered right now, in this request: the person who pressed Send sees what really happened (and a test to their own
+            // phone does not depend on the background worker). Several customers go through the queue, as before.
+            $this->dispatchBatch($batch, inline: $total === 1);
         }
 
         return $batch->fresh();
@@ -272,14 +275,26 @@ class CustomerMessaging
         return ['started' => $started, 'resumed' => $resumed];
     }
 
-    /** One job per customer, so a customer's channels share one coupon and WhatsApp can be paced. */
-    public function dispatchBatch(MessageBatch $batch): void
+    /**
+     * One job per customer, so a customer's channels share one coupon and WhatsApp can be paced. `inline` runs the job at once instead of
+     * queueing it (a single customer); if that fails for any reason the job is queued after all, so the message is never lost.
+     */
+    public function dispatchBatch(MessageBatch $batch, bool $inline = false): void
     {
         $perMinute = $this->limits()['whatsapp_per_minute'];
         $waIndex = 0;
         CustomerMessage::query()->where('batch_id', $batch->id)->where('status', 'queued')->groupBy('user_id')
-            ->selectRaw("user_id, bool_or(channel = 'whatsapp') as wa")->orderBy('user_id')->get()->each(function ($row) use ($batch, $perMinute, &$waIndex) {
+            ->selectRaw("user_id, bool_or(channel = 'whatsapp') as wa")->orderBy('user_id')->get()->each(function ($row) use ($batch, $perMinute, $inline, &$waIndex) {
                 $minutes = $row->getAttribute('wa') ? intdiv($waIndex++, $perMinute) : 0;
+                if ($inline && $minutes === 0) {
+                    try {
+                        SendCustomerMessageJob::dispatchSync($batch->id, (string) $row->user_id);
+
+                        return;
+                    } catch (Throwable $e) {
+                        report($e); // falls through to the queue: its retries take over
+                    }
+                }
                 $job = SendCustomerMessageJob::dispatch($batch->id, (string) $row->user_id);
                 if ($minutes > 0) {
                     $job->delay(now()->addMinutes($minutes));

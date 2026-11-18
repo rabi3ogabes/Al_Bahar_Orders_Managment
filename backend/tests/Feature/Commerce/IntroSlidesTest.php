@@ -324,7 +324,7 @@ it('ships defaults that fit the slide in both languages and are the same words t
         foreach (IntroSlides::PARTS as $part) {
             foreach (IntroSlides::LANGS as $lang) {
                 $text = IntroSlides::default($n, $part, $lang);
-                expect($text)->toBe(IntroSlides::clean($text), "{$n} {$part} {$lang} is plain text")
+                expect(str_replace("\u{00A0}", ' ', $text))->toBe(IntroSlides::clean($text), "{$n} {$part} {$lang} is plain text (a no-break space may keep the last two words together)")
                     ->and(IntroSlides::hasControlCharacters($text))->toBeFalse()
                     ->and(mb_strlen($text))->toBeGreaterThan(0)->toBeLessThanOrEqual(IntroSlides::max($part), "{$n} {$part} {$lang} fits its limit")
                     ->and($arb[$lang]['onboarding'.ucfirst($part).$n] ?? null)->toBe($text, "the app's {$lang} default of {$part} {$n} equals the dashboard's");

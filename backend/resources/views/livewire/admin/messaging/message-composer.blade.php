@@ -47,32 +47,85 @@
 
             @if ($step === 'sent')
                 {{-- ───────── Result ───────── --}}
-                <div class="flex flex-col items-center px-2 py-6 text-center" role="status" data-testid="result">
-                    <span class="grid size-16 place-items-center rounded-full {{ ($result['failed'] ?? 0) > 0 && ($result['reached'] ?? 0) === 0 ? 'bg-ruby-soft/10 text-ruby-soft' : 'bg-emerald-soft/10 text-emerald-soft dark:text-emerald-300' }}">
-                        <x-icon :name="($result['scheduled'] ?? false) ? 'clock' : 'check'" class="size-8" />
+                @php
+                    $one = $result['single'] ?? null;
+                    $oneState = $one['state'] ?? null;
+                    $first = \Illuminate\Support\Str::before(trim($singleName), ' ');
+                    $inboxOnly = in_array($oneState, ['silent', 'no_phone', 'rejected', 'customer_off', 'not_set_up'], true);
+                    $failedOnly = ($result['failed'] ?? 0) > 0 && ($result['reached'] ?? 0) === 0;
+                    $tone = $one ? ($oneState === 'failed' ? 'bad' : (in_array($oneState, ['skipped', 'cancelled'], true) || $inboxOnly ? 'warn' : ($oneState === 'waiting' ? 'wait' : 'good'))) : ($failedOnly ? 'bad' : (($result['pending'] ?? false) ? 'wait' : 'good'));
+                    $firstLine = fn (string $channel) => collect($one['lines'] ?? [])->firstWhere('channel', $channel);
+                @endphp
+                <div class="flex flex-col items-center px-2 py-6 text-center" role="status" data-testid="result" data-state="{{ $oneState ?? (($result['pending'] ?? false) ? 'waiting' : 'done') }}"
+                     @if (($result['pending'] ?? false) && ! ($result['slow'] ?? false)) wire:poll.2s.visible="refreshResult" @endif>
+                    <span class="grid size-16 place-items-center rounded-full {{ ['bad' => 'bg-ruby-soft/10 text-ruby-soft', 'warn' => 'bg-amber-soft/10 text-amber-soft', 'wait' => 'bg-sand-100 text-ink-500 dark:bg-ink-800', 'good' => 'bg-emerald-soft/10 text-emerald-soft dark:text-emerald-300'][$tone] }}">
+                        <x-icon :name="($result['scheduled'] ?? false) ? 'clock' : ($tone === 'bad' ? 'alert' : ($tone === 'warn' ? 'info' : ($tone === 'wait' ? 'refresh' : 'check')))" class="size-8 {{ $tone === 'wait' && ! ($result['slow'] ?? false) ? 'animate-spin motion-reduce:animate-none' : '' }}" />
                     </span>
-                    <h3 class="mt-5 font-display text-2xl font-semibold text-ink-900 dark:text-ivory">
-                        @if ($result['scheduled'] ?? false){{ __('messaging_composer.done_scheduled') }}@elseif ($result['pending'] ?? false){{ __('messaging_composer.done_sending') }}@else{{ __('messaging_composer.done_sent') }}@endif
-                    </h3>
-                    <p class="mt-2 max-w-md text-sm text-ink-600 dark:text-ink-300">
-                        @if ($result['scheduled'] ?? false)
-                            {{ __('messaging_composer.done_scheduled_for', ['time' => $result['at']]) }}
-                            {{ trans_choice('messaging_composer.done_checked_again', (int) $result['customers']) }}
-                        @elseif ($result['pending'] ?? false)
-                            {{ __('messaging_composer.done_pending_hint') }}
-                        @else
-                            {{ __('messaging_composer.done_hint') }}
+                    @if ($one)
+                        {{-- One customer: say in plain words what happened on the phone side, never just "sent". --}}
+                        <h3 class="mt-5 font-display text-2xl font-semibold text-ink-900 dark:text-ivory" data-testid="done-title">
+                            @if ($oneState === 'waiting' && ($result['slow'] ?? false)){{ __('messaging_composer.res_one.slow.title') }}@else{{ __('messaging_composer.res_one.'.$oneState.'.title', ['name' => $first]) }}@endif
+                        </h3>
+                        <p class="mt-2 max-w-md text-sm text-ink-600 dark:text-ink-300" data-testid="done-body">
+                            @php $line = $firstLine('notification') ?? ($one['lines'][0] ?? ['reason' => null, 'error' => null]); @endphp
+                            @if ($oneState === 'waiting' && ($result['slow'] ?? false)){{ __('messaging_composer.res_one.slow.body') }}
+                            @else{{ __('messaging_composer.res_one.'.$oneState.'.body', ['name' => $first, 'reason' => \App\Livewire\Admin\Messaging\MessageComposer::reasonText($line['reason'] ?? null), 'error' => $line['error'] ?? __('messaging_composer.res_one.unknown_error')])}}@endif
+                        </p>
+                        @if (count($one['lines']) > 1)
+                            <ul class="mt-5 w-full max-w-md space-y-2 text-start text-sm" data-testid="done-lines">
+                                @foreach ($one['lines'] as $l)
+                                    @php $ok = in_array($l['state'], ['shown', 'sent'], true); $bad = in_array($l['state'], ['failed'], true); @endphp
+                                    <li class="flex items-start gap-3 rounded-2xl border p-3 {{ $bad ? 'border-ruby-soft/30 bg-ruby-soft/10' : ($ok ? 'border-emerald-soft/25 bg-emerald-soft/10' : 'border-amber-soft/30 bg-amber-soft/10') }}">
+                                        <x-icon :name="$ok ? 'check' : 'alert'" class="mt-0.5 size-4 shrink-0 {{ $bad ? 'text-ruby-soft' : ($ok ? 'text-emerald-soft dark:text-emerald-300' : 'text-amber-soft') }}" />
+                                        <span class="min-w-0"><span class="font-semibold text-ink-900 dark:text-ivory">{{ __('messaging_admin.channel.'.$l['channel']) }}</span>
+                                            <span class="block text-ink-600 dark:text-sand-200">{{ __('messaging_composer.res_line.'.$l['state'], ['name' => $first, 'reason' => \App\Livewire\Admin\Messaging\MessageComposer::reasonText($l['reason']), 'error' => $l['error'] ?? __('messaging_composer.res_one.unknown_error')]) }}</span></span>
+                                    </li>
+                                @endforeach
+                            </ul>
                         @endif
-                    </p>
-                    <dl class="mt-6 grid w-full max-w-md grid-cols-3 gap-3 text-center [&>*]:min-w-0">
-                        <div class="card p-3"><dt class="text-xs text-ink-500">{{ ($result['scheduled'] ?? false) ? __('messaging_composer.res_customers') : __('messaging_composer.res_sent') }}</dt>
-                            <dd class="mt-1 font-display text-2xl font-semibold tabular-nums text-emerald-soft dark:text-emerald-300">{{ number_format(($result['scheduled'] ?? false) ? (int) $result['customers'] : (int) $result['reached']) }}</dd></div>
-                        <div class="card p-3"><dt class="text-xs text-ink-500">{{ __('messaging_composer.res_skipped') }}</dt>
-                            <dd class="mt-1 font-display text-2xl font-semibold tabular-nums text-amber-soft dark:text-amber-300">{{ number_format((int) $result['skipped']) }}</dd></div>
-                        <div class="card p-3"><dt class="text-xs text-ink-500">{{ __('messaging_composer.res_failed') }}</dt>
-                            <dd class="mt-1 font-display text-2xl font-semibold tabular-nums {{ (int) $result['failed'] > 0 ? 'text-ruby-soft' : 'text-ink-400' }}">{{ number_format((int) $result['failed']) }}</dd></div>
-                    </dl>
-                    @if (! empty($result['reasons']))
+                    @else
+                        <h3 class="mt-5 font-display text-2xl font-semibold text-ink-900 dark:text-ivory" data-testid="done-title">
+                            @if ($result['scheduled'] ?? false){{ __('messaging_composer.done_scheduled') }}@elseif ($result['slow'] ?? false){{ __('messaging_composer.res_one.slow.title') }}@elseif ($result['pending'] ?? false){{ __('messaging_composer.done_sending') }}@else{{ __('messaging_composer.done_sent') }}@endif
+                        </h3>
+                        <p class="mt-2 max-w-md text-sm text-ink-600 dark:text-ink-300" data-testid="done-body">
+                            @if ($result['scheduled'] ?? false)
+                                {{ __('messaging_composer.done_scheduled_for', ['time' => $result['at']]) }}
+                                {{ trans_choice('messaging_composer.done_checked_again', (int) $result['customers']) }}
+                            @elseif ($result['slow'] ?? false)
+                                {{ __('messaging_composer.res_one.slow.body') }}
+                            @elseif ($result['pending'] ?? false)
+                                {{ __('messaging_composer.done_pending_hint') }}
+                            @else
+                                {{ __('messaging_composer.done_hint') }}
+                            @endif
+                        </p>
+                        <dl class="mt-6 grid w-full max-w-md grid-cols-3 gap-3 text-center [&>*]:min-w-0">
+                            <div class="card p-3"><dt class="text-xs text-ink-500">{{ ($result['scheduled'] ?? false) ? __('messaging_composer.res_customers') : __('messaging_composer.res_sent') }}</dt>
+                                <dd class="mt-1 font-display text-2xl font-semibold tabular-nums text-emerald-soft dark:text-emerald-300" data-testid="res-sent">{{ number_format(($result['scheduled'] ?? false) ? (int) $result['customers'] : max(0, (int) $result['reached'] - (int) ($result['waiting'] ?? 0))) }}</dd></div>
+                            <div class="card p-3"><dt class="text-xs text-ink-500">{{ __('messaging_composer.res_skipped') }}</dt>
+                                <dd class="mt-1 font-display text-2xl font-semibold tabular-nums text-amber-soft dark:text-amber-300">{{ number_format((int) $result['skipped']) }}</dd></div>
+                            <div class="card p-3"><dt class="text-xs text-ink-500">{{ __('messaging_composer.res_failed') }}</dt>
+                                <dd class="mt-1 font-display text-2xl font-semibold tabular-nums {{ (int) $result['failed'] > 0 ? 'text-ruby-soft' : 'text-ink-400' }}">{{ number_format((int) $result['failed']) }}</dd></div>
+                        </dl>
+                        @if (($result['waiting'] ?? 0) > 0 && ! ($result['scheduled'] ?? false))
+                            <p class="mt-3 text-xs tabular-nums text-ink-500 dark:text-ink-400" data-testid="res-progress">{{ __('messaging_composer.res_progress', ['done' => number_format(max(0, (int) $result['reached'] - (int) $result['waiting']) + (int) $result['skipped'] + (int) $result['failed']), 'total' => number_format((int) $result['customers'])]) }}</p>
+                        @endif
+                        @if (! ($result['scheduled'] ?? false) && array_sum($result['phones'] ?? []) > 0)
+                            {{-- Several customers: where the notification went, so "sent" is never mistaken for "seen on a phone". --}}
+                            <div class="mt-5 w-full max-w-md rounded-2xl border border-sand-200/70 p-4 text-start dark:border-ink-700" data-testid="result-phones">
+                                <p class="text-xs font-semibold uppercase tracking-wider text-ink-500">{{ __('messaging_composer.res_phones') }}</p>
+                                <ul class="mt-2 space-y-1.5 text-sm">
+                                    @foreach ($result['phones'] as $key => $n)
+                                        @if ($n > 0)
+                                            <li class="flex items-start justify-between gap-3" data-testid="result-phones-{{ $key }}"><span class="text-ink-700 dark:text-sand-200">{{ __('messaging_composer.res_phone.'.$key) }}</span><span class="font-medium tabular-nums">{{ number_format($n) }}</span></li>
+                                        @endif
+                                    @endforeach
+                                </ul>
+                                <p class="mt-2 text-xs text-ink-500 dark:text-ink-400">{{ __('messaging_composer.res_phones_hint') }}</p>
+                            </div>
+                        @endif
+                    @endif
+                    @if (! $one && ! empty($result['reasons']))
                         <div class="mt-5 w-full max-w-md rounded-2xl border border-sand-200/70 p-4 text-start dark:border-ink-700">
                             <p class="text-xs font-semibold uppercase tracking-wider text-ink-500">{{ __('messaging_composer.res_why') }}</p>
                             <ul class="mt-2 space-y-1.5 text-sm">
@@ -150,6 +203,12 @@
                         @endunless
                         @if (in_array('notification', $channels, true) && ! $available['notification']['push'])
                             <p class="mt-2.5 flex items-start gap-2 text-xs text-ink-500 dark:text-ink-400"><x-icon name="info" class="mt-0.5 size-3.5 shrink-0" />{{ __('messaging_composer.push_off') }}</p>
+                        @elseif ($single && ($this->plan['pushOff'] ?? false) && in_array('notification', $channels, true))
+                            {{-- The customer switched push off for offers and news in the app: the message is saved in the inbox, but no push goes to the phone. --}}
+                            <div class="mt-2.5 flex items-start gap-2.5 rounded-xl border border-amber-soft/30 bg-amber-soft/10 p-3 text-sm text-ink-700 dark:text-sand-200" role="note" data-testid="push-off-warning">
+                                <x-icon name="alert" class="mt-0.5 size-4 shrink-0 text-amber-soft" />
+                                <p><span class="font-semibold text-ink-900 dark:text-ivory">{{ __('messaging_composer.push_off_title') }}.</span> {{ __('messaging_composer.push_off_note', ['name' => \Illuminate\Support\Str::before(trim($singleName), ' ')]) }}</p>
+                            </div>
                         @elseif ($single && $reach && in_array('notification', $channels, true) && \App\Domain\Notifications\Services\DevicePushReach::pushWillNotShow($reach))
                             @php $phoneState = \App\Domain\Notifications\Services\DevicePushReach::state($reach); @endphp
                             {{-- It still sends: the inbox message arrives. This only tells the team that a push will not show, and how to fix it. --}}
@@ -426,17 +485,27 @@
 
         <x-slot:footer>
             @if ($step === 'sent')
-                <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end" wire:key="footer-sent">
                     @if ($historyUrl)<a href="{{ $historyUrl }}" wire:navigate class="btn-secondary min-h-11" data-testid="see-history"><x-icon name="history" class="size-4" />{{ __('messaging_composer.see_history') }}</a>@endif
                     <button type="button" class="btn-primary min-h-11" @click="requestClose()" x-init="$nextTick(() => $el.focus({ preventScroll: true }))" data-testid="done"><x-icon name="check" class="size-4" />{{ __('messaging_composer.done') }}</button>
                 </div>
             @else
-                <p x-show="note || summary" x-cloak class="mb-2.5 flex items-start gap-2 text-xs text-ink-500 dark:text-ink-400" role="status" data-testid="footer-note"><x-icon name="info" class="mt-0.5 size-3.5 shrink-0" /><span x-text="note || summary"></span></p>
-                <div class="flex flex-wrap items-center gap-2">
-                    <button type="button" wire:click="requestSend" wire:loading.attr="disabled" wire:target="requestSend,send" :disabled="blocked"
+                {{-- Why Send cannot go out yet, always in view next to the button (a greyed-out button with a small grey hint read as "it did not send"). --}}
+                <div x-show="note && ($wire.templateId || attention)" x-cloak wire:key="footer-blocker" role="status" aria-live="polite" data-testid="blocker" :data-code="$wire.plan?.block?.code || ''"
+                     :class="attention && 'ring-2 ring-amber-soft/60'" class="mb-3 flex items-start gap-2.5 rounded-xl border border-amber-soft/30 bg-amber-soft/10 p-3 text-sm text-ink-800 transition dark:text-sand-100">
+                    <x-icon name="alert" class="mt-0.5 size-4 shrink-0 text-amber-soft" />
+                    <div class="min-w-0 flex-1">
+                        <p class="font-medium" x-text="note" data-testid="blocker-text"></p>
+                        <button type="button" x-show="canSendAnyway" x-cloak @click="$wire.sendAnyway()" wire:loading.attr="disabled" wire:target="sendAnyway,requestSend,send"
+                                class="btn-secondary mt-2 min-h-11" data-testid="send-anyway-now"><x-icon name="send" class="size-4 rtl-flip" />{{ __('messaging_composer.send_anyway') }}</button>
+                    </div>
+                </div>
+                <p x-show="! note && summary" x-cloak wire:key="footer-summary" class="mb-2.5 flex items-start gap-2 text-xs text-ink-500 dark:text-ink-400" role="status" data-testid="footer-note"><x-icon name="info" class="mt-0.5 size-3.5 shrink-0" /><span x-text="summary"></span></p>
+                <div class="flex flex-wrap items-center gap-2" wire:key="footer-buttons">
+                    <button type="button" @click="blocked ? showWhy() : $wire.requestSend()" wire:loading.attr="disabled" wire:target="requestSend,send,sendAnyway" :aria-disabled="blocked ? 'true' : 'false'" :class="blocked && 'opacity-60'"
                             class="btn-primary min-h-11 basis-full justify-center sm:order-3 sm:basis-auto sm:min-w-44" data-testid="send">
-                        <span wire:loading.remove wire:target="requestSend,send" class="inline-flex items-center gap-2"><x-icon :name="$scheduling ? 'clock' : 'send'" class="size-4 rtl-flip" /><span x-text="sendLabel"></span></span>
-                        <span wire:loading wire:target="requestSend,send" class="inline-flex items-center gap-2"><x-icon name="refresh" class="size-4 animate-spin" />{{ __('messaging_composer.sending') }}</span>
+                        <span wire:loading.remove wire:target="requestSend,send,sendAnyway" class="inline-flex items-center gap-2"><x-icon :name="$scheduling ? 'clock' : 'send'" class="size-4 rtl-flip" /><span x-text="sendLabel"></span></span>
+                        <span wire:loading wire:target="requestSend,send,sendAnyway" class="inline-flex items-center gap-2"><x-icon name="refresh" class="size-4 animate-spin" />{{ __('messaging_composer.sending') }}</span>
                     </button>
                     @if (! $scheduling)
                         <button type="button" wire:click="startSchedule" :disabled="! $wire.templateId" class="btn-secondary min-h-11 flex-1 sm:order-2 sm:flex-none" data-testid="schedule-btn"><x-icon name="clock" class="size-4" />{{ __('messaging_composer.schedule') }}</button>
@@ -551,12 +620,12 @@
             if (!this.push && !this.wa) out.push({ text: t.pick_channel });
             for (const l of ['en', 'ar']) {
                 const n = this.langName(l);
-                if (this.push && !(c['title_' + l] || '').trim()) out.push({ lang: l, text: t.need_title.replace(':lang', n) });
-                if ((this.push || this.wa) && !(c['body_' + l] || '').trim()) out.push({ lang: l, text: t.need_body.replace(':lang', n) });
+                if (this.push && !(c['title_' + l] || '').trim()) out.push({ lang: l, field: 'title_' + l, text: t.need_title.replace(':lang', n) });
+                if ((this.push || this.wa) && !(c['body_' + l] || '').trim()) out.push({ lang: l, field: 'body_' + l, text: t.need_body.replace(':lang', n) });
                 for (const f of ['title', 'body', 'whatsapp']) {
-                    if (this.over(f, l)) out.push({ lang: l, text: t['too_long_' + f].replace(':lang', n) });
+                    if (this.over(f, l)) out.push({ lang: l, field: f + '_' + l, text: t['too_long_' + f].replace(':lang', n) });
                     const bad = this.unknownList(c[f + '_' + l]);
-                    if (bad.length) out.push({ lang: l, text: t.unknown.replace(':list', bad.map((k) => '{' + '{' + k + '}' + '}').join(', ')) });
+                    if (bad.length) out.push({ lang: l, field: f + '_' + l, text: t.unknown.replace(':list', bad.map((k) => '{' + '{' + k + '}' + '}').join(', ')) });
                 }
             }
             if (this.couponIssue) out.push({ text: this.couponIssue });
@@ -574,16 +643,39 @@
             const p = this.$wire.plan;
             if (!p || !p.total) return '';
             if (p.overCap) return this.t.over_cap;
+            if (p.block && p.block.text) return p.block.text;
             if (!this.$wire.scheduling && p.reachable === 0) return this.t.nobody;
             return '';
         },
+        /** The one block a team member may skip for a single customer: the quiet time after a recent message (the server decides). */
+        get canSendAnyway() { const p = this.$wire.plan; return !!(p && p.block && p.block.override === true) && this.issues.length === 0; },
         get summary() {
             const p = this.$wire.plan;
             if (!p || !p.total || this.$wire.scheduling) return '';
             return p.total > 1 || p.reachable === 0 ? [this.t.sum_receive.replace(':count', p.reachable.toLocaleString('en')), p.skipped > 0 ? this.t.sum_skipped.replace(':count', p.skipped.toLocaleString('en')) : ''].filter(Boolean).join(' · ') : '';
         },
         get blocked() { return this.issues.length > 0 || this.planBlock !== ''; },
-        get note() { return this.issues[0]?.text || this.planBlock || ''; },
+        get note() {
+            const first = this.issues[0]?.text;
+            if (first) return this.issues.length > 1 ? first + ' ' + this.t.and_more.replace(':n', this.issues.length - 1) : first;
+            return this.planBlock || '';
+        },
+        attention: false,
+        /** Pressing Send while something is missing: says so loudly and takes the person to the first thing to fix (the right language tab and field). */
+        showWhy() {
+            this.attention = true;
+            setTimeout(() => { this.attention = false; }, 1800);
+            const i = this.issues[0];
+            if (i && i.field) {
+                this.lang = i.field.endsWith('_ar') ? 'ar' : 'en';
+                this.$nextTick(() => { const el = document.getElementById('mc-' + i.field); if (el) { this.reveal(el, 'start'); el.focus({ preventScroll: true }); } });
+            } else if (i) {
+                const target = !this.$wire.templateId ? 'mc-what' : (this.push || this.wa ? (i.anchor || 'mc-customise') : 'mc-how');
+                this.reveal(document.getElementById(target), 'start');
+            } else {
+                this.reveal(document.getElementById('mc-plan'), 'start');
+            }
+        },
         get sendLabel() {
             const p = this.$wire.plan, t = this.t, many = !!p && p.total > 1;
             if (this.$wire.scheduling) return many ? t.schedule_n.replace(':count', p.total.toLocaleString('en')) : t.schedule_one;

@@ -9,6 +9,7 @@ use App\Domain\Messaging\Data\AudienceSelection;
 use App\Domain\Messaging\Data\SendRequest;
 use App\Domain\Messaging\Models\CustomerMessage;
 use App\Domain\Messaging\Models\MessageBatch;
+use App\Domain\Messaging\Services\ContactHistory;
 use App\Domain\Messaging\Services\CustomerMessaging;
 use App\Domain\Messaging\Services\CustomerScope;
 use App\Domain\Messaging\Services\Eligibility;
@@ -124,6 +125,13 @@ class MessageComposer extends Component
     #[Locked]
     public string $error = '';
 
+    /** How many times the finished window has asked whether the delivery is done (it stops after POLL_LIMIT and says it is taking long). */
+    #[Locked]
+    public int $polls = 0;
+
+    /** The result window checks every 2 seconds, for about 90 seconds. */
+    private const POLL_LIMIT = 45;
+
     public function mount(): void
     {
         $this->guard();
@@ -169,6 +177,7 @@ class MessageComposer extends Component
         $this->scheduleAt = '';
         $this->step = 'compose';
         $this->result = [];
+        $this->polls = 0;
         $this->error = '';
         $this->confirming = false;
         $this->plan = [];
@@ -244,6 +253,20 @@ class MessageComposer extends Component
         $this->guard();
         $this->ignoreCooldown = $this->ignoreCooldown && $this->singleId !== null;
         $this->refreshPlan();
+    }
+
+    /**
+     * The button next to "messaged recently": for ONE customer, skips the quiet time and sends at once (the same as ticking "Send anyway" and then
+     * Send). Every other rule still applies; for several customers nothing changes (a bulk send always keeps the quiet time).
+     */
+    public function sendAnyway(): void
+    {
+        $this->guard();
+        if ($this->step !== 'compose' || $this->singleId === null) {
+            return;
+        }
+        $this->ignoreCooldown = true;
+        $this->requestSend();
     }
 
     /* ───────────────────────── when to send ───────────────────────── */
@@ -353,12 +376,46 @@ class MessageComposer extends Component
 
             return;
         }
+        $this->polls = 0;
         $this->result = $this->summarise($batch);
         $this->step = 'sent';
         $this->confirming = false;
         $this->scheduling = false;
-        $this->toast($this->result['scheduled'] ? __('messaging_composer.toast_scheduled') : __('messaging_composer.toast_sent'));
+        $this->toastResult();
         $this->dispatch('messages-sent', batch: (string) $batch->id, source: $this->source);
+    }
+
+    /** The toast agrees with the window: a send that only reached the inbox, was not sent or failed is never announced as plainly "sent". */
+    private function toastResult(): void
+    {
+        $state = $this->result['single']['state'] ?? null;
+        if ($this->result['scheduled']) {
+            $this->toast(__('messaging_composer.toast_scheduled'));
+        } elseif (in_array($state, ['silent', 'no_phone', 'rejected', 'customer_off', 'not_set_up', 'skipped', 'cancelled'], true)) {
+            $this->toast(__('messaging_composer.res_one.'.$state.'.title'), 'warning');
+        } elseif ($state === 'failed') {
+            $this->toast(__('messaging_composer.res_one.failed.title'), 'error');
+        } else {
+            $this->toast(__('messaging_composer.toast_sent'));
+        }
+    }
+
+    /**
+     * The finished window asks again every 2 seconds while the delivery is still going (it is done in a second or two, so the team sees what really
+     * happened: on the phone, in the inbox only, refused), and gives up after about 90 seconds with an honest "taking longer than usual".
+     */
+    public function refreshResult(): void
+    {
+        $this->guard();
+        if ($this->step !== 'sent' || ! ($this->result['pending'] ?? false)) {
+            return;
+        }
+        $batch = $this->svc()->visibleBatches(auth()->user())->whereKey((string) ($this->result['id'] ?? ''))->first();
+        if (! $batch) {
+            return;
+        }
+        $this->polls++;
+        $this->result = $this->summarise($batch, slow: $this->polls >= self::POLL_LIMIT);
     }
 
     /* ───────────────────────── plan ───────────────────────── */
@@ -369,11 +426,77 @@ class MessageComposer extends Component
         $this->guard();
         $channels = $this->planChannels();
         $plan = $this->svc()->plan(auth()->user(), new SendRequest($this->selection(), $channels, $this->kind, [], null, null, $this->ignoreCooldown && $this->singleId !== null));
+        $single = $this->singlePlan($channels);
         $this->plan = [
             'total' => $plan->total, 'max' => $plan->max, 'reachable' => $plan->reachable, 'skipped' => $channels === [] ? 0 : $plan->skipped(), 'overCap' => $plan->overCap(),
-            'channels' => $plan->channels, 'reasons' => $plan->reasons, 'examples' => $plan->examples, 'single' => $this->singlePlan($channels),
+            'channels' => $plan->channels, 'reasons' => $plan->reasons, 'examples' => $plan->examples, 'single' => $single,
             'phones' => $plan->overCap() ? null : $this->bulkPhones($channels),
+            'block' => $plan->overCap() || $channels === [] ? null : $this->blocker($plan->reachable, $plan->reasons, $single),
+            'pushOff' => $this->customerPushOff($channels),
         ];
+    }
+
+    /**
+     * Why Send cannot go out right now, in words the footer can show next to the button (null when it can). The reasons were always listed
+     * further down the window, which is where nobody looked: a greyed-out button with "Nobody can receive this right now" read as "it did not send".
+     * `override` is true for the one reason a team member may skip for a single customer: the quiet time after a recent message.
+     *
+     * @param  array<string, int>  $reasons  skipped customers by reason (several customers)
+     * @param  array<string, ?string>|null  $single  the answer per channel (one customer)
+     * @return array{code: string, text: string, override: bool}|null
+     */
+    private function blocker(int $reachable, array $reasons, ?array $single): ?array
+    {
+        if ($this->scheduling || $reachable > 0) {
+            return null;
+        }
+        $hours = $this->svc()->limits()['cooldown_hours'];
+        if ($single !== null) {
+            $code = (string) collect($single)->filter()->first();
+            if ($code === '') {
+                return null;
+            }
+            $name = Str::before(trim($this->singleName), ' ');
+            if ($code === 'recently_contacted') {
+                $last = $this->lastContact();
+                $text = $last
+                    ? __('messaging_composer.blocked_recent', ['name' => $name, 'ago' => $last->diffForHumans(), 'hours' => $hours])
+                    : __('messaging_composer.blocked_recent_unknown', ['name' => $name, 'hours' => $hours]);
+
+                return ['code' => $code, 'text' => $text, 'override' => true];
+            }
+
+            return ['code' => $code, 'text' => __('messaging_composer.blocked_one', ['name' => $name, 'reason' => Str::lcfirst(self::reasonText($code))]), 'override' => false];
+        }
+        $top = array_key_first($reasons);
+        if ($top === null) {
+            return ['code' => 'nobody', 'text' => __('messaging_composer.nobody'), 'override' => false];
+        }
+
+        return ['code' => (string) $top, 'text' => __('messaging_composer.blocked_many', ['reason' => Str::lcfirst(self::reasonText((string) $top)), 'count' => number_format((int) $reasons[$top])]), 'override' => false];
+    }
+
+    /** When the single customer was last messaged (by hand or by a journey), or null. */
+    private function lastContact(): ?CarbonImmutable
+    {
+        $at = User::query()->whereKey($this->singleId)->selectRaw(ContactHistory::LAST_CONTACT_SQL.' as last_contact')->value('last_contact');
+
+        return $at ? CarbonImmutable::parse((string) $at) : null;
+    }
+
+    /**
+     * One customer: did they switch push off for offers and news in the app? Then the message reaches the app inbox only, whatever their phone says.
+     *
+     * @param  list<string>  $channels
+     */
+    private function customerPushOff(array $channels): bool
+    {
+        if ($this->singleId === null || ! in_array('notification', $channels, true) || ! $this->svc()->channelsAvailable()['notification']['push']) {
+            return false;
+        }
+        $eligibility = app(Eligibility::class);
+
+        return ! $eligibility->allowed($eligibility->preferences([$this->singleId]), $this->singleId, 'push');
     }
 
     /**
@@ -625,15 +748,25 @@ class MessageComposer extends Component
 
     /* ───────────────────────── result ───────────────────────── */
 
-    /** @return array<string, mixed> */
-    private function summarise(MessageBatch $batch): array
+    /**
+     * What happened to a send, as the window shows it. Everything the window says comes from the saved rows, never from what the send "meant" to do:
+     * customers reached, not sent (with the reason), failed, and still waiting; for a notification also what the phone side did (`phones`: shown,
+     * silent, no_phone, rejected, customer_off, not_set_up). For ONE customer `single` has one line per channel and the headline state.
+     *
+     * @return array<string, mixed>
+     */
+    private function summarise(MessageBatch $batch, bool $slow = false): array
     {
-        $reached = $skipped = $failed = 0;
+        $reached = $skipped = $failed = $waiting = 0;
         $reasons = [];
-        CustomerMessage::query()->where('batch_id', $batch->id)->get(['user_id', 'status', 'reason'])->groupBy('user_id')->each(function ($rows) use (&$reached, &$skipped, &$failed, &$reasons) {
+        $phones = ['shown' => 0, 'silent' => 0, 'no_phone' => 0, 'rejected' => 0, 'customer_off' => 0, 'not_set_up' => 0];
+        $lines = [];
+        $all = CustomerMessage::query()->where('batch_id', $batch->id)->orderBy('channel')->get(['user_id', 'channel', 'status', 'reason', 'meta']);
+        $all->groupBy('user_id')->each(function ($rows) use (&$reached, &$skipped, &$failed, &$reasons, &$waiting) {
             $status = $rows->pluck('status');
             if ($status->contains(fn ($s) => in_array($s, ['queued', 'sent', 'delivered'], true))) {
                 $reached++;
+                $waiting += $status->contains('queued') ? 1 : 0;
             } elseif ($status->contains('failed')) {
                 $failed++;
             } else {
@@ -642,13 +775,56 @@ class MessageComposer extends Component
                 $reasons[$reason] = ($reasons[$reason] ?? 0) + 1;
             }
         });
+        foreach ($all as $row) {
+            $state = $this->lineState($row);
+            if ($row->channel === 'notification' && isset($phones[$state])) {
+                $phones[$state]++;
+            }
+            $lines[] = ['channel' => (string) $row->channel, 'state' => $state, 'reason' => $row->reason ? (string) $row->reason : null,
+                'error' => is_string($row->meta['error'] ?? null) ? $row->meta['error'] : null];
+        }
         $scheduled = $batch->status === 'scheduled' && $batch->scheduled_at !== null;
+        $pending = (int) $batch->queued_count > 0;
 
         return [
             'id' => (string) $batch->id, 'scheduled' => $scheduled, 'at' => $scheduled ? BusinessTime::display($batch->scheduled_at, 'D j M, H:i') : '',
-            'customers' => (int) $batch->recipients_count, 'reached' => $reached, 'skipped' => $skipped, 'failed' => $failed, 'reasons' => $reasons,
-            'pending' => (int) $batch->queued_count > 0,
+            'customers' => (int) $batch->recipients_count, 'reached' => $reached, 'waiting' => $waiting, 'skipped' => $skipped, 'failed' => $failed, 'reasons' => $reasons,
+            'pending' => $pending, 'slow' => $pending && $slow, 'phones' => $phones,
+            'single' => (int) $batch->recipients_count === 1 && ! $scheduled ? ['lines' => $lines, 'state' => $this->headline($lines)] : null,
         ];
+    }
+
+    /** One saved row as the word the window shows: waiting, the phone-side outcome of a notification, sent, skipped, failed or cancelled. */
+    private function lineState(CustomerMessage $row): string
+    {
+        return match ($row->status) {
+            'queued' => 'waiting',
+            'sent', 'delivered' => $row->channel === 'notification' ? (DevicePushReach::deliveryOutcome($row->meta) ?? 'sent') : 'sent',
+            default => (string) $row->status,
+        };
+    }
+
+    /**
+     * The one state that heads the window for a single customer: the worst thing first (still waiting, failed, not sent), then what the notification
+     * did on the phone side, then plain "sent".
+     *
+     * @param  list<array{channel: string, state: string, reason: ?string, error: ?string}>  $lines
+     */
+    private function headline(array $lines): string
+    {
+        $states = array_column($lines, 'state');
+        foreach (['waiting', 'failed'] as $state) {
+            if (in_array($state, $states, true)) {
+                return $state;
+            }
+        }
+        foreach ($lines as $line) {
+            if ($line['channel'] === 'notification') {
+                return $line['state'];
+            }
+        }
+
+        return $states[0] ?? 'sent';
     }
 
     /* ───────────────────────── helpers ───────────────────────── */

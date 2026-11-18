@@ -38,15 +38,13 @@ Artisan::command('auctions:tick', fn (LotService $l) => $this->info(json_encode(
     ->purpose('Open due lots, close ended lots (server time) and apply unpaid-winner policy');
 Schedule::command('auctions:tick')->everyFiveSeconds()->withoutOverlapping(1)->onOneServer();
 
-Artisan::command('marketing:abandoned-carts', fn (CampaignService $c) => $this->info('Reminded: '.$c->remindAbandonedCarts()))
-    ->purpose('Send consent-aware abandoned cart reminders within frequency limits');
 Artisan::command('marketing:send-scheduled', function (CampaignService $c) {
     $r = $c->sendDue();
     $this->info("Sent {$r['sent']}, missed {$r['missed']}");
 })->purpose('Send campaigns whose scheduled time has arrived (one that came due more than a day ago is marked missed, not sent)');
-Schedule::command('marketing:abandoned-carts')->everyFifteenMinutes()->onOneServer();
 Schedule::command('marketing:send-scheduled')->everyMinute()->withoutOverlapping()->onOneServer();
 
+// Customer journeys, including the automatic abandoned-cart reminders (Sales > Abandoned orders): one pass a minute, safe to overlap (runs are leased, deliveries are unique).
 Schedule::command('journeys:tick')->everyMinute()->withoutOverlapping(5)->onOneServer();
 
 Schedule::command('messaging:dispatch-due')->everyMinute()->withoutOverlapping(5)->onOneServer();

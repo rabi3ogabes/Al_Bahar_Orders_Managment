@@ -103,8 +103,8 @@ The card (Android promoted notification, iPhone Live Activity) follows the order
 
 ### Sent only when you send them (not switched here)
 
-- **Customer journeys** (Marketing → Customer journeys): each journey has its own on/off switch.
-- **Customer messages** (Customers → Send message, history under Marketing → Customer messages): you write and send them.
+- **Customer journeys** (Marketing → Customer journeys): each journey has its own on/off switch. The **abandoned-cart** journey (the automatic reminders on Sales › Abandoned orders) also obeys the controls above: nothing is sent while *Cart reminder* or *Campaign messages* is off, and a channel switched off for the Cart reminder is left out.
+- **Customer messages** (Customers → Send message, history under Marketing → Customer messages): you write and send them. These are never switched off here (a test proves it). If one did not arrive, see [CUSTOMER_MESSAGES.md](CUSTOMER_MESSAGES.md) › *A message did not arrive: what to check*.
 - Test sends from the Push page, the journey tester and the campaign **Test** button are admin tests.
 
 ## Inventory: everything the system sends to a person
@@ -134,7 +134,7 @@ All go through `NotificationService::notify` (the gate: `NotificationRules::enab
 | `auction.outbid` | Outbid | the outbid bidder | push, in-app | `auctionOutbid` |
 | `auction.won` / `auction.lost` | Auction won / lost | winner / the other bidders | won: push, in-app, SMS, email; lost: in-app | `auctionWon` |
 | `stock.back_in_stock` / `stock.price_drop` | Back in stock / Price drop | customers with an alert (marketing consent) | push, in-app | `backInStock`, `priceChanged` |
-| `cart.abandoned` | Cart reminder | customer with a cart left (marketing consent) | push, WhatsApp | `CampaignService::remindAbandonedCarts` (scheduler), staff "Remind" (`remindCart`, explicit channels) |
+| `cart.abandoned` | Cart reminder | customer with a cart left (marketing consent) | push, WhatsApp | the automatic reminders (`JourneyService`, `journeys:tick`; ships off, see [ABANDONED_CART_REMINDERS.md](ABANDONED_CART_REMINDERS.md); the master switch, the campaign master switch and each channel switch are respected), staff "Remind" (`remindCart`, explicit channels) |
 | `support.reply` | Support reply | customer | push, in-app, email | `SupportService::reply` |
 | `referral.rewarded` / `referral.friend_rewarded` | Referral reward | inviter / invited friend | push, in-app | `ReferralService::announce` |
 | `campaign` | Campaign messages | the campaign's audience (marketing consent) | the campaign's own channel list | `CampaignService::send` (also gated before it starts) |

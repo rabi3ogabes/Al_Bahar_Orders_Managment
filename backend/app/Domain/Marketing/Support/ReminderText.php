@@ -57,6 +57,21 @@ final class ReminderText
         ];
     }
 
+    /**
+     * A message that carries a coupon but never mentions it gets one plain sentence with the code, so the customer is always told.
+     *
+     * @param  string  $raw  every unfilled text of the template (title, message, WhatsApp wording): where {{coupon}} would have been written
+     * @param  array<string, mixed>  $vars
+     */
+    public static function withOffer(string $text, string $raw, array $vars, string $locale): string
+    {
+        if (($vars['coupon'] ?? '') === '' || in_array('coupon', self::used($raw), true)) {
+            return $text;
+        }
+
+        return trim($text.' '.self::fill(self::offerLine($locale), $vars));
+    }
+
     /** The sentence added when a reminder carries an offer but the text does not mention the code itself. */
     public static function offerLine(string $locale): string
     {

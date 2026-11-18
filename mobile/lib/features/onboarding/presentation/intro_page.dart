@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:albahar_customer/core/theme/tokens.dart';
@@ -25,6 +26,10 @@ double introPageDelta(PageController controller, int index) {
 
 /// An illustrated intro page. On a phone the picture sits above the words; on a wide window (tablet, landscape, web) they
 /// sit side by side. If the words ever need more room than the screen has (large text sizes), the page scrolls.
+///
+/// The picture and the words are placed from the top of the page, at an offset that does not depend on how long the words are
+/// (it is what centring a typical title and three lines would give). So when the words change (the dashboard's text arriving
+/// a moment after the page, or a language switch) only the words change: they cross-fade in place and nothing else moves.
 class IntroPage extends StatelessWidget {
   const IntroPage({super.key, required this.slide, required this.index, required this.controller});
 
@@ -34,6 +39,9 @@ class IntroPage extends StatelessWidget {
 
   /// Height kept for the title and text under the picture on a phone.
   static const double _textReserve = 190;
+
+  /// The height of a typical title and text block at the normal text size: what the page centres around (see above).
+  static const double _typicalWords = 150;
 
   @override
   Widget build(BuildContext context) {
@@ -55,30 +63,10 @@ class IntroPage extends StatelessWidget {
           controller: controller,
           index: index,
           child: LanguageTransition(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: wide ? CrossAxisAlignment.start : CrossAxisAlignment.center,
-              children: [
-                Semantics(
-                  header: true,
-                  child: Text(
-                    slide.title,
-                    textAlign: wide ? TextAlign.start : TextAlign.center,
-                    style: compact ? context.text.headlineMedium : context.text.displaySmall,
-                  ),
-                ),
-                const Gap(AppSpace.sm),
-                Text(
-                  slide.body,
-                  textAlign: wide ? TextAlign.start : TextAlign.center,
-                  style: (compact ? context.text.bodyMedium : context.text.bodyLarge)?.copyWith(
-                    color: context.palette.muted,
-                  ),
-                ),
-              ],
-            ),
+            child: _IntroWords(title: slide.title, body: slide.body, wide: wide, compact: compact),
           ),
         );
+        final typicalWords = MediaQuery.textScalerOf(context).scale(_typicalWords);
 
         if (wide) {
           final artWidth = math.min((c.maxWidth - 96) * 0.55, 520.0);
@@ -98,7 +86,13 @@ class IntroPage extends StatelessWidget {
                   const Gap(AppSpace.xxl),
                   Expanded(
                     flex: 9,
-                    child: Center(child: SingleChildScrollView(child: words)),
+                    child: Align(
+                      alignment: AlignmentDirectional.topStart,
+                      child: Padding(
+                        padding: EdgeInsets.only(top: math.max(0, (c.maxHeight - typicalWords) / 2)),
+                        child: SingleChildScrollView(child: words),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -108,16 +102,22 @@ class IntroPage extends StatelessWidget {
 
         final contentWidth = c.maxWidth >= 600 ? 600.0 : 480.0;
         final artWidth = math.min(c.maxWidth - 2 * AppSpace.lg, contentWidth);
-        // The picture takes most of the page, but always leaves room for a title and three lines of text.
+        // The picture takes most of the page, but always leaves room for a title and three lines of text. Larger text needs more
+        // than proportionally more room (the lines are taller and there are more of them), so the room for the words grows with the
+        // square of the text scale (the gap stays) and larger text makes the picture a little smaller instead of making the page scroll.
+        final scale = MediaQuery.textScalerOf(context).scale(1);
+        final reserve = AppSpace.lg + (_textReserve - AppSpace.lg) * scale * scale;
         final artHeight = math
-            .min(c.maxHeight * 0.62, math.min(c.maxHeight - _textReserve, artWidth * 1.04))
+            .min(c.maxHeight * 0.62, math.min(c.maxHeight - reserve, artWidth * 1.04))
             .clamp(150.0, 1000.0);
+        final top = math.max(0.0, (c.maxHeight - artHeight - AppSpace.lg - typicalWords) / 2);
         return SingleChildScrollView(
           child: ConstrainedBox(
             constraints: BoxConstraints(minHeight: c.maxHeight),
-            child: Center(
+            child: Align(
+              alignment: Alignment.topCenter,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
+                padding: EdgeInsets.fromLTRB(AppSpace.lg, top, AppSpace.lg, 0),
                 child: ContentWidth(
                   maxWidth: contentWidth,
                   child: Column(
@@ -134,6 +134,104 @@ class IntroPage extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// The title and text of one page. When they change while the page is showing (the dashboard's words arriving after the page
+/// opened) the old words fade out as the new ones fade in, in the same place. A language switch is not animated here: the page's
+/// [LanguageTransition] already fades that, so the old language is gone at once. With reduced motion every change is instant.
+class _IntroWords extends StatefulWidget {
+  const _IntroWords({required this.title, required this.body, required this.wide, required this.compact});
+
+  final String title;
+  final String body;
+  final bool wide;
+  final bool compact;
+
+  @override
+  State<_IntroWords> createState() => _IntroWordsState();
+}
+
+class _IntroWordsState extends State<_IntroWords> with SingleTickerProviderStateMixin {
+  late final AnimationController _fade = AnimationController(vsync: this, duration: AppDurations.slow, value: 1);
+  late final Animation<double> _in = CurvedAnimation(parent: _fade, curve: Curves.easeOutCubic);
+  late final Animation<double> _out = Tween<double>(begin: 1, end: 0).animate(_in);
+
+  /// The words that are fading out, while there are any.
+  ({String title, String body})? _previous;
+  Locale? _locale;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _locale = Localizations.localeOf(context);
+  }
+
+  @override
+  void didUpdateWidget(_IntroWords oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.title == widget.title && oldWidget.body == widget.body) return;
+    final locale = Localizations.localeOf(context);
+    final languageChanged = locale != _locale;
+    _locale = locale;
+    if (languageChanged || MediaQuery.disableAnimationsOf(context)) {
+      _previous = null;
+      _fade.value = 1;
+      return;
+    }
+    _previous = (title: oldWidget.title, body: oldWidget.body);
+    unawaited(
+      _fade.forward(from: 0).whenComplete(() {
+        if (mounted) setState(() => _previous = null);
+      }),
+    );
+  }
+
+  @override
+  void dispose() {
+    _fade.dispose();
+    super.dispose();
+  }
+
+  Widget _words(BuildContext context, String title, String body) {
+    final align = widget.wide ? TextAlign.start : TextAlign.center;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: widget.wide ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      children: [
+        Semantics(
+          header: true,
+          child: Text(
+            title,
+            textAlign: align,
+            style: widget.compact ? context.text.headlineMedium : context.text.displaySmall,
+          ),
+        ),
+        const Gap(AppSpace.sm),
+        Text(
+          body,
+          textAlign: align,
+          style: (widget.compact ? context.text.bodyMedium : context.text.bodyLarge)?.copyWith(
+            color: context.palette.muted,
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final previous = _previous;
+    return Stack(
+      alignment: widget.wide ? AlignmentDirectional.topStart : Alignment.topCenter,
+      children: [
+        if (previous != null)
+          ExcludeSemantics(
+            child: FadeTransition(opacity: _out, child: _words(context, previous.title, previous.body)),
+          ),
+        FadeTransition(opacity: _in, child: _words(context, widget.title, widget.body)),
+      ],
     );
   }
 }

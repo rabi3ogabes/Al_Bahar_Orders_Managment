@@ -113,7 +113,7 @@ rollback window are safely re-applied by `payments:reconcile-pending`.
 | `payments:reconcile-pending` | every 5 min | re-check pending payments via status API, flag missed callbacks |
 | `auctions:tick` | every 5 s | open/close lots on server time, settle winners, apply unpaid-winner policy |
 | `marketing:send-scheduled` | every minute | dispatch scheduled campaigns |
-| `marketing:abandoned-carts` | every 15 min | consented abandoned-cart reminders |
+| `journeys:tick` | every minute | customer journeys, including the automatic abandoned-cart reminders (Sales › Abandoned orders; ships off) |
 | `loyalty:expire-points` | daily 02:15 Qatar | expire loyalty points FIFO |
 
 ## First production install

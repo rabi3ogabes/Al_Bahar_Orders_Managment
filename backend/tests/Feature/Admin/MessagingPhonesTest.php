@@ -118,7 +118,8 @@ describe('the message window for one customer', function () {
     it('still sends: the inbox message arrives and the phone is pushed anyway', function () {
         $c = mpCustomer(['denied']);
 
-        mcOpen([$c->id])->assertSeeHtml('data-testid="phones-warning"')->call('requestSend')->assertSet('step', 'sent')->assertSee(__('messaging_composer.done_sent'));
+        mcOpen([$c->id])->assertSeeHtml('data-testid="phones-warning"')->call('requestSend')->assertSet('step', 'sent')
+            ->assertSee(__('messaging_composer.res_one.silent.title'))->assertSeeHtml('data-state="silent"'); // honest: the phone will not show a banner
 
         expect(Notification::where('user_id', $c->id)->where('event', 'staff.message')->count())->toBe(1)
             ->and(CustomerMessage::where('user_id', $c->id)->first())->status->toBe('sent')
@@ -251,7 +252,8 @@ describe('the customer\'s message list', function () {
         npSend($optedOut, $this->staff);
         npSend($noInbox, $this->staff);
 
-        Livewire::test(CustomerTimeline::class, ['customer' => $optedOut])->assertDontSeeHtml('data-testid="phones-note"');
+        // never "no phone" for someone who took push off: the note says what really happened
+        Livewire::test(CustomerTimeline::class, ['customer' => $optedOut])->assertDontSeeHtml('data-kind="no_phone"')->assertSeeHtml('data-kind="customer_off"')->assertSee(__('messaging_phones.note.customer_off'));
         Livewire::test(CustomerTimeline::class, ['customer' => $noInbox])->assertDontSeeHtml('data-testid="phones-note"')->assertSee(__('messaging_admin.reason.no_devices'));
     });
 

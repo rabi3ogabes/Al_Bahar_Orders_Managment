@@ -42,5 +42,11 @@ return [
         'no_phone' => 'No phone registered',
         'hint' => 'Google accepted the push, but a phone keeps it hidden until notifications are allowed. The inbox message still arrives.',
         'no_phone_hint' => 'There was no phone to push to. The message is in the customer\'s app inbox.',
+        'rejected' => 'Google refused the push',
+        'rejected_hint' => 'Google did not accept the push for any of the customer\'s phones (:error). The message is in the app inbox. The phone registers again when the customer opens the app.',
+        'customer_off' => 'Customer switched push off',
+        'customer_off_hint' => 'The customer turned off push for offers and news in the app, so no push was sent. The message is in the app inbox.',
+        'not_set_up' => 'Push is not set up',
+        'not_set_up_hint' => 'Push notifications were not switched on when this went out, so only the app inbox message was sent.',
     ],
 ];

@@ -14,6 +14,7 @@ use App\Domain\Checkout\Support\CartVisibility;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Identity\Support\BranchScope;
+use App\Domain\Marketing\Services\AbandonedCartReminders;
 use App\Domain\Marketing\Services\CampaignService;
 use App\Domain\Orders\Models\Cart;
 use App\Domain\Orders\Models\CartItem;
@@ -50,16 +51,12 @@ class AbandonedCartService
 
     public const PAGE_SIZE = 25;
 
-    /** Steps of the abandoned-cart journey already sent to the customer for this cart, and when the last one went out (SQL on `carts`; journey runs and deliveries are indexed by user). */
-    private const JOURNEY_SENT = "select count(distinct coalesce(jd.step_id::text, jd.id::text)) from journey_runs jr join journey_deliveries jd on jd.run_id = jr.id where jr.user_id = carts.user_id and jr.cart_id = carts.id and jd.status = 'sent'";
-
-    private const JOURNEY_LAST = "select max(jd.sent_at) from journey_runs jr join journey_deliveries jd on jd.run_id = jr.id where jr.user_id = carts.user_id and jr.cart_id = carts.id and jd.status = 'sent'";
-
     public function __construct(
         private readonly CartService $carts,
         private readonly QuoteService $quotes,
         private readonly StaffOrderService $staffOrders,
         private readonly CampaignService $campaigns,
+        private readonly AbandonedCartReminders $reminders,
         private readonly CatalogPresenter $presenter,
         private readonly PriceResolver $prices,
         private readonly AccessControl $access,
@@ -139,7 +136,6 @@ class AbandonedCartService
             ->with(['user:id,name,phone,locale,marketing_consent_at', 'branch:id,code,name_en,name_ar'])
             ->withSum('items as units', 'quantity')->withCount('items as lines')
             ->selectSub(DB::table('cart_items')->selectRaw('coalesce(sum(price_at_add * quantity), 0)')->whereColumn('cart_items.cart_id', 'carts.id'), 'value')
-            ->selectRaw('('.self::JOURNEY_SENT.') as journey_sent')->selectRaw('('.self::JOURNEY_LAST.') as journey_last')
             ->orderByDesc('carts.last_activity_at')->orderByDesc('carts.id');
         if ($cursor = $this->decodeCursor($after)) {
             $q->whereRaw('(carts.last_activity_at, carts.id) < (?, ?)', $cursor);
@@ -154,8 +150,8 @@ class AbandonedCartService
 
     /**
      * The numbers above the list: abandoned carts now (idle for the minimum or more), what they hold at the prices the customers saw, and how many
-     * were reminded already. A "recovered" figure is deliberately not offered: a customer's return resets the reminder bookkeeping on the cart, so
-     * carts alone cannot say which orders a reminder won.
+     * were reminded already (automatic or by staff: both move the cart's counters). The orders a reminder won are counted from the reminder runs, not from
+     * the carts (see AbandonedCartReminders::results): a customer's return resets the counters on the cart.
      *
      * @return array{carts: int, value: string, reminded: int, with_coupon: int}
      */
@@ -164,7 +160,7 @@ class AbandonedCartService
         // A join (not a sub-select per cart): the planner picks an index loop for a few carts and a hash join for many.
         $row = $this->filtered($staff, ['branch' => $branch])->toBase()->join('cart_items as i', 'i.cart_id', '=', 'carts.id')->selectRaw(
             'count(distinct carts.id) as carts, coalesce(sum(i.price_at_add * i.quantity), 0) as value, '
-            .'count(distinct carts.id) filter (where carts.abandoned_notifications > 0 or ('.self::JOURNEY_SENT.') > 0) as reminded, count(distinct carts.id) filter (where carts.coupon_code is not null) as with_coupon'
+            .'count(distinct carts.id) filter (where carts.abandoned_notifications > 0) as reminded, count(distinct carts.id) filter (where carts.coupon_code is not null) as with_coupon'
         )->first();
 
         return ['carts' => (int) ($row->carts ?? 0), 'value' => number_format((float) ($row->value ?? 0), 2, '.', ''), 'reminded' => (int) ($row->reminded ?? 0),
@@ -197,16 +193,14 @@ class AbandonedCartService
     }
 
     /**
-     * How many reminders the customer got about this cart and when the last one went out: the staff and automatic reminders (the counters on the
-     * cart) plus the steps of the abandoned-cart journey. Reads `journey_sent` / `journey_last` when the row came from page() (or present()).
+     * How many reminders the customer got about this cart in its current idle period and when the last one went out. Automatic reminders and the ones
+     * staff send both move the cart's own counters, and a customer's return resets them.
      *
      * @return array{sent: int, last: ?CarbonImmutable}
      */
     public static function reminderSummary(Cart $cart): array
     {
-        $last = collect([$cart->abandoned_notified_at, ($cart->getAttribute('journey_last') ? CarbonImmutable::parse($cart->getAttribute('journey_last')) : null)])->filter()->max();
-
-        return ['sent' => (int) $cart->abandoned_notifications + (int) $cart->getAttribute('journey_sent'), 'last' => $last];
+        return ['sent' => (int) $cart->abandoned_notifications, 'last' => $cart->abandoned_notified_at];
     }
 
     // ── One cart ─────────────────────────────────────────────────────────────
@@ -248,9 +242,6 @@ class AbandonedCartService
     {
         $cart = $this->find($staff, $cartId);
         $customer = User::withTrashed()->find($cart->user_id) ?? $this->fail('cart_unavailable', 404);
-        $journey = DB::selectOne('select ('.self::JOURNEY_SENT.') as sent, ('.self::JOURNEY_LAST.') as last from carts where carts.id = ?', [$cart->id]);
-        $cart->setAttribute('journey_sent', (int) ($journey->sent ?? 0));
-        $cart->setAttribute('journey_last', $journey->last ?? null);
         $view = $this->carts->present($cart);
         $branch = $cart->branch_id ? Branch::active()->find($cart->branch_id) : null;
         $stock = $this->presenter->stockMap($view['items']->pluck('variant_id')->all(), $branch?->id);
@@ -267,6 +258,7 @@ class AbandonedCartService
             'quote' => $this->quote($cart, $customer),
             'reminder' => $this->campaigns->reminderStatus($cart),
             'reminders' => self::reminderSummary($cart),
+            'history' => $this->reminders->history($cart),
             'stamp' => $this->stamp($cart),
             'idle_since' => $cart->last_activity_at,
             'max_quantity' => (int) config('platform.checkout.max_quantity_per_line'),
@@ -487,7 +479,7 @@ class AbandonedCartService
             $result = $this->campaigns->remindCart($cart);
             if ($result['status'] === 'sent') {
                 $this->audit->log('cart.reminder_sent', $cart, [], ['channels' => $result['channels'], 'reminders' => $cart->abandoned_notifications + 1],
-                    ['customer_id' => $cart->user_id], actor: $staff);
+                    ['customer_id' => $cart->user_id, 'source' => 'staff'], actor: $staff);
             }
 
             return $result;

@@ -370,21 +370,21 @@ describe('sending now', function () {
         $c = mcCustomer();
 
         $comp = mcOpen([$c->id], '')->call('choose', 'custom')->set('content', mcContent())->call('requestSend')
-            ->assertSet('step', 'sent')->assertSet('confirming', false)->assertDispatched('toast', type: 'success')->assertDispatched('messages-sent');
+            ->assertSet('step', 'sent')->assertSet('confirming', false)->assertDispatched('toast', type: 'warning')->assertDispatched('messages-sent');
         $batch = MessageBatch::firstOrFail();
         expect($batch)->kind->toBe('custom')->source->toBe('single')->sent_count->toBe(1)->template_name->toBe('Custom message')->created_by->toBe($this->staff->id);
         expect($comp->get('result'))->toMatchArray(['id' => $batch->id, 'scheduled' => false, 'customers' => 1, 'reached' => 1, 'skipped' => 0, 'failed' => 0])
             ->and(CustomerMessage::where('user_id', $c->id)->value('title'))->toBe('Hello Noor')
             ->and(Notification::where('user_id', $c->id)->value('title'))->toBe('Hello Noor');
-        $comp->assertSee(__('messaging_composer.done_sent'))->assertSeeHtml('data-testid="result"')->assertSeeHtml('data-testid="see-history"');
+        // this customer has no phone: the window says so in plain words instead of a bare "sent"
+        $comp->assertSee(__('messaging_composer.res_one.no_phone.title'))->assertSeeHtml('data-testid="result"')->assertSeeHtml('data-testid="see-history"');
     });
 
-    it('says the message is on its way while the queue still holds it', function () {
+    it('says the message is on its way while the queue still holds it (several customers)', function () {
         Queue::fake();
-        $c = mcCustomer();
 
-        $comp = mcOpen([$c->id])->call('requestSend')->assertSet('step', 'sent');
-        expect($comp->get('result'))->toMatchArray(['pending' => true, 'reached' => 1, 'scheduled' => false])->and(MessageBatch::firstOrFail()->status)->toBe('sending');
+        $comp = mcOpen([mcCustomer()->id, mcCustomer()->id])->call('requestSend')->call('send')->assertSet('step', 'sent');
+        expect($comp->get('result'))->toMatchArray(['pending' => true, 'reached' => 2, 'scheduled' => false])->and(MessageBatch::firstOrFail()->status)->toBe('sending');
         $comp->assertSee(__('messaging_composer.done_sending'))->assertSee(__('messaging_composer.done_pending_hint'));
     });
 
@@ -566,7 +566,7 @@ describe('arabic', function () {
         $comp = mcOpen([$c->id], '')->assertSee(__('messaging_composer.title'))->assertSee(__('messaging_composer.what'))->assertSee('نور العلي')->assertSee(__('messaging_composer.own'))
             ->call('choose', 'custom')->assertSee(__('messaging_composer.customise'))->assertSee(__('messaging_admin.placeholder.name'));
         expect(__('messaging_composer.title'))->toBe('إرسال رسالة')->and($comp->get('defaultLang'))->toBe('ar');
-        $comp->set('content', mcContent())->call('requestSend')->assertSet('step', 'sent')->assertSee(__('messaging_composer.done_sent'));
+        $comp->set('content', mcContent())->call('requestSend')->assertSet('step', 'sent')->assertSee(__('messaging_composer.res_one.no_phone.title'))->assertSee('حُفظت في صندوق التطبيق فقط');
         expect(Notification::where('user_id', $c->id)->value('title'))->toBe('مرحباً نور');
     });
 

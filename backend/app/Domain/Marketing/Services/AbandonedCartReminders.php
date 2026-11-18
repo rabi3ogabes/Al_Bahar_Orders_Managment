@@ -24,6 +24,7 @@ use App\Domain\Orders\Models\Cart;
 use App\Support\DomainException;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -59,6 +60,8 @@ class AbandonedCartReminders
     public const GRACE_HOURS = 12;
 
     public const DEFAULT_MAX_PER_CART = 2;
+
+    private const RESULTS_VERSION = 'cart-reminders:results:version';
 
     /** The three ready-made schedules (delays in minutes; `max` = most reminders per cart). */
     public const PRESETS = [
@@ -173,13 +176,19 @@ class AbandonedCartReminders
 
     // ── The settings ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-    /** The journey, created with the default settings (switched off) the first time it is needed. */
-    public function journey(): Journey
+    /** Makes sure the journey exists (switched off, with the default settings) and that an unused starter journey of the first version is brought up to date. */
+    public function ensure(): Journey
     {
         $journey = Journey::where('key', self::KEY)->first() ?? $this->seed();
         $this->upgradeUnusedStarter($journey);
 
-        return $journey->load(['steps.template']);
+        return $journey;
+    }
+
+    /** The journey with its steps and templates. */
+    public function journey(): Journey
+    {
+        return $this->ensure()->load(['steps.template']);
     }
 
     /**
@@ -198,8 +207,8 @@ class AbandonedCartReminders
             $t = $step?->template;
             $d = $defaults['reminders'][$i];
             $reminders[] = ['enabled' => $step ? (bool) $step->is_enabled : false, 'delay' => (int) ($step?->delay_minutes ?? $d['delay']),
-                'title_en' => (string) ($t->title_en ?? $d['title_en']), 'body_en' => (string) ($t->body_en ?? $d['body_en']),
-                'title_ar' => (string) ($t->title_ar ?? $d['title_ar']), 'body_ar' => (string) ($t->body_ar ?? $d['body_ar'])];
+                'title_en' => (string) ($t?->title_en ?? $d['title_en']), 'body_en' => (string) ($t?->body_en ?? $d['body_en']),
+                'title_ar' => (string) ($t?->title_ar ?? $d['title_ar']), 'body_ar' => (string) ($t?->body_ar ?? $d['body_ar'])];
         }
         $lead = $steps->first(fn (JourneyStep $s) => $s->is_enabled) ?? $steps->first();
         $on = array_map('strval', (array) ($lead?->channels ?? ['push', 'in_app']));
@@ -255,6 +264,27 @@ class AbandonedCartReminders
         }
 
         return $list;
+    }
+
+    /**
+     * The form with every value in its proper type (a select sends text, a checkbox may send "1"): what the window compares to know whether anything changed.
+     *
+     * @param  array<string, mixed>  $form
+     * @return array<string, mixed>
+     */
+    public static function canonical(array $form): array
+    {
+        $reminders = [];
+        foreach (array_values((array) ($form['reminders'] ?? [])) as $r) {
+            $reminders[] = ['enabled' => filter_var($r['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN), 'delay' => (int) ($r['delay'] ?? 0), 'title_en' => (string) ($r['title_en'] ?? ''),
+                'body_en' => (string) ($r['body_en'] ?? ''), 'title_ar' => (string) ($r['title_ar'] ?? ''), 'body_ar' => (string) ($r['body_ar'] ?? '')];
+        }
+        $ch = (array) ($form['channels'] ?? []);
+
+        return ['reminders' => $reminders, 'max_per_cart' => (int) ($form['max_per_cart'] ?? self::DEFAULT_MAX_PER_CART), 'quiet' => filter_var($form['quiet'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'quiet_start' => (string) ($form['quiet_start'] ?? ''), 'quiet_end' => (string) ($form['quiet_end'] ?? ''),
+            'channels' => ['push' => filter_var($ch['push'] ?? false, FILTER_VALIDATE_BOOLEAN), 'in_app' => filter_var($ch['in_app'] ?? false, FILTER_VALIDATE_BOOLEAN), 'whatsapp' => filter_var($ch['whatsapp'] ?? false, FILTER_VALIDATE_BOOLEAN)],
+            'offer' => ['promotion_id' => (string) ($form['offer']['promotion_id'] ?? ''), 'reminder' => (int) ($form['offer']['reminder'] ?? 2), 'valid_hours' => (int) ($form['offer']['valid_hours'] ?? 48)]];
     }
 
     /**
@@ -392,7 +422,7 @@ class AbandonedCartReminders
         if ($on->isEmpty()) {
             return (string) trans('cart_reminders.summary_none', [], $locale);
         }
-        $label = fn (int $m) => (string) trans(self::delayKey($m), ['n' => self::delayNumber($m)], $locale);
+        $label = fn (int $m) => self::delayLabel($m, $locale);
         $later = $on->slice(1)->map(fn (array $r) => $label((int) $r['delay']))->values()->all();
         $max = min((int) $form['max_per_cart'], 99);
 
@@ -425,17 +455,16 @@ class AbandonedCartReminders
     {
         $days = in_array($days, [7, 30], true) ? $days : 7;
         $scope = $this->access->scope($viewer, 'orders.view');
-        $key = 'cart-reminders:results:'.($scope->all ? 'all' : md5(implode(',', collect($scope->branchIds)->sort()->all()))).':'.$days;
+        $key = 'cart-reminders:results:'.(int) Cache::get(self::RESULTS_VERSION, 0).':'.($scope->all ? 'all' : md5(implode(',', collect($scope->branchIds)->sort()->all()))).':'.$days;
 
         /** @var array{sent: int, failed: int, recovered: int, revenue: string} */
         return Cache::remember($key, 60, fn () => $this->computeResults($scope, $days));
     }
 
+    /** The numbers are cached for a minute; anything that changes them (a reminder sent, an order won back, a new setting) starts them afresh for everybody. */
     public function forgetResults(): void
     {
-        foreach ([7, 30] as $days) {
-            Cache::forget('cart-reminders:results:all:'.$days);
-        }
+        Cache::increment(self::RESULTS_VERSION);
     }
 
     /** @return array{sent: int, failed: int, recovered: int, revenue: string} */
@@ -476,7 +505,7 @@ class AbandonedCartReminders
         if ($runIds !== []) {
             JourneyDelivery::query()->whereIn('run_id', $runIds)->with('step:id,position')->orderBy('created_at')->get()
                 ->groupBy(fn (JourneyDelivery $d) => $d->step_id ?? $d->id)->each(function ($rows) use (&$items) {
-                    /** @var \Illuminate\Support\Collection<int, JourneyDelivery> $rows */
+                    /** @var Collection<int, JourneyDelivery> $rows */
                     $sent = $rows->filter(fn (JourneyDelivery $d) => in_array($d->status, ['sent', 'delivered'], true));
                     $issues = $rows->reject(fn (JourneyDelivery $d) => in_array($d->status, ['sent', 'delivered'], true))
                         ->map(fn (JourneyDelivery $d) => ['channel' => $d->channel, 'failed' => $d->status === 'failed', 'reason' => self::reasonText($d->reason)])->values()->all();
@@ -607,10 +636,9 @@ class AbandonedCartReminders
                 'deep_link' => $template->deep_link ?: 'albahar://cart', 'is_active' => true, 'promotion_id' => $withOffer ? $form['offer']['promotion_id'] : null,
                 'coupon_valid_hours' => $withOffer ? (int) $form['offer']['valid_hours'] : (int) ($template->coupon_valid_hours ?: 72), 'coupon_prefix' => $template->coupon_prefix ?: 'BAHAR'])->save();
             $step ??= new JourneyStep(['journey_id' => $journey->id]);
-            $step->fill(['position' => $i + 1, 'label' => $step->label ?: __('cart_reminders.step_label', ['n' => $i + 1], 'en'), 'delay_minutes' => (int) $r['delay'], 'offset_days' => null, 'send_time' => null,
+            $step->fill(['position' => $i + 1, 'label' => $seeding || ! $step->label ? __('cart_reminders.step_label', ['n' => $i + 1], 'en') : $step->label, 'delay_minutes' => (int) $r['delay'], 'offset_days' => null, 'send_time' => null,
                 'channels' => $channels, 'template_id' => $template->id, 'is_enabled' => (bool) $r['enabled']])->save();
         }
-        $journey->steps()->where('position', '>', self::SLOTS)->get()->each(fn (JourneyStep $s, int $n) => $s->update(['position' => max(self::SLOTS, $steps->count() ? self::SLOTS : 0) + 1 + $n]));
     }
 
     // ── Validation helpers ───────────────────────────────────────────────────────────────────────────────────────────
@@ -745,7 +773,7 @@ class AbandonedCartReminders
 
     private static function delayKey(int $minutes): string
     {
-        return $minutes >= 1440 && $minutes % 1440 === 0 ? 'journeys_admin.n_days' : ($minutes >= 60 && $minutes % 60 === 0 ? 'journeys_admin.n_hours' : 'journeys_admin.n_minutes');
+        return $minutes >= 1440 && $minutes % 1440 === 0 ? 'cart_reminders.n_days' : ($minutes >= 60 && $minutes % 60 === 0 ? 'cart_reminders.n_hours' : 'cart_reminders.n_minutes');
     }
 
     private static function delayNumber(int $minutes): int

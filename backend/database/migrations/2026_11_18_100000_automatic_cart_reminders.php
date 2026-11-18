@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\DB;
  *  - `journey_runs.next_at`: the moment a run needs attention again (a step comes due, quiet hours end). The scheduler reads only runs that are due
  *    (`status = 'active' AND next_at <= now()`), so a pile of runs waiting for their second reminder can never starve the new ones. The index is partial
  *    (active runs only) and tiny. Adding a nullable column and a small partial index is instant on a live table; nothing is rewritten.
+ *  - Three small partial indexes on `journey_deliveries`, one per real query: the once-a-minute sweep for deliveries that were left `queued`, and the "reminders
+ *    sent" and "could not be sent" counts of the abandoned orders page (by time). Partial, so they hold only the rows those queries want.
  *  - Reminders sent by the journey before this change were only in `journey_deliveries`; from now on every reminder (automatic or sent by staff) also
  *    moves the cart's own counters, which is what the abandoned orders page and the "most reminders per cart" limit read. This copies what was already
  *    sent to the carts that are still open, once (only the idle episode the cart is in now: a customer's return resets the counters).
@@ -20,6 +22,10 @@ return new class extends Migration
         DB::statement('ALTER TABLE journey_runs ADD COLUMN IF NOT EXISTS next_at timestamptz NULL');
         DB::statement("UPDATE journey_runs SET next_at = anchor_at WHERE status = 'active' AND next_at IS NULL");
         DB::statement("CREATE INDEX IF NOT EXISTS journey_runs_due_idx ON journey_runs (journey_id, next_at) WHERE status = 'active'");
+
+        DB::statement("CREATE INDEX IF NOT EXISTS journey_deliveries_queued_idx ON journey_deliveries (created_at) WHERE status = 'queued'");
+        DB::statement("CREATE INDEX IF NOT EXISTS journey_deliveries_sent_at_idx ON journey_deliveries (sent_at) WHERE status IN ('sent', 'delivered')");
+        DB::statement("CREATE INDEX IF NOT EXISTS journey_deliveries_failed_idx ON journey_deliveries (created_at) WHERE status = 'failed'");
 
         DB::statement(<<<'SQL'
             UPDATE carts SET
@@ -40,6 +46,9 @@ return new class extends Migration
     public function down(): void
     {
         // The counters keep what they hold (they are plain facts about messages that were sent); only the structure goes.
+        DB::statement('DROP INDEX IF EXISTS journey_deliveries_failed_idx');
+        DB::statement('DROP INDEX IF EXISTS journey_deliveries_sent_at_idx');
+        DB::statement('DROP INDEX IF EXISTS journey_deliveries_queued_idx');
         DB::statement('DROP INDEX IF EXISTS journey_runs_due_idx');
         DB::statement('ALTER TABLE journey_runs DROP COLUMN IF EXISTS next_at');
     }

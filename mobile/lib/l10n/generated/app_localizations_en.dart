@@ -191,25 +191,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navNotifications => 'Alerts';
 
   @override
-  String get onboardingTitle1 => 'Made for homes across Qatar';
+  String get onboardingTitle1 => 'Hala! For homes across Qatar';
 
   @override
   String get onboardingBody1 =>
-      'Furniture, décor and everyday essentials chosen for the way Qatar lives, from West Bay apartments to family villas.';
+      'Furniture, décor and everyday essentials, all in one place. Take your time and pick what suits your home.';
 
   @override
-  String get onboardingTitle2 => 'From our branches to your door';
+  String get onboardingTitle2 => 'From our branches to you';
 
   @override
   String get onboardingBody2 =>
-      'Pick a delivery slot that suits you, or collect from the branch nearest to you. Live stock, live prices.';
+      'No trouble: pick a delivery time, or collect from the nearest branch. Stock and prices are live.';
 
   @override
-  String get onboardingTitle3 => 'Live auctions and curated living';
+  String get onboardingTitle3 => 'Live auctions and majlis style';
 
   @override
   String get onboardingBody3 =>
-      'Bid in real time on one-of-a-kind pieces, and discover collections styled for the majlis and beyond.';
+      'Bid live on special pieces, and browse collections styled for your majlis and the rest of your home.';
 
   @override
   String get getStarted => 'Get started';

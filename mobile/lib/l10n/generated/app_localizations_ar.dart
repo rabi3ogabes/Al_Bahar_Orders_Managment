@@ -191,24 +191,23 @@ class AppLocalizationsAr extends AppLocalizations {
   String get navNotifications => 'الإشعارات';
 
   @override
-  String get onboardingTitle1 => 'لكل بيت في قطر';
+  String get onboardingTitle1 => 'حيّاكم الله! لكل بيت في ديرتنا قطر';
 
   @override
-  String get onboardingBody1 =>
-      'أثاث وديكور ومستلزمات يومية اخترناها بعناية لتناسب أسلوب الحياة في قطر، من شقق الخليج الغربي إلى فلل العائلة.';
+  String get onboardingBody1 => 'أثاث وديكور وأغراض يومية لبيتكم، كلها في مكان واحد. اختاروا اللي يعجبكم، على راحتكم.';
 
   @override
-  String get onboardingTitle2 => 'من فروعنا إلى باب بيتك';
+  String get onboardingTitle2 => 'من فروعنا إلى باب بيتكم';
 
   @override
   String get onboardingBody2 =>
-      'اختر موعد التوصيل الذي يناسبك، أو استلم طلبك من أقرب فرع إليك، مع مخزون وأسعار محدّثة لحظةً بلحظة.';
+      'ما يحتاج تتعبون: اختاروا وقت التوصيل، أو استلموا من أقرب فرع. المخزون والأسعار محدّثة أول بأول.';
 
   @override
-  String get onboardingTitle3 => 'مزادات مباشرة وقطع منتقاة';
+  String get onboardingTitle3 => 'مزادات مباشرة وقطع تزيّن مجلسكم';
 
   @override
-  String get onboardingBody3 => 'زايِد لحظةً بلحظة على قطع فريدة، واكتشف تشكيلات منسّقة للمجلس ولبقية البيت.';
+  String get onboardingBody3 => 'تفضّلوا، زايدوا مباشرة على قطع مميزة، وشوفوا تشكيلات منسّقة للمجلس وباقي البيت.';
 
   @override
   String get getStarted => 'ابدأ الآن';

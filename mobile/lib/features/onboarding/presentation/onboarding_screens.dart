@@ -14,6 +14,7 @@ import 'package:albahar_customer/features/onboarding/presentation/art/qatar_map_
 import 'package:albahar_customer/features/onboarding/presentation/designed_by_line.dart';
 import 'package:albahar_customer/features/onboarding/presentation/intro_page.dart';
 import 'package:albahar_customer/features/onboarding/presentation/state/onboarding_state.dart';
+import 'package:albahar_customer/features/public_config/domain/intro_slide_text.dart';
 import 'package:albahar_customer/features/public_config/presentation/state/public_config_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -87,7 +88,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
 }
 
 /// The first-run intro: three illustrated pages about Qatar, the branches and the auctions. The language can be switched
-/// from the corner at any time, and the "Designed by" line comes from the dashboard.
+/// from the corner at any time. The "Designed by" line and, when the dashboard has written them, the words of the slides come
+/// from the dashboard; the app's own words (the language files) are what shows first, offline and for every empty field.
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key, this.from});
   final String? from;
@@ -121,22 +123,27 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final reduce = MediaQuery.disableAnimationsOf(context);
+    // The dashboard's words when it has some for this language, else the app's own. Nothing here waits for the network: the
+    // last answer is already in the state (or nothing is), and a newer one arriving later cross-fades in place on the page.
+    final custom = ref.watch(publicConfigProvider.select((c) => c.introSlides));
+    final code = Localizations.localeOf(context).languageCode == 'ar' ? 'ar' : 'en';
+    IntroSlideText words(int i) => i < custom.length ? custom[i] : IntroSlideText.none;
     final slides = [
       IntroSlide(
-        title: l10n.onboardingTitle1,
-        body: l10n.onboardingBody1,
+        title: words(0).title(code) ?? l10n.onboardingTitle1,
+        body: words(0).body(code) ?? l10n.onboardingBody1,
         artLabel: l10n.onboardingArtLabel1,
         layers: DohaScene.layers,
       ),
       IntroSlide(
-        title: l10n.onboardingTitle2,
-        body: l10n.onboardingBody2,
+        title: words(1).title(code) ?? l10n.onboardingTitle2,
+        body: words(1).body(code) ?? l10n.onboardingBody2,
         artLabel: l10n.onboardingArtLabel2,
         layers: QatarMapScene.layers,
       ),
       IntroSlide(
-        title: l10n.onboardingTitle3,
-        body: l10n.onboardingBody3,
+        title: words(2).title(code) ?? l10n.onboardingTitle3,
+        body: words(2).body(code) ?? l10n.onboardingBody3,
         artLabel: l10n.onboardingArtLabel3,
         layers: MajlisScene.layers,
       ),

@@ -449,37 +449,37 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingTitle1.
   ///
   /// In en, this message translates to:
-  /// **'Made for homes across Qatar'**
+  /// **'Hala! For homes across Qatar'**
   String get onboardingTitle1;
 
   /// No description provided for @onboardingBody1.
   ///
   /// In en, this message translates to:
-  /// **'Furniture, décor and everyday essentials chosen for the way Qatar lives, from West Bay apartments to family villas.'**
+  /// **'Furniture, décor and everyday essentials, all in one place. Take your time and pick what suits your home.'**
   String get onboardingBody1;
 
   /// No description provided for @onboardingTitle2.
   ///
   /// In en, this message translates to:
-  /// **'From our branches to your door'**
+  /// **'From our branches to you'**
   String get onboardingTitle2;
 
   /// No description provided for @onboardingBody2.
   ///
   /// In en, this message translates to:
-  /// **'Pick a delivery slot that suits you, or collect from the branch nearest to you. Live stock, live prices.'**
+  /// **'No trouble: pick a delivery time, or collect from the nearest branch. Stock and prices are live.'**
   String get onboardingBody2;
 
   /// No description provided for @onboardingTitle3.
   ///
   /// In en, this message translates to:
-  /// **'Live auctions and curated living'**
+  /// **'Live auctions and majlis style'**
   String get onboardingTitle3;
 
   /// No description provided for @onboardingBody3.
   ///
   /// In en, this message translates to:
-  /// **'Bid in real time on one-of-a-kind pieces, and discover collections styled for the majlis and beyond.'**
+  /// **'Bid live on special pieces, and browse collections styled for your majlis and the rest of your home.'**
   String get onboardingBody3;
 
   /// No description provided for @getStarted.

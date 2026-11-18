@@ -51,6 +51,36 @@
             @endif
         </section>
 
+        {{-- What reminders this cart got (automatic ones with the reason for anything that did not go out, and the ones staff sent) and what comes next --}}
+        @php $history = $window['history']; $chName = fn (string $c) => __('cart_reminders.ch_'.$c); @endphp
+        <section class="{{ $box }}" aria-labelledby="ab-history" data-history>
+            <h3 id="ab-history" class="mb-3 text-xs font-semibold uppercase tracking-wider text-ink-500">{{ __('cart_reminders.history_title') }}</h3>
+            @if ($history['items'] === [] && ! $history['next'])
+                <p class="text-sm text-ink-500">{{ __('cart_reminders.history_none') }}</p>
+            @else
+                <ol class="space-y-3">
+                    @foreach ($history['items'] as $h)
+                        <li wire:key="hist-{{ $loop->index }}" class="flex gap-3">
+                            <span class="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full {{ $h['channels'] === [] ? 'bg-amber-soft/15 text-amber-soft' : 'bg-emerald-soft/15 text-emerald-soft' }}"><x-icon :name="$h['channels'] === [] ? 'alert' : 'check'" class="size-3.5" /></span>
+                            <div class="min-w-0 text-sm">
+                                <p class="font-medium text-ink-900 dark:text-ivory">{{ $h['kind'] === 'automatic' ? __('cart_reminders.history_auto', ['n' => $h['number']]) : ($h['by'] ? __('cart_reminders.history_staff', ['name' => $h['by']]) : __('cart_reminders.history_team')) }}</p>
+                                <p class="text-xs text-ink-500">{{ \App\Support\BusinessTime::display($h['at'], 'd M, H:i') }}@if ($h['channels'] !== []) · {{ collect($h['channels'])->map($chName)->implode(' · ') }}@endif</p>
+                                @foreach ($h['issues'] as $issue)
+                                    <p class="mt-0.5 text-xs text-amber-soft">{{ __($issue['failed'] ? 'cart_reminders.history_failed' : 'cart_reminders.history_not_sent', ['channel' => $chName($issue['channel']), 'reason' => $issue['reason']]) }}</p>
+                                @endforeach
+                            </div>
+                        </li>
+                    @endforeach
+                    @if ($history['next'])
+                        <li class="flex gap-3 text-ink-500">
+                            <span class="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full border border-dashed border-sand-400"><x-icon name="clock" class="size-3.5" /></span>
+                            <p class="text-sm">{{ __('cart_reminders.history_next', ['n' => $history['next']['number'], 'when' => \App\Support\BusinessTime::display($history['next']['at'], 'd M, H:i')]) }}</p>
+                        </li>
+                    @endif
+                </ol>
+            @endif
+        </section>
+
         {{-- Plain-language notices from the real quote --}}
         @if ($notices->isNotEmpty())
             <ul class="space-y-2" aria-label="{{ __('abandoned_admin.notices') }}">

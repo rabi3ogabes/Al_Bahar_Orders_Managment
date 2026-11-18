@@ -5,7 +5,6 @@ namespace App\Domain\Marketing\Services;
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Identity\Models\User;
-use App\Domain\Marketing\Models\Journey;
 use App\Domain\Messaging\Services\ContactHistory;
 use App\Domain\Notifications\Models\MarketingCampaign;
 use App\Domain\Notifications\Models\Notification;
@@ -19,7 +18,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Segmented, consent-aware campaigns and abandoned-cart recovery.
+ * Segmented, consent-aware campaigns, and the staff "Send reminder" for one abandoned cart (the automatic reminders are the abandoned-cart journey, see AbandonedCartReminders).
  * Segment keys: branch_ids, category_ids, customer_group_ids, purchased_since (date), auction_participants (bool), min_orders.
  */
 class CampaignService
@@ -129,40 +128,16 @@ class CampaignService
         return $n;
     }
 
-    /** Remind consenting customers about inactive carts, within frequency limits. Prices/stock are re-validated on return. */
-    public function remindAbandonedCarts(): int
-    {
-        if (Journey::where('key', 'abandoned_cart')->where('is_enabled', true)->exists()) {
-            return 0; // the customer journey owns abandoned-cart follow-ups now
-        }
-        $after = (int) $this->settings->get('notifications.abandoned_cart_after_minutes', 120);
-        $max = (int) $this->settings->get('notifications.abandoned_cart_max_messages', 2);
-        $gapHours = (int) $this->settings->get('notifications.abandoned_cart_min_interval_hours', 24);
-        $n = 0;
-        Cart::with('user')->where('status', 'active')->whereNotNull('user_id')->has('items')
-            ->where('last_activity_at', '<', now()->subMinutes($after))->where('abandoned_notifications', '<', $max)
-            ->where(fn ($q) => $q->whereNull('abandoned_notified_at')->orWhere('abandoned_notified_at', '<', now()->subHours($gapHours)))
-            ->limit(500)->get()->each(function (Cart $cart) use (&$n) {
-                if ($cart->user && $this->notify->notify($cart->user, 'cart.abandoned', ['deep_link' => 'albahar://cart'])) {
-                    // Do not use touch(): that resets the counters. Only the reminder bookkeeping changes.
-                    Cart::whereKey($cart->id)->update(['abandoned_notified_at' => now(), 'abandoned_notifications' => $cart->abandoned_notifications + 1]);
-                    $n++;
-                }
-            });
-
-        return $n;
-    }
-
     /**
-     * May this customer's cart be reminded right now? Same rules as the automatic reminders: the customer agreed to marketing messages, at most
-     * `abandoned_cart_max_messages` reminders per cart, and nothing within `abandoned_cart_min_interval_hours` of the last message to them (a
-     * reminder, a journey message or a message staff sent by hand).
+     * May this customer's cart be reminded right now by staff? The customer agreed to marketing messages, at most the "maximum reminders per cart" of the
+     * automatic reminders (their counters are the same ones: a reminder sent by staff uses one up, and so does an automatic one), and nothing within
+     * `abandoned_cart_min_interval_hours` of the last message to them (a reminder, a journey message or a message staff sent by hand).
      *
      * @return array{status: string, next_at: ?CarbonImmutable, limit: int} status: ok | no_customer | no_consent | limit_reached | too_soon
      */
     public function reminderStatus(Cart $cart): array
     {
-        $max = (int) $this->settings->get('notifications.abandoned_cart_max_messages', 2);
+        $max = app(AbandonedCartReminders::class)->maxPerCart();
         $gap = (int) $this->settings->get('notifications.abandoned_cart_min_interval_hours', 24);
         $user = $cart->user_id ? User::find($cart->user_id) : null;
         $out = fn (string $status, ?CarbonImmutable $next = null) => ['status' => $status, 'next_at' => $next, 'limit' => $max];
@@ -202,18 +177,8 @@ class CampaignService
         if ($channels === []) {
             return ['status' => 'no_channel', 'channels' => [], 'next_at' => null, 'limit' => $state['limit']];
         }
-        Cart::whereKey($cart->id)->update(['abandoned_notified_at' => now(), 'abandoned_notifications' => $cart->abandoned_notifications + 1]);
+        Cart::whereKey($cart->id)->update(['abandoned_notified_at' => now(), 'abandoned_notifications' => DB::raw('abandoned_notifications + 1')]); // atomic: the automatic reminders count on the same cart
 
         return ['status' => 'sent', 'channels' => $channels, 'next_at' => null, 'limit' => $state['limit']];
-    }
-
-    /** Conversion: share of reminded carts later converted to orders. */
-    public function abandonedCartConversion(\DateTimeInterface $since): array
-    {
-        $reminded = Cart::where('abandoned_notifications', '>', 0)->where('abandoned_notified_at', '>=', $since);
-        $total = (clone $reminded)->count();
-        $converted = (clone $reminded)->where('status', 'converted')->count();
-
-        return ['reminded' => $total, 'converted' => $converted, 'rate' => $total ? round($converted * 100 / $total, 1) : 0];
     }
 }

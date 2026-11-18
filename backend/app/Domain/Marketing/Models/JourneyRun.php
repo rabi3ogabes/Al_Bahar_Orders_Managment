@@ -17,7 +17,7 @@ class JourneyRun extends Model
 
     protected $guarded = ['id'];
 
-    protected $casts = ['anchor_at' => 'immutable_datetime', 'finished_at' => 'immutable_datetime', 'converted_at' => 'immutable_datetime', 'revenue' => 'decimal:2'];
+    protected $casts = ['anchor_at' => 'immutable_datetime', 'finished_at' => 'immutable_datetime', 'converted_at' => 'immutable_datetime', 'next_at' => 'immutable_datetime', 'revenue' => 'decimal:2'];
 
     /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo

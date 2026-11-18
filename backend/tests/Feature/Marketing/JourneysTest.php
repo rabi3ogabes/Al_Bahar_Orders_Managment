@@ -19,7 +19,7 @@ use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 
-function abandonedCart($w, int $minutesAgo = 45): Cart
+function abandonedCart($w, int $minutesAgo = 90): Cart
 {
     $cart = Cart::create(['user_id' => $w->customer->id, 'status' => 'active', 'last_activity_at' => now()->subMinutes($minutesAgo)]);
     CartItem::create(['cart_id' => $cart->id, 'product_variant_id' => $w->v1->id, 'quantity' => 2]);
@@ -42,9 +42,10 @@ beforeEach(function () {
 it('ships both journeys switched off with starter steps and bilingual templates', function () {
     app(JourneyService::class)->ensureDefaults();
     $cart = Journey::where('key', 'abandoned_cart')->with('steps.template')->first();
-    expect($cart->is_enabled)->toBeFalse()->and($cart->steps)->toHaveCount(3)
-        ->and($cart->steps->pluck('delay_minutes')->all())->toBe([30, 240, 4320])
-        ->and($cart->steps[0]->template->title_ar)->not->toBe('');
+    expect($cart->is_enabled)->toBeFalse()->and($cart->steps)->toHaveCount(2)
+        ->and($cart->steps->pluck('delay_minutes')->all())->toBe([60, 1440])   // "Balanced": a reminder after 1 hour and one after 1 day (a third one is a switch away)
+        ->and($cart->steps[0]->template->title_ar)->toBe('سلتك بانتظارك')
+        ->and($cart->setting('max_per_cart'))->toBe(2)->and($cart->setting('quiet_start'))->toBe('22:00')->and($cart->setting('quiet_end'))->toBe('08:00');
     expect(Journey::where('key', 'birthday')->first()->steps->first()->send_time)->toBe('10:00');
 });
 
@@ -55,7 +56,7 @@ it('sends the first abandoned-cart step in the customer app language, once', fun
     app(JourneyService::class)->tick();
 
     $n = Notification::where('user_id', $this->w->customer->id)->get();
-    expect($n)->toHaveCount(1)->and($n[0]->title)->toBe('سلتك بانتظارك')->and($n[0]->body)->toContain('Noor')->toContain('2');
+    expect($n)->toHaveCount(1)->and($n[0]->title)->toBe('سلتك بانتظارك')->and($n[0]->body)->toContain('Noor')->toContain('منتجان')->toContain('2,000.00');
     expect(JourneyRun::count())->toBe(1)->and(JourneyDelivery::where('channel', 'in_app')->count())->toBe(1);
 });
 
@@ -72,9 +73,9 @@ it('waits for the step delay and stays silent during quiet hours', function () {
     $j = enable('abandoned_cart');
     abandonedCart($this->w, 10);
     app(JourneyService::class)->tick();
-    expect(JourneyRun::count())->toBe(0); // first step is at 30 minutes
+    expect(JourneyRun::count())->toBe(0); // first step is at 60 minutes
 
-    Cart::query()->update(['last_activity_at' => now()->subMinutes(45)]);
+    Cart::query()->update(['last_activity_at' => now()->subMinutes(90)]);
     $quiet = BusinessTime::now()->subMinutes(5)->format('H:i');
     $j->update(['settings' => ['quiet_start' => $quiet, 'quiet_end' => BusinessTime::now()->addHour()->format('H:i'), 'max_per_day' => 10]]);
     app(JourneyService::class)->tick();
@@ -84,7 +85,7 @@ it('waits for the step delay and stays silent during quiet hours', function () {
 it('stops the run and counts the revenue when the customer orders', function () {
     enable('abandoned_cart');
     $this->postJson('/api/v1/cart/items', ['variant_id' => $this->w->v2->id, 'quantity' => 1]);
-    Cart::query()->update(['last_activity_at' => now()->subMinutes(45)]);
+    Cart::query()->update(['last_activity_at' => now()->subMinutes(90)]);
     app(JourneyService::class)->tick();
     expect(JourneyRun::first()->status)->toBe('active');
     quoteAndPlace(['address_id' => $this->w->address->id, 'payment_method' => 'cod'])->assertCreated();
@@ -112,7 +113,8 @@ it('sends an offer on WhatsApp through n8n with a personal coupon, signed, in th
     NotificationPreference::create(['user_id' => $this->w->customer->id, 'channel' => 'whatsapp', 'category' => 'marketing', 'is_enabled' => true]);
     $j = enable('abandoned_cart');
     $promo = Promotion::create(['name_en' => 'Cart 10', 'name_ar' => 'سلة', 'type' => 'percentage', 'value' => '10', 'scope' => 'order', 'requires_coupon' => true, 'is_active' => true]);
-    $step = $j->steps()->where('position', 2)->first();
+    $step = $j->steps()->where('position', 1)->first();
+    $step->update(['channels' => ['push', 'in_app', 'whatsapp']]);
     $step->template->update(['promotion_id' => $promo->id, 'coupon_valid_hours' => 48]);
     abandonedCart($this->w, 300);
     app(JourneyService::class)->tick();
