@@ -264,7 +264,12 @@ class JourneyService
             }
             $run = JourneyRun::with(['user', 'deliveries'])->find($id);
             if ($run && $run->user) {
-                $sent += $this->handleRun($journey, $run);
+                try {
+                    $sent += $this->handleRun($journey, $run);
+                } catch (Throwable $e) {
+                    report($e); // one run with a problem must not stop the others; it is tried again later, not every minute
+                    JourneyRun::where('id', $id)->where('status', 'active')->update(['next_at' => now()->addMinutes(30)]);
+                }
             }
         }
 

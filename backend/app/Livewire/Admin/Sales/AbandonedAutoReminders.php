@@ -228,7 +228,7 @@ class AbandonedAutoReminders extends Component
             'blocked' => $svc->blockedBy(),
             'ready' => $svc->channelStatus(),
             'results' => $svc->results(auth()->user(), $this->days),
-            'window' => $this->showSettings ? $this->windowData($svc) : null,
+            'window' => $this->showSettings && $this->editor() && $this->form !== [] ? $this->windowData($svc) : null,
         ];
 
         return view('livewire.admin.sales.abandoned-auto-reminders', $data);

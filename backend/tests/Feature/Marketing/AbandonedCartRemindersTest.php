@@ -30,6 +30,7 @@ use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
@@ -558,6 +559,27 @@ describe('never twice', function () {
         $this->journeys->tick();
 
         expect($d->fresh())->status->toBe('failed')->reason->toBe('interrupted');
+    });
+
+    it('does not let one run with a problem stop the others, and tries it again later instead of every minute', function () {
+        $bad = reminderCart($this, ['idle' => 90]);
+        $good = reminderCart($this, ['customer' => User::factory()->create(['marketing_consent_at' => now()]), 'idle' => 90]);
+        remindersOn($this);
+        $this->mock(CartService::class, function ($mock) use ($bad) {
+            $mock->shouldReceive('present')->andReturnUsing(function (Cart $cart) use ($bad) {
+                if ($cart->id === $bad->id) {
+                    throw new RuntimeException('boom');
+                }
+
+                return ['items' => collect([['issue' => null, 'quantity' => 2]]), 'subtotal' => ['amount' => '2000.00']];
+            });
+        });
+        Exceptions::fake();
+        $r = $this->journeys->tick();
+
+        Exceptions::assertReported(fn (RuntimeException $e) => $e->getMessage() === 'boom');
+        expect($r['sent'])->toBe(1)->and(remindersSent($good))->toBe(1)->and(remindersSent($bad))->toBe(0)
+            ->and(JourneyRun::where('cart_id', $bad->id)->firstOrFail()->next_at->gt(now()->addMinutes(20)))->toBeTrue();
     });
 
     it('handles a bounded number of carts per pass and finishes the rest on the next ones', function () {
