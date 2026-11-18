@@ -7,6 +7,7 @@ import 'package:albahar_customer/ops/ops_board.dart';
 import 'package:albahar_customer/ops/ops_live.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_repository.dart';
+import 'package:albahar_customer/ops/staff/staff_groups.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -117,6 +118,45 @@ final staffQueueViewProvider = Provider.autoDispose.family<AsyncValue<List<Queue
   };
   return own.whenData((_) => mergeStage(stage, byStage, patches));
 });
+
+/// The rows of the "To do" tab (new, preparing, ready) as the screen shows them, the real-time messages already laid over each stage.
+final staffTodoViewProvider = Provider.autoDispose<StageRows>(
+  (ref) => combineStages({for (final s in kTodoStages) s: ref.watch(staffQueueViewProvider(s))}),
+);
+
+/// The rows of the "On the way" tab (a failed delivery first, then the deliveries out).
+final staffWayViewProvider = Provider.autoDispose<StageRows>(
+  (ref) => combineStages({for (final s in kWayStages) s: ref.watch(staffQueueViewProvider(s))}),
+);
+
+/// The stage the "To do" list is narrowed to, or null for all of it. It lives as long as the home screen, so a rebuild or a visit to
+/// another tab never loses it.
+class StaffTodoFilter extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  /// A tap on a stage narrows the list to it; a second tap on the same stage shows everything again.
+  void toggle(String stage) => state = state == stage ? null : stage;
+
+  void reset() => state = null;
+}
+
+final staffTodoFilterProvider = NotifierProvider.autoDispose<StaffTodoFilter, String?>(StaffTodoFilter.new);
+
+/// The two views of the Drivers tab.
+enum StaffDriversView { list, map }
+
+/// The view of the Drivers tab the employee chose last (kept while the home screen is open).
+class StaffDriversViewChoice extends Notifier<StaffDriversView> {
+  @override
+  StaffDriversView build() => StaffDriversView.list;
+
+  void choose(StaffDriversView view) => state = view;
+}
+
+final staffDriversViewProvider = NotifierProvider.autoDispose<StaffDriversViewChoice, StaffDriversView>(
+  StaffDriversViewChoice.new,
+);
 
 /// The counts of the staff home with the same messages laid over them.
 final staffOverviewViewProvider = Provider.autoDispose<AsyncValue<StaffOverview>>((ref) {

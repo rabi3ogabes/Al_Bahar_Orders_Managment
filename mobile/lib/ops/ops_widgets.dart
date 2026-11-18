@@ -319,52 +319,6 @@ class OpsAsyncList<T> extends StatelessWidget {
   }
 }
 
-/// Small count tile used on the staff overview.
-class CountTile extends StatelessWidget {
-  const CountTile({super.key, required this.label, required this.value, this.highlight = false, this.onTap});
-  final String label;
-  final int value;
-  final bool highlight;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
-    final onPrimary = Theme.of(context).colorScheme.onPrimary;
-    return Expanded(
-      child: Material(
-        color: highlight ? primary : Theme.of(context).cardColor,
-        borderRadius: AppRadius.inputAll,
-        child: InkWell(
-          borderRadius: AppRadius.inputAll,
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '$value',
-                  style: Theme.of(context).textTheme.headlineSmall
-                      ?.copyWith(color: highlight ? onPrimary : primary, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: highlight ? onPrimary : null),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// A titled group inside a side window: a small heading and a soft box holding the details.
 class PanelSection extends StatelessWidget {
   const PanelSection({super.key, required this.title, required this.children});

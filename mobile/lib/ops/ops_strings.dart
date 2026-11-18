@@ -99,6 +99,43 @@ class OpsStrings {
   );
   String get manualDispatch => _t('You assign drivers to ready orders.', 'أنت تُسند السائقين للطلبات الجاهزة.');
   String get noOrders => _t('Nothing here right now', 'لا يوجد شيء هنا الآن');
+
+  // Staff home: the three tabs, their lists and the Drivers switch
+  String get tabToDo => _t('To do', 'المطلوب');
+  String get needsAttention => _t('Needs attention', 'تحتاج متابعة');
+  String get listTab => _t('List', 'القائمة');
+  String get allCaughtUp => _t('All caught up', 'لا توجد طلبات الآن');
+  String get allCaughtUpHint =>
+      _t('New orders appear here as soon as they arrive.', 'تظهر الطلبات الجديدة هنا فور وصولها.');
+  String get nothingInStep => _t('Nothing in this step right now', 'لا توجد طلبات في هذه المرحلة الآن');
+
+  /// "1 order" / "5 orders", with the Arabic singular, dual and plural forms.
+  String orderCount(int n) {
+    if (!ar) return n == 1 ? '1 order' : '$n orders';
+    return switch (n) {
+      0 => 'لا طلبات',
+      1 => 'طلب واحد',
+      2 => 'طلبان',
+      <= 10 => '$n طلبات',
+      _ => '$n طلباً',
+    };
+  }
+
+  String get _listJoin => ar ? '، ' : ', ';
+
+  /// What a screen reader says for a stage header or filter: "Preparing, 3 orders".
+  String stageCountLabel(String stage, int n) => '$stage$_listJoin${orderCount(n)}';
+
+  /// The To do tab for a screen reader: "To do, 5 orders, 2 new".
+  String tabToDoLabel(int total, int fresh) =>
+      [tabToDo, orderCount(total), if (fresh > 0) _t('$fresh new', 'منها $fresh جديدة')].join(_listJoin);
+
+  /// The On the way tab for a screen reader: "On the way, 3 orders, 1 failed".
+  String tabWayLabel(int total, int failed) =>
+      [stageOut, orderCount(total), if (failed > 0) _t('$failed failed', 'منها $failed تعذّر توصيلها')].join(_listJoin);
+
+  /// The Drivers tab for a screen reader: "Drivers, 3 on duty".
+  String tabDriversLabel(int onDuty) => [drivers, _t('$onDuty on duty', 'المتواجدون $onDuty')].join(_listJoin);
   String get acceptOrder => _t('Accept order', 'قبول الطلب');
   String get startPreparing => _t('Start preparing', 'بدء التحضير');
   String get markReady => _t('Mark ready', 'جاهز للتسليم');
