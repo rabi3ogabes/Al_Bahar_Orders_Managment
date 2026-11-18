@@ -208,7 +208,7 @@ class MessageComposer extends Component
             $this->content = $this->blankContent();
         } else {
             $template = Str::isUuid($id) ? JourneyTemplate::where('is_active', true)->find($id) : null;
-            if (! $template || ! in_array($template->kind, ['reminder', 'offer'], true)) {
+            if (! $template || ! in_array($template->kind, ['reminder', 'offer'], true) || ! app(MessageVariables::class)->fitsTemplate($template)) {
                 $this->toast(__('messaging_composer.template_gone'), 'error');
 
                 return;
@@ -869,7 +869,8 @@ class MessageComposer extends Component
         return view('livewire.admin.messaging.message-composer', [
             // One customer: what their phones say about showing a push (a single grouped query; nothing while the window is closed).
             'reach' => $open && $this->singleId !== null ? $phones->forUser($this->singleId) : null,
-            'templates' => $open && $this->step === 'compose' ? JourneyTemplate::where('is_active', true)->whereIn('kind', ['reminder', 'offer'])->orderBy('kind')->orderBy('name')->get() : collect(),
+            'templates' => $open && $this->step === 'compose' ? JourneyTemplate::where('is_active', true)->whereIn('kind', ['reminder', 'offer'])->orderBy('kind')->orderBy('name')->get()
+                ->filter(fn (JourneyTemplate $t) => app(MessageVariables::class)->fitsTemplate($t))->values() : collect(),
             'promotions' => $open && $this->canCoupon() ? $this->promotions() : collect(),
             'canCoupon' => $this->canCoupon(),
             'available' => $svc->channelsAvailable(),

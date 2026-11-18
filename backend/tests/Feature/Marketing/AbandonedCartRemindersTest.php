@@ -18,6 +18,7 @@ use App\Domain\Notifications\Models\NotificationPreference;
 use App\Domain\Notifications\Services\NotificationRules;
 use App\Domain\Orders\Models\Cart;
 use App\Domain\Orders\Models\CartItem;
+use App\Livewire\Admin\Messaging\MessageComposer;
 use App\Livewire\Admin\Sales\AbandonedAutoReminders;
 use App\Livewire\Admin\Sales\AbandonedCartsIndex;
 use App\Support\BusinessTime;
@@ -172,6 +173,18 @@ describe('the schedule', function () {
         $this->journeys->tick();
 
         expect(JourneyRun::count())->toBe(0)->and(remindersSent($fresh))->toBe(0)->and(remindersSent($old))->toBe(0);
+    });
+
+    it('does not start runs for carts so old that every reminder has expired, so they cannot crowd out the carts that are waiting', function () {
+        $stale = [];
+        foreach (range(1, 3) as $i) {
+            $stale[] = reminderCart($this, ['customer' => User::factory()->create(['marketing_consent_at' => now()]), 'idle' => 60 * 24 * 3]); // idle for 3 days
+        }
+        $waiting = reminderCart($this, ['idle' => 90]);
+        remindersOn($this);
+        $r = $this->journeys->tick();
+
+        expect($r['started'])->toBe(1)->and(JourneyRun::pluck('cart_id')->all())->toBe([$waiting->id])->and(remindersSent($waiting))->toBe(1);
     });
 
     it('uses the settings the owner saved: a gentle schedule is one reminder after 3 hours', function () {
@@ -878,5 +891,31 @@ describe('the settings window', function () {
             ->set('form.reminders.0.title_en', '<script>alert(1)</script>');
 
         expect($card->html())->not->toContain('<script>alert(1)</script>');
+    });
+});
+
+describe('the customer messages composer', function () {
+    it('does not offer the reminder templates, which use cart details a manual message cannot fill, and still offers the others', function () {
+        $this->reminders->ensure();
+        $this->journeys->ensureDefaults();
+        $reminder = Journey::where('key', 'abandoned_cart')->firstOrFail()->steps()->first()->template;
+        $manager = staffWithRole('marketing_manager');
+        $customer = User::factory()->create(['marketing_consent_at' => now()]);
+
+        $composer = Livewire::actingAs($manager)->test(MessageComposer::class)->dispatch('compose-message', mode: 'ids', ids: [$customer->id]);
+
+        $composer->assertSee('Birthday wish')->assertDontSee($reminder->name);
+        $composer->call('choose', $reminder->id)->assertDispatched('toast', type: 'error', message: __('messaging_composer.template_gone'))->assertSet('templateId', '');
+        $composer->call('choose', JourneyTemplate::where('name', 'Birthday wish')->value('id'))->assertSet('kind', 'offer');
+    });
+
+    it('offers a reminder template again once it only uses details the composer knows', function () {
+        $this->reminders->ensure();
+        $t = Journey::where('key', 'abandoned_cart')->firstOrFail()->steps()->first()->template;
+        $t->update(['body_en' => 'Hi {{name}}, you left {{items}} item(s) in your cart.', 'body_ar' => 'مرحباً {{name}}']);
+        $manager = staffWithRole('marketing_manager');
+        $customer = User::factory()->create(['marketing_consent_at' => now()]);
+
+        Livewire::actingAs($manager)->test(MessageComposer::class)->dispatch('compose-message', mode: 'ids', ids: [$customer->id])->assertSee($t->name);
     });
 });

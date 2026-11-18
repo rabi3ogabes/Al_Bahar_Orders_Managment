@@ -22,6 +22,9 @@
                     <span class="{{ $journeyRow->is_enabled ? 'badge-success' : 'badge-neutral' }}">{{ $journeyRow->is_enabled ? __('journeys_admin.running') : __('journeys_admin.paused') }}</span>
                 </div>
                 <p class="mt-1 text-sm text-ink-500">{{ __('journeys_admin.about_'.$journeyRow->key) }}</p>
+                @if ($journeyRow->key === 'abandoned_cart' && auth()->user()?->can('orders.view'))
+                    <p class="mt-1.5 text-sm text-ink-500">{{ __('cart_reminders.journeys_hint') }} <a class="font-medium text-brass-700 underline dark:text-brass-300" href="{{ route('admin.sales.abandoned') }}">{{ __('cart_reminders.journeys_link') }}</a></p>
+                @endif
             </div>
             <button type="button" role="switch" aria-checked="{{ $journeyRow->is_enabled ? 'true' : 'false' }}" wire:click="toggle" @disabled(! $canEdit) wire:loading.attr="disabled"
                     class="relative inline-flex h-11 w-[4.5rem] shrink-0 items-center rounded-full p-1 transition {{ $journeyRow->is_enabled ? 'bg-emerald-soft' : 'bg-sand-300 dark:bg-ink-700' }}"

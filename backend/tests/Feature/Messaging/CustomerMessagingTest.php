@@ -490,7 +490,7 @@ it('makes the automatic journeys step aside for a customer the team just message
     $svc = app(JourneyService::class);
     $svc->ensureDefaults();
     Journey::where('key', 'abandoned_cart')->update(['is_enabled' => true, 'settings' => ['max_per_day' => 10]]);
-    $cart = Cart::create(['user_id' => $w->customer->id, 'status' => 'active', 'last_activity_at' => now()->subMinutes(45)]);
+    $cart = Cart::create(['user_id' => $w->customer->id, 'status' => 'active', 'last_activity_at' => now()->subMinutes(90)]); // the first automatic reminder is due after 1 hour
     CartItem::create(['cart_id' => $cart->id, 'product_variant_id' => $w->v1->id, 'quantity' => 1]);
 
     $this->svc->send($this->staff, composed([$w->customer->id]));

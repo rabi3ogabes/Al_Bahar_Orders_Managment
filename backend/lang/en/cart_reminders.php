@@ -23,6 +23,8 @@ return [
     'turned_on' => 'Automatic reminders are on.',
     'turned_off' => 'Automatic reminders are off. Nothing more will be sent.',
     'saved' => 'Reminder settings saved.',
+    'journeys_hint' => 'The same reminders have a simpler home with their results:',
+    'journeys_link' => 'Sales > Abandoned orders',
     'saving' => 'Saving…',
     'fix_errors' => 'Some settings need a look. They are marked in the window.',
 

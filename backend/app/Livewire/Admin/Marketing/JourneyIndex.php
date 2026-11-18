@@ -8,6 +8,7 @@ use App\Domain\Marketing\Models\JourneyDelivery;
 use App\Domain\Marketing\Models\JourneyStep;
 use App\Domain\Marketing\Models\JourneyTemplate;
 use App\Domain\Marketing\Models\Promotion;
+use App\Domain\Marketing\Services\AbandonedCartReminders;
 use App\Domain\Marketing\Services\JourneyService;
 use App\Domain\Notifications\Services\N8nClient;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
@@ -103,18 +104,24 @@ class JourneyIndex extends Component
             return;
         }
         $j->update(['is_enabled' => ! $j->is_enabled]);
+        if ($j->is_enabled) {
+            app(JourneyService::class)->wake($j); // runs that waited while it was paused look at their steps again
+        }
+        app(AbandonedCartReminders::class)->forgetResults();
         $audit->log('marketing.journey_'.($j->is_enabled ? 'enabled' : 'disabled'), $j, [], ['key' => $j->key]);
         $this->toast($j->is_enabled ? __('journeys_admin.turned_on') : __('journeys_admin.turned_off'));
     }
 
-    public function saveRules(AuditLogger $audit): void
+    public function saveRules(AuditLogger $audit, JourneyService $svc): void
     {
         abort_unless($this->can('marketing.edit'), 403);
         $j = $this->journey() ?? abort(404);
         $d = $this->validate([
             'rules.quiet_start' => ['nullable', 'date_format:H:i'], 'rules.quiet_end' => ['nullable', 'date_format:H:i', 'required_with:rules.quiet_start'], 'rules.max_per_day' => ['required', 'integer', 'min:0', 'max:20'], 'rules.attribution_days' => ['required', 'integer', 'min:1', 'max:30'],
         ], [], ['rules.quiet_start' => __('journeys_admin.quiet_from'), 'rules.quiet_end' => __('journeys_admin.quiet_to'), 'rules.max_per_day' => __('journeys_admin.max_per_day'), 'rules.attribution_days' => __('journeys_admin.attribution_days')])['rules'];
-        $j->update(['settings' => ['quiet_start' => $d['quiet_start'] ?: null, 'quiet_end' => $d['quiet_end'] ?: null, 'max_per_day' => (int) $d['max_per_day'], 'attribution_days' => (int) $d['attribution_days']]]);
+        // Merged, not replaced: the abandoned-cart journey also keeps its most reminders per cart there (Sales > Abandoned orders).
+        $j->update(['settings' => array_merge($j->settings ?? [], ['quiet_start' => $d['quiet_start'] ?: null, 'quiet_end' => $d['quiet_end'] ?: null, 'max_per_day' => (int) $d['max_per_day'], 'attribution_days' => (int) $d['attribution_days']])]);
+        $svc->wake($j);
         $audit->log('marketing.journey_rules_updated', $j, [], $j->settings);
         $this->toast(__('admin.saved'));
     }
@@ -135,7 +142,7 @@ class JourneyIndex extends Component
         $this->showStep = true;
     }
 
-    public function saveStep(AuditLogger $audit): void
+    public function saveStep(AuditLogger $audit, JourneyService $svc): void
     {
         abort_unless($this->can('marketing.edit'), 403);
         $j = $this->journey() ?? abort(404);
@@ -160,17 +167,19 @@ class JourneyIndex extends Component
         $s->fill(['label' => $d['label'] ?: null, 'channels' => array_values($d['channels']), 'template_id' => $d['template_id'], 'is_enabled' => (bool) $d['is_enabled'],
             'delay_minutes' => $minutes, 'offset_days' => $birthday ? (int) $d['offset_days'] : null, 'send_time' => $birthday ? $d['send_time'] : null])->save();
         $this->renumber($j);
+        $svc->wake($j);
         $audit->log('marketing.journey_step_saved', $j, [], $s->only(['label', 'channels', 'delay_minutes', 'offset_days', 'send_time', 'template_id']));
         $this->showStep = false;
         $this->toast(__('admin.saved'));
     }
 
-    public function deleteStep(string $id, AuditLogger $audit): void
+    public function deleteStep(string $id, AuditLogger $audit, JourneyService $svc): void
     {
         abort_unless($this->can('marketing.edit'), 403);
         $j = $this->journey() ?? abort(404);
         $j->steps()->findOrFail($id)->delete();
         $this->renumber($j);
+        $svc->wake($j);
         if ($j->is_enabled && ! $j->steps()->where('is_enabled', true)->exists()) {
             $j->update(['is_enabled' => false]);
         }

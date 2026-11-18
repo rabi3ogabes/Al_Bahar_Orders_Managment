@@ -3,6 +3,7 @@
 namespace App\Domain\Messaging\Services;
 
 use App\Domain\Identity\Models\User;
+use App\Domain\Marketing\Models\JourneyTemplate;
 use App\Domain\Orders\Models\Cart;
 use App\Support\BusinessTime;
 use Carbon\CarbonInterface;
@@ -57,6 +58,15 @@ class MessageVariables
         preg_match_all('/\{\{\s*([a-z0-9_]+)\s*\}\}/i', $text, $m);
 
         return array_values(array_unique(array_diff(array_map('strtolower', $m[1]), self::PLACEHOLDERS)));
+    }
+
+    /**
+     * Can every placeholder the template's texts use be filled in a message to a customer? The automatic abandoned-cart reminders use cart details
+     * ({{items_text}}, {{total}}, {{link}}) that this list does not know, so they stay in their own journey and are not offered in the composer.
+     */
+    public function fitsTemplate(JourneyTemplate $t): bool
+    {
+        return $this->unknown(implode(' ', array_filter([$t->title_en, $t->title_ar, $t->body_en, $t->body_ar, $t->whatsapp_en, $t->whatsapp_ar]))) === [];
     }
 
     /** Whether the text uses a placeholder. */

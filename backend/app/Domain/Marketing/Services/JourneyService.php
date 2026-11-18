@@ -111,9 +111,12 @@ class JourneyService
     private function startAbandonedRuns(Journey $journey): int
     {
         $first = (int) $journey->steps->min('delay_minutes');
+        // Only carts for which some step can still be sent: older than that (every step already expired) would start runs that end at once, and on
+        // the day the switch is turned on they would crowd out the carts that are waiting for a reminder.
+        $horizon = min(7 * 1440, AbandonedCarts::maxAgeDays() * 1440, (int) $journey->steps->max('delay_minutes') + AbandonedCartReminders::GRACE_HOURS * 60);
         $n = 0;
         Cart::query()->where('status', 'active')->whereNotNull('user_id')->has('items')
-            ->where('last_activity_at', '<=', now()->subMinutes($first))->where('last_activity_at', '>=', now()->subDays(min(7, AbandonedCarts::maxAgeDays())))
+            ->where('last_activity_at', '<=', now()->subMinutes($first))->where('last_activity_at', '>=', now()->subMinutes($horizon))
             ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('journey_runs')->whereColumn('journey_runs.user_id', 'carts.user_id')
                 ->where('journey_runs.journey_id', $journey->id)->where('journey_runs.status', 'active'))
             // A cart that already has a run for this very idle period is done with, unless the run was stopped because staff discarded the cart (an undo wakes it again below).
