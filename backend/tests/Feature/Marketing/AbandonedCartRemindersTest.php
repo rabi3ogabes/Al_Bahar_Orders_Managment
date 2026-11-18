@@ -18,6 +18,7 @@ use App\Domain\Notifications\Models\NotificationPreference;
 use App\Domain\Notifications\Services\NotificationRules;
 use App\Domain\Orders\Models\Cart;
 use App\Domain\Orders\Models\CartItem;
+use App\Livewire\Admin\Marketing\JourneyIndex;
 use App\Livewire\Admin\Messaging\MessageComposer;
 use App\Livewire\Admin\Sales\AbandonedAutoReminders;
 use App\Livewire\Admin\Sales\AbandonedCartsIndex;
@@ -917,5 +918,39 @@ describe('the customer messages composer', function () {
         $customer = User::factory()->create(['marketing_consent_at' => now()]);
 
         Livewire::actingAs($manager)->test(MessageComposer::class)->dispatch('compose-message', mode: 'ids', ids: [$customer->id])->assertSee($t->name);
+    });
+});
+
+describe('the customer journeys page and the reminders are one thing', function () {
+    it('shares its switch, its quiet hours and its steps with the reminders, and saving the safety rules there keeps the most reminders per cart', function () {
+        $form = $this->reminders->form();
+        $form['max_per_cart'] = 3;
+        $this->reminders->save($form, $this->admin);
+
+        $page = Livewire::actingAs($this->admin)->test(JourneyIndex::class)->assertSee(__('cart_reminders.journeys_hint'))
+            ->set('rules.quiet_start', '23:00')->set('rules.quiet_end', '06:00')->call('saveRules');
+        $j = Journey::where('key', 'abandoned_cart')->firstOrFail();
+
+        expect($j->setting('max_per_cart'))->toBe(3)->and($j->setting('defaults_version'))->toBe(2)->and($j->setting('quiet_start'))->toBe('23:00')
+            ->and($this->reminders->form()['quiet_start'])->toBe('23:00')->and($this->reminders->form()['max_per_cart'])->toBe(3);
+        $page->call('toggle');
+        expect($this->reminders->isEnabled())->toBeTrue();
+    });
+
+    it('wakes the waiting runs when the steps change, so a new time takes effect at once', function () {
+        reminderCart($this);
+        remindersOn($this);
+        $this->travel(61)->minutes();
+        $this->journeys->tick();
+        $run = JourneyRun::firstOrFail();
+        $far = $run->next_at;
+        $form = $this->reminders->form();
+        $form['reminders'][1]['delay'] = 360; // the second reminder moves from 1 day to 6 hours
+        $this->reminders->save($form, $this->admin);
+
+        expect($run->fresh()->next_at->lt($far))->toBeTrue();
+        $this->travel(6)->hours();
+        $this->journeys->tick();
+        expect(inbox($this))->toHaveCount(2);
     });
 });
