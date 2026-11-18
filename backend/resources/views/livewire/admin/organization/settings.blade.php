@@ -13,6 +13,7 @@
         </div>
         <fieldset class="divide-y divide-sand-100 dark:divide-ink-800" @disabled(! $canEdit)>
             @foreach ($schema[$tab] as $key => $def)
+                @continue(! empty($def['intro']))
                 @php $f = \App\Livewire\Admin\Organization\SettingsIndex::field($key); $path = "values.{$tab}.{$f}"; $default = config('platform.'.$key); @endphp
                 <div class="grid gap-3 px-5 py-5 sm:grid-cols-5 sm:items-center sm:gap-6 sm:px-6" wire:key="s-{{ $f }}">
                     <div class="sm:col-span-2">
@@ -55,6 +56,9 @@
                 </div>
             @endforeach
         </fieldset>
+        @if ($intro)
+            @include('livewire.admin.organization.partials.intro-slides')
+        @endif
         @if ($canEdit)
             <div class="flex items-center justify-between gap-4 border-t border-sand-100 bg-sand-50/50 px-5 py-4 sm:px-6 dark:border-ink-800 dark:bg-ink-800/30">
                 <p class="text-xs text-ink-500">{{ __('org_admin.changes_audited') }}</p>

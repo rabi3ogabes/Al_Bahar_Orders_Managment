@@ -6,9 +6,11 @@ use App\Domain\Settings\Services\Settings;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use App\Rules\MapServiceUrl;
 use App\Rules\MapTileUrl;
+use App\Support\IntroSlides;
 use App\Support\MapConfig;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
@@ -69,6 +71,8 @@ class SettingsIndex extends Component
                 'customer_app.designed_by_en' => ['type' => 'text', 'rules' => ['nullable', 'string', 'max:80'], 'dir' => 'ltr'],
                 'customer_app.designed_by_ar' => ['type' => 'text', 'rules' => ['nullable', 'string', 'max:80'], 'dir' => 'rtl'],
                 'customer_app.alternate_phone_enabled' => ['type' => 'bool', 'rules' => ['boolean']],
+                // The words of the customer app's three intro slides: drawn by the "Intro screens" block, not by the generic field list.
+                ...IntroSlides::schema(),
             ],
             'checkout' => [
                 'checkout.service_fee' => ['type' => 'money', 'rules' => $money],
@@ -143,6 +147,7 @@ class SettingsIndex extends Component
     {
         abort_unless($this->canGlobally('settings.edit'), 403);
         $fields = self::schema()[$this->tab] ?? abort(404);
+        $this->cleanIntroTexts($fields);
         $rules = [];
         $names = [];
         foreach ($fields as $key => $def) {
@@ -180,6 +185,94 @@ class SettingsIndex extends Component
         $this->toast($changed ? trans_choice('org_admin.settings_saved', $changed, ['count' => $changed]) : __('org_admin.settings_unchanged'));
     }
 
+    /**
+     * The intro texts are plain, one-line text: tags and extra white space go before the length is checked, so what the admin sees in
+     * the field after saving is exactly what customers get. (A value that is not a string is left for the `string` rule to refuse.)
+     *
+     * @param  array<string, array<string, mixed>>  $fields
+     */
+    private function cleanIntroTexts(array $fields): void
+    {
+        foreach ($fields as $key => $def) {
+            $f = self::field($key);
+            if (empty($def['intro']) || ! is_string($this->values[$this->tab][$f] ?? null)) {
+                continue;
+            }
+            $this->values[$this->tab][$f] = IntroSlides::clean($this->values[$this->tab][$f]);
+        }
+    }
+
+    /**
+     * "Reset to default" of one intro slide: its four texts are emptied (the apps then use their own words) and saved at once; the
+     * other fields of the page, saved or not, are untouched. The toast carries an Undo that puts back exactly what the fields held.
+     */
+    public function resetIntroSlide(int $slide, Settings $settings): void
+    {
+        abort_unless($this->canGlobally('settings.edit'), 403);
+        if ($slide < 1 || $slide > IntroSlides::SLIDES) {
+            return;
+        }
+        $before = [];
+        foreach (IntroSlides::PARTS as $part) {
+            foreach (IntroSlides::LANGS as $lang) {
+                $before[$part][$lang] = (string) ($this->values['general'][IntroSlides::field($slide, $part, $lang)] ?? '');
+            }
+        }
+        $this->applyIntroSlide($slide, array_fill_keys(IntroSlides::PARTS, array_fill_keys(IntroSlides::LANGS, '')), $settings);
+        if ($before === array_fill_keys(IntroSlides::PARTS, array_fill_keys(IntroSlides::LANGS, ''))) {
+            $this->toast(__('intro_admin.already_default', ['slide' => $slide]));
+
+            return;
+        }
+        $this->dispatch('toast', type: 'success', message: __('intro_admin.reset_done', ['slide' => $slide]),
+            undoLabel: __('admin.undo'), undoEvent: 'intro-slide-undo', undoParams: ['slide' => $slide, 'texts' => $before]);
+    }
+
+    /**
+     * Undo of a reset. The texts come back from the browser, so they are cleaned and checked like a normal save: anything that is not
+     * plain text within the limits is ignored (that text stays empty, the app's own words).
+     *
+     * @param  array<mixed>  $texts  part => lang => text
+     */
+    #[On('intro-slide-undo')]
+    public function undoIntroSlide(int $slide, array $texts, Settings $settings): void
+    {
+        abort_unless($this->canGlobally('settings.edit'), 403);
+        if ($slide < 1 || $slide > IntroSlides::SLIDES) {
+            return;
+        }
+        $restored = [];
+        foreach (IntroSlides::PARTS as $part) {
+            foreach (IntroSlides::LANGS as $lang) {
+                $text = $texts[$part][$lang] ?? '';
+                $restored[$part][$lang] = IntroSlides::served($text, $part) ?? '';
+            }
+        }
+        $this->applyIntroSlide($slide, $restored, $settings);
+        $this->toast(__('admin.saved'));
+    }
+
+    /**
+     * Writes the four texts of one slide (an empty text clears the setting) into the form and, when they differ from what is stored,
+     * into the settings: one audit entry per changed text, like any other setting.
+     *
+     * @param  array<string, array<string, string>>  $texts  part => lang => text
+     */
+    private function applyIntroSlide(int $slide, array $texts, Settings $settings): void
+    {
+        foreach (IntroSlides::PARTS as $part) {
+            foreach (IntroSlides::LANGS as $lang) {
+                $text = $texts[$part][$lang];
+                $this->values['general'][IntroSlides::field($slide, $part, $lang)] = $text;
+                $key = IntroSlides::key($slide, $part, $lang);
+                $new = $text === '' ? null : $text;
+                if ((string) $settings->get($key) !== (string) $new) {
+                    $settings->set($key, $new);
+                }
+            }
+        }
+    }
+
     /** Fetches one real tile with the SAVED map settings and says whether the provider answered with an image. */
     public function testTiles(): void
     {
@@ -206,6 +299,28 @@ class SettingsIndex extends Component
         $this->toast($isImage ? __('org_admin.map_test.ok') : __('org_admin.map_test.not_image'), $isImage ? 'success' : 'error');
     }
 
+    /**
+     * What the "Intro screens" block draws: per slide, its number and the shipped title and body in both languages (the placeholders
+     * and the preview's fallback), plus the limits.
+     *
+     * @return array{slides: list<array{n: int, defaults: array<string, array<string, string>>}>, max: array<string, int>}
+     */
+    private static function introView(): array
+    {
+        $slides = [];
+        foreach (IntroSlides::slideNumbers() as $n) {
+            $defaults = [];
+            foreach (IntroSlides::PARTS as $part) {
+                foreach (IntroSlides::LANGS as $lang) {
+                    $defaults[$part][$lang] = IntroSlides::default($n, $part, $lang);
+                }
+            }
+            $slides[] = ['n' => $n, 'defaults' => $defaults];
+        }
+
+        return ['slides' => $slides, 'max' => ['title' => IntroSlides::TITLE_MAX, 'body' => IntroSlides::BODY_MAX]];
+    }
+
     public function render(Settings $settings)
     {
         $masked = [];
@@ -219,6 +334,7 @@ class SettingsIndex extends Component
 
         return view('livewire.admin.organization.settings', [
             'schema' => self::schema(),
+            'intro' => $this->tab === 'general' ? self::introView() : null,
             'masked' => $masked,
             'canEdit' => $this->canGlobally('settings.edit'),
         ])->title(__('nav.settings'));

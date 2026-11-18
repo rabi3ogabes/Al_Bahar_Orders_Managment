@@ -3,6 +3,7 @@
 namespace App\Domain\Messaging\Services;
 
 use App\Domain\Identity\Models\User;
+use App\Domain\Identity\Models\UserDevice;
 use App\Domain\Marketing\Models\Coupon;
 use App\Domain\Marketing\Services\PersonalCouponIssuer;
 use App\Domain\Messaging\Models\CustomerMessage;
@@ -13,6 +14,7 @@ use App\Domain\Notifications\Services\N8nClient;
 use App\Domain\Notifications\Services\WhatsAppClient;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Sleep;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -126,9 +128,15 @@ class MessageDelivery
         $link = $content['deep_link'] ?: ($batch->kind === 'reminder' ? 'albahar://cart' : 'albahar://home');
         // devices = phones tried, pushed = phones Google accepted it for, silent = of those, phones that said notifications are off or never asked
         // (Android 13+ hides the push until the person allows it, so "pushed" alone is not "seen"). Unknown (null) is not counted as silent.
-        // push_tried tells "no phone" from "no push attempted" (the customer takes no push, or push is not set up) for the history.
+        // rejected = phones Google refused (with the first error word in `error`). push_tried tells "no phone" from "no push attempted", and
+        // push_skip says why none was attempted: the customer switched push off, or push is not set up. The history and the result window use them.
         $pushConfigured = $this->fcm->configured();
-        $meta = ['in_app' => false, 'devices' => 0, 'pushed' => 0, 'silent' => 0, 'push_tried' => $push && $pushConfigured];
+        $meta = ['in_app' => false, 'devices' => 0, 'pushed' => 0, 'silent' => 0, 'rejected' => 0, 'push_tried' => $push && $pushConfigured];
+        if (! $push) {
+            $meta['push_skip'] = 'customer';
+        } elseif (! $pushConfigured) {
+            $meta['push_skip'] = 'not_set_up';
+        }
         $inboxId = null;
 
         if ($inApp) {
@@ -141,13 +149,16 @@ class MessageDelivery
                 $meta['devices']++;
                 [$t, $b] = $this->texts($content, $device->locale ?: $locale, $user, $coupon); // the app language on that phone
                 // `notification_id`: opening the push marks the same message read in the customer's inbox.
-                $res = $this->fcm->send($device->push_token, $t, $b, array_filter(['event' => 'staff.message', 'deep_link' => $link, 'coupon' => $coupon?->code, 'delivery_id' => $row->id, 'notification_id' => $inboxId]), $device);
+                $res = $this->pushOnce($t, $b, array_filter(['event' => 'staff.message', 'deep_link' => $link, 'coupon' => $coupon?->code, 'delivery_id' => $row->id, 'notification_id' => $inboxId]), $device);
                 if ($res['unregistered'] ?? false) {
                     $device->update(['disabled_at' => now()]);
                 }
                 if ($res['ok'] ?? false) {
                     $meta['pushed']++;
                     $meta['silent'] += in_array($device->getAttribute('notification_permission'), ['denied', 'not_asked'], true) ? 1 : 0;
+                } else {
+                    $meta['rejected']++;
+                    $meta['error'] ??= Str::limit((string) ($res['code'] ?? $res['error'] ?? 'HTTP '.($res['status'] ?? 0)), 40, '');
                 }
             }
         }
@@ -159,6 +170,24 @@ class MessageDelivery
         } else {
             $this->finish($row, 'skipped', ! $push ? 'opted_out' : (! $pushConfigured ? 'push_not_configured' : 'no_devices'));
         }
+    }
+
+    /**
+     * One push to one phone. Google being busy or unreachable (`retry`) gets a second try a moment later, so a hiccup does not leave the customer
+     * with the inbox message only; the app shows a repeated push once (it carries the same inbox id).
+     *
+     * @param  array<string, mixed>  $data
+     * @return array{ok: bool, unregistered: bool, retry: bool, status: int, error: ?string, code?: ?string, detail?: ?string}
+     */
+    private function pushOnce(string $title, string $body, array $data, UserDevice $device): array
+    {
+        $res = $this->fcm->send($device->push_token, $title, $body, $data, $device);
+        if (! $res['ok'] && $res['retry']) {
+            Sleep::for(400)->milliseconds();
+            $res = $this->fcm->send($device->push_token, $title, $body, $data, $device);
+        }
+
+        return $res;
     }
 
     /** @param array<string, mixed> $content */

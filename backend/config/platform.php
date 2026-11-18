@@ -89,6 +89,34 @@ return [
     'customer_app' => [
         'designed_by_en' => 'Designed by Athar Qatar',
         'designed_by_ar' => 'تصميم أثر قطر',
+        // The three intro slides of the customer app (Settings → General & brand → "Intro screens"). These are the SHIPPED texts: the dashboard
+        // shows them as placeholders and in its live preview, and the app carries the same words in its language files (app_en.arb / app_ar.arb,
+        // keys onboardingTitle1..3 / onboardingBody1..3; tests/Feature/Commerce/IntroSlidesTest.php keeps the two copies equal). They are NOT
+        // settings values: an empty field in the dashboard means "use these", and GET /api/v1/app-config then sends null for that text.
+        // Limits: a title up to 40 characters, a body up to 120 (App\Support\IntroSlides::TITLE_MAX / BODY_MAX).
+        'intro_defaults' => [
+            1 => [
+                'title' => ['en' => 'Hala! For homes across Qatar', 'ar' => 'حيّاكم الله! لكل بيت في ديرتنا قطر'],
+                'body' => [
+                    'en' => 'Furniture, décor and everyday essentials, all in one place. Take your time and pick what suits your home.',
+                    'ar' => 'أثاث وديكور وأغراض يومية لبيتكم، كلها في مكان واحد. اختاروا اللي يعجبكم، على راحتكم.',
+                ],
+            ],
+            2 => [
+                'title' => ['en' => 'From our branches to your door', 'ar' => 'من فروعنا إلى باب بيتكم'],
+                'body' => [
+                    'en' => 'No trouble at all: pick a delivery time, or collect from the nearest branch. Stock and prices are always live.',
+                    'ar' => 'ما يحتاج تتعبون: اختاروا وقت التوصيل اللي يناسبكم، أو استلموا من أقرب فرع. المخزون والأسعار محدّثة أول بأول.',
+                ],
+            ],
+            3 => [
+                'title' => ['en' => 'Live auctions and majlis style', 'ar' => 'مزادات مباشرة وقطع تزيّن مجلسكم'],
+                'body' => [
+                    'en' => 'Bid live on special pieces, and browse collections styled for your majlis and the rest of your home.',
+                    'ar' => 'تفضّلوا، زايدوا مباشرة على قطع مميزة، وشوفوا تشكيلات منسّقة للمجلس وباقي البيت.',
+                ],
+            ],
+        ],
         // Settings → General & brand → "Alternative phone number": whether customers are asked for a second number for the driver.
         // Off hides it in the apps, the web store and the dashboard and the API ignores it; saved numbers are kept (App\Support\AlternatePhone::enabled).
         'alternate_phone_enabled' => true,

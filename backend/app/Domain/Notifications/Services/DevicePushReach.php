@@ -95,24 +95,68 @@ class DevicePushReach
     }
 
     /**
-     * What a finished delivery recorded (`customer_messages.meta`): how many phones it reached and on how many of them notifications are off.
-     * Null when there is nothing to add: the normal case, a row that is not a notification, or a send where no push was tried at all (the
-     * customer takes no push, or push is not set up: `push_tried` false) so "no phone" would be a guess. Older rows have no `push_tried`:
-     * a push is assumed to have been tried, as it was whenever push was set up.
+     * What a finished delivery recorded (`customer_messages.meta`) that the team should be told about: how many phones it reached and on how
+     * many of them notifications are off, that there was no phone, that Google refused the push for every phone, or that no push was sent
+     * at all because the customer switched push off (or push is not set up). Null when there is nothing to add: the normal case, a row that
+     * is not a notification, or a row from before these facts were recorded (`push_tried` false without a reason: nothing is guessed).
+     * Older rows have no `push_tried`: a push is assumed to have been tried, as it was whenever push was set up.
      *
      * @param  array<string, mixed>|null  $meta
-     * @return array{kind: 'no_phone'|'silent', reached: int, silent: int}|null
+     * @return array{kind: 'no_phone'|'silent'|'rejected'|'customer_off'|'not_set_up', reached: int, silent: int, error?: ?string}|null
      */
     public static function deliveryNote(?array $meta): ?array
     {
-        if ($meta === null || ! array_key_exists('devices', $meta) || ($meta['push_tried'] ?? true) === false) {
+        if ($meta === null || ! array_key_exists('devices', $meta)) {
             return null;
+        }
+        if (($meta['push_tried'] ?? true) === false) {
+            return match ($meta['push_skip'] ?? null) {
+                'customer' => ['kind' => 'customer_off', 'reached' => 0, 'silent' => 0],
+                'not_set_up' => ['kind' => 'not_set_up', 'reached' => 0, 'silent' => 0],
+                default => null,
+            };
         }
         if ((int) $meta['devices'] === 0) {
             return ['kind' => 'no_phone', 'reached' => 0, 'silent' => 0];
         }
+        $pushed = (int) ($meta['pushed'] ?? 0);
+        if ($pushed === 0) {
+            return ['kind' => 'rejected', 'reached' => 0, 'silent' => 0, 'error' => is_string($meta['error'] ?? null) ? $meta['error'] : null];
+        }
         $silent = (int) ($meta['silent'] ?? 0);
 
-        return $silent > 0 ? ['kind' => 'silent', 'reached' => (int) ($meta['pushed'] ?? 0), 'silent' => $silent] : null;
+        return $silent > 0 ? ['kind' => 'silent', 'reached' => $pushed, 'silent' => $silent] : null;
+    }
+
+    /**
+     * The one word for what a finished notification did on the phone side, for the result window of a send: `shown` (Google accepted the push
+     * for a phone that can show it, or whose setting is not known), `silent` (accepted, but every phone has notifications off or never asked),
+     * `no_phone`, `rejected` (a phone was tried and Google refused every push), `customer_off` (the customer switched push off, so none was
+     * tried), `not_set_up` (push is off on the server). Null for a row that says nothing about phones.
+     *
+     * @param  array<string, mixed>|null  $meta
+     * @return 'shown'|'silent'|'no_phone'|'rejected'|'customer_off'|'not_set_up'|null
+     */
+    public static function deliveryOutcome(?array $meta): ?string
+    {
+        if ($meta === null || ! array_key_exists('devices', $meta)) {
+            return null;
+        }
+        if (($meta['push_tried'] ?? true) === false) {
+            return match ($meta['push_skip'] ?? null) {
+                'customer' => 'customer_off',
+                'not_set_up' => 'not_set_up',
+                default => null,
+            };
+        }
+        if ((int) $meta['devices'] === 0) {
+            return 'no_phone';
+        }
+        $pushed = (int) ($meta['pushed'] ?? 0);
+        if ($pushed === 0) {
+            return 'rejected';
+        }
+
+        return (int) ($meta['silent'] ?? 0) >= $pushed ? 'silent' : 'shown';
     }
 }
