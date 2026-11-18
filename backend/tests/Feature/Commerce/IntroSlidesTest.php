@@ -148,8 +148,13 @@ it('saves the twelve texts with the page, empty meaning default, and audits each
     expect(AuditLog::count())->toBe($before);
 
     $page->set(introField(1, 'title', 'en'), '')->call('save');
-    expect(introServed()[0]['title']['en'])->toBeNull()
-        ->and(AuditLog::where('action', 'settings.updated')->latest('created_at')->first()->new_values['value'])->toBeNull();
+    expect(introServed()[0]['title']['en'])->toBeNull();
+    // The audit rows of one test share the same second, so "the latest row" is not a stable thing to ask for: find the one that cleared this text.
+    $cleared = AuditLog::where('action', 'settings.updated')->get()->filter(
+        fn ($l) => ($l->metadata['key'] ?? '') === 'customer_app.intro_1_title_en' && array_key_exists('value', $l->new_values ?? []) && $l->new_values['value'] === null,
+    );
+    // (The audit keeps the old value as the row is stored, {"v": text}, and the new one as plain text.)
+    expect($cleared)->toHaveCount(1)->and($cleared->first()->old_values['value']['v'])->toBe('Hala! Homes');
 });
 
 it('strips tags, folds white space into single spaces and trims before it counts the length', function () {
