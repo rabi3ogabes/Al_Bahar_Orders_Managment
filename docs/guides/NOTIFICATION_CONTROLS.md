@@ -134,7 +134,7 @@ All go through `NotificationService::notify` (the gate: `NotificationRules::enab
 | `auction.outbid` | Outbid | the outbid bidder | push, in-app | `auctionOutbid` |
 | `auction.won` / `auction.lost` | Auction won / lost | winner / the other bidders | won: push, in-app, SMS, email; lost: in-app | `auctionWon` |
 | `stock.back_in_stock` / `stock.price_drop` | Back in stock / Price drop | customers with an alert (marketing consent) | push, in-app | `backInStock`, `priceChanged` |
-| `cart.abandoned` | Cart reminder | customer with a cart left (marketing consent) | push, WhatsApp | the automatic reminders (`JourneyService`, `journeys:tick`; ships off, see [ABANDONED_CART_REMINDERS.md](ABANDONED_CART_REMINDERS.md); the master switch, the campaign master switch and each channel switch are respected), staff "Remind" (`remindCart`, explicit channels) |
+| `cart.abandoned` | Cart reminder | customer with a cart left (marketing consent) | push, in-app, WhatsApp | the automatic reminders (`JourneyService`, `journeys:tick`; ships off, see [ABANDONED_CART_REMINDERS.md](ABANDONED_CART_REMINDERS.md); the master switch, the campaign master switch and each channel switch are respected), staff "Remind" (`remindCart`, explicit channels) |
 | `support.reply` | Support reply | customer | push, in-app, email | `SupportService::reply` |
 | `referral.rewarded` / `referral.friend_rewarded` | Referral reward | inviter / invited friend | push, in-app | `ReferralService::announce` |
 | `campaign` | Campaign messages | the campaign's audience (marketing consent) | the campaign's own channel list | `CampaignService::send` (also gated before it starts) |

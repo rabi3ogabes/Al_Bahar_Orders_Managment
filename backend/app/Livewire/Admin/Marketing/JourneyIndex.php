@@ -162,6 +162,11 @@ class JourneyIndex extends Component
 
                 return;
             }
+            if ($j->key === 'abandoned_cart' && $minutes < AbandonedCartReminders::MIN_DELAY_MINUTES) {
+                $this->addError('step.delay_value', __('cart_reminders.err_step_min', ['t' => AbandonedCartReminders::delayLabel(AbandonedCartReminders::MIN_DELAY_MINUTES)]));
+
+                return;
+            }
         }
         $s = $this->stepId ? $j->steps()->findOrFail($this->stepId) : new JourneyStep(['journey_id' => $j->id]);
         $s->fill(['label' => $d['label'] ?: null, 'channels' => array_values($d['channels']), 'template_id' => $d['template_id'], 'is_enabled' => (bool) $d['is_enabled'],

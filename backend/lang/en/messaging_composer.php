@@ -88,6 +88,8 @@ return [
     'blocked_one' => ':name can\'t receive this right now: :reason.',
     'blocked_recent' => ':name was last messaged :ago. Customers get at most one message every :hours hours, so this one is paused. You can still send it to this one customer.',
     'blocked_recent_unknown' => ':name was messaged recently. Customers get at most one message every :hours hours, so this one is paused. You can still send it to this one customer.',
+    'blocked_recent_capped' => ':name was last messaged :ago. "Send anyway" has already been used :max times for this customer in the last hour, so this message has to wait.',
+    'recently' => 'recently',
     'blocked_many' => 'Nobody can receive this right now. Most common reason: :reason (:count).',
     'push_off_title' => 'No push for this customer',
     'push_off_note' => ':name switched off push for offers and news in the app, so this reaches the app inbox only. They can switch it back on under Notification settings in the app.',
@@ -134,6 +136,8 @@ return [
     // One customer: what happened, in plain words (title + body), and one short line per channel
     'res_one' => [
         'unknown_error' => 'unknown error',
+        'inbox' => ['title' => 'Saved in the app inbox', 'body' => 'The push to :name\'s phone is being sent now. This window updates by itself.'],
+        'partly' => ['title' => 'Sent by :channels', 'body' => 'Not everything went out. :channel: :detail'],
         'shown' => ['title' => 'Sent to :name\'s phone', 'body' => 'Google accepted the push for :name\'s phone, and the message is also in the app inbox. If it does not show, check that the phone is online and that notifications are allowed for the app.'],
         'sent' => ['title' => 'Message sent', 'body' => 'It has gone out. You can follow what happened in the history.'],
         'silent' => ['title' => 'Saved in the app inbox only', 'body' => 'Notifications are switched off on :name\'s phone, so no banner will show. The message is waiting in the app inbox. To get the push, :name must allow notifications in the app: Settings → Notifications.'],
@@ -145,9 +149,11 @@ return [
         'failed' => ['title' => 'Could not be sent', 'body' => 'Something went wrong while sending (:reason). You can try again from the history.'],
         'waiting' => ['title' => 'Sending…', 'body' => 'It is being delivered now.'],
         'cancelled' => ['title' => 'Cancelled', 'body' => 'This message was cancelled before it went out.'],
+        'slow_inbox' => ['title' => 'Taking longer than usual', 'body' => 'The message is already in the app inbox. The push to the phone goes out as soon as the background worker picks it up. If this stays like that, see "A message did not arrive" in the guide.'],
         'slow' => ['title' => 'Taking longer than usual', 'body' => 'The message is saved and goes out as soon as the background worker picks it up. If this stays like that, see "A message did not arrive" in the guide.'],
     ],
     'res_line' => [
+        'inbox' => 'In the inbox. The push to the phone is being sent.',
         'shown' => 'Push sent to :name\'s phone (also in the inbox).',
         'sent' => 'Sent.',
         'silent' => 'In the inbox only: notifications are off on the phone.',

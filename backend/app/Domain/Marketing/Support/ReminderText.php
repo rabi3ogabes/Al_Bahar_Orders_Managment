@@ -17,7 +17,7 @@ final class ReminderText
     /** @param  array<string, mixed>  $vars */
     public static function fill(string $text, array $vars): string
     {
-        return trim((string) preg_replace_callback('/\{\{\s*([a-z0-9_]+)\s*\}\}/i', fn (array $m) => (string) ($vars[$m[1]] ?? ''), $text));
+        return trim((string) preg_replace_callback('/\{\{\s*([a-z0-9_]+)\s*\}\}/i', fn (array $m) => (string) ($vars[strtolower($m[1])] ?? ''), $text));
     }
 
     /** @return list<string> every {{placeholder}} the text uses */

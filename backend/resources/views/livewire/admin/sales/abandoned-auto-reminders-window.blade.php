@@ -113,8 +113,8 @@
         <fieldset class="space-y-2">
             <legend class="{{ $h3 }}">{{ __('cart_reminders.channels') }}</legend>
             @foreach ($channels as $key => [$name, $hint])
-                @php $isReady = $ready[$key] ?? false; @endphp
-                <x-admin.toggle :label="$name" :hint="$isReady ? $hint : $hint.' · '.__('cart_reminders.not_set_up_yet')" wire:model.live="form.channels.{{ $key }}" wire:key="cr-ch-{{ $key }}" :disabled="! $isReady" :class="$isReady ? '' : 'opacity-50'" />
+                @php $off = $window['ruleOff'][$key] ?? false; $isReady = ($ready[$key] ?? false) && ! $off; @endphp
+                <x-admin.toggle :label="$name" :hint="$off ? $hint.' · '.__('cart_reminders.off_in_controls') : ($isReady ? $hint : $hint.' · '.__('cart_reminders.not_set_up_yet'))" wire:model.live="form.channels.{{ $key }}" wire:key="cr-ch-{{ $key }}" :disabled="! $isReady" :class="$isReady ? '' : 'opacity-50'" />
             @endforeach
             <p class="text-xs text-ink-500"><x-icon name="shield" class="me-1 inline size-3.5 text-emerald-soft" />{{ __('cart_reminders.consent_note') }}</p>
             @error('form.channels')<p class="field-error" role="alert">{{ $message }}</p>@enderror

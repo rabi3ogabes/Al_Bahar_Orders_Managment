@@ -13,6 +13,8 @@ use App\Domain\Marketing\Models\JourneyTemplate;
 use App\Domain\Marketing\Models\Promotion;
 use App\Domain\Marketing\Services\AbandonedCartReminders;
 use App\Domain\Marketing\Services\JourneyService;
+use App\Domain\Marketing\Support\ReminderText;
+use App\Domain\Messaging\Services\ContactHistory;
 use App\Domain\Notifications\Models\Notification;
 use App\Domain\Notifications\Models\NotificationPreference;
 use App\Domain\Notifications\Services\NotificationRules;
@@ -31,6 +33,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Exceptions;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
@@ -75,6 +78,50 @@ function remindersSent(Cart $cart): int
 function inbox(object $t, ?User $who = null)
 {
     return Notification::where('user_id', ($who ?? $t->w->customer)->id)->where('event', 'journey.abandoned_cart')->get();
+}
+
+/**
+ * Another scheduler pass sends the step's inbox message in the instant between this pass looking for its delivery row and creating it (the race the unique row
+ * guards). Returns a function that says whether it happened. The row is written straight to the table, so no model event or cart read gets in the way.
+ */
+function otherPassSendsInbox(): Closure
+{
+    $happened = false;
+    DB::listen(function ($query) use (&$happened) {
+        if ($happened || ! str_starts_with($query->sql, 'select * from "journey_deliveries" where ("run_id" = ? and "step_id" = ? and "channel" = ?)')) {
+            return;
+        }
+        $happened = true;
+        [$run, $step, $channel] = $query->bindings;
+        if ($channel === 'in_app') {
+            $user = JourneyRun::whereKey($run)->value('user_id');
+            DB::table('journey_deliveries')->insert(['id' => (string) Str::uuid(), 'run_id' => $run, 'step_id' => $step, 'user_id' => $user, 'channel' => 'in_app', 'status' => 'sent',
+                'sent_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        } else {
+            $happened = false; // wait for the inbox row
+        }
+    });
+
+    return function () use (&$happened) {
+        return $happened;
+    };
+}
+
+/** The starter journey of the first version, exactly as its seeder wrote it: 30 minutes, 4 hours and 3 days, never switched on, never run. */
+function legacyStarter(): Journey
+{
+    $j = Journey::create(['key' => 'abandoned_cart', 'name' => 'Abandoned cart', 'is_enabled' => false, 'settings' => ['quiet_start' => '22:00', 'quiet_end' => '08:00', 'max_per_day' => 3]]);
+    $remind = JourneyTemplate::create(['name' => 'Cart reminder', 'kind' => 'reminder', 'title_en' => 'Your cart is waiting', 'title_ar' => 'سلتك بانتظارك', 'deep_link' => 'albahar://cart',
+        'body_en' => 'Hi {{name}}, you left {{items}} item(s) in your cart. Complete your order before they sell out.', 'body_ar' => 'مرحباً {{name}}، لديك {{items}} منتج في السلة. أكمل طلبك قبل نفاد الكمية.']);
+    $offer = JourneyTemplate::create(['name' => 'Cart offer', 'kind' => 'offer', 'title_en' => 'A little something for you', 'title_ar' => 'هدية صغيرة لك', 'deep_link' => 'albahar://cart',
+        'body_en' => 'Hi {{name}}, use code {{coupon}} on your cart before {{expires}}.', 'body_ar' => 'مرحباً {{name}}، استخدم الرمز {{coupon}} على سلتك قبل {{expires}}.',
+        'whatsapp_en' => "Hi {{name}} 👋\nYour cart at Al Bahar is still waiting. Use code {{coupon}} before {{expires}}.\n{{app_link}}",
+        'whatsapp_ar' => "مرحباً {{name}} 👋\nسلتك في البحار بانتظارك. استخدم الرمز {{coupon}} قبل {{expires}}.\n{{app_link}}"]);
+    foreach ([[30, ['push', 'in_app'], $remind, 'Reminder'], [240, ['push', 'whatsapp'], $offer, 'Offer'], [4320, ['push', 'whatsapp'], $offer, 'Last chance']] as $i => [$min, $ch, $t, $label]) {
+        JourneyStep::create(['journey_id' => $j->id, 'position' => $i + 1, 'label' => $label, 'delay_minutes' => $min, 'channels' => $ch, 'template_id' => $t->id]);
+    }
+
+    return $j;
 }
 
 describe('safe by default', function () {
@@ -322,7 +369,7 @@ describe('who is never reminded', function () {
         expect(JourneyRun::firstOrFail()->stop_reason)->toBe('cart_empty')->and(inbox($this))->toHaveCount(1);
     });
 
-    it('stops when the customer changes the cart, and starts again from the first reminder when they leave again', function () {
+    it('stops when the customer changes the cart, and a new run starts when they leave again, but never sooner than the gap after the last reminder', function () {
         $cart = reminderCart($this);
         remindersOn($this);
         $this->travel(61)->minutes();
@@ -334,6 +381,9 @@ describe('who is never reminded', function () {
         $this->journeys->tick();
         expect(JourneyRun::firstOrFail()->stop_reason)->toBe('customer_returned');
 
+        $this->travel(2)->hours(); // the new run's reminder is due, but the last one went out only 2 hours ago
+        $this->journeys->tick();
+        expect(inbox($this))->toHaveCount(1);
         $this->travel(2)->hours();
         $this->journeys->tick();
         expect(inbox($this))->toHaveCount(2)->and(remindersSent($cart))->toBe(1);
@@ -389,17 +439,22 @@ describe('limits', function () {
         expect(remindersSent($cart))->toBe(1)->and(inbox($this))->toHaveCount(1)->and(JourneyDelivery::where('reason', 'cart_limit')->exists())->toBeTrue();
     });
 
-    it('shares the counters with the staff "Send reminder" button, both ways', function () {
+    it('shares the limit with the staff "Send reminder" button, and an automatic reminder waits a full staff cooldown after a staff one', function () {
         $cart = reminderCart($this, ['idle' => 90]);
         remindersOn($this);
         // staff go first: that is reminder number one
         expect(app(AbandonedCartService::class)->remind($this->admin, $cart->id)['status'])->toBe('sent')->and(remindersSent($cart))->toBe(1);
-        $this->travel(4)->hours(); // far enough from the staff message for the automatic reminder to follow
+
+        $this->travel(4)->hours(); // 3 hours would be enough after an automatic reminder, but staff just reminded this customer: the cooldown (24 hours) applies
+        $this->journeys->tick();
+        expect(inbox($this))->toHaveCount(0)->and(remindersSent($cart))->toBe(1);
+
+        $this->travel(21)->hours(); // 25 hours after the staff reminder: the second automatic reminder (1 day) goes out, the first one expired meanwhile
         $this->journeys->tick();
         expect(remindersSent($cart))->toBe(2)->and(inbox($this))->toHaveCount(1);
 
-        // the limit of 2 is used up: the second automatic reminder is not sent and a new staff reminder is refused
-        $this->travel(24)->hours();
+        // the limit of 2 is used up (one by staff, one automatic): a new staff reminder is refused
+        $this->travel(26)->hours();
         $this->journeys->tick();
         expect(inbox($this))->toHaveCount(1)->and(app(AbandonedCartService::class)->remind($this->admin, $cart->id)['status'])->toBe('limit_reached');
     });
@@ -521,21 +576,12 @@ describe('never twice', function () {
     });
 
     it('does not send what another pass sent a moment ago, even when both started from the same picture of the run', function () {
-        $cart = reminderCart($this, ['idle' => 90]);
+        reminderCart($this, ['idle' => 90]);
         remindersOn($this);
-        $done = false;
-        Event::listen('eloquent.retrieved: '.Cart::class, function () use (&$done) {
-            if ($done || ! JourneyRun::exists()) {
-                return;
-            }
-            $done = true; // the other pass sends the same step on the same channel between our read of the run and our send
-            $run = JourneyRun::firstOrFail();
-            JourneyDelivery::create(['run_id' => $run->id, 'step_id' => $run->journey->steps()->first()->id, 'user_id' => $run->user_id, 'channel' => 'in_app', 'status' => 'sent', 'sent_at' => now()]);
-        });
+        $happened = otherPassSendsInbox();
         $this->journeys->tick();
-        Event::forget('eloquent.retrieved: '.Cart::class);
 
-        expect($done)->toBeTrue()->and(Notification::where('event', 'journey.abandoned_cart')->count())->toBe(0)->and(JourneyDelivery::where('channel', 'in_app')->count())->toBe(1);
+        expect($happened())->toBeTrue()->and(Notification::where('event', 'journey.abandoned_cart')->count())->toBe(0)->and(JourneyDelivery::where('channel', 'in_app')->count())->toBe(1);
     });
 
     it('does not send a step on a channel that already has a delivery row', function () {
@@ -639,17 +685,8 @@ describe('the words', function () {
 });
 
 describe('older settings stay valid', function () {
-    it('brings an unused first-version journey up to the new defaults, and leaves a used or changed one alone', function () {
-        $journeys = Journey::query()->get();
-        expect($journeys)->toHaveCount(0);
-        // The starter journey of the first version: 30 minutes, 4 hours and 3 days, never switched on, never run.
-        $j = Journey::create(['key' => 'abandoned_cart', 'name' => 'Abandoned cart', 'is_enabled' => false, 'settings' => ['quiet_start' => '22:00', 'quiet_end' => '08:00', 'max_per_day' => 3]]);
-        $remind = JourneyTemplate::create(['name' => 'Cart reminder', 'kind' => 'reminder', 'title_en' => 'Your cart is waiting', 'title_ar' => 'سلتك بانتظارك',
-            'body_en' => 'Hi {{name}}, you left {{items}} item(s) in your cart. Complete your order before they sell out.', 'body_ar' => 'مرحباً {{name}}']);
-        $offer = JourneyTemplate::create(['name' => 'Cart offer', 'kind' => 'offer', 'title_en' => 'A little something for you', 'title_ar' => 'هدية', 'body_en' => 'Hi {{name}}, use code {{coupon}}', 'body_ar' => 'مرحباً']);
-        foreach ([[30, ['push', 'in_app'], $remind], [240, ['push', 'whatsapp'], $offer], [4320, ['push', 'whatsapp'], $offer]] as $i => [$min, $ch, $t]) {
-            JourneyStep::create(['journey_id' => $j->id, 'position' => $i + 1, 'delay_minutes' => $min, 'channels' => $ch, 'template_id' => $t->id]);
-        }
+    it('brings an unused first-version journey up to the new defaults', function () {
+        $j = legacyStarter();
 
         $this->reminders->ensure();
 
@@ -658,10 +695,36 @@ describe('older settings stay valid', function () {
         expect($steps->pluck('delay_minutes')->all())->toBe([60, 1440, 4320])->and($steps->pluck('is_enabled')->all())->toBe([true, true, false])
             ->and($steps[0]->template->body_en)->not->toContain('sell out')->and($steps->pluck('template_id')->unique())->toHaveCount(3) // no template is shared between two reminders
             ->and($j->setting('max_per_cart'))->toBe(2)->and($j->is_enabled)->toBeFalse();
+    });
 
-        // A journey somebody changed is left exactly as it is.
-        $j2 = Journey::create(['key' => 'birthday', 'name' => 'Birthday', 'is_enabled' => false]);
-        expect($j2->setting('defaults_version'))->toBeNull();
+    it('never overwrites a first-version journey the owner changed in any way: only the version mark is set', function () {
+        $changes = [
+            'a promotion attached to the offer' => function (Journey $j) {
+                $promo = Promotion::create(['name_en' => 'Ten', 'name_ar' => 'عشرة', 'type' => 'percentage', 'value' => '10', 'scope' => 'order', 'requires_coupon' => true, 'is_active' => true]);
+                $j->steps()->where('position', 2)->first()->template->update(['promotion_id' => $promo->id]);
+            },
+            'an Arabic text edited' => fn (Journey $j) => $j->steps()->where('position', 3)->first()->template->update(['body_ar' => 'نص آخر']),
+            'a title edited' => fn (Journey $j) => $j->steps()->where('position', 2)->first()->template->update(['title_en' => 'Something else']),
+            'the WhatsApp wording edited' => fn (Journey $j) => $j->steps()->where('position', 2)->first()->template->update(['whatsapp_en' => 'Hello']),
+            'quiet hours changed' => fn (Journey $j) => $j->update(['settings' => ['quiet_start' => '23:00', 'quiet_end' => '07:00', 'max_per_day' => 3]]),
+            'the daily limit changed' => fn (Journey $j) => $j->update(['settings' => ['quiet_start' => '22:00', 'quiet_end' => '08:00', 'max_per_day' => 1]]),
+            'a channel changed' => fn (Journey $j) => $j->steps()->where('position', 1)->first()->update(['channels' => ['push']]),
+            'a step renamed' => fn (Journey $j) => $j->steps()->where('position', 3)->first()->update(['label' => 'Final nudge']),
+            'a step added' => fn (Journey $j) => JourneyStep::create(['journey_id' => $j->id, 'position' => 4, 'delay_minutes' => 9000, 'channels' => ['push'], 'template_id' => $j->steps()->first()->template_id]),
+        ];
+        foreach ($changes as $what => $change) {
+            Journey::query()->delete();
+            JourneyTemplate::query()->delete();
+            $j = legacyStarter();
+            $change($j);
+            $before = [$j->fresh()->steps()->with('template')->get()->map(fn ($s) => [$s->label, $s->delay_minutes, $s->channels, $s->template?->only(['title_en', 'title_ar', 'body_en', 'body_ar', 'whatsapp_en', 'promotion_id'])])->all(), $j->fresh()->settings];
+
+            $this->reminders->ensure();
+
+            $after = [$j->fresh()->steps()->with('template')->get()->map(fn ($s) => [$s->label, $s->delay_minutes, $s->channels, $s->template?->only(['title_en', 'title_ar', 'body_en', 'body_ar', 'whatsapp_en', 'promotion_id'])])->all(), $j->fresh()->settings];
+            $before[1]['defaults_version'] = 2;
+            expect($after)->toEqual($before, $what.' was overwritten')->and($j->fresh()->steps()->count())->toBe($what === 'a step added' ? 4 : 3);
+        }
     });
 
     it('does not touch a journey that was switched on or has run', function () {
@@ -766,11 +829,11 @@ describe('the abandoned orders page', function () {
         $cart = reminderCart($this, ['idle' => 90]);
         app(AbandonedCartService::class)->remind($this->admin, $cart->id);   // reminder number one, by hand
         remindersOn($this);
-        $this->travel(4)->hours();
+        $this->travel(25)->hours();
         $this->journeys->tick();                                               // reminder number two, automatic: the cart's limit is used up
 
         $page = Livewire::actingAs($this->admin)->test(AbandonedCartsIndex::class)->call('openCart', $cart->id);
-        $page->assertSee(__('cart_reminders.history_title'))->assertSee(__('cart_reminders.history_auto', ['n' => 1]))
+        $page->assertSee(__('cart_reminders.history_title'))->assertSee(__('cart_reminders.history_auto', ['n' => 2]))
             ->assertSee(__('cart_reminders.history_staff', ['name' => $this->admin->name]))
             ->assertSee(__('cart_reminders.history_not_sent', ['channel' => __('cart_reminders.ch_push'), 'reason' => __('cart_reminders.reason.no_devices')]));
         expect($this->reminders->history($cart->fresh())['next'])->toBeNull(); // the limit of 2 per cart is used up
@@ -974,5 +1037,315 @@ describe('the customer journeys page and the reminders are one thing', function 
         $this->travel(6)->hours();
         $this->journeys->tick();
         expect(inbox($this))->toHaveCount(2);
+    });
+});
+
+describe('review fixes: what a customer can not defeat', function () {
+    it('keeps the gap and the limit per cart however often the customer touches the cart', function () {
+        $this->travelTo(CarbonImmutable::parse('2026-11-18 10:00:00', 'Asia/Qatar'));
+        $cart = reminderCart($this);
+        remindersOn($this);
+        $touch = fn () => app(CartService::class)->add($this->w->customer, $this->w->v2->id, 1);
+        $sent = fn () => inbox($this)->count();
+
+        $touch();                                                                                  // 10:00 (the cart is touched: idle clock starts)
+        $this->travelTo(CarbonImmutable::parse('2026-11-18 11:00:30', 'Asia/Qatar'));
+        $this->journeys->tick();                                                                   // 11:00 first reminder
+        $this->travelTo(CarbonImmutable::parse('2026-11-18 11:30:00', 'Asia/Qatar'));
+        $touch();                                                                                  // 11:30 the customer fiddles: the counters reset, a new run starts
+        $this->travelTo(CarbonImmutable::parse('2026-11-18 12:31:00', 'Asia/Qatar'));
+        $this->journeys->tick();                                                                   // 12:30 would be due: the last reminder went out only 1.5 hours ago
+        expect($sent())->toBe(1);
+
+        $this->travelTo(CarbonImmutable::parse('2026-11-18 13:00:00', 'Asia/Qatar'));
+        $touch();                                                                                  // 13:00 again
+        $this->travelTo(CarbonImmutable::parse('2026-11-18 14:05:00', 'Asia/Qatar'));
+        $this->journeys->tick();                                                                   // 14:00: three hours after the first one: the second (and last) is allowed
+        expect($sent())->toBe(2);
+
+        // The limit of 2 per cart now holds for 7 days, whatever the customer does: more fiddling never earns a third.
+        foreach (['2026-11-18 15:00', '2026-11-19 10:00', '2026-11-20 10:00'] as $time) {
+            $this->travelTo(CarbonImmutable::parse($time.':00', 'Asia/Qatar'));
+            $touch();
+            $this->travelTo(CarbonImmutable::parse($time.':00', 'Asia/Qatar')->addHours(5));
+            $this->journeys->tick();
+        }
+        expect($sent())->toBe(2);
+
+        // A real order ends the cart: the next cart starts at zero.
+        $cart->update(['status' => 'converted']);
+        $next = reminderCart($this, ['idle' => 90]);
+        $this->journeys->tick();
+        expect($sent())->toBe(3)->and(remindersSent($next))->toBe(1);
+    });
+
+    it('does not remind a customer whose order was placed another way after they left the cart', function () {
+        $cart = reminderCart($this);
+        remindersOn($this);
+        // staff built an order for the customer on the phone: no source cart, the customer's cart stays open
+        DB::table('orders')->insert(['id' => (string) Str::uuid(), 'number' => 'PH-1', 'user_id' => $this->w->customer->id, 'payment_method' => 'cod', 'fulfillment_type' => 'delivery',
+            'subtotal' => 100, 'grand_total' => 100, 'customer_name' => 'Noor', 'status' => 'confirmed', 'placed_at' => now()->addMinutes(20), 'created_at' => now(), 'updated_at' => now()]);
+        $this->travel(61)->minutes();
+        $r = $this->journeys->tick();
+
+        expect($r['started'])->toBe(0)->and(Notification::count())->toBe(0)->and(JourneyRun::count())->toBe(0)->and(remindersSent($cart))->toBe(0);
+    });
+
+    it('stops a run whose customer ordered another way between starting and sending', function () {
+        $cart = reminderCart($this, ['idle' => 90]);
+        remindersOn($this);
+        $done = false;
+        Event::listen('eloquent.retrieved: '.Cart::class, function () use (&$done) {
+            if ($done || ! JourneyRun::exists()) {
+                return;
+            }
+            $done = true;
+            DB::table('orders')->insert(['id' => (string) Str::uuid(), 'number' => 'PH-2', 'user_id' => $this->w->customer->id, 'payment_method' => 'cod', 'fulfillment_type' => 'delivery',
+                'subtotal' => 100, 'grand_total' => 100, 'customer_name' => 'Noor', 'status' => 'confirmed', 'placed_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        });
+        $this->journeys->tick();
+        Event::forget('eloquent.retrieved: '.Cart::class);
+
+        expect($done)->toBeTrue()->and(Notification::count())->toBe(0)->and(JourneyRun::firstOrFail()->stop_reason)->toBe('ordered_on_their_own');
+    });
+
+    it('does not make an abandoned-cart reminder wait less than 30 minutes, whatever a step says', function () {
+        $this->reminders->ensure();
+        Journey::where('key', 'abandoned_cart')->firstOrFail()->steps()->first()->update(['delay_minutes' => 1]);
+        $early = reminderCart($this, ['idle' => 10]);
+        remindersOn($this);
+        $this->journeys->tick();
+        expect(JourneyRun::count())->toBe(0)->and(Notification::count())->toBe(0);
+
+        $this->travel(21)->minutes(); // 31 minutes idle
+        $this->journeys->tick();
+        expect(inbox($this))->toHaveCount(1);
+        $page = Livewire::actingAs($this->admin)->test(JourneyIndex::class)->call('editStep', Journey::where('key', 'abandoned_cart')->firstOrFail()->steps()->first()->id)
+            ->set('step.delay_value', 5)->set('step.delay_unit', 'minutes')->call('saveStep');
+        $page->assertHasErrors(['step.delay_value']);
+        expect(Journey::where('key', 'abandoned_cart')->firstOrFail()->steps()->first()->delay_minutes)->toBe(1);
+        $page->set('step.delay_value', 30)->call('saveStep')->assertHasNoErrors();
+    });
+});
+
+describe('review fixes: switches and the notification controls', function () {
+    it('honours the switch being turned off while a pass is running', function () {
+        $other = User::factory()->create(['marketing_consent_at' => now()]);
+        reminderCart($this, ['idle' => 90]);
+        reminderCart($this, ['customer' => $other, 'idle' => 90]);
+        remindersOn($this);
+        Event::listen('eloquent.created: '.Notification::class, fn () => $this->reminders->setEnabled(false, $this->admin)); // the owner switches off as the first message goes out
+        $this->journeys->tick();
+        Event::forget('eloquent.created: '.Notification::class);
+
+        expect(Notification::where('event', 'journey.abandoned_cart')->count())->toBe(1);
+    });
+
+    it('honours the Cart reminder being switched off in the notification controls while a pass is running', function () {
+        $other = User::factory()->create(['marketing_consent_at' => now()]);
+        reminderCart($this, ['idle' => 90]);
+        reminderCart($this, ['customer' => $other, 'idle' => 90]);
+        remindersOn($this);
+        Event::listen('eloquent.created: '.Notification::class, fn () => app(NotificationRules::class)->set('cart.abandoned', false, [], $this->admin));
+        $this->journeys->tick();
+        Event::forget('eloquent.created: '.Notification::class);
+
+        expect(Notification::where('event', 'journey.abandoned_cart')->count())->toBe(1);
+    });
+
+    it('uses the same answer as the notification controls page for every channel, the app inbox included', function () {
+        $rules = app(NotificationRules::class);
+        expect($rules->channelEnabled('cart.abandoned', 'in_app'))->toBeTrue()->and($rules->channelEnabled('cart.abandoned', 'push'))->toBeTrue()
+            ->and($this->reminders->channelAllowed('in_app'))->toBeTrue(); // the page shows the inbox on for the Cart reminder, and so does the engine
+
+        reminderCart($this, ['idle' => 90]);
+        remindersOn($this);
+        $rules->set('cart.abandoned', true, ['in_app' => false], $this->admin); // the owner switches the inbox off there
+        expect($rules->channelEnabled('cart.abandoned', 'in_app'))->toBeFalse();
+        $this->journeys->tick();
+
+        expect(Notification::where('event', 'journey.abandoned_cart')->count())->toBe(0)->and(JourneyDelivery::where('channel', 'in_app')->exists())->toBeFalse();
+        $card = Livewire::actingAs($this->admin)->test(AbandonedAutoReminders::class)->assertSee(__('cart_reminders.off_in_controls'));
+        $card->call('openSettings')->assertSee(__('cart_reminders.off_in_controls'));
+    });
+});
+
+describe('review fixes: what the cart window promises', function () {
+    it('promises no next reminder for a customer who would be skipped, and says why', function () {
+        $cart = reminderCart($this, ['idle' => 5]);
+        remindersOn($this);
+        expect($this->reminders->history($cart)['next'])->not->toBeNull()->and($this->reminders->history($cart)['no_next'])->toBeNull();
+
+        $this->w->customer->update(['marketing_consent_at' => null]);
+        $h = $this->reminders->history($cart->fresh());
+        expect($h['next'])->toBeNull()->and($h['no_next'])->toBe(__('cart_reminders.reason.no_marketing_consent'));
+        $window = Livewire::actingAs($this->admin)->test(AbandonedCartsIndex::class)->set('idle', '30m');
+        Cart::whereKey($cart->id)->update(['last_activity_at' => now()->subHour()]);
+        $window->call('openCart', $cart->id)->assertSee(__('cart_reminders.history_no_next', ['reason' => __('cart_reminders.reason.no_marketing_consent')]));
+
+        $this->w->customer->update(['marketing_consent_at' => now(), 'status' => 'suspended']);
+        expect($this->reminders->history($cart->fresh())['no_next'])->toBe(__('cart_reminders.reason.inactive_user'));
+        $this->w->customer->update(['status' => 'active']);
+        NotificationPreference::create(['user_id' => $this->w->customer->id, 'channel' => 'in_app', 'category' => 'marketing', 'is_enabled' => false]);
+        NotificationPreference::create(['user_id' => $this->w->customer->id, 'channel' => 'push', 'category' => 'marketing', 'is_enabled' => false]);
+        expect($this->reminders->history($cart->fresh())['no_next'])->toBe(__('cart_reminders.reason.opted_out'));
+        NotificationPreference::query()->delete();
+        $this->w->p1->update(['status' => 'draft']);
+        $view = app(CartService::class)->present($cart->fresh());
+        expect($this->reminders->history($cart->fresh(), $view)['no_next'])->toBe(__('cart_reminders.reason.out_of_stock'));
+    });
+
+    it('waits for the gap and the staff cooldown in the next reminder it promises', function () {
+        $cart = reminderCart($this, ['idle' => 90]);
+        remindersOn($this);
+        app(AbandonedCartService::class)->remind($this->admin, $cart->id); // staff reminded just now
+
+        $next = $this->reminders->history($cart->fresh())['next'];
+        expect($next)->not->toBeNull()->and($next['at']->gte(now()->addHours(23)))->toBeTrue();
+    });
+});
+
+describe('review fixes: the recovery offer', function () {
+    function offerPromotion(array $o = []): Promotion
+    {
+        return Promotion::create(array_merge(['name_en' => 'Free delivery', 'name_ar' => 'توصيل مجاني', 'type' => 'free_delivery', 'value' => '0', 'scope' => 'order', 'requires_coupon' => true, 'is_active' => true], $o));
+    }
+
+    it('never promises a code longer than its promotion lasts', function () {
+        $promo = offerPromotion(['ends_at' => now()->addHours(3)]);
+        $form = $this->reminders->form();
+        $form['offer'] = ['promotion_id' => $promo->id, 'reminder' => 1, 'valid_hours' => 48];
+        $this->reminders->save($form, $this->admin);
+        reminderCart($this, ['idle' => 90]);
+        remindersOn($this);
+        $this->journeys->tick();
+
+        $coupon = Coupon::firstOrFail();
+        expect($coupon->ends_at->equalTo($promo->ends_at))->toBeTrue();
+    });
+
+    it('refuses at save a promotion most customers with a cart could not use', function () {
+        $form = $this->reminders->form();
+        $group = (string) Str::uuid();
+        DB::table('customer_groups')->insert(['id' => $group, 'code' => 'VIP', 'name_en' => 'VIP', 'name_ar' => 'مميز', 'created_at' => now(), 'updated_at' => now()]);
+        $bad = [
+            'a first-order promotion' => offerPromotion(['first_order_only' => true]),
+            'one for a customer group only' => offerPromotion(['customer_group_id' => $group]),
+            'one that has ended' => offerPromotion(['ends_at' => now()->subDay()]),
+            'one that has not started' => offerPromotion(['starts_at' => now()->addDay()]),
+            'one with no uses left' => offerPromotion(['usage_limit' => 5, 'times_used' => 5]),
+            'one that is switched off' => offerPromotion(['is_active' => false]),
+            'one that applies by itself' => offerPromotion(['requires_coupon' => false]),
+        ];
+        foreach ($bad as $what => $promo) {
+            $form['offer'] = ['promotion_id' => $promo->id, 'reminder' => 2, 'valid_hours' => 48];
+            expect(fn () => $this->reminders->save($form, $this->admin))->toThrow(ValidationException::class, '', $what);
+        }
+        $form['offer'] = ['promotion_id' => offerPromotion(['usage_limit' => 5, 'times_used' => 4])->id, 'reminder' => 2, 'valid_hours' => 48];
+        $this->reminders->save($form, $this->admin);
+    });
+
+    it('does not promise a code when the promotion ended after it was saved: the reminder still goes out, without the offer sentence', function () {
+        $promo = offerPromotion();
+        $form = $this->reminders->form();
+        $form['offer'] = ['promotion_id' => $promo->id, 'reminder' => 1, 'valid_hours' => 24];
+        $this->reminders->save($form, $this->admin);
+        $promo->update(['ends_at' => now()->subHour()]);
+        reminderCart($this, ['idle' => 90]);
+        remindersOn($this);
+        $this->journeys->tick();
+
+        expect(Coupon::count())->toBe(0)->and(inbox($this))->toHaveCount(1)->and(inbox($this)->first()->body)->not->toContain('code')->not->toContain('gift');
+    });
+
+    it('does not send a text that needs the code when no code can be made', function () {
+        $promo = offerPromotion();
+        $form = $this->reminders->form();
+        $form['offer'] = ['promotion_id' => $promo->id, 'reminder' => 1, 'valid_hours' => 24];
+        $form['reminders'][0]['body_en'] = 'Hi {{name}}, use code {{coupon}} before {{expires}}.';
+        $this->reminders->save($form, $this->admin);
+        $promo->update(['is_active' => false]);
+        reminderCart($this, ['idle' => 90]);
+        remindersOn($this);
+        $this->journeys->tick();
+
+        expect(Notification::where('event', 'journey.abandoned_cart')->count())->toBe(0)->and(JourneyDelivery::where('reason', 'offer_unavailable')->exists())->toBeTrue()->and(Coupon::count())->toBe(0);
+    });
+
+    it('voids the personal code when nothing reached the customer, so no unused code is left behind', function () {
+        $promo = offerPromotion();
+        $form = $this->reminders->form();
+        $form['offer'] = ['promotion_id' => $promo->id, 'reminder' => 1, 'valid_hours' => 24];
+        $form['channels'] = ['push' => false, 'in_app' => false, 'whatsapp' => true]; // the only way is WhatsApp, which is not set up on this server
+        $this->reminders->save($form, $this->admin);
+        NotificationPreference::create(['user_id' => $this->w->customer->id, 'channel' => 'whatsapp', 'category' => 'marketing', 'is_enabled' => true]);
+        reminderCart($this, ['idle' => 90]);
+        Journey::where('key', 'abandoned_cart')->update(['is_enabled' => true]); // (switching on is refused while no way works: this is the state after one stopped working)
+        $this->journeys->tick();
+
+        expect(JourneyDelivery::where('channel', 'whatsapp')->first())->status->toBe('skipped')->and(Coupon::count())->toBe(0)->and(JourneyDelivery::whereNotNull('coupon_code')->count())->toBe(0);
+    });
+});
+
+describe('review fixes: counting and wording', function () {
+    it('fills placeholders whatever their letter case, and mentions an offer written as {{Coupon}} only once', function () {
+        expect(ReminderText::fill('Hi {{NAME}}, code {{Coupon}} {{ Items_Text }}', ['name' => 'Noor', 'coupon' => 'BAHAR-1', 'items_text' => '2 items']))->toBe('Hi Noor, code BAHAR-1 2 items');
+
+        $promo = offerPromotion();
+        $form = $this->reminders->form();
+        $form['offer'] = ['promotion_id' => $promo->id, 'reminder' => 1, 'valid_hours' => 24];
+        $form['reminders'][0]['title_en'] = 'Hi {{NAME}}';
+        $form['reminders'][0]['body_en'] = 'Your code is {{Coupon}}, valid until {{EXPIRES}}.';
+        $this->reminders->save($form, $this->admin);
+        reminderCart($this, ['idle' => 90]);
+        remindersOn($this);
+        $this->journeys->tick();
+
+        $n = inbox($this)->first();
+        $code = JourneyDelivery::whereNotNull('coupon_code')->value('coupon_code');
+        expect($n->title)->toBe('Hi Noor')->and($n->body)->toContain('Your code is '.$code.', valid until ')->and(substr_count($n->body, $code))->toBe(1)->and($n->body)->not->toContain('gift');
+    });
+
+    it('counts and audits a reminder only for the pass that sent it, when two passes meet on one run', function () {
+        $cart = reminderCart($this, ['idle' => 90]);
+        remindersOn($this);
+        $happened = otherPassSendsInbox(); // the other pass sends the inbox message (and is the one that counts it)
+        $this->journeys->tick();
+
+        expect($happened())->toBeTrue()->and(remindersSent($cart))->toBe(0)->and(AuditLog::where('action', 'cart.reminder_sent')->count())->toBe(0)
+            ->and(Notification::where('event', 'journey.abandoned_cart')->count())->toBe(0);
+    });
+
+    it('counts delivered messages too, in the daily limit and in the recent-contact guard', function () {
+        Journey::where('key', 'abandoned_cart')->update(['is_enabled' => false]);
+        $this->reminders->ensure();
+        Journey::where('key', 'abandoned_cart')->update(['settings' => ['max_per_day' => 1, 'max_per_cart' => 5, 'defaults_version' => 2]]);
+        $journey = Journey::where('key', 'abandoned_cart')->firstOrFail();
+        $cart = reminderCart($this, ['idle' => 90]);
+        $earlier = JourneyRun::create(['journey_id' => $journey->id, 'user_id' => $this->w->customer->id, 'anchor_at' => now()->subDays(2), 'status' => 'completed']);
+        JourneyDelivery::create(['run_id' => $earlier->id, 'step_id' => $journey->steps()->first()->id, 'user_id' => $this->w->customer->id, 'channel' => 'whatsapp', 'status' => 'delivered', 'sent_at' => now()->subHours(5)]);
+        // (5 hours ago: past the 3-hour gap, so only the daily limit of 1 message can be what holds the next reminder)
+        remindersOn($this);
+        $this->journeys->tick();
+
+        expect(Notification::count())->toBe(0)->and(app(ContactHistory::class)->recentlyContacted([(string) $this->w->customer->id], 24))->toHaveKey((string) $this->w->customer->id);
+    });
+
+    it('keeps the counters when the migration is run again after a rollback', function () {
+        $journey = $this->reminders->journey();
+        $cart = reminderCart($this, ['idle' => 300]);
+        $run = JourneyRun::create(['journey_id' => $journey->id, 'user_id' => $this->w->customer->id, 'cart_id' => $cart->id, 'anchor_at' => $cart->last_activity_at]);
+        foreach ($journey->steps as $step) {
+            JourneyDelivery::create(['run_id' => $run->id, 'step_id' => $step->id, 'user_id' => $run->user_id, 'channel' => 'in_app', 'status' => 'sent', 'sent_at' => now()->subHours(2)]);
+        }
+        $migration = require database_path('migrations/2026_11_18_100000_automatic_cart_reminders.php');
+
+        $migration->up();
+        $first = remindersSent($cart);
+        $migration->up();
+        $migration->down();
+        $migration->up();
+
+        expect($first)->toBe(2)->and(remindersSent($cart))->toBe(2);
     });
 });

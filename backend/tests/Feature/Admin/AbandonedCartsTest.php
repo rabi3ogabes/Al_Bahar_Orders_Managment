@@ -538,11 +538,11 @@ describe('reminders', function () {
         $again = $this->svc->remind($this->mgrA, $cart->id);
         expect($again['status'])->toBe('too_soon')->and($again['next_at'])->not->toBeNull()->and($cart->fresh()->abandoned_notifications)->toBe(1);
 
-        Cart::whereKey($cart->id)->update(['abandoned_notified_at' => now()->subHours(30)]);
+        $this->travel(30)->hours(); // the gap is over (the limit is counted from what was really sent, so time has to pass, not a counter edited)
         DB::table('notifications')->delete();
         expect($this->svc->remind($this->mgrA, $cart->id)['status'])->toBe('sent');
 
-        Cart::whereKey($cart->id)->update(['abandoned_notified_at' => now()->subHours(30)]);
+        $this->travel(30)->hours();
         $limit = $this->svc->remind($this->mgrA, $cart->id);
         expect($limit['status'])->toBe('limit_reached')->and($cart->fresh()->abandoned_notifications)->toBe(2);
     });

@@ -30,7 +30,7 @@ final class NotificationCatalog
         'auction.payment_reminder' => ['auction', ['push', 'in_app', 'sms']],
         'stock.back_in_stock' => ['marketing', ['push', 'in_app']],
         'stock.price_drop' => ['marketing', ['push', 'in_app']],
-        'cart.abandoned' => ['marketing', ['push', 'whatsapp']],
+        'cart.abandoned' => ['marketing', ['push', 'in_app', 'whatsapp']],
         'support.reply' => ['transactional', ['push', 'in_app', 'email']],
         'referral.rewarded' => ['transactional', ['push', 'in_app']],
         'referral.friend_rewarded' => ['transactional', ['push', 'in_app']],

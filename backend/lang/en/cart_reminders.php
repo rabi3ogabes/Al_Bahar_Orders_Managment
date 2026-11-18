@@ -13,6 +13,7 @@ return [
     'ch_whatsapp' => 'WhatsApp',
     'not_set_up' => 'not set up yet',
     'not_set_up_yet' => 'Not set up yet',
+    'off_in_controls' => 'Switched off in Notification controls',
     'safe_note' => 'Never sent to customers who ordered, changed their cart or did not agree to marketing messages.',
     'settings' => 'Reminder settings',
     'read_only' => 'Only the marketing team can switch this on or change it.',
@@ -131,7 +132,14 @@ return [
     'err_no_channel_chosen' => 'Choose at least one way to reach customers.',
     'err_quiet_same' => 'The quiet hours must start and end at different times.',
     'err_delay_order' => 'Each reminder must come at least :gap after the one before it.',
-    'err_offer_promotion' => 'Choose a running promotion that needs a coupon code.',
+    'err_offer_inactive' => 'This promotion is switched off. Choose a running promotion that needs a coupon code.',
+    'err_offer_needs_coupon' => 'This promotion applies by itself, without a code. Choose one that needs a coupon code.',
+    'err_offer_not_started' => 'This promotion has not started yet. Choose one that is running.',
+    'err_offer_ended' => 'This promotion has ended. Choose one that is running.',
+    'err_offer_first_order' => 'This promotion is only for a first order, so most customers with a cart could not use the code. Choose another.',
+    'err_offer_group' => 'This promotion is only for one customer group, so most customers with a cart could not use the code. Choose another.',
+    'err_offer_exhausted' => 'This promotion has no uses left. Choose another.',
+    'err_step_min' => 'An abandoned-cart reminder cannot come sooner than :t after the customer last touched the cart.',
     'err_offer_reminder_off' => 'Send the offer with a reminder that is switched on.',
     'err_placeholder' => ':name is not a detail this message can use.',
     'err_offer_placeholder' => ':name needs an offer: choose one for this reminder, or take it out of the text.',
@@ -149,6 +157,7 @@ return [
     'history_next' => 'Next automatic reminder: reminder :n, :when',
     'history_not_sent' => ':channel: not sent. :reason',
     'history_failed' => ':channel: could not be sent. :reason',
+    'history_no_next' => 'No automatic reminder: :reason',
 
     // Why a reminder did not go out on a channel
     'reason' => [
@@ -166,6 +175,7 @@ return [
         'interrupted' => 'The send was interrupted. Nothing was delivered.',
         'cart_limit' => 'The most reminders per cart was already reached.',
         'out_of_stock' => 'Nothing in the cart is available right now.',
+        'offer_unavailable' => 'The offer in this reminder is not available any more.',
         'unknown' => 'The message could not be sent.',
     ],
 ];

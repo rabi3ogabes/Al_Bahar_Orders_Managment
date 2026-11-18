@@ -53,8 +53,15 @@
                     $first = \Illuminate\Support\Str::before(trim($singleName), ' ');
                     $inboxOnly = in_array($oneState, ['silent', 'no_phone', 'rejected', 'customer_off', 'not_set_up'], true);
                     $failedOnly = ($result['failed'] ?? 0) > 0 && ($result['reached'] ?? 0) === 0;
-                    $tone = $one ? ($oneState === 'failed' ? 'bad' : (in_array($oneState, ['skipped', 'cancelled'], true) || $inboxOnly ? 'warn' : ($oneState === 'waiting' ? 'wait' : 'good'))) : ($failedOnly ? 'bad' : (($result['pending'] ?? false) ? 'wait' : 'good'));
+                    $tone = $one ? ($oneState === 'failed' ? 'bad' : (in_array($oneState, ['skipped', 'cancelled', 'partly'], true) || $inboxOnly ? 'warn' : (in_array($oneState, ['waiting', 'inbox'], true) ? 'wait' : 'good'))) : ($failedOnly ? 'bad' : (($result['pending'] ?? false) ? 'wait' : 'good'));
                     $firstLine = fn (string $channel) => collect($one['lines'] ?? [])->firstWhere('channel', $channel);
+                    $stillGoing = in_array($oneState, ['waiting', 'inbox'], true);
+                    // The line a headline is about: the one in that state; for "partly" the channel that did NOT go out.
+                    $about = $one ? ($oneState === 'partly' ? collect($one['lines'])->first(fn ($l) => ! in_array($l['state'], ['shown', 'sent'], true)) : collect($one['lines'])->firstWhere('state', $oneState)) : null;
+                    $about ??= $firstLine('notification') ?? ($one['lines'][0] ?? ['channel' => 'notification', 'state' => 'sent', 'reason' => null, 'error' => null]);
+                    $aboutParams = ['name' => $first, 'channels' => $one['by'] ?? '', 'channel' => __('messaging_admin.channel.'.$about['channel']),
+                        'reason' => \App\Livewire\Admin\Messaging\MessageComposer::reasonText($about['reason'] ?? null), 'error' => $about['error'] ?? __('messaging_composer.res_one.unknown_error')];
+                    $aboutParams['detail'] = __('messaging_composer.res_line.'.$about['state'], $aboutParams);
                 @endphp
                 <div class="flex flex-col items-center px-2 py-6 text-center" role="status" data-testid="result" data-state="{{ $oneState ?? (($result['pending'] ?? false) ? 'waiting' : 'done') }}"
                      @if (($result['pending'] ?? false) && ! ($result['slow'] ?? false)) wire:poll.2s.visible="refreshResult" @endif>
@@ -64,17 +71,16 @@
                     @if ($one)
                         {{-- One customer: say in plain words what happened on the phone side, never just "sent". --}}
                         <h3 class="mt-5 font-display text-2xl font-semibold text-ink-900 dark:text-ivory" data-testid="done-title">
-                            @if ($oneState === 'waiting' && ($result['slow'] ?? false)){{ __('messaging_composer.res_one.slow.title') }}@else{{ __('messaging_composer.res_one.'.$oneState.'.title', ['name' => $first]) }}@endif
+                            @if ($stillGoing && ($result['slow'] ?? false)){{ __('messaging_composer.res_one.slow.title') }}@else{{ __('messaging_composer.res_one.'.$oneState.'.title', $aboutParams) }}@endif
                         </h3>
                         <p class="mt-2 max-w-md text-sm text-ink-600 dark:text-ink-300" data-testid="done-body">
-                            @php $line = $firstLine('notification') ?? ($one['lines'][0] ?? ['reason' => null, 'error' => null]); @endphp
-                            @if ($oneState === 'waiting' && ($result['slow'] ?? false)){{ __('messaging_composer.res_one.slow.body') }}
-                            @else{{ __('messaging_composer.res_one.'.$oneState.'.body', ['name' => $first, 'reason' => \App\Livewire\Admin\Messaging\MessageComposer::reasonText($line['reason'] ?? null), 'error' => $line['error'] ?? __('messaging_composer.res_one.unknown_error')])}}@endif
+                            @if ($stillGoing && ($result['slow'] ?? false)){{ __('messaging_composer.res_one.'.($oneState === 'inbox' ? 'slow_inbox' : 'slow').'.body') }}
+                            @else{{ __('messaging_composer.res_one.'.$oneState.'.body', $aboutParams) }}@endif
                         </p>
                         @if (count($one['lines']) > 1)
                             <ul class="mt-5 w-full max-w-md space-y-2 text-start text-sm" data-testid="done-lines">
                                 @foreach ($one['lines'] as $l)
-                                    @php $ok = in_array($l['state'], ['shown', 'sent'], true); $bad = in_array($l['state'], ['failed'], true); @endphp
+                                    @php $ok = in_array($l['state'], ['shown', 'sent', 'inbox'], true); $bad = in_array($l['state'], ['failed'], true); @endphp
                                     <li class="flex items-start gap-3 rounded-2xl border p-3 {{ $bad ? 'border-ruby-soft/30 bg-ruby-soft/10' : ($ok ? 'border-emerald-soft/25 bg-emerald-soft/10' : 'border-amber-soft/30 bg-amber-soft/10') }}">
                                         <x-icon :name="$ok ? 'check' : 'alert'" class="mt-0.5 size-4 shrink-0 {{ $bad ? 'text-ruby-soft' : ($ok ? 'text-emerald-soft dark:text-emerald-300' : 'text-amber-soft') }}" />
                                         <span class="min-w-0"><span class="font-semibold text-ink-900 dark:text-ivory">{{ __('messaging_admin.channel.'.$l['channel']) }}</span>
@@ -496,13 +502,13 @@
                     <x-icon name="alert" class="mt-0.5 size-4 shrink-0 text-amber-soft" />
                     <div class="min-w-0 flex-1">
                         <p class="font-medium" x-text="note" data-testid="blocker-text"></p>
-                        <button type="button" x-show="canSendAnyway" x-cloak @click="$wire.sendAnyway()" wire:loading.attr="disabled" wire:target="sendAnyway,requestSend,send"
+                        <button type="button" x-show="canSendAnyway" x-cloak @click="submit(() => $wire.sendAnyway())" :disabled="sending" wire:loading.attr="disabled" wire:target="sendAnyway,requestSend,send"
                                 class="btn-secondary mt-2 min-h-11" data-testid="send-anyway-now"><x-icon name="send" class="size-4 rtl-flip" />{{ __('messaging_composer.send_anyway') }}</button>
                     </div>
                 </div>
                 <p x-show="! note && summary" x-cloak wire:key="footer-summary" class="mb-2.5 flex items-start gap-2 text-xs text-ink-500 dark:text-ink-400" role="status" data-testid="footer-note"><x-icon name="info" class="mt-0.5 size-3.5 shrink-0" /><span x-text="summary"></span></p>
                 <div class="flex flex-wrap items-center gap-2" wire:key="footer-buttons">
-                    <button type="button" @click="blocked ? showWhy() : $wire.requestSend()" wire:loading.attr="disabled" wire:target="requestSend,send,sendAnyway" :aria-disabled="blocked ? 'true' : 'false'" :class="blocked && 'opacity-60'"
+                    <button type="button" @click="blocked ? showWhy() : submit(() => $wire.requestSend())" :disabled="sending" wire:loading.attr="disabled" wire:target="requestSend,send,sendAnyway" :aria-disabled="blocked ? 'true' : 'false'" :class="blocked && 'opacity-60'"
                             class="btn-primary min-h-11 basis-full justify-center sm:order-3 sm:basis-auto sm:min-w-44" data-testid="send">
                         <span wire:loading.remove wire:target="requestSend,send,sendAnyway" class="inline-flex items-center gap-2"><x-icon :name="$scheduling ? 'clock' : 'send'" class="size-4 rtl-flip" /><span x-text="sendLabel"></span></span>
                         <span wire:loading wire:target="requestSend,send,sendAnyway" class="inline-flex items-center gap-2"><x-icon name="refresh" class="size-4 animate-spin" />{{ __('messaging_composer.sending') }}</span>
@@ -534,7 +540,7 @@
             </div>
             <div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <button type="button" class="btn-secondary min-h-11" data-cancel @click="requestClose()">{{ __('admin.cancel') }}</button>
-                <button type="button" class="btn-primary min-h-11" wire:click="send" wire:loading.attr="disabled" wire:target="send" data-testid="confirm-send">
+                <button type="button" class="btn-primary min-h-11" @click="submit(() => $wire.send())" :disabled="sending" wire:loading.attr="disabled" wire:target="send" data-testid="confirm-send">
                     <span wire:loading.remove wire:target="send" class="inline-flex items-center gap-2"><x-icon :name="$scheduling ? 'clock' : 'send'" class="size-4 rtl-flip" />{{ $scheduling ? __('messaging_composer.confirm_schedule') : __('messaging_composer.confirm_send') }}</span>
                     <span wire:loading wire:target="send" class="inline-flex items-center gap-2"><x-icon name="refresh" class="size-4 animate-spin" />{{ __('messaging_composer.sending') }}</span>
                 </button>
@@ -661,6 +667,13 @@
             return this.planBlock || '';
         },
         attention: false,
+        sending: false,
+        /** One press at a time: a second press while the first is still going (or its answer has not come back) does nothing. The server also treats a repeat as the same send. */
+        async submit(action) {
+            if (this.sending) return;
+            this.sending = true;
+            try { await action(); } finally { this.sending = false; }
+        },
         /** Pressing Send while something is missing: says so loudly and takes the person to the first thing to fix (the right language tab and field). */
         showWhy() {
             this.attention = true;

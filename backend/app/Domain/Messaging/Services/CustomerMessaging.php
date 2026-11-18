@@ -18,7 +18,9 @@ use App\Domain\Notifications\Services\WhatsAppClient;
 use App\Domain\Settings\Services\Settings;
 use App\Support\DomainException;
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
@@ -34,6 +36,14 @@ use Throwable;
  */
 class CustomerMessaging
 {
+    /** "Send anyway" (skipping the quiet time) is allowed this often per customer: more than this is nagging, whoever the staff member is. */
+    public const OVERRIDE_MAX = 3;
+
+    public const OVERRIDE_WINDOW_SECONDS = 3600;
+
+    /** How long a send key (see SendRequest::$idempotencyKey) remembers the send it made. */
+    private const KEY_MINUTES = 10;
+
     public function __construct(
         private readonly Eligibility $eligibility,
         private readonly MessageContent $content,
@@ -109,7 +119,7 @@ class CustomerMessaging
         $total = (clone $q)->count();
         $users = $q->orderBy('users.id')->limit($limits['bulk_max'])->get();
         $channels = $this->channels($r->channels);
-        $eval = $this->eligibility->evaluate($users, $channels, $r->kind, $limits['cooldown_hours'], null, $this->override($r, $total));
+        $eval = $this->eligibility->evaluate($users, $channels, $r->kind, $limits['cooldown_hours'], null, $this->override($r, $total) && $this->overrideAllowedFor($users));
 
         $perChannel = array_fill_keys($channels, ['ok' => 0, 'skipped' => 0]);
         $reasons = [];
@@ -145,6 +155,9 @@ class CustomerMessaging
      * Saves the send and queues it (or schedules it). Everyone chosen gets a row per channel: the ones who may not be messaged right now are
      * saved as skipped with the reason, so the history shows exactly what happened and why.
      *
+     * With an idempotency key, the same message sent again with the same key (a double click, or a second try after a timeout) returns the
+     * first send: nothing new is saved, pushed or counted against the limits.
+     *
      * @throws DomainException
      * @throws ValidationException when the texts are not valid
      */
@@ -162,7 +175,36 @@ class CustomerMessaging
         $content = $this->content->clean($r->content, $channels, $r->kind);
         $this->assertCoupon($staff, $content);
         $scheduleAt = $this->schedule($r->scheduleAt);
+        if ($r->idempotencyKey === null) {
+            return $this->createBatch($staff, $r, $channels, $content, $scheduleAt);
+        }
 
+        $ids = $r->audience->ids;
+        sort($ids);
+        $fingerprint = sha1((string) json_encode([$r->audience->all, $ids, $r->audience->filters, $channels, $r->kind, $content, $scheduleAt?->toIso8601String(), $r->template?->id, $r->ignoreCooldown]));
+        $key = 'customer-messages:key:'.$staff->id.':'.$r->idempotencyKey;
+        try {
+            return Cache::lock($key.':lock', 30)->block(10, function () use ($key, $fingerprint, $staff, $r, $channels, $content, $scheduleAt) {
+                $seen = Cache::get($key);
+                if (is_array($seen) && ($seen['fingerprint'] ?? null) === $fingerprint && ($first = MessageBatch::find($seen['batch'] ?? null))) {
+                    return $first;
+                }
+                $batch = $this->createBatch($staff, $r, $channels, $content, $scheduleAt);
+                Cache::put($key, ['batch' => (string) $batch->id, 'fingerprint' => $fingerprint], now()->addMinutes(self::KEY_MINUTES));
+
+                return $batch;
+            });
+        } catch (LockTimeoutException) {
+            throw new DomainException('messaging_busy', __('messaging_admin.err.busy'), 409);
+        }
+    }
+
+    /**
+     * @param  list<string>  $channels
+     * @param  array<string, mixed>  $content
+     */
+    private function createBatch(User $staff, SendRequest $r, array $channels, array $content, ?CarbonImmutable $scheduleAt): MessageBatch
+    {
         $limits = $this->limits();
         $q = $this->audienceQuery($staff, $r->audience);
         $total = (clone $q)->count();
@@ -176,6 +218,13 @@ class CustomerMessaging
 
         $users = $q->orderBy('users.id')->get();
         $ignoreCooldown = $this->override($r, $total);
+        // "Send anyway" is counted per customer, and only when it really skipped the quiet time (a scheduled send is checked again when it goes out,
+        // so there it counts as used). Checked before anything is saved.
+        $overrideUsed = $ignoreCooldown && ($scheduleAt !== null || $this->wouldBeRecent($users, $channels, $r->kind, $limits['cooldown_hours']));
+        $overrideKey = $overrideUsed ? 'customer-messages:override:'.$users->first()?->id : null;
+        if ($overrideKey !== null && RateLimiter::tooManyAttempts($overrideKey, self::OVERRIDE_MAX)) {
+            throw new DomainException('messaging_override_cap', __('messaging_admin.err.override_cap', ['max' => self::OVERRIDE_MAX, 'minutes' => max(1, (int) ceil(RateLimiter::availableIn($overrideKey) / 60))]), 429);
+        }
         // A scheduled send is checked again when it goes out (consent or the cooldown may change by then); an immediate one is decided now.
         $eval = $scheduleAt ? [] : $this->eligibility->evaluate($users, $channels, $r->kind, $limits['cooldown_hours'], null, $ignoreCooldown);
 
@@ -199,17 +248,22 @@ class CustomerMessaging
             foreach (array_chunk($rows, 500) as $chunk) {
                 CustomerMessage::insert($chunk);
             }
+            // `override_cooldown` = the quiet time was skipped for this send; `recipient` names the one customer of a single send, so "Send anyway" leaves a trace.
             $this->audit->log($scheduleAt ? 'customer_messages.scheduled' : 'customer_messages.sent', $batch, [], [
                 'kind' => $r->kind, 'channels' => $channels, 'recipients' => $total, 'template' => $batch->template_name, 'scheduled_at' => $scheduleAt?->toIso8601String(),
+                'override_cooldown' => $ignoreCooldown, 'recipient' => $total === 1 ? (string) $users->first()?->id : null,
             ], actor: $staff);
 
             return $batch;
         });
+        if ($overrideKey !== null) {
+            RateLimiter::hit($overrideKey, self::OVERRIDE_WINDOW_SECONDS);
+        }
 
         if (! $scheduleAt) {
-            // One customer is delivered right now, in this request: the person who pressed Send sees what really happened (and a test to their own
-            // phone does not depend on the background worker). Several customers go through the queue, as before.
-            $this->dispatchBatch($batch, inline: $total === 1);
+            // One customer's inbox message is saved right now, in this request (no network): the person who pressed Send sees "saved in the app
+            // inbox" at once. The push and WhatsApp go through the queue (a slow Google or n8n must never hold the request), and the window follows them.
+            $this->dispatchBatch($batch, inbox: $total === 1);
         }
 
         return $batch->fresh();
@@ -276,23 +330,22 @@ class CustomerMessaging
     }
 
     /**
-     * One job per customer, so a customer's channels share one coupon and WhatsApp can be paced. `inline` runs the job at once instead of
-     * queueing it (a single customer); if that fails for any reason the job is queued after all, so the message is never lost.
+     * One job per customer, so a customer's channels share one coupon and WhatsApp can be paced. `inbox` first saves the customer's in-app inbox
+     * message right here (database only, so it cannot hang on a provider); the job then does the rest (push, WhatsApp) and reuses that inbox entry.
+     * The job is always queued: if saving the inbox fails here, it simply does the whole delivery itself.
      */
-    public function dispatchBatch(MessageBatch $batch, bool $inline = false): void
+    public function dispatchBatch(MessageBatch $batch, bool $inbox = false): void
     {
         $perMinute = $this->limits()['whatsapp_per_minute'];
         $waIndex = 0;
         CustomerMessage::query()->where('batch_id', $batch->id)->where('status', 'queued')->groupBy('user_id')
-            ->selectRaw("user_id, bool_or(channel = 'whatsapp') as wa")->orderBy('user_id')->get()->each(function ($row) use ($batch, $perMinute, $inline, &$waIndex) {
+            ->selectRaw("user_id, bool_or(channel = 'whatsapp') as wa")->orderBy('user_id')->get()->each(function ($row) use ($batch, $perMinute, $inbox, &$waIndex) {
                 $minutes = $row->getAttribute('wa') ? intdiv($waIndex++, $perMinute) : 0;
-                if ($inline && $minutes === 0) {
+                if ($inbox) {
                     try {
-                        SendCustomerMessageJob::dispatchSync($batch->id, (string) $row->user_id);
-
-                        return;
+                        app(MessageDelivery::class)->saveInbox($batch->id, (string) $row->user_id);
                     } catch (Throwable $e) {
-                        report($e); // falls through to the queue: its retries take over
+                        report($e);
                     }
                 }
                 $job = SendCustomerMessageJob::dispatch($batch->id, (string) $row->user_id);
@@ -402,6 +455,29 @@ class CustomerMessaging
     private function override(SendRequest $r, int $total): bool
     {
         return $r->ignoreCooldown && $total === 1;
+    }
+
+    /** Whether "Send anyway" may still be used for this customer (at most OVERRIDE_MAX times per hour, counted over everyone who messages them). */
+    public function overrideAvailable(string $userId): bool
+    {
+        return ! RateLimiter::tooManyAttempts('customer-messages:override:'.$userId, self::OVERRIDE_MAX);
+    }
+
+    /** @param Collection<int, User> $users */
+    private function overrideAllowedFor(Collection $users): bool
+    {
+        return $users->count() !== 1 || $this->overrideAvailable((string) $users->first()?->id);
+    }
+
+    /**
+     * Would the quiet time have stopped this customer on a channel? (the only case where "Send anyway" does anything)
+     *
+     * @param  Collection<int, User>  $users
+     * @param  list<string>  $channels
+     */
+    private function wouldBeRecent(Collection $users, array $channels, string $kind, int $hours): bool
+    {
+        return collect($this->eligibility->evaluate($users, $channels, $kind, $hours))->flatten()->contains('recently_contacted');
     }
 
     private function throttle(User $staff, int $total): void

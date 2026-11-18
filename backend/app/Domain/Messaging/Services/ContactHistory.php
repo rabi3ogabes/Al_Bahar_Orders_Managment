@@ -17,7 +17,7 @@ class ContactHistory
     /** SQL for the customers list: the time of the newest message that really went out to users.id (null when never). */
     public const LAST_CONTACT_SQL = "GREATEST(
         (SELECT max(cm.sent_at) FROM customer_messages cm WHERE cm.user_id = users.id AND cm.sent_at IS NOT NULL),
-        (SELECT max(jd.sent_at) FROM journey_deliveries jd WHERE jd.user_id = users.id AND jd.status = 'sent' AND jd.sent_at IS NOT NULL))";
+        (SELECT max(jd.sent_at) FROM journey_deliveries jd WHERE jd.user_id = users.id AND jd.status IN ('sent', 'delivered') AND jd.sent_at IS NOT NULL))";
 
     /**
      * Customers (of those given) who got a message within the last $hours hours, or have one on its way right now.
@@ -38,7 +38,7 @@ class ContactHistory
                 ->orWhere(fn ($w) => $w->where('status', 'queued')->where('created_at', '>=', $since)
                     ->whereHas('batch', fn ($b) => $b->where('status', 'sending'))))
             ->distinct()->pluck('user_id');
-        $auto = DB::table('journey_deliveries')->whereIn('user_id', $userIds)->where('status', 'sent')->where('sent_at', '>=', $since)->distinct()->pluck('user_id');
+        $auto = DB::table('journey_deliveries')->whereIn('user_id', $userIds)->whereIn('status', ['sent', 'delivered'])->where('sent_at', '>=', $since)->distinct()->pluck('user_id');
 
         return array_fill_keys($manual->merge($auto)->all(), true);
     }

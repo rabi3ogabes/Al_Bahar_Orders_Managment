@@ -47,11 +47,13 @@ The card at the top of the page switches **automatic reminders** on and off and 
   (`quiet_start`, `quiet_end`, `max_per_cart`, `max_per_day`, `attribution_days`, `defaults_version`), reminders 1 to 3 as the first three `journey_steps`
   (delay in minutes, channels, on/off) and their words as `journey_templates` (English and Arabic title and message, an optional `promotion_id` for the offer).
 * **Counters.** Every reminder that goes out, automatic or by staff, does `carts.abandoned_notifications = abandoned_notifications + 1` and sets
-  `abandoned_notified_at`; `CartService::touch` resets both when the customer changes the cart. `AbandonedCartService::reminderSummary` and the list read only these
+  `abandoned_notified_at`; `CartService::touch` resets both when the customer changes the cart. The **per-cart limit and the gap do not read them**: they come from
+  durable records of the last 7 days (`AbandonedCartReminders::recent()`: journey deliveries sent or delivered for the cart's runs, and the `cart.reminder_sent` audit entries of
+  staff), so a customer touching the cart cannot reset them. The gap is 3 hours, and a full staff cooldown (`abandoned_cart_min_interval_hours`) after a staff reminder. `AbandonedCartService::reminderSummary` and the list read only these
   (the journey is no longer added on top). Migration `2026_11_18_100000_automatic_cart_reminders` copies reminders the journey had already sent onto the open carts, once.
 * **Gates in the engine.** `AbandonedCartReminders::allowed()` (`NotificationRules::enabled('cart.abandoned')` and `enabled('campaign')`) before any run starts or message is
-  sent, `channelAllowed()` per channel, consent and the customer's channel choices (`skipReason`), quiet hours (held until they end, dropped when more than 12 hours late),
-  the cart read fresh at send time (still open, not emptied, not touched since the run started, not discarded, something purchasable), the per-cart limit, a 3 hour gap and the
+  sent, `channelAllowed()` per channel (`NotificationRules::channelEnabled`, the same answer as the Notification controls page; `cart.abandoned` now defaults to push, in-app and WhatsApp), consent and the customer's channel choices (`skipReason`), quiet hours (held until they end, dropped when more than 12 hours late),
+  the cart read fresh at send time (still open, not emptied, not touched since the run started, not discarded, no order placed since, something purchasable); the journey switch and `allowed()` re-read before every run and send, the per-cart limit, a 3 hour gap and the
   daily limit of messages.
 * **Scale.** `journey_runs.next_at` (partial index on active runs) is the moment a run needs attention again; a pass reads only due runs (100 at most), leases each
   with one UPDATE, and finds runs that must end with one indexed query. Deliveries are unique per run, step and channel; one left `queued` by a dead pass is closed as `failed` (`interrupted`).

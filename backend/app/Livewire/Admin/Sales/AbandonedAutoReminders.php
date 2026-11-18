@@ -227,6 +227,7 @@ class AbandonedAutoReminders extends Component
             'settings' => $settings,
             'blocked' => $svc->blockedBy(),
             'ready' => $svc->channelStatus(),
+            'ruleOff' => collect(['push', 'in_app', 'whatsapp'])->mapWithKeys(fn (string $c) => [$c => ! $svc->channelAllowed($c)])->all(),
             'results' => $svc->results(auth()->user(), $this->days),
             'window' => $this->showSettings && $this->editor() && $this->form !== [] ? $this->windowData($svc) : null,
         ];
@@ -257,6 +258,7 @@ class AbandonedAutoReminders extends Component
 
         return [
             'dirty' => AbandonedCartReminders::canonical($form) != AbandonedCartReminders::canonical($this->saved),
+            'ruleOff' => collect(['push', 'in_app', 'whatsapp'])->mapWithKeys(fn (string $c) => [$c => ! $svc->channelAllowed($c)])->all(),
             'summary' => $svc->summary(AbandonedCartReminders::canonical($form)),
             'preset' => AbandonedCartReminders::matchingPreset($form),
             'choices' => $choices,

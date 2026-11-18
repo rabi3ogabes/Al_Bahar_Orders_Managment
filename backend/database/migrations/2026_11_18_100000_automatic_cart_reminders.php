@@ -15,7 +15,8 @@ use Illuminate\Support\Facades\DB;
  *    sent" and "could not be sent" counts of the abandoned orders page (by time). Partial, so they hold only the rows those queries want.
  *  - Reminders sent by the journey before this change were only in `journey_deliveries`; from now on every reminder (automatic or sent by staff) also
  *    moves the cart's own counters, which is what the abandoned orders page and the "most reminders per cart" limit read. This copies what was already
- *    sent to the carts that are still open, once (only the idle episode the cart is in now: a customer's return resets the counters).
+ *    sent to the carts that are still open (only the idle episode the cart is in now: a customer's return resets the counters). It SETS the counter to at least
+ *    what the journey sent (GREATEST), it never adds, so running the migration again after a rollback changes nothing.
  */
 return new class extends Migration
 {
@@ -32,7 +33,7 @@ return new class extends Migration
 
         DB::statement(<<<'SQL'
             UPDATE carts SET
-                abandoned_notifications = LEAST(65535, carts.abandoned_notifications + s.sent),
+                abandoned_notifications = LEAST(65535, GREATEST(carts.abandoned_notifications, s.sent)),
                 abandoned_notified_at = GREATEST(carts.abandoned_notified_at, s.last_sent)
             FROM (
                 SELECT jr.cart_id, count(DISTINCT coalesce(jd.step_id::text, jd.id::text)) AS sent, max(jd.sent_at) AS last_sent
@@ -43,6 +44,7 @@ return new class extends Migration
                 GROUP BY jr.cart_id
             ) s
             WHERE carts.id = s.cart_id
+              AND (carts.abandoned_notifications < s.sent OR carts.abandoned_notified_at IS NULL OR carts.abandoned_notified_at < s.last_sent)
         SQL);
     }
 

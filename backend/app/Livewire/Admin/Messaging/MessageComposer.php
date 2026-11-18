@@ -125,6 +125,10 @@ class MessageComposer extends Component
     #[Locked]
     public string $error = '';
 
+    /** Made when the window opens: pressing Send twice (or again after a timeout) sends once, because the second press carries the same key. */
+    #[Locked]
+    public string $sendKey = '';
+
     /** How many times the finished window has asked whether the delivery is done (it stops after POLL_LIMIT and says it is taking long). */
     #[Locked]
     public int $polls = 0;
@@ -178,6 +182,7 @@ class MessageComposer extends Component
         $this->step = 'compose';
         $this->result = [];
         $this->polls = 0;
+        $this->sendKey = (string) Str::uuid();
         $this->error = '';
         $this->confirming = false;
         $this->plan = [];
@@ -385,7 +390,7 @@ class MessageComposer extends Component
         $this->dispatch('messages-sent', batch: (string) $batch->id, source: $this->source);
     }
 
-    /** The toast agrees with the window: a send that only reached the inbox, was not sent or failed is never announced as plainly "sent". */
+    /** The toast agrees with the window: a send that only reached the inbox, was only partly sent, was not sent or failed is never announced as plainly "sent". */
     private function toastResult(): void
     {
         $state = $this->result['single']['state'] ?? null;
@@ -393,8 +398,12 @@ class MessageComposer extends Component
             $this->toast(__('messaging_composer.toast_scheduled'));
         } elseif (in_array($state, ['silent', 'no_phone', 'rejected', 'customer_off', 'not_set_up', 'skipped', 'cancelled'], true)) {
             $this->toast(__('messaging_composer.res_one.'.$state.'.title'), 'warning');
+        } elseif ($state === 'partly') {
+            $this->toast(__('messaging_composer.res_one.partly.title', ['channels' => (string) ($this->result['single']['by'] ?? '')]), 'warning');
         } elseif ($state === 'failed') {
             $this->toast(__('messaging_composer.res_one.failed.title'), 'error');
+        } elseif ($state === 'inbox') {
+            $this->toast(__('messaging_composer.res_one.inbox.title'));
         } else {
             $this->toast(__('messaging_composer.toast_sent'));
         }
@@ -457,6 +466,12 @@ class MessageComposer extends Component
                 return null;
             }
             $name = Str::before(trim($this->singleName), ' ');
+            if ($code === 'recently_contacted' && ! $this->svc()->overrideAvailable((string) $this->singleId)) {
+                // "Send anyway" was used too often for this customer: no button, and the reason says so.
+                $last = $this->lastContact();
+
+                return ['code' => $code, 'text' => __('messaging_composer.blocked_recent_capped', ['name' => $name, 'ago' => $last ? $last->diffForHumans() : __('messaging_composer.recently'), 'max' => CustomerMessaging::OVERRIDE_MAX]), 'override' => false];
+            }
             if ($code === 'recently_contacted') {
                 $last = $this->lastContact();
                 $text = $last
@@ -588,7 +603,7 @@ class MessageComposer extends Component
         }
         $template = Str::isUuid($this->templateId) ? JourneyTemplate::find($this->templateId) : null;
 
-        return new SendRequest($this->selection(), $channels, $this->kind, $this->content, $template, $at, $this->ignoreCooldown && $this->singleId !== null);
+        return new SendRequest($this->selection(), $channels, $this->kind, $this->content, $template, $at, $this->ignoreCooldown && $this->singleId !== null, $this->sendKey !== '' ? $this->sendKey : null);
     }
 
     private function parseSchedule(): ?CarbonImmutable
@@ -790,7 +805,7 @@ class MessageComposer extends Component
             'id' => (string) $batch->id, 'scheduled' => $scheduled, 'at' => $scheduled ? BusinessTime::display($batch->scheduled_at, 'D j M, H:i') : '',
             'customers' => (int) $batch->recipients_count, 'reached' => $reached, 'waiting' => $waiting, 'skipped' => $skipped, 'failed' => $failed, 'reasons' => $reasons,
             'pending' => $pending, 'slow' => $pending && $slow, 'phones' => $phones,
-            'single' => (int) $batch->recipients_count === 1 && ! $scheduled ? ['lines' => $lines, 'state' => $this->headline($lines)] : null,
+            'single' => (int) $batch->recipients_count === 1 && ! $scheduled ? ['lines' => $lines, 'state' => $this->headline($lines), 'by' => $this->sentBy($lines)] : null,
         ];
     }
 
@@ -798,33 +813,55 @@ class MessageComposer extends Component
     private function lineState(CustomerMessage $row): string
     {
         return match ($row->status) {
-            'queued' => 'waiting',
+            'queued' => $row->channel === 'notification' && is_array($row->meta) && is_string($row->meta['inbox_id'] ?? null) ? 'inbox' : 'waiting', // inbox: saved, the push is on its way
             'sent', 'delivered' => $row->channel === 'notification' ? (DevicePushReach::deliveryOutcome($row->meta) ?? 'sent') : 'sent',
             default => (string) $row->status,
         };
     }
 
     /**
-     * The one state that heads the window for a single customer: the worst thing first (still waiting, failed, not sent), then what the notification
-     * did on the phone side, then plain "sent".
+     * The one state that heads the window for a single customer, chosen from the BEST outcome across the channels (never from one channel alone):
+     * something still on its way first (the window keeps asking), then a message that reached the customer (`partly` when another channel did not
+     * go out), then one that reached the inbox only, then a failure, and `skipped` only when every channel was skipped.
      *
      * @param  list<array{channel: string, state: string, reason: ?string, error: ?string}>  $lines
      */
     private function headline(array $lines): string
     {
         $states = array_column($lines, 'state');
-        foreach (['waiting', 'failed'] as $state) {
+        if (array_intersect($states, ['waiting', 'inbox']) !== []) {
+            return in_array('waiting', $states, true) ? 'waiting' : 'inbox';
+        }
+        $good = array_values(array_filter($lines, fn (array $l) => in_array($l['state'], ['shown', 'sent'], true)));
+        if ($good !== []) {
+            if (count($good) < count($lines)) {
+                return 'partly';
+            }
+            foreach ($good as $line) {
+                if ($line['channel'] === 'notification') {
+                    return $line['state'];
+                }
+            }
+
+            return $good[0]['state'];
+        }
+        foreach (['silent', 'no_phone', 'rejected', 'customer_off', 'not_set_up', 'failed'] as $state) {
             if (in_array($state, $states, true)) {
                 return $state;
             }
         }
-        foreach ($lines as $line) {
-            if ($line['channel'] === 'notification') {
-                return $line['state'];
-            }
-        }
 
-        return $states[0] ?? 'sent';
+        return count(array_unique($states)) === 1 && $states[0] === 'cancelled' ? 'cancelled' : 'skipped';
+    }
+
+    /**
+     * The channels that went out, as the names the window shows ("WhatsApp", "Notification + WhatsApp").
+     *
+     * @param  list<array{channel: string, state: string, reason: ?string, error: ?string}>  $lines
+     */
+    private function sentBy(array $lines): string
+    {
+        return collect($lines)->filter(fn (array $l) => in_array($l['state'], ['shown', 'sent'], true))->map(fn (array $l) => __('messaging_admin.channel.'.$l['channel']))->implode(' + ');
     }
 
     /* ───────────────────────── helpers ───────────────────────── */

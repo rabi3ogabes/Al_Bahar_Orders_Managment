@@ -55,7 +55,7 @@
         @php $history = $window['history']; $chName = fn (string $c) => __('cart_reminders.ch_'.$c); @endphp
         <section class="{{ $box }}" aria-labelledby="ab-history" data-history>
             <h3 id="ab-history" class="mb-3 text-xs font-semibold uppercase tracking-wider text-ink-500">{{ __('cart_reminders.history_title') }}</h3>
-            @if ($history['items'] === [] && ! $history['next'])
+            @if ($history['items'] === [] && ! $history['next'] && ! $history['no_next'])
                 <p class="text-sm text-ink-500">{{ __('cart_reminders.history_none') }}</p>
             @else
                 <ol class="space-y-3">
@@ -75,6 +75,11 @@
                         <li class="flex gap-3 text-ink-500">
                             <span class="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full border border-dashed border-sand-400"><x-icon name="clock" class="size-3.5" /></span>
                             <p class="text-sm">{{ __('cart_reminders.history_next', ['n' => $history['next']['number'], 'when' => \App\Support\BusinessTime::display($history['next']['at'], 'd M, H:i')]) }}</p>
+                        </li>
+                    @elseif ($history['no_next'])
+                        <li class="flex gap-3 text-ink-500" data-no-next>
+                            <span class="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full border border-dashed border-sand-400"><x-icon name="info" class="size-3.5" /></span>
+                            <p class="text-sm">{{ __('cart_reminders.history_no_next', ['reason' => $history['no_next']]) }}</p>
                         </li>
                     @endif
                 </ol>

@@ -22,7 +22,7 @@
                     <p class="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-ink-500 dark:text-ink-400">
                         <span>{{ __('cart_reminders.sent_by') }}</span>
                         @foreach ($chosen as $c)
-                            <span class="badge-neutral">{{ $channelNames[$c] }}@unless ($ready[$c] ?? false) · {{ __('cart_reminders.not_set_up') }}@endunless</span>
+                            <span class="badge-neutral">{{ $channelNames[$c] }}@unless ($ready[$c] ?? false) · {{ __('cart_reminders.not_set_up') }}@endunless @if ($ruleOff[$c] ?? false) · {{ __('cart_reminders.off_in_controls') }}@endif</span>
                         @endforeach
                     </p>
                     <p class="mt-2 flex items-start gap-1.5 text-xs text-ink-500 dark:text-ink-400"><x-icon name="shield" class="mt-0.5 size-3.5 shrink-0 text-emerald-soft" /><span>{{ __('cart_reminders.safe_note') }}</span></p>

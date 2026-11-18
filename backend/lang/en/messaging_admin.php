@@ -62,5 +62,7 @@ return [
         'finished' => 'This send has already finished.',
         'not_retryable' => 'Only a finished or running send can be retried.',
         'rate_limited' => 'You are sending too fast. Try again in :seconds seconds.',
+        'override_cap' => '"Send anyway" has already been used :max times for this customer in the last hour. Try again in about :minutes minutes.',
+        'busy' => 'This message is already being sent. Check the history in a moment.',
     ],
 ];

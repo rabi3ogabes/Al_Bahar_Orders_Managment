@@ -19,9 +19,12 @@ use App\Domain\Marketing\Support\ReminderText;
 use App\Domain\Notifications\Services\N8nClient;
 use App\Domain\Notifications\Services\NotificationChannelStatus;
 use App\Domain\Notifications\Services\NotificationRules;
+use App\Domain\Notifications\Services\NotificationService;
 use App\Domain\Notifications\Services\WhatsAppClient;
 use App\Domain\Orders\Models\Cart;
+use App\Domain\Settings\Services\Settings;
 use App\Support\DomainException;
+use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
@@ -59,6 +62,9 @@ class AbandonedCartReminders
     /** A reminder that is more than this many hours late (quiet hours, the scheduler or a switch was off) is skipped, never sent late. */
     public const GRACE_HOURS = 12;
 
+    /** No abandoned-cart reminder comes sooner than this after the customer last touched the cart (a cart is "abandoned" from 30 minutes idle). */
+    public const MIN_DELAY_MINUTES = 30;
+
     public const DEFAULT_MAX_PER_CART = 2;
 
     private const RESULTS_VERSION = 'cart-reminders:results:version';
@@ -80,8 +86,30 @@ class AbandonedCartReminders
             'سلتك للحين محفوظة', 'هلا {{name}}، تذكير بسيط: سلتك وفيها {{items_text}} للحين محفوظة إذا حاب تكمل.'],
     ];
 
-    /** What the starter journey of the first version said, to recognise a journey nobody ever changed or switched on. */
-    private const LEGACY_FIRST_BODY = 'Hi {{name}}, you left {{items}} item(s) in your cart. Complete your order before they sell out.';
+    /**
+     * EVERYTHING the starter journey of the first version wrote (journey, its three steps and its two templates, one shared by steps 2 and 3).
+     * A journey is only brought up to the new defaults when it still matches this exactly; one field changed anywhere and it is left alone.
+     */
+    private const LEGACY_STARTER = [
+        'name' => 'Abandoned cart',
+        'settings' => ['max_per_day' => 3, 'quiet_end' => '08:00', 'quiet_start' => '22:00'],
+        'steps' => [
+            ['position' => 1, 'label' => 'Reminder', 'delay' => 30, 'channels' => ['push', 'in_app'], 'enabled' => true, 'template' => 'A'],
+            ['position' => 2, 'label' => 'Offer', 'delay' => 240, 'channels' => ['push', 'whatsapp'], 'enabled' => true, 'template' => 'B'],
+            ['position' => 3, 'label' => 'Last chance', 'delay' => 4320, 'channels' => ['push', 'whatsapp'], 'enabled' => true, 'template' => 'B'],
+        ],
+        'templates' => [
+            'A' => ['name' => 'Cart reminder', 'kind' => 'reminder', 'title_en' => 'Your cart is waiting', 'title_ar' => 'سلتك بانتظارك',
+                'body_en' => 'Hi {{name}}, you left {{items}} item(s) in your cart. Complete your order before they sell out.',
+                'body_ar' => 'مرحباً {{name}}، لديك {{items}} منتج في السلة. أكمل طلبك قبل نفاد الكمية.', 'whatsapp_en' => null, 'whatsapp_ar' => null,
+                'deep_link' => 'albahar://cart', 'promotion_id' => null, 'coupon_prefix' => 'BAHAR', 'coupon_valid_hours' => 72, 'is_active' => true],
+            'B' => ['name' => 'Cart offer', 'kind' => 'offer', 'title_en' => 'A little something for you', 'title_ar' => 'هدية صغيرة لك',
+                'body_en' => 'Hi {{name}}, use code {{coupon}} on your cart before {{expires}}.', 'body_ar' => 'مرحباً {{name}}، استخدم الرمز {{coupon}} على سلتك قبل {{expires}}.',
+                'whatsapp_en' => "Hi {{name}} 👋\nYour cart at Al Bahar is still waiting. Use code {{coupon}} before {{expires}}.\n{{app_link}}",
+                'whatsapp_ar' => "مرحباً {{name}} 👋\nسلتك في البحار بانتظارك. استخدم الرمز {{coupon}} قبل {{expires}}.\n{{app_link}}",
+                'deep_link' => 'albahar://cart', 'promotion_id' => null, 'coupon_prefix' => 'BAHAR', 'coupon_valid_hours' => 72, 'is_active' => true],
+        ],
+    ];
 
     public function __construct(
         private readonly NotificationRules $rules,
@@ -90,6 +118,8 @@ class AbandonedCartReminders
         private readonly WhatsAppClient $whatsapp,
         private readonly AuditLogger $audit,
         private readonly AccessControl $access,
+        private readonly Settings $settings,
+        private readonly NotificationService $notify,
     ) {}
 
     // ── The switch and the rules around it ───────────────────────────────────────────────────────────────────────────
@@ -127,10 +157,13 @@ class AbandonedCartReminders
         return $this->blockedBy() === null;
     }
 
-    /** May a reminder go out on this channel? (The channel switches of the Cart reminder in the notification controls.) */
+    /**
+     * Is this channel ON for the Cart reminder in the notification controls, exactly as that page shows it (the master switch and the channel's own state,
+     * or else its default)? The page is the single source of truth: a channel it shows as off never carries a reminder, whatever this feature chose.
+     */
     public function channelAllowed(string $channel): bool
     {
-        return $this->rules->allows('cart.abandoned', $channel);
+        return $this->rules->channelEnabled('cart.abandoned', $channel);
     }
 
     /** @return array<string, bool> channel => can send on this server */
@@ -492,11 +525,12 @@ class AbandonedCartReminders
 
     /**
      * What happened to one cart: every reminder (automatic ones with the reason for any channel that did not go out, and the ones staff sent by hand),
-     * oldest first, and the next automatic reminder when there is one.
+     * oldest first, the next automatic reminder when there is one, and, when there is none only because this customer would be skipped, the plain reason.
      *
-     * @return array{items: list<array<string, mixed>>, next: ?array{number: int, at: CarbonImmutable}}
+     * @param  array<string, mixed>|null  $view  the cart as CartService::present() shows it, when already at hand
+     * @return array{items: list<array<string, mixed>>, next: ?array{number: int, at: CarbonImmutable}, no_next: ?string}
      */
-    public function history(Cart $cart): array
+    public function history(Cart $cart, ?array $view = null): array
     {
         $items = [];
         $anchor = $cart->last_activity_at;
@@ -521,7 +555,10 @@ class AbandonedCartReminders
             });
         usort($items, fn (array $a, array $b) => ($a['at']?->getTimestamp() ?? 0) <=> ($b['at']?->getTimestamp() ?? 0));
 
-        return ['items' => $items, 'next' => $this->nextFor($cart)];
+        $next = $this->nextFor($cart, $view);
+        $why = $next === null && $this->isEnabled() && $this->allowed() ? $this->eligibility($cart, $view) : null;
+
+        return ['items' => $items, 'next' => $next, 'no_next' => $why === null ? null : self::reasonText($why)];
     }
 
     /** The plain reason a reminder did not go out on a channel. */
@@ -533,27 +570,143 @@ class AbandonedCartReminders
         return trans()->has('cart_reminders.reason.'.$key) ? (string) __('cart_reminders.reason.'.$key) : (string) __('cart_reminders.reason.unknown');
     }
 
+    /** Reminders about one cart are counted over this many days, whatever the customer does to the cart meanwhile. */
+    public const WINDOW_DAYS = 7;
+
     /**
-     * The next automatic reminder for a cart that is waiting: which one and when (pushed past quiet hours), or null when none is coming
-     * (switched off, blocked by a notification rule, the limit per cart is reached or every reminder has been handled).
+     * What has already been sent about this cart, from durable records instead of the cart's own counters (a customer touching the cart resets those, and
+     * could otherwise earn a fresh run, a fresh gap and a fresh limit with every tap): the automatic reminders of this cart's runs and the ones staff sent
+     * (audit log) in the last WINDOW_DAYS, and the newest message of either kind to this customer. A real order ends the cart, so it starts again at zero.
      *
+     * @return array{count: int, last: ?CarbonImmutable, last_by: ?string} last_by: automatic | staff
+     */
+    public function recent(Cart $cart): array
+    {
+        $since = now()->subDays(self::WINDOW_DAYS);
+        $journeyId = Journey::where('key', self::KEY)->value('id');
+        $steps = $journeyId === null ? 0 : (int) DB::table('journey_deliveries as d')->join('journey_runs as r', 'r.id', '=', 'd.run_id')
+            ->where('r.journey_id', $journeyId)->where('r.cart_id', $cart->id)->whereIn('d.status', ['sent', 'delivered'])->where('d.sent_at', '>=', $since)
+            ->selectRaw('count(distinct (d.run_id::text || coalesce(d.step_id::text, d.id::text))) as n')->value('n');
+        $lastAuto = $journeyId === null || ! $cart->user_id ? null : DB::table('journey_deliveries as d')->join('journey_runs as r', 'r.id', '=', 'd.run_id')
+            ->where('r.journey_id', $journeyId)->where('d.user_id', $cart->user_id)->whereIn('d.status', ['sent', 'delivered'])->where('d.sent_at', '>=', $since)->max('d.sent_at');
+        $staff = AuditLog::query()->where('auditable_type', 'Cart')->where('auditable_id', $cart->id)->where('action', 'cart.reminder_sent')->where('created_at', '>=', $since)
+            ->where(fn ($q) => $q->whereNull('metadata->source')->orWhere('metadata->source', 'staff'));
+        $staffCount = (clone $staff)->count();
+        $lastStaff = $staffCount > 0 ? (clone $staff)->max('created_at') : null;
+        $auto = $lastAuto ? CarbonImmutable::parse($lastAuto) : null;
+        $byStaff = $lastStaff ? CarbonImmutable::parse($lastStaff) : null;
+        $counter = $cart->abandoned_notified_at; // older data, or a counter set by hand: treated like a staff reminder (the longer hold)
+        $found = array_filter(['automatic' => $auto, 'staff' => $byStaff, 'counter' => $counter]);
+        uasort($found, fn (CarbonImmutable $a, CarbonImmutable $b) => $b->getTimestamp() <=> $a->getTimestamp());
+
+        return ['count' => max($steps + $staffCount, (int) $cart->abandoned_notifications), 'last' => $found === [] ? null : reset($found),
+            'last_by' => $found === [] ? null : (array_key_first($found) === 'automatic' ? 'automatic' : 'staff')];
+    }
+
+    /**
+     * Until when must the next automatic reminder about this cart wait? At least MIN_GAP_MINUTES after the last message of any kind, and a full staff
+     * cooldown (Organization > Settings, `abandoned_cart_min_interval_hours`) after a reminder STAFF sent: a staff reminder counts as the customer's
+     * reminder for that stretch, so the automatic one does not follow it three hours later. Null when nothing holds it.
+     *
+     * @param  array{count: int, last: ?CarbonImmutable, last_by: ?string}|null  $recent
+     */
+    public function holdUntil(Cart $cart, ?array $recent = null): ?CarbonImmutable
+    {
+        $recent ??= $this->recent($cart);
+        if ($recent['last'] === null) {
+            return null;
+        }
+        $minutes = $recent['last_by'] === 'staff'
+            ? max(self::MIN_GAP_MINUTES, 60 * (int) $this->settings->get('notifications.abandoned_cart_min_interval_hours', 24))
+            : self::MIN_GAP_MINUTES;
+        $until = $recent['last']->addMinutes($minutes);
+
+        return $until->isFuture() ? $until : null;
+    }
+
+    /**
+     * Why this customer would not get a reminder right now, as a reason code (the keys of `cart_reminders.reason`), or null when nothing in the customer's
+     * own situation stops it: an inactive account, no marketing consent, every way of reaching them closed, nothing in the cart that can be bought.
+     * The engine and the cart window ask the same question, so the window never promises a reminder that will be skipped.
+     *
+     * @param  array<string, mixed>|null  $view  the cart as CartService::present() shows it, when already at hand
+     */
+    public function eligibility(Cart $cart, ?array $view = null): ?string
+    {
+        $user = $cart->user_id ? User::find($cart->user_id) : null;
+        if (! $user || ! $user->isCustomer() || ! $user->isActive()) {
+            return 'inactive_user';
+        }
+        if (! $user->marketing_consent_at) {
+            return 'no_marketing_consent';
+        }
+        $journey = Journey::where('key', self::KEY)->first();
+        $channels = array_values(array_unique(array_merge(...($journey?->steps()->where('is_enabled', true)->get()->map(fn (JourneyStep $s) => (array) $s->channels)->all() ?: [[]]))));
+        $open = array_values(array_filter($channels, fn (string $c) => $this->channelAllowed($c) && $this->notify->allowed($user, $c, 'marketing')));
+        if ($channels !== [] && $open === []) {
+            return $channels === ['whatsapp'] ? 'no_whatsapp_optin' : 'opted_out';
+        }
+        if ($view !== null && collect($view['items'])->every(fn (array $line) => $line['issue'] !== null)) {
+            return 'out_of_stock';
+        }
+
+        return null;
+    }
+
+    /**
+     * Can the promotion still be offered as a personal coupon to a returning customer, and will checkout accept it? A reason code, or null when it is fine.
+     * (First-order-only and customer-group promotions are refused: the audience of a reminder is any consenting customer with a cart.)
+     *
+     * @param  array<string, mixed>|null  $view  the cart, at send time: a promotion with a minimum basket the cart does not reach is not offered
+     */
+    public static function offerProblem(Promotion $p, ?array $view = null): ?string
+    {
+        return match (true) {
+            ! $p->is_active => 'inactive',
+            ! $p->requires_coupon => 'needs_coupon',
+            $p->starts_at !== null && $p->starts_at->isFuture() => 'not_started',
+            $p->ends_at !== null && $p->ends_at->lessThanOrEqualTo(now()) => 'ended',
+            (bool) $p->first_order_only => 'first_order',
+            $p->customer_group_id !== null => 'group',
+            $p->usage_limit !== null && (int) $p->times_used >= (int) $p->usage_limit => 'exhausted',
+            $view !== null && $p->min_basket_amount !== null && Money::of($view['subtotal']['amount'])->lessThan(Money::of($p->min_basket_amount)) => 'min_basket',
+            default => null,
+        };
+    }
+
+    /**
+     * The next automatic reminder for a cart that is waiting: which one and when (after any hold and past quiet hours), or null when none is coming
+     * (switched off, blocked by a notification rule, the customer would be skipped, the limit is reached or every reminder has been handled).
+     *
+     * @param  array<string, mixed>|null  $view  the cart as CartService::present() shows it, when already at hand
      * @return array{number: int, at: CarbonImmutable}|null
      */
-    public function nextFor(Cart $cart): ?array
+    public function nextFor(Cart $cart, ?array $view = null): ?array
     {
         $journey = Journey::where('key', self::KEY)->first();
-        if (! $journey || ! $journey->is_enabled || ! $this->allowed() || ! $cart->last_activity_at || (int) $cart->abandoned_notifications >= $this->maxPerCart()) {
+        if (! $journey || ! $journey->is_enabled || ! $this->allowed() || ! $cart->last_activity_at || $this->eligibility($cart, $view) !== null) {
+            return null;
+        }
+        $recent = $this->recent($cart);
+        if ($recent['count'] >= $this->maxPerCart()) {
             return null;
         }
         $handled = JourneyDelivery::query()->whereIn('run_id', JourneyRun::where('journey_id', $journey->id)->where('cart_id', $cart->id)->where('anchor_at', $cart->last_activity_at)->select('id'))
             ->pluck('step_id')->filter()->all();
         $quiet = self::quietHours($journey);
+        $hold = $this->holdUntil($cart, $recent);
         foreach ($journey->steps()->where('is_enabled', true)->orderBy('position')->get() as $step) {
-            $due = $cart->last_activity_at->addMinutes((int) $step->delay_minutes);
+            $due = $cart->last_activity_at->addMinutes(max(self::MIN_DELAY_MINUTES, (int) $step->delay_minutes));
             if (in_array($step->id, $handled, true) || $due->addHours(self::GRACE_HOURS)->isPast()) {
                 continue;
             }
             $at = $due->isPast() ? CarbonImmutable::now() : $due;
+            if ($hold !== null && $hold->gt($at)) {
+                $at = $hold;
+            }
+            if ($at->gt($due->addHours(self::GRACE_HOURS))) {
+                continue; // it would go out too late to be sent
+            }
 
             return ['number' => (int) $step->position, 'at' => $quiet->endAfter($at)];
         }
@@ -591,10 +744,7 @@ class AbandonedCartReminders
         if ((int) $journey->setting('defaults_version', 0) >= 2) {
             return;
         }
-        $steps = $journey->steps()->with('template')->get();
-        $original = ! $journey->is_enabled && $steps->count() === 3 && $steps->pluck('delay_minutes')->all() === [30, 240, 4320]
-            && $steps[0]->template?->body_en === self::LEGACY_FIRST_BODY && $steps->every(fn (JourneyStep $s) => $s->is_enabled)
-            && ! JourneyRun::where('journey_id', $journey->id)->exists();
+        $original = ! $journey->is_enabled && ! JourneyRun::where('journey_id', $journey->id)->exists() && $this->snapshot($journey) === self::LEGACY_STARTER;
         DB::transaction(function () use ($journey, $original) {
             if ($original) {
                 $this->persist($journey, $this->defaults(), true);
@@ -603,6 +753,35 @@ class AbandonedCartReminders
             }
         });
         $journey->refresh();
+    }
+
+    /**
+     * The journey, its steps and the templates they use, as plain values in the shape of LEGACY_STARTER (templates named A, B ... in order of first use),
+     * so two journeys can be compared field by field.
+     *
+     * @return array<string, mixed>
+     */
+    private function snapshot(Journey $journey): array
+    {
+        $templates = [];
+        $letters = [];
+        $steps = [];
+        foreach ($journey->steps()->with('template')->get() as $step) {
+            $t = $step->template;
+            $id = (string) ($step->template_id ?? '');
+            if (! isset($letters[$id])) {
+                $letters[$id] = chr(65 + count($letters));
+                $templates[$letters[$id]] = $t === null ? null : ['name' => $t->name, 'kind' => $t->kind, 'title_en' => $t->title_en, 'title_ar' => $t->title_ar, 'body_en' => $t->body_en, 'body_ar' => $t->body_ar,
+                    'whatsapp_en' => $t->whatsapp_en, 'whatsapp_ar' => $t->whatsapp_ar, 'deep_link' => $t->deep_link, 'promotion_id' => $t->promotion_id,
+                    'coupon_prefix' => $t->coupon_prefix, 'coupon_valid_hours' => (int) $t->coupon_valid_hours, 'is_active' => (bool) $t->is_active];
+            }
+            $steps[] = ['position' => (int) $step->position, 'label' => $step->label, 'delay' => (int) $step->delay_minutes, 'channels' => array_values((array) $step->channels),
+                'enabled' => (bool) $step->is_enabled, 'template' => $letters[$id]] + ($step->offset_days !== null || $step->send_time !== null ? ['offset_days' => $step->offset_days, 'send_time' => $step->send_time] : []);
+        }
+        $settings = (array) ($journey->settings ?? []);
+        ksort($settings);
+
+        return ['name' => $journey->name, 'settings' => $settings, 'steps' => $steps, 'templates' => $templates];
     }
 
     /**
@@ -707,8 +886,9 @@ class AbandonedCartReminders
             return;
         }
         $promotion = Promotion::find($id);
-        if (! $promotion || ! $promotion->is_active || ! $promotion->requires_coupon || ($promotion->ends_at && $promotion->ends_at->isPast())) {
-            $v->errors()->add('offer.promotion_id', __('cart_reminders.err_offer_promotion'));
+        $problem = $promotion === null ? 'inactive' : self::offerProblem($promotion);
+        if ($problem !== null) {
+            $v->errors()->add('offer.promotion_id', __('cart_reminders.err_offer_'.$problem));
         }
         $slot = (int) $form['offer']['reminder'] - 1;
         if (! ($form['reminders'][$slot]['enabled'] ?? false)) {

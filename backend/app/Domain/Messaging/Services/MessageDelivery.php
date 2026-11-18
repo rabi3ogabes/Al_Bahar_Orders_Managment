@@ -51,6 +51,24 @@ class MessageDelivery
         return true;
     }
 
+    /**
+     * The first, quick part of a send to ONE customer, done in the request of the person who pressed Send: the in-app inbox message is saved (database
+     * only, no network) and the row stays `queued`, remembering the inbox entry (`meta.inbox_id`). The push and WhatsApp are the job's, which reuses that
+     * inbox entry instead of making a second one. Same rules as the job (consent, quiet time, coupon), so nothing is saved for a customer who may not get it.
+     */
+    public function saveInbox(string $batchId, string $userId): void
+    {
+        $lock = Cache::lock('customer-message:'.$batchId.':'.$userId, 120);
+        if (! $lock->get()) {
+            return;
+        }
+        try {
+            $this->process($batchId, $userId, inboxOnly: true);
+        } finally {
+            $lock->release();
+        }
+    }
+
     /** The job gave up: nothing is left "queued" forever, the history says it failed. */
     public function failRemaining(string $batchId, string $userId, string $reason): void
     {
@@ -58,7 +76,7 @@ class MessageDelivery
         MessageBatch::find($batchId)?->refreshCounts();
     }
 
-    private function process(string $batchId, string $userId): void
+    private function process(string $batchId, string $userId, bool $inboxOnly = false): void
     {
         $batch = MessageBatch::find($batchId);
         if (! $batch || $batch->status !== 'sending') {
@@ -70,14 +88,14 @@ class MessageDelivery
             if (! $user) {
                 $rows->each(fn (CustomerMessage $r) => $this->finish($r, 'skipped', 'inactive_user'));
             } else {
-                $this->sendTo($batch, $user, $rows);
+                $this->sendTo($batch, $user, $rows, $inboxOnly);
             }
         }
         $batch->refresh()->refreshCounts();
     }
 
     /** @param Collection<int, CustomerMessage> $rows */
-    private function sendTo(MessageBatch $batch, User $user, $rows): void
+    private function sendTo(MessageBatch $batch, User $user, $rows, bool $inboxOnly = false): void
     {
         $limits = $this->messaging->limits();
         $eval = $this->eligibility->evaluate(collect([$user]), $rows->pluck('channel')->unique()->values()->all(), $batch->kind, $limits['cooldown_hours'], $batch->id,
@@ -106,6 +124,13 @@ class MessageDelivery
         foreach ($ready as $row) {
             try {
                 $row->update(['coupon_code' => $coupon?->code, 'locale' => $locale]);
+                if ($inboxOnly) {
+                    if ($row->channel === 'notification') {
+                        $this->sendNotification($row, $batch, $user, $content, $locale, $coupon, inboxOnly: true);
+                    }
+
+                    continue; // WhatsApp (and the push) wait for the job
+                }
                 match ($row->channel) {
                     'notification' => $this->sendNotification($row, $batch, $user, $content, $locale, $coupon),
                     'whatsapp' => $this->sendWhatsApp($row, $batch, $user, $content, $locale, $coupon),
@@ -113,13 +138,15 @@ class MessageDelivery
                 };
             } catch (Throwable $e) {
                 report($e);
-                $this->finish($row, 'failed', 'send_error');
+                if (! $inboxOnly) {
+                    $this->finish($row, 'failed', 'send_error'); // the quick part never fails a row: the job does it all
+                }
             }
         }
     }
 
     /** @param array<string, mixed> $content */
-    private function sendNotification(CustomerMessage $row, MessageBatch $batch, User $user, array $content, string $locale, ?Coupon $coupon): void
+    private function sendNotification(CustomerMessage $row, MessageBatch $batch, User $user, array $content, string $locale, ?Coupon $coupon, bool $inboxOnly = false): void
     {
         $prefs = $this->eligibility->preferences([(string) $user->id]);
         $inApp = $this->eligibility->allowed($prefs, (string) $user->id, 'in_app');
@@ -137,12 +164,21 @@ class MessageDelivery
         } elseif (! $pushConfigured) {
             $meta['push_skip'] = 'not_set_up';
         }
-        $inboxId = null;
+        // The inbox entry may already exist (saved by the quick part, see saveInbox): never make a second one.
+        $inboxId = is_array($row->meta) && is_string($row->meta['inbox_id'] ?? null) && Notification::whereKey($row->meta['inbox_id'])->exists() ? $row->meta['inbox_id'] : null;
 
-        if ($inApp) {
+        if ($inboxId === null && $inApp) {
             $inboxId = Notification::create(['user_id' => $user->id, 'event' => 'staff.message', 'category' => 'marketing', 'title' => $title, 'body' => $body,
                 'data' => array_filter(['deep_link' => $link, 'coupon' => $coupon?->code])])->id;
+        }
+        if ($inboxId !== null) {
             $meta['in_app'] = true;
+            $meta['inbox_id'] = $inboxId;
+        }
+        if ($inboxOnly) {
+            $row->update(['title' => $title, 'body' => $body, 'meta' => $meta]); // still `queued`: the push is the job's
+
+            return;
         }
         if ($push && $pushConfigured) {
             foreach ($user->devices()->whereNull('disabled_at')->get() as $device) {

@@ -137,7 +137,8 @@ class CampaignService
      */
     public function reminderStatus(Cart $cart): array
     {
-        $max = app(AbandonedCartReminders::class)->maxPerCart();
+        $reminders = app(AbandonedCartReminders::class);
+        $max = $reminders->maxPerCart();
         $gap = (int) $this->settings->get('notifications.abandoned_cart_min_interval_hours', 24);
         $user = $cart->user_id ? User::find($cart->user_id) : null;
         $out = fn (string $status, ?CarbonImmutable $next = null) => ['status' => $status, 'next_at' => $next, 'limit' => $max];
@@ -147,11 +148,13 @@ class CampaignService
         if (! $user->marketing_consent_at) {
             return $out('no_consent');
         }
-        if ($cart->abandoned_notifications >= $max) {
+        // The cart's counters (a customer's own change resets them) and what was really sent in the last days (durable): the larger one counts.
+        $recent = $reminders->recent($cart);
+        if ($recent['count'] >= $max) {
             return $out('limit_reached');
         }
-        if ($cart->abandoned_notified_at && $cart->abandoned_notified_at->addHours($gap)->isFuture()) {
-            return $out('too_soon', $cart->abandoned_notified_at->addHours($gap));
+        if ($recent['last'] && $recent['last']->addHours($gap)->isFuture()) {
+            return $out('too_soon', $recent['last']->addHours($gap));
         }
         if ($gap > 0 && app(ContactHistory::class)->recentlyContacted([(string) $user->id], $gap) !== []) {
             return $out('too_soon');

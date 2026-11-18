@@ -258,7 +258,7 @@ class AbandonedCartService
             'quote' => $this->quote($cart, $customer),
             'reminder' => $this->campaigns->reminderStatus($cart),
             'reminders' => self::reminderSummary($cart),
-            'history' => $this->reminders->history($cart),
+            'history' => $this->reminders->history($cart, $view),
             'stamp' => $this->stamp($cart),
             'idle_since' => $cart->last_activity_at,
             'max_quantity' => (int) config('platform.checkout.max_quantity_per_line'),

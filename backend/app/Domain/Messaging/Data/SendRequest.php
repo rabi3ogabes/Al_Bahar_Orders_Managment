@@ -5,7 +5,10 @@ namespace App\Domain\Messaging\Data;
 use App\Domain\Marketing\Models\JourneyTemplate;
 use Carbon\CarbonImmutable;
 
-/** Everything the composer submits for one send. */
+/**
+ * Everything the composer submits for one send. `idempotencyKey` is made once per open window: pressing Send twice (a double click, or a second
+ * try after a timeout) with the same key and the same message returns the first send instead of making another.
+ */
 final class SendRequest
 {
     /**
@@ -20,5 +23,6 @@ final class SendRequest
         public readonly ?JourneyTemplate $template = null,
         public readonly ?CarbonImmutable $scheduleAt = null,
         public readonly bool $ignoreCooldown = false,
+        public readonly ?string $idempotencyKey = null,
     ) {}
 }
