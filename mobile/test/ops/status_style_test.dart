@@ -322,11 +322,11 @@ void main() {
           'preparing': [FakeOps.order(id: 'f3', status: 'accepted', number: 'AB100003')],
         };
       await _staff(tester, repo);
+      // New and preparing orders are on the same To do list, each with its own slide words.
       expect(find.text('Slide to accept order'), findsOneWidget);
-      await tester.tap(find.byType(Tab).at(1));
-      await settle(tester);
       expect(find.text('Slide to start preparing'), findsOneWidget);
-      await _slide(tester);
+      await tester.drag(find.byKey(slideThumbKey).last, const Offset(260, 0));
+      await settle(tester);
       expect(repo.calls.last, 'advance:f3:preparing');
     });
 
@@ -390,11 +390,15 @@ void main() {
     testWidgets('assign driver and return to branch stay as they are in slide mode', (tester) async {
       final repo = FakeOps()..style = OpsStatusStyle.slide;
       await _staff(tester, repo);
-      await tester.ensureVisible(find.byType(Tab).at(2));
-      await tester.tap(find.byType(Tab).at(2));
-      await settle(tester);
+      // The ready order is on the To do list; the slide belongs to the New order only.
+      await tester.scrollUntilVisible(
+        find.widgetWithText(FilledButton, 'Assign driver'),
+        120,
+        scrollable: find.descendant(of: find.byType(CustomScrollView), matching: find.byType(Scrollable)).first,
+      );
       expect(find.widgetWithText(FilledButton, 'Assign driver'), findsOneWidget);
-      expect(find.byType(SlideToConfirm), findsNothing);
+      expect(find.byType(SlideToConfirm), findsOneWidget);
+      expect(find.text('Slide to accept order'), findsOneWidget);
     });
 
     testWidgets('a laid-out slide never overflows: phone, large text, Arabic, dark', (tester) async {

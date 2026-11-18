@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/providers.dart';
+import 'package:albahar_customer/core/realtime/pusher_client.dart';
 import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
 import 'package:albahar_customer/l10n/generated/app_localizations.dart';
@@ -489,6 +490,7 @@ Widget opsHost(
   FakeTracker? tracker,
   FakeNavigation? navigation,
   OpsRole role = OpsRole.driver,
+  Stream<PusherEvent>? staffEvents,
   List<Override> overrides = const [],
 }) => ProviderScope(
   // Like the real app: a failed load is shown, not silently retried by the container.
@@ -502,7 +504,7 @@ Widget opsHost(
     driverTrackerProvider.overrideWithValue(tracker ?? FakeTracker(repo)),
     // No socket in tests: real-time pings are covered by the backend tests.
     driverEventsProvider.overrideWith((ref) => const Stream.empty()),
-    staffEventsProvider.overrideWith((ref) => const Stream.empty()),
+    staffEventsProvider.overrideWith((ref) => staffEvents ?? const Stream.empty()),
     staffMovesProvider.overrideWith((ref) => const Stream<Map<String, dynamic>>.empty()),
     ...mapTestOverrides(navigation: navigation),
     ...overrides,

@@ -431,7 +431,8 @@ void main() {
       await settle(tester);
       await tester.tap(find.text('العربية'));
       await settle(tester);
-      expect(find.text('جديدة · 0'), findsOneWidget);
+      // The first tab of the staff home, in Arabic.
+      expect(find.text('المطلوب'), findsOneWidget);
     });
   });
 

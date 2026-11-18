@@ -186,7 +186,8 @@ class _OverviewBar extends StatelessWidget {
   }
 }
 
-/// A small number with its words beside it (one line high, two lines when the text is large).
+/// A small number with its words beside it, one line high (two lines when the text is large). Lit in the same amber as the "Waiting
+/// for a driver" mark on an order card while it is more than zero, calm otherwise.
 class _StatPill extends StatelessWidget {
   const _StatPill({required this.icon, required this.label, required this.value, this.highlight = false});
   final IconData icon;
@@ -196,27 +197,36 @@ class _StatPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = context.colors;
-    final fg = highlight ? scheme.onPrimary : context.palette.ink;
+    final palette = context.palette;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final bg = highlight
+        ? (dark ? palette.warning.withValues(alpha: 0.16) : AppPalette.warningTint)
+        : context.colors.surface;
     return Expanded(
       child: MergeSemantics(
-        child: Material(
-          color: highlight ? scheme.primary : scheme.surface,
-          borderRadius: AppRadius.inputAll,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: AppRadius.inputAll,
+            border: Border.all(color: highlight ? Colors.transparent : palette.line),
+          ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: AppSpace.xs),
             child: Row(
               children: [
-                Icon(icon, size: 20, color: highlight ? scheme.onPrimary : scheme.primary),
+                Icon(icon, size: 18, color: highlight ? palette.warning : palette.muted),
                 const Gap(AppSpace.xs),
-                Text('$value', style: context.text.titleLarge?.copyWith(color: fg, fontWeight: FontWeight.w700)),
+                Text(
+                  '$value',
+                  style: context.text.titleMedium?.copyWith(color: palette.ink, fontWeight: FontWeight.w700),
+                ),
                 const Gap(AppSpace.xs),
                 Expanded(
                   child: Text(
                     label,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: context.text.bodySmall?.copyWith(color: fg),
+                    style: context.text.bodySmall?.copyWith(color: palette.ink),
                   ),
                 ),
               ],

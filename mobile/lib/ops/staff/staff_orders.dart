@@ -63,6 +63,10 @@ class StaffTodoPage extends ConsumerWidget {
     final filter = ref.watch(staffTodoFilterProvider);
     final total = rows.total(kTodoStages);
     final groups = groupsOf(rows, kTodoStages, only: filter);
+    // When the last order is done there is nothing left to narrow: the next order that arrives must not be hidden by a stage chosen earlier.
+    ref.listen(staffTodoViewProvider.select((r) => r.ready && r.total(kTodoStages) == 0), (_, empty) {
+      if (empty) ref.read(staffTodoFilterProvider.notifier).reset();
+    });
     return StageList(
       rows: rows,
       groups: groups,
@@ -309,7 +313,10 @@ class StageList extends StatelessWidget {
         ?(top == null ? null : SliverToBoxAdapter(child: top)),
         if (groups.isEmpty)
           SliverToBoxAdapter(
-            child: Padding(padding: const EdgeInsets.only(top: AppSpace.xl), child: empty),
+            child: Padding(
+              padding: const EdgeInsets.only(top: AppSpace.xl),
+              child: empty,
+            ),
           )
         else
           for (final g in groups) _groupSliver(g, extent),
@@ -330,7 +337,12 @@ class StageList extends StatelessWidget {
             delegate: _GroupHeaderDelegate(extent: extent, stage: g.stage, count: g.orders.length),
           ),
         SliverPadding(
-          padding: EdgeInsets.fromLTRB(AppSpace.gutter, bare ? AppSpace.sm : AppSpace.xxs, AppSpace.gutter, AppSpace.xs),
+          padding: EdgeInsets.fromLTRB(
+            AppSpace.gutter,
+            bare ? AppSpace.sm : AppSpace.xxs,
+            AppSpace.gutter,
+            AppSpace.xs,
+          ),
           sliver: SliverList.separated(
             itemCount: g.orders.length,
             // An order that changes place inside its group keeps its card (a slide or a request in progress is not lost).
@@ -388,42 +400,45 @@ class _GroupHeaderDelegate extends SliverPersistentHeaderDelegate {
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
     final t = OpsStrings.of(context);
     final palette = context.palette;
-    final (icon, tone) = switch (stage) {
-      'new' => (Icons.notifications_active_rounded, StatusTone.accent),
-      'preparing' => (Icons.inventory_2_outlined, StatusTone.info),
-      'ready' => (Icons.task_alt_rounded, StatusTone.success),
-      'out' => (Icons.local_shipping_outlined, StatusTone.info),
-      _ => (Icons.report_gmailerrorred_rounded, StatusTone.danger),
+    final (icon, tone, tint) = switch (stage) {
+      'new' => (Icons.notifications_active_rounded, StatusTone.accent, palette.brass),
+      'preparing' => (Icons.inventory_2_outlined, StatusTone.info, palette.info),
+      'ready' => (Icons.task_alt_rounded, StatusTone.success, palette.success),
+      'out' => (Icons.local_shipping_outlined, StatusTone.info, palette.info),
+      _ => (Icons.report_gmailerrorred_rounded, StatusTone.danger, palette.danger),
     };
-    final danger = tone == StatusTone.danger;
     final title = _stageTitle(t, stage);
-    final ink = danger ? palette.danger : palette.ink;
+    // The failed group's whole header is red; the others keep plain text next to a tinted icon.
+    final ink = tone == StatusTone.danger ? palette.danger : palette.ink;
     return Semantics(
       header: true,
       label: t.stageCountLabel(title, count),
       excludeSemantics: true,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          // Opaque, so the cards that scroll under a header that stays in view never show through it.
-          color: context.pageColor,
-          border: Border(bottom: BorderSide(color: overlapsContent ? palette.line : Colors.transparent)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpace.gutter),
-          child: Row(
-            children: [
-              Icon(icon, size: 20, color: ink),
-              const Gap(AppSpace.xs),
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.text.titleSmall?.copyWith(color: ink, fontWeight: FontWeight.w700),
+      // The header is exactly [extent] tall (a pinned header that is smaller than it says breaks the scroll geometry).
+      child: SizedBox.expand(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            // Opaque, so the cards that scroll under a header that stays in view never show through it.
+            color: context.pageColor,
+            border: Border(bottom: BorderSide(color: overlapsContent ? palette.line : Colors.transparent)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpace.gutter),
+            child: Row(
+              children: [
+                Icon(icon, size: 20, color: tint),
+                const Gap(AppSpace.xs),
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.text.titleSmall?.copyWith(color: ink, fontWeight: FontWeight.w700),
+                  ),
                 ),
-              ),
-              StatusChip(label: '$count', tone: tone),
-            ],
+                StatusChip(label: '$count', tone: tone),
+              ],
+            ),
           ),
         ),
       ),
@@ -561,7 +576,9 @@ class StaffDriversPage extends ConsumerWidget {
           ),
         ),
         Expanded(
-          child: view == StaffDriversView.list ? const _DriverList() : FleetMapTab(events: ref.watch(staffMovesProvider)),
+          child: view == StaffDriversView.list
+              ? const _DriverList()
+              : FleetMapTab(events: ref.watch(staffMovesProvider)),
         ),
       ],
     );

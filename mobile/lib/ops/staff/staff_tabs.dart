@@ -48,21 +48,9 @@ PreferredSizeWidget? staffTabBar(BuildContext context, List<StaffTab> tabs, Staf
   Tab tab(StaffTab which) {
     final count = staffTabCount(which, o);
     final (icon, label, speech) = switch (which) {
-      StaffTab.todo => (
-        Icons.checklist_rounded,
-        t.tabToDo,
-        t.tabToDoLabel(count ?? 0, o?.fresh ?? 0),
-      ),
-      StaffTab.way => (
-        Icons.local_shipping_outlined,
-        t.stageOut,
-        t.tabWayLabel(count ?? 0, o?.failed ?? 0),
-      ),
-      StaffTab.drivers => (
-        Icons.two_wheeler_rounded,
-        t.drivers,
-        t.tabDriversLabel(count ?? 0),
-      ),
+      StaffTab.todo => (Icons.checklist_rounded, t.tabToDo, t.tabToDoLabel(count ?? 0, o?.fresh ?? 0)),
+      StaffTab.way => (Icons.local_shipping_outlined, t.stageOut, t.tabWayLabel(count ?? 0, o?.failed ?? 0)),
+      StaffTab.drivers => (Icons.two_wheeler_rounded, t.drivers, t.tabDriversLabel(count ?? 0)),
     };
     return Tab(
       height: height,
@@ -78,7 +66,11 @@ PreferredSizeWidget? staffTabBar(BuildContext context, List<StaffTab> tabs, Staf
                 Icon(icon),
                 if (count != null) ...[
                   const SizedBox(width: 4),
-                  StaffCountBadge(key: ValueKey('staff-tab-badge-${which.name}'), count: count, tone: staffTabTone(which, o)),
+                  StaffCountBadge(
+                    key: ValueKey('staff-tab-badge-${which.name}'),
+                    count: count,
+                    tone: staffTabTone(which, o),
+                  ),
                 ],
               ],
             ),
@@ -115,7 +107,10 @@ class StaffCountBadge extends StatefulWidget {
 }
 
 class _StaffCountBadgeState extends State<StaffCountBadge> with SingleTickerProviderStateMixin {
-  late final AnimationController _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1600));
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1600),
+  );
   bool _started = false;
 
   @override
@@ -166,7 +161,15 @@ class _StaffCountBadgeState extends State<StaffCountBadge> with SingleTickerProv
             decoration: BoxDecoration(
               color: bg,
               borderRadius: BorderRadius.circular(AppRadius.pill),
-              boxShadow: k > 0 ? [BoxShadow(color: bg.withValues(alpha: 0.45 * k), blurRadius: 10 * k, spreadRadius: 2 * k)] : null,
+              boxShadow: k > 0
+                  ? [
+                      BoxShadow(
+                        color: bg.withValues(alpha: 0.45 * k),
+                        blurRadius: 10 * k,
+                        spreadRadius: 2 * k,
+                      ),
+                    ]
+                  : null,
             ),
             child: child,
           ),
@@ -181,7 +184,12 @@ class _StaffCountBadgeState extends State<StaffCountBadge> with SingleTickerProv
             child: Text(
               text,
               maxLines: 1,
-              style: context.text.labelSmall?.copyWith(color: fg, fontWeight: FontWeight.w700, letterSpacing: 0, height: 1.2),
+              style: context.text.labelSmall?.copyWith(
+                color: fg,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0,
+                height: 1.2,
+              ),
             ),
           ),
         ),

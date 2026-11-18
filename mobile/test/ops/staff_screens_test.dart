@@ -23,20 +23,24 @@ Future<ProviderContainer> _pump(
   return ProviderScope.containerOf(tester.element(find.byType(StaffHome)));
 }
 
-/// Opens the third tab (Ready); on a phone the scrollable tab bar has to be scrolled to it first.
-Future<void> _openReady(WidgetTester tester, Variant v) async {
-  final tab = find.byType(Tab).at(2);
-  await tester.ensureVisible(tab);
+/// Brings a card to the screen. To do is ONE scrolling list (new, preparing and ready under their headers), so a stage lower down
+/// is reached by scrolling, like a person would.
+Future<void> _reveal(WidgetTester tester, Finder target) async {
+  if (target.evaluate().isEmpty) {
+    await tester.scrollUntilVisible(
+      target,
+      120,
+      scrollable: find.descendant(of: find.byType(CustomScrollView), matching: find.byType(Scrollable)).first,
+      maxScrolls: 60,
+    );
+  }
+  await tester.ensureVisible(target);
   await tester.pump();
-  await tester.tap(tab);
-  await settle(tester);
 }
 
+/// Opens a tab by its place: 0 To do, 1 On the way, 2 Drivers.
 Future<void> _openTab(WidgetTester tester, int index) async {
-  final tab = find.byType(Tab).at(index);
-  await tester.ensureVisible(tab);
-  await tester.pump();
-  await tester.tap(tab);
+  await tester.tap(find.byType(Tab).at(index));
   await settle(tester);
 }
 
@@ -48,10 +52,11 @@ void main() {
         await _pump(tester, FakeOps(), variant: v);
         expect(tester.takeException(), isNull);
         expect(find.text('Al Markhiya Main Branch'), findsOneWidget);
-        await _openReady(tester, v);
+        await _reveal(tester, find.text('#AB100009'));
         expect(find.text('#AB100009'), findsOneWidget);
-        expect(find.textContaining(v.rtl ? 'المنطقة 24' : 'Zone 24'), findsOneWidget);
-        expect(find.textContaining(v.rtl ? '120.00 ر.ق' : 'QAR 120.00'), findsOneWidget);
+        // The new and the ready order are both on the To do list, each with its zone and total.
+        expect(find.textContaining(v.rtl ? 'المنطقة 24' : 'Zone 24'), findsWidgets);
+        expect(find.textContaining(v.rtl ? '120.00 ر.ق' : 'QAR 120.00'), findsWidgets);
         await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
         await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
         handle.dispose();
@@ -60,14 +65,15 @@ void main() {
   });
 
   group('permissions decide which buttons exist', () {
-    testWidgets('view only: no step buttons, no drivers or map, no add product', (tester) async {
+    testWidgets('view only: no step buttons, no Drivers tab (so no list or map), no add product', (tester) async {
       final repo = FakeOps()..perms = const ['orders.view'];
       await _pump(tester, repo);
       expect(find.text('Accept order'), findsNothing);
+      expect(find.byType(Tab), findsNWidgets(2));
       expect(find.text('Drivers'), findsNothing);
       expect(find.text('Live map'), findsNothing);
       expect(find.byTooltip('Add product'), findsNothing);
-      await _openReady(tester, variants.first);
+      await _reveal(tester, find.text('#AB100009'));
       expect(find.text('Assign driver'), findsNothing);
       expect(find.text('#AB100009'), findsOneWidget);
     });
@@ -76,11 +82,14 @@ void main() {
       final repo = FakeOps()..perms = const ['orders.view', 'orders.edit', 'deliveries.view', 'deliveries.assign'];
       await _pump(tester, repo);
       expect(find.text('Accept order'), findsOneWidget);
+      expect(find.byType(Tab), findsNWidgets(3));
       expect(find.text('Drivers'), findsOneWidget);
-      expect(find.text('Live map'), findsOneWidget);
       expect(find.byTooltip('Add product'), findsNothing);
-      await _openReady(tester, variants.first);
+      await _reveal(tester, find.text('Assign driver'));
       expect(find.text('Assign driver'), findsOneWidget);
+      // The Drivers tab holds both the list and the live map.
+      await _openTab(tester, 2);
+      expect(find.text('Live map'), findsOneWidget);
     });
 
     test('wildcards expand like the server', () {
@@ -142,7 +151,7 @@ void main() {
     testWidgets('assigning a driver: choose from the list, one request; off-duty drivers are marked', (tester) async {
       final repo = FakeOps();
       await _pump(tester, repo);
-      await _openReady(tester, variants.first);
+      await _reveal(tester, find.text('Assign driver'));
       await tester.tap(find.text('Assign driver'));
       await settle(tester);
       expect(find.text('Choose a driver'), findsOneWidget);
@@ -155,7 +164,7 @@ void main() {
     testWidgets('any listed driver can be picked (the server decides who may take the order)', (tester) async {
       final repo = FakeOps();
       await _pump(tester, repo);
-      await _openReady(tester, variants.first);
+      await _reveal(tester, find.text('Assign driver'));
       await tester.tap(find.text('Assign driver'));
       await settle(tester);
       await tester.tap(find.text('Salem'));
@@ -168,8 +177,8 @@ void main() {
     ) async {
       final repo = FakeOps()..perms = const ['orders.view', 'deliveries.edit'];
       await _pump(tester, repo);
-      expect(find.textContaining('Failed · 1'), findsOneWidget);
-      await _openTab(tester, 4);
+      await _openTab(tester, 1);
+      expect(find.text('Needs attention'), findsOneWidget);
       expect(find.text('#AB100010'), findsOneWidget);
       expect(find.text('Delivery failed'), findsOneWidget);
       await tester.tap(find.text('Return to branch'));
@@ -187,7 +196,7 @@ void main() {
     testWidgets('without deliveries.edit there is no way to return a delivery', (tester) async {
       final repo = FakeOps()..perms = const ['orders.view'];
       await _pump(tester, repo);
-      await _openTab(tester, 4);
+      await _openTab(tester, 1);
       expect(find.text('#AB100010'), findsOneWidget);
       expect(find.text('Return to branch'), findsNothing);
     });
@@ -198,19 +207,20 @@ void main() {
           'ready': [FakeOps.order(driver: 'Omar')],
         };
       await _pump(tester, repo);
-      await _openReady(tester, variants.first);
+      await _reveal(tester, find.text('Change driver'));
       expect(find.text('Driver: Omar'), findsOneWidget);
       expect(find.text('Change driver'), findsOneWidget);
     });
   });
 
   group('states', () {
-    testWidgets('empty stage explains and can be pulled to refresh', (tester) async {
+    testWidgets('empty To do list explains and can be pulled to refresh', (tester) async {
       final repo = FakeOps()..queues = {};
       await _pump(tester, repo);
-      expect(find.text('Nothing here right now'), findsOneWidget);
+      expect(find.text('All caught up'), findsOneWidget);
+      expect(find.text('New orders appear here as soon as they arrive.'), findsOneWidget);
       final before = repo.queueLoads;
-      await tester.fling(find.text('Nothing here right now'), const Offset(0, 400), 1000);
+      await tester.fling(find.text('All caught up'), const Offset(0, 400), 1000);
       await settle(tester);
       expect(repo.queueLoads, greaterThan(before));
     });
@@ -239,14 +249,14 @@ void main() {
     testWidgets('drivers tab: list with call buttons named after the driver; empty state', (tester) async {
       final repo = FakeOps();
       await _pump(tester, repo);
-      await _openTab(tester, 5);
+      await _openTab(tester, 2);
       expect(find.byTooltip('Call Omar'), findsOneWidget);
       expect(find.byTooltip('Call Salem'), findsNothing); // no phone number on file
 
       final empty = FakeOps()..branchDrivers = const [];
       await tester.pumpWidget(const SizedBox.shrink());
       await _pump(tester, empty);
-      await _openTab(tester, 5);
+      await _openTab(tester, 2);
       expect(find.textContaining('No drivers in this branch'), findsOneWidget);
     });
   });
@@ -332,7 +342,9 @@ void main() {
       useVariant(tester, const Variant('default', Size(390, 844), kEn));
       await tester.pumpWidget(opsHost(const StaffHome(), repo, role: OpsRole.staff));
       await settle(tester);
-      await _openTab(tester, 6);
+      await _openTab(tester, 2);
+      await tester.tap(find.text('Live map'));
+      await settle(tester);
       expect(repo.fleetBranch, 'b1');
     });
   });

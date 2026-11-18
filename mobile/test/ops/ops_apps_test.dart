@@ -166,8 +166,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Al Markhiya Main Branch'), findsOneWidget);
 
-    await tester.tap(find.textContaining('Ready'));
-    await tester.pumpAndSettle();
+    // The ready order is on the same To do list as the new ones (grouped under its own "Ready" header).
     expect(find.text('#AB100009'), findsOneWidget);
     await tester.tap(find.text('Assign driver'));
     await tester.pumpAndSettle();

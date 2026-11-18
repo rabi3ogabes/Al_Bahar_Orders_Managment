@@ -22,12 +22,24 @@ Future<ProviderContainer> _pump(WidgetTester tester, FakeOps repo, Variant varia
   return ProviderScope.containerOf(tester.element(find.byType(StaffHome)));
 }
 
+/// Opens a tab by its place: 0 To do, 1 On the way, 2 Drivers.
 Future<void> _openTab(WidgetTester tester, int index) async {
-  final tab = find.byType(Tab).at(index);
-  await tester.ensureVisible(tab);
-  await tester.pump();
-  await tester.tap(tab);
+  await tester.tap(find.byType(Tab).at(index));
   await settle(tester);
+}
+
+/// Scrolls the To do list until [target] is on screen (new, preparing and ready orders are one list).
+Future<void> _reveal(WidgetTester tester, Finder target) async {
+  if (target.evaluate().isEmpty) {
+    await tester.scrollUntilVisible(
+      target,
+      120,
+      scrollable: find.descendant(of: find.byType(CustomScrollView), matching: find.byType(Scrollable)).first,
+      maxScrolls: 60,
+    );
+  }
+  await tester.ensureVisible(target);
+  await tester.pump();
 }
 
 Future<void> _back(WidgetTester tester) async {
@@ -220,7 +232,7 @@ void main() {
     ) async {
       final repo = FakeOps();
       await _pump(tester, repo, _phone);
-      await _openTab(tester, 2);
+      await _reveal(tester, find.text('#AB100009'));
       await tester.tap(find.text('#AB100009'));
       await settle(tester);
       expect(find.text('Waiting for a driver'), findsWidgets);
@@ -247,7 +259,7 @@ void main() {
     testWidgets('wide: the driver picker is an end panel; Arabic: on the left', (tester) async {
       final repo = FakeOps();
       await _pump(tester, repo, _wideAr);
-      await _openTab(tester, 2);
+      await _reveal(tester, find.text('#AB100009'));
       await tester.tap(find.text('#AB100009'));
       await settle(tester);
       await tester.tap(find.descendant(of: _panelBody, matching: find.widgetWithText(FilledButton, 'إسناد سائق')));
@@ -260,7 +272,7 @@ void main() {
     testWidgets('a failed delivery: the window brings it back to the branch after a question', (tester) async {
       final repo = FakeOps()..perms = const ['orders.view', 'deliveries.edit'];
       await _pump(tester, repo, _phone);
-      await _openTab(tester, 4);
+      await _openTab(tester, 1);
       await tester.tap(find.text('#AB100010'));
       await settle(tester);
       expect(find.text('Delivery failed'), findsWidgets);
@@ -298,7 +310,7 @@ void main() {
     ) async {
       final repo = FakeOps()..fleetList = [fleet('u1', order: 'AB100008')];
       await _pump(tester, repo, _phone);
-      await _openTab(tester, 5);
+      await _openTab(tester, 2);
       await tester.tap(find.text('Omar'));
       await settle(tester);
       expect(_sheet, findsOneWidget);
@@ -320,7 +332,7 @@ void main() {
     testWidgets('a driver with no phone has no Call button, and one without a delivery is "Free"', (tester) async {
       final repo = FakeOps()..fleetList = [fleet('u2')];
       await _pump(tester, repo, _phone);
-      await _openTab(tester, 5);
+      await _openTab(tester, 2);
       await tester.tap(find.text('Salem'));
       await settle(tester);
       expect(find.text('Off duty'), findsWidgets);
@@ -332,7 +344,7 @@ void main() {
     ) async {
       final repo = FakeOps()..fleetList = [fleet('u1')];
       await _pump(tester, repo, _wideAr);
-      await _openTab(tester, 5);
+      await _openTab(tester, 2);
       await tester.tap(find.text('Omar'));
       await settle(tester);
       expect(_sheet, findsNothing);
@@ -342,7 +354,7 @@ void main() {
     testWidgets('the driver leaving the branch closes the window with a message', (tester) async {
       final repo = FakeOps()..fleetList = [fleet('u1')];
       final container = await _pump(tester, repo, _phone);
-      await _openTab(tester, 5);
+      await _openTab(tester, 2);
       await tester.tap(find.text('Omar'));
       await settle(tester);
       repo.branchDrivers = const [BranchDriver(id: 'u2', name: 'Salem', phone: null, onDuty: false, openJobs: 2)];
@@ -356,7 +368,7 @@ void main() {
         final handle = tester.ensureSemantics();
         final repo = FakeOps()..fleetList = [fleet('u1', order: 'AB100008')];
         await _pump(tester, repo, v);
-        await _openTab(tester, 5);
+        await _openTab(tester, 2);
         await tester.tap(find.text('Omar'));
         await settle(tester);
         expect(tester.takeException(), isNull, reason: v.name);

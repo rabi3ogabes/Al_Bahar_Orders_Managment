@@ -482,9 +482,9 @@ void main() {
       useVariant(t, v);
       await t.pumpWidget(opsHost(const StaffHome(), repo, role: OpsRole.staff));
       await settle(t);
-      // The map is the last tab.
-      await t.ensureVisible(find.text('Live map'));
-      await t.pump();
+      // The map is the second view of the Drivers tab (the last tab).
+      await t.tap(find.byType(Tab).last);
+      await settle(t);
       await t.tap(find.text('Live map'));
       await settle(t);
       expect(find.text('All · 5'), findsOneWidget);

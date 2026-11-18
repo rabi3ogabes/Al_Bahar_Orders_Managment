@@ -9,7 +9,7 @@ Set per branch in the admin panel: **Branches > (branch) > Services > Who assign
 | Mode | What happens when an order is marked *Ready* |
 |---|---|
 | **Automatic** | The system creates the delivery and gives it to the on-duty driver of that branch with the fewest open jobs (the one idle longest wins a tie). If nobody is on duty the delivery waits as *Waiting for a driver* and goes to the first driver who goes on duty. |
-| **Manual** (default) | A branch employee picks the driver in the staff app (*Ready* tab > *Assign driver*). The server checks the driver belongs to that branch. |
+| **Manual** (default) | A branch employee picks the driver in the staff app (*To do* tab, *Ready* section > *Assign driver*). The server checks the driver belongs to that branch. |
 
 Branch employees can also change the driver in automatic mode.
 

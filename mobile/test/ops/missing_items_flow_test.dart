@@ -37,11 +37,7 @@ Future<ProviderContainer> _pump(WidgetTester tester, FakeOps repo, {Variant vari
   useVariant(tester, variant);
   await tester.pumpWidget(opsHost(const StaffHome(), repo, variant: variant, role: OpsRole.staff));
   await settle(tester);
-  final tab = find.byType(Tab).at(1);
-  await tester.ensureVisible(tab);
-  await tester.pump();
-  await tester.tap(tab);
-  await settle(tester);
+  // The order sits on the To do list whatever its stage: there is no tab to open first.
   return ProviderScope.containerOf(tester.element(find.byType(StaffHome)));
 }
 
@@ -107,15 +103,6 @@ void main() {
         };
         useVariant(tester, _phone);
         await tester.pumpWidget(opsHost(const StaffHome(), repo, variant: _phone, role: OpsRole.staff));
-        await settle(tester);
-        final tab = find.byType(Tab).at(switch (status) {
-          'pending' => 0,
-          'ready' => 2,
-          _ => 1,
-        });
-        await tester.ensureVisible(tab);
-        await tester.pump();
-        await tester.tap(tab);
         await settle(tester);
         await _openOrder(tester);
         expect(find.text('Missing an item?'), shown ? findsOneWidget : findsNothing, reason: status);
