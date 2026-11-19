@@ -225,7 +225,7 @@ return [
     'referred' => 'Friends referred',
     'refund_dual_control_hint' => 'A different team member must approve the refund before money is returned.',
     'refunded' => 'Refunded',
-    'reject_needs_reason' => 'A note is required to reject.',
+    'reject_needs_reason' => 'A note is required to reject. The customer sees this note in the app and on the website, so write it kindly and clearly.',
     'reschedule' => 'Reschedule',
     'restock_hint' => 'Add the returned items back to sellable stock at this branch.',
     'restock_items' => 'Restock items',
