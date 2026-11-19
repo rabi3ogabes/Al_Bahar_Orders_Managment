@@ -8,6 +8,7 @@ import 'package:albahar_customer/app.dart';
 import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/router/app_router.dart';
 import 'package:albahar_customer/core/widgets/app_button.dart';
+import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/features/orders/data/invoice_delivery.dart';
 import 'package:albahar_customer/features/orders/data/order_repository.dart';
 import 'package:albahar_customer/features/orders/domain/order_models.dart';
@@ -341,7 +342,7 @@ void main() {
       await t.pump();
       await t.tap(button);
       await settle(t);
-      await t.tap(find.byType(CheckboxListTile).first);
+      await t.tap(find.descendant(of: find.byType(QuantityStepper), matching: find.byIcon(Icons.add_rounded)).first);
       await settle(t);
       await t.tap(find.widgetWithText(AppButton, en.requestReturn).last);
       await settle(t);
@@ -362,7 +363,7 @@ void main() {
       await t.pump();
       await t.tap(button);
       await settle(t);
-      await t.tap(find.byType(CheckboxListTile).first);
+      await t.tap(find.descendant(of: find.byType(QuantityStepper), matching: find.byIcon(Icons.add_rounded)).first);
       await settle(t);
       await t.tap(find.widgetWithText(AppButton, en.requestReturn).last);
       await settle(t);

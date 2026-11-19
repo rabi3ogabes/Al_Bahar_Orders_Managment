@@ -944,10 +944,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get payAtPickup => 'Pay at pickup';
 
   @override
-  String get paymentUnavailable => 'Not available for this order';
-
-  @override
-  String get paymentReasonCodLimit => 'Order exceeds the cash-on-delivery limit';
+  String get paymentUnavailable => 'Not available for this order.';
 
   @override
   String get loyaltyPoints => 'Loyalty points';
@@ -3243,4 +3240,137 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get homeLinkOpenFailed => 'We couldn’t open this link.';
+
+  @override
+  String paymentReasonCodMax(String max, String total) {
+    return 'Cash on delivery is available up to $max. Your basket is $total.';
+  }
+
+  @override
+  String paymentReasonCodMin(String min, String total) {
+    return 'Cash on delivery is available from $min. Your basket is $total.';
+  }
+
+  @override
+  String get paymentReasonCodOutside => 'Cash on delivery is not available for an order of this size.';
+
+  @override
+  String get paymentReasonOnlineDown =>
+      'Online payment is not available right now. Please try again in a little while.';
+
+  @override
+  String get paymentReasonDeliveryOnly => 'Cash on delivery is only for orders we bring to your door.';
+
+  @override
+  String get paymentReasonPickupOnly => 'Pay at pickup is only for orders you collect from the showroom.';
+
+  @override
+  String get paymentReasonNotInArea => 'Cash on delivery is not offered for your delivery area.';
+
+  @override
+  String get paymentReasonNotAtBranch => 'This showroom does not take payment at pickup.';
+
+  @override
+  String get payNoneTitle => 'Let’s find a way to pay for this order';
+
+  @override
+  String get payNoneText =>
+      'None of the payment options fits this order right now. Your basket is safe, and here are easy ways to continue.';
+
+  @override
+  String payNoneCollect(String branch) {
+    return 'Collect from $branch and pay there';
+  }
+
+  @override
+  String get payNoneCall => 'Call the showroom';
+
+  @override
+  String get payNoneShare => 'Share this basket';
+
+  @override
+  String get payNoneSaved => 'Your basket stays saved. Sharing it lets someone in the family help you choose or pay.';
+
+  @override
+  String get payNoneHint => 'There is no payment method for this order yet. See the options in the Payment step.';
+
+  @override
+  String get payNoneShareIntro =>
+      'Hello! I am choosing from Al Bahar Home & Living and would love your help with this basket:';
+
+  @override
+  String payNoneShareTotal(String total) {
+    return 'Total: $total';
+  }
+
+  @override
+  String returnStatusTitle(String number) {
+    return 'Return request $number';
+  }
+
+  @override
+  String returnStatusRequested(String date) {
+    return 'Your return request was received on $date. Our team will review it and contact you soon.';
+  }
+
+  @override
+  String returnStatusApproved(String date) {
+    return 'Your return was approved on $date. Our team will contact you about the next step.';
+  }
+
+  @override
+  String returnStatusRejected(String date) {
+    return 'We could not accept this return request (decided on $date).';
+  }
+
+  @override
+  String get returnStatusReceived => 'We have received your returned items. We will contact you about your refund.';
+
+  @override
+  String get returnStatusRefunded => 'Your return is complete and a refund has been raised.';
+
+  @override
+  String get returnStatusClosed => 'This return is closed.';
+
+  @override
+  String get returnStatusOther => 'Our team is looking after your return request.';
+
+  @override
+  String returnStatusNote(String note) {
+    return 'Message from our team: “$note”';
+  }
+
+  @override
+  String get returnStatusRejectedHelp =>
+      'If you have a question, or something has changed, please contact us and we will be glad to help.';
+
+  @override
+  String get returnFormIntro => 'Choose what you want to send back and tell us why. We will review it and reply.';
+
+  @override
+  String returnUpTo(int count) {
+    return 'Up to $count can be returned';
+  }
+
+  @override
+  String get returnNothing => 'Nothing in this order can be returned.';
+
+  @override
+  String get returnNoteLabel => 'Anything else we should know? (optional)';
+
+  @override
+  String get returnErrNotAllowed =>
+      'These items can’t be returned right now. They may already be in a request, or the return period may have ended. Please contact us and we will help.';
+
+  @override
+  String get returnErrItems => 'Please choose at least one item to return.';
+
+  @override
+  String get returnErrReason => 'Please tell us why you are returning.';
+
+  @override
+  String get reviewWhichTitle => 'Which item would you like to review?';
+
+  @override
+  String get callDriver => 'Call your driver';
 }

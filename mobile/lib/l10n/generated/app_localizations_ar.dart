@@ -962,10 +962,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get payAtPickup => 'الدفع عند الاستلام من الفرع';
 
   @override
-  String get paymentUnavailable => 'غير متاح لهذا الطلب';
-
-  @override
-  String get paymentReasonCodLimit => 'قيمة الطلب تتجاوز حد الدفع عند التوصيل';
+  String get paymentUnavailable => 'غير متاح لهذا الطلب.';
 
   @override
   String get loyaltyPoints => 'نقاط الولاء';
@@ -3306,4 +3303,133 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get homeLinkOpenFailed => 'تعذّر فتح هذا الرابط.';
+
+  @override
+  String paymentReasonCodMax(String max, String total) {
+    return 'الدفع عند الاستلام متاح حتى $max. مجموع سلتك $total.';
+  }
+
+  @override
+  String paymentReasonCodMin(String min, String total) {
+    return 'الدفع عند الاستلام متاح ابتداءً من $min. مجموع سلتك $total.';
+  }
+
+  @override
+  String get paymentReasonCodOutside => 'الدفع عند الاستلام غير متاح لطلب بهذا المبلغ.';
+
+  @override
+  String get paymentReasonOnlineDown => 'الدفع عبر الإنترنت غير متاح حالياً. يرجى المحاولة بعد قليل.';
+
+  @override
+  String get paymentReasonDeliveryOnly => 'الدفع عند الاستلام متاح فقط للطلبات التي نوصلها إلى باب بيتك.';
+
+  @override
+  String get paymentReasonPickupOnly => 'الدفع عند الاستلام من المعرض متاح فقط للطلبات التي تستلمها بنفسك من المعرض.';
+
+  @override
+  String get paymentReasonNotInArea => 'الدفع عند الاستلام غير متاح في منطقة التوصيل الخاصة بك.';
+
+  @override
+  String get paymentReasonNotAtBranch => 'هذا المعرض لا يقبل الدفع عند الاستلام منه.';
+
+  @override
+  String get payNoneTitle => 'دعنا نجد لك طريقة للدفع';
+
+  @override
+  String get payNoneText => 'لا توجد طريقة دفع مناسبة لهذا الطلب حالياً. سلتك محفوظة، وهذه طرق سهلة للمتابعة.';
+
+  @override
+  String payNoneCollect(String branch) {
+    return 'استلم من $branch وادفع هناك';
+  }
+
+  @override
+  String get payNoneCall => 'اتصل بالمعرض';
+
+  @override
+  String get payNoneShare => 'شارك السلة';
+
+  @override
+  String get payNoneSaved => 'سلتك تبقى محفوظة. شاركها مع أحد أفراد العائلة ليساعدك في الاختيار أو الدفع.';
+
+  @override
+  String get payNoneHint => 'لا توجد طريقة دفع لهذا الطلب بعد. راجع الخيارات في خطوة الدفع.';
+
+  @override
+  String get payNoneShareIntro => 'مرحباً! أتسوق من البحار للمنزل والمعيشة وأحتاج مساعدتك في هذه السلة:';
+
+  @override
+  String payNoneShareTotal(String total) {
+    return 'المجموع: $total';
+  }
+
+  @override
+  String returnStatusTitle(String number) {
+    return 'طلب الإرجاع $number';
+  }
+
+  @override
+  String returnStatusRequested(String date) {
+    return 'تم استلام طلب الإرجاع بتاريخ $date. سيراجعه فريقنا ويتواصل معك قريباً.';
+  }
+
+  @override
+  String returnStatusApproved(String date) {
+    return 'تمت الموافقة على طلب الإرجاع بتاريخ $date. سيتواصل معك فريقنا بخصوص الخطوة التالية.';
+  }
+
+  @override
+  String returnStatusRejected(String date) {
+    return 'نعتذر، لم نتمكن من قبول طلب الإرجاع هذا (القرار بتاريخ $date).';
+  }
+
+  @override
+  String get returnStatusReceived => 'استلمنا المنتجات التي أرجعتها. سنتواصل معك بخصوص استرداد المبلغ.';
+
+  @override
+  String get returnStatusRefunded => 'اكتمل الإرجاع وتم تقديم طلب استرداد المبلغ.';
+
+  @override
+  String get returnStatusClosed => 'تم إغلاق طلب الإرجاع هذا.';
+
+  @override
+  String get returnStatusOther => 'فريقنا يتابع طلب الإرجاع الخاص بك.';
+
+  @override
+  String returnStatusNote(String note) {
+    return 'رسالة من فريقنا: «$note»';
+  }
+
+  @override
+  String get returnStatusRejectedHelp => 'إن كان لديك سؤال أو تغيّر شيء، تواصل معنا وسنسعد بمساعدتك.';
+
+  @override
+  String get returnFormIntro => 'اختر ما تريد إرجاعه وأخبرنا بالسبب. سنراجع الطلب ونرد عليك.';
+
+  @override
+  String returnUpTo(int count) {
+    return 'يمكن إرجاع حتى $count';
+  }
+
+  @override
+  String get returnNothing => 'لا توجد قطع في هذا الطلب يمكن إرجاعها.';
+
+  @override
+  String get returnNoteLabel => 'هل هناك شيء آخر نعرفه؟ (اختياري)';
+
+  @override
+  String get returnErrNotAllowed =>
+      'لا يمكن إرجاع هذه المنتجات الآن. قد يكون عليها طلب إرجاع قائم، أو انتهت مدة الإرجاع. تواصل معنا وسنساعدك.';
+
+  @override
+  String get returnErrItems => 'اختر قطعة واحدة على الأقل لإرجاعها.';
+
+  @override
+  String get returnErrReason => 'أخبرنا من فضلك لماذا تريد الإرجاع.';
+
+  @override
+  String get reviewWhichTitle => 'أي قطعة تريد تقييمها؟';
+
+  @override
+  String get callDriver => 'اتصل بالسائق';
 }

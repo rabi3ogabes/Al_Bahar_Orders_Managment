@@ -40,13 +40,15 @@ banner) and on a placed order.
 ## Tests
 
 ```bash
-npm test                                   # fast unit tests (node --test): overlay history/URL logic, shop filters, cart maths, web push, deals
+npm test                                   # fast unit tests (node --test): overlay history/URL logic, shop filters, cart maths, web push, deals, tab-safe sign-in refresh, payment reasons, returns
 STORE_URL=http://127.0.0.1:4173 node tests/e2e/cart-panel.e2e.mjs   # browser check of the cart panel (needs the built store + API, and Playwright)
 ```
 
 `tests/e2e/cart-panel.e2e.mjs` runs at 375 and 1280 px in English and Arabic: Add to cart opens the panel without navigating, the badge moves at once,
 adding the same item again makes quantity 2 (one line), Keep shopping keeps the scroll position and focus, outside click / Esc / Back close it, Checkout goes on.
 Set `E2E_PHONE` and `E2E_PASSWORD` to run it signed in as well (server cart).
+
+`tests/e2e/customer-fixes.e2e.mjs` checks, with every response mocked (only the built store is served; Chromium needed): the sign-in kept alive across two tabs (one refresh for both, a deploy's 503 or a 429 keeps the session, a 401 or a sign-out in one tab ends it everywhere), the checkout with no way to pay (limit sentences with numbers, collect-and-pay, call, WhatsApp), the colour / material filters in the URL, the return status card and form, the driver's call button, the invoice download after the sign-in expired, and the terms notice at sign-up. The header of the file has the command.
 
 `tests/e2e/deals.e2e.mjs` checks the deals feature in a browser with every API response mocked (only the built store is served; Chromium needed): the five widget styles in English
 and Arabic, light and dark, at 320 / 375 / 768 / 1280 px (no overflow, no console errors, server colours, ticking clock, reduced motion), the deals and deal pages, the home strip,

@@ -21,6 +21,7 @@ import 'package:albahar_customer/features/orders/data/invoice_delivery.dart';
 import 'package:albahar_customer/features/orders/data/order_repository.dart';
 import 'package:albahar_customer/features/orders/domain/order_models.dart';
 import 'package:albahar_customer/features/orders/presentation/order_sections.dart';
+import 'package:albahar_customer/features/orders/presentation/return_errors.dart';
 import 'package:albahar_customer/features/orders/presentation/state/order_live.dart';
 import 'package:albahar_customer/features/orders/presentation/state/order_providers.dart';
 import 'package:albahar_customer/features/orders/presentation/widgets/order_live_badge.dart';
@@ -349,27 +350,40 @@ mixin OrderActionsMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
 
   Future<void> _return(Order o) async {
     final l10n = context.l10n;
-    final result = await _askStep<({List<({String orderItemId, int quantity})> items, String code})>(
+    final result = await _askStep<({List<({String orderItemId, int quantity})> items, String code, String? note})>(
       l10n.requestReturn,
       (done) => _ReturnForm(order: o, onDone: done),
     );
     if (result == null || result.items.isEmpty) return;
     await _run('return', () async {
       try {
-        await ref.read(orderRepositoryProvider).requestReturn(o.id, items: result.items, reasonCode: result.code);
+        await ref
+            .read(orderRepositoryProvider)
+            .requestReturn(o.id, items: result.items, reasonCode: result.code, reason: result.note);
       } on ApiException catch (e) {
         // The shop turned returns off (or this order no longer qualifies) after this page was read: say so, and read the order
-        // again so the button goes away.
-        if (e.kind != ApiErrorKind.forbidden) rethrow;
-        if (!mounted) return;
-        showInfoSnack(context, l10n.returnsUnavailable);
-        _refresh(o.id);
-        return;
+        // again so the button goes away. Any other refusal is explained in plain words (see returnFailureMessage).
+        if (e.kind == ApiErrorKind.forbidden || e.kind == ApiErrorKind.validation) _refresh(o.id);
+        rethrow;
       }
       if (!mounted) return;
       showInfoSnack(context, l10n.returnRequested);
       _refresh(o.id);
-    });
+    }, messageFor: (e) => returnFailureMessage(l10n, e));
+  }
+
+  /// "Write a review": the one product it can be about, or a list to choose from when the order holds several.
+  Future<void> _review(Order o) async {
+    final l10n = context.l10n;
+    final choices = o.reviewableItems;
+    if (choices.isEmpty) return;
+    var chosen = choices.first;
+    if (choices.length > 1) {
+      final picked = await _askStep<OrderItem>(l10n.writeReview, (done) => _ReviewPicker(items: choices, onDone: done));
+      if (picked == null || !mounted) return;
+      chosen = picked;
+    }
+    _then((page) => unawaited(showReviewPanel(page, productId: chosen.productId!, productName: chosen.name)));
   }
 
   /// The pinned primary action of the order window.
@@ -409,7 +423,6 @@ mixin OrderActionsMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   /// Every other action, as buttons; [hide] leaves out the one the window pins as its primary action.
   Widget buildActions(Order o, {OrderPrimary? hide}) {
     final l10n = context.l10n;
-    final firstProduct = o.items.where((i) => i.productId != null).firstOrNull;
     final actions = <Widget>[
       if (o.canPay && hide != OrderPrimary.pay)
         AppButton.accent(
@@ -443,15 +456,8 @@ mixin OrderActionsMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
           loading: _busy == 'return',
           onPressed: () => _return(o),
         ),
-      if (o.canReview && firstProduct != null)
-        AppButton.secondary(
-          label: l10n.writeReview,
-          icon: Icons.rate_review_outlined,
-          onPressed: () => _then(
-            (page) =>
-                unawaited(showReviewPanel(page, productId: firstProduct.productId!, productName: firstProduct.name)),
-          ),
-        ),
+      if (o.canReview && o.reviewableItems.isNotEmpty)
+        AppButton.secondary(label: l10n.writeReview, icon: Icons.rate_review_outlined, onPressed: () => _review(o)),
       AppButton.ghost(
         label: l10n.contactSupport,
         icon: Icons.support_agent_outlined,
@@ -549,19 +555,35 @@ class _CancelFormState extends State<_CancelForm> {
   }
 }
 
-/// Which items come back and why. Closes with the answer, or with null when the customer backs out.
+/// Which items come back, how many of each, and why. Closes with the answer, or with null when the customer backs out.
 class _ReturnForm extends StatefulWidget {
   const _ReturnForm({required this.order, required this.onDone});
   final Order order;
-  final void Function(({List<({String orderItemId, int quantity})> items, String code})?) onDone;
+  final void Function(({List<({String orderItemId, int quantity})> items, String code, String? note})?) onDone;
 
   @override
   State<_ReturnForm> createState() => _ReturnFormState();
 }
 
 class _ReturnFormState extends State<_ReturnForm> {
-  final _selected = <String, int>{};
+  /// How many of each line are going back (a line that is not in the map, or at 0, stays).
+  final _quantity = <String, int>{};
+  final _note = TextEditingController();
   String _code = returnReasonCodes.first;
+
+  /// Only what can still be sent back: delivered or collected, inside the return window, not already in a request.
+  late final _lines = [
+    for (final i in widget.order.items)
+      if (!i.isGone && i.returnableNow > 0) i,
+  ];
+
+  int get _picked => _quantity.values.fold(0, (a, b) => a + b);
+
+  @override
+  void dispose() {
+    _note.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -574,30 +596,66 @@ class _ReturnFormState extends State<_ReturnForm> {
       _ => l10n.cancelReasonOther,
     };
     return DirtyFormGuard(
-      controllers: const [],
-      isDirty: () => _selected.isNotEmpty,
+      controllers: [_note],
+      isDirty: () => _picked > 0 || _note.text.trim().isNotEmpty,
       child: SidePanelLayout(
         footer: AppButton(
           label: l10n.requestReturn,
-          onPressed: _selected.isEmpty
+          onPressed: _picked == 0
               ? null
               : () => widget.onDone((
-                  items: [for (final e in _selected.entries) (orderItemId: e.key, quantity: e.value)],
+                  items: [
+                    for (final e in _quantity.entries)
+                      if (e.value > 0) (orderItemId: e.key, quantity: e.value),
+                  ],
                   code: _code,
+                  note: _note.text.trim().isEmpty ? null : _note.text.trim(),
                 )),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(l10n.selectItemsToReturn, style: context.text.titleSmall),
-            for (final i in widget.order.items)
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                value: _selected.containsKey(i.id),
-                onChanged: (v) => setState(() => v == true ? _selected[i.id] = i.quantity : _selected.remove(i.id)),
-                title: Text(i.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                subtitle: Text('× ${i.quantity}'),
-              ),
+            Text(l10n.returnFormIntro, style: context.text.bodyMedium),
+            const Gap(AppSpace.sm),
+            if (_lines.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppSpace.md),
+                child: Text(l10n.returnNothing, textAlign: TextAlign.center),
+              )
+            else ...[
+              Text(l10n.selectItemsToReturn, style: context.text.titleSmall),
+              for (final i in _lines)
+                Padding(
+                  key: ValueKey('return-line-${i.id}'),
+                  padding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
+                  child: Row(
+                    children: [
+                      AppNetworkImage(url: i.imageUrl, width: 48, height: 56, borderRadius: BorderRadius.circular(8)),
+                      const Gap(AppSpace.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(i.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: context.text.titleSmall),
+                            if (i.variantName != null) Text(i.variantName!, style: context.text.bodySmall),
+                            Text(
+                              l10n.returnUpTo(i.returnableNow),
+                              style: context.text.bodySmall?.copyWith(color: context.palette.muted),
+                            ),
+                          ],
+                        ),
+                      ),
+                      QuantityStepper(
+                        value: _quantity[i.id] ?? 0,
+                        min: 0,
+                        max: i.returnableNow,
+                        compact: true,
+                        onChanged: (v) => setState(() => _quantity[i.id] = v),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
             const Gap(AppSpace.sm),
             DropdownButtonFormField<String>(
               initialValue: _code,
@@ -606,8 +664,49 @@ class _ReturnFormState extends State<_ReturnForm> {
               items: [for (final c in returnReasonCodes) DropdownMenuItem(value: c, child: Text(label(c)))],
               onChanged: (v) => setState(() => _code = v ?? _code),
             ),
+            const Gap(AppSpace.sm),
+            AppTextField(
+              controller: _note,
+              label: l10n.returnNoteLabel,
+              maxLines: 3,
+              minLines: 1,
+              keyboardType: TextInputType.multiline,
+              textCapitalization: TextCapitalization.sentences,
+              inputFormatters: [LengthLimitingTextInputFormatter(1000)],
+            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Which item of a many-item order the review is about. Closes with that item, or with null when the customer backs out.
+class _ReviewPicker extends StatelessWidget {
+  const _ReviewPicker({required this.items, required this.onDone});
+  final List<OrderItem> items;
+  final void Function(OrderItem?) onDone;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return SidePanelLayout(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(l10n.reviewWhichTitle, style: context.text.titleSmall),
+          const Gap(AppSpace.xs),
+          for (final i in items)
+            ListTile(
+              key: ValueKey('review-item-${i.id}'),
+              contentPadding: EdgeInsets.zero,
+              leading: AppNetworkImage(url: i.imageUrl, width: 48, height: 56, borderRadius: BorderRadius.circular(8)),
+              title: Text(i.name, maxLines: 2, overflow: TextOverflow.ellipsis),
+              subtitle: i.variantName == null ? null : Text(i.variantName!),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => onDone(i),
+            ),
+        ],
       ),
     );
   }

@@ -10,6 +10,7 @@ import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/deals/presentation/widgets/deal_line_text.dart';
 import 'package:albahar_customer/features/orders/domain/order_models.dart';
 import 'package:albahar_customer/features/orders/presentation/state/order_providers.dart';
+import 'package:albahar_customer/features/orders/presentation/widgets/return_status_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -35,6 +36,8 @@ class OrderSections extends StatelessWidget {
         const Gap(AppSpace.lg),
         // The branch changed what is in the order: say so first, in calm words, with what changed and the new total.
         if (o.wasAdjusted) ...[OrderUpdatedBanner(order: o), const Gap(AppSpace.xs)],
+        // Where the customer's return request stands (instead of a button that would ask them to do it again).
+        if (o.returnRequest != null) ReturnStatusCard(request: o.returnRequest!),
         for (final f in o.fulfillments) ...[_FulfillmentCard(order: o, fulfillment: f), const Gap(AppSpace.sm)],
         const Gap(AppSpace.md),
         _Timeline(orderId: o.id),
@@ -253,11 +256,20 @@ class _DeliveryTracking extends StatelessWidget {
                 ),
                 if (info.driverPhone != null)
                   IconButton(
+                    key: const ValueKey('call-driver'),
                     tooltip: l10n.call,
                     icon: const Icon(Icons.call_outlined),
                     onPressed: () => launchUrl(Uri(scheme: 'tel', path: info.driverPhone)),
                   ),
               ],
+            )
+          // The server sends the number only while the driver has the order; with no name to show, the call still gets its own button.
+          else if (info.driverPhone != null)
+            AppButton.secondary(
+              key: const ValueKey('call-driver'),
+              icon: Icons.call_outlined,
+              label: l10n.callDriver,
+              onPressed: () => launchUrl(Uri(scheme: 'tel', path: info.driverPhone)),
             ),
           if (info.trackingUrl != null)
             TextButton(

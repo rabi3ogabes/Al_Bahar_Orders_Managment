@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:albahar_customer/core/models/money.dart';
 import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/providers.dart';
@@ -5,6 +7,7 @@ import 'package:albahar_customer/features/auth/presentation/state/session_contro
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
 import 'package:albahar_customer/features/cart/data/cart_repository.dart';
 import 'package:albahar_customer/features/cart/domain/cart_models.dart';
+import 'package:albahar_customer/features/cart/presentation/pending_cart_replay.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
 import 'package:albahar_customer/features/checkout/domain/checkout_models.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,7 +28,10 @@ class CartController extends AsyncNotifier<Cart> {
       if (next != null && prev != next) setBranch(next);
     });
 
-    return ref.read(cartRepositoryProvider).fetch(branchId: ref.read(preferredBranchIdProvider));
+    final cart = await ref.read(cartRepositoryProvider).fetch(branchId: ref.read(preferredBranchIdProvider));
+    // A guest's "Add to cart" that sent them to sign in is done for them now that they are signed in (the cart lives all run long, so it hosts that).
+    unawaited(replayPendingCartAdd(ref, this));
+    return cart;
   }
 
   CartRepository get _repo => ref.read(cartRepositoryProvider);

@@ -794,10 +794,8 @@
   "@payCod": {},
   "payAtPickup": "Pay at pickup",
   "@payAtPickup": {},
-  "paymentUnavailable": "Not available for this order",
+  "paymentUnavailable": "Not available for this order.",
   "@paymentUnavailable": {},
-  "paymentReasonCodLimit": "Order exceeds the cash-on-delivery limit",
-  "@paymentReasonCodLimit": {},
   "loyaltyPoints": "Loyalty points",
   "@loyaltyPoints": {},
   "usePoints": "Redeem points",
@@ -2669,5 +2667,143 @@
     }
   },
   "homeLinkOpenFailed": "We couldn’t open this link.",
-  "@homeLinkOpenFailed": {}
+  "@homeLinkOpenFailed": {},
+  "paymentReasonCodMax": "Cash on delivery is available up to {max}. Your basket is {total}.",
+  "@paymentReasonCodMax": {
+    "placeholders": {
+        "max": {
+          "type": "String"
+        },
+        "total": {
+          "type": "String"
+        }
+    }
+  },
+  "paymentReasonCodMin": "Cash on delivery is available from {min}. Your basket is {total}.",
+  "@paymentReasonCodMin": {
+    "placeholders": {
+        "min": {
+          "type": "String"
+        },
+        "total": {
+          "type": "String"
+        }
+    }
+  },
+  "paymentReasonCodOutside": "Cash on delivery is not available for an order of this size.",
+  "@paymentReasonCodOutside": {},
+  "paymentReasonOnlineDown": "Online payment is not available right now. Please try again in a little while.",
+  "@paymentReasonOnlineDown": {},
+  "paymentReasonDeliveryOnly": "Cash on delivery is only for orders we bring to your door.",
+  "@paymentReasonDeliveryOnly": {},
+  "paymentReasonPickupOnly": "Pay at pickup is only for orders you collect from the showroom.",
+  "@paymentReasonPickupOnly": {},
+  "paymentReasonNotInArea": "Cash on delivery is not offered for your delivery area.",
+  "@paymentReasonNotInArea": {},
+  "paymentReasonNotAtBranch": "This showroom does not take payment at pickup.",
+  "@paymentReasonNotAtBranch": {},
+  "payNoneTitle": "Let’s find a way to pay for this order",
+  "@payNoneTitle": {},
+  "payNoneText": "None of the payment options fits this order right now. Your basket is safe, and here are easy ways to continue.",
+  "@payNoneText": {},
+  "payNoneCollect": "Collect from {branch} and pay there",
+  "@payNoneCollect": {
+    "placeholders": {
+        "branch": {
+          "type": "String"
+        }
+    }
+  },
+  "payNoneCall": "Call the showroom",
+  "@payNoneCall": {},
+  "payNoneShare": "Share this basket",
+  "@payNoneShare": {},
+  "payNoneSaved": "Your basket stays saved. Sharing it lets someone in the family help you choose or pay.",
+  "@payNoneSaved": {},
+  "payNoneHint": "There is no payment method for this order yet. See the options in the Payment step.",
+  "@payNoneHint": {},
+  "payNoneShareIntro": "Hello! I am choosing from Al Bahar Home & Living and would love your help with this basket:",
+  "@payNoneShareIntro": {},
+  "payNoneShareTotal": "Total: {total}",
+  "@payNoneShareTotal": {
+    "placeholders": {
+        "total": {
+          "type": "String"
+        }
+    }
+  },
+  "returnStatusTitle": "Return request {number}",
+  "@returnStatusTitle": {
+    "placeholders": {
+        "number": {
+          "type": "String"
+        }
+    }
+  },
+  "returnStatusRequested": "Your return request was received on {date}. Our team will review it and contact you soon.",
+  "@returnStatusRequested": {
+    "placeholders": {
+        "date": {
+          "type": "String"
+        }
+    }
+  },
+  "returnStatusApproved": "Your return was approved on {date}. Our team will contact you about the next step.",
+  "@returnStatusApproved": {
+    "placeholders": {
+        "date": {
+          "type": "String"
+        }
+    }
+  },
+  "returnStatusRejected": "We could not accept this return request (decided on {date}).",
+  "@returnStatusRejected": {
+    "placeholders": {
+        "date": {
+          "type": "String"
+        }
+    }
+  },
+  "returnStatusReceived": "We have received your returned items. We will contact you about your refund.",
+  "@returnStatusReceived": {},
+  "returnStatusRefunded": "Your return is complete and a refund has been raised.",
+  "@returnStatusRefunded": {},
+  "returnStatusClosed": "This return is closed.",
+  "@returnStatusClosed": {},
+  "returnStatusOther": "Our team is looking after your return request.",
+  "@returnStatusOther": {},
+  "returnStatusNote": "Message from our team: “{note}”",
+  "@returnStatusNote": {
+    "placeholders": {
+        "note": {
+          "type": "String"
+        }
+    }
+  },
+  "returnStatusRejectedHelp": "If you have a question, or something has changed, please contact us and we will be glad to help.",
+  "@returnStatusRejectedHelp": {},
+  "returnFormIntro": "Choose what you want to send back and tell us why. We will review it and reply.",
+  "@returnFormIntro": {},
+  "returnUpTo": "Up to {count} can be returned",
+  "@returnUpTo": {
+    "placeholders": {
+        "count": {
+          "type": "int"
+        }
+    }
+  },
+  "returnNothing": "Nothing in this order can be returned.",
+  "@returnNothing": {},
+  "returnNoteLabel": "Anything else we should know? (optional)",
+  "@returnNoteLabel": {},
+  "returnErrNotAllowed": "These items can’t be returned right now. They may already be in a request, or the return period may have ended. Please contact us and we will help.",
+  "@returnErrNotAllowed": {},
+  "returnErrItems": "Please choose at least one item to return.",
+  "@returnErrItems": {},
+  "returnErrReason": "Please tell us why you are returning.",
+  "@returnErrReason": {},
+  "reviewWhichTitle": "Which item would you like to review?",
+  "@reviewWhichTitle": {},
+  "callDriver": "Call your driver",
+  "@callDriver": {}
 }

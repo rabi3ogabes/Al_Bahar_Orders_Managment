@@ -1739,14 +1739,8 @@ abstract class AppLocalizations {
   /// No description provided for @paymentUnavailable.
   ///
   /// In en, this message translates to:
-  /// **'Not available for this order'**
+  /// **'Not available for this order.'**
   String get paymentUnavailable;
-
-  /// No description provided for @paymentReasonCodLimit.
-  ///
-  /// In en, this message translates to:
-  /// **'Order exceeds the cash-on-delivery limit'**
-  String get paymentReasonCodLimit;
 
   /// No description provided for @loyaltyPoints.
   ///
@@ -5803,6 +5797,222 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'We couldn’t open this link.'**
   String get homeLinkOpenFailed;
+
+  /// No description provided for @paymentReasonCodMax.
+  ///
+  /// In en, this message translates to:
+  /// **'Cash on delivery is available up to {max}. Your basket is {total}.'**
+  String paymentReasonCodMax(String max, String total);
+
+  /// No description provided for @paymentReasonCodMin.
+  ///
+  /// In en, this message translates to:
+  /// **'Cash on delivery is available from {min}. Your basket is {total}.'**
+  String paymentReasonCodMin(String min, String total);
+
+  /// No description provided for @paymentReasonCodOutside.
+  ///
+  /// In en, this message translates to:
+  /// **'Cash on delivery is not available for an order of this size.'**
+  String get paymentReasonCodOutside;
+
+  /// No description provided for @paymentReasonOnlineDown.
+  ///
+  /// In en, this message translates to:
+  /// **'Online payment is not available right now. Please try again in a little while.'**
+  String get paymentReasonOnlineDown;
+
+  /// No description provided for @paymentReasonDeliveryOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Cash on delivery is only for orders we bring to your door.'**
+  String get paymentReasonDeliveryOnly;
+
+  /// No description provided for @paymentReasonPickupOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay at pickup is only for orders you collect from the showroom.'**
+  String get paymentReasonPickupOnly;
+
+  /// No description provided for @paymentReasonNotInArea.
+  ///
+  /// In en, this message translates to:
+  /// **'Cash on delivery is not offered for your delivery area.'**
+  String get paymentReasonNotInArea;
+
+  /// No description provided for @paymentReasonNotAtBranch.
+  ///
+  /// In en, this message translates to:
+  /// **'This showroom does not take payment at pickup.'**
+  String get paymentReasonNotAtBranch;
+
+  /// No description provided for @payNoneTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Let’s find a way to pay for this order'**
+  String get payNoneTitle;
+
+  /// No description provided for @payNoneText.
+  ///
+  /// In en, this message translates to:
+  /// **'None of the payment options fits this order right now. Your basket is safe, and here are easy ways to continue.'**
+  String get payNoneText;
+
+  /// No description provided for @payNoneCollect.
+  ///
+  /// In en, this message translates to:
+  /// **'Collect from {branch} and pay there'**
+  String payNoneCollect(String branch);
+
+  /// No description provided for @payNoneCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Call the showroom'**
+  String get payNoneCall;
+
+  /// No description provided for @payNoneShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Share this basket'**
+  String get payNoneShare;
+
+  /// No description provided for @payNoneSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Your basket stays saved. Sharing it lets someone in the family help you choose or pay.'**
+  String get payNoneSaved;
+
+  /// No description provided for @payNoneHint.
+  ///
+  /// In en, this message translates to:
+  /// **'There is no payment method for this order yet. See the options in the Payment step.'**
+  String get payNoneHint;
+
+  /// No description provided for @payNoneShareIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Hello! I am choosing from Al Bahar Home & Living and would love your help with this basket:'**
+  String get payNoneShareIntro;
+
+  /// No description provided for @payNoneShareTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Total: {total}'**
+  String payNoneShareTotal(String total);
+
+  /// No description provided for @returnStatusTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Return request {number}'**
+  String returnStatusTitle(String number);
+
+  /// No description provided for @returnStatusRequested.
+  ///
+  /// In en, this message translates to:
+  /// **'Your return request was received on {date}. Our team will review it and contact you soon.'**
+  String returnStatusRequested(String date);
+
+  /// No description provided for @returnStatusApproved.
+  ///
+  /// In en, this message translates to:
+  /// **'Your return was approved on {date}. Our team will contact you about the next step.'**
+  String returnStatusApproved(String date);
+
+  /// No description provided for @returnStatusRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'We could not accept this return request (decided on {date}).'**
+  String returnStatusRejected(String date);
+
+  /// No description provided for @returnStatusReceived.
+  ///
+  /// In en, this message translates to:
+  /// **'We have received your returned items. We will contact you about your refund.'**
+  String get returnStatusReceived;
+
+  /// No description provided for @returnStatusRefunded.
+  ///
+  /// In en, this message translates to:
+  /// **'Your return is complete and a refund has been raised.'**
+  String get returnStatusRefunded;
+
+  /// No description provided for @returnStatusClosed.
+  ///
+  /// In en, this message translates to:
+  /// **'This return is closed.'**
+  String get returnStatusClosed;
+
+  /// No description provided for @returnStatusOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Our team is looking after your return request.'**
+  String get returnStatusOther;
+
+  /// No description provided for @returnStatusNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Message from our team: “{note}”'**
+  String returnStatusNote(String note);
+
+  /// No description provided for @returnStatusRejectedHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'If you have a question, or something has changed, please contact us and we will be glad to help.'**
+  String get returnStatusRejectedHelp;
+
+  /// No description provided for @returnFormIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose what you want to send back and tell us why. We will review it and reply.'**
+  String get returnFormIntro;
+
+  /// No description provided for @returnUpTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Up to {count} can be returned'**
+  String returnUpTo(int count);
+
+  /// No description provided for @returnNothing.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing in this order can be returned.'**
+  String get returnNothing;
+
+  /// No description provided for @returnNoteLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Anything else we should know? (optional)'**
+  String get returnNoteLabel;
+
+  /// No description provided for @returnErrNotAllowed.
+  ///
+  /// In en, this message translates to:
+  /// **'These items can’t be returned right now. They may already be in a request, or the return period may have ended. Please contact us and we will help.'**
+  String get returnErrNotAllowed;
+
+  /// No description provided for @returnErrItems.
+  ///
+  /// In en, this message translates to:
+  /// **'Please choose at least one item to return.'**
+  String get returnErrItems;
+
+  /// No description provided for @returnErrReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Please tell us why you are returning.'**
+  String get returnErrReason;
+
+  /// No description provided for @reviewWhichTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Which item would you like to review?'**
+  String get reviewWhichTitle;
+
+  /// No description provided for @callDriver.
+  ///
+  /// In en, this message translates to:
+  /// **'Call your driver'**
+  String get callDriver;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

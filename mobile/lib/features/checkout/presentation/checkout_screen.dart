@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/models/money.dart';
 import 'package:albahar_customer/core/providers.dart';
+import 'package:albahar_customer/core/router/deep_links.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/utils/phone.dart';
@@ -15,12 +16,19 @@ import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/branches/data/branch_repository.dart';
 import 'package:albahar_customer/features/branches/domain/branch_models.dart';
+import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
+import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
+import 'package:albahar_customer/features/catalog/presentation/state/catalog_providers.dart';
 import 'package:albahar_customer/features/checkout/domain/alternate_phone.dart';
 import 'package:albahar_customer/features/checkout/domain/checkout_models.dart';
+import 'package:albahar_customer/features/checkout/domain/no_payment.dart';
+import 'package:albahar_customer/features/checkout/domain/payment_reasons.dart';
 import 'package:albahar_customer/features/checkout/presentation/delivery_fee_row.dart';
 import 'package:albahar_customer/features/checkout/presentation/delivery_slot_section.dart';
 import 'package:albahar_customer/features/checkout/presentation/extra_delivery_fee_row.dart';
+import 'package:albahar_customer/features/checkout/presentation/no_payment_panel.dart';
 import 'package:albahar_customer/features/checkout/presentation/payment_flow.dart';
+import 'package:albahar_customer/features/checkout/presentation/payment_reason_text.dart';
 import 'package:albahar_customer/features/checkout/presentation/state/checkout_controller.dart';
 import 'package:albahar_customer/features/checkout/presentation/total_action_bar.dart';
 import 'package:albahar_customer/features/deals/presentation/widgets/deal_line_text.dart';
@@ -30,10 +38,17 @@ import 'package:albahar_customer/features/profile/presentation/state/profile_pro
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
 final pickupBranchesProvider = FutureProvider.autoDispose<List<Branch>>((ref) async {
   ref.watch(localeCodeProvider);
   return (await ref.watch(branchRepositoryProvider).list(pickup: true)).items;
+});
+
+/// Every showroom with its phone: read only when the customer has no way to pay and may want to call one.
+final contactBranchesProvider = FutureProvider.autoDispose<List<Branch>>((ref) async {
+  ref.watch(localeCodeProvider);
+  return (await ref.watch(branchRepositoryProvider).list()).items;
 });
 
 class CheckoutScreen extends ConsumerStatefulWidget {
@@ -134,6 +149,70 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (confirmed == true) await _place();
   }
 
+  /// No way to pay: collect at a showroom and pay there, call the showroom, or send the basket to the family. Never a blank list.
+  Widget _noPaymentPanel(Quote quote, CheckoutState state) {
+    final l10n = context.l10n;
+    final controller = ref.read(checkoutControllerProvider.notifier);
+    final o = state.options;
+    final preferred = ref.watch(preferredBranchIdProvider);
+    final branches =
+        ref.watch(contactBranchesProvider).value ?? ref.watch(pickupBranchesProvider).value ?? const <Branch>[];
+    final collect = collectAndPayBranch(
+      branches,
+      type: o.fulfillmentType,
+      currentBranchId: o.branchId,
+      preferredBranchId: preferred,
+    );
+    final phone = contactPhone(
+      branches,
+      orderBranchId: quote.fulfillments.firstOrNull?.branch.id,
+      pickupBranchId: o.branchId,
+      preferredBranchId: preferred,
+    );
+    return NoPaymentPanel(
+      collectFrom: collect?.name,
+      onCollect: collect == null
+          ? null
+          : () {
+              Haptics.tap();
+              unawaited(
+                controller.update(
+                  (x) => x.copyWith(fulfillmentType: FulfillmentType.pickup, branchId: () => collect.id),
+                ),
+              );
+            },
+      phone: phone,
+      onShare: quote.lines.isEmpty
+          ? null
+          : () => unawaited(
+              ref.read(shareActionProvider)(
+                ShareParams(
+                  text: basketShareText(
+                    [
+                      for (final line in quote.lines)
+                        ShareLine(
+                          name: line.name,
+                          quantity: line.quantity,
+                          variantName: line.variantName,
+                          url: _productUrl(line.variantId),
+                        ),
+                    ],
+                    intro: l10n.payNoneShareIntro,
+                    total: l10n.payNoneShareTotal(quote.totals.grandTotal.formatted),
+                  ),
+                ),
+              ),
+            ),
+    );
+  }
+
+  /// The piece's page on the website: its slug comes from the cart line of the same variant.
+  String? _productUrl(String variantId) {
+    final item = ref.read(cartControllerProvider).value?.items.where((i) => i.variantId == variantId).firstOrNull;
+    final key = item == null ? null : (item.product.slug ?? item.product.id);
+    return key == null ? null : DeepLinks.productShareUrl(key);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -225,6 +304,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       selected: o.paymentMethod,
                       onChanged: (m) => controller.update((x) => x.copyWith(paymentMethod: () => m)),
                     ),
+                    if (quote != null && quote.nothingToPayWith) _noPaymentPanel(quote, state),
                     if (quote?.loyalty != null && quote!.loyalty!.balance > 0) ...[
                       const Gap(AppSpace.lg),
                       _LoyaltySection(
@@ -679,7 +759,7 @@ class _PaymentMethods extends StatelessWidget {
       PaymentMethod.cod => Icons.payments_outlined,
       PaymentMethod.payAtPickup => Icons.point_of_sale_outlined,
     };
-    String reason(String? r) => r == 'exceeds_cod_limit' ? l10n.paymentReasonCodLimit : l10n.paymentUnavailable;
+    String reason(PaymentOption opt) => paymentReasonText(l10n, paymentReasonOf(opt, total: quote!.totals.grandTotal));
 
     return RadioGroup<PaymentMethod>(
       groupValue: selected,
@@ -710,7 +790,7 @@ class _PaymentMethods extends StatelessWidget {
                     shape: const RoundedRectangleBorder(borderRadius: AppRadius.inputAll),
                     secondary: Icon(icon(opt.method!), color: context.colors.primary),
                     title: Text(label(opt.method!)),
-                    subtitle: opt.available ? null : Text(reason(opt.reason), style: context.text.bodySmall),
+                    subtitle: opt.available ? null : Text(reason(opt), style: context.text.bodySmall),
                   ),
                 ),
               ),
@@ -946,7 +1026,7 @@ class _PlaceOrderBar extends StatelessWidget {
         _ => l10n.alternatePhoneRequiredHint,
       },
       'slot' => l10n.deliverySlotRequiredHint,
-      'payment' => l10n.selectPaymentFirst,
+      'payment' => (state.quote?.nothingToPayWith ?? false) ? l10n.payNoneHint : l10n.selectPaymentFirst,
       _ when state.quote != null && state.quoteError != null => l10n.quoteRefreshFailed,
       _ => (state.quote != null && !state.quote!.canPlaceOrder) ? l10n.cannotPlaceOrder : null,
     };

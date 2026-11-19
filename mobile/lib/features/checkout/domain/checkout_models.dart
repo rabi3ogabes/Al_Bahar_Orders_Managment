@@ -337,15 +337,27 @@ class QuoteDiscount {
 
 @immutable
 class PaymentOption {
-  const PaymentOption({required this.code, required this.available, this.reason});
-  factory PaymentOption.fromJson(JsonMap json) => PaymentOption(
-    code: asString(json['code']),
-    available: asBool(json['available']),
-    reason: asStringOrNull(json['reason']),
-  );
+  const PaymentOption({required this.code, required this.available, this.reason, this.limitMin, this.limitMax});
+  factory PaymentOption.fromJson(JsonMap json) {
+    final limits = asMapOrNull(json['limits']);
+    return PaymentOption(
+      code: asString(json['code']),
+      available: asBool(json['available']),
+      reason: asStringOrNull(json['reason']),
+      limitMin: Money.maybe(limits?['min']),
+      limitMax: Money.maybe(limits?['max']),
+    );
+  }
   final String code;
   final bool available;
+
+  /// Why the method is not offered (`outside_cod_limits`, `not_offered_in_area`, ...); see `payment_reasons.dart` for every one.
   final String? reason;
+
+  /// Cash on delivery, when [reason] is a limit: the lowest and the highest basket total it takes (null from an older server, or when
+  /// there is no such limit).
+  final Money? limitMin;
+  final Money? limitMax;
 
   PaymentMethod? get method => PaymentMethod.parse(code);
 }
@@ -452,6 +464,10 @@ class Quote {
   }
 
   PaymentOption? option(PaymentMethod method) => paymentMethods.where((p) => p.code == method.api).firstOrNull;
+
+  /// The quote is there and no way of paying is open (online payment is off and cash on delivery does not take a basket this size):
+  /// the customer needs another way forward, never a blank list.
+  bool get nothingToPayWith => paymentMethods.isNotEmpty && !paymentMethods.any((p) => p.available);
 
   /// The coupon that waived the delivery fee, if one was applied (delivery is free only with such a code).
   QuoteDiscount? get freeDeliveryDiscount => discounts.where((d) => d.freeDelivery).firstOrNull;

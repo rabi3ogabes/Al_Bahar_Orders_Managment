@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:albahar_customer/core/l10n/l10n.dart';
-import 'package:albahar_customer/core/models/money.dart';
 import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
@@ -12,36 +11,23 @@ import 'package:albahar_customer/core/widgets/side_panel.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/auth/presentation/require_auth.dart';
+import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
+import 'package:albahar_customer/features/cart/domain/cart_addition.dart';
 import 'package:albahar_customer/features/cart/domain/cart_models.dart';
 import 'package:albahar_customer/features/cart/presentation/cart_screen.dart';
 import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
-import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
+import 'package:albahar_customer/features/cart/presentation/state/pending_cart_add.dart';
 import 'package:albahar_customer/features/deals/presentation/widgets/deal_line_text.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// One thing to put in the cart: a variant, how many, and what the cart window needs to draw it before the server answers.
-@immutable
-class CartAddition {
-  const CartAddition({
-    required this.variantId,
-    required this.product,
-    this.quantity = 1,
-    this.unitPrice,
-    this.variantName,
-  });
-  final String variantId;
-  final ProductSummary product;
-  final int quantity;
-  final EffectivePrice? unitPrice;
-  final String? variantName;
-}
+export 'package:albahar_customer/features/cart/domain/cart_addition.dart';
 
 /// Add to cart, the same way everywhere (product page, cards, quick view, buy again, search, suggestions):
 ///
-/// 1. a guest is sent to sign in first;
+/// 1. a guest is sent to sign in first (the add is remembered and done for them right after they sign in);
 /// 2. the cart and its badge change **at once**, and the cart window opens over the current screen — no navigation;
 /// 3. if the server refuses, the cart goes back, the window closes and the person is told why.
 ///
@@ -52,8 +38,18 @@ Future<void> addToCartAndShow(
   List<CartAddition> additions, {
   VoidCallback? beforeLeaving,
 }) async {
-  if (additions.isEmpty || !requireAuth(context, ref, beforeLeaving: beforeLeaving)) return;
-  final controller = ref.read(cartControllerProvider.notifier);
+  if (additions.isEmpty) return;
+  if (!ref.read(isAuthenticatedProvider)) {
+    // Not lost on the way: the same add is done, with the usual confirmation, as soon as they have signed in.
+    ref.read(pendingCartAddProvider.notifier).remember(additions);
+  }
+  if (!requireAuth(context, ref, beforeLeaving: beforeLeaving)) return;
+  await performAddToCart(context, ref.read(cartControllerProvider.notifier), additions);
+}
+
+/// The signed-in half of [addToCartAndShow]: the cart changes at once, the cart window opens over [context], a refusal closes it and says why.
+/// Also what runs for an add that was waiting for the person to sign in (`pending_cart_replay.dart`).
+Future<void> performAddToCart(BuildContext context, CartController controller, List<CartAddition> additions) async {
   final failed = ValueNotifier<bool>(false);
   try {
     // Every add starts now (each one updates the cart before its first await), so the window opens with all of them.

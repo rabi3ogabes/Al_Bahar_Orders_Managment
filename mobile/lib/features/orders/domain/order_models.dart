@@ -149,6 +149,7 @@ class OrderItem {
     this.fulfillmentId,
     this.adjustment,
     this.deal,
+    this.returnableQuantity,
   });
   factory OrderItem.fromJson(JsonMap json) => OrderItem(
     id: asString(json['id']),
@@ -165,6 +166,7 @@ class OrderItem {
     fulfillmentId: asStringOrNull(json['fulfillment_id']),
     adjustment: ItemAdjustment.maybe(json['adjustment']),
     deal: OrderLineDeal.maybe(json['deal']),
+    returnableQuantity: asIntOrNull(json['returnable_quantity']),
   );
   final String id;
   final String? productId;
@@ -184,6 +186,13 @@ class OrderItem {
 
   /// The deal this line was sold under (how many units got the deal price and what each saved); null for a line with none.
   final OrderLineDeal? deal;
+
+  /// How many of this line can still be asked back right now: handed over, inside the return window and not already in a request.
+  /// Null from a server that does not say (the form then offers the whole line).
+  final int? returnableQuantity;
+
+  /// How many pieces of this line the return form offers.
+  int get returnableNow => returnableQuantity ?? quantity;
 
   /// A line the branch took out (removed, or swapped for another item): it stays in the list, struck through, with nothing to pay.
   bool get isGone =>
@@ -354,15 +363,22 @@ class DeliveryInfo {
   final DateTime? eta;
   final String? trackingUrl;
 
-  DeliveryInfo withStatus(String? next) => DeliveryInfo(
-    trackingNumber: trackingNumber,
-    status: next ?? status,
-    provider: provider,
-    driverName: driverName,
-    driverPhone: driverPhone,
-    eta: eta,
-    trackingUrl: trackingUrl,
-  );
+  /// The delivery stages in which the customer can call the driver (the server sends `driver_phone` only then).
+  static const driverCallable = {'assigned', 'accepted', 'picked_up', 'out_for_delivery'};
+
+  /// The same delivery after a live message. The number goes away the moment the delivery leaves the stages where the driver can be called.
+  DeliveryInfo withStatus(String? next) {
+    final status = next ?? this.status;
+    return DeliveryInfo(
+      trackingNumber: trackingNumber,
+      status: status,
+      provider: provider,
+      driverName: driverName,
+      driverPhone: status == null || driverCallable.contains(status) ? driverPhone : null,
+      eta: eta,
+      trackingUrl: trackingUrl,
+    );
+  }
 }
 
 @immutable
@@ -425,6 +441,47 @@ class Fulfillment {
   bool get isOnTheWay => status == 'dispatched' || status == 'out_for_delivery';
 }
 
+/// The customer's latest return request of an order (`return_request`): where it stands and, once decided, the team's note.
+@immutable
+class ReturnRequestInfo {
+  const ReturnRequestInfo({
+    required this.id,
+    required this.number,
+    required this.status,
+    this.requestedAt,
+    this.decidedAt,
+    this.decisionNote,
+  });
+
+  static ReturnRequestInfo? maybe(Object? json) {
+    final m = asMapOrNull(json);
+    if (m == null) return null;
+    return ReturnRequestInfo(
+      id: asString(m['id']),
+      number: asString(m['number']),
+      status: asString(m['status']),
+      requestedAt: asDate(m['requested_at']),
+      decidedAt: asDate(m['decided_at']),
+      decisionNote: _trimmed(m['decision_note']),
+    );
+  }
+
+  final String id;
+  final String number;
+
+  /// `requested`, `approved`, `rejected`, `received`, `refunded` or `closed` (another word from a newer server reads as "other").
+  final String status;
+  final DateTime? requestedAt;
+  final DateTime? decidedAt;
+
+  /// What the team wrote when it decided, if anything.
+  final String? decisionNote;
+
+  static const known = {'requested', 'approved', 'rejected', 'received', 'refunded', 'closed'};
+  bool get isRejected => status == 'rejected';
+  bool get isOpen => status == 'requested' || status == 'approved';
+}
+
 @immutable
 class Order {
   const Order({
@@ -444,6 +501,7 @@ class Order {
     this.canPay = false,
     this.canReturn = false,
     this.canReview = false,
+    this.returnRequest,
     this.seq = 0,
     this.wasAdjusted = false,
     this.revisions = const [],
@@ -473,6 +531,7 @@ class Order {
     canPay: asBool(json['can_pay']),
     canReturn: asBool(json['can_return']),
     canReview: asBool(json['can_review']),
+    returnRequest: ReturnRequestInfo.maybe(json['return_request']),
     wasAdjusted: asBoolOrNull(json['was_adjusted']) ?? revisions.isNotEmpty,
     revisions: revisions,
     discounts: mapList(json['discounts'], QuoteDiscount.fromJson),
@@ -496,6 +555,9 @@ class Order {
   final bool canPay;
   final bool canReturn;
   final bool canReview;
+
+  /// The latest return request of this order; null when there was none (and from a server that does not send it).
+  final ReturnRequestInfo? returnRequest;
 
   /// The order's version when it was read (see SeqGate).
   final int seq;
@@ -546,11 +608,30 @@ class Order {
       canPay: canPay && status == 'pending_payment',
       canReturn: canReturn,
       canReview: canReview || status == 'completed',
+      returnRequest: returnRequest,
       seq: seq,
       wasAdjusted: wasAdjusted,
       revisions: revisions,
       discounts: discounts,
     );
+  }
+
+  /// The products of this order the customer can review: not taken out by the branch, and delivered or collected (a part of a split
+  /// order that has not arrived yet is not reviewable). One entry per product, whatever the variant.
+  List<OrderItem> get reviewableItems {
+    final arrived = {
+      for (final f in fulfillments)
+        if (f.status == 'delivered' || f.status == 'picked_up') f.id,
+    };
+    final seen = <String>{};
+    return [
+      for (final i in items)
+        if (i.productId != null &&
+            !i.isGone &&
+            (i.fulfillmentId == null || fulfillments.isEmpty || arrived.contains(i.fulfillmentId)) &&
+            seen.add(i.productId!))
+          i,
+    ];
   }
 
   /// The name of the item that took the place of a line that was swapped out, or null (not swapped, or the server did not say).

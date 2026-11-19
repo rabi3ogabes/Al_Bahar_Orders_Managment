@@ -306,7 +306,7 @@ void main() {
       await tapText(t, en.requestReturn);
       expect(find.text(en.selectItemsToReturn), findsOneWidget);
       expect(t.widget<FilledButton>(find.widgetWithText(FilledButton, en.requestReturn)).onPressed, isNull);
-      await t.tap(find.byType(CheckboxListTile).first);
+      await t.tap(find.descendant(of: find.byType(QuantityStepper), matching: find.byIcon(Icons.add_rounded)).first);
       await settle(t);
       await t.tap(find.widgetWithText(FilledButton, en.requestReturn));
       await settle(t);
