@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Admin\Sales;
 
+use App\Domain\Operations\Services\OpsClock;
+use App\Domain\Operations\Support\OpsAge;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderFulfillment;
 use App\Livewire\Admin\Concerns\WithAdminTable;
@@ -24,6 +26,9 @@ class OrderIndex extends Component
     use WithAdminTable;
 
     public const TABS = ['all', 'needs_action', 'pending_payment', 'ready', 'out_for_delivery'];
+
+    /** Sort orders by "oldest first" (the longest waiting at the top): `?sort=oldest`. Anything else is newest first. */
+    public const SORT_OLDEST = 'oldest';
 
     #[Url(except: 'all')]
     public string $tab = 'all';
@@ -129,14 +134,46 @@ class OrderIndex extends Component
         $this->resetPage();
     }
 
-    public function render()
+    /**
+     * What each order on the page is waiting for, as its worst open wait (new, being prepared, ready with no driver, driver silent, pickup, failed):
+     * order id => OpsAge. Measured from rows already loaded (the part's order and deliveries are set from the page's own query): no extra query per row.
+     *
+     * @param  iterable<Order>  $orders
+     * @return array<string, OpsAge>
+     */
+    private function waits(iterable $orders, OpsClock $clock): array
+    {
+        $branchIds = [];
+        foreach ($orders as $o) {
+            foreach ($o->fulfillments as $f) {
+                $branchIds[] = $f->branch_id;
+            }
+        }
+        $clock->preload($branchIds);
+        $waits = [];
+        foreach ($orders as $o) {
+            foreach ($o->fulfillments as $f) {
+                $f->setRelation('order', $o);
+                $age = $clock->forFulfillment($f);
+                $worst = $waits[$o->id] ?? null;
+                if ($age !== null && ($worst === null || $age->rank() > $worst->rank() || ($age->rank() === $worst->rank() && $age->ageMinutes > $worst->ageMinutes))) {
+                    $waits[$o->id] = $age;
+                }
+            }
+        }
+
+        return $waits;
+    }
+
+    public function render(OpsClock $clock)
     {
         $quickCounts = [];
         foreach (['cod', 'sadad', 'pickup'] as $k) {
             $quickCounts[$k] = $this->applyQuick($this->applyTab($this->scoped(), $this->tab), $k)->count();
         }
         $q = $this->applyQuick($this->applyTab($this->scoped(), $this->tab), $this->quick)
-            ->with(['fulfillments:id,order_id,branch_id,status,type', 'fulfillments.branch:id,code,name_en,name_ar'])
+            ->with(['fulfillments:id,order_id,branch_id,status,type,accepted_at,ready_at,created_at,updated_at', 'fulfillments.branch:id,code,name_en,name_ar',
+                'fulfillments.deliveries:id,order_fulfillment_id,status,created_at,assigned_at,failed_at'])
             ->when($this->filterStatus, fn ($q, $s) => $q->where('status', $s))
             ->when($this->filterPayment, fn ($q, $s) => $q->where('payment_status', $s))
             ->when($this->filterMethod, fn ($q, $s) => $q->where('payment_method', $s))
@@ -149,16 +186,18 @@ class OrderIndex extends Component
                 $q->where(fn ($w) => $w->where('number', 'ilike', "%{$s}%")->orWhere('customer_name', 'ilike', "%{$s}%")
                     ->when(strlen($digits) >= 4, fn ($x) => $x->orWhere('customer_phone', 'like', "%{$digits}%")));
             })
-            ->orderByDesc('placed_at');
+            ->orderBy('placed_at', $this->sort === self::SORT_OLDEST ? 'asc' : 'desc');
 
         $counts = [];
         foreach (self::TABS as $t) {
             $counts[$t] = $t === 'all' ? null : $this->applyTab($this->scoped(), $t)->count();
         }
+        $orders = $q->paginate($this->perPage);
         $filtered = $this->quick || $this->filterStatus || $this->filterPayment || $this->filterMethod || $this->filterType || $this->filterFrom || $this->filterTo || $this->branch;
 
         return view('livewire.admin.sales.orders', [
-            'orders' => $q->paginate($this->perPage),
+            'orders' => $orders,
+            'waits' => $this->waits($orders->getCollection(), $clock),
             'counts' => $counts,
             'quickCounts' => $quickCounts,
             'branches' => $this->scopedBranches('orders.view'),

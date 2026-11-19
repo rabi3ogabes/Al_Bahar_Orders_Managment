@@ -38,6 +38,10 @@
                 <option value="">{{ __('admin.all_statuses') }}</option>
                 @foreach (\App\Domain\Orders\Enums\OrderStatus::cases() as $st)<option value="{{ $st->value }}">{{ __('status.'.$st->value) }}</option>@endforeach
             </select>
+            <select wire:model.live="sort" class="input sm:w-56" aria-label="{{ __('ops_live.chip.sort_label') }}">
+                <option value="">{{ __('ops_live.sort.newest') }}</option>
+                <option value="{{ \App\Livewire\Admin\Sales\OrderIndex::SORT_OLDEST }}">{{ __('ops_live.sort.oldest') }}</option>
+            </select>
             @if ($branches->count() > 1)
                 <select wire:model.live="branch" class="input sm:w-44" aria-label="{{ __('admin.branch') }}">
                     <option value="">{{ __('admin.all_branches') }}</option>
@@ -86,6 +90,10 @@
                                 {{-- A real link (middle-click and copy-link open the list with the window), and the whole row opens it on click. --}}
                                 <a href="{{ route('admin.orders.index', ['view' => $o->id]) }}" wire:click.prevent.stop="peekOrder('{{ $o->id }}')" class="font-mono font-medium text-ink-900 hover:text-brass-600 dark:text-ivory" dir="ltr">{{ $o->number }}</a>
                                 <span class="block text-xs text-ink-500 tabular-nums">{{ \App\Support\BusinessTime::display($o->placed_at) }}</span>
+                                @if ($age = $waits[$o->id] ?? null)
+                                    <x-admin.ops.age-chip class="mt-1.5" :state="$age->state" :label="$age->label"
+                                        :title="__('ops_live.chip.title', ['state' => __('ops_live.state.'.$age->state), 'age' => $age->label]).($age->paused ? ' · '.__('ops_live.chip.paused') : '')" />
+                                @endif
                             </td>
                             <td class="max-w-[14rem]">
                                 <span class="block truncate font-medium">{{ $o->customer_name }}</span>

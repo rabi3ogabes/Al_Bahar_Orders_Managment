@@ -1,6 +1,7 @@
 @php
-    $tabIcons = ['general' => 'sparkles', 'checkout' => 'cart', 'loyalty' => 'gift', 'auctions' => 'gavel', 'notifications' => 'bell', 'integrations' => 'key', 'security' => 'shield'];
-    $tabs = collect($schema)->keys()->mapWithKeys(fn ($g) => [$g => [$tabIcons[$g], __('org_admin.settings_tab.'.$g)]])->all();
+    $tabIcons = ['general' => 'sparkles', 'checkout' => 'cart', 'loyalty' => 'gift', 'auctions' => 'gavel', 'notifications' => 'bell', 'ops_clock' => 'timer', 'integrations' => 'key', 'security' => 'shield'];
+    $tabTitle = fn (string $g) => $g === 'ops_clock' ? __('ops_live.tab') : __('org_admin.settings_tab.'.$g);
+    $tabs = collect($schema)->keys()->mapWithKeys(fn ($g) => [$g => [$tabIcons[$g], $tabTitle($g)]])->all();
 @endphp
 <div class="mx-auto max-w-5xl">
     <x-admin.page-header :title="__('nav.settings')" :eyebrow="__('nav.organization')" :description="__('org_admin.settings_hint')" />
@@ -8,17 +9,17 @@
 
     <form wire:submit="save" class="card overflow-hidden" wire:key="settings-{{ $tab }}">
         <div class="border-b border-sand-100 p-5 sm:p-6 dark:border-ink-800">
-            <h2 class="font-display text-xl font-semibold">{{ __('org_admin.settings_tab.'.$tab) }}</h2>
-            <p class="mt-1 text-sm text-ink-500">{{ __('org_admin.settings_tab_hint.'.$tab) }}</p>
+            <h2 class="font-display text-xl font-semibold">{{ $tabTitle($tab) }}</h2>
+            <p class="mt-1 text-sm text-ink-500">{{ $tab === 'ops_clock' ? __('ops_live.tab_hint') : __('org_admin.settings_tab_hint.'.$tab) }}</p>
         </div>
         <fieldset class="divide-y divide-sand-100 dark:divide-ink-800" @disabled(! $canEdit)>
             @foreach ($schema[$tab] as $key => $def)
                 @continue(! empty($def['intro']))
-                @php $f = \App\Livewire\Admin\Organization\SettingsIndex::field($key); $path = "values.{$tab}.{$f}"; $default = config('platform.'.$key); @endphp
+                @php $f = \App\Livewire\Admin\Organization\SettingsIndex::field($key); $path = "values.{$tab}.{$f}"; $default = $def['default'] ?? config('platform.'.$key); @endphp
                 <div class="grid gap-3 px-5 py-5 sm:grid-cols-5 sm:items-center sm:gap-6 sm:px-6" wire:key="s-{{ $f }}">
                     <div class="sm:col-span-2">
-                        <label for="{{ $f }}" class="text-sm font-medium text-ink-800 dark:text-sand-100">{{ __('org_admin.setting.'.$f) }}</label>
-                        @if (\Illuminate\Support\Facades\Lang::has('org_admin.setting_hint.'.$f))<p class="mt-0.5 text-xs leading-relaxed text-ink-500">{{ __('org_admin.setting_hint.'.$f) }}</p>@endif
+                        <label for="{{ $f }}" class="text-sm font-medium text-ink-800 dark:text-sand-100">{{ __($def['label'] ?? 'org_admin.setting.'.$f) }}</label>
+                        @if (\Illuminate\Support\Facades\Lang::has($def['hint'] ?? 'org_admin.setting_hint.'.$f))<p class="mt-0.5 text-xs leading-relaxed text-ink-500">{{ __($def['hint'] ?? 'org_admin.setting_hint.'.$f) }}</p>@endif
                     </div>
                     <div class="sm:col-span-3">
                         @switch($def['type'])

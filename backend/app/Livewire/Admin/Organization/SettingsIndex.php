@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin\Organization;
 
+use App\Domain\Operations\Services\OpsClock;
 use App\Domain\Settings\Services\Settings;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use App\Rules\MapServiceUrl;
@@ -44,7 +45,7 @@ class SettingsIndex extends Component
 
                     continue;
                 }
-                $v = $settings->get($key);
+                $v = $settings->get($key, $def['default'] ?? null);
                 $this->values[$group][self::field($key)] = $def['type'] === 'bool' ? (bool) $v : ($v === null ? '' : (string) $v);
             }
         }
@@ -113,6 +114,7 @@ class SettingsIndex extends Component
                 'messaging.whatsapp_per_minute' => ['type' => 'int', 'rules' => $int(1, 600)],
                 'messaging.bulk_max' => ['type' => 'int', 'rules' => $int(1, 5000)],
             ],
+            'ops_clock' => self::opsClockSchema(),
             'integrations' => [
                 'payments.sadad.enabled' => ['type' => 'bool', 'rules' => ['boolean']],
                 'payments.sadad.mode' => ['type' => 'select', 'rules' => ['required', 'in:sandbox,live'], 'options' => ['sandbox', 'live']],
@@ -141,6 +143,36 @@ class SettingsIndex extends Component
         ];
     }
 
+    /**
+     * Settings > Operations clock: when the dashboard shows an order, a delivery, a pickup or cash as getting late (amber) and late (red).
+     * Each pair is validated so the amber limit is lower than the red one; the words come from lang/*\/ops_live.php and the factory
+     * defaults from {@see OpsClock::DEFAULTS}.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private static function opsClockSchema(): array
+    {
+        $schema = [];
+        foreach (OpsClock::KINDS as $kind) {
+            $unit = OpsClock::UNITS[$kind];
+            $max = OpsClock::MAX[$unit];
+            foreach (['amber', 'red'] as $level) {
+                $key = OpsClock::settingKey($kind, $level);
+                $field = self::field($key);
+                $rules = ['required', 'integer', 'min:1', "max:{$max}"];
+                $messages = [];
+                if ($level === 'amber') {
+                    $rules[] = 'lt:values.ops_clock.'.self::field(OpsClock::settingKey($kind, 'red'));
+                    $messages['lt'] = 'ops_live.setting_lt';
+                }
+                $schema[$key] = ['type' => 'int', 'rules' => $rules, 'suffix' => $unit === 'minutes' ? 'min' : $unit, 'default' => OpsClock::defaultFor($kind, $level),
+                    'label' => 'ops_live.setting.'.$field, 'hint' => 'ops_live.setting_hint.'.$field, 'messages' => $messages];
+            }
+        }
+
+        return $schema;
+    }
+
     public function save(Settings $settings): void
     {
         abort_unless($this->canGlobally('settings.edit'), 403);
@@ -148,12 +180,16 @@ class SettingsIndex extends Component
         $this->cleanIntroTexts($fields);
         $rules = [];
         $names = [];
+        $messages = [];
         foreach ($fields as $key => $def) {
             $path = $def['type'] === 'secret' ? 'secrets.'.self::field($key) : "values.{$this->tab}.".self::field($key);
             $rules[$path] = $def['rules'];
-            $names[$path] = __('org_admin.setting.'.self::field($key));
+            $names[$path] = __($def['label'] ?? 'org_admin.setting.'.self::field($key));
+            foreach ($def['messages'] ?? [] as $rule => $line) {
+                $messages[$path.'.'.$rule] = __($line);
+            }
         }
-        $this->validate($rules, [], $names);
+        $this->validate($rules, $messages, $names);
 
         $changed = 0;
         foreach ($fields as $key => $def) {
@@ -173,7 +209,7 @@ class SettingsIndex extends Component
                 'int', 'percent' => is_numeric($new) && (string) (int) $new === (string) $new ? (int) $new : (string) $new,
                 default => $new === '' ? null : (string) $new,
             };
-            $current = $settings->get($key);
+            $current = $settings->get($key, $def['default'] ?? null);
             $same = $def['type'] === 'bool' ? (bool) $current === $new : (string) $current === (string) $new;
             if (! $same) {
                 $settings->set($key, $new);
