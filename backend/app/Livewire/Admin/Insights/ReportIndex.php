@@ -9,10 +9,19 @@ use App\Domain\Reports\Services\ReportService;
 use App\Livewire\Admin\Concerns\WithAdminTable;
 use App\Support\BusinessTime;
 use App\Support\DomainException;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
-/** Report picker (only reports the viewer may run), date/branch filters, table + chart, and CSV export via the queue. */
+/**
+ * Report picker (only reports the viewer may run), date/branch filters, table + chart, and CSV export via the queue.
+ *
+ * A report is run ONCE per choice of report, dates and branch: the outcome is a persisted computed property (kept in the server cache under this
+ * page instance's own key, never sent to the browser) that is dropped whenever one of those filters changes. Any other re-render (the export
+ * button, a toast, the language) reuses it instead of running the whole report again.
+ *
+ * @property array{result: ?array<string, mixed>, error: ?string} $outcome
+ */
 class ReportIndex extends Component
 {
     use WithAdminTable;
@@ -82,6 +91,46 @@ class ReportIndex extends Component
             'mtd' => [$now->startOfMonth()->toDateString(), $now->toDateString()],
             default => [$now->subDays(29)->toDateString(), $now->toDateString()],
         };
+        unset($this->outcome); // assigned on the server, so the property hooks below do not fire
+    }
+
+    public function updatedReport(): void
+    {
+        unset($this->outcome);
+    }
+
+    public function updatedFrom(): void
+    {
+        unset($this->outcome);
+    }
+
+    public function updatedTo(): void
+    {
+        unset($this->outcome);
+    }
+
+    public function updatedBranch(): void
+    {
+        unset($this->outcome);
+    }
+
+    /**
+     * The report for the current filters, run once (see the class comment).
+     *
+     * @return array{result: ?array<string, mixed>, error: ?string}
+     */
+    #[Computed(persist: true, seconds: 300)]
+    public function outcome(): array
+    {
+        [$from, $to] = $this->range();
+        if (! $this->report) {
+            return ['result' => null, 'error' => null];
+        }
+        try {
+            return ['result' => app(ReportService::class)->run(auth()->user(), $this->report, $from, $to, $this->branch ?: null), 'error' => null];
+        } catch (DomainException $e) {
+            return ['result' => null, 'error' => $e->getMessage()];
+        }
     }
 
     public function export(AuditLogger $audit): void
@@ -95,18 +144,15 @@ class ReportIndex extends Component
         $this->toast(__('content_admin.export_queued'));
     }
 
-    public function render(ReportService $reports)
+    public function render()
     {
-        [$from, $to] = $this->range();
-        $result = null;
-        $error = null;
-        if ($this->report) {
-            try {
-                $result = $reports->run(auth()->user(), $this->report, $from, $to, $this->branch ?: null);
-            } catch (DomainException $e) {
-                $error = $e->getMessage();
-            }
+        // A cached outcome is never shown to someone who lost the right to it since it was run: without the reports right the page is closed, and
+        // for a report they may not run the cached rows are dropped so the report answers "forbidden" itself.
+        abort_unless($this->can('reports.view'), 403);
+        if ($this->report && ! $this->can(ReportService::REPORTS[$this->report] ?? 'reports.view')) {
+            unset($this->outcome);
         }
+        ['result' => $result, 'error' => $error] = $this->outcome;
         $chart = null;
         if ($result && isset(self::CHARTS[$this->report]) && count($result['rows']) > 0) {
             [$label, $value] = self::CHARTS[$this->report];

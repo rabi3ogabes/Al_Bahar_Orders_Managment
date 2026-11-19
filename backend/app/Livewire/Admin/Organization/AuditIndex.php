@@ -8,13 +8,27 @@ use App\Domain\Branches\Models\Branch;
 use App\Livewire\Admin\Concerns\WithAdminTable;
 use App\Support\BusinessTime;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
-/** Read-only, filterable audit trail. Branch-level viewers only see entries for their branches. */
+/**
+ * Read-only, filterable audit trail. Branch-level viewers only see entries for their branches.
+ *
+ * The log only ever grows, so this page never reads all of it: without dates it shows the last DEFAULT_DAYS days (a record's own trail, opened
+ * from its page, is the exception: it is bounded by the record), and the number of matching entries is counted only up to COUNT_CAP, shown as
+ * "1,000+" beyond that, instead of a count(*) over millions of rows on every page view and keystroke.
+ */
 class AuditIndex extends Component
 {
     use WithAdminTable;
+
+    /** The window shown when nobody picked dates. */
+    public const DEFAULT_DAYS = 30;
+
+    /** Entries are counted up to this many; more than this is shown as "1,000+" and reached by narrowing the dates or the search. */
+    public const COUNT_CAP = 1000;
 
     #[Url(except: '')]
     public string $filterModule = '';
@@ -60,12 +74,26 @@ class AuditIndex extends Component
                 [$type, $id] = explode(':', $this->subject, 2);
                 $q->where('auditable_type', $type)->where('auditable_id', $id);
             })
-            ->when($this->from && strtotime($this->from), fn ($q) => $q->where('created_at', '>=', BusinessTime::dateRange($this->from, $this->from)[0]))
+            ->when($this->effectiveFrom(), fn ($q, $from) => $q->where('created_at', '>=', BusinessTime::dateRange($from, $from)[0]))
             ->when($this->to && strtotime($this->to), fn ($q) => $q->where('created_at', '<=', BusinessTime::dateRange($this->to, $this->to)[1]))
             ->orderByDesc('id');
         $this->branchScope('audit.view')->apply($q->getQuery());
 
         return $q;
+    }
+
+    /** The first day shown: the one picked, else DEFAULT_DAYS before the last day picked (or before today), and none for one record's own trail. */
+    private function effectiveFrom(): ?string
+    {
+        if ($this->from && strtotime($this->from)) {
+            return $this->from;
+        }
+        if ($this->subject !== '' && str_contains($this->subject, ':')) {
+            return null;
+        }
+        $end = $this->to && strtotime($this->to) ? BusinessTime::dateRange($this->to, $this->to)[0]->setTimezone(BusinessTime::zone()) : BusinessTime::now();
+
+        return $end->subDays(self::DEFAULT_DAYS)->toDateString();
     }
 
     public function export(AuditLogger $audit)
@@ -74,7 +102,7 @@ class AuditIndex extends Component
         $rows = $this->query()->limit(10000)->get();
         $audit->log('audit.exported', 'AuditLog', [], [], ['rows' => $rows->count(), 'filters' => array_filter([
             'search' => $this->search, 'branch' => $this->branch, 'module' => $this->filterModule, 'actor' => $this->filterActor,
-            'subject' => $this->subject, 'from' => $this->from, 'to' => $this->to,
+            'subject' => $this->subject, 'from' => $this->effectiveFrom(), 'to' => $this->to,
         ])]);
         $name = 'audit-log-'.BusinessTime::now()->format('Ymd-His').'.csv';
 
@@ -92,9 +120,26 @@ class AuditIndex extends Component
         }, $name, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
+    /**
+     * One page of the log and a count that stops at COUNT_CAP: the count reads at most COUNT_CAP + 1 matching rows instead of every one.
+     *
+     * @return array{0: LengthAwarePaginator<int, AuditLog>, 1: bool} the page, and whether more entries match than are counted
+     */
+    private function page(): array
+    {
+        $query = $this->query();
+        $matching = DB::query()->fromSub((clone $query)->toBase()->reorder()->select('audit_logs.id')->limit(self::COUNT_CAP + 1), 'm')->count();
+        $capped = $matching > self::COUNT_CAP;
+        $total = min($matching, self::COUNT_CAP);
+        $page = max(1, min($this->getPage(), (int) ceil(max(1, $total) / $this->perPage)));
+        $items = $total === 0 ? collect() : (clone $query)->forPage($page, $this->perPage)->get();
+
+        return [new LengthAwarePaginator($items, $total, $this->perPage, $page, ['path' => LengthAwarePaginator::resolveCurrentPath(), 'pageName' => 'page']), $capped];
+    }
+
     public function render()
     {
-        $logs = $this->query()->paginate($this->perPage);
+        [$logs, $capped] = $this->page();
         $branchNames = Branch::whereIn('id', $logs->pluck('branch_id')->filter()->unique())->pluck('code', 'id');
 
         return view('livewire.admin.organization.audit', [
@@ -103,6 +148,8 @@ class AuditIndex extends Component
             'branches' => $this->scopedBranches('audit.view'),
             'modules' => ['auth', 'employee', 'role', 'zone', 'branch', 'catalog', 'inventory', 'transfer', 'stocktaking', 'purchasing', 'settings', 'audit', 'order', 'payment', 'refund'],
             'canExport' => $this->can('audit.export'),
+            'capped' => $capped,
+            'defaultWindow' => $this->effectiveFrom() !== null && ! $this->from,
             'hasFilters' => (bool) ($this->search || $this->branch || $this->filterModule || $this->filterActor || $this->subject || $this->from || $this->to),
         ])->title(__('nav.audit'));
     }

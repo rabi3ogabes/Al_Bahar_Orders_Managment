@@ -8,7 +8,7 @@
             <x-admin.search :placeholder="__('marketing_admin.campaigns_search')" />
             <select wire:model.live="filterStatus" class="input sm:w-44" aria-label="{{ __('admin.status') }}">
                 <option value="">{{ __('admin.all_statuses') }}</option>
-                @foreach (['draft', 'scheduled', 'sending', 'sent', 'cancelled'] as $st)<option value="{{ $st }}">{{ __('status.'.$st) }}</option>@endforeach
+                @foreach (['draft', 'scheduled', 'sending', 'sent', 'partly_sent', 'cancelled'] as $st)<option value="{{ $st }}">{{ $st === 'partly_sent' ? __('owner_numbers.campaign_status_partly_sent') : __('status.'.$st) }}</option>@endforeach
             </select>
             <div class="flex items-center gap-1 text-xs" role="group" aria-label="{{ __('marketing_admin.test_language') }}">
                 <span class="text-ink-500">{{ __('marketing_admin.test_language') }}</span>
@@ -18,19 +18,31 @@
         @if ($campaigns->isEmpty())
             <x-admin.empty :title="__('marketing_admin.campaigns_empty')" :description="__('marketing_admin.campaigns_empty_hint')" icon="megaphone" />
         @else
-            <ul class="divide-y divide-sand-100 dark:divide-ink-800">
+            <ul class="divide-y divide-sand-100 dark:divide-ink-800" @if ($anySending) wire:poll.5s @endif>
                 @foreach ($campaigns as $c)
                     <li class="flex flex-col gap-3 p-4 lg:flex-row lg:items-center sm:px-6" wire:key="cm-{{ $c->id }}">
                         <div class="min-w-0 flex-1">
-                            <div class="flex flex-wrap items-center gap-2"><span class="font-medium text-ink-900 dark:text-ivory">{{ $c->name }}</span><x-admin.status :value="$c->status" />
+                            <div class="flex flex-wrap items-center gap-2"><span class="font-medium text-ink-900 dark:text-ivory">{{ $c->name }}</span>@if ($c->status === 'partly_sent')<span class="badge-warning"><span class="size-1.5 rounded-full bg-current opacity-70"></span>{{ __('owner_numbers.campaign_status_partly_sent') }}</span>@else<x-admin.status :value="$c->status" />@endif
                                 @foreach ($c->channels ?? [] as $ch)<span class="badge-neutral">{{ __('content_admin.ch_'.$ch) }}</span>@endforeach</div>
                             <p class="mt-1 truncate text-sm text-ink-500">{{ app()->getLocale() === 'ar' ? $c->title_ar : $c->title_en }}</p>
-                            <p class="text-xs text-ink-500 tabular-nums">
+                            <p class="text-xs text-ink-500 tabular-nums" @if ($c->status === 'sending') data-sending role="status" @endif>
                                 @if ($c->status === 'sent'){{ __('marketing_admin.sent_to', ['count' => number_format($c->recipients_count), 'at' => \App\Support\BusinessTime::display($c->sent_at)]) }}
+                                @elseif ($c->status === 'partly_sent'){{ __('owner_numbers.campaign_partly', ['reached' => number_format($c->recipients_count), 'total' => number_format($c->audience_total ?? $c->processed_count), 'failed' => number_format($c->failed_count)]) }}@if ($c->status_note === 'switched_off') {{ __('owner_numbers.campaign_note_switched_off') }}@endif
+                                @elseif ($c->status === 'sending')
+                                    @if ($c->audience_total === null){{ __('owner_numbers.campaign_progress_queued') }}
+                                    @else{{ __('owner_numbers.campaign_progress', ['done' => number_format($c->processed_count), 'total' => number_format($c->audience_total), 'reached' => number_format($c->recipients_count)]) }}@endif
+                                    @if ($c->status_note === 'resumed') · {{ __('owner_numbers.campaign_resumed') }}@endif
                                 @elseif ($c->status === 'scheduled'){{ __('marketing_admin.scheduled_for', ['at' => \App\Support\BusinessTime::display($c->scheduled_at)]) }}
                                 @elseif ($c->status === 'cancelled' && $c->status_note){{ __('marketing_admin.note_'.$c->status_note, ['at' => \App\Support\BusinessTime::display($c->scheduled_at)]) }}
                                 @else{{ __('admin.updated') }} {{ \App\Support\BusinessTime::display($c->updated_at) }}@endif
+                                @if (in_array($c->status, ['draft', 'scheduled'], true) && $c->status_note === 'nothing_reached')<span class="block text-amber-soft">{{ __('marketing_admin.campaign_nothing_sent') }}</span>
+                                @elseif (in_array($c->status, ['draft', 'scheduled'], true) && $c->status_note === 'all_failed')<span class="block text-ruby-soft">{{ __('owner_numbers.campaign_note_all_failed') }}</span>@endif
                             </p>
+                            @if ($c->status === 'sending' && $c->audience_total)
+                                <div class="mt-2 h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-sand-100 dark:bg-ink-800" role="progressbar" aria-valuemin="0" aria-valuemax="{{ $c->audience_total }}" aria-valuenow="{{ min($c->processed_count, $c->audience_total) }}">
+                                    <div class="h-full rounded-full bg-brass-500 transition-all" style="width: {{ min(100, (int) round($c->processed_count * 100 / max(1, $c->audience_total))) }}%"></div>
+                                </div>
+                            @endif
                         </div>
                         <div class="flex flex-wrap gap-2">
                             @if (in_array($c->status, ['draft', 'scheduled'], true))

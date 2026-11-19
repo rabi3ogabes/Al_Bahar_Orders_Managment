@@ -447,8 +447,9 @@ it('keeps going through a bulk send when Google is slow for some phones', functi
     $campaign = MarketingCampaign::create(['name' => 'Bulk', 'title_en' => 'Hi', 'title_ar' => 'مرحبا', 'body_en' => 'Hello', 'body_ar' => 'أهلا', 'deep_link' => null, 'channels' => ['push'], 'status' => 'draft', 'segment' => []]);
 
     // The test queue runs each push inline: a phone Google cannot reach fails its job (the real queue tries again later), the 24 others are done.
+    // The campaign says so: it went to 24 customers and 6 could not be sent, so it ends "partly sent" with those counts (not a plain "sent").
     $n = app(CampaignService::class)->send($campaign);
 
-    expect($campaign->fresh()->status)->toBe('sent')->and($n)->toBe(24)->and(NotificationLog::where('campaign_id', $campaign->id)->where('status', 'sent')->count())->toBe(24)
+    expect($campaign->fresh()->status)->toBe('partly_sent')->and($campaign->fresh()->failed_count)->toBe(6)->and($n)->toBe(24)->and(NotificationLog::where('campaign_id', $campaign->id)->where('status', 'sent')->count())->toBe(24)
         ->and(NotificationLog::where('campaign_id', $campaign->id)->where('status', 'queued')->count())->toBe(6);
 });

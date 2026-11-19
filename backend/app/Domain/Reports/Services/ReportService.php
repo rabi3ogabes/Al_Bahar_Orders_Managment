@@ -7,6 +7,7 @@ use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Identity\Support\BranchScope;
 use App\Support\BusinessTime;
 use App\Support\DomainException;
+use App\Support\Money;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
@@ -16,6 +17,16 @@ use Illuminate\Support\Facades\DB;
  *  - is restricted to the viewer's server-derived branch scope (an optional branch filter can only narrow it),
  *  - aggregates from immutable snapshots (order lines, ledgers), so history never shifts when catalog data changes.
  * Monetary aggregates are summed by PostgreSQL NUMERIC and returned as decimal strings.
+ *
+ * What counts as a sale is defined once, in {@see SalesBasis}: an order that is not cancelled and not waiting for its online payment, on the day it
+ * was placed (shop time). The dashboard tiles and chart read the same definition, so the figures agree.
+ *
+ * Net sales (the sales_summary report) is counted from the order lines, so it never includes delivery fees or tax, and it is:
+ *     gross item value  -  line discounts  -  items cancelled after the order was placed  -  refunds NOT already explained by the lines
+ * A refund raised by a cancellation or by an item change (reasons order_cancelled and order_adjustment) repays value the lines already dropped, so
+ * counting it again would take the same money off twice; only the other refunds (a return, a goodwill refund) are taken off here. Orders cancelled
+ * as a whole are not sales at all, so neither their lines nor their cancellation refund appear. "Booked sales" is the dashboard's figure
+ * (grand total of those orders, delivery and tax included) and is shown beside it so the two can be reconciled.
  */
 class ReportService
 {
@@ -27,6 +38,15 @@ class ReportService
         'customers' => 'customers.view', 'deliveries' => 'deliveries.view', 'pickups' => 'pickup.view', 'auctions' => 'auctions.view',
         'finance_collections' => 'payments.view', 'finance_refunds' => 'refunds.view', 'finance_outstanding' => 'payments.view', 'sadad_reconciliation' => 'reconciliation.view',
     ];
+
+    /** Refund reasons whose money the order lines have already dropped (cancelled quantities, items changed by the branch). */
+    /** The stock list shows the emptiest rows first and stops here; the low / out counts above it cover every row. */
+    public const LEVEL_ROWS = 5000;
+
+    public const REFUNDS_ALREADY_IN_LINES = ['order_cancelled', 'order_adjustment'];
+
+    /** How many rows of the stock list are returned (a property so a test can shrink it). */
+    protected int $levelRows = self::LEVEL_ROWS;
 
     public function __construct(private readonly AccessControl $access) {}
 
@@ -44,29 +64,51 @@ class ReportService
     }
 
     // ── Sales ────────────────────────────────────────────────────────────────
+    /** Order lines of the orders that count as sales (see SalesBasis), limited to the viewer's branches. */
     private function lines(BranchScope $s, $start, $end): Builder
     {
         $q = DB::table('order_items as oi')->join('orders as o', 'o.id', '=', 'oi.order_id')
-            ->whereBetween('o.placed_at', [$start, $end])->whereNotIn('o.status', ['pending_payment']);
+            ->whereBetween('o.placed_at', [$start, $end])->whereNotIn('o.status', SalesBasis::EXCLUDED_STATUSES);
 
         return $s->apply($q, 'oi.branch_id');
     }
 
+    /**
+     * Refunds processed in the window that are NOT already explained by the order lines (see the class comment), as the viewer's share: a refund of
+     * an order that several branches fulfilled is divided in the same proportions as the sale itself. One row per refund, so two refunds of the
+     * same amount are two refunds (they used to collapse into one).
+     */
+    private function refundsOutsideLines(BranchScope $s, $start, $end): string
+    {
+        $perOrder = DB::table('refunds as r')->where('r.status', 'processed')->whereBetween('r.processed_at', [$start, $end])
+            ->whereNotNull('r.order_id')->whereNotIn('r.reason_code', self::REFUNDS_ALREADY_IN_LINES)
+            ->selectRaw('r.order_id, sum(r.amount) as amount')->groupBy('r.order_id');
+        $total = DB::query()->fromSub($perOrder, 'ro')->joinSub(SalesBasis::branchFraction($s), 'bf', 'bf.order_id', '=', 'ro.order_id')
+            ->selectRaw('coalesce(sum(round(ro.amount * bf.fraction, 2)), 0)::numeric(14,2) as total')->value('total');
+
+        return (string) $total;
+    }
+
     private function salesSummary(BranchScope $s, $start, $end): array
     {
-        $l = $this->lines($s, $start, $end)->selectRaw('count(distinct o.id) as orders, sum(oi.line_subtotal) as gross, sum(oi.discount_amount) as discounts,
-            sum(oi.unit_final_price * oi.quantity_cancelled) as cancelled, sum(oi.unit_final_price * oi.quantity_returned) as returned')->first();
-        $refunds = $s->apply(DB::table('refunds as r')->join('order_fulfillments as f', 'f.order_id', '=', 'r.order_id')
-            ->where('r.status', 'processed')->whereBetween('r.processed_at', [$start, $end]), 'f.branch_id')->distinct()->sum('r.amount');
-        $net = (float) $l->gross - (float) $l->discounts - (float) $l->cancelled - (float) $refunds;
-        $orders = (int) $l->orders;
+        $l = $this->lines($s, $start, $end)->selectRaw('coalesce(sum(oi.line_subtotal), 0) as gross, coalesce(sum(oi.discount_amount), 0) as discounts,
+            coalesce(sum(oi.unit_final_price * oi.quantity_cancelled), 0)::numeric(14,2) as cancelled')->first();
+        $gross = Money::of((string) $l->gross);
+        $discounts = Money::of((string) $l->discounts);
+        $cancelled = Money::of((string) $l->cancelled);
+        $refunds = Money::of($this->refundsOutsideLines($s, $start, $end));
+        $booked = SalesBasis::totals($s, $start, $end);
+        $net = $gross->minus($discounts)->minus($cancelled)->minus($refunds);
+        $orders = $booked['orders']; // the dashboard's count: orders with a live part in the viewer's branches
+        $average = $orders > 0 ? Money::ofMinor((int) round($net->minor / $orders)) : Money::zero();
 
         return ['columns' => ['metric', 'value'], 'rows' => [
-            ['metric' => 'orders', 'value' => $orders], ['metric' => 'gross_sales', 'value' => $this->d($l->gross)],
-            ['metric' => 'discounts', 'value' => $this->d($l->discounts)], ['metric' => 'cancelled', 'value' => $this->d($l->cancelled)],
-            ['metric' => 'refunds', 'value' => $this->d($refunds)], ['metric' => 'net_sales', 'value' => $this->d($net)],
-            ['metric' => 'average_order_value', 'value' => $this->d($orders ? $net / $orders : 0)],
-        ], 'summary' => ['net_sales' => $this->d($net), 'orders' => $orders]];
+            ['metric' => 'orders', 'value' => $orders], ['metric' => 'booked_sales', 'value' => $booked['total']->toDecimal()],
+            ['metric' => 'gross_sales', 'value' => $gross->toDecimal()],
+            ['metric' => 'discounts', 'value' => $discounts->toDecimal()], ['metric' => 'cancelled', 'value' => $cancelled->toDecimal()],
+            ['metric' => 'refunds', 'value' => $refunds->toDecimal()], ['metric' => 'net_sales', 'value' => $net->toDecimal()],
+            ['metric' => 'average_order_value', 'value' => $average->toDecimal()],
+        ], 'summary' => ['net_sales' => $net->toDecimal(), 'orders' => $orders, 'booked_sales' => $booked['total']->toDecimal()]];
     }
 
     private function salesByBranch(BranchScope $s, $start, $end): array
@@ -112,13 +154,19 @@ class ReportService
     // ── Inventory ────────────────────────────────────────────────────────────
     private function inventoryLevels(BranchScope $s): array
     {
-        $rows = $s->apply(DB::table('branch_inventory as bi')->join('branches as b', 'b.id', '=', 'bi.branch_id')->join('product_variants as v', 'v.id', '=', 'bi.product_variant_id'), 'bi.branch_id')
+        $scoped = fn () => $s->apply(DB::table('branch_inventory as bi')->join('branches as b', 'b.id', '=', 'bi.branch_id')->join('product_variants as v', 'v.id', '=', 'bi.product_variant_id'), 'bi.branch_id');
+        // Same meaning as the dashboard tile (StockLevels): an item a branch never held is not a stock position, so it is not listed or counted.
+        [$low, $lowBindings] = StockLevels::lowSql('bi');
+        $threshold = StockLevels::defaultThreshold();
+        $rows = $scoped()->whereRaw(StockLevels::hadStockSql('bi'))
             ->selectRaw("b.code as branch, v.sku, bi.on_hand, bi.reserved, (bi.on_hand - bi.reserved) as available, bi.minimum_stock,
-                CASE WHEN bi.on_hand - bi.reserved <= 0 THEN 'out' WHEN bi.minimum_stock > 0 AND bi.on_hand - bi.reserved <= bi.minimum_stock THEN 'low' ELSE 'ok' END as state")
-            ->orderBy('available')->limit(5000)->get();
+                CASE WHEN bi.on_hand - bi.reserved <= 0 THEN 'out' WHEN {$low} THEN 'low' ELSE 'ok' END as state", $lowBindings)
+            ->orderBy('available')->orderBy('b.code')->orderBy('v.sku')->limit($this->levelRows)->get();
+        // The counts come from SQL over every row: the list above is capped, the summary never is.
+        $counts = StockLevels::counts($scoped());
 
         return ['columns' => ['branch', 'sku', 'on_hand', 'reserved', 'available', 'minimum_stock', 'state'], 'rows' => $rows->map(fn ($r) => (array) $r)->all(),
-            'summary' => ['low' => $rows->where('state', 'low')->count(), 'out' => $rows->where('state', 'out')->count()]];
+            'summary' => ['low' => $counts['low'], 'out' => $counts['out'], 'low_stock_default' => $threshold]];
     }
 
     private function inventoryValuation(BranchScope $s): array
@@ -143,13 +191,16 @@ class ReportService
 
     private function fastSlowMovers(BranchScope $s, $start, $end): array
     {
-        $rows = $s->apply(DB::table('product_variants as v')->join('branch_inventory as bi', 'bi.product_variant_id', '=', 'v.id')
-            ->leftJoin('stock_movements as m', fn ($j) => $j->on('m.product_variant_id', '=', 'v.id')->on('m.branch_id', '=', 'bi.branch_id')
-                ->where('m.type', 'sale_deduction')->whereBetween('m.created_at', [$start, $end])), 'bi.branch_id')
-            ->selectRaw('v.sku, sum(-coalesce(m.quantity, 0)) as units_sold, max(bi.on_hand) as on_hand')->groupBy('v.sku')->orderByDesc('units_sold')->limit(500)->get();
+        // Sales are totalled per branch and variant FIRST, then joined to the stock rows: joining raw movements to stock would repeat a branch's
+        // on-hand figure once per movement. On hand is the SUM over the viewer's branches (it used to be the largest single branch).
+        $sold = DB::table('stock_movements as m')->where('m.type', 'sale_deduction')->whereBetween('m.created_at', [$start, $end])
+            ->selectRaw('m.branch_id, m.product_variant_id, sum(-m.quantity) as units')->groupBy('m.branch_id', 'm.product_variant_id');
+        $rows = $s->apply(DB::table('branch_inventory as bi')->join('product_variants as v', 'v.id', '=', 'bi.product_variant_id')
+            ->leftJoinSub($sold, 'sold', fn ($j) => $j->on('sold.branch_id', '=', 'bi.branch_id')->on('sold.product_variant_id', '=', 'bi.product_variant_id')), 'bi.branch_id')
+            ->selectRaw('v.sku, coalesce(sum(sold.units), 0) as units_sold, sum(bi.on_hand) as on_hand')->groupBy('v.sku')->orderByDesc('units_sold')->orderBy('v.sku')->limit(500)->get();
 
         return ['columns' => ['sku', 'units_sold', 'on_hand'], 'rows' => $rows->map(fn ($r) => (array) $r)->all(),
-            'summary' => ['fast' => $rows->take(10)->pluck('sku'), 'slow' => $rows->where('units_sold', 0)->pluck('sku')->take(20)->values()]];
+            'summary' => ['fast' => $rows->take(10)->pluck('sku')->all(), 'slow' => $rows->where('units_sold', 0)->pluck('sku')->take(20)->values()->all()]];
     }
 
     private function transfers(BranchScope $s, $start, $end): array
@@ -176,17 +227,21 @@ class ReportService
     // ── Customers, delivery, pickup, auctions ────────────────────────────────
     private function customers(BranchScope $s, $start, $end): array
     {
-        $orders = $s->apply(DB::table('orders as o')->join('order_fulfillments as f', 'f.order_id', '=', 'o.id')->whereNotIn('o.status', ['pending_payment', 'cancelled']), 'f.branch_id')
-            ->selectRaw('o.user_id, min(o.placed_at) as first_order, count(distinct o.id) as orders, sum(distinct o.grand_total) as spend')->groupBy('o.user_id');
-        $rows = DB::query()->fromSub($orders, 'c')->get();
-        $inRange = $rows->filter(fn ($r) => $r->first_order >= $start->toDateTimeString() && $r->first_order <= $end->toDateTimeString());
-        $active = $rows->filter(fn ($r) => true);
-        $repeat = $rows->where('orders', '>', 1)->count();
+        // Everything is counted in SQL, one row per customer inside the database and ONE row back: nothing the size of the customer base is loaded
+        // into PHP. A customer's lifetime value is what they spent with the viewer's branches (their share of each order, see SalesBasis), counted
+        // once per order: orders of the same amount are separate orders.
+        $perCustomer = $s->apply(SalesBasis::orderShares(), 's.branch_id')->whereNotNull('s.user_id')
+            ->selectRaw('s.user_id, min(s.placed_at) as first_order, count(distinct s.order_id) as orders, sum(s.share) as spend')->groupBy('s.user_id');
+        $r = DB::query()->fromSub($perCustomer, 'c')->selectRaw('count(*) as customers, count(*) filter (where c.orders > 1) as repeat,
+            count(*) filter (where c.first_order >= ? and c.first_order <= ?) as new_customers, coalesce(sum(c.spend), 0)::numeric(14,2) as spend', [$start, $end])->first();
+        $customers = (int) $r->customers;
+        $repeat = (int) $r->repeat;
+        $average = $customers > 0 ? Money::ofMinor((int) round(Money::of((string) $r->spend)->minor / $customers)) : Money::zero();
 
         return ['columns' => ['metric', 'value'], 'rows' => [
-            ['metric' => 'new_customers', 'value' => $inRange->count()], ['metric' => 'customers_with_orders', 'value' => $active->count()],
-            ['metric' => 'repeat_customers', 'value' => $repeat], ['metric' => 'repeat_rate_percent', 'value' => $rows->count() ? round($repeat * 100 / $rows->count(), 1) : 0],
-            ['metric' => 'average_lifetime_value', 'value' => $this->d($rows->count() ? $rows->sum('spend') / $rows->count() : 0)],
+            ['metric' => 'new_customers', 'value' => (int) $r->new_customers], ['metric' => 'customers_with_orders', 'value' => $customers],
+            ['metric' => 'repeat_customers', 'value' => $repeat], ['metric' => 'repeat_rate_percent', 'value' => $customers ? round($repeat * 100 / $customers, 1) : 0],
+            ['metric' => 'average_lifetime_value', 'value' => $average->toDecimal()],
             // Sign-ups belong to no branch: only someone who sees every branch is shown the company-wide count.
             ...($s->all ? [['metric' => 'new_registrations', 'value' => DB::table('users')->where('type', 'customer')->whereBetween('created_at', [$start, $end])->count()]] : []),
         ], 'summary' => []];
@@ -243,8 +298,13 @@ class ReportService
 
     private function financeRefunds(BranchScope $s, $start, $end): array
     {
-        $rows = $s->apply(DB::table('refunds as r')->join('order_fulfillments as f', 'f.order_id', '=', 'r.order_id')->whereBetween('r.created_at', [$start, $end]), 'f.branch_id')
-            ->selectRaw('r.status, r.method, count(distinct r.id) as refunds, sum(distinct r.amount) as amount')->groupBy('r.status', 'r.method')->get();
+        // A refund is one row whatever the number of branches that fulfilled its order (it used to be joined to every fulfillment and then
+        // de-duplicated by amount, which merged two different refunds of the same amount into one). The branch scope is a filter on its order.
+        $q = DB::table('refunds as r')->whereBetween('r.created_at', [$start, $end]);
+        if (! $s->all) {
+            $q->whereIn('r.order_id', $s->apply(DB::table('order_fulfillments as f')->select('f.order_id'), 'f.branch_id'));
+        }
+        $rows = $q->selectRaw('r.status, r.method, count(*) as refunds, sum(r.amount) as amount')->groupBy('r.status', 'r.method')->orderBy('r.status')->orderBy('r.method')->get();
 
         return ['columns' => ['status', 'method', 'refunds', 'amount'], 'rows' => $rows->map(fn ($r) => (array) $r)->all(), 'summary' => []];
     }

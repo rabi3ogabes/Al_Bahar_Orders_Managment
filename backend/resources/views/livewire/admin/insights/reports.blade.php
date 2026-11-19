@@ -1,7 +1,8 @@
 @php
     $money = ['gross', 'discounts', 'net', 'cost_value', 'retail_value', 'collected', 'not_handed_in', 'amount', 'outstanding', 'captured_amount', 'refunded_amount', 'winning_bid', 'value'];
-    $moneyMetrics = ['gross_sales', 'discounts', 'cancelled', 'refunds', 'net_sales', 'average_order_value', 'average_lifetime_value'];
-    $label = fn ($k) => \Illuminate\Support\Facades\Lang::has('content_admin.col_'.$k) ? __('content_admin.col_'.$k) : \Illuminate\Support\Str::headline($k);
+    $moneyMetrics = ['booked_sales', 'gross_sales', 'discounts', 'cancelled', 'refunds', 'net_sales', 'average_order_value', 'average_lifetime_value'];
+    $label = fn ($k) => \Illuminate\Support\Facades\Lang::has('owner_numbers.col_'.$k) ? __('owner_numbers.col_'.$k)
+        : (\Illuminate\Support\Facades\Lang::has('content_admin.col_'.$k) ? __('content_admin.col_'.$k) : \Illuminate\Support\Str::headline($k));
 @endphp
 <div>
     <x-admin.page-header :title="__('nav.reports')" :eyebrow="__('nav.insights')" :description="__('content_admin.reports_hint')">
@@ -44,11 +45,12 @@
                 <div class="p-5 sm:p-6">
                     <h2 class="font-display text-2xl font-semibold">{{ $report ? __('content_admin.r_'.$report) : '—' }}</h2>
                     <p class="mt-1 text-sm text-ink-500">{{ $report ? __('content_admin.rd_'.$report) : '' }}</p>
+                    @if ($report && \Illuminate\Support\Facades\Lang::has('owner_numbers.note_'.$report))<p class="mt-2 max-w-3xl text-xs leading-relaxed text-ink-500">{{ __('owner_numbers.note_'.$report, ['n' => \App\Domain\Reports\Services\StockLevels::defaultThreshold()]) }}</p>@endif
                     @if ($result && ! empty($result['summary']))
                         <dl class="mt-5 flex flex-wrap gap-3">
                             @foreach ($result['summary'] as $k => $v)
                                 @if (is_scalar($v))
-                                    <div class="rounded-xl bg-sand-50 px-4 py-2.5 dark:bg-ink-800/60"><dt class="text-xs text-ink-500">{{ $label($k) }}</dt><dd class="font-display text-xl font-semibold tabular-nums">@if (in_array($k, ['net_sales', 'net', 'cost_value', 'retail_value', 'collected', 'total', 'captured'], true))<x-admin.money :value="(string) $v" />@else{{ is_numeric($v) ? number_format((float) $v, floor((float) $v) == (float) $v ? 0 : 1) : $v }}@endif</dd></div>
+                                    <div class="rounded-xl bg-sand-50 px-4 py-2.5 dark:bg-ink-800/60"><dt class="text-xs text-ink-500">{{ $label($k) }}</dt><dd class="font-display text-xl font-semibold tabular-nums">@if (in_array($k, ['net_sales', 'booked_sales', 'net', 'cost_value', 'retail_value', 'collected', 'total', 'captured'], true))<x-admin.money :value="(string) $v" />@else{{ is_numeric($v) ? number_format((float) $v, floor((float) $v) == (float) $v ? 0 : 1) : $v }}@endif</dd></div>
                                 @endif
                             @endforeach
                         </dl>

@@ -35,7 +35,7 @@ they don't hold, or change their own roles or status.
   half-saved per row.
 
 ## 4. Inventory
-- **Stock levels** shows on hand, reserved and available per branch; set min/max thresholds for low-stock alerts.
+- **Stock levels** shows on hand, reserved and available per branch; set min/max thresholds for low-stock alerts. An item with no minimum of its own counts as *low* when 3 or fewer are left (the shop-wide default, setting `inventory.low_stock_default`); the dashboard tile and the stock report use the same rule, and *out of stock* counts only items the branch has held before (an empty row for something never stocked there is not "out").
 - **Adjustments** (damage, loss, found) need a second person to approve.
 - **Transfers**: request → approve (reserves stock at source) → dispatch → receive (partial, damaged quantities) → complete.
 - **Stocktaking**: start a count (whole branch or a category incl. sub-categories), scan or type counts, submit, then a
@@ -79,7 +79,7 @@ real time on server time. Winners have a payment deadline; unpaid winners are ha
 ## 8. Marketing, content & notifications
 - **Deals** (Marketing › Deals): a countdown (`dd:hh:mm:ss`) and a special price on one product or many, with a limited quantity, limits per order and per customer account, and a widget you design (style, colours, words, live preview). Units that get a deal price are never discounted twice; staff-made orders and auctions get no deal prices. Full guide with three worked examples: [DEALS.md](DEALS.md). The app menu can show Deals (or Auctions) as a raised round **middle button** (Appearance › App footer).
 - **Promotions/coupons**: date windows, usage limits per customer and total, stackable flag. Delivery always costs the zone fee (there is no "free above X" minimum); the only way to waive it is a **Free delivery** promotion with a coupon code, which always requires the code and combines with item discounts. *Applies to*: the **whole basket**, **selected categories** (sub-categories included) or **specific products** — search by name or SKU, or paste a list of product/variant SKUs (up to 200 products; use categories beyond that). Only the targeted lines are discounted, a fixed amount never exceeds their value, and a coupon whose products aren't in the basket tells the customer it isn't eligible. A branch restriction can be combined with any of these.
-- **Campaigns**: only customers who gave marketing consent are targeted; schedule and preview before sending.
+- **Campaigns**: only customers who gave marketing consent are targeted; schedule and preview before sending. *Send now* returns at once and the campaign is delivered in the background: the list shows *Sending* with how many customers are done and reached, and refreshes by itself. Two people (or the scheduler) can never send the same campaign twice, and no customer is messaged twice: if the sending is interrupted (for example by an update of the system) it resumes by itself after 30 minutes. It ends as *Sent*, or *Partly sent* when some customers' messages could not go out (the counts say how many), and the Audit log records `marketing.campaign_sent` for sends from the dashboard and from the scheduler.
 - **Loyalty & referrals**: earning/redemption rules; manual point adjustments need a reason.
 - **Reviews**: approve/reject; answer product questions.
 - **Homepage builder** (Content › Homepage builder): the other home sections (categories, products, brands, offers, auctions): reorder, schedule, edit both languages, preview what the app receives.
@@ -113,6 +113,16 @@ The page is a map of the home page, top to bottom. Each **slider** (a row of pic
 **Reports** lists only the reports your role may see (sales, payments, refunds, stock, transfers, auctions, marketing…),
 always limited to your branches. Large exports run in the background — collect them from **Exports** (links expire).
 
+## 10. Dashboard numbers, System health and the Audit log
+The dashboard shows only what your role looks after (a stock manager sees stock, a cashier sees money), and every figure is limited to your branches.
+- **Sales today**: orders placed today (Qatar time, the day changes at midnight there), not cancelled and not waiting for their online payment, at their booked value (items, delivery and service fees, tax, less discounts). It says nothing about whether the money has arrived. An online order counts once its payment is confirmed.
+- **Collected today**: money that really came in today: online payments captured plus cash and card collections staff recorded (cash on delivery, pay at pickup). Auction deposits are not counted.
+- **Orders today**: the same orders as *Sales today*. The 14-day chart and the reports use the same definition, so the three always agree. The **Sales summary** report shows *Booked sales* (this figure) next to *Net sales*, which counts items only: item value, less discounts, less items cancelled after ordering, less refunds that the lines do not already explain (a cancellation or an item change is already taken off in the lines, so it is not taken off twice).
+- An order split between branches is shown to each branch as its own part, to the cent, and the parts always add up to the order. A part a branch cancelled is not counted. A branch's *Collected today* is its own cash plus its share of online payments.
+- **Low stock** counts items with a few left (their own minimum, or 3 when none is set) and shows how many are **out of stock** (only items the branch has held before).
+- **System health** (super admins and people who manage settings): when each scheduled task last ran, which are overdue or failed (red), how many background jobs wait and how many failed. If a task is red, the work it does (expiring unpaid orders, confirming payments, sending scheduled campaigns) is not happening: tell your technical contact.
+- **Audit log** shows the last 30 days unless you pick dates, and counts matching entries only up to 1,000 ("1,000+"): narrow the dates or the search to find older or more specific entries. A record's own trail (opened from its page) is not limited by date.
+
 ---
 
 # دليل الإدارة (العربية)
@@ -141,7 +151,7 @@ always limited to your branches. Large exports run in the background — collect
 - **الاستيراد**: نزّل القالب واملأه وارفعه؛ تظهر الصفوف الخاطئة ويمكن تنزيلها.
 
 ## ٤. المخزون
-- **مستويات المخزون**: المتوفر والمحجوز والمتاح لكل فرع، مع حدود دنيا وعليا للتنبيه.
+- **مستويات المخزون**: المتوفر والمحجوز والمتاح لكل فرع، مع حدود دنيا وعليا للتنبيه. الصنف بلا حد أدنى خاص يُعدّ *منخفضاً* عند بقاء 3 أو أقل (الحد الافتراضي للمتجر، الإعداد `inventory.low_stock_default`)، وتستخدم بطاقة اللوحة وتقرير المخزون القاعدة نفسها، و*النافد* يعدّ الأصناف التي حملها الفرع من قبل فقط (صف فارغ لصنف لم يُخزَّن هناك قط ليس نافداً).
 - **التسويات** (تلف، فقد، عُثر عليه) تحتاج موافقة شخص آخر.
 - **التحويلات**: طلب ← موافقة (حجز في المصدر) ← إرسال ← استلام (جزئي أو تالف) ← إكمال.
 - **الجرد**: ابدأ الجرد (الفرع كاملاً أو فئة مع فئاتها الفرعية)، امسح أو أدخل الكميات، أرسل، ثم يعتمد المدير الفروقات.
@@ -175,7 +185,7 @@ always limited to your branches. Large exports run in the background — collect
 
 ## ٨. التسويق والمحتوى والإشعارات
 - **العروض والقسائم**: فترات زمنية، حدود استخدام لكل عميل وإجمالية، وخيار الدمج. التوصيل المجاني يُدمج دائماً. *ينطبق على*: **السلة بالكامل** أو **فئات محددة** (مع فئاتها الفرعية) أو **منتجات محددة** — ابحث بالاسم أو الرمز SKU أو الصق قائمة رموز المنتجات/المتغيرات (حتى 200 منتج؛ استخدم الفئات لما يزيد). تُخصم القيمة من السطور المستهدفة فقط، ولا يتجاوز الخصم الثابت قيمتها، وإذا لم تكن منتجات القسيمة في السلة يُبلَغ العميل بأنها غير مؤهلة. ويمكن دمج تقييد الفرع مع أي منها.
-- **الحملات**: تستهدف فقط العملاء الموافقين على التسويق؛ جدولة ومعاينة قبل الإرسال.
+- **الحملات**: تستهدف فقط العملاء الموافقين على التسويق؛ جدولة ومعاينة قبل الإرسال. *إرسال الآن* يعود فوراً وتُسلَّم الحملة في الخلفية: تعرض القائمة *قيد الإرسال* مع عدد من اكتمل ومن تم الوصول إليهم وتتحدث تلقائياً. لا يمكن لشخصين (أو للمجدول) إرسال الحملة نفسها مرتين، ولا يُراسَل عميل مرتين: وإذا انقطع الإرسال (مثلاً بسبب تحديث النظام) يستأنف تلقائياً بعد 30 دقيقة. وتنتهي الحملة *مرسلة* أو *أُرسلت جزئياً* إن تعذّر إرسال رسائل بعض العملاء (تذكر الأعداد كم عددهم)، ويسجّل سجل التدقيق `marketing.campaign_sent` للإرسال من اللوحة ومن المجدول.
 - **الولاء والإحالات**: قواعد الكسب والاستبدال؛ التعديل اليدوي للنقاط يتطلب سبباً.
 - **التقييمات**: قبول/رفض والرد على أسئلة المنتجات.
 - **منسّق الصفحة الرئيسية** (المحتوى ‹ منسّق الصفحة الرئيسية): بقية أقسام الرئيسية (الفئات والمنتجات والعلامات والعروض والمزادات): رتّبها وجدولها وعدّل باللغتين وعاين ما يستقبله التطبيق.
@@ -197,3 +207,13 @@ always limited to your branches. Large exports run in the background — collect
 
 ## ٩. التقارير والتصدير
 تعرض **التقارير** ما يسمح به دورك فقط وضمن فروعك. التصديرات الكبيرة تعمل في الخلفية وتُستلم من **التصديرات** (الروابط مؤقتة).
+
+## ١٠. أرقام لوحة التحكم وسلامة النظام وسجل التدقيق
+تعرض اللوحة ما يتولاه دورك فقط (مدير المخزون يرى المخزون، وأمين الصندوق يرى المال)، وكل رقم محصور في فروعك.
+- **مبيعات اليوم**: الطلبات المقدَّمة اليوم (بتوقيت قطر، ويتغيّر اليوم عند منتصف الليل هناك) دون الملغاة ودون التي تنتظر الدفع الإلكتروني، بقيمتها المسجَّلة (الأصناف ورسوم التوصيل والخدمة والضريبة ناقص الخصومات). لا يقول هذا الرقم إن كان المال وصل أم لا. ويُحتسب الطلب الإلكتروني بعد تأكيد دفعه.
+- **المحصَّل اليوم**: المال الذي وصل فعلاً اليوم: المدفوعات الإلكترونية المستلمة مع التحصيلات النقدية وبالبطاقة التي سجّلها الموظفون (الدفع عند الاستلام والدفع في الفرع). تأمينات المزادات غير محتسبة.
+- **طلبات اليوم**: هي الطلبات نفسها في *مبيعات اليوم*. والرسم البياني لـ 14 يوماً والتقارير تستخدم التعريف نفسه فلا تختلف الأرقام. ويعرض تقرير **ملخص المبيعات** *المبيعات المسجَّلة* (هذا الرقم) بجانب *صافي المبيعات* الذي يحتسب الأصناف فقط: قيمة الأصناف ناقص الخصومات ناقص الأصناف الملغاة بعد الطلب ناقص المبالغ المستردة التي لا تفسّرها السطور أصلاً (الإلغاء وتعديل الأصناف محسوبان في السطور فلا يُخصمان مرتين).
+- الطلب المقسوم على عدة فروع يظهر لكل فرع بحصته إلى أقرب فلس، ومجموع الحصص يساوي الطلب دائماً. والحصة التي ألغاها فرع لا تُحتسب. و*المحصَّل اليوم* للفرع هو نقده الخاص مع حصته من المدفوعات الإلكترونية.
+- **المخزون المنخفض** يعدّ الأصناف التي بقي منها القليل (حدّها الأدنى الخاص أو 3 إن لم يوجد حد) ويعرض عدد **النافد** (للأصناف التي حملها الفرع من قبل فقط).
+- **سلامة النظام** (المشرفون العامون ومن يديرون الإعدادات): متى عملت كل مهمة مجدولة آخر مرة، وأيها متأخرة أو فاشلة (بالأحمر)، وكم مهمة بالانتظار في الخلفية وكم فشلت. إذا ظهرت مهمة حمراء فالعمل الذي تؤديه (إنهاء الطلبات غير المدفوعة، تأكيد المدفوعات، إرسال الحملات المجدولة) لا يحدث: أبلغ مسؤولك التقني.
+- **سجل التدقيق** يعرض آخر 30 يوماً ما لم تحدد تواريخ، ويعدّ السجلات المطابقة حتى 1000 فقط («+1,000»): ضيّق التواريخ أو البحث لتجد الأقدم أو الأدق. أما سجل عنصر بعينه (المفتوح من صفحته) فلا تحدّه التواريخ.

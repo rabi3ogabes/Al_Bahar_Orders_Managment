@@ -11,6 +11,7 @@ use App\Domain\Notifications\Services\NotificationRules;
 use App\Livewire\Admin\Concerns\WithAdminTable;
 use App\Support\BusinessTime;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -98,44 +99,76 @@ class CampaignIndex extends Component
         if ($data['when'] === 'now') {
             abort_unless($this->can('marketing.approve'), 403);
         }
-        $c = $this->editingId ? MarketingCampaign::findOrFail($this->editingId) : new MarketingCampaign(['created_by' => auth()->id(), 'status' => 'draft']);
-        $old = $c->exists ? $c->only(['name', 'status', 'scheduled_at']) : [];
-        $c->fill(['name' => $data['name'], 'channels' => array_values($data['channels']), 'title_en' => $data['title_en'], 'title_ar' => $data['title_ar'],
-            'body_en' => $data['body_en'], 'body_ar' => $data['body_ar'], 'deep_link' => $data['deep_link'] ?: null, 'segment' => $this->segment(),
-            'status' => $data['when'] === 'later' ? 'scheduled' : 'draft',
-            'scheduled_at' => $data['when'] === 'later' ? CarbonImmutable::parse($data['scheduled_at'], BusinessTime::zone())->utc() : null])->save();
-        $audit->log($old ? 'marketing.campaign_updated' : 'marketing.campaign_created', $c, $old, $c->only(['name', 'status', 'scheduled_at', 'channels', 'segment']));
+        // The row is locked while it is edited: a campaign that was sent (or is being sent) since the editor opened is never overwritten back to a draft.
+        $conflict = false;
+        $c = DB::transaction(function () use ($data, $audit, &$conflict) {
+            if ($this->editingId) {
+                $c = MarketingCampaign::whereKey($this->editingId)->lockForUpdate()->firstOrFail();
+                if (! in_array($c->status, ['draft', 'scheduled'], true)) {
+                    $conflict = true;
+
+                    return $c;
+                }
+            } else {
+                $c = new MarketingCampaign(['created_by' => auth()->id(), 'status' => 'draft']);
+            }
+            $old = $c->exists ? $c->only(['name', 'status', 'scheduled_at']) : [];
+            $c->fill(['name' => $data['name'], 'channels' => array_values($data['channels']), 'title_en' => $data['title_en'], 'title_ar' => $data['title_ar'],
+                'body_en' => $data['body_en'], 'body_ar' => $data['body_ar'], 'deep_link' => $data['deep_link'] ?: null, 'segment' => $this->segment(),
+                'status' => $data['when'] === 'later' ? 'scheduled' : 'draft', 'status_note' => null,
+                'scheduled_at' => $data['when'] === 'later' ? CarbonImmutable::parse($data['scheduled_at'], BusinessTime::zone())->utc() : null])->save();
+            $audit->log($old ? 'marketing.campaign_updated' : 'marketing.campaign_created', $c, $old, $c->only(['name', 'status', 'scheduled_at', 'channels', 'segment']));
+
+            return $c;
+        });
         $this->showEditor = false;
+        if ($conflict) {
+            $this->toast($c->status === 'sending' ? __('owner_numbers.campaign_already_sending') : __('marketing_admin.campaign_not_sendable'), 'error');
+
+            return;
+        }
         if ($data['when'] === 'now') {
-            $this->sendNow($c->id, $svc, $audit);
+            $this->sendNow($c->id, $svc);
         } else {
             $this->toast($c->status === 'scheduled' ? __('marketing_admin.campaign_scheduled') : __('admin.saved'));
         }
     }
 
-    public function sendNow(string $id, CampaignService $svc, AuditLogger $audit): void
+    /**
+     * Starts the send and returns at once: the campaign is claimed in ONE atomic step (a second person, or the scheduler, finds it taken and nothing
+     * is sent twice) and its delivery runs in the background, so a big audience never ties up the page or times out. The list shows the progress.
+     * The audit record is written by the service when the delivery ends, by whichever path started it.
+     */
+    public function sendNow(string $id, CampaignService $svc): void
     {
         abort_unless($this->can('marketing.approve'), 403);
         $c = MarketingCampaign::findOrFail($id);
-        if (! in_array($c->status, ['draft', 'scheduled'], true)) {
-            $this->toast(__('marketing_admin.campaign_not_sendable'), 'error');
-
-            return;
-        }
         if (! app(NotificationRules::class)->enabled('campaign')) {
             $this->toast(__('notification_rules_admin.campaign_off'), 'error'); // switched off in Content > Notification controls
 
             return;
         }
-        $n = $svc->send($c);
-        if ($n === 0) {
-            // Nobody could be reached (every channel switched off in Notification controls, nobody opted in, or an empty audience): not sent, status unchanged.
-            $this->toast(__('marketing_admin.campaign_nothing_sent'), 'error');
+        $outcome = $svc->start($c, auth()->user());
+        if ($outcome === CampaignService::NOT_SENDABLE) {
+            $this->toast($c->fresh()?->status === 'sending' ? __('owner_numbers.campaign_already_sending') : __('marketing_admin.campaign_not_sendable'), 'error');
 
             return;
         }
-        $audit->log('marketing.campaign_sent', $c, [], ['recipients' => $n]);
-        $this->toast(trans_choice('marketing_admin.campaign_sent', $n, ['count' => $n]));
+        if ($outcome === CampaignService::SWITCHED_OFF) {
+            $this->toast(__('notification_rules_admin.campaign_off'), 'error');
+
+            return;
+        }
+        $c = $c->fresh();
+        // Where the work already ended (a server without a queue, a tiny audience): say what really happened. Otherwise it is on its way.
+        if ($c && in_array($c->status, ['sent', 'partly_sent'], true)) {
+            $this->toast(trans_choice('marketing_admin.campaign_sent', $c->recipients_count, ['count' => $c->recipients_count]));
+        } elseif ($c && in_array($c->status, ['draft', 'scheduled'], true)) {
+            // Nobody could be reached (every channel switched off in Notification controls, nobody opted in, or an empty audience): not sent, status unchanged.
+            $this->toast(__('marketing_admin.campaign_nothing_sent'), 'error');
+        } else {
+            $this->toast(__('owner_numbers.campaign_started'));
+        }
     }
 
     public function sendTest(string $id, CampaignService $svc): void
@@ -150,19 +183,23 @@ class CampaignIndex extends Component
     {
         abort_unless($this->can('marketing.edit'), 403);
         $c = MarketingCampaign::findOrFail($id);
-        abort_unless(in_array($c->status, ['draft', 'scheduled'], true), 409);
-        $c->update(['status' => 'cancelled']);
-        $audit->log('marketing.campaign_cancelled', $c, ['status' => 'scheduled'], ['status' => 'cancelled']);
+        $before = $c->status;
+        // One atomic step: a campaign that was claimed for sending a moment ago cannot be cancelled underneath its own delivery.
+        $cancelled = MarketingCampaign::whereKey($id)->whereIn('status', ['draft', 'scheduled'])->update(['status' => 'cancelled', 'status_note' => null]);
+        abort_unless($cancelled === 1, 409);
+        $audit->log('marketing.campaign_cancelled', $c, ['status' => $before], ['status' => 'cancelled']);
         $this->toast(__('marketing_admin.campaign_cancelled'));
     }
 
     public function render(CampaignService $svc)
     {
         $s = trim($this->search);
+        $campaigns = MarketingCampaign::query()->when($this->filterStatus, fn ($q, $st) => $q->where('status', $st))
+            ->when($s, fn ($q) => $q->where('name', 'ilike', "%{$s}%"))->latest()->paginate($this->perPage);
 
         return view('livewire.admin.marketing.campaigns', [
-            'campaigns' => MarketingCampaign::query()->when($this->filterStatus, fn ($q, $st) => $q->where('status', $st))
-                ->when($s, fn ($q) => $q->where('name', 'ilike', "%{$s}%"))->latest()->paginate($this->perPage),
+            'campaigns' => $campaigns,
+            'anySending' => $campaigns->contains(fn (MarketingCampaign $c) => $c->status === 'sending'), // the list refreshes itself while one is going out
             'reach' => $this->showEditor ? $svc->audience($this->segment())->count() : null,
             'branches' => $this->showEditor ? Branch::orderBy('sort_order')->get(['id', 'code', 'name_en', 'name_ar']) : collect(),
             'groups' => $this->showEditor ? CustomerGroup::orderBy('name_en')->get() : collect(),

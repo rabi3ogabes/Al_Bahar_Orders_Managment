@@ -5,6 +5,7 @@ namespace App\Domain\Marketing\Services;
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Identity\Models\User;
+use App\Domain\Marketing\Jobs\DeliverCampaignJob;
 use App\Domain\Messaging\Services\ContactHistory;
 use App\Domain\Notifications\Models\MarketingCampaign;
 use App\Domain\Notifications\Models\Notification;
@@ -40,52 +41,204 @@ class CampaignService
     /** A scheduled campaign that comes due more than this long before it can go out (campaign messages were off, the scheduler was down) is not sent. */
     public const SCHEDULE_GRACE_HOURS = 24;
 
+    /** A campaign that has been "sending" without any progress for this long lost its worker (a deploy killed it): the scheduler resumes it. */
+    public const STALE_MINUTES = 30;
+
+    /** One delivery job works this long, then queues the rest as a new job (a worker is never held for an hour). */
+    public const TIME_BUDGET_SECONDS = 120;
+
+    private const CHUNK = 200;
+
+    /** Customers handled between two progress updates (a property so a test can make it small). */
+    protected int $chunk = self::CHUNK;
+
+    public const STARTED = 'started';
+
+    public const NOT_SENDABLE = 'not_sendable';
+
+    public const SWITCHED_OFF = 'switched_off';
+
     /**
-     * Sends a draft or scheduled campaign to its audience. Returns how many customers it reached on at least one channel. It is marked *sent*
-     * only when that is at least one: if every channel is switched off, nobody in the audience can be reached, or the audience is empty, the
-     * campaign keeps its status (and 0 is returned) so nobody is told "sent" about a message that did not go out.
+     * Claims a draft or scheduled campaign for sending: ONE atomic UPDATE ... WHERE status IN ('draft','scheduled'), so when two people press
+     * *Send now*, or *Send now* meets the scheduler, exactly one of them gets it (the other's UPDATE finds the status already changed and touches
+     * nothing). It never reads the status first. The campaign is only claimed while campaign messages are switched on.
+     *
+     * @return string STARTED | NOT_SENDABLE (already sending, sent, cancelled) | SWITCHED_OFF
      */
-    public function send(MarketingCampaign $campaign): int
+    public function claim(MarketingCampaign $campaign, ?User $by = null): string
     {
-        $before = $campaign->status;
-        if (! in_array($before, ['draft', 'scheduled'], true)) {
-            return 0;
-        }
-        // Campaign messages switched off in the notification controls: the campaign stays as it is (a scheduled one waits) and nobody is told "sent".
         if (! app(NotificationRules::class)->enabled('campaign')) {
-            return 0;
+            return self::SWITCHED_OFF;
         }
-        $campaign->update(['status' => 'sending']);
-        $n = 0;
-        $this->audience($campaign->segment ?? [])->chunkById(500, function ($users) use ($campaign, &$n) {
-            foreach ($users as $user) {
-                try {
-                    $ar = $user->preferredLocale() === 'ar';
-                    $channels = $this->notify->notify($user, 'campaign', ['title' => $ar ? $campaign->title_ar : $campaign->title_en, 'body' => $ar ? $campaign->body_ar : $campaign->body_en,
-                        'deep_link' => $campaign->deep_link,
-                        'by_locale' => ['ar' => ['title' => $campaign->title_ar, 'body' => $campaign->body_ar], 'en' => ['title' => $campaign->title_en, 'body' => $campaign->body_en]]], $campaign->channels, $campaign->id);
-                    if ($channels !== []) {
-                        $n++; // reached on at least one channel (a customer who opted out of them all, or a channel switched off, does not count)
-                    }
-                } catch (\Throwable $e) {
-                    report($e); // one customer's problem must not leave the other 999 without the campaign and the campaign stuck on "sending"
-                }
-            }
-        });
-        if ($n === 0) {
-            $campaign->update(['status' => $before]);
+        $claimed = DB::table('marketing_campaigns')->where('id', $campaign->id)->whereIn('status', ['draft', 'scheduled'])->update([
+            'status' => 'sending', 'status_note' => 'queued', 'started_by' => $by?->id, 'audience_total' => null, 'processed_count' => 0, 'failed_count' => 0,
+            'recipients_count' => 0, 'updated_at' => now(),
+        ]);
 
-            return 0;
-        }
-        $campaign->update(['status' => 'sent', 'sent_at' => now(), 'recipients_count' => $n]);
-
-        return $n;
+        return $claimed === 1 ? self::STARTED : self::NOT_SENDABLE;
     }
 
     /**
-     * The scheduler's job (every minute): sends the scheduled campaigns whose time has come. One that came due more than
-     * SCHEDULE_GRACE_HOURS ago is NOT sent (an offer that is days old; typically campaign messages were switched off meanwhile): it ends as
-     * *cancelled* with the note `missed_when_due` and an audit record, and the team can create it again.
+     * Starts a send and returns at once: claims the campaign and queues its delivery. The page shows the progress; the people it reaches are counted as
+     * the job goes. Use {@see self::send()} to deliver in the current process instead.
+     *
+     * @return string STARTED | NOT_SENDABLE | SWITCHED_OFF
+     */
+    public function start(MarketingCampaign $campaign, ?User $by = null): string
+    {
+        $outcome = $this->claim($campaign, $by);
+        if ($outcome === self::STARTED) {
+            DeliverCampaignJob::dispatch($campaign->id);
+        }
+
+        return $outcome;
+    }
+
+    /**
+     * Sends a draft or scheduled campaign to its audience right here, to the end, and returns how many customers it reached on at least one channel.
+     * It is marked *sent* only when that is at least one: if every channel is switched off, nobody in the audience can be reached, or the audience is
+     * empty, the campaign keeps its status (and 0 is returned) so nobody is told "sent" about a message that did not go out.
+     * The web page and the scheduler use {@see self::start()}, which does the same work in the background.
+     */
+    public function send(MarketingCampaign $campaign, ?User $by = null): int
+    {
+        if ($this->claim($campaign, $by) !== self::STARTED) {
+            return 0;
+        }
+        $this->deliver($campaign, PHP_INT_MAX);
+        $fresh = MarketingCampaign::find($campaign->id);
+
+        return $fresh !== null && in_array($fresh->status, ['sent', 'partly_sent'], true) ? $fresh->recipients_count : 0;
+    }
+
+    /**
+     * The delivery itself, resumable and safe to run twice at once. For every customer of the audience the campaign first writes one row in
+     * `marketing_campaign_recipients` (unique per campaign and customer) and only the run that wrote it sends the message; both happen in one
+     * transaction, so a crash leaves either both or neither. A second worker, a retried job or a resumed campaign therefore skips everyone already
+     * handled instead of messaging them again. Progress is written after every chunk of customers.
+     *
+     * @param  int  $budgetSeconds  stop after this long (checked between chunks) and report that more is left
+     * @return bool true when the campaign has been finished (sent, partly sent or put back), false when customers are left for another job
+     */
+    public function deliver(MarketingCampaign $campaign, int $budgetSeconds = self::TIME_BUDGET_SECONDS): bool
+    {
+        $c = MarketingCampaign::find($campaign->id);
+        if ($c === null || $c->status !== 'sending') {
+            return true; // finished, cancelled or never claimed: nothing to do
+        }
+        $segment = $c->segment ?? [];
+        if ($c->audience_total === null) {
+            DB::table('marketing_campaigns')->where('id', $c->id)->update(['audience_total' => $this->audience($segment)->count(), 'status_note' => 'delivering', 'updated_at' => now()]);
+        }
+        $deadline = microtime(true) + $budgetSeconds;
+        $stoppedBySwitch = false;
+        $this->audience($segment)->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('marketing_campaign_recipients as r')
+            ->whereColumn('r.user_id', 'users.id')->where('r.campaign_id', $c->id))
+            ->chunkById($this->chunk, function ($users) use ($c, $deadline, &$stoppedBySwitch) {
+                if (! app(NotificationRules::class)->enabled('campaign')) {
+                    $stoppedBySwitch = true; // switched off while sending: stop where we are, nobody else is messaged
+
+                    return false;
+                }
+                foreach ($users as $user) {
+                    $this->deliverTo($c, $user);
+                }
+                $this->recordProgress($c->id);
+
+                return microtime(true) < $deadline;
+            });
+        if ($stoppedBySwitch) {
+            return $this->finish($c->id, 'switched_off');
+        }
+        $more = $this->audience($segment)->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('marketing_campaign_recipients as r')
+            ->whereColumn('r.user_id', 'users.id')->where('r.campaign_id', $c->id))->exists();
+
+        return $more ? false : $this->finish($c->id);
+    }
+
+    /** One customer, once: record the claim, send, record the result: all or nothing. A failure is recorded as such and never stops the others. */
+    private function deliverTo(MarketingCampaign $campaign, User $user): void
+    {
+        try {
+            DB::transaction(function () use ($campaign, $user) {
+                $mine = DB::table('marketing_campaign_recipients')->insertOrIgnore(['campaign_id' => $campaign->id, 'user_id' => $user->id, 'state' => 'skipped', 'created_at' => now()]);
+                if ($mine === 0) {
+                    return; // an earlier run (or a parallel one) already handled this customer
+                }
+                $ar = $user->preferredLocale() === 'ar';
+                $channels = $this->notify->notify($user, 'campaign', ['title' => $ar ? $campaign->title_ar : $campaign->title_en, 'body' => $ar ? $campaign->body_ar : $campaign->body_en,
+                    'deep_link' => $campaign->deep_link,
+                    'by_locale' => ['ar' => ['title' => $campaign->title_ar, 'body' => $campaign->body_ar], 'en' => ['title' => $campaign->title_en, 'body' => $campaign->body_en]]], $campaign->channels, $campaign->id);
+                // reached on at least one channel (a customer who opted out of them all, or a channel switched off, is "skipped")
+                DB::table('marketing_campaign_recipients')->where('campaign_id', $campaign->id)->where('user_id', $user->id)
+                    ->update(['state' => $channels === [] ? 'skipped' : 'sent', 'channels' => json_encode($channels)]);
+            });
+        } catch (\Throwable $e) {
+            report($e); // one customer's problem must not leave the other 999 without the campaign, nor the campaign stuck on "sending"
+            // Also when the failure came after the commit (queueing the push or SMS failed): the customer was not fully reached, so it is recorded as failed.
+            DB::table('marketing_campaign_recipients')->upsert([['campaign_id' => $campaign->id, 'user_id' => $user->id, 'state' => 'failed', 'error' => class_basename($e), 'created_at' => now()]],
+                ['campaign_id', 'user_id'], ['state', 'error']);
+        }
+    }
+
+    /** Writes the counters the page shows and refreshes `updated_at`, which is also how a stalled send is told from a working one. */
+    private function recordProgress(string $campaignId): void
+    {
+        $r = $this->tally($campaignId);
+        DB::table('marketing_campaigns')->where('id', $campaignId)->where('status', 'sending')
+            ->update(['recipients_count' => $r['reached'], 'processed_count' => $r['processed'], 'failed_count' => $r['failed'], 'status_note' => 'delivering', 'updated_at' => now()]);
+    }
+
+    /** @return array{reached: int, processed: int, failed: int} */
+    private function tally(string $campaignId): array
+    {
+        $r = DB::table('marketing_campaign_recipients')->where('campaign_id', $campaignId)
+            ->selectRaw("count(*) as processed, count(*) filter (where state = 'sent') as reached, count(*) filter (where state = 'failed') as failed")->first();
+
+        return ['reached' => (int) ($r->reached ?? 0), 'processed' => (int) ($r->processed ?? 0), 'failed' => (int) ($r->failed ?? 0)];
+    }
+
+    /**
+     * Ends the delivery. Somebody reached: *sent*, or *partly sent* when some customers' messages errored (or campaign messages were switched off
+     * part-way), with the counts, a `sent_at` and ONE audit record (the compare-and-set below lets exactly one finisher write it, whichever path
+     * ran the campaign). Nobody reached: the campaign goes back to what it was, with a note saying why, so nobody is told "sent" about nothing.
+     */
+    private function finish(string $campaignId, ?string $stopped = null): bool
+    {
+        $c = MarketingCampaign::find($campaignId);
+        if ($c === null || $c->status !== 'sending') {
+            return true;
+        }
+        $t = $this->tally($campaignId);
+        if ($t['reached'] === 0) {
+            DB::table('marketing_campaign_recipients')->where('campaign_id', $campaignId)->delete(); // nobody was reached: a later try must be free to try everyone
+            DB::table('marketing_campaigns')->where('id', $campaignId)->where('status', 'sending')->update([
+                'status' => $c->scheduled_at !== null ? 'scheduled' : 'draft', 'status_note' => $t['failed'] > 0 ? 'all_failed' : 'nothing_reached',
+                'audience_total' => null, 'processed_count' => 0, 'failed_count' => 0, 'recipients_count' => 0, 'updated_at' => now(),
+            ]);
+
+            return true;
+        }
+        $partly = $t['failed'] > 0 || $stopped !== null;
+        $done = DB::table('marketing_campaigns')->where('id', $campaignId)->where('status', 'sending')->update([
+            'status' => $partly ? 'partly_sent' : 'sent', 'status_note' => $stopped ?? ($t['failed'] > 0 ? 'some_not_sent' : null), 'sent_at' => now(),
+            'recipients_count' => $t['reached'], 'processed_count' => $t['processed'], 'failed_count' => $t['failed'], 'updated_at' => now(),
+        ]);
+        if ($done === 1) {
+            $starter = $c->started_by ? User::find($c->started_by) : null;
+            app(AuditLogger::class)->log('marketing.campaign_sent', $c, ['status' => 'sending'], ['status' => $partly ? 'partly_sent' : 'sent', 'recipients' => $t['reached']],
+                ['via' => $starter ? 'dashboard' : 'scheduler', 'processed' => $t['processed'], 'failed' => $t['failed'], 'audience' => $c->audience_total, 'stopped' => $stopped], actor: $starter);
+        }
+
+        return true;
+    }
+
+    /**
+     * The scheduler's job (every minute): starts the scheduled campaigns whose time has come, and picks up a campaign whose sending stopped without
+     * finishing. One that came due more than SCHEDULE_GRACE_HOURS ago is NOT sent (an offer that is days old; typically campaign messages were
+     * switched off meanwhile): it ends as *cancelled* with the note `missed_when_due` and an audit record, and the team can create it again.
+     *
+     * "sent" counts the campaigns this tick started or resumed (their delivery runs in the background, or right away on a server without a queue).
      *
      * @return array{sent: int, missed: int}
      */
@@ -104,10 +257,20 @@ class CampaignService
 
                     return;
                 }
-                if ($this->send($c) > 0) {
+                if ($this->start($c) === self::STARTED) {
                     $sent++;
                 }
             });
+
+        // A campaign whose delivery stopped (the worker was killed, the job was lost): take it over once, atomically, and carry on from where it stopped.
+        $stale = now()->subMinutes(self::STALE_MINUTES);
+        MarketingCampaign::where('status', 'sending')->where('updated_at', '<', $stale)->pluck('id')->each(function (string $id) use (&$sent, $stale) {
+            $took = DB::table('marketing_campaigns')->where('id', $id)->where('status', 'sending')->where('updated_at', '<', $stale)->update(['status_note' => 'resumed', 'updated_at' => now()]);
+            if ($took === 1) {
+                DeliverCampaignJob::dispatch($id);
+                $sent++;
+            }
+        });
 
         return ['sent' => $sent, 'missed' => $missed];
     }

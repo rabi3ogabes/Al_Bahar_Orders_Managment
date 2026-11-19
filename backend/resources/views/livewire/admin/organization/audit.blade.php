@@ -28,6 +28,9 @@
             </div>
             @if ($hasFilters)<button type="button" wire:click="clearFilters" class="btn-ghost btn-sm"><x-icon name="x" class="size-3.5" />{{ __('org_admin.clear_filters') }}</button>@endif
         </x-admin.toolbar>
+        @if ($defaultWindow)
+            <p class="border-b border-sand-100 bg-sand-50/60 px-4 py-2.5 text-xs text-ink-500 dark:border-ink-800 dark:bg-ink-800/40" data-audit-window>{{ __('owner_numbers.audit_window_default') }}</p>
+        @endif
         @if ($subject)
             <div class="flex items-center gap-2 border-b border-sand-100 bg-sand-50/60 px-4 py-2.5 text-xs text-ink-600 dark:border-ink-800 dark:bg-ink-800/40">
                 <x-icon name="filter" class="size-3.5" />{{ __('org_admin.filtered_subject') }} <span class="font-mono" dir="ltr">{{ $subject }}</span>
@@ -75,7 +78,17 @@
                     </tbody>
                 </table>
             </div>
-            @if ($logs->hasPages())<div class="border-t border-sand-100 p-4 dark:border-ink-800">{{ $logs->links('components.admin.pagination') }}</div>@endif
+            @if ($logs->hasPages())
+                <nav class="flex items-center justify-between gap-3 border-t border-sand-100 p-4 dark:border-ink-800" aria-label="{{ __('org_admin.page_nav') }}" data-audit-pager>
+                    <p class="text-xs text-ink-500 tabular-nums">{{ __('owner_numbers.audit_showing', ['from' => $logs->firstItem(), 'to' => $logs->lastItem(), 'total' => $capped ? __('owner_numbers.audit_count_capped', ['count' => number_format(\App\Livewire\Admin\Organization\AuditIndex::COUNT_CAP)]) : number_format($logs->total())]) }}</p>
+                    <div class="flex items-center gap-1">
+                        <button type="button" wire:click="previousPage" @disabled($logs->onFirstPage()) class="btn-ghost btn-sm px-2" aria-label="{{ __('owner_numbers.audit_prev') }}"><x-icon name="chevron-left" class="size-4 rtl-flip" /></button>
+                        <span class="px-2 text-xs text-ink-500 tabular-nums">{{ $logs->currentPage() }} / {{ $logs->lastPage() }}</span>
+                        <button type="button" wire:click="nextPage" @disabled(! $logs->hasMorePages()) class="btn-ghost btn-sm px-2" aria-label="{{ __('owner_numbers.audit_next') }}"><x-icon name="chevron-right" class="size-4 rtl-flip" /></button>
+                    </div>
+                </nav>
+            @endif
+            @if ($capped)<p class="border-t border-sand-100 px-4 py-3 text-center text-xs text-ink-500 dark:border-ink-800" data-audit-capped>{{ __('owner_numbers.audit_more', ['count' => number_format(\App\Livewire\Admin\Organization\AuditIndex::COUNT_CAP)]) }}</p>@endif
         @endif
     </div>
 </div>

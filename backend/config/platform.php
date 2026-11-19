@@ -163,6 +163,12 @@ return [
         'apns_backoff_ms' => 250,           // pause before a retry, times the attempt number
     ],
 
+    // Dashboard "Low stock" and the stock report: an item with no minimum of its own counts as low when this many or fewer are left.
+    // Editable later as the setting inventory.low_stock_default (Settings reads the database first and falls back to this).
+    'inventory' => [
+        'low_stock_default' => 3,
+    ],
+
     'payments' => [
         'online_payment_window_minutes' => 30,
         'sadad' => [
