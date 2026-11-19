@@ -65,10 +65,7 @@ function opsAssignedDelivery(string $status = 'assigned'): object
 function opsSplitOrder(string $payment = 'cod'): object
 {
     if ($payment === 'sadad') {
-        config(['platform.payments.sadad' => array_merge(config('platform.payments.sadad'), [
-            'enabled' => true, 'merchant_id' => '1234567', 'secret_key' => 'test-secret', 'website' => 'albahar.qa', 'checkout_url' => 'https://sandbox.sadad.example/webpurchase',
-            'status_url' => null, 'capabilities' => ['hosted_checkout' => true, 'status_api' => false, 'refund_api' => false, 'void' => false, 'authorize_capture' => false],
-        ])]);
+        opsSadad();
     }
     $w = commerceWorld([3, 5], [3, 5]);
     test()->postJson('/api/v1/cart/items', ['variant_id' => $w->v1->id, 'quantity' => 5])->assertCreated();
@@ -82,6 +79,15 @@ function opsSplitOrder(string $payment = 'cod'): object
     $fb = $order->fulfillments->firstWhere('branch_id', $w->b->id);
 
     return (object) ['w' => $w, 'order' => $order, 'fa' => $fa, 'fb' => $fb, 'mgrA' => staffWithRole('order_manager', $w->a), 'mgrB' => staffWithRole('order_manager', $w->b)];
+}
+
+/** Online payment switched on with a sandbox merchant (what the SADAD tests of this project use). */
+function opsSadad(): void
+{
+    config(['platform.payments.sadad' => array_merge(config('platform.payments.sadad'), [
+        'enabled' => true, 'merchant_id' => '1234567', 'secret_key' => 'test-secret', 'website' => 'albahar.qa', 'checkout_url' => 'https://sandbox.sadad.example/webpurchase',
+        'status_url' => null, 'capabilities' => ['hosted_checkout' => true, 'status_api' => false, 'refund_api' => false, 'void' => false, 'authorize_capture' => false],
+    ])]);
 }
 
 /** Walks a parcel through the given statuses as the system (what the staff and driver apps do step by step). */

@@ -42,7 +42,7 @@
                                     <x-admin.order-peek-link :id="$o->id" :number="$o->number" :can="$this->can('orders.view', $row->branch_id)" class="font-medium" />
                                     <x-admin.status :value="$row->status->value" />
                                     <span class="badge-neutral font-mono" dir="ltr">{{ $row->branch->code }}</span>
-                                    @if ($o->payment_method === 'cod' && ! $o->payment_status->isSettled())<span class="badge-warning"><x-icon name="cash" class="size-3" />{{ __('sales_admin.cod_amount', ['amount' => \App\Support\Money::of($o->grand_total)->format()]) }}</span>@endif
+                                    @if ($o->payment_method === 'cod' && ! $o->payment_status->isSettled())<span class="badge-warning"><x-icon name="cash" class="size-3" />{{ __('sales_admin.cod_amount', ['amount' => \App\Domain\Payments\Services\CodSplit::expectedFor($o, $row)->format()]) }}</span>@endif
                                 </div>
                                 <p class="mt-1 truncate text-sm text-ink-600 dark:text-sand-200">{{ $o->customer_name }} · <span class="text-ink-500">{{ $addrLine($o->address_snapshot ?? []) }}</span></p>
                                 @if ($row->slot_date)<p class="text-xs text-ink-500 tabular-nums"><x-icon name="calendar" class="me-1 inline size-3.5" />{{ \App\Support\BusinessTime::display($row->slot_date, 'D d M') }}@if ($row->slot) · {{ substr($row->slot->starts_at, 0, 5) }}–{{ substr($row->slot->ends_at, 0, 5) }}@endif</p>@endif

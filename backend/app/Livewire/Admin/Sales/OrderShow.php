@@ -25,6 +25,7 @@ use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use App\Support\BusinessTime;
 use App\Support\Geo;
 use App\Support\MapConfig;
+use App\Support\Money;
 use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Locked;
@@ -50,7 +51,7 @@ class OrderShow extends Component
 
     public string $note = '';
 
-    /** Dialog state: cancel_order | cancel_fulfillment | return_fulfillment | delivery | decide_cancellation */
+    /** Dialog state: cancel_order | cancel_fulfillment | return_fulfillment | delivery | decide_cancellation | pickup_manual */
     public ?string $dialog = null;
 
     #[Locked]
@@ -117,26 +118,62 @@ class OrderShow extends Component
 
     public function open(string $dialog, ?string $target = null): void
     {
-        abort_unless(in_array($dialog, ['cancel_order', 'cancel_fulfillment', 'return_fulfillment', 'delivery', 'decide_cancellation'], true), 422);
+        abort_unless(in_array($dialog, ['cancel_order', 'cancel_fulfillment', 'return_fulfillment', 'delivery', 'decide_cancellation', 'pickup_manual'], true), 422);
         $this->resetValidation();
         $this->dialog = $dialog;
         $this->target = $target;
+        $o = $dialog === 'pickup_manual' ? $this->order() : null;
         $this->form = match ($dialog) {
             'delivery' => ['mode' => 'internal', 'provider_id' => '', 'driver_id' => '', 'scheduled_for' => ''],
             'decide_cancellation' => ['note' => ''],
+            'pickup_manual' => ['phone_last4' => '', 'reason' => '', 'collector' => (string) $o?->customer_name, 'tender' => 'cash',
+                'amount' => Money::of($o?->grand_total)->minus(Money::of($o?->paid_total))->toDecimal(), 'receipt' => ''],
             default => ['reason_code' => 'customer_request', 'reason' => ''],
         };
         $this->showDialog = true;
     }
 
-    public function confirmDialog(OrderService $orders, DeliveryService $deliveries): void
+    public function confirmDialog(OrderService $orders, DeliveryService $deliveries, PickupService $pickup): void
     {
         match ($this->dialog) {
             'cancel_order' => $this->cancelOrder($orders),
             'cancel_fulfillment', 'return_fulfillment' => $this->closeFulfillment($orders),
             'delivery' => $this->arrangeDelivery($deliveries),
+            'pickup_manual' => $this->handOverWithoutPass($pickup),
             default => abort(422),
         };
+    }
+
+    /** A new pass for a part ready for pickup (the old one stops working, the customer is told): the way out of an expired or lost pass. */
+    public function reissuePass(string $fulfillmentId, PickupService $pickup): void
+    {
+        $f = $this->fulfillment($fulfillmentId);
+        $this->authorizeBranch('pickup.edit', $f->branch_id);
+        $this->attempt(fn () => $pickup->reissue($f, auth()->user(), 'dashboard'), __('ops_integrity.ui.pass_reissued'));
+    }
+
+    /** A manager hands the goods over without the pass: the order's number (this page) and the last 4 digits of the customer's phone stand in for it. */
+    private function handOverWithoutPass(PickupService $pickup): void
+    {
+        $f = $this->fulfillment((string) $this->target);
+        $this->authorizeBranch('pickup.approve', $f->branch_id);
+        $order = $this->order();
+        $needsPayment = $order->payment_method === 'pay_at_pickup' && ! $order->payment_status->isSettled();
+        $data = $this->validate([
+            'form.phone_last4' => 'required|digits:4',
+            'form.reason' => 'required|string|min:3|max:500',
+            'form.collector' => 'required|string|min:2|max:120',
+            'form.tender' => $needsPayment ? 'required|in:cash,card_terminal' : 'nullable',
+            'form.amount' => $needsPayment ? 'required|numeric|min:0' : 'nullable',
+            'form.receipt' => 'nullable|string|max:120',
+        ], [], ['form.phone_last4' => __('ops_integrity.ui.manual_phone'), 'form.reason' => __('ops_integrity.ui.manual_reason'), 'form.collector' => __('ops_integrity.ui.manual_collected_by'),
+            'form.amount' => __('sales_admin.amount_received')])['form'];
+        $collection = $needsPayment ? ['tender' => $data['tender'], 'amount' => (string) $data['amount'], 'receipt_reference' => $data['receipt'] ?: null] : null;
+        $done = $this->attempt(fn () => $pickup->handoverByDetails($order->number, $data['phone_last4'], auth()->user(), $f->branch_id, $data['reason'], [], trim($data['collector']), $collection),
+            __('ops_integrity.ui.manual_done'));
+        if ($done !== null) {
+            $this->showDialog = false;
+        }
     }
 
     private function reasonRules(): array
@@ -265,6 +302,10 @@ class OrderShow extends Component
                 'return' => in_array($f->status, [FS::Delivered, FS::PickedUp], true) && $at(OrderService::permissionFor(FS::Returned), $f->branch_id),
                 'delivery' => $active,
                 'scan' => $f->type === 'pickup' && in_array($f->pickup?->status, ['ready', 'partially_collected'], true) && $at('pickup.approve', $f->branch_id),
+                // A part waiting at the counter: a new pass (pickup.edit) when the customer's expired or was lost, and a manager's hand-over without the pass (pickup.approve).
+                'reissue' => $f->type === 'pickup' && $f->status === FS::PickupReady && in_array($f->pickup?->status, ['ready', 'partially_collected'], true) && $at('pickup.edit', $f->branch_id),
+                'manual' => $f->type === 'pickup' && $f->status === FS::PickupReady && in_array($f->pickup?->status, ['ready', 'partially_collected'], true) && $at('pickup.approve', $f->branch_id)
+                    && ! $o->status->isTerminal() && $o->status->value !== 'pending_payment',
             ];
         }
         // Goods that already left the branch cannot be cancelled with the order: the manager cancels the parts still at the branch one by one, or records a return.

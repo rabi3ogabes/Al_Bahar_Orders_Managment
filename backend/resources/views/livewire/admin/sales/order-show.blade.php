@@ -161,10 +161,19 @@
                         </div>
                     @endif
                     @if ($f->type === 'pickup' && $f->pickup && in_array($f->pickup->status, ['ready', 'partially_collected'], true))
-                        <div class="flex flex-wrap items-center gap-3 border-t border-sand-100 bg-sky-soft/5 px-5 py-3 text-sm sm:px-6 dark:border-ink-800">
-                            <x-icon name="qr" class="size-4 text-sky-soft" />
-                            <span>{{ __('sales_admin.pass_active_until', ['at' => \App\Support\BusinessTime::display($f->pickup->token_expires_at)]) }}</span>
-                            @if ($act['scan'])<a href="{{ route('admin.pickup.scan', ['branch' => $f->branch_id]) }}" wire:navigate class="ms-auto text-xs font-medium text-brass-600 hover:underline">{{ __('sales_admin.open_scanner') }}</a>@endif
+                        @php $passExpired = $f->pickup->token_expires_at?->isPast() ?? false; @endphp
+                        <div @class(['flex flex-wrap items-center gap-3 border-t border-sand-100 px-5 py-3 text-sm sm:px-6 dark:border-ink-800', 'bg-sky-soft/5' => ! $passExpired, 'bg-amber-soft/5' => $passExpired])>
+                            <x-icon name="qr" @class(['size-4', 'text-sky-soft' => ! $passExpired, 'text-amber-soft' => $passExpired]) />
+                            @if ($passExpired)
+                                <span class="font-medium">{{ __('ops_integrity.ui.pass_expired') }}</span><span class="text-xs text-ink-500 tabular-nums">{{ \App\Support\BusinessTime::display($f->pickup->token_expires_at) }}</span>
+                            @else
+                                <span>{{ __('sales_admin.pass_active_until', ['at' => \App\Support\BusinessTime::display($f->pickup->token_expires_at)]) }}</span>
+                            @endif
+                            <span class="ms-auto flex flex-wrap items-center gap-2">
+                                @if ($act['reissue'])<button type="button" wire:click="reissuePass('{{ $f->id }}')" wire:confirm="{{ __('ops_integrity.ui.reissue_confirm') }}" wire:loading.attr="disabled" wire:target="reissuePass" class="btn-secondary btn-sm min-h-11"><x-icon name="refresh" class="size-4" />{{ __('ops_integrity.ui.reissue_pass') }}</button>@endif
+                                @if ($act['manual'])<button type="button" wire:click="open('pickup_manual', '{{ $f->id }}')" class="btn-ghost btn-sm min-h-11"><x-icon name="user" class="size-4" />{{ __('ops_integrity.ui.manual_handover') }}</button>@endif
+                                @if ($act['scan'])<a href="{{ route('admin.pickup.scan', ['branch' => $f->branch_id]) }}" wire:navigate class="text-xs font-medium text-brass-600 hover:underline">{{ __('sales_admin.open_scanner') }}</a>@endif
+                            </span>
                         </div>
                     @endif
 
@@ -331,8 +340,8 @@
     </div>
 
     {{-- Decisions (cancel, return) are centred modals; the delivery form is a side window on the page and a modal when it opens over an order window. --}}
-    <x-admin.dialog wire:model="showDialog" :variant="$drawer || $dialog !== 'delivery' ? 'modal' : 'drawer'" max-width="max-w-lg" :title="match ($dialog) { 'cancel_order' => __('drawer_sales.q_cancel_order'), 'cancel_fulfillment' => __('drawer_sales.q_cancel_part'), 'return_fulfillment' => __('drawer_sales.q_return_part'), 'delivery' => __('sales_admin.act_arrange_delivery'), default => '' }"
-                    :description="match ($dialog) { 'cancel_order' => __('sales_admin.cancel_order_hint'), 'cancel_fulfillment' => __('sales_admin.cancel_branch_hint'), 'return_fulfillment' => __('sales_admin.return_fulfillment_hint'), 'delivery' => __('sales_admin.arrange_delivery_hint'), default => null }">
+    <x-admin.dialog wire:model="showDialog" :variant="$drawer || $dialog !== 'delivery' ? 'modal' : 'drawer'" max-width="max-w-lg" :title="match ($dialog) { 'cancel_order' => __('drawer_sales.q_cancel_order'), 'cancel_fulfillment' => __('drawer_sales.q_cancel_part'), 'return_fulfillment' => __('drawer_sales.q_return_part'), 'delivery' => __('sales_admin.act_arrange_delivery'), 'pickup_manual' => __('ops_integrity.ui.manual_handover'), default => '' }"
+                    :description="match ($dialog) { 'cancel_order' => __('sales_admin.cancel_order_hint'), 'cancel_fulfillment' => __('sales_admin.cancel_branch_hint'), 'return_fulfillment' => __('sales_admin.return_fulfillment_hint'), 'delivery' => __('sales_admin.arrange_delivery_hint'), 'pickup_manual' => __('ops_integrity.ui.manual_hint'), default => null }">
         <form wire:submit="confirmDialog" class="space-y-5">
             @if ($dialog === 'delivery')
                 <div class="grid grid-cols-2 gap-2" role="radiogroup">
@@ -353,6 +362,18 @@
                     </x-admin.field>
                 @endif
                 <x-admin.field :label="__('sales_admin.scheduled_for')" for="form.scheduled_for"><input id="form.scheduled_for" type="datetime-local" wire:model="form.scheduled_for" class="input"></x-admin.field>
+            @elseif ($dialog === 'pickup_manual')
+                <x-admin.field :label="__('ops_integrity.ui.manual_phone')" for="form.phone_last4" required>
+                    <input id="form.phone_last4" wire:model="form.phone_last4" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" dir="ltr" class="input tabular-nums tracking-widest" autofocus>
+                </x-admin.field>
+                <x-admin.field :label="__('ops_integrity.ui.manual_collected_by')" for="form.collector" required><input id="form.collector" wire:model="form.collector" type="text" class="input"></x-admin.field>
+                <x-admin.field :label="__('ops_integrity.ui.manual_reason')" for="form.reason" required><textarea id="form.reason" wire:model="form.reason" rows="2" class="input" placeholder="{{ __('ops_integrity.ui.manual_reason_ph') }}"></textarea></x-admin.field>
+                @if ($o->payment_method === 'pay_at_pickup' && ! $o->payment_status->isSettled())
+                    <div class="grid grid-cols-2 gap-3">
+                        <x-admin.field :label="__('sales_admin.tender')" for="form.tender"><select id="form.tender" wire:model="form.tender" class="input"><option value="cash">{{ __('sales_admin.tender_cash') }}</option><option value="card_terminal">{{ __('sales_admin.tender_card') }}</option></select></x-admin.field>
+                        <x-admin.field :label="__('sales_admin.amount_received')" for="form.amount" required><input id="form.amount" wire:model="form.amount" type="number" step="0.01" min="0" inputmode="decimal" dir="ltr" class="input tabular-nums"></x-admin.field>
+                    </div>
+                @endif
             @elseif ($dialog)
                 <x-admin.field :label="__('sales_admin.reason_code')" for="form.reason_code" required>
                     <select id="form.reason_code" wire:model="form.reason_code" class="input">
@@ -363,7 +384,7 @@
                 @if ($dialog === 'cancel_order' && $o->payment_status->isSettled())<p class="rounded-xl bg-sky-soft/5 p-3 text-xs text-sky-soft dark:text-sky-300"><x-icon name="info" class="me-1 inline size-3.5" />{{ __('sales_admin.cancel_refund_notice') }}</p>@endif
             @endif
             @php
-                $verb = match ($dialog) { 'cancel_order' => __('sales_admin.cancel_order'), 'cancel_fulfillment' => __('sales_admin.cancel_branch_part'), 'return_fulfillment' => __('sales_admin.mark_returned'), 'delivery' => __('sales_admin.act_arrange_delivery'), default => __('admin.confirm') };
+                $verb = match ($dialog) { 'cancel_order' => __('sales_admin.cancel_order'), 'cancel_fulfillment' => __('sales_admin.cancel_branch_part'), 'return_fulfillment' => __('sales_admin.mark_returned'), 'delivery' => __('sales_admin.act_arrange_delivery'), 'pickup_manual' => __('ops_integrity.ui.manual_handover'), default => __('admin.confirm') };
                 $verbClass = in_array($dialog, ['cancel_order', 'cancel_fulfillment'], true) ? 'btn-danger' : 'btn-primary';
             @endphp
             {{-- The last row of the arrange-delivery form (a side window) is pinned to the bottom; a decision modal's row is not (resources/css/app.css excludes [role=alertdialog]). --}}
