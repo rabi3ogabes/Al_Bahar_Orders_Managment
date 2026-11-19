@@ -5,6 +5,7 @@ namespace App\Domain\Orders\Services;
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Branches\Services\SlotService;
 use App\Domain\Deals\Services\DealService;
+use App\Domain\Fulfillment\Services\DeliveryService;
 use App\Domain\Fulfillment\Services\DispatchService;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
@@ -24,6 +25,7 @@ use App\Domain\Orders\Models\OrderNote;
 use App\Domain\Orders\Models\OrderStatusHistory;
 use App\Domain\Payments\Services\PaymentService;
 use App\Support\DomainException;
+use App\Support\Money;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -46,17 +48,37 @@ class OrderService
         private readonly AuditLogger $audit,
     ) {}
 
-    /** Staff-driven fulfillment transition (authorized for the fulfillment's branch). */
-    public function transition(OrderFulfillment $fulfillment, FS $to, ?User $actor, ?string $reason = null, array $meta = [], bool $system = false): OrderFulfillment
+    /** The steps that hand goods over (to a driver, a courier or the customer): refused while a cancellation request waits for a manager. */
+    private const HANDOVER = [FS::Dispatched, FS::OutForDelivery, FS::Delivered, FS::PickedUp];
+
+    /**
+     * The permission a staff member needs, at the fulfillment's branch, to move a fulfillment to $to:
+     * the order desk (orders.edit) accepts, prepares and readies it; the delivery steps need deliveries.edit; collecting a pickup is a pickup right;
+     * cancelling a part or marking it returned (stock goes back on the shelf) is a manager's decision (orders.approve).
+     */
+    public static function permissionFor(FS $to): string
     {
-        if (! $system) {
-            $permission = in_array($to, [FS::Cancelled], true) ? 'orders.approve' : 'orders.edit';
-            if (! $this->access->allows($actor, $permission, $fulfillment->branch_id)) {
-                throw DomainException::make('branch_forbidden', 403);
-            }
+        return match ($to) {
+            FS::Dispatched, FS::OutForDelivery, FS::Delivered, FS::Failed => 'deliveries.edit',
+            FS::Cancelled, FS::Returned => 'orders.approve',
+            FS::PickupReady => 'pickup.edit',
+            FS::PickedUp => 'pickup.approve',
+            default => 'orders.edit',
+        };
+    }
+
+    /**
+     * Staff-driven fulfillment transition (authorized for the fulfillment's branch). A staff member (not the system) cannot mark a cash-on-delivery
+     * order delivered before the cash is recorded: the delivery flow (driver, with proof and the collection) is the way, and it passes `system: true`
+     * after it has recorded the collection.
+     */
+    public function transition(OrderFulfillment $fulfillment, FS $to, ?User $actor, ?string $reason = null, array $meta = [], bool $system = false, bool $moneySettled = false): OrderFulfillment
+    {
+        if (! $system && ! $this->access->allows($actor, self::permissionFor($to), $fulfillment->branch_id)) {
+            throw DomainException::make('branch_forbidden', 403);
         }
 
-        return DB::transaction(function () use ($fulfillment, $to, $actor, $reason, $meta) {
+        return DB::transaction(function () use ($fulfillment, $to, $actor, $reason, $meta, $system, $moneySettled) {
             /** @var OrderFulfillment $f */
             $f = OrderFulfillment::whereKey($fulfillment->id)->lockForUpdate()->firstOrFail();
             $order = Order::whereKey($f->order_id)->lockForUpdate()->firstOrFail();
@@ -69,6 +91,12 @@ class OrderService
             }
             if ($to !== FS::Cancelled && $order->payment_method === 'sadad' && ! $order->payment_status->isSettled()) {
                 throw DomainException::make('order_awaiting_payment', 409);
+            }
+            if (in_array($to, self::HANDOVER, true)) {
+                $this->assertHandoverAllowed($order);
+            }
+            if ($to === FS::Delivered && ! $system && $order->payment_method === 'cod' && ! $order->payment_status->isSettled()) {
+                throw DomainException::make('cod_collection_required', 409, ['amount' => Money::of($order->grand_total)->minus(Money::of($order->paid_total))->format()]);
             }
             if (in_array($to, [FS::Ready, FS::Dispatched, FS::OutForDelivery, FS::Delivered], true) && $f->type === 'pickup') {
                 throw DomainException::make('invalid_state_transition', 409, ['from' => __('status.'.$from->value)]);
@@ -92,6 +120,8 @@ class OrderService
             }
             if ($to === FS::Cancelled) {
                 $this->releaseAll($f, $actor, $reason ?? 'cancelled');
+                // The delivery that has not left the branch is cancelled with the parcel, so no driver is sent for goods that are no longer going anywhere.
+                app(DeliveryService::class)->cancelForFulfillment($f, $actor, $reason ?? '');
             }
             if ($to === FS::Returned) {
                 $this->restockReturn($f, $actor);
@@ -117,6 +147,9 @@ class OrderService
             $this->history($order, $f, 'fulfillment', $from->value, $to->value, $actor, $reason, $meta);
             $this->audit->log('order.fulfillment_'.$to->value, $f, ['status' => $from->value], ['status' => $to->value], ['order' => $order->number, 'reason' => $reason], branchId: $f->branch_id, actor: $actor);
             $this->refreshOrderStatus($order, $actor);
+            if ($to === FS::Cancelled && ! $moneySettled) {
+                $this->settleCancelledParcel($f, $order, $actor, $reason ?? 'cancelled');
+            }
             if ($to === FS::Ready && $f->type === 'delivery') {
                 // Auto-dispatch branches hand the delivery to a driver as soon as it is ready; a failure never blocks the order.
                 DB::afterCommit(fn () => rescue(fn () => app(DispatchService::class)->onFulfillmentReady($f->fresh()), report: true));
@@ -124,6 +157,29 @@ class OrderService
 
             return $f;
         });
+    }
+
+    /**
+     * While a customer's cancellation request waits for a manager, no goods may leave the branch (dispatch, out for delivery, delivery, pickup hand-over):
+     * once they are out the request could never be honoured. Preparing and readying stay allowed. 409 `cancellation_pending`.
+     */
+    public function assertHandoverAllowed(Order $order): void
+    {
+        if ($order->cancellations()->where('status', 'requested')->exists()) {
+            throw OpsError::make('cancellation_pending', 409);
+        }
+    }
+
+    /**
+     * True when goods of the order already left the branch: a part dispatched, out for delivery, delivered or collected, or a pickup part handed
+     * over in part (the part stays `pickup_ready` until everything is collected). Cancelled parts do not count.
+     */
+    public function partlyHandedOver(Order $order): bool
+    {
+        return OrderFulfillment::where('order_id', $order->id)->where('status', '!=', FS::Cancelled->value)->where(function ($q) {
+            $q->whereIn('status', [FS::Dispatched->value, FS::OutForDelivery->value, FS::Delivered->value, FS::PickedUp->value])
+                ->orWhere(fn ($p) => $p->where('status', FS::PickupReady->value)->whereHas('items', fn ($i) => $i->where('quantity_handed_over', '>', 0)));
+        })->exists();
     }
 
     /**
@@ -212,7 +268,7 @@ class OrderService
             $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             $order->load('fulfillments');
             $statuses = $order->fulfillments->reject(fn ($f) => $f->status === FS::Cancelled)->map(fn ($f) => $f->status);
-            if ($statuses->isEmpty() || $statuses->contains(fn (FS $s) => $s->stockHandedOver() || $s->isTerminal())) {
+            if ($statuses->isEmpty() || $statuses->contains(fn (FS $s) => $s->stockHandedOver() || $s->isTerminal()) || $this->partlyHandedOver($order)) {
                 throw DomainException::make('order_not_cancellable', 409);
             }
             if ($order->cancellations()->where('status', 'requested')->exists()) {
@@ -248,6 +304,10 @@ class OrderService
             if ($request->status !== 'requested') {
                 throw DomainException::make('invalid_state_transition', 409, ['from' => $request->status]);
             }
+            if ($approve && $this->partlyHandedOver($order)) {
+                // Goods already left: the request stays open (the manager can decline it, or cancel the parts still at the branch one by one).
+                throw OpsError::make('order_partly_handed_over', 409);
+            }
             $request->update(['status' => $approve ? 'approved' : 'rejected', 'decided_by' => $staff->id, 'decided_at' => now(), 'decision_note' => $note]);
             if ($approve) {
                 $this->cancelOrder($order, $staff, $request->reason_code, $note);
@@ -266,21 +326,47 @@ class OrderService
     {
         DB::transaction(function () use ($order, $actor, $reasonCode, $reason, $system) {
             $order = Order::whereKey($order->id)->lockForUpdate()->with('fulfillments')->firstOrFail();
+            if ($this->partlyHandedOver($order)) {
+                throw OpsError::make('order_partly_handed_over', 409);
+            }
             foreach ($order->fulfillments as $f) {
                 if ($f->status->canTransitionTo(FS::Cancelled)) {
-                    $this->transition($f, FS::Cancelled, $actor, $reasonCode, ['reason' => $reason], system: $system || $actor === null);
+                    $this->transition($f, FS::Cancelled, $actor, $reasonCode, ['reason' => $reason], system: $system || $actor === null, moneySettled: true);
                 }
             }
             $order->refresh();
-            app(PaymentService::class)->onOrderCancelled($order, $actor, $reasonCode);
-            if ($order->user) {
-                app(LoyaltyService::class)->reverseForOrder($order->user, $order->id, 'Order cancelled');
-            }
-            app(PromotionEngine::class)->reverseUsage($order->id);
-            $this->audit->log('order.cancelled', $order, [], ['reason_code' => $reasonCode, 'reason' => $reason], actor: $actor);
+            $this->finishOrderCancellation($order, $actor, $reasonCode, $reason);
         });
 
         return $order->fresh(['fulfillments']);
+    }
+
+    /** What the cancellation of a whole order does once its parts are cancelled: the payment is voided or refunded, loyalty and coupon use are reversed. */
+    private function finishOrderCancellation(Order $order, ?User $actor, string $reasonCode, ?string $reason): void
+    {
+        app(PaymentService::class)->onOrderCancelled($order, $actor, $reasonCode);
+        if ($order->user) {
+            app(LoyaltyService::class)->reverseForOrder($order->user, $order->id, 'Order cancelled');
+        }
+        app(PromotionEngine::class)->reverseUsage($order->id);
+        $this->audit->log('order.cancelled', $order, [], ['reason_code' => $reasonCode, 'reason' => $reason], actor: $actor);
+    }
+
+    /**
+     * One part of the order was cancelled on its own (a manager, in the dashboard or the staff API). The money follows: when it was the last part the
+     * whole order is cancelled and ends like cancelOrder(); otherwise PaymentService::parcelCancelled() takes that part's share off what is owed
+     * (cash on delivery) or asks finance to refund it (already paid), never more than the part's share.
+     */
+    private function settleCancelledParcel(OrderFulfillment $f, Order $order, ?User $actor, string $reason): void
+    {
+        $order = Order::findOrFail($order->id);
+        $live = OrderFulfillment::where('order_id', $order->id)->where('status', '!=', FS::Cancelled->value)->get();
+        if ($live->isEmpty()) {
+            $this->finishOrderCancellation($order, $actor, $reason, null);
+
+            return;
+        }
+        app(PaymentService::class)->parcelCancelled($order, $f, $live, $actor, $reason);
     }
 
     public function addNote(Order $order, User $staff, string $body, ?string $fulfillmentId = null, bool $internal = true): OrderNote

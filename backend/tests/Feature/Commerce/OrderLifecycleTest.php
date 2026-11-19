@@ -6,6 +6,7 @@ use App\Domain\Orders\Enums\FulfillmentStatus as FS;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderInvoice;
 use App\Domain\Orders\Services\OrderService;
+use App\Domain\Payments\Models\Payment;
 
 beforeEach(function () {
     $this->w = commerceWorld();
@@ -45,6 +46,12 @@ it('deducts stock at dispatch and completes on delivery with a full timeline', f
         $this->postJson("/api/v1/admin/fulfillments/{$this->f->id}/transition", ['status' => $s])->assertOk();
     }
     expect(stockOf($this->w->a, $this->w->v1))->toBe(['on_hand' => 3, 'reserved' => 0])->and($this->order->fresh()->status->value)->toBe('out_for_delivery');
+    // A cash on delivery order cannot be marked delivered by a staff member before the cash is recorded (this used to complete the order with no cash at all).
+    $this->postJson("/api/v1/admin/fulfillments/{$this->f->id}/transition", ['status' => 'delivered'])->assertStatus(409)->assertJsonPath('code', 'cod_collection_required');
+    expect($this->f->fresh()->status->value)->toBe('dispatched');
+    $payment = Payment::where('order_id', $this->orderId)->firstOrFail();
+    actingAsStaff(staffWithRole('branch_manager', $this->w->a)); // the cash is taken by someone who may record payments
+    $this->postJson("/api/v1/admin/payments/{$payment->id}/collections", ['fulfillment_id' => $this->f->id, 'tender' => 'cash', 'amount' => $this->order->grand_total])->assertCreated();
     $this->postJson("/api/v1/admin/fulfillments/{$this->f->id}/transition", ['status' => 'delivered'])->assertOk();
     expect($this->order->fresh()->status->value)->toBe('completed');
 

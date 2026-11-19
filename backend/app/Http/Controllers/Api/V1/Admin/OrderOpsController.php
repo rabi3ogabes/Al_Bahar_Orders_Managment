@@ -16,6 +16,7 @@ use App\Domain\Orders\Services\OrderPresenter;
 use App\Domain\Orders\Services\OrderService;
 use App\Domain\Payments\Models\Payment;
 use App\Domain\Payments\Models\Refund;
+use App\Domain\Payments\Services\CodSplit;
 use App\Domain\Payments\Services\PaymentService;
 use App\Domain\Payments\Services\RefundService;
 use App\Http\Controllers\Api\V1\ApiController;
@@ -186,8 +187,10 @@ class OrderOpsController extends ApiController
         $data = $request->validate(['fulfillment_id' => 'required|uuid', 'tender' => 'required|in:cash,card_terminal', 'amount' => 'required|numeric|min:0',
             'receipt_reference' => 'nullable|string|max:120']);
         $f = OrderFulfillment::where('order_id', $payment->order_id)->findOrFail($data['fulfillment_id']);
+        $collection = $payments->recordCollection($payment, $f, $this->user(), $data['tender'], (string) $data['amount'], $data['receipt_reference'] ?? null);
+        CodSplit::refresh(Order::findOrFail($payment->order_id)); // what is left for the drivers still on the road
 
-        return response()->json(['data' => $payments->recordCollection($payment, $f, $this->user(), $data['tender'], (string) $data['amount'], $data['receipt_reference'] ?? null)], 201);
+        return response()->json(['data' => $collection], 201);
     }
 
     public function requestRefund(Request $request, Payment $payment, RefundService $refunds): JsonResponse

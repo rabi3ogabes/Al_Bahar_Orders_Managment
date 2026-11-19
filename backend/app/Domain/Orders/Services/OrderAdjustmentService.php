@@ -8,7 +8,6 @@ use App\Domain\Catalog\Models\Product;
 use App\Domain\Catalog\Models\ProductVariant;
 use App\Domain\Checkout\Services\ExtraDeliveryFee;
 use App\Domain\Deals\Services\DealService;
-use App\Domain\Fulfillment\Enums\DeliveryStatus as DS;
 use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Fulfillment\Services\DeliveryService;
 use App\Domain\Identity\Models\User;
@@ -34,6 +33,8 @@ use App\Domain\Orders\Models\OrderRevisionLine;
 use App\Domain\Orders\Realtime\OrderRealtime;
 use App\Domain\Payments\Models\Payment;
 use App\Domain\Payments\Models\Refund;
+use App\Domain\Payments\Services\CodSplit;
+use App\Domain\Payments\Services\PaymentService;
 use App\Domain\Payments\Services\RefundService;
 use App\Domain\Pricing\Data\EffectivePrice;
 use App\Domain\Pricing\Services\PriceResolver;
@@ -418,6 +419,10 @@ class OrderAdjustmentService
         $fulfillmentEmpty = $liveAfter <= 0;
         $others = OrderFulfillment::where('order_id', $order->id)->where('id', '!=', $f->id)->get(['id', 'status']);
         $orderCancelled = $fulfillmentEmpty && $others->every(fn (OrderFulfillment $o) => $o->status === FS::Cancelled);
+        // Taking away the last item cancels the parcel (and, when it was the last parcel, the order): a manager's decision, like every other cancellation.
+        if ($fulfillmentEmpty && ! $this->access->allows($actor, 'orders.approve', $f->branch_id)) {
+            throw OpsError::make('approval_required', 403);
+        }
 
         // Order totals before and after, from the same parts the checkout built them from.
         $fee = (array) ($order->fee_breakdown ?? []);
@@ -733,21 +738,20 @@ class OrderAdjustmentService
         }
         $open = Payment::where('order_id', $order->id)->whereIn('status', ['pending', 'processing'])->lockForUpdate()->get();
         foreach ($open as $p) {
-            $p->forceFill(['amount' => $grand->max(Money::of($p->captured_amount))->toDecimal()])->save();
+            // A part that was cancelled before this change already came off the amount due (PaymentService::parcelCancelled): it stays off.
+            $p->forceFill(['amount' => $grand->minus(app(PaymentService::class)->cancelledParcelsTotal($p))->max(Money::of($p->captured_amount))->toDecimal()])->save();
         }
         if ($order->payment_method === 'cod') {
-            Delivery::whereIn('order_fulfillment_id', $order->fulfillments()->select('id'))->whereNotIn('status', [DS::Delivered->value, DS::Returned->value, DS::Cancelled->value])
-                ->update(['cod_amount' => $grand->toDecimal()]);
+            // Each open delivery collects its own part's share of what is still due (a split order has one per branch).
+            CodSplit::refresh($order);
         }
     }
 
     /** Every unit of the parcel is gone: the branch's part is cancelled (stock and slot released, status derived again), its open delivery with it. */
     private function cancelEmptyFulfillment(OrderFulfillment $f, User $actor, int $number): void
     {
-        foreach ($f->deliveries()->whereIn('status', [DS::Pending->value, DS::Assigned->value, DS::Accepted->value])->get() as $d) {
-            app(DeliveryService::class)->transition($d, DS::Cancelled, $actor, 'system', 'order items changed', system: true);
-        }
-        $this->orders->transition($f->fresh(), FS::Cancelled, $actor, 'order_adjustment', ['revision' => $number], system: true);
+        app(DeliveryService::class)->cancelForFulfillment($f, $actor, 'order_adjustment'); // the open delivery goes with the parcel, its driver is told
+        $this->orders->transition($f->fresh(), FS::Cancelled, $actor, 'order_adjustment', ['revision' => $number], system: true, moneySettled: true); // its money was settled above
     }
 
     /**

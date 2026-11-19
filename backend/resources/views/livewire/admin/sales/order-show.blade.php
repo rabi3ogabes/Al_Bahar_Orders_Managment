@@ -48,6 +48,10 @@
 
     <x-admin.journey-touches :order="$o" />
 
+    @if ($partlyHandedOver)
+        <p class="mb-5 flex items-start gap-2 text-xs text-ink-500"><x-icon name="info" class="mt-px size-3.5 shrink-0" />{{ __('ops_integrity.ui.partly_handed_over') }}</p>
+    @endif
+
     @if ($pendingCancellation)
         <div class="card mb-6 border-amber-soft/30 bg-amber-soft/5 p-5 sm:p-6">
             <div class="flex flex-col gap-4 md:flex-row md:items-start">

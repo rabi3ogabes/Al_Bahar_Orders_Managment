@@ -132,6 +132,7 @@ class PickupService
             }
             $f = $r->fulfillment()->with('order')->first();
             $order = $f->order;
+            $this->orders->assertHandoverAllowed($order); // no goods leave while the customer's cancellation waits for a manager
 
             if ($order->payment_method === 'pay_at_pickup' && ! $order->payment_status->isSettled()) {
                 if (! $collection) {

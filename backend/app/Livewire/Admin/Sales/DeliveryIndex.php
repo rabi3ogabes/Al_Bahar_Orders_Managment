@@ -70,7 +70,7 @@ class DeliveryIndex extends Component
         abort_unless(in_array($dialog, ['create', 'assign', 'reschedule', 'fail', 'cancel'], true), 422);
         $branch = $dialog === 'create' ? OrderFulfillment::findOrFail($target)->branch_id : Delivery::findOrFail($target)->branch_id;
         $this->authorizeBranch(match ($dialog) {
-            'create' => 'deliveries.create', 'assign', 'reschedule', 'fail' => 'deliveries.assign', default => 'deliveries.edit'
+            'create' => 'deliveries.create', default => 'deliveries.assign' // cancelling a delivery is a dispatcher's step too (DeliveryService::cancel)
         }, $branch);
         $this->resetValidation();
         $this->dialog = $dialog;
@@ -108,7 +108,7 @@ class DeliveryIndex extends Component
 
                 return $this->attempt(fn () => $svc->fail($d, $u, $f['reason_code'], $f['notes'] ?: null), __('sales_admin.delivery_failed'));
             }),
-            'cancel' => $this->withDelivery('deliveries.edit', function (Delivery $d) use ($svc, $u) {
+            'cancel' => $this->withDelivery('deliveries.assign', function (Delivery $d) use ($svc, $u) {
                 $reason = $this->validate(['form.reason' => 'required|string|min:3|max:500'], [], ['form.reason' => __('admin.reason')])['form']['reason'];
 
                 return $this->attempt(fn () => $svc->cancel($d, $u, $reason), __('sales_admin.delivery_cancelled'));
@@ -156,7 +156,7 @@ class DeliveryIndex extends Component
         abort_unless(in_array($action, ['pickup', 'out', 'return', 'retry'], true), 422);
         $d = Delivery::findOrFail($deliveryId);
         $this->authorizeBranch(match ($action) {
-            'return', 'retry' => 'deliveries.edit', default => 'deliveries.assign'
+            'retry' => 'deliveries.edit', default => 'deliveries.assign' // bringing a failed delivery back is a dispatcher's step (DeliveryService::returnToBranch)
         }, $d->branch_id);
         $u = auth()->user();
         match ($action) {

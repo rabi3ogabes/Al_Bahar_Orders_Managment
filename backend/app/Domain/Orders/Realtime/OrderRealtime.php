@@ -5,6 +5,7 @@ namespace App\Domain\Orders\Realtime;
 use App\Domain\Fulfillment\Events\DispatchUpdated;
 use App\Domain\Fulfillment\Events\DriverJobUpdated;
 use App\Domain\Fulfillment\Models\Delivery;
+use App\Domain\Orders\Enums\OrderStatus as OS;
 use App\Domain\Orders\Events\OrderUpdated;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderFulfillment;
@@ -98,8 +99,10 @@ class OrderRealtime
         }
 
         // Branch staff and drivers: one message per changed part or delivery; an order-level change (cancellation asked, payment) pings every part.
+        // An online order the customer has not paid yet is not the branch's work (it cannot be accepted, and the staff queue leaves it out): nothing goes
+        // to the branch until the payment arrives, which is an order-level change and so announces the new order then.
         $targets = [];
-        foreach ($changes as $c) {
+        foreach ($order->status === OS::PendingPayment ? [] : $changes as $c) {
             if ($c['fulfillment'] === null) {
                 foreach ($parts as $part) {
                     $targets['order:'.$part->id] ??= ['kind' => 'order', 'f' => $part, 'd' => $part->activeDelivery(), 'previous' => null, 'level' => true];

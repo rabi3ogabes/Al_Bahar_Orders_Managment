@@ -104,7 +104,7 @@ class OrderShow extends Component
         $f = $this->fulfillment($fulfillmentId);
         $target = FS::tryFrom($to);
         abort_unless($target && in_array($target, self::DIRECT, true), 422);
-        $this->authorizeBranch('orders.edit', $f->branch_id);
+        $this->authorizeBranch(OrderService::permissionFor($target), $f->branch_id); // accepted / preparing / ready: the order desk (orders.edit)
         $this->attempt(fn () => $svc->transition($f, $target, auth()->user()), __('sales_admin.moved_to', ['status' => __('status.'.$target->value)]));
     }
 
@@ -164,7 +164,7 @@ class OrderShow extends Component
         $data = $this->reasonRules();
         $f = $this->fulfillment((string) $this->target);
         $to = $this->dialog === 'cancel_fulfillment' ? FS::Cancelled : FS::Returned;
-        $this->authorizeBranch($to === FS::Cancelled ? 'orders.approve' : 'orders.edit', $f->branch_id);
+        $this->authorizeBranch(OrderService::permissionFor($to), $f->branch_id); // cancelling a part and marking it returned (stock goes back) are manager decisions
         $msg = $to === FS::Cancelled ? __('sales_admin.fulfillment_cancelled') : __('sales_admin.fulfillment_returned');
         if ($this->attempt(fn () => $orders->transition($f, $to, auth()->user(), $data['reason_code'], ['reason' => $data['reason']]), $msg)) {
             $this->showDialog = false;
@@ -262,13 +262,15 @@ class OrderShow extends Component
                 'adjust' => $at('orders.edit', $f->branch_id) && $adjustments->blockedReason($f, $o) === null,
                 'steps' => $a,
                 'cancel' => $next->contains(FS::Cancelled) && $at('orders.approve', $f->branch_id) && $o->fulfillments->count() > 1,
-                'return' => in_array($f->status, [FS::Delivered, FS::PickedUp], true) && $at('orders.edit', $f->branch_id),
+                'return' => in_array($f->status, [FS::Delivered, FS::PickedUp], true) && $at(OrderService::permissionFor(FS::Returned), $f->branch_id),
                 'delivery' => $active,
                 'scan' => $f->type === 'pickup' && in_array($f->pickup?->status, ['ready', 'partially_collected'], true) && $at('pickup.approve', $f->branch_id),
             ];
         }
+        // Goods that already left the branch cannot be cancelled with the order: the manager cancels the parts still at the branch one by one, or records a return.
+        $partlyHandedOver = app(OrderService::class)->partlyHandedOver($o);
         $cancellable = $o->fulfillments->contains(fn ($f) => $f->status->canTransitionTo(FS::Cancelled))
-            && $o->fulfillments->every(fn ($f) => $at('orders.approve', $f->branch_id));
+            && $o->fulfillments->every(fn ($f) => $at('orders.approve', $f->branch_id)) && ! $partlyHandedOver;
         $pendingCancellation = $o->cancellations->firstWhere('status', 'requested');
 
         $people = User::whereIn('id', $o->history->pluck('actor_id')->filter()->unique())->pluck('name', 'id');
@@ -296,6 +298,7 @@ class OrderShow extends Component
             'o' => $o,
             'actions' => $actions,
             'cancellable' => $cancellable && ! $o->status->isTerminal(),
+            'partlyHandedOver' => $partlyHandedOver && ! $o->status->isTerminal(),
             'pendingCancellation' => $pendingCancellation,
             'canDecide' => $pendingCancellation && $o->fulfillments->every(fn ($f) => $at('orders.approve', $f->branch_id)),
             'payments' => Payment::where('order_id', $o->id)->with(['refunds', 'collections.collector:id,name'])->orderByDesc('attempt')->get(),

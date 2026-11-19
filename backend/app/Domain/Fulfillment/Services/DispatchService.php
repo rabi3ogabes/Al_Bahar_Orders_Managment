@@ -258,12 +258,10 @@ class DispatchService
     public function staffAssign(OrderFulfillment $f, User $driver, User $staff): Delivery
     {
         $delivery = $f->activeDelivery() ?? $this->deliveries->create($f, $staff);
-        if ($delivery->status === DS::Pending || $delivery->status === DS::Assigned) {
-            $d = $this->deliveries->assignDriver($delivery, $driver, $staff);
-            $this->profile($driver)->update(['last_assigned_at' => now()]);
+        // assignDriver decides what can still be (re)assigned: waiting, assigned, accepted by the previous driver (never once the goods are on the road).
+        $d = $this->deliveries->assignDriver($delivery, $driver, $staff);
+        $this->profile($driver)->update(['last_assigned_at' => now()]);
 
-            return $d;
-        }
-        throw DomainException::make('invalid_state_transition', 409, ['from' => $delivery->status->value]);
+        return $d;
     }
 }

@@ -16,9 +16,11 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Orders\Enums\FulfillmentStatus as FS;
 use App\Domain\Orders\Models\OrderFulfillment;
+use App\Domain\Orders\Services\OpsError;
 use App\Domain\Orders\Services\OrderService;
 use App\Domain\Payments\Models\CashCollection;
 use App\Domain\Payments\Models\Payment;
+use App\Domain\Payments\Services\CodSplit;
 use App\Domain\Payments\Services\PaymentService;
 use App\Support\BusinessTime;
 use App\Support\DomainException;
@@ -30,6 +32,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * Internal delivery (own drivers) and third-party courier deliveries share one model and status machine.
@@ -56,7 +59,7 @@ class DeliveryService
         if ($f->activeDelivery() && $f->activeDelivery()->status->isActive()) {
             throw DomainException::make('delivery_exists', 409);
         }
-        $codAmount = $f->order->payment_method === 'cod' ? $f->order->grand_total : '0.00';
+        $codAmount = CodSplit::expectedFor($f->order, $f)->toDecimal();
         // The customer's chosen slot is the default schedule for the delivery.
         $scheduledFor ??= $f->delivery_slot_id && $f->slot_date ? $this->slots->startsAt($f->delivery_slot_id, $f->slot_date->toDateString()) : null;
         $delivery = Delivery::create([
@@ -78,7 +81,7 @@ class DeliveryService
     /** Delivery created by the system (auto dispatch), without a staff actor. */
     public function createSystem(OrderFulfillment $f): Delivery
     {
-        $codAmount = $f->order->payment_method === 'cod' ? $f->order->grand_total : '0.00';
+        $codAmount = CodSplit::expectedFor($f->order, $f)->toDecimal();
         $scheduledFor = $f->delivery_slot_id && $f->slot_date ? $this->slots->startsAt($f->delivery_slot_id, $f->slot_date->toDateString()) : null;
         $delivery = Delivery::create([
             'order_fulfillment_id' => $f->id, 'branch_id' => $f->branch_id, 'mode' => 'internal', 'status' => DS::Pending,
@@ -116,7 +119,7 @@ class DeliveryService
             $delivery->update(['provider_reference' => $res['reference'], 'actual_fee' => $res['fee'] ?? null,
                 'booking_response' => Redactor::redact($res['raw'] ?? []), 'last_error' => null]);
             $this->transition($delivery, DS::Accepted, null, 'provider', 'booking_confirmed', system: true);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $delivery->update(['last_error' => Str::limit($e instanceof ConnectionException ? 'Provider timeout — retry booking' : $e->getMessage(), 490)]);
             report($e);
         }
@@ -124,6 +127,13 @@ class DeliveryService
         return $delivery->fresh();
     }
 
+    /**
+     * Give the job to a driver, or take it from one and give it to another. Allowed while the goods are still at the branch (waiting,
+     * assigned, accepted by the previous driver, or rescheduled after a failed attempt), never once a driver has picked them up.
+     * One transaction under the parcel's and the delivery's row locks, so two dispatchers (or a double tap) cannot both win.
+     * The same driver again changes nothing. A change of driver is written to the delivery's history and the audit log, and both drivers
+     * are told (the old one: "this job is no longer yours").
+     */
     public function assignDriver(Delivery $delivery, User $driver, User $staff): Delivery
     {
         $this->authorize($staff, 'deliveries.assign', $delivery->branch_id);
@@ -131,37 +141,76 @@ class DeliveryService
         if (! $isDriver || ! $driver->isActive()) {
             throw DomainException::make('driver_not_eligible', 422);
         }
-        $delivery->update(['driver_id' => $driver->id, 'assigned_at' => now(), 'mode' => 'internal']);
-        $this->transition($delivery, DS::Assigned, $staff, 'staff', 'assigned to '.$driver->name);
-        $this->audit->log('delivery.assigned', $delivery, [], ['driver_id' => $driver->id], branchId: $delivery->branch_id, actor: $staff);
 
-        return $delivery->fresh();
+        return DB::transaction(function () use ($delivery, $driver, $staff) {
+            [$f, $d] = $this->lockJob($delivery);
+            $this->assertLive($f, $d);
+            if (! in_array($d->status, [DS::Pending, DS::Assigned, DS::Accepted, DS::Rescheduled], true)) {
+                throw DomainException::make('invalid_state_transition', 409, ['from' => __('status.'.$d->status->value)]);
+            }
+            if ($d->driver_id === $driver->id && in_array($d->status, [DS::Assigned, DS::Accepted], true)) {
+                return $d; // the same driver again (a second tap): nothing to change, nobody to tell
+            }
+            $previous = $d->driver_id;
+            $from = $d->status;
+            if ($from === DS::Accepted) {
+                // The driver who accepted gives the job up: back to the pool first, then to the new driver (Accepted never goes straight to Assigned).
+                $this->transition($d, DS::Pending, $staff, 'staff', 'driver changed');
+            }
+            $d->update(['driver_id' => $driver->id, 'assigned_at' => now(), 'mode' => 'internal']);
+            if ($d->status === DS::Assigned) {
+                $this->log($d, DS::Assigned, DS::Assigned, $staff, 'staff', 'reassigned to '.$driver->name);
+            } else {
+                $this->transition($d, DS::Assigned, $staff, 'staff', ($previous ? 're' : '').'assigned to '.$driver->name);
+            }
+            $this->audit->log('delivery.assigned', $d, ['driver_id' => $previous, 'status' => $from->value], ['driver_id' => $driver->id], branchId: $d->branch_id, actor: $staff);
+            if ($previous !== null && $previous !== $driver->id) {
+                $number = (string) $f->order->number;
+                DB::afterCommit(fn () => rescue(fn () => app(DriverJobAlerts::class)->removed($previous, $number), report: true));
+            }
+
+            return $d->fresh();
+        });
     }
 
     /** The assigned driver (or a dispatcher) accepts the job before collecting it from the branch. */
     public function accept(Delivery $delivery, User $actor): Delivery
     {
         $this->authorizeDriverOrStaff($delivery, $actor);
-        if ($delivery->status !== DS::Assigned) {
-            throw DomainException::make('invalid_state_transition', 409, ['from' => __('status.'.$delivery->status->value)]);
-        }
-        $this->transition($delivery, DS::Accepted, $actor, $this->source($actor), 'accepted by '.$actor->name);
-        $this->audit->log('delivery.accepted', $delivery, ['status' => DS::Assigned->value], ['status' => DS::Accepted->value], branchId: $delivery->branch_id, actor: $actor);
 
-        return $delivery->fresh();
+        return DB::transaction(function () use ($delivery, $actor) {
+            [$f, $d] = $this->lockJob($delivery);
+            if ($d->status === DS::Accepted) {
+                return $d; // the app asked twice
+            }
+            $this->assertLive($f, $d);
+            if ($d->status !== DS::Assigned) {
+                throw DomainException::make('invalid_state_transition', 409, ['from' => __('status.'.$d->status->value)]);
+            }
+            $this->transition($d, DS::Accepted, $actor, $this->source($actor), 'accepted by '.$actor->name);
+            $this->audit->log('delivery.accepted', $d, ['status' => DS::Assigned->value], ['status' => DS::Accepted->value], branchId: $d->branch_id, actor: $actor);
+
+            return $d->fresh();
+        });
     }
 
-    /** Driver picked the goods up from the branch → fulfillment dispatched (stock deducted). */
+    /** Driver picked the goods up from the branch → fulfillment dispatched (stock deducted). Refused while the order is cancelled or a cancellation waits for a manager. */
     public function pickUp(Delivery $delivery, User $actor): Delivery
     {
         $this->authorizeDriverOrStaff($delivery, $actor);
 
         return DB::transaction(function () use ($delivery, $actor) {
-            $this->transition($delivery, DS::PickedUp, $actor, $this->source($actor), null);
-            $delivery->update(['picked_up_at' => now()]);
-            $this->orders->advanceTo($delivery->fulfillment, FS::Dispatched, $actor);
+            [$f, $d] = $this->lockJob($delivery);
+            if ($d->status === DS::PickedUp) {
+                return $d; // the app asked twice
+            }
+            $this->assertLive($f, $d);
+            $this->orders->assertHandoverAllowed($f->order);
+            $this->transition($d, DS::PickedUp, $actor, $this->source($actor), null);
+            $d->update(['picked_up_at' => now()]);
+            $this->orders->advanceTo($f->fresh(), FS::Dispatched, $actor);
 
-            return $delivery->fresh();
+            return $d->fresh();
         });
     }
 
@@ -170,19 +219,28 @@ class DeliveryService
         $this->authorizeDriverOrStaff($delivery, $actor);
 
         return DB::transaction(function () use ($delivery, $actor, $lat, $lng) {
-            $this->transition($delivery, DS::OutForDelivery, $actor, $this->source($actor), null, $lat, $lng);
-            $delivery->update(['out_for_delivery_at' => now()]);
-            $f = $delivery->fulfillment->fresh();
+            [$f, $d] = $this->lockJob($delivery);
+            if ($d->status === DS::OutForDelivery) {
+                return $d; // the app asked twice
+            }
+            $this->assertLive($f, $d);
+            $this->orders->assertHandoverAllowed($f->order);
+            $this->transition($d, DS::OutForDelivery, $actor, $this->source($actor), null, $lat, $lng);
+            $d->update(['out_for_delivery_at' => now()]);
+            $f = $f->fresh();
             if ($f->status->canTransitionTo(FS::OutForDelivery)) {
                 $this->orders->transition($f, FS::OutForDelivery, $actor, system: true);
             }
 
-            return $delivery->fresh();
+            return $d->fresh();
         });
     }
 
     /**
-     * Confirm delivery. Requires proof (photo/signature) when configured; for COD the cash collection is recorded here.
+     * Confirm delivery. Requires proof (photo/signature) when configured; for COD the cash collection is recorded here: the amount of THIS parcel
+     * (`cod_amount`), not the whole order, so the second driver of a split order collects his own part (see CodSplit).
+     * A repeated call (the app retries after a timeout) finds the delivery already delivered and returns it unchanged: no second attempt,
+     * proof, collection or audit row.
      *
      * @param  array{tender: string, amount: string, receipt_reference?: ?string}|null  $cod
      */
@@ -191,51 +249,76 @@ class DeliveryService
         $this->authorizeDriverOrStaff($delivery, $actor);
 
         return DB::transaction(function () use ($delivery, $actor, $recipientName, $proof, $proofType, $cod) {
-            $d = Delivery::whereKey($delivery->id)->lockForUpdate()->firstOrFail();
-            $f = $d->fulfillment()->with('order')->first();
+            [$f, $d] = $this->lockJob($delivery);
+            if ($d->status === DS::Delivered) {
+                return $d;
+            }
+            $this->assertLive($f, $d);
+            if (! $d->status->canTransitionTo(DS::Delivered)) {
+                throw DomainException::make('invalid_state_transition', 409, ['from' => __('status.'.$d->status->value)]);
+            }
+            $order = $f->order;
+            $this->orders->assertHandoverAllowed($order);
             if ($d->requires_proof && ! $proof && ! $d->proofs()->exists()) {
                 throw DomainException::make('delivery_proof_required', 422);
             }
             if ($proof) {
                 $this->storeProof($d, $actor, $proof, $proofType, $recipientName);
             }
-            if ($f->order->payment_method === 'cod' && ! $f->order->payment_status->isSettled()) {
+            if ($order->payment_method === 'cod' && ! $order->payment_status->isSettled()) {
+                CodSplit::refresh($order); // a delivery made before the split rules, or after an adjustment, asks for what is really due now
+                $d->refresh();
                 if (! $cod) {
                     throw DomainException::make('cod_collection_required', 422, ['amount' => Money::of($d->cod_amount)->format()]);
                 }
                 $payment = Payment::where('order_id', $f->order_id)->latest('attempt')->firstOrFail();
-                app(PaymentService::class)->recordCollection($payment, $f, $actor, $cod['tender'], $cod['amount'], $cod['receipt_reference'] ?? null);
+                app(PaymentService::class)->recordCollection($payment, $f, $actor, $cod['tender'], $cod['amount'], $cod['receipt_reference'] ?? null, expected: Money::of($d->cod_amount));
             }
             $attempt = $d->attempt_count + 1;
             DeliveryAttempt::create(['delivery_id' => $d->id, 'attempt_number' => $attempt, 'result' => 'delivered', 'attempted_by' => $actor->id, 'attempted_at' => now()]);
             $d->update(['attempt_count' => $attempt, 'delivered_at' => now()]);
             $this->transition($d, DS::Delivered, $actor, $this->source($actor), $recipientName ? 'received by '.$recipientName : null);
             $this->orders->transition($f->fresh(), FS::Delivered, $actor, system: true);
+            CodSplit::refresh($order->fresh()); // what is left to collect is split among the parcels still on their way
             $this->audit->log('delivery.delivered', $d, [], ['recipient' => $recipientName], branchId: $d->branch_id, actor: $actor);
 
             return $d->fresh();
         });
     }
 
+    /**
+     * Record a failed attempt. A repeat with the same reason (the app retried) changes nothing; another reason on a delivery that already failed is
+     * refused like any other step that is not allowed.
+     */
     public function fail(Delivery $delivery, User $actor, string $reasonCode, ?string $notes = null): Delivery
     {
         $this->authorizeDriverOrStaff($delivery, $actor);
 
         return DB::transaction(function () use ($delivery, $actor, $reasonCode, $notes) {
-            $d = Delivery::whereKey($delivery->id)->lockForUpdate()->firstOrFail();
+            [$f, $d] = $this->lockJob($delivery);
+            if ($d->status === DS::Failed) {
+                if ($d->failure_reason === $reasonCode) {
+                    return $d;
+                }
+                throw DomainException::make('invalid_state_transition', 409, ['from' => __('status.'.$d->status->value)]);
+            }
+            $this->assertLive($f, $d);
+            if (! $d->status->canTransitionTo(DS::Failed)) {
+                throw DomainException::make('invalid_state_transition', 409, ['from' => __('status.'.$d->status->value)]);
+            }
             $attempt = $d->attempt_count + 1;
             DeliveryAttempt::create(['delivery_id' => $d->id, 'attempt_number' => $attempt, 'result' => 'failed', 'failure_reason_code' => $reasonCode,
                 'notes' => $notes, 'attempted_by' => $actor->id, 'attempted_at' => now()]);
             $d->update(['attempt_count' => $attempt, 'failed_at' => now(), 'failure_reason' => $reasonCode]);
             $this->transition($d, DS::Failed, $actor, $this->source($actor), $reasonCode.($notes ? ': '.$notes : ''));
-            $f = $d->fulfillment->fresh();
+            $f = $f->fresh();
             if ($f->status->canTransitionTo(FS::Failed)) {
                 $this->orders->transition($f, FS::Failed, $actor, $reasonCode, system: true);
             }
             $payment = Payment::where('order_id', $f->order_id)->where('method', 'cod')->latest('attempt')->first();
             if ($payment && ! $payment->status->isSettled()) {
                 CashCollection::create(['payment_id' => $payment->id, 'order_fulfillment_id' => $f->id, 'branch_id' => $f->branch_id,
-                    'collected_by' => $actor->id, 'context' => 'cod', 'tender' => 'cash', 'amount_due' => $payment->amount, 'amount_collected' => '0.00',
+                    'collected_by' => $actor->id, 'context' => 'cod', 'tender' => 'cash', 'amount_due' => $d->cod_amount, 'amount_collected' => '0.00',
                     'status' => 'failed', 'failure_reason' => $reasonCode, 'collected_at' => now()]);
             }
 
@@ -243,13 +326,19 @@ class DeliveryService
         });
     }
 
+    /** The new time and the status change are one step: a refused change leaves the old time in place. */
     public function reschedule(Delivery $delivery, User $actor, string $when): Delivery
     {
         $this->authorizeDriverOrStaff($delivery, $actor);
-        $delivery->update(['scheduled_for' => BusinessTime::toUtc($when)]);
-        $this->transition($delivery, DS::Rescheduled, $actor, $this->source($actor), 'rescheduled to '.$when);
 
-        return $delivery->fresh();
+        return DB::transaction(function () use ($delivery, $actor, $when) {
+            [$f, $d] = $this->lockJob($delivery);
+            $this->assertLive($f, $d);
+            $this->transition($d, DS::Rescheduled, $actor, $this->source($actor), 'rescheduled to '.$when);
+            $d->update(['scheduled_for' => BusinessTime::toUtc($when)]);
+
+            return $d->fresh();
+        });
     }
 
     /**
@@ -274,38 +363,111 @@ class DeliveryService
         });
     }
 
-    /** Failed delivery brought back to the branch: stock re-added via the fulfillment's return. */
+    /** Failed delivery brought back to the branch: stock re-added via the fulfillment's return. Only the driver who has the job, or branch staff, may record it. */
     public function returnToBranch(Delivery $delivery, User $actor): Delivery
     {
-        $this->authorize($actor, 'deliveries.edit', $delivery->branch_id);
+        $this->authorizeDriverOrStaff($delivery, $actor);
 
         return DB::transaction(function () use ($delivery, $actor) {
-            if ($delivery->status !== DS::Returning) {
-                $this->transition($delivery, DS::Returning, $actor, 'staff', null);
+            [$f, $d] = $this->lockJob($delivery);
+            if ($d->status === DS::Returned) {
+                return $d; // recorded already
             }
-            $this->transition($delivery, DS::Returned, $actor, 'staff', 'received back at branch');
-            $delivery->update(['returned_at' => now()]);
-            $f = $delivery->fulfillment->fresh();
+            if ($d->status !== DS::Returning) {
+                $this->transition($d, DS::Returning, $actor, 'staff', null);
+            }
+            $this->transition($d, DS::Returned, $actor, 'staff', 'received back at branch');
+            $d->update(['returned_at' => now()]);
+            $f = $f->fresh();
             if ($f->status->canTransitionTo(FS::Returned)) {
                 $this->orders->transition($f, FS::Returned, $actor, 'returned_to_branch', system: true);
             }
+            $this->audit->log('delivery.returned', $d, [], ['status' => DS::Returned->value], branchId: $d->branch_id, actor: $actor);
 
-            return $delivery->fresh();
+            return $d->fresh();
         });
     }
 
+    /**
+     * Cancel a delivery before the goods left the branch (the order itself carries on and can be given to someone else). Only the driver who
+     * has the job, or branch staff, may do it; it is written to the audit log with its reason. The courier's booking is cancelled first, so a
+     * courier that cannot be reached leaves the delivery as it was and the staff member sees why.
+     */
     public function cancel(Delivery $delivery, User $staff, string $reason): Delivery
     {
-        $this->authorize($staff, 'deliveries.edit', $delivery->branch_id);
-        if ($delivery->mode === 'provider' && $delivery->provider_reference) {
-            $adapter = $this->providers->for($delivery->provider);
-            if ($adapter->capabilities()['cancel_booking'] ?? false) {
-                $adapter->cancelBooking($delivery);
+        $this->authorizeDriverOrStaff($delivery, $staff);
+
+        return DB::transaction(function () use ($delivery, $staff, $reason) {
+            [$f, $d] = $this->lockJob($delivery);
+            if ($d->status === DS::Cancelled) {
+                return $d; // cancelled already
+            }
+            if (! $d->status->canTransitionTo(DS::Cancelled)) {
+                throw DomainException::make('invalid_state_transition', 409, ['from' => __('status.'.$d->status->value)]);
+            }
+            if ($d->mode === 'provider' && $d->provider_reference) {
+                $adapter = $this->providers->for($d->provider);
+                if ($adapter->capabilities()['cancel_booking'] ?? false) {
+                    $adapter->cancelBooking($d);
+                }
+            }
+            $driverId = $d->driver_id;
+            $from = $d->status;
+            $this->transition($d, DS::Cancelled, $staff, 'staff', $reason);
+            $this->audit->log('delivery.cancelled', $d, ['status' => $from->value, 'driver_id' => $driverId], ['status' => DS::Cancelled->value], ['reason' => $reason, 'order' => $f->order->number], branchId: $d->branch_id, actor: $staff);
+            $this->tellDriverCancelled($driverId, (string) $f->order->number);
+
+            return $d->fresh();
+        });
+    }
+
+    /**
+     * The parcel was cancelled: its delivery that has not left the branch (waiting, assigned or accepted) is cancelled with it, in the same
+     * transaction, with history and an audit row; the driver who had it is told after the commit, and a courier's booking is released (a courier
+     * that cannot be reached never blocks the cancellation: the delivery says so and staff call the courier). A delivery already on the road is
+     * left to the failed / returned flow.
+     */
+    public function cancelForFulfillment(OrderFulfillment $f, ?User $actor, string $reason): void
+    {
+        $number = (string) $f->order()->value('number');
+        foreach (Delivery::where('order_fulfillment_id', $f->id)->whereIn('status', [DS::Pending->value, DS::Assigned->value, DS::Accepted->value])->lockForUpdate()->get() as $d) {
+            $driverId = $d->driver_id;
+            $from = $d->status;
+            $this->transition($d, DS::Cancelled, $actor, $actor ? 'staff' : 'system', 'order cancelled'.($reason !== '' ? ': '.$reason : ''), system: $actor === null);
+            $this->audit->log('delivery.cancelled', $d, ['status' => $from->value, 'driver_id' => $driverId], ['status' => DS::Cancelled->value],
+                ['reason' => 'fulfillment_cancelled', 'detail' => $reason, 'order' => $number], branchId: $d->branch_id, actor: $actor);
+            $this->tellDriverCancelled($driverId, $number);
+            if ($d->mode === 'provider' && $d->provider_reference) {
+                $id = $d->id;
+                DB::afterCommit(fn () => $this->releaseCourier($id));
             }
         }
-        $this->transition($delivery, DS::Cancelled, $staff, 'staff', $reason);
+    }
 
-        return $delivery->fresh();
+    /** After the commit: a phone notification for the driver who had the job (the live socket already carries the new state). */
+    private function tellDriverCancelled(?string $driverId, string $number): void
+    {
+        if ($driverId !== null) {
+            DB::afterCommit(fn () => rescue(fn () => app(DriverJobAlerts::class)->cancelled($driverId, $number), report: true));
+        }
+    }
+
+    /** Best effort, after the commit: tell the courier the booking is off. A failure is kept on the delivery for staff to follow up. */
+    private function releaseCourier(string $deliveryId): void
+    {
+        $d = Delivery::with('provider')->find($deliveryId);
+        if ($d === null || $d->mode !== 'provider' || ! $d->provider_reference || $d->provider === null) {
+            return;
+        }
+        try {
+            $adapter = $this->providers->for($d->provider);
+            if ($adapter->capabilities()['cancel_booking'] ?? false) {
+                $adapter->cancelBooking($d);
+            }
+        } catch (Throwable $e) {
+            $d->update(['last_error' => 'Order cancelled but the courier booking could not be cancelled: call the courier']);
+            report($e);
+        }
     }
 
     /** Provider webhook: authenticated, stored once per provider event id, then applied. */
@@ -333,25 +495,33 @@ class DeliveryService
 
             return 'ignored';
         }
-        DB::transaction(function () use ($delivery, $status, $data) {
-            $d = Delivery::whereKey($delivery->id)->lockForUpdate()->firstOrFail();
-            if ($d->status === $status || ! $d->status->canTransitionTo($status)) {
-                return; // out-of-order or repeated status — ignored safely
-            }
-            $this->transition($d, $status, null, 'provider', null, system: true);
-            $f = $d->fulfillment->fresh();
-            $target = match ($status) {
-                DS::PickedUp => FS::Dispatched, DS::OutForDelivery => FS::OutForDelivery, DS::Delivered => FS::Delivered, DS::Failed => FS::Failed, default => null,
-            };
-            if ($status === DS::Delivered && $data['proof_url']) {
-                DeliveryProof::create(['delivery_id' => $d->id, 'type' => 'provider', 'path' => $data['proof_url'], 'captured_at' => now()]);
-            }
-            if ($target === FS::Failed && $f->status->canTransitionTo(FS::Failed)) {
-                $this->orders->transition($f, FS::Failed, null, 'provider_update', system: true);
-            } elseif ($target && $target !== FS::Failed) {
-                $this->orders->advanceTo($f, $target, null, 'provider_update');
-            }
-        });
+        try {
+            DB::transaction(function () use ($delivery, $status, $data) {
+                $d = Delivery::whereKey($delivery->id)->lockForUpdate()->firstOrFail();
+                if ($d->status === $status || ! $d->status->canTransitionTo($status)) {
+                    return; // out-of-order or repeated status — ignored safely
+                }
+                $this->transition($d, $status, null, 'provider', null, system: true);
+                $f = $d->fulfillment->fresh();
+                $target = match ($status) {
+                    DS::PickedUp => FS::Dispatched, DS::OutForDelivery => FS::OutForDelivery, DS::Delivered => FS::Delivered, DS::Failed => FS::Failed, default => null,
+                };
+                if ($status === DS::Delivered && $data['proof_url']) {
+                    DeliveryProof::create(['delivery_id' => $d->id, 'type' => 'provider', 'path' => $data['proof_url'], 'captured_at' => now()]);
+                }
+                if ($target === FS::Failed && $f->status->canTransitionTo(FS::Failed)) {
+                    $this->orders->transition($f, FS::Failed, null, 'provider_update', system: true);
+                } elseif ($target && $target !== FS::Failed) {
+                    $this->orders->advanceTo($f, $target, null, 'provider_update');
+                }
+            });
+        } catch (DomainException $e) {
+            // The courier says picked up / delivered for an order that was cancelled, or while a cancellation waits for a manager: the step is refused
+            // and recorded (staff see it), and the courier gets a normal answer so it does not retry the same message for ever.
+            $event->update(['status' => 'rejected', 'error' => $e->errorCode, 'processed_at' => now()]);
+
+            return 'rejected';
+        }
         $event->update(['status' => 'processed', 'processed_at' => now()]);
 
         return 'processed';
@@ -369,6 +539,29 @@ class DeliveryService
         $d->update(['status' => $to]);
         $this->log($d, $from, $to, $actor, $source, $note, $lat, $lng);
         // The customer, the branch and the driver hear about it from the Delivery model itself (OrderRealtime), once, after the commit.
+    }
+
+    /**
+     * The parcel and its delivery, both locked, in that order: the same order OrderService::transition takes its locks in (parcel, then order),
+     * so a cancellation and a driver's step on the same job wait for each other instead of locking each other out.
+     *
+     * @return array{0: OrderFulfillment, 1: Delivery}
+     */
+    private function lockJob(Delivery $delivery): array
+    {
+        $f = OrderFulfillment::whereKey($delivery->order_fulfillment_id)->lockForUpdate()->firstOrFail();
+        $f->load('order');
+        $d = Delivery::whereKey($delivery->id)->lockForUpdate()->firstOrFail();
+
+        return [$f, $d];
+    }
+
+    /** A cancelled job is never picked up, taken out or delivered: a clear 409 (the driver's app shows the message and drops the job). */
+    private function assertLive(OrderFulfillment $f, Delivery $d): void
+    {
+        if ($f->status === FS::Cancelled || $d->status === DS::Cancelled) {
+            throw OpsError::make('delivery_cancelled', 409);
+        }
     }
 
     private function log(Delivery $d, ?DS $from, DS $to, ?User $actor, string $source, ?string $note, ?float $lat = null, ?float $lng = null): void

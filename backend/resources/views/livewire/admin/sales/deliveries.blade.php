@@ -96,10 +96,10 @@
                                     @if ($canAssign && in_array($st, ['picked_up', 'out_for_delivery'], true))
                                         <button type="button" wire:click="open('fail', '{{ $d->id }}')" class="btn-ghost btn-sm max-md:min-h-11 text-ruby-soft"><x-icon name="alert" class="size-4" />{{ __('sales_admin.mark_failed') }}</button>
                                     @endif
-                                    @if ($canEdit && in_array($st, ['failed', 'rescheduled', 'returning'], true))
+                                    @if ($canAssign && in_array($st, ['failed', 'rescheduled', 'returning'], true))
                                         <button type="button" wire:click="act('{{ $d->id }}', 'return')" wire:confirm="{{ __('sales_admin.confirm_return') }}" class="btn-secondary btn-sm max-md:min-h-11"><x-icon name="refund" class="size-4" />{{ __('sales_admin.return_to_branch') }}</button>
                                     @endif
-                                    @if ($canEdit && in_array($st, ['pending', 'assigned', 'accepted'], true))
+                                    @if ($canAssign && in_array($st, ['pending', 'assigned', 'accepted'], true))
                                         <button type="button" wire:click="open('cancel', '{{ $d->id }}')" class="btn-ghost btn-sm max-md:min-h-11 text-ruby-soft" aria-label="{{ __('sales_admin.cancel_delivery') }}" title="{{ __('sales_admin.cancel_delivery') }}"><x-icon name="x" class="size-4" /></button>
                                     @endif
                                 </div>

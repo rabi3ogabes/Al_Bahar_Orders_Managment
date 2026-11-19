@@ -8,6 +8,7 @@ use App\Domain\Fulfillment\Services\DispatchService;
 use App\Domain\Fulfillment\Services\DriverPosition;
 use App\Domain\Identity\Models\User;
 use App\Domain\Orders\Enums\FulfillmentStatus as FS;
+use App\Domain\Orders\Enums\OrderStatus;
 use App\Domain\Orders\Models\OrderFulfillment;
 use App\Domain\Orders\Models\OrderItem;
 use App\Http\Controllers\Api\V1\ApiController;
@@ -16,6 +17,7 @@ use App\Support\BusinessTime;
 use App\Support\DomainException;
 use App\Support\Geo;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -114,34 +116,41 @@ class DispatchController extends ApiController
     public function overview(Request $request): JsonResponse
     {
         $branch = $this->branchFor($request, 'orders.view');
-        $f = OrderFulfillment::where('branch_id', $branch->id)->where('type', 'delivery');
+        $includePickup = $request->boolean('include_pickup');
+        $f = $this->parts($branch, $includePickup);
         $count = fn (array $s) => (clone $f)->whereIn('status', $s)->count();
         $drivers = $this->dispatch->branchDrivers($branch);
 
         return response()->json(['data' => [
             'branch' => ['id' => $branch->id, 'name' => $branch->localized('name'), 'dispatch_mode' => $branch->dispatch_mode],
-            'new' => $count(['pending']), 'preparing' => $count(['accepted', 'preparing']), 'ready' => $count(['ready']),
+            'new' => $count(['pending']), 'preparing' => $count(['accepted', 'preparing']), 'ready' => $count($includePickup ? ['ready', 'pickup_ready'] : ['ready']),
             'out_for_delivery' => $count(['dispatched', 'out_for_delivery']), 'failed' => $count(['failed']),
             'waiting_for_driver' => Delivery::where('branch_id', $branch->id)->where('status', 'pending')->count()
-                + (clone $f)->where('status', 'ready')->whereDoesntHave('deliveries', fn ($q) => $q->whereNotIn('status', ['cancelled', 'failed', 'returned']))->count(),
+                + (clone $f)->where('status', 'ready')->where('type', 'delivery')->whereDoesntHave('deliveries', fn ($q) => $q->whereNotIn('status', ['cancelled', 'failed', 'returned']))->count(),
             'drivers_on_duty' => $drivers->where('on_duty', true)->count(), 'drivers_total' => $drivers->count(),
         ]]);
     }
 
-    /** Delivery orders of the branch by stage (new | preparing | ready | out | failed | all). A failed delivery stays visible so staff can bring it back. */
+    /**
+     * Delivery orders of the branch by stage (new | preparing | ready | out | failed | all). A failed delivery stays visible so staff can bring it back.
+     * An online order that is not paid yet is left out (it cannot be accepted: the dashboard hides it the same way). Every row carries its `type`
+     * (`delivery`); with `include_pickup=1` the branch's pickup parts are listed too (type `pickup`; `ready` then also means `pickup_ready`), and without
+     * the flag the answer is exactly what it always was.
+     */
     public function queue(Request $request): JsonResponse
     {
         $branch = $this->branchFor($request, 'orders.view');
-        $stages = ['new' => ['pending'], 'preparing' => ['accepted', 'preparing'], 'ready' => ['ready'], 'out' => ['dispatched', 'out_for_delivery'], 'failed' => ['failed']];
+        $includePickup = $request->boolean('include_pickup');
+        $stages = ['new' => ['pending'], 'preparing' => ['accepted', 'preparing'], 'ready' => $includePickup ? ['ready', 'pickup_ready'] : ['ready'], 'out' => ['dispatched', 'out_for_delivery'], 'failed' => ['failed']];
         $stage = (string) $request->query('stage', 'all');
-        $rows = OrderFulfillment::with(['order', 'deliveries.driver:id,name', 'items'])->where('branch_id', $branch->id)->where('type', 'delivery')
+        $rows = $this->parts($branch, $includePickup)->with(['order', 'deliveries.driver:id,name', 'items'])
             ->whereIn('status', $stages[$stage] ?? array_merge(...array_values($stages)))->orderBy('created_at')->limit(100)->get();
 
         return response()->json(['data' => $rows->map(function (OrderFulfillment $f) {
             $d = $f->activeDelivery();
 
             return [
-                'fulfillment_id' => $f->id, 'order_id' => $f->order_id, 'seq' => (int) $f->order->progress_seq, 'status' => $f->status->value, 'number' => $f->order->number, 'placed_at' => BusinessTime::iso($f->order->placed_at),
+                'fulfillment_id' => $f->id, 'order_id' => $f->order_id, 'type' => $f->type, 'seq' => (int) $f->order->progress_seq, 'status' => $f->status->value, 'number' => $f->order->number, 'placed_at' => BusinessTime::iso($f->order->placed_at),
                 'customer_name' => $f->order->customer_name, 'customer_phone' => $f->order->customer_phone, 'alternate_phone' => AlternatePhone::visible($f->order->alternate_phone),
                 'address' => $f->order->address_snapshot,
                 // Only what is still to be prepared and delivered (lines the branch removed or swapped out are not listed); the counters tell the app the order was changed.
@@ -173,6 +182,17 @@ class DispatchController extends ApiController
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────
+
+    /**
+     * The branch's parts the staff app works on: deliveries (and pickups when asked), leaving out orders still waiting for their online payment.
+     *
+     * @return Builder<OrderFulfillment>
+     */
+    private function parts(Branch $branch, bool $includePickup): Builder
+    {
+        return OrderFulfillment::query()->where('branch_id', $branch->id)->whereIn('type', $includePickup ? ['delivery', 'pickup'] : ['delivery'])
+            ->whereHas('order', fn ($o) => $o->where('status', '!=', OrderStatus::PendingPayment->value));
+    }
 
     private function assertDriver(User $u): void
     {

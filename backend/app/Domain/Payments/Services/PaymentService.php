@@ -8,10 +8,12 @@ use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Inventory\Models\StockReservation;
+use App\Domain\Orders\Enums\FulfillmentStatus as FS;
 use App\Domain\Orders\Enums\OrderStatus;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderFulfillment;
 use App\Domain\Orders\Services\OrderService;
+use App\Domain\Orders\Services\ParcelShares;
 use App\Domain\Payments\Contracts\PaymentGateway;
 use App\Domain\Payments\Data\GatewayResult;
 use App\Domain\Payments\Enums\PaymentStatus as PS;
@@ -28,6 +30,7 @@ use App\Support\Money;
 use App\Support\Redactor;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -287,10 +290,12 @@ class PaymentService
     }
 
     /**
-     * Record COD or pay-at-pickup money taken by an employee. Payment becomes paid when the full amount is collected
-     * (partial collection only if the business allows it via settings payments.allow_partial_collection).
+     * Record COD or pay-at-pickup money taken by an employee. The payment becomes paid when everything the order owes is in. A delivery of ONE part of a
+     * split order collects that part's share only (`$expected`, from CodSplit): the money is kept on the payment (`captured_amount`) and the payment
+     * closes with the last part. Without `$expected` the whole amount still due is expected (pickup, a single-part delivery, the manual collection).
+     * Collecting less than expected is allowed only when the business allows partial collections (settings payments.allow_partial_collection).
      */
-    public function recordCollection(Payment $payment, OrderFulfillment $fulfillment, User $staff, string $tender, string $amount, ?string $receiptRef = null, string $status = 'collected', ?string $failureReason = null): CashCollection
+    public function recordCollection(Payment $payment, OrderFulfillment $fulfillment, User $staff, string $tender, string $amount, ?string $receiptRef = null, string $status = 'collected', ?string $failureReason = null, ?Money $expected = null): CashCollection
     {
         if (! in_array($payment->method, ['cod', 'pay_at_pickup'], true) || $payment->order_id !== $fulfillment->order_id) {
             throw DomainException::make('payment_method_unavailable');
@@ -299,31 +304,35 @@ class PaymentService
             throw DomainException::make('branch_forbidden', 403);
         }
 
-        return DB::transaction(function () use ($payment, $fulfillment, $staff, $tender, $amount, $receiptRef, $status, $failureReason) {
+        return DB::transaction(function () use ($payment, $fulfillment, $staff, $tender, $amount, $receiptRef, $status, $failureReason, $expected) {
             $p = Payment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
             if ($p->status->isSettled()) {
                 throw DomainException::make('payment_already_settled', 409);
             }
             $due = Money::of($p->amount)->minus(Money::of($p->captured_amount));
+            $expected = ($expected ?? $due)->min($due); // never more than the payment still owes
             $got = Money::of($amount);
             $allowPartial = (bool) app(Settings::class)->get('payments.allow_partial_collection', false);
-            if ($status === 'collected' && $got->lessThan($due) && ! $allowPartial) {
-                throw DomainException::make('collection_amount_mismatch', 422, ['due' => $due->format()]);
+            if ($status === 'collected' && $got->lessThan($expected) && ! $allowPartial) {
+                throw DomainException::make('collection_amount_mismatch', 422, ['due' => $expected->format()]);
             }
-            if ($got->greaterThan($due)) {
-                throw DomainException::make('collection_amount_mismatch', 422, ['due' => $due->format()]);
+            if ($got->greaterThan($expected)) {
+                throw DomainException::make('collection_amount_mismatch', 422, ['due' => $expected->format()]);
             }
             $collection = CashCollection::create([
                 'payment_id' => $p->id, 'order_fulfillment_id' => $fulfillment->id, 'branch_id' => $fulfillment->branch_id, 'collected_by' => $staff->id,
-                'context' => $p->method, 'tender' => $tender, 'amount_due' => $due->toDecimal(), 'amount_collected' => $status === 'failed' ? '0.00' : $got->toDecimal(),
-                'status' => $status === 'failed' ? 'failed' : ($got->lessThan($due) ? 'partial' : 'collected'),
+                'context' => $p->method, 'tender' => $tender, 'amount_due' => $expected->toDecimal(), 'amount_collected' => $status === 'failed' ? '0.00' : $got->toDecimal(),
+                'status' => $status === 'failed' ? 'failed' : ($got->lessThan($expected) ? 'partial' : 'collected'),
                 'receipt_reference' => $receiptRef, 'failure_reason' => $failureReason, 'collected_at' => now(),
             ]);
             $this->transaction($p, 'collection', 'offline', $collection->status, $receiptRef, null, ['tender' => $tender, 'collected_by' => $staff->id], $collection->amount_collected);
-            if ($collection->status === 'collected') {
-                $this->markPaid($p, $receiptRef, Money::of($p->captured_amount)->plus($got));
-            } elseif ($collection->status === 'partial') {
-                $p->forceFill(['captured_amount' => Money::of($p->captured_amount)->plus($got)->toDecimal()])->save();
+            if ($collection->status !== 'failed') {
+                $captured = Money::of($p->captured_amount)->plus($got);
+                if ($captured->greaterThanOrEqual(Money::of($p->amount))) {
+                    $this->markPaid($p, $receiptRef, $captured);
+                } else {
+                    $p->forceFill(['captured_amount' => $captured->toDecimal()])->save();
+                }
             }
             $this->audit->log('payment.cash_collected', $collection, [], ['amount' => $collection->amount_collected, 'tender' => $tender, 'status' => $collection->status],
                 branchId: $fulfillment->branch_id, actor: $staff);
@@ -346,6 +355,56 @@ class PaymentService
         if (! $order->payment_status->isSettled()) {
             $order->forceFill(['payment_status' => $order->payment_status === PS::Expired ? PS::Expired : PS::Cancelled])->save();
         }
+    }
+
+    /**
+     * One part of a split order was cancelled while the others carry on (the whole-order cancellation has its own path, onOrderCancelled): what that part
+     * was worth must stop being owed, and never more than that. $live are the order's parts that are not cancelled, $f the one just cancelled.
+     *  - paid already (online, or cash taken): a refund REQUEST for the part's share of what is left to refund, for finance to approve (nothing is paid out here);
+     *  - cash on delivery not paid yet: the amount due drops by the part's share of what is still due, and the drivers' amounts follow (CodSplit);
+     *  - an online payment still waiting for the customer: left alone, its amount was fixed when the customer was sent to pay.
+     * The share is ParcelShares' exact division of the money, so the parts' shares always add up to the whole.
+     *
+     * @param  Collection<int, OrderFulfillment>  $live
+     */
+    public function parcelCancelled(Order $order, OrderFulfillment $f, Collection $live, ?User $actor, string $reason): void
+    {
+        $payment = Payment::where('order_id', $order->id)->orderByDesc('attempt')->lockForUpdate()->first();
+        if ($payment === null) {
+            return;
+        }
+        // A part that was returned has had its money handled by the return; the part just cancelled still counts in the division.
+        $parts = $live->reject(fn (OrderFulfillment $p) => $p->status === FS::Returned)->push($f);
+        if ($payment->status->isSettled()) {
+            $left = $payment->refundableNow();
+            $share = $left->isPositive() ? (ParcelShares::split($left, $parts)[$f->id] ?? Money::zero($left->currency)) : $left;
+            if ($share->isPositive()) {
+                app(RefundService::class)->request($payment, $share, 'order_cancelled', 'Part '.$f->number.' cancelled'.($reason !== '' ? ': '.$reason : ''), $actor, 'parcel_cancel:'.$f->id, system: true);
+                $this->audit->log('payment.parcel_cancelled', $payment, [], ['fulfillment' => $f->number, 'refund_requested' => $share->toDecimal()], actor: $actor);
+            }
+
+            return;
+        }
+        if (! in_array($payment->method, ['cod', 'pay_at_pickup'], true) || ! in_array($payment->status, [PS::Pending, PS::Processing], true)) {
+            return;
+        }
+        $due = Money::of($payment->amount)->minus(Money::of($payment->captured_amount));
+        $share = $due->isPositive() ? (ParcelShares::split($due, $parts->reject(fn (OrderFulfillment $p) => in_array($p->status, [FS::Delivered, FS::PickedUp], true) && $p->id !== $f->id))[$f->id] ?? Money::zero($due->currency)) : $due;
+        $cancelled = (array) ($payment->metadata['cancelled_parcels'] ?? []);
+        $cancelled[] = ['fulfillment_id' => $f->id, 'amount' => $share->toDecimal(), 'at' => now()->toIso8601String()];
+        $payment->forceFill(['amount' => Money::of($payment->amount)->minus($share)->toDecimal(), 'metadata' => array_merge($payment->metadata ?? [], ['cancelled_parcels' => $cancelled])])->save();
+        $this->audit->log('payment.parcel_cancelled', $payment, ['amount' => Money::of($payment->amount)->plus($share)->toDecimal()], ['amount' => $payment->amount, 'fulfillment' => $f->number], actor: $actor);
+        $captured = Money::of($payment->captured_amount);
+        if ($captured->isPositive() && $captured->greaterThanOrEqual(Money::of($payment->amount))) {
+            $this->markPaid($payment, null, $captured); // everything the customer still owed was already collected: the order's payment closes
+        }
+        CodSplit::refresh($order);
+    }
+
+    /** What came off the amount due because parts of the order were cancelled (kept on the payment, so a later item adjustment does not put it back). */
+    public function cancelledParcelsTotal(Payment $p): Money
+    {
+        return collect((array) ($p->metadata['cancelled_parcels'] ?? []))->reduce(fn (Money $c, $row) => $c->plus(Money::of((string) ($row['amount'] ?? '0'))), Money::zero());
     }
 
     public function setStatus(Payment $p, PS $to, ?string $reason = null): void

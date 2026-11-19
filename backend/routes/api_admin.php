@@ -64,7 +64,8 @@ Route::controller(V1\Admin\OrderOpsController::class)->group(function () {
     Route::get('orders/{order}', 'show')->middleware('permission:orders.view')->name('orders.show');
     Route::post('orders/{order}/cancel', 'cancel')->middleware('permission:orders.approve')->name('orders.cancel');
     Route::post('orders/{order}/notes', 'note')->middleware('permission:orders.view')->name('orders.notes');
-    Route::post('fulfillments/{fulfillment}/transition', 'transition')->middleware('permission:orders.edit')->name('fulfillments.transition');
+    // Which permission a step needs (orders.edit for accepted / preparing / ready, deliveries.edit for the delivery steps, orders.approve for returned / cancelled) is checked for the part's branch in OrderService::transition.
+    Route::post('fulfillments/{fulfillment}/transition', 'transition')->middleware('permission:orders.edit,deliveries.edit,orders.approve')->name('fulfillments.transition');
     Route::post('cancellations/{cancellation}/decide', 'decideCancellation')->middleware('permission:orders.approve')->name('cancellations.decide');
     Route::post('fulfillments/{fulfillment}/pickup-ready', 'pickupReady')->middleware('permission:pickup.edit')->name('pickup.ready');
     Route::post('pickup/verify', 'pickupVerify')->middleware('permission:pickup.view')->name('pickup.verify');
