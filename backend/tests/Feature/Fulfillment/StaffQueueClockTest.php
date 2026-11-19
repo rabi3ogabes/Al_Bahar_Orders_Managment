@@ -32,6 +32,7 @@ it('puts the order clock on every row: green, amber, red, with the age in minute
 
     expect($rows[$red['number']]['clock'])->toMatchArray(['state' => 'red', 'age_minutes' => 20, 'kind' => 'pending', 'paused' => false])
         ->and($rows[$red['number']]['clock']['label'])->toBe('20 min')
+        ->and($rows[$red['number']]['clock'])->toMatchArray(['amber_at' => 5, 'red_at' => 15])
         ->and($rows[$amber['number']]['clock'])->toMatchArray(['state' => 'amber', 'age_minutes' => 7])
         ->and($rows[$ok['number']]['clock'])->toMatchArray(['state' => 'ok', 'age_minutes' => 2]);
 });
@@ -55,7 +56,7 @@ it('measures a part being prepared from when it was accepted, and a part a drive
     $rows = collect(staffQueue())->keyBy('number');
 
     expect($rows[$prep['number']]['clock'])->toMatchArray(['state' => 'red', 'age_minutes' => 100, 'kind' => 'preparing'])
-        ->and($rows[$out['number']]['clock'])->toMatchArray(['state' => 'ok', 'age_minutes' => 25, 'kind' => 'none']);
+        ->and($rows[$out['number']]['clock'])->toMatchArray(['state' => 'ok', 'age_minutes' => 25, 'kind' => 'none', 'amber_at' => null, 'red_at' => null]);
 });
 
 it('lists the longest wait first inside a stage', function () {

@@ -68,7 +68,10 @@ final class StaffQueue
      * The order clock of one part: what it is waiting for and for how long. A part nobody has to act on (a driver has it, it is out) still
      * shows how long since it last moved, never amber or red, so every card can carry an age.
      *
-     * @return array{state: string, age_minutes: int, label: string, kind: string, wall_minutes: int, paused: bool}
+     * `amber_at` / `red_at` are the limits in the counted minutes of the wait (null when nobody has to act): the app moves the age on by itself between two
+     * reads and turns the chip amber or red at them, so the age on a card never stands still.
+     *
+     * @return array{state: string, age_minutes: int, label: string, kind: string, wall_minutes: int, paused: bool, amber_at: int|null, red_at: int|null}
      */
     private function clockOf(OrderFulfillment $f, ?OrderCancellation $request): array
     {
@@ -83,10 +86,13 @@ final class StaffQueue
             $since = $f->updated_at ?? $f->created_at ?? CarbonImmutable::now();
             $minutes = max(0, intdiv(CarbonImmutable::now()->getTimestamp() - $since->getTimestamp(), 60));
 
-            return ['state' => OpsAge::OK, 'age_minutes' => $minutes, 'label' => OpsClock::label($minutes), 'kind' => 'none', 'wall_minutes' => $minutes, 'paused' => false];
+            return ['state' => OpsAge::OK, 'age_minutes' => $minutes, 'label' => OpsClock::label($minutes), 'kind' => 'none', 'wall_minutes' => $minutes, 'paused' => false, 'amber_at' => null, 'red_at' => null];
         }
 
-        return ['state' => $age->state, 'age_minutes' => $age->ageMinutes, 'label' => $age->label, 'kind' => $kind ?? $age->kind, 'wall_minutes' => $age->wallMinutes, 'paused' => $age->paused];
+        $limits = $this->clock->limits($kind === 'cancellation' ? OpsClock::PENDING : $age->kind);
+
+        return ['state' => $age->state, 'age_minutes' => $age->ageMinutes, 'label' => $age->label, 'kind' => $kind ?? $age->kind, 'wall_minutes' => $age->wallMinutes, 'paused' => $age->paused,
+            'amber_at' => $limits['amber'], 'red_at' => $limits['red']];
     }
 
     /** @return array{status: string|null, token_expires_at: string|null, expired: bool} */
