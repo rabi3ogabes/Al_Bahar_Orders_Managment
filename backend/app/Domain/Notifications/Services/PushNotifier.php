@@ -179,6 +179,34 @@ class PushNotifier
         }
     }
 
+    /**
+     * A branch alert (a new order, a reminder that one waits) to ONE staff member's phones and browsers, each in the language of that device.
+     * `$title` and `$body` are built per language by the caller (an array locale => text), so no customer data is added here, and `$data` is what
+     * the app receives to open the right screen. Whether the alert may be sent at all (the admin's notification controls) is the caller's check.
+     * Returns how many devices accepted it. Does not throw: one bad device must not stop the others.
+     *
+     * @param  array<string, string>  $title
+     * @param  array<string, string>  $body
+     * @param  array<string, mixed>  $data
+     */
+    public function staffAlert(string $userId, array $title, array $body, array $data): int
+    {
+        if (! $this->fcm->configured()) {
+            return 0;
+        }
+        $sent = 0;
+        $this->each($userId, function (UserDevice $d) use ($title, $body, $data, &$sent) {
+            $lang = substr((string) $d->locale, 0, 2);
+            $locale = isset($title[$lang]) ? $lang : (string) array_key_first($title);
+            $res = $this->fcm->send($d->push_token, $title[$locale], $body[$locale] ?? '', $data, $d);
+            $sent += ($res['ok'] ?? false) ? 1 : 0;
+
+            return $res;
+        });
+
+        return $sent;
+    }
+
     private function branch(string $branchId, string $key, string $number): void
     {
         BranchEmployee::where('branch_id', $branchId)->where('is_active', true)->pluck('user_id')->unique()

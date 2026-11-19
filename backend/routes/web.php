@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Operations\Http\DeliveryProofController;
 use App\Http\Controllers\Admin\SessionController;
 use App\Http\Controllers\FirebaseWorkerController;
 use App\Http\Controllers\PartnerController;
@@ -66,6 +67,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('profile', Admin\Profile::class)->name('profile');
 
         require __DIR__.'/admin.php';
+
+        // Live Operations Control: the "Needs attention" inbox (any of the four permissions, on at least one branch) and the private
+        // photo of a delivery's proof (the controller itself answers 404, not 403, to anyone who may not see that delivery's branch).
+        Route::get('operations/attention', Admin\Operations\NeedsAttention::class)->middleware('permission:orders.view,deliveries.view,payments.view,pickup.view')->name('operations.attention');
+        Route::get('deliveries/{delivery}/proofs/{proof}', [DeliveryProofController::class, 'show'])->name('deliveries.proof');
     });
 });
 

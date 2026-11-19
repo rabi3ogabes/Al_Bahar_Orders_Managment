@@ -21,6 +21,10 @@ final class AdminNavigation
             ['label' => 'nav.overview', 'items' => [
                 ['label' => 'nav.dashboard', 'route' => 'admin.dashboard', 'icon' => 'dashboard', 'permission' => 'dashboard.view'],
             ]],
+            // Live Operations Control: whatever waits for a person. Anyone who can see orders, deliveries, payments or pickups gets it ('any' = one of these is enough).
+            ['label' => 'ops_live.page.eyebrow', 'items' => [
+                ['label' => 'ops_live.nav_attention', 'route' => 'admin.operations.attention', 'icon' => 'bell-ring', 'permission' => 'orders.view', 'any' => ['deliveries.view', 'payments.view', 'pickup.view'], 'badge' => 'attention'],
+            ]],
             ['label' => 'nav.sales', 'items' => [
                 ['label' => 'nav.new_order', 'route' => 'admin.orders.create', 'icon' => 'plus', 'permission' => 'orders.create'],
                 ['label' => 'nav.orders', 'route' => 'admin.orders.index', 'icon' => 'bag', 'permission' => 'orders.view'],
@@ -101,7 +105,7 @@ final class AdminNavigation
         $isDriver = BranchEmployee::where('user_id', $user->id)->where('is_active', true)->where('is_delivery_driver', true)->exists();
         $out = [];
         foreach ($groups as $group) {
-            $items = array_values(array_filter($group['items'], fn ($i) => Route::has($i['route']) && $acl->allows($user, $i['permission']) && (empty($i['drivers_only']) || $isDriver)));
+            $items = array_values(array_filter($group['items'], fn ($i) => Route::has($i['route']) && collect([$i['permission'], ...($i['any'] ?? [])])->contains(fn ($p) => $acl->allows($user, $p)) && (empty($i['drivers_only']) || $isDriver)));
             if ($items) {
                 $out[] = ['label' => $group['label'], 'items' => $items];
             }

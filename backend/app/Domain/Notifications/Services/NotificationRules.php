@@ -37,8 +37,11 @@ class NotificationRules
     /** Events that can never be switched off. */
     public const LOCKED = ['otp'];
 
-    /** Pushes to drivers and branch staff (PushNotifier). Push is their only channel. */
-    public const STAFF_EVENTS = ['staff.driver_assigned', 'staff.order_ready', 'staff.delivery_failed'];
+    /**
+     * Alerts to drivers and branch staff. Push is their channel, and the two Live Operations alerts (a new order, a reminder that one waits to be
+     * accepted) also go to the in-app inbox: see NotificationCatalog::STAFF for the channels each has by default.
+     */
+    public const STAFF_EVENTS = ['staff.driver_assigned', 'staff.order_ready', 'staff.delivery_failed', 'staff.order_new', 'staff.order_reminder'];
 
     /** Events the catalog lists but no code sends yet; the page says so, the switches already work. */
     public const NOT_SENT_YET = ['auction.starting', 'auction.payment_reminder'];
@@ -144,7 +147,7 @@ class NotificationRules
     public function supportedChannels(string $event): array
     {
         if (in_array($event, self::STAFF_EVENTS, true)) {
-            return ['push'];
+            return NotificationCatalog::staffChannels($event);
         }
         if ($this->isLocked($event)) {
             return NotificationCatalog::defaultChannels($event);
@@ -161,7 +164,7 @@ class NotificationRules
     public function defaultChannels(string $event): array
     {
         if (in_array($event, self::STAFF_EVENTS, true)) {
-            return ['push'];
+            return NotificationCatalog::staffChannels($event);
         }
 
         return [...NotificationCatalog::defaultChannels($event), ...(in_array($event, NotificationCatalog::LIVE_CARD_EVENTS, true) ? [self::LIVE_CARD] : [])];

@@ -591,14 +591,14 @@ it('filters by group and searches in both languages', function () {
     $this->actingAs(staffWithRole('marketing_manager'));
     $page = Livewire::test(NotificationRulesIndex::class)
         ->call('toggleGroup', 'payments')->assertViewHas('total', 4)->assertViewHas('sections', fn (array $s) => count($s) === 1)
-        ->call('toggleGroup', 'staff')->assertViewHas('total', 7)
-        ->call('toggleGroup', 'payments')->call('toggleGroup', 'staff')->assertViewHas('total', count(NotificationCatalog::EVENTS) + 3);
+        ->call('toggleGroup', 'staff')->assertViewHas('total', 4 + count(NotificationRules::STAFF_EVENTS))
+        ->call('toggleGroup', 'payments')->call('toggleGroup', 'staff')->assertViewHas('total', count(NotificationCatalog::EVENTS) + count(NotificationRules::STAFF_EVENTS));
 
     $page->set('q', 'accepted')->assertViewHas('total', 1)->assertSee('Order accepted')
         ->set('q', 'قبول')->assertViewHas('total', 1)
         ->set('q', 'order.ready_for_pickup')->assertViewHas('total', 1)
         ->set('q', 'no such thing')->assertViewHas('total', 0)->assertSee(__('notification_rules_admin.empty'))
-        ->call('clearFilters')->assertSet('q', '')->assertSet('only', [])->assertViewHas('total', count(NotificationCatalog::EVENTS) + 3);
+        ->call('clearFilters')->assertSet('q', '')->assertSet('only', [])->assertViewHas('total', count(NotificationCatalog::EVENTS) + count(NotificationRules::STAFF_EVENTS));
 });
 
 it('warns when something customers rely on is switched off', function () {

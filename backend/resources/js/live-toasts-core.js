@@ -9,6 +9,10 @@ const text = (v, max = 120) => (v === null || v === undefined ? null : String(v)
 
 /** Accepts only the documented payload shape; anything else is dropped so a bad frame can never break the page. */
 export function normalise(raw) {
+    // A burst is made by createBurstGate below: "N new orders" in one toast instead of N toasts.
+    if (raw && typeof raw === 'object' && raw.type === 'burst' && raw.id && Number.isInteger(raw.count) && raw.count > 1) {
+        return { id: text(raw.id, 80), type: 'burst', count: Math.min(raw.count, 999), orderId: null, number: '', status: null, previous: null, branch: null, branchAr: null, customer: null, total: null, currency: 'QAR', paymentMethod: null, fulfilment: null, at: text(raw.at, 40) };
+    }
     if (!raw || typeof raw !== 'object' || !raw.id || !raw.order_id || !raw.number) return null;
     return {
         id: text(raw.id, 80), type: raw.type === 'placed' ? 'placed' : 'status', orderId: text(raw.order_id, 64), number: text(raw.number, 40),
@@ -33,7 +37,7 @@ const TONES = {
 };
 
 export function toneFor(evt) {
-    if (evt.type === 'placed') return { tone: 'gold', icon: 'bag' };
+    if (evt.type === 'placed' || evt.type === 'burst') return { tone: 'gold', icon: 'bag' };
     const [tone, icon] = TONES[evt.status] ?? ['slate', 'bell'];
     return { tone, icon };
 }
@@ -72,5 +76,58 @@ export function createStack({ max = MAX_VISIBLE } = {}) {
         clear() { visible = []; queue = []; },
         get visible() { return [...visible]; },
         get queued() { return queue.length; },
+    };
+}
+
+/**
+ * Which live frames mean "a new order the branch must look at", as a frame of the same shape (type placed), or null.
+ *  - a placed order that is already valid (cash on delivery, pay at pickup) is new at once;
+ *  - an online order is new only when its payment succeeded (pending_payment -> confirmed), never while it is unpaid.
+ * The id is per order (`new:<order id>`), so the same order can never be announced twice, whichever frame carried it.
+ */
+export function asNewOrderRaw(raw) {
+    if (!raw || typeof raw !== 'object' || !raw.id || !raw.order_id || !raw.number) return null;
+    const placed = raw.type === 'placed' && raw.status !== 'pending_payment';
+    const paid = raw.type !== 'placed' && raw.previous === 'pending_payment' && raw.status === 'confirmed';
+    if (!placed && !paid) return null;
+    return { ...raw, type: 'placed', id: `new:${raw.order_id}` };
+}
+
+export const BURST_INTERVAL_MS = 3000;
+
+/**
+ * Rate limit for the new-order toasts: at most one toast per `intervalMs`. The first order is shown at once; orders that arrive inside the
+ * window are held, and when it ends they are shown together: one toast when only one was held, otherwise a single "N new orders" toast
+ * (a frame of type burst, see normalise). Timers and the clock are injected so the rule is tested without waiting.
+ */
+export function createBurstGate({ intervalMs = BURST_INTERVAL_MS, now = () => Date.now(), setTimer = (f, ms) => setTimeout(f, ms), clearTimer = (t) => clearTimeout(t), emit }) {
+    let lastShown = -Infinity;
+    let held = [];
+    let timer = null;
+
+    const flush = () => {
+        timer = null;
+        if (!held.length) return;
+        const batch = held;
+        held = [];
+        lastShown = now();
+        emit(batch.length === 1 ? batch[0] : { id: `burst:${batch[0].id}:${batch.length}`, type: 'burst', count: batch.length, at: batch[batch.length - 1].at });
+    };
+
+    return {
+        /** @returns {'shown'|'held'} */
+        offer(frame) {
+            const t = now();
+            if (!held.length && t - lastShown >= intervalMs) {
+                lastShown = t;
+                emit(frame);
+                return 'shown';
+            }
+            held.push(frame);
+            if (timer === null) timer = setTimer(flush, Math.max(0, lastShown + intervalMs - t));
+            return 'held';
+        },
+        get pending() { return held.length; },
+        destroy() { if (timer !== null) clearTimer(timer); timer = null; held = []; },
     };
 }

@@ -140,5 +140,7 @@ return [
         'staff_driver_assigned' => ['name' => 'New delivery for a driver', 'when' => 'Push to the driver when a delivery is assigned to them.'],
         'staff_order_ready' => ['name' => 'Order ready, needs a driver', 'when' => 'Push to the branch team when an order is ready and waits for a driver.'],
         'staff_delivery_failed' => ['name' => 'Delivery failed', 'when' => 'Push to the branch team when a delivery could not be completed.'],
+        'staff_order_new' => ['name' => 'New order for the branch', 'when' => 'Push and inbox alert to the branch team when a new order arrives. An online order only after it is paid.'],
+        'staff_order_reminder' => ['name' => 'Order still waiting', 'when' => 'Reminder to the branch manager and the order team when a new order has waited too long without being taken on (once when it gets late, once when it is very late).'],
     ],
 ];

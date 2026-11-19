@@ -6,6 +6,9 @@
     $firstStepPending = $user->must_change_password || (! $user->hasTwoFactorEnabled() && app(\App\Domain\Identity\Services\TwoFactorService::class)->required());
     $canOrder = ! $firstStepPending && app(\App\Domain\Identity\Services\AccessControl::class)->allows($user, 'orders.create');
     $brand = app()->getLocale() === 'ar' ? config('platform.brand.name_ar') : config('platform.brand.name_en');
+    // Live new-order toasts on every page: staff who see orders of every branch hear one channel, the others one per branch they may see orders of.
+    $ordersScope = $firstStepPending ? null : app(\App\Domain\Identity\Services\AccessControl::class)->scope($user, 'orders.view');
+    $liveChannels = $ordersScope === null || $ordersScope->isEmpty() ? [] : ($ordersScope->all ? ['live-orders'] : array_map(fn ($b) => 'live-orders.'.$b, $ordersScope->branchIds));
 @endphp
 <!DOCTYPE html>
 <html lang="{{ app()->getLocale() }}" dir="{{ $rtl ? 'rtl' : 'ltr' }}" class="h-full">
@@ -20,7 +23,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
 </head>
-<body class="h-full" x-data="{ sidebar: false }" @keydown.escape="sidebar = false">
+<body class="h-full" x-data="{ sidebar: false }" @keydown.escape="sidebar = false" data-route="{{ request()->route()?->getName() }}">
 <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:start-3 focus:z-50 btn-primary">{{ __('admin.skip_to_content') }}</a>
 
 {{-- Mobile overlay --}}
@@ -74,6 +77,7 @@
                             <a href="{{ route($item['route']) }}" wire:navigate class="nav-link {{ $active ? 'nav-link-active' : '' }}" @if($active) aria-current="page" @endif>
                                 <x-icon :name="$item['icon']" class="size-[1.15rem] shrink-0 {{ $active ? 'text-brass-300' : '' }}" />
                                 <span class="truncate">{{ __($item['label']) }}</span>
+                                @if (($item['badge'] ?? null) === 'attention' && ! $firstStepPending)<livewire:admin.operations.attention-badge lazy wire:key="attention-badge" />@endif
                                 @if (($item['badge'] ?? null) === 'abandoned' && ($badge = \App\Domain\Checkout\Support\AbandonedCarts::badge($user)) > 0)
                                     <span class="ms-auto grid min-w-5 place-items-center rounded-full bg-brass-500 px-1.5 text-[0.7rem] font-semibold leading-5 text-ink-950 tabular-nums" title="{{ __('abandoned_admin.kpi_carts_hint') }}"><span aria-hidden="true">{{ $badge > 99 ? '99+' : $badge }}</span><span class="sr-only">{{ trans_choice('abandoned_admin.count', $badge, ['count' => $badge]) }}</span></span>
                                 @endif
@@ -106,6 +110,17 @@
             <div class="min-w-0 flex-1">
                 @isset($breadcrumb)<div class="truncate text-xs text-ink-500">{{ $breadcrumb }}</div>@endisset
             </div>
+            @if ($liveChannels !== [])
+                {{-- New-order chime: a personal choice kept in this browser, OFF until turned on (resources/js/live-toasts.js plays it). Shown only when live updates are available. --}}
+                <button type="button" class="btn-ghost btn-sm" data-sound-toggle x-cloak x-show="live"
+                        x-data="{ on: false, live: false, init() { this.live = typeof window.echo === 'function' && window.echo() !== null; try { this.on = localStorage.getItem('live_toasts_sound') === '1'; } catch (e) {} }, flip() { this.on = ! this.on; try { localStorage.setItem('live_toasts_sound', this.on ? '1' : '0'); } catch (e) {} window.dispatchEvent(new CustomEvent('live-sound', { detail: { on: this.on } })); } }"
+                        x-on:live-sound-state.window="on = $event.detail.on === true" x-on:click="flip()" :aria-pressed="on ? 'true' : 'false'"
+                        :aria-label="on ? @js(__('ops_live.toast.sound_off')) : @js(__('ops_live.toast.sound_on'))" :title="on ? @js(__('ops_live.toast.sound_off')) : @js(__('ops_live.toast.sound_hint'))">
+                    <svg class="size-4 rtl-flip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M4 9v6h4l5 4V5L8 9H4z"/><path x-show="on" d="M16 9a4 4 0 0 1 0 6"/><path x-show="! on" d="m17 9 4 6M21 9l-4 6"/>
+                    </svg>
+                </button>
+            @endif
             @if ($canOrder)<livewire:admin.sales.order-cart-button variant="header" lazy />@endif
             <a href="{{ route('admin.locale', app()->getLocale() === 'ar' ? 'en' : 'ar') }}" class="btn-ghost btn-sm" title="{{ __('admin.switch_language') }}">
                 <x-icon name="globe" class="size-4" /><span class="font-medium">{{ app()->getLocale() === 'ar' ? 'English' : 'العربية' }}</span>
@@ -165,6 +180,14 @@
         </div>
     </template>
 </div>
+{{-- New-order toasts, the instant refresh of the inbox and the menu badge on EVERY page. Kept alive across wire:navigate (@persist), so a toast is not cut off by a click.
+     The fleet map shows its own toasts, so on that page this only passes the event on. See startOpsLive in resources/js/live-toasts.js. --}}
+@if ($liveChannels !== [])
+    @persist('ops-live')
+        <div class="contents" x-data x-init="window.loadLiveToasts().then((m) => m.startOpsLive($el, JSON.parse($el.dataset.boot)))"
+             data-boot="{{ json_encode(['channels' => $liveChannels, 'ordersUrl' => route('admin.orders.index'), 'orderUrl' => route('admin.orders.show', '__ID__'), 'text' => array_merge(trans('live'), trans('ops_live.toast'))]) }}"></div>
+    @endpersist
+@endif
 @livewireScripts
 </body>
 </html>

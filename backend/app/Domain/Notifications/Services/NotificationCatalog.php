@@ -40,6 +40,16 @@ final class NotificationCatalog
     public const CHANNELS = ['push', 'sms', 'whatsapp', 'email', 'in_app'];
 
     /**
+     * Alerts to the team (the `staff.*` events of NotificationRules::STAFF_EVENTS): [category, default channels]. They are not customer messages,
+     * so they have no consent rules and no template rows; the new-order alert and its reminder are ON by default, on push and in the in-app inbox
+     * (words in lang/*\/ops_live.php, `push.*`). The older driver and branch pushes are push only and are not listed here.
+     */
+    public const STAFF = [
+        'staff.order_new' => ['transactional', ['push', 'in_app']],
+        'staff.order_reminder' => ['transactional', ['push', 'in_app']],
+    ];
+
+    /**
      * The order events the customer's live order card already announces on every phone (see PushNotifier / OrderProgress): a second,
      * classic push for the same change would ring twice, so while the card can reach the customer these go to the inbox, SMS and e-mail only.
      */
@@ -77,6 +87,12 @@ final class NotificationCatalog
 
     public static function defaultChannels(string $event): array
     {
-        return self::EVENTS[$event][1] ?? ['in_app'];
+        return self::EVENTS[$event][1] ?? self::STAFF[$event][1] ?? ['in_app'];
+    }
+
+    /** @return list<string> the channels a staff or driver alert is sent on by default (push only, unless the catalog says more) */
+    public static function staffChannels(string $event): array
+    {
+        return self::STAFF[$event][1] ?? ['push'];
     }
 }

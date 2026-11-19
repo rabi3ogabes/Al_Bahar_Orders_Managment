@@ -1,7 +1,7 @@
 // Live order toasts: a bottom-end stack of animated notifications for new orders and order status changes.
 // Framework free; pure logic lives in live-toasts-core.js. All text is set with textContent (payloads are never parsed as HTML).
 import './../css/live-toasts.css';
-import { MAX_VISIBLE, TTL_MS, createStack, fill, normalise, toneFor } from './live-toasts-core.js';
+import { MAX_VISIBLE, TTL_MS, asNewOrderRaw, createBurstGate, createStack, fill, normalise, toneFor } from './live-toasts-core.js';
 
 const ICONS = {
     bag: '<path d="M6 7h12l1 13H5L6 7z"/><path d="M9 7a3 3 0 0 1 6 0"/>',
@@ -38,12 +38,18 @@ const SPRING = 'cubic-bezier(.2, .9, .25, 1.15)';
  * @param {(evt: object) => void} [opts.onView]               a click handler (a <button> is rendered)
  * @param {(evts: object[]) => void} [opts.onEvents]          called with every accepted event (e.g. to refresh data)
  * @param {boolean} [opts.navigate]                           add wire:navigate to the link (Livewire pages)
+ * @param {Element} [opts.container]                          where the toasts live (default: the body). A page that keeps the toasts across
+ *                                                            wire:navigate (the admin layout, inside @persist) hands in its persisted element.
+ * @param {boolean} [opts.controls]                           show the chime and mute buttons under the stack (default). The admin layout turns them
+ *                                                            off: its header has the chime switch, and its toasts are never muted from here.
  */
 export function createLiveToasts(opts) {
-    const { t, href, onView, onEvents, navigate = false } = opts;
+    const { t, href, onView, onEvents, navigate = false, container = null, controls: withControls = true } = opts;
     const stack = createStack({ max: MAX_VISIBLE });
     const nodes = new Map(); // id -> { node, bar }
-    let muted = store.get('live_toasts_muted') === '1';
+    let muted = withControls && store.get('live_toasts_muted') === '1';
+    // "Sound" is the person's own choice, stored in this browser and OFF until they turn it on. The header switch of the admin layout and the
+    // stack's own button share it: both write the same key and the header announces a change with a "live-sound" window event.
     let sound = store.get('live_toasts_sound') === '1';
     let missed = 0;
     let audio = null;
@@ -56,7 +62,8 @@ export function createLiveToasts(opts) {
     const muteBtn = el('button', 'lt-ctl'); muteBtn.type = 'button';
     const badge = el('span', 'lt-badge'); badge.hidden = true;
     controls.append(soundBtn, muteBtn);
-    root.append(more, list, controls);
+    root.append(more, list);
+    if (withControls) root.append(controls);
 
     const renderControls = () => {
         soundBtn.innerHTML = svg(sound ? 'soundOn' : 'soundOff');
@@ -84,6 +91,7 @@ export function createLiveToasts(opts) {
     };
 
     const chime = () => {
+        sound = store.get('live_toasts_sound') === '1';
         if (!sound || muted) return;
         try {
             audio ??= new (window.AudioContext || window.webkitAudioContext)();
@@ -115,10 +123,18 @@ export function createLiveToasts(opts) {
         main.addEventListener('click', () => { if (!url) onView?.(e); dismiss(e.id); });
         const ic = el('span', 'lt-icon'); ic.innerHTML = svg(icon);
         const body = el('span'); body.style.display = 'block'; body.style.minInlineSize = '0';
-        body.append(el('span', 'lt-kicker', e.type === 'placed' ? t('new_order') : t('status_update')));
-        const row = el('span', 'lt-row'); row.append(el('span', 'lt-title', `#${e.number}`), el('span', 'lt-total', money(e)));
-        body.append(row);
-        if (e.type === 'status') {
+        body.append(el('span', 'lt-kicker', e.type === 'placed' || e.type === 'burst' ? t('new_order') : t('status_update')));
+        if (e.type === 'burst') {
+            // Several orders arrived within a few seconds: one toast that opens the order list.
+            const row = el('span', 'lt-row'); row.append(el('span', 'lt-title', fill(t('new_orders'), { n: e.count })));
+            body.append(row);
+        } else {
+            const row = el('span', 'lt-row'); row.append(el('span', 'lt-title', `#${e.number}`), el('span', 'lt-total', money(e)));
+            body.append(row);
+        }
+        if (e.type === 'burst') {
+            // nothing more to say
+        } else if (e.type === 'status') {
             const pill = el('span', 'lt-pill');
             if (e.previous) { pill.append(el('span', 'lt-prev', statusText(e.previous))); const a = el('i'); a.innerHTML = svg('arrow'); a.style.display = 'inline-flex'; pill.append(a); }
             pill.append(el('span', 'lt-next', statusText(e.status)));
@@ -131,7 +147,7 @@ export function createLiveToasts(opts) {
         }
         const rtl = isRtl();
         const place = rtl && e.branchAr ? e.branchAr : e.branch;
-        const meta = [place, e.customer ? fill(t('by'), { name: e.customer }) : null].filter(Boolean).join(' · ');
+        const meta = e.type === 'burst' ? t('new_orders_hint') : [place, e.customer ? fill(t('by'), { name: e.customer }) : null].filter(Boolean).join(' · ');
         if (meta) body.append(el('span', 'lt-meta', meta));
         const go = el('span', 'lt-go'); go.append(document.createTextNode(t('view'))); const ar = el('i'); ar.innerHTML = svg('arrow'); ar.style.display = 'inline-flex'; go.append(ar);
         body.append(go);
@@ -176,6 +192,7 @@ export function createLiveToasts(opts) {
 
     soundBtn.addEventListener('click', () => {
         sound = !sound; store.set('live_toasts_sound', sound ? '1' : '0'); renderControls();
+        window.dispatchEvent(new CustomEvent('live-sound-state', { detail: { on: sound } })); // the header switch follows
         if (sound) { const was = muted; muted = false; chime(); muted = was; } // a click is the user gesture that unlocks audio; play a sample
     });
     muteBtn.addEventListener('click', () => {
@@ -184,8 +201,16 @@ export function createLiveToasts(opts) {
         renderControls();
     });
 
+    // The header switch of the admin layout changes the stored choice and tells us; a click is the gesture that unlocks audio, so play a sample.
+    const onSoundEvent = (ev) => {
+        sound = ev?.detail?.on === true;
+        renderControls();
+        if (sound) { const was = muted; muted = false; chime(); muted = was; }
+    };
+    window.addEventListener('live-sound', onSoundEvent);
+
     renderControls();
-    document.body.append(root);
+    (container ?? document.body).append(root);
 
     return {
         /** Accepts one raw payload (the broadcast frame or a poll item). */
@@ -203,7 +228,62 @@ export function createLiveToasts(opts) {
         refresh() { controls.setAttribute('aria-label', t('controls')); renderControls(); },
         destroy() {
             document.removeEventListener('visibilitychange', onVisibility);
+            window.removeEventListener('live-sound', onSoundEvent);
             nodes.forEach((n) => n.timer.cancel()); nodes.clear(); stack.clear(); root.remove(); audio?.close?.();
+        },
+    };
+}
+
+/**
+ * New-order toasts and the live signal for the whole admin: started once by the layout (inside @persist, so it survives wire:navigate).
+ *  - Every `.order.live` frame is passed on as a window event "ops-order-live", which the inbox, the dashboard card and the menu badge
+ *    listen to, so they refresh the moment an order arrives.
+ *  - A toast is shown only for a NEW order (a valid placed order, or an online one the moment it is paid), once per order, at most one toast
+ *    per 3 seconds, and a burst is collapsed into "N new orders". No toasts on the fleet map: it shows its own, with every status change.
+ *  - The channels are the ones the server chose for this person (all branches, or one per branch they may see).
+ *
+ * @param {Element} host   the persisted element (the toast stack lives inside it)
+ * @param {{channels: string[], ordersUrl: string, orderUrl: string, text: Record<string, string>}} boot
+ */
+export function startOpsLive(host, boot) {
+    const echo = typeof window.echo === 'function' ? window.echo() : null;
+    if (!echo || !Array.isArray(boot.channels) || !boot.channels.length) return null;
+
+    const toasts = createLiveToasts({
+        t: (k, v) => (boot.text[k] ?? k).replace(/:(\w+)/g, (m, n) => (v && n in v ? v[n] : m)),
+        href: (e) => (e.type === 'burst' ? boot.ordersUrl : boot.orderUrl.replace('__ID__', encodeURIComponent(e.orderId))),
+        navigate: true,
+        container: host,
+        controls: false,
+    });
+    const gate = createBurstGate({ emit: (frame) => toasts.push(frame) });
+    const seen = new Set();
+    const onFleetMap = () => document.body?.dataset?.route === 'admin.fleet';
+
+    const handle = (raw) => {
+        window.dispatchEvent(new CustomEvent('ops-order-live', { detail: raw }));
+        if (onFleetMap()) return;
+        const frame = asNewOrderRaw(raw);
+        if (!frame || seen.has(frame.id)) return;
+        seen.add(frame.id);
+        if (seen.size > 300) seen.delete(seen.values().next().value);
+        gate.offer(frame);
+    };
+    // Another page may have left a channel (the fleet map does when it is closed): listen again after every page change, once per channel.
+    const attach = () => boot.channels.forEach((c) => {
+        const channel = echo.private(c);
+        channel.stopListening('.order.live', handle);
+        channel.listen('.order.live', handle);
+    });
+    attach();
+    document.addEventListener('livewire:navigated', attach);
+
+    return {
+        destroy() {
+            document.removeEventListener('livewire:navigated', attach);
+            boot.channels.forEach((c) => echo.private(c).stopListening('.order.live', handle));
+            gate.destroy();
+            toasts.destroy();
         },
     };
 }
