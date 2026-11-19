@@ -2,14 +2,17 @@
 
 namespace App\Domain\Orders\Services;
 
+use App\Domain\Fulfillment\Enums\DeliveryStatus as DS;
 use App\Domain\Orders\Enums\FulfillmentStatus as FS;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderFulfillment;
 use App\Domain\Orders\Models\OrderItem;
 use App\Domain\Orders\Models\OrderRevision;
+use App\Domain\Orders\Models\ReturnRequest;
 use App\Domain\Settings\Services\Settings;
 use App\Support\BusinessTime;
 use App\Support\Money;
+use App\Support\Phone;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -41,6 +44,8 @@ class OrderPresenter
         $replacedBy = $o->items->whereNotNull('replaces_order_item_id')->keyBy('replaces_order_item_id');
         $m = fn (string $f) => Money::of($o->{$f} ?? '0')->jsonSerialize();
         $handedOver = $o->fulfillments->contains(fn ($f) => $f->status->stockHandedOver());
+        $returns = $this->returnRequests($o);
+        $returnable = $this->returnableQuantities($o, $returns);
 
         return $this->summary($o) + [
             'totals' => [
@@ -61,6 +66,8 @@ class OrderPresenter
                 'id' => $i->id, 'product_id' => $i->product_id, 'variant_id' => $i->product_variant_id, 'sku' => $i->sku,
                 'name' => $i->name(), 'variant_name' => $i->variantName(), 'image_url' => $this->imageUrl($i->image_path),
                 'quantity' => $i->quantity, 'quantity_cancelled' => $i->quantity_cancelled, 'quantity_returned' => $i->quantity_returned,
+                // How many of this line the customer can still ask to return right now (delivered or collected, inside the window, not already in a request).
+                'returnable_quantity' => $returnable[$i->id] ?? 0,
                 'unit_price' => Money::of($i->unit_final_price)->jsonSerialize(), 'discount' => Money::of($i->discount_amount)->jsonSerialize(),
                 'line_total' => Money::of($i->line_total)->jsonSerialize(), 'branch_id' => $i->branch_id, 'fulfillment_id' => $i->order_fulfillment_id,
                 'adjustment' => $this->adjustment($i, $byId, $replacedBy),
@@ -73,7 +80,9 @@ class OrderPresenter
             'fulfillments' => $o->fulfillments->map(fn (OrderFulfillment $f) => $this->fulfillment($f))->values(),
             'can_cancel' => ! $o->status->isTerminal() && ! $handedOver && $o->status->value !== 'cancellation_requested',
             'can_pay' => $o->status->value === 'pending_payment' && $o->payment_method === 'sadad' && ! $o->payment_due_at?->isPast(),
-            'can_return' => self::returnsEnabled() && $o->fulfillments->contains(fn ($f) => self::returnWindowOpen($f)),
+            // Open while there is something left to return and no request is waiting on the team; `return_request` is the latest request (null when there was none).
+            'can_return' => self::returnsEnabled() && array_sum($returnable) > 0 && $returns->doesntContain(fn (ReturnRequest $r) => in_array($r->status, self::OPEN_RETURN, true)),
+            'return_request' => $this->returnRequest($o, $returns->first()),
             'can_review' => $o->fulfillments->contains(fn ($f) => in_array($f->status, [FS::Delivered, FS::PickedUp], true)),
             'payment_due_at' => BusinessTime::iso($o->payment_due_at),
             // The live order card (null for an order with nothing to show); never waits on the routing server.
@@ -97,6 +106,9 @@ class OrderPresenter
         ], $o->deliveryExtras());
     }
 
+    /** The delivery stages in which the customer may call the driver: exactly those of the live order card (OrderProgress), which a test keeps equal. */
+    public const DRIVER_CALLABLE = [DS::Assigned, DS::Accepted, DS::PickedUp, DS::OutForDelivery];
+
     /** Days after delivery/collection during which a customer may ask to return goods. */
     public const RETURN_WINDOW_DAYS = 14;
 
@@ -115,6 +127,72 @@ class OrderPresenter
         $since = $f->delivered_at ?? $f->picked_up_at ?? $f->updated_at;
 
         return $since !== null && $since->gt(now()->subDays(self::RETURN_WINDOW_DAYS));
+    }
+
+    /** A return request that still waits on the team or on the goods coming back: it holds its quantities and blocks a second request. */
+    private const OPEN_RETURN = ['requested', 'approved'];
+
+    /**
+     * Every return request of the order, newest first: one query for the order (the detail is built for one order at a time, lists use summary()).
+     *
+     * @return Collection<int, ReturnRequest>
+     */
+    private function returnRequests(Order $o): Collection
+    {
+        return ReturnRequest::where('order_id', $o->id)->orderByDesc('created_at')->orderByDesc('number')->get();
+    }
+
+    /**
+     * Per order line, how many units can still be asked back: handed over, not returned, not held by an open request, inside the window.
+     * The same rule the request endpoint enforces, so the apps never offer what it would refuse.
+     *
+     * @param  Collection<int, ReturnRequest>  $returns
+     * @return array<string, int> keyed by order item id; lines with nothing to return are left out
+     */
+    private function returnableQuantities(Order $o, Collection $returns): array
+    {
+        if (! self::returnsEnabled()) {
+            return [];
+        }
+        $claimed = [];
+        foreach ($returns->filter(fn (ReturnRequest $r) => in_array($r->status, self::OPEN_RETURN, true)) as $r) {
+            foreach ((array) $r->items as $line) {
+                $claimed[$line['order_item_id'] ?? ''] = ($claimed[$line['order_item_id'] ?? ''] ?? 0) + (int) ($line['quantity'] ?? 0);
+            }
+        }
+        $fulfillments = $o->fulfillments->keyBy('id');
+        $out = [];
+        foreach ($o->items as $i) {
+            $f = $i->order_fulfillment_id ? $fulfillments->get($i->order_fulfillment_id) : null;
+            $left = $f !== null && self::returnWindowOpen($f) ? $i->quantity_handed_over - $i->quantity_returned - ($claimed[$i->id] ?? 0) : 0;
+            if ($left > 0) {
+                $out[$i->id] = $left;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * The customer's latest return request as they read it: where it stands, when it was asked and, once decided, the team's note.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function returnRequest(Order $o, ?ReturnRequest $r): ?array
+    {
+        if ($r === null) {
+            return null;
+        }
+        $decided = in_array($r->status, ['approved', 'rejected'], true) || $r->decided_at !== null;
+        // The note the team typed when it decided (kept on the order's history next to the decision).
+        $note = $decided ? $o->history()->where('kind', 'return')->whereIn('to_status', ['approved', 'rejected'])->where('is_customer_visible', true)
+            ->orderByDesc('created_at')->get()->first(fn ($h) => ($h->metadata['return'] ?? null) === $r->number)?->reason : null;
+
+        return [
+            'id' => $r->id, 'number' => $r->number, 'status' => $r->status, 'status_label' => __('status.'.$r->status),
+            'requested_at' => BusinessTime::iso($r->created_at), 'decided_at' => BusinessTime::iso($r->decided_at),
+            'decision_note' => $note !== null && trim($note) !== '' ? trim($note) : null,
+        ];
     }
 
     public function timeline(Order $o): array
@@ -137,6 +215,8 @@ class OrderPresenter
             'slot' => $f->slot ? ['date' => $f->slot_date?->toDateString(), 'starts_at' => substr($f->slot->starts_at, 0, 5), 'ends_at' => substr($f->slot->ends_at, 0, 5)] : null,
             'delivery' => $d ? ['tracking_number' => $d->tracking_number, 'status' => $d->status->value, 'status_label' => __('status.'.$d->status->value),
                 'provider' => $d->mode, 'driver_name' => $d->driver ? Str::before($d->driver->name, ' ') : null,
+                // The driver's number only while the driver has the order (the same moments as the live order card), never after it is delivered or failed.
+                'driver_phone' => in_array($d->status, self::DRIVER_CALLABLE, true) ? Phone::normalize($d->driver?->phone) : null,
                 'eta' => BusinessTime::iso($d->scheduled_for)] : null,
             'pickup' => $f->pickup ? ['status' => $f->pickup->status, 'token_expires_at' => BusinessTime::iso($f->pickup->token_expires_at)] : null,
             'timestamps' => ['ready_at' => BusinessTime::iso($f->ready_at), 'dispatched_at' => BusinessTime::iso($f->dispatched_at),

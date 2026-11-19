@@ -320,6 +320,7 @@ class QuoteService
         $branches = collect($q->plans)->pluck('branch');
         $sadad = (bool) config('platform.payments.sadad.enabled');
         $codReason = null;
+        $codLimits = null;
         if ($q->fulfillmentType !== 'delivery') {
             $codReason = 'delivery_only';
         } elseif ($branches->contains(fn ($b) => ! $b->cod_enabled) || collect($q->plans)->contains(fn ($p) => $p->zoneConfig && ! $p->zoneConfig->cod_enabled)) {
@@ -330,12 +331,20 @@ class QuoteService
                     $codReason = 'outside_cod_limits';
                 }
             }
+            if ($codReason !== null) {
+                // The numbers behind the reason, so an app can say "up to QAR 5,000" instead of "not available": the strictest limit of the branches in this order.
+                $mins = $branches->filter(fn ($b) => $b->cod_min_order && Money::of($b->cod_min_order)->isPositive())->map(fn ($b) => Money::of($b->cod_min_order));
+                $maxes = $branches->filter(fn ($b) => $b->cod_max_order)->map(fn ($b) => Money::of($b->cod_max_order));
+                $codLimits = ['min' => $mins->isEmpty() ? null : $mins->reduce(fn (?Money $c, Money $m) => $c === null ? $m : $c->max($m)),
+                    'max' => $maxes->isEmpty() ? null : $maxes->reduce(fn (?Money $c, Money $m) => $c === null ? $m : $c->min($m))];
+                $codLimits = array_map(fn (?Money $m) => $m?->jsonSerialize(), $codLimits);
+            }
         }
         $pickupReason = $q->fulfillmentType !== 'pickup' ? 'pickup_only' : ($branches->contains(fn ($b) => ! $b->pay_at_pickup_enabled) ? 'not_offered_at_branch' : null);
 
         $q->paymentMethods = [
             ['code' => 'sadad', 'available' => $sadad, 'reason' => $sadad ? null : 'temporarily_unavailable'],
-            ['code' => 'cod', 'available' => $codReason === null, 'reason' => $codReason],
+            ['code' => 'cod', 'available' => $codReason === null, 'reason' => $codReason] + ($codLimits !== null ? ['limits' => $codLimits] : []),
             ['code' => 'pay_at_pickup', 'available' => $pickupReason === null, 'reason' => $pickupReason],
         ];
         if ($q->paymentMethod && ! collect($q->paymentMethods)->firstWhere('code', $q->paymentMethod)['available']) {
