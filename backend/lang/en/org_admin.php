@@ -303,7 +303,7 @@ return [
         'carto' => 'Carto (free, non-commercial)',
         'custom' => 'Custom tile URL',
     ],
-    'unit' => ['min' => 'min', 'hours' => 'hours', 'days' => 'days', 'sec' => 'sec'],
+    'unit' => ['min' => 'min', 'hours' => 'hours', 'days' => 'days', 'sec' => 'sec', 'kg' => 'kg', 'm' => 'm'],
 
     // Audit log
     'audit_hint' => 'A tamper-proof record of who did what, and when. Entries cannot be edited or deleted.',

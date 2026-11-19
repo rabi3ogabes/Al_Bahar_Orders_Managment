@@ -145,7 +145,7 @@ return [
 
     // Settings > Operations clock.
     'tab' => 'Operations clock',
-    'tab_hint' => 'How long an order, a delivery, a pickup or cash may wait before the dashboard shows it as getting late (amber) and late (red). The branch steps count opening hours only, so a shop that is closed overnight does not start the morning late.',
+    'tab_hint' => 'How long an order, a delivery, a pickup or cash may wait before the dashboard shows it as getting late (amber) and late (red). The branch steps count opening hours only, so a shop that is closed overnight does not start the morning late. Under them are the driver rules: when a parcel needs two people, how long a driver has to accept, and when the customer is told the driver is close.',
     'setting_lt' => 'The "getting late" time must be lower than the "late" time.',
     'setting' => [
         'ops_clock__pending_amber_minutes' => 'New order: getting late after',
@@ -160,6 +160,12 @@ return [
         'ops_clock__pickup_red_days' => 'Pickup not collected: late after',
         'ops_clock__cash_amber_hours' => 'Cash held by a driver: getting late after',
         'ops_clock__cash_red_hours' => 'Cash held by a driver: late after',
+        'dispatch__two_person_weight_kg' => 'Parcel needs two people from',
+        'dispatch__accept_timeout_min' => 'Driver must accept within',
+        'dispatch__stale_duty_min' => 'Silent driver goes off duty after',
+        'dispatch__max_auto_attempts' => 'Drivers tried automatically',
+        'dispatch__nearby_eta_min' => 'Tell the customer the driver is close at',
+        'dispatch__nearby_distance_m' => 'Same, when no arrival time is known',
     ],
     'setting_hint' => [
         'ops_clock__pending_amber_minutes' => 'Minutes a new order may wait to be accepted before it turns amber. Opening hours only.',
@@ -174,5 +180,11 @@ return [
         'ops_clock__pickup_red_days' => 'Days before an uncollected pickup turns red.',
         'ops_clock__cash_amber_hours' => 'Hours a driver or cashier may hold cash before handing it in. Also used for refunds waiting for approval.',
         'ops_clock__cash_red_hours' => 'Hours before cash that was not handed in turns red.',
+        'dispatch__two_person_weight_kg' => 'A parcel heavier than this, or any oversized item, shows "needs two people" on the driver\'s job card.',
+        'dispatch__accept_timeout_min' => 'Minutes a driver has to accept a job before it is taken back and offered to someone else. 0 turns this off.',
+        'dispatch__stale_duty_min' => 'A driver on duty whose phone has not been heard from for this long is set off duty, and jobs he had not accepted are released.',
+        'dispatch__max_auto_attempts' => 'How many different drivers the system offers one delivery to by itself before it asks the branch to step in.',
+        'dispatch__nearby_eta_min' => 'The customer gets "your driver is nearly there" when the driver is this many minutes away or fewer.',
+        'dispatch__nearby_distance_m' => 'The distance in metres used for the "driver is close" message when an arrival time cannot be worked out.',
     ],
 ];

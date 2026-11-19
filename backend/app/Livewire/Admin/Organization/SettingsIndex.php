@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin\Organization;
 
+use App\Domain\Fulfillment\Services\DispatchSettings;
 use App\Domain\Operations\Services\OpsClock;
 use App\Domain\Settings\Services\Settings;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
@@ -114,7 +115,7 @@ class SettingsIndex extends Component
                 'messaging.whatsapp_per_minute' => ['type' => 'int', 'rules' => $int(1, 600)],
                 'messaging.bulk_max' => ['type' => 'int', 'rules' => $int(1, 5000)],
             ],
-            'ops_clock' => self::opsClockSchema(),
+            'ops_clock' => self::opsClockSchema() + self::dispatchSchema(),
             'integrations' => [
                 'payments.sadad.enabled' => ['type' => 'bool', 'rules' => ['boolean']],
                 'payments.sadad.mode' => ['type' => 'select', 'rules' => ['required', 'in:sandbox,live'], 'options' => ['sandbox', 'live']],
@@ -168,6 +169,32 @@ class SettingsIndex extends Component
                 $schema[$key] = ['type' => 'int', 'rules' => $rules, 'suffix' => $unit === 'minutes' ? 'min' : $unit, 'default' => OpsClock::defaultFor($kind, $level),
                     'label' => 'ops_live.setting.'.$field, 'hint' => 'ops_live.setting_hint.'.$field, 'messages' => $messages];
             }
+        }
+
+        return $schema;
+    }
+
+    /**
+     * The driver rules that sit under the clock limits: when a parcel needs two people, how long a driver may take to accept, when a silent driver is set
+     * off duty, how many drivers the system tries by itself, and when the customer is told the driver is close. Defaults from {@see DispatchSettings}.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private static function dispatchSchema(): array
+    {
+        $rows = [
+            'dispatch.two_person_weight_kg' => [1, 500, DispatchSettings::TWO_PERSON_WEIGHT_KG, 'kg'],
+            'dispatch.accept_timeout_min' => [0, 120, DispatchSettings::ACCEPT_TIMEOUT_MIN, 'min'],
+            'dispatch.stale_duty_min' => [5, 240, DispatchSettings::STALE_DUTY_MIN, 'min'],
+            'dispatch.max_auto_attempts' => [1, 10, DispatchSettings::MAX_AUTO_ATTEMPTS, null],
+            'dispatch.nearby_eta_min' => [1, 60, DispatchSettings::NEARBY_ETA_MIN, 'min'],
+            'dispatch.nearby_distance_m' => [100, 10000, DispatchSettings::NEARBY_DISTANCE_M, 'm'],
+        ];
+        $schema = [];
+        foreach ($rows as $key => [$min, $max, $default, $suffix]) {
+            $field = self::field($key);
+            $schema[$key] = ['type' => 'int', 'rules' => ['required', 'integer', "min:{$min}", "max:{$max}"], 'suffix' => $suffix, 'default' => $default,
+                'label' => 'ops_live.setting.'.$field, 'hint' => 'ops_live.setting_hint.'.$field, 'messages' => []];
         }
 
         return $schema;
