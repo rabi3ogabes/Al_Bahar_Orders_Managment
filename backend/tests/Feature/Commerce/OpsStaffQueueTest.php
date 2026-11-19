@@ -85,7 +85,8 @@ it('keeps the default queue and overview exactly as they were and adds the part 
     $rows = $this->getJson('/api/v1/admin/dispatch/queue?branch_id='.$w->a->id)->assertOk()->json('data');
     expect($rows)->toHaveCount(1)->and($rows[0]['fulfillment_id'])->toBe($f->id)->and($rows[0]['type'])->toBe('delivery');
     $overview = $this->getJson('/api/v1/admin/dispatch/overview?branch_id='.$w->a->id)->assertOk()->json('data');
-    expect($overview['new'])->toBe(0)->and($overview['ready'])->toBe(1)->and(array_keys($overview))->toBe(['branch', 'new', 'preparing', 'ready', 'out_for_delivery', 'failed', 'waiting_for_driver', 'drivers_on_duty', 'drivers_total']);
+    expect($overview['new'])->toBe(0)->and($overview['ready'])->toBe(1)->and(array_slice(array_keys($overview), 0, 9))->toBe(['branch', 'new', 'preparing', 'ready', 'out_for_delivery', 'failed', 'waiting_for_driver', 'drivers_on_duty', 'drivers_total'])
+        ->and(array_slice(array_keys($overview), 9))->toBe(['pickup', 'branches', 'can']); // the staff app's additions (docs/api/STAFF_QUEUE.md) come after the old keys
     expect($pickup->fulfillments->first()->type)->toBe('pickup');
 });
 
