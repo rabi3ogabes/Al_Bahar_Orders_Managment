@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Admin;
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Fulfillment\Services\DispatchService;
+use App\Domain\Fulfillment\Services\DriverJobPresenter;
 use App\Domain\Fulfillment\Services\DriverPosition;
 use App\Domain\Identity\Models\User;
 use App\Domain\Orders\Enums\FulfillmentStatus as FS;
@@ -34,7 +35,7 @@ use Illuminate\Support\Collection;
  */
 class DispatchController extends ApiController
 {
-    public function __construct(private readonly DispatchService $dispatch) {}
+    public function __construct(private readonly DispatchService $dispatch, private readonly DriverJobPresenter $jobs) {}
 
     // ── Driver app ─────────────────────────────────────────────────────────
 
@@ -84,19 +85,42 @@ class DispatchController extends ApiController
         return response()->json(['data' => ['ok' => true] + $result]);
     }
 
-    /** My jobs: scope=active (default) or history (last 30 finished). */
+    /** My jobs: scope=active (default) or history (last 30 finished; see {@see history()}). */
     public function jobs(Request $request): JsonResponse
     {
         $u = $this->user();
         $this->assertDriver($u);
-        $history = $request->query('scope') === 'history';
-        $rows = Delivery::with(['fulfillment.order', 'fulfillment.branch', 'fulfillment.items'])
-            ->where('driver_id', $u->id)
-            ->when($history, fn ($q) => $q->whereIn('status', ['delivered', 'returned', 'cancelled'])->orderByDesc('updated_at')->limit(30),
-                fn ($q) => $q->whereNotIn('status', ['delivered', 'returned', 'cancelled'])->orderBy('scheduled_for')->orderBy('assigned_at'))
-            ->get();
+        if ($request->query('scope') === 'history') {
+            return $this->history();
+        }
+        $rows = $this->withParcel(Delivery::query())->where('driver_id', $u->id)->whereNotIn('status', ['delivered', 'returned', 'cancelled'])
+            ->orderBy('scheduled_for')->orderBy('assigned_at')->get();
 
-        return response()->json(['data' => $rows->map(fn (Delivery $d) => $this->job($d))->values()]);
+        return response()->json(['data' => $this->jobs->many($rows)]);
+    }
+
+    /**
+     * My last 30 finished jobs, newest first. The short version of a job (order number, area, time, status, amount, items); a job finished more
+     * than 24 hours ago no longer carries the customer's phone numbers or street (`redacted: true`).
+     */
+    public function history(): JsonResponse
+    {
+        $u = $this->user();
+        $this->assertDriver($u);
+        $rows = $this->withParcel(Delivery::query())->where('driver_id', $u->id)->whereIn('status', ['delivered', 'returned', 'cancelled'])->orderByDesc('updated_at')->limit(30)->get();
+
+        return response()->json(['data' => $this->jobs->many($rows)]);
+    }
+
+    /** One of my jobs in full (opened from a notification, or to refresh an open window). 404 when it is not mine (any more). */
+    public function job(Delivery $delivery): JsonResponse
+    {
+        $u = $this->user();
+        $this->assertDriver($u);
+        abort_unless($delivery->driver_id === $u->id, 404, __('driver_day.errors.job_not_found'));
+        $delivery->load(['fulfillment.order', 'fulfillment.branch', 'fulfillment.items']);
+
+        return response()->json(['data' => $this->jobs->job($delivery)]);
     }
 
     /**
@@ -264,22 +288,13 @@ class DispatchController extends ApiController
         return $branch;
     }
 
-    /** @return array<string, mixed> */
-    private function job(Delivery $d): array
+    /**
+     * @param  Builder<Delivery>  $query
+     * @return Builder<Delivery>
+     */
+    private function withParcel(Builder $query): Builder
     {
-        $o = $d->fulfillment->order;
-
-        return [
-            'id' => $d->id, 'tracking_number' => $d->tracking_number, 'status' => $d->status->value, 'fulfillment_id' => $d->order_fulfillment_id,
-            'order_id' => $o->id, 'seq' => (int) $o->progress_seq,
-            'order_number' => $o->number, 'customer_name' => $o->customer_name, 'customer_phone' => $o->customer_phone,
-            // The customer's second number, for the driver of THIS delivery (the query above only returns the caller's own jobs).
-            'alternate_phone' => AlternatePhone::visible($o->alternate_phone), 'address' => $o->address_snapshot,
-            'payment_method' => $o->payment_method, 'cod_amount' => $d->cod_amount, 'requires_proof' => $d->requires_proof,
-            'branch' => ['id' => $d->branch_id, 'name' => $d->fulfillment->branch?->localized('name')],
-            'scheduled_for' => BusinessTime::iso($d->scheduled_for), 'assigned_at' => BusinessTime::iso($d->assigned_at),
-            'items' => $this->itemRows($d->fulfillment->loadMissing('items')->items),
-        ];
+        return $query->with(['fulfillment.order', 'fulfillment.branch', 'fulfillment.items']);
     }
 
     /**

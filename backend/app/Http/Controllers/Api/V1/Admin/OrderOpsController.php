@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Admin;
 use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Fulfillment\Models\PickupReservation;
 use App\Domain\Fulfillment\Services\DeliveryService;
+use App\Domain\Fulfillment\Services\DriverGps;
 use App\Domain\Fulfillment\Services\PickupService;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
@@ -148,8 +149,10 @@ class OrderOpsController extends ApiController
             'pickup' => $svc->pickUp($delivery, $u),
             'out-for-delivery' => $svc->outForDelivery($delivery, $u, $request->float('latitude') ?: null, $request->float('longitude') ?: null),
             'deliver' => $svc->deliver($delivery, $u, $request->input('recipient_name'), $request->file('proof'), $request->input('proof_type', 'photo'),
-                $request->has('cod') ? $request->validate(['cod.tender' => 'required|in:cash,card_terminal', 'cod.amount' => 'required|numeric|min:0', 'cod.receipt_reference' => 'nullable|string'])['cod'] : null),
-            'fail' => $svc->fail($delivery, $u, $request->validate(['reason_code' => 'required|in:customer_unreachable,customer_absent,wrong_address,refused,damaged,access_denied,other'])['reason_code'], $request->input('notes')),
+                $request->has('cod') ? $request->validate(['cod.tender' => 'required|in:cash,card_terminal', 'cod.amount' => 'required|numeric|min:0', 'cod.receipt_reference' => 'nullable|string'])['cod'] : null,
+                DriverGps::from($request)),
+            // The driver's "could not deliver": a reason, a note (required for other / damaged), an optional photo and position (DriverGps::failure).
+            'fail' => $svc->fail($delivery, $u, ...DriverGps::failure($request)),
             // Either onto a delivery slot (capacity-safe) or, for branches without slots, to a free time (Qatar time unless an offset is given).
             'reschedule' => $request->filled('slot_id')
                 ? $svc->rescheduleToSlot($delivery, $u, ...array_values($request->validate(['slot_id' => 'required|uuid', 'date' => 'required|date_format:Y-m-d|after_or_equal:'.BusinessTime::now()->toDateString()])))

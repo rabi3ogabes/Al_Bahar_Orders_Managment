@@ -19,6 +19,9 @@ final class NotificationCatalog
         'order.cancelled' => ['transactional', ['push', 'in_app', 'email']],
         // The branch changed what is in the order (an item was short): not a live-card event, so the customer always hears it as a push too.
         'order.items_changed' => ['transactional', ['push', 'in_app']],
+        // The driver is close, and at the door (sent once each by the driver app's steps and its position reports; never for a pickup order).
+        'delivery.nearby' => ['transactional', ['push', 'in_app']],
+        'delivery.arrived' => ['transactional', ['push', 'in_app']],
         'payment.link' => ['transactional', ['push', 'in_app']],
         'payment.succeeded' => ['transactional', ['push', 'in_app']],
         'payment.failed' => ['transactional', ['push', 'in_app']],

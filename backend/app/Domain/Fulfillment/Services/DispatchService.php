@@ -9,17 +9,21 @@ use App\Domain\Fulfillment\Enums\DeliveryStatus as DS;
 use App\Domain\Fulfillment\Events\DriverMoved;
 use App\Domain\Fulfillment\Events\OrderDriverMoved;
 use App\Domain\Fulfillment\Models\Delivery;
+use App\Domain\Fulfillment\Models\DeliveryDecline;
 use App\Domain\Fulfillment\Models\DriverLocation;
 use App\Domain\Fulfillment\Models\DriverProfile;
+use App\Domain\Fulfillment\Services\Eta\EtaService;
 use App\Domain\Identity\Models\User;
 use App\Domain\Orders\Models\OrderFulfillment;
 use App\Support\BusinessTime;
 use App\Support\DomainException;
 use App\Support\Geo;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 /**
  * Hands deliveries to drivers. The admin chooses per branch whether the system does it (auto: the on-duty driver
@@ -37,7 +41,18 @@ class DispatchService
     /** Statuses in which the customer may follow the driver. */
     private const FOLLOWABLE = ['picked_up', 'out_for_delivery'];
 
-    public function __construct(private readonly DeliveryService $deliveries, private readonly AuditLogger $audit) {}
+    /** Jobs the driver has taken on and is working: he cannot go off duty (or be set off duty) over them. */
+    public const IN_PROGRESS = ['accepted', 'picked_up', 'out_for_delivery', 'failed'];
+
+    /** Straight-line distance beyond which "is he close?" is not worth asking a routing server (about 10 minutes of motorway). */
+    private const NEARBY_CHECK_WITHIN_M = 15000;
+
+    public function __construct(
+        private readonly DeliveryService $deliveries,
+        private readonly AuditLogger $audit,
+        private readonly DispatchSettings $config,
+        private readonly DriverDispatchAlerts $alerts,
+    ) {}
 
     public function isDriver(User $user): bool
     {
@@ -55,22 +70,62 @@ class DispatchService
         return DriverProfile::firstOrCreate(['user_id' => $driver->id], ['on_duty' => false]);
     }
 
+    /**
+     * Duty on or off. Going on duty hands over the jobs that were waiting. Going OFF duty while he still has jobs he accepted or has on the road is
+     * refused (409 `jobs_in_progress`, with how many): he finishes them, or the branch takes them back. Under the profile's row lock, so a second
+     * tap, a second phone and the watchdog cannot both decide; switching off when already off is harmless.
+     */
     public function setDuty(User $driver, bool $onDuty, ?float $lat = null, ?float $lng = null, ?string $vehicle = null): DriverProfile
     {
         if (! $this->isDriver($driver)) {
             throw DomainException::make('driver_not_eligible', 403);
         }
-        $p = $this->profile($driver);
-        $fix = $lat !== null && $lng !== null;
-        $p->update(['on_duty' => $onDuty, 'last_lat' => $lat ?? $p->last_lat, 'last_lng' => $lng ?? $p->last_lng, 'last_seen_at' => now(),
-            // A new position from the duty switch is a fresh fix; without one the old position keeps its own age.
-            'last_fix_at' => $fix ? now() : $p->last_fix_at, 'last_heading' => $fix ? null : $p->last_heading, 'last_speed_kmh' => $fix ? null : $p->last_speed_kmh,
-            'last_accuracy_m' => $fix ? null : $p->last_accuracy_m, 'vehicle' => $vehicle !== null ? ($vehicle === '' ? null : $vehicle) : $p->vehicle]);
+        $this->profile($driver);
+        $p = DB::transaction(function () use ($driver, $onDuty, $lat, $lng, $vehicle) {
+            $p = DriverProfile::query()->whereKey($driver->id)->lockForUpdate()->firstOrFail();
+            if (! $onDuty && $p->on_duty && ($open = $this->inProgressCount($driver)) > 0) {
+                throw DriverError::make('jobs_in_progress', 409, ['count' => $open]);
+            }
+            $fix = $lat !== null && $lng !== null;
+            $p->update(['on_duty' => $onDuty, 'last_lat' => $lat ?? $p->last_lat, 'last_lng' => $lng ?? $p->last_lng, 'last_seen_at' => now(),
+                // The day starts when he goes on duty, and a duty switch he repeats does not move it.
+                'on_duty_since' => $onDuty ? ($p->on_duty ? ($p->on_duty_since ?? now()) : now()) : null,
+                // A new position from the duty switch is a fresh fix; without one the old position keeps its own age.
+                'last_fix_at' => $fix ? now() : $p->last_fix_at, 'last_heading' => $fix ? null : $p->last_heading, 'last_speed_kmh' => $fix ? null : $p->last_speed_kmh,
+                'last_accuracy_m' => $fix ? null : $p->last_accuracy_m, 'vehicle' => $vehicle !== null ? ($vehicle === '' ? null : $vehicle) : $p->vehicle]);
+
+            return $p;
+        });
         if ($onDuty) {
             $this->assignWaiting($driver);
+        } else {
+            // Off duty means off: a job he was given and never accepted goes to someone who is working (his accepted jobs are not touched: he cannot go off with those).
+            $this->releaseWaitingJobsOf($driver->id);
         }
 
         return $p->fresh();
+    }
+
+    /** Takes back every job given to this driver that he has not accepted, and finds each a new driver where the branch gives jobs out by itself. */
+    private function releaseWaitingJobsOf(string $driverId): void
+    {
+        $out = ['released' => 0, 'reassigned' => 0, 'gave_up' => 0, 'off_duty' => 0, 'quiet_with_jobs' => 0];
+        foreach (Delivery::query()->where('driver_id', $driverId)->where('status', DS::Assigned->value)->get() as $job) {
+            $this->guarded(function () use ($job, &$out) {
+                $this->takeBack($job, DeliveryDecline::OFF_DUTY, null, $out);
+            });
+        }
+    }
+
+    /** How many jobs the driver has accepted or has on the road (what stops him going off duty). */
+    public function inProgressCount(User $driver): int
+    {
+        return $this->inProgressCountOf($driver->id);
+    }
+
+    private function inProgressCountOf(string $driverId): int
+    {
+        return Delivery::query()->where('driver_id', $driverId)->whereIn('status', self::IN_PROGRESS)->count();
     }
 
     /**
@@ -113,7 +168,7 @@ class DispatchService
         }
         Cache::put('driver:crumb:'.$driver->id, [$lat, $lng], (int) $cfg['duplicate_window_seconds']);
 
-        $jobs = Delivery::with('fulfillment:id,order_id', 'fulfillment.order:id,number')->where('driver_id', $driver->id)->whereIn('status', array_keys(self::MOVING))->get()
+        $jobs = Delivery::with('fulfillment:id,order_id', 'fulfillment.order:id,number,address_snapshot')->where('driver_id', $driver->id)->whereIn('status', array_keys(self::MOVING))->get()
             ->sortByDesc(fn (Delivery $d) => self::MOVING[$d->status->value].'|'.($d->assigned_at?->getTimestamp() ?? 0))->values();
         $delivery = $jobs->first();
         DriverLocation::create(['driver_id' => $driver->id, 'delivery_id' => $delivery?->id, 'lat' => $lat, 'lng' => $lng, 'speed_kmh' => $speedKmh,
@@ -130,6 +185,10 @@ class DispatchService
         foreach ($jobs->filter(fn (Delivery $d) => in_array($d->status->value, self::FOLLOWABLE, true) && $d->fulfillment?->order_id) as $job) {
             rescue(fn () => event(new OrderDriverMoved($job->fulfillment->order_id, DriverPosition::firstName($driver->name), $lat, $lng, $job->status->value,
                 $vehicle, $heading, $speedKmh, $accuracy, $iso, $age)), report: true);
+        }
+        // The customer is told once that the driver is close (a failure here never reaches the driver's phone).
+        foreach ($jobs->filter(fn (Delivery $d) => $d->status === DS::OutForDelivery && $d->nearby_at === null && $d->arrived_at === null) as $job) {
+            rescue(fn () => $this->announceIfNearby($job, $lat, $lng), report: true);
         }
 
         return ['recorded' => true, 'reason' => null];
@@ -195,10 +254,14 @@ class DispatchService
         ])->sortBy([['on_duty', 'desc'], ['open_jobs', 'asc'], ['name', 'asc']])->values();
     }
 
-    /** Picks the best on-duty driver of the branch, or null when none is available. */
-    public function pickDriver(Branch $branch): ?User
+    /**
+     * Picks the best on-duty driver of the branch, or null when none is available.
+     *
+     * @param  list<string>  $excluding  drivers who must not get this job (they handed it back, or did not answer)
+     */
+    public function pickDriver(Branch $branch, array $excluding = []): ?User
     {
-        $onDuty = $this->branchDrivers($branch)->where('on_duty', true);
+        $onDuty = $this->branchDrivers($branch)->where('on_duty', true)->reject(fn (array $d) => in_array($d['id'], $excluding, true));
         if ($onDuty->isEmpty()) {
             return null;
         }
@@ -221,14 +284,17 @@ class DispatchService
         return $this->autoAssign($delivery);
     }
 
-    /** Auto mode: gives a pending internal delivery to the best driver. Stays pending (staff see it) when nobody is on duty. */
+    /**
+     * Auto mode: gives a pending internal delivery to the best driver, never to one who handed this delivery back or did not answer for it.
+     * Stays pending (staff see it) when nobody is on duty.
+     */
     public function autoAssign(Delivery $delivery): ?Delivery
     {
         if ($delivery->mode !== 'internal' || $delivery->status !== DS::Pending) {
             return null;
         }
         $branch = Branch::findOrFail($delivery->branch_id);
-        $driver = $this->pickDriver($branch);
+        $driver = $this->pickDriver($branch, DeliveryDecline::query()->where('delivery_id', $delivery->id)->pluck('driver_id')->all());
         if (! $driver) {
             return null;
         }
@@ -252,6 +318,187 @@ class DispatchService
         $branches = Branch::whereIn('id', $this->driverBranchIds($driver))->where('dispatch_mode', 'auto')->pluck('id');
         Delivery::whereIn('branch_id', $branches)->where('status', DS::Pending->value)->where('mode', 'internal')->orderBy('created_at')->limit(20)->get()
             ->each(fn (Delivery $d) => $this->autoAssign($d));
+    }
+
+    /**
+     * The driver hands a job he was given (and has not accepted) back. The job returns to the waiting pool; in a branch that gives jobs out by
+     * itself it goes to the next driver at once (never the one who declined); the branch managers are told either way. A repeated call changes
+     * nothing and tells nobody twice.
+     */
+    public function declineJob(Delivery $delivery, User $driver, string $reason, ?string $note = null): Delivery
+    {
+        [$d, $changed] = $this->deliveries->decline($delivery, $driver, $reason, $note);
+        if (! $changed) {
+            return $d;
+        }
+        $auto = Branch::query()->whereKey($d->branch_id)->value('dispatch_mode') === 'auto';
+        $next = null;
+        if ($auto) {
+            $given = null;
+            rescue(function () use ($d, &$given) {
+                $given = $this->autoAssign($d->fresh() ?? $d);
+            }, report: true);
+            $next = $given?->driver_id ? User::query()->find($given->driver_id) : null;
+        }
+        rescue(fn () => $this->alerts->declined($d->loadMissing('fulfillment.order'), $driver, $reason, $next, $auto), report: true);
+
+        return $d->fresh() ?? $d;
+    }
+
+    /**
+     * What a minute of watching finds (the `dispatch:watchdog` command runs it every minute; every step is safe to repeat and to run twice at once):
+     *
+     *  - a delivery given to a driver who did not accept it within dispatch.accept_timeout_min is taken back and, in a branch that gives jobs out
+     *    by itself, offered to the next driver (never one who already failed to answer for it). After dispatch.max_auto_attempts silent drivers the
+     *    system stops: it stays waiting, the branch managers are told, and the Needs attention list shows it ("Ready, no driver yet").
+     *  - a driver on duty who has not been heard from for dispatch.stale_duty_min minutes is set off duty and the jobs he had not accepted are taken
+     *    back like the above. Jobs he accepted or has on the road are NEVER touched: they stay his, and the managers are told he went quiet carrying them.
+     *
+     * @return array{released: int, reassigned: int, gave_up: int, off_duty: int, quiet_with_jobs: int}
+     */
+    public function watchdog(?CarbonInterface $now = null): array
+    {
+        $now = CarbonImmutable::instance($now ?? CarbonImmutable::now());
+        $out = ['released' => 0, 'reassigned' => 0, 'gave_up' => 0, 'off_duty' => 0, 'quiet_with_jobs' => 0];
+
+        $timeout = $this->config->acceptTimeoutMin();
+        if ($timeout > 0) {
+            $cut = $now->subMinutes($timeout);
+            $silent = Delivery::query()->where('status', DS::Assigned->value)->where('mode', 'internal')->whereNotNull('driver_id')->where('assigned_at', '<=', $cut)
+                ->orderBy('assigned_at')->limit(200)->get();
+            foreach ($silent as $job) {
+                $this->guarded(function () use ($job, $cut, &$out) {
+                    $this->takeBack($job, DeliveryDecline::TIMEOUT, $cut, $out);
+                });
+            }
+        }
+
+        $minutes = $this->config->staleDutyMin();
+        $stale = DriverProfile::query()->where('on_duty', true)->whereRaw('coalesce(last_seen_at, updated_at) <= ?', [$now->subMinutes($minutes)])->orderBy('last_seen_at')->limit(200)->get();
+        foreach ($stale as $profile) {
+            $this->guarded(function () use ($profile, $now, $minutes, &$out) {
+                $this->setSilentDriverOffDuty($profile->user_id, $now, $minutes, $out);
+            });
+        }
+
+        return $out;
+    }
+
+    /** One bad row must not stop the watchdog for the others (or for the next minute). */
+    private function guarded(callable $step): void
+    {
+        try {
+            $step();
+        } catch (Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * Takes one unaccepted job back from its driver and finds it a new one when it may. A driver who did not answer (`timeout`) is replaced in
+     * silence unless the system has used up its turns (or a person chooses the drivers at this branch): then the managers are told. A driver who went
+     * off duty (`off_duty`) hands the job over like a decline: the managers are told who got it, or that it waits.
+     *
+     * @param  array{released: int, reassigned: int, gave_up: int, off_duty: int, quiet_with_jobs: int}  $out
+     */
+    private function takeBack(Delivery $job, string $reason, ?CarbonInterface $assignedBefore, array &$out): void
+    {
+        $previous = $this->deliveries->releaseUnaccepted($job, $reason, $assignedBefore);
+        if ($previous === null) {
+            return;
+        }
+        $out['released']++;
+        $fresh = ($job->fresh() ?? $job)->loadMissing('fulfillment.order');
+        $attempts = DeliveryDecline::query()->where('delivery_id', $job->id)->where('reason', DeliveryDecline::TIMEOUT)->count();
+        $auto = Branch::query()->whereKey($job->branch_id)->value('dispatch_mode') === 'auto';
+        $spent = $reason === DeliveryDecline::TIMEOUT && $attempts >= $this->config->maxAutoAttempts();
+        $next = null;
+        if ($auto && ! $spent) {
+            $given = $this->autoAssign($fresh);
+            $next = $given?->driver_id ? User::query()->find($given->driver_id) : null;
+            $out['reassigned'] += $given !== null ? 1 : 0;
+        }
+        $out['gave_up'] += $spent ? 1 : 0;
+        if ($reason === DeliveryDecline::TIMEOUT) {
+            if ($spent || ! $auto) {
+                $this->guarded(fn () => $this->alerts->nobodyTook($fresh, max(1, $attempts)));
+            }
+
+            return;
+        }
+        $gone = User::query()->find($previous);
+        if ($gone !== null) {
+            $this->guarded(fn () => $this->alerts->declined($fresh, $gone, $reason, $next, $auto));
+        }
+    }
+
+    /**
+     * Sets one silent driver off duty (under his profile's lock, after looking again) and takes back the jobs he had not accepted.
+     *
+     * @param  array{released: int, reassigned: int, gave_up: int, off_duty: int, quiet_with_jobs: int}  $out
+     */
+    private function setSilentDriverOffDuty(string $driverId, CarbonImmutable $now, int $minutes, array &$out): void
+    {
+        $cut = $now->subMinutes($minutes);
+        $switched = DB::transaction(function () use ($driverId, $cut) {
+            $p = DriverProfile::query()->whereKey($driverId)->lockForUpdate()->first();
+            if ($p === null || ! $p->on_duty || ($p->last_seen_at ?? $p->updated_at)?->greaterThan($cut)) {
+                return false; // he came back, or was switched off, since the scan
+            }
+            $p->update(['on_duty' => false, 'on_duty_since' => null]);
+            $this->audit->log('driver.auto_off_duty', 'DriverProfile', ['on_duty' => true], ['on_duty' => false], ['driver_id' => $driverId]);
+
+            return true;
+        });
+        if (! $switched) {
+            return;
+        }
+        $out['off_duty']++;
+        $driver = User::query()->find($driverId);
+        $jobs = Delivery::query()->where('driver_id', $driverId)->where('status', DS::Assigned->value)->get();
+        foreach ($jobs as $job) {
+            $this->guarded(function () use ($job, &$out) {
+                $this->takeBack($job, DeliveryDecline::OFF_DUTY, null, $out);
+            });
+        }
+        $carrying = $this->inProgressCountOf($driverId);
+        if ($driver !== null && ($carrying > 0 || $jobs->isNotEmpty())) {
+            $out['quiet_with_jobs'] += $carrying > 0 ? 1 : 0;
+            $this->guarded(fn () => $this->alerts->wentQuiet($this->driverBranchIds($driver)->all(), $driver, $minutes, $carrying));
+        }
+    }
+
+    /** The driver is out for delivery and the position he just reported is close to the customer: tell the customer once. */
+    private function announceIfNearby(Delivery $job, float $lat, float $lng): void
+    {
+        // One look per delivery every 15 seconds: the phone reports far more often than the customer's "he is close" needs, and the arrival
+        // time is cached per delivery anyway (EtaService), so a routing server is never asked on every position.
+        if (! Cache::add('delivery:nearby:look:'.$job->id, 1, 15)) {
+            return;
+        }
+        $dest = (array) ($job->fulfillment?->order?->address_snapshot ?? []);
+        $toLat = $dest['latitude'] ?? null;
+        $toLng = $dest['longitude'] ?? null;
+        if (! Geo::validPoint($toLat, $toLng)) {
+            return; // no pin on the map for this address: there is nothing to measure against
+        }
+        $metres = Geo::distanceM($lat, $lng, (float) $toLat, (float) $toLng);
+        if ($metres > self::NEARBY_CHECK_WITHIN_M) {
+            return;
+        }
+        try {
+            $close = app(EtaService::class)->between($job->id, $lat, $lng, (float) $toLat, (float) $toLng)['minutes'] <= $this->config->nearbyEtaMin();
+        } catch (Throwable) {
+            $close = $metres <= $this->config->nearbyDistanceM(); // no arrival time could be worked out: the straight line decides
+        }
+        if (! $close) {
+            return;
+        }
+        // Claimed in the database first, so two position reports at the same moment send one message.
+        $claimed = Delivery::query()->whereKey($job->id)->where('status', DS::OutForDelivery->value)->whereNull('nearby_at')->whereNull('arrived_at')->update(['nearby_at' => now()]);
+        if ($claimed === 1) {
+            app(DeliveryCustomerAlerts::class)->nearby($job->id);
+        }
     }
 
     /** Manual mode: a branch employee picks the driver (create the delivery first if it does not exist yet). */

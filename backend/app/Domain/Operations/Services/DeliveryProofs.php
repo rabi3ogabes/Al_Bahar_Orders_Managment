@@ -11,6 +11,7 @@ use App\Domain\Payments\Models\CashCollection;
 use App\Support\BusinessTime;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -25,10 +26,10 @@ final class DeliveryProofs
     /**
      * @return array{
      *     delivery_id: string, tracking: string,
-     *     photos: list<array{id: string, url: string, at: string|null, n: int}>,
+     *     photos: list<array{id: string, url: string, at: string|null, n: int, kind: string}>,
      *     external: list<string>,
      *     recipient: string|null, at: string|null, driver: string|null,
-     *     gps: array{lat: float, lng: float, at: string|null, map_url: string}|null,
+     *     gps: array{lat: float, lng: float, at: string|null, map_url: string, accuracy_m: int|null}|null,
      *     cod: array{due: string, collected: string|null, tender: string|null}|null,
      * }|null
      */
@@ -42,7 +43,9 @@ final class DeliveryProofs
         $external = [];
         foreach ($proofs as $proof) {
             if ($proof->disk !== null && $proof->path !== null) {
-                $photos[] = ['id' => $proof->id, 'url' => route('admin.deliveries.proof', [$delivery->id, $proof->id]), 'at' => BusinessTime::display($proof->captured_at, 'd M, H:i'), 'n' => count($photos) + 1];
+                // `kind`: the photo of a failed attempt is shown too (a delivery that was tried, failed and delivered later has both), and says which it is.
+                $photos[] = ['id' => $proof->id, 'url' => route('admin.deliveries.proof', [$delivery->id, $proof->id]), 'at' => BusinessTime::display($proof->captured_at, 'd M, H:i'), 'n' => count($photos) + 1,
+                    'kind' => $proof->type === 'failed' ? 'failed' : 'delivered'];
             } elseif ($proof->path !== null && str_starts_with(strtolower($proof->path), 'https://')) {
                 $external[] = $proof->path; // a courier's own proof: a link only, never fetched or embedded
             }
@@ -59,27 +62,56 @@ final class DeliveryProofs
             'recipient' => $proofs->pluck('recipient_name')->filter()->last(),
             'at' => $anchor !== null ? BusinessTime::display($anchor, 'd M Y, H:i') : null,
             'driver' => is_string($driver) ? $driver : null,
-            'gps' => $anchor !== null ? $this->position($delivery, CarbonImmutable::instance($anchor)) : null,
+            // The position the driver's phone wrote with the proof comes first; the driver's trail is only the fallback for deliveries made before that.
+            'gps' => $this->recorded($proofs) ?? ($anchor !== null ? $this->position($delivery, CarbonImmutable::instance($anchor)) : null),
             'cod' => $this->cash($delivery),
         ];
+    }
+
+    /**
+     * The position saved WITH the proof (latitude, longitude, accuracy): the last proof of the handover that has one, else the last one of a failed
+     * attempt. Null when no proof carries a position, so the caller falls back to the trail.
+     *
+     * @param  Collection<int, DeliveryProof>  $proofs
+     * @return array{lat: float, lng: float, at: string|null, map_url: string, accuracy_m: int|null}|null
+     */
+    private function recorded(Collection $proofs): ?array
+    {
+        $withPoint = $proofs->filter(fn (DeliveryProof $p) => $p->latitude !== null && $p->longitude !== null);
+        $pick = $withPoint->reject(fn (DeliveryProof $p) => $p->type === 'failed')->last() ?? $withPoint->last();
+        if ($pick === null) {
+            return null;
+        }
+        $point = $this->point((float) $pick->latitude, (float) $pick->longitude, $pick->captured_at);
+
+        return $point === null ? null : $point + ['accuracy_m' => $pick->accuracy_m];
     }
 
     /**
      * Where the driver was when the proof was taken: the last recorded position of this delivery up to a few minutes after the photo, else the
      * driver's own last position in the ten minutes before it, else the position written with the "delivered" step.
      *
-     * @return array{lat: float, lng: float, at: string|null, map_url: string}|null
+     * @return array{lat: float, lng: float, at: string|null, map_url: string, accuracy_m: int|null}|null
      */
     private function position(Delivery $delivery, CarbonImmutable $at): ?array
     {
         $fix = DriverLocation::query()->where('delivery_id', $delivery->id)->where('recorded_at', '<=', $at->addMinutes(5))->orderByDesc('recorded_at')->first(['lat', 'lng', 'recorded_at'])
             ?? ($delivery->driver_id ? DriverLocation::query()->where('driver_id', $delivery->driver_id)->whereBetween('recorded_at', [$at->subMinutes(10), $at->addMinutes(5)])->orderByDesc('recorded_at')->first(['lat', 'lng', 'recorded_at']) : null);
         if ($fix !== null) {
-            return $this->point((float) $fix->lat, (float) $fix->lng, $fix->recorded_at);
+            return $this->withAccuracy($this->point((float) $fix->lat, (float) $fix->lng, $fix->recorded_at));
         }
         $row = DB::table('delivery_status_history')->where('delivery_id', $delivery->id)->where('to_status', 'delivered')->whereNotNull('latitude')->whereNotNull('longitude')->orderByDesc('id')->first(['latitude', 'longitude', 'created_at']);
 
-        return $row !== null ? $this->point((float) $row->latitude, (float) $row->longitude, CarbonImmutable::parse((string) $row->created_at)) : null;
+        return $row !== null ? $this->withAccuracy($this->point((float) $row->latitude, (float) $row->longitude, CarbonImmutable::parse((string) $row->created_at))) : null;
+    }
+
+    /**
+     * @param  array{lat: float, lng: float, at: string|null, map_url: string}|null  $point
+     * @return array{lat: float, lng: float, at: string|null, map_url: string, accuracy_m: int|null}|null
+     */
+    private function withAccuracy(?array $point): ?array
+    {
+        return $point === null ? null : $point + ['accuracy_m' => null];
     }
 
     /** @return array{lat: float, lng: float, at: string|null, map_url: string}|null */

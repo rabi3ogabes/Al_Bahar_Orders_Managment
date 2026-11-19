@@ -16,7 +16,7 @@ class Delivery extends Model
 
     protected $guarded = ['id'];
 
-    protected $casts = ['status' => 'App\Domain\Fulfillment\Enums\DeliveryStatus', 'booking_request' => 'array', 'booking_response' => 'array', 'requires_proof' => 'boolean', 'scheduled_for' => 'immutable_datetime', 'assigned_at' => 'immutable_datetime', 'picked_up_at' => 'immutable_datetime', 'out_for_delivery_at' => 'immutable_datetime', 'delivered_at' => 'immutable_datetime', 'failed_at' => 'immutable_datetime', 'returned_at' => 'immutable_datetime'];
+    protected $casts = ['status' => 'App\Domain\Fulfillment\Enums\DeliveryStatus', 'booking_request' => 'array', 'booking_response' => 'array', 'requires_proof' => 'boolean', 'scheduled_for' => 'immutable_datetime', 'assigned_at' => 'immutable_datetime', 'picked_up_at' => 'immutable_datetime', 'out_for_delivery_at' => 'immutable_datetime', 'delivered_at' => 'immutable_datetime', 'failed_at' => 'immutable_datetime', 'returned_at' => 'immutable_datetime', 'arrived_at' => 'immutable_datetime', 'nearby_at' => 'immutable_datetime'];
 
     /** @return BelongsTo<OrderFulfillment, $this> */
     public function fulfillment(): BelongsTo

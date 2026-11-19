@@ -48,7 +48,7 @@ class NotificationRules
 
     /** The page's groups, in order, and the events of each. Every catalog event is in exactly one group (a test keeps it so). */
     public const GROUPS = [
-        'orders' => ['order.created', 'order.confirmed', 'order.processing', 'order.ready_for_pickup', 'order.out_for_delivery', 'order.completed', 'order.cancelled', 'order.items_changed'],
+        'orders' => ['order.created', 'order.confirmed', 'order.processing', 'order.ready_for_pickup', 'order.out_for_delivery', 'order.completed', 'order.cancelled', 'order.items_changed', 'delivery.nearby', 'delivery.arrived'],
         'payments' => ['payment.link', 'payment.succeeded', 'payment.failed', 'refund.processed'],
         'auctions' => ['auction.starting', 'auction.outbid', 'auction.won', 'auction.lost', 'auction.payment_reminder'],
         'stock' => ['stock.back_in_stock', 'stock.price_drop'],

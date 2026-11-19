@@ -11,5 +11,5 @@ class DeliveryProof extends Model
 
     protected $guarded = ['id'];
 
-    protected $casts = ['captured_at' => 'immutable_datetime'];
+    protected $casts = ['captured_at' => 'immutable_datetime', 'latitude' => 'float', 'longitude' => 'float', 'accuracy_m' => 'integer'];
 }

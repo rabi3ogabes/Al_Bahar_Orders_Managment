@@ -17,6 +17,7 @@
                     <li wire:key="proof-{{ $photo['id'] }}">
                         <a href="{{ $photo['url'] }}" target="_blank" rel="noopener" class="group relative block overflow-hidden rounded-2xl border border-sand-200 bg-sand-50 dark:border-ink-700 dark:bg-ink-800" aria-label="{{ __('ops_live.proof.open_photo', ['n' => $photo['n']]) }}">
                             <img src="{{ $photo['url'] }}" alt="{{ __('ops_live.proof.photo', ['n' => $photo['n']]) }}" loading="lazy" decoding="async" class="aspect-[4/3] w-full object-cover transition group-hover:scale-[1.02] motion-reduce:transition-none">
+                            @if (($photo['kind'] ?? 'delivered') === 'failed')<span class="absolute start-2 top-2 rounded-full bg-ink-950/75 px-2 py-0.5 text-xs font-medium text-white">{{ __('ops_live.proof.failed_photo') }}</span>@endif
                             @if ($photo['at'])<span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink-950/70 to-transparent px-3 pb-2 pt-6 text-xs text-white tabular-nums" dir="ltr">{{ $photo['at'] }}</span>@endif
                         </a>
                     </li>
@@ -38,6 +39,7 @@
                     @if ($proof['gps'])
                         <a href="{{ $proof['gps']['map_url'] }}" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center gap-1.5 font-medium hover:text-brass-600">
                             <x-icon name="map-pin" class="size-4 text-brass-600" /><span class="tabular-nums" dir="ltr">{{ number_format($proof['gps']['lat'], 5) }}, {{ number_format($proof['gps']['lng'], 5) }}</span>
+                            @if (! empty($proof['gps']['accuracy_m']))<span class="text-xs font-normal text-ink-500">{{ __('ops_live.proof.accuracy', ['m' => $proof['gps']['accuracy_m']]) }}</span>@endif
                             <span class="text-xs font-normal text-brass-700 underline dark:text-brass-300">{{ __('ops_live.proof.open_map') }}</span>
                         </a>
                     @else

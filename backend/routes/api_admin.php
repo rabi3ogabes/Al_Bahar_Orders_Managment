@@ -120,6 +120,8 @@ Route::controller(V1\Admin\DispatchController::class)->prefix('dispatch')->name(
     Route::put('driver/duty', 'duty')->name('driver.duty');
     Route::post('driver/location', 'location')->middleware('throttle:60,1')->name('driver.location');
     Route::get('driver/jobs', 'jobs')->name('driver.jobs');
+    Route::get('driver/jobs/{delivery}', 'job')->name('driver.job');
+    Route::get('driver/history', 'history')->name('driver.history');
     Route::get('overview', 'overview')->middleware('permission:orders.view')->name('overview');
     Route::get('queue', 'queue')->middleware('permission:orders.view')->name('queue');
     Route::get('drivers', 'drivers')->middleware('permission:deliveries.view')->name('drivers');
@@ -131,6 +133,13 @@ Route::get('dispatch/attention', [V1\Admin\StaffAttentionController::class, 'ind
 Route::controller(V1\Admin\StaffPickupController::class)->group(function () {
     Route::post('fulfillments/{fulfillment}/pickup-reissue', 'reissue')->middleware('permission:pickup.edit')->name('pickup.reissue');
     Route::post('pickup/manual-handover', 'manualHandover')->middleware('permission:pickup.approve')->name('pickup.manual');
+});
+
+// The driver's own day and the steps that belong to him alone (docs/guides/DRIVER_APP.md): signed in as a driver is enough, no finance right needed.
+Route::controller(V1\Admin\DriverDayController::class)->group(function () {
+    Route::get('dispatch/driver/day', 'day')->name('dispatch.driver.day');
+    Route::post('dispatch/jobs/{delivery}/decline', 'decline')->middleware('throttle:30,1')->name('dispatch.jobs.decline');
+    Route::post('deliveries/{delivery}/arrived', 'arrived')->middleware(['permission:deliveries.edit', 'throttle:30,1'])->name('deliveries.arrived');
 });
 
 // Push token of the staff / driver apps (same handler as the customer's /me/devices).

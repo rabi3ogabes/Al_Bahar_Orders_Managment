@@ -51,4 +51,8 @@ return [
     'campaign.body' => '{{body}}',
     'order.items_changed.title' => 'تم تحديث طلبك',
     'order.items_changed.body' => 'تم تحديث الطلب {{order_number}}: {{changes}}. السبب: {{reason}}.{{outcome}}',
+    'delivery.nearby.title' => 'السائق قريب منك',
+    'delivery.nearby.body' => '{{driver}} على بعد دقائق منك ومعه الطلب {{order_number}}. نرجو أن تكون جاهزاً للاستلام.',
+    'delivery.arrived.title' => 'وصل السائق',
+    'delivery.arrived.body' => '{{driver}} عند بابك ومعه الطلب {{order_number}}.',
 ];

@@ -41,6 +41,8 @@ Schedule::command('deals:refresh-feed')->everyMinute()->withoutOverlapping(10)->
 Schedule::command('payments:reconcile-pending')->everyFiveMinutes()->withoutOverlapping(10)->onOneServer();
 // One reminder per limit crossed for an order nobody has accepted (docs/guides/LIVE_OPERATIONS.md); quiet while the branch is closed.
 Schedule::command('orders:remind-unaccepted')->everyMinute()->withoutOverlapping(10)->onOneServer();
+// The driver side of "nothing waits silently": a job nobody accepted goes to the next driver, a driver who went quiet is set off duty (docs/guides/DRIVER_APP.md).
+Schedule::command('dispatch:watchdog')->everyMinute()->withoutOverlapping(10)->onOneServer();
 Schedule::command('loyalty:expire-points')->dailyAt('02:15')->timezone('Asia/Qatar')->onOneServer();
 
 Artisan::command('auctions:tick', fn (LotService $l) => $this->info(json_encode($l->tick())))

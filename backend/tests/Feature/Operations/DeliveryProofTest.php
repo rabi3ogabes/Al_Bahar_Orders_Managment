@@ -152,7 +152,7 @@ it('says so plainly when there is no photo, no position, or nothing to collect',
     $this->actingAs($this->mgrA);
     $card = fn () => Blade::render('<x-admin.sales.delivery-proof :delivery="$delivery" />', ['delivery' => Delivery::findOrFail($this->delivery)]);
     DB::table('deliveries')->where('id', $this->delivery)->update(['cod_amount' => '0.00']);
-    expect($card())->toContain('No proof has been saved for this delivery.')->toContain('The driver&#039;s position was not recorded.')->not->toContain('Cash on delivery');
+    expect($card())->toContain('No proof has been saved for this delivery.')->toContain('Not recorded')->not->toContain('Cash on delivery');
     DB::table('deliveries')->where('id', $this->delivery)->update(['cod_amount' => '100.00']);
     expect($card())->toContain('QAR 100.00 to collect');
     // the position written with the "delivered" step is used when the driver's trail has nothing

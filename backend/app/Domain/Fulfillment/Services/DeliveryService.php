@@ -8,6 +8,7 @@ use App\Domain\Branches\Services\SlotService;
 use App\Domain\Fulfillment\Enums\DeliveryStatus as DS;
 use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Fulfillment\Models\DeliveryAttempt;
+use App\Domain\Fulfillment\Models\DeliveryDecline;
 use App\Domain\Fulfillment\Models\DeliveryProof;
 use App\Domain\Fulfillment\Models\DeliveryProvider;
 use App\Domain\Fulfillment\Models\DeliveryProviderEvent;
@@ -26,6 +27,7 @@ use App\Support\BusinessTime;
 use App\Support\DomainException;
 use App\Support\Money;
 use App\Support\Redactor;
+use Carbon\CarbonInterface;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
@@ -42,6 +44,9 @@ use Throwable;
  */
 class DeliveryService
 {
+    /** Proof rows that do not show the order was handed over: the photo of a failed attempt and a bare position. */
+    private const NOT_A_PROOF = ['failed', 'location'];
+
     public function __construct(
         private readonly OrderService $orders,
         private readonly DeliveryProviderRegistry $providers,
@@ -226,7 +231,8 @@ class DeliveryService
             $this->assertLive($f, $d);
             $this->orders->assertHandoverAllowed($f->order);
             $this->transition($d, DS::OutForDelivery, $actor, $this->source($actor), null, $lat, $lng);
-            $d->update(['out_for_delivery_at' => now()]);
+            // Every trip to the door is announced on its own: a delivery that is tried again says "close" and "arrived" again.
+            $d->update(['out_for_delivery_at' => now(), 'arrived_at' => null, 'nearby_at' => null]);
             $f = $f->fresh();
             if ($f->status->canTransitionTo(FS::OutForDelivery)) {
                 $this->orders->transition($f, FS::OutForDelivery, $actor, system: true);
@@ -243,12 +249,13 @@ class DeliveryService
      * proof, collection or audit row.
      *
      * @param  array{tender: string, amount: string, receipt_reference?: ?string}|null  $cod
+     * @param  array{latitude: float, longitude: float, accuracy: ?int}|null  $gps  where the driver stood (optional: a delivery never needs GPS); kept with the proof
      */
-    public function deliver(Delivery $delivery, User $actor, ?string $recipientName = null, ?UploadedFile $proof = null, string $proofType = 'photo', ?array $cod = null): Delivery
+    public function deliver(Delivery $delivery, User $actor, ?string $recipientName = null, ?UploadedFile $proof = null, string $proofType = 'photo', ?array $cod = null, ?array $gps = null): Delivery
     {
         $this->authorizeDriverOrStaff($delivery, $actor);
 
-        return DB::transaction(function () use ($delivery, $actor, $recipientName, $proof, $proofType, $cod) {
+        return DB::transaction(function () use ($delivery, $actor, $recipientName, $proof, $proofType, $cod, $gps) {
             [$f, $d] = $this->lockJob($delivery);
             if ($d->status === DS::Delivered) {
                 return $d;
@@ -259,11 +266,14 @@ class DeliveryService
             }
             $order = $f->order;
             $this->orders->assertHandoverAllowed($order);
-            if ($d->requires_proof && ! $proof && ! $d->proofs()->exists()) {
+            // A photo of a failed attempt (or a bare position) is not proof that the order was handed over.
+            if ($d->requires_proof && ! $proof && ! $d->proofs()->whereNotIn('type', self::NOT_A_PROOF)->exists()) {
                 throw DomainException::make('delivery_proof_required', 422);
             }
             if ($proof) {
-                $this->storeProof($d, $actor, $proof, $proofType, $recipientName);
+                $this->storeProof($d, $actor, $proof, $proofType, $recipientName, $gps);
+            } elseif ($gps !== null) {
+                $this->storeLocation($d, $actor, $recipientName, $gps);
             }
             if ($order->payment_method === 'cod' && ! $order->payment_status->isSettled()) {
                 CodSplit::refresh($order); // a delivery made before the split rules, or after an adjustment, asks for what is really due now
@@ -277,7 +287,7 @@ class DeliveryService
             $attempt = $d->attempt_count + 1;
             DeliveryAttempt::create(['delivery_id' => $d->id, 'attempt_number' => $attempt, 'result' => 'delivered', 'attempted_by' => $actor->id, 'attempted_at' => now()]);
             $d->update(['attempt_count' => $attempt, 'delivered_at' => now()]);
-            $this->transition($d, DS::Delivered, $actor, $this->source($actor), $recipientName ? 'received by '.$recipientName : null);
+            $this->transition($d, DS::Delivered, $actor, $this->source($actor), $recipientName ? 'received by '.$recipientName : null, $gps['latitude'] ?? null, $gps['longitude'] ?? null);
             $this->orders->transition($f->fresh(), FS::Delivered, $actor, system: true);
             CodSplit::refresh($order->fresh()); // what is left to collect is split among the parcels still on their way
             $this->audit->log('delivery.delivered', $d, [], ['recipient' => $recipientName], branchId: $d->branch_id, actor: $actor);
@@ -288,13 +298,16 @@ class DeliveryService
 
     /**
      * Record a failed attempt. A repeat with the same reason (the app retried) changes nothing; another reason on a delivery that already failed is
-     * refused like any other step that is not allowed.
+     * refused like any other step that is not allowed. An optional photo is kept as evidence (a proof row of type `failed`, in the same private
+     * storage) and an optional position says where the driver stood; neither is needed for the attempt to count.
+     *
+     * @param  array{latitude: float, longitude: float, accuracy: ?int}|null  $gps
      */
-    public function fail(Delivery $delivery, User $actor, string $reasonCode, ?string $notes = null): Delivery
+    public function fail(Delivery $delivery, User $actor, string $reasonCode, ?string $notes = null, ?UploadedFile $photo = null, ?array $gps = null): Delivery
     {
         $this->authorizeDriverOrStaff($delivery, $actor);
 
-        return DB::transaction(function () use ($delivery, $actor, $reasonCode, $notes) {
+        return DB::transaction(function () use ($delivery, $actor, $reasonCode, $notes, $photo, $gps) {
             [$f, $d] = $this->lockJob($delivery);
             if ($d->status === DS::Failed) {
                 if ($d->failure_reason === $reasonCode) {
@@ -310,7 +323,10 @@ class DeliveryService
             DeliveryAttempt::create(['delivery_id' => $d->id, 'attempt_number' => $attempt, 'result' => 'failed', 'failure_reason_code' => $reasonCode,
                 'notes' => $notes, 'attempted_by' => $actor->id, 'attempted_at' => now()]);
             $d->update(['attempt_count' => $attempt, 'failed_at' => now(), 'failure_reason' => $reasonCode]);
-            $this->transition($d, DS::Failed, $actor, $this->source($actor), $reasonCode.($notes ? ': '.$notes : ''));
+            $this->transition($d, DS::Failed, $actor, $this->source($actor), $reasonCode.($notes ? ': '.$notes : ''), $gps['latitude'] ?? null, $gps['longitude'] ?? null);
+            if ($photo) {
+                $this->storeProof($d, $actor, $photo, 'failed', null, $gps);
+            }
             $f = $f->fresh();
             if ($f->status->canTransitionTo(FS::Failed)) {
                 $this->orders->transition($f, FS::Failed, $actor, $reasonCode, system: true);
@@ -361,6 +377,111 @@ class DeliveryService
 
             return $delivery->fresh();
         });
+    }
+
+    /**
+     * The driver is at the customer's door ("I have arrived"). Only the driver who has the job, only while it is out for delivery, once: a repeated tap
+     * (or a retry after a lost answer) finds `arrived_at` set and changes nothing, so the customer is told once. The step is written to the delivery's
+     * history (with the driver's position when the app sent one) and to the audit log; the customer's message goes out after the commit.
+     *
+     * @param  array{latitude: float, longitude: float, accuracy: ?int}|null  $gps
+     */
+    public function arrived(Delivery $delivery, User $actor, ?array $gps = null): Delivery
+    {
+        $this->authorizeDriver($delivery, $actor);
+
+        return DB::transaction(function () use ($delivery, $actor, $gps) {
+            [$f, $d] = $this->lockJob($delivery);
+            if ($d->driver_id !== $actor->id) {
+                throw OpsError::make('delivery_not_yours', 403);
+            }
+            if ($d->arrived_at !== null) {
+                return $d; // the app asked twice
+            }
+            $this->assertLive($f, $d);
+            if ($d->status !== DS::OutForDelivery) {
+                throw DomainException::make('invalid_state_transition', 409, ['from' => __('status.'.$d->status->value)]);
+            }
+            $d->update(['arrived_at' => now()]);
+            $this->log($d, DS::OutForDelivery, DS::OutForDelivery, $actor, 'driver', 'arrived at the customer', $gps['latitude'] ?? null, $gps['longitude'] ?? null);
+            $this->audit->log('delivery.arrived', $d, [], ['arrived_at' => $d->arrived_at?->toIso8601String()], branchId: $d->branch_id, actor: $actor);
+            $id = $d->id;
+            DB::afterCommit(fn () => rescue(fn () => app(DeliveryCustomerAlerts::class)->arrived($id), report: true));
+
+            return $d->fresh();
+        });
+    }
+
+    /**
+     * The driver hands a job that was given to him (and that he has not accepted) back: too far, the wrong vehicle, his shift is ending, other.
+     * The job returns to the waiting pool with a history row and an audit row, and the driver is remembered so the automatic dispatch never offers
+     * him the same job again. A repeat (a second tap, a retry) finds the job already gone from him and changes nothing. Who is told and who
+     * gets the job next is DispatchService's business, after this commit.
+     *
+     * @return array{0: Delivery, 1: bool} the delivery, and whether THIS call took the job back (false: it was handed back before)
+     */
+    public function decline(Delivery $delivery, User $actor, string $reason, ?string $note = null): array
+    {
+        $this->authorizeDriver($delivery, $actor, anyDriver: true);
+
+        return DB::transaction(function () use ($delivery, $actor, $reason, $note) {
+            [$f, $d] = $this->lockJob($delivery);
+            if ($d->driver_id !== $actor->id) {
+                if (DeliveryDecline::query()->where('delivery_id', $d->id)->where('driver_id', $actor->id)->exists()) {
+                    return [$d, false]; // handed back already
+                }
+                throw OpsError::make('delivery_not_yours', 403);
+            }
+            $this->assertLive($f, $d);
+            if ($d->status !== DS::Assigned) {
+                throw DomainException::make('invalid_state_transition', 409, ['from' => __('status.'.$d->status->value)]);
+            }
+            $this->recordDecline($d, $actor->id, $reason, $note);
+            $d->update(['driver_id' => null, 'assigned_at' => null]);
+            $this->transition($d, DS::Pending, $actor, 'driver', 'declined: '.$reason.($note ? ' ('.$note.')' : ''));
+            $this->audit->log('delivery.declined', $d, ['driver_id' => $actor->id, 'status' => DS::Assigned->value], ['status' => DS::Pending->value], ['reason' => $reason], branchId: $d->branch_id, actor: $actor);
+
+            return [$d->fresh(), true];
+        });
+    }
+
+    /**
+     * The system takes a job that was given to a driver (and not accepted) back: he did not answer in time (`timeout`) or went silent (`off_duty`).
+     * Same effect as a decline, but nobody asked: he is told after the commit that the job is no longer his. Returns the driver it was taken from,
+     * or null when there was nothing to take back (the driver accepted at the last second, someone else was given the job, it was cancelled).
+     *
+     * @param  ?CarbonInterface  $assignedBefore  only a job that was given at or before this moment is taken back (guards against a job re-given since the scan)
+     */
+    public function releaseUnaccepted(Delivery $delivery, string $reason, ?CarbonInterface $assignedBefore = null): ?string
+    {
+        return DB::transaction(function () use ($delivery, $reason, $assignedBefore) {
+            [$f, $d] = $this->lockJob($delivery);
+            if ($d->status !== DS::Assigned || $d->driver_id === null || $f->status === FS::Cancelled
+                || ($assignedBefore !== null && $d->assigned_at !== null && $d->assigned_at->greaterThan($assignedBefore))) {
+                return null;
+            }
+            $previous = $d->driver_id;
+            $this->recordDecline($d, $previous, $reason, null);
+            $d->update(['driver_id' => null, 'assigned_at' => null]);
+            $this->transition($d, DS::Pending, null, 'system', 'taken back: '.$reason, system: true);
+            $this->audit->log('delivery.released', $d, ['driver_id' => $previous, 'status' => DS::Assigned->value], ['status' => DS::Pending->value], ['reason' => $reason], branchId: $d->branch_id);
+            $number = (string) $f->order->number;
+            DB::afterCommit(fn () => rescue(fn () => app(DriverJobAlerts::class)->removed($previous, $number), report: true));
+
+            return $previous;
+        });
+    }
+
+    /** One row per driver and delivery: a driver who hands the same job back twice keeps one row, with the latest reason. */
+    private function recordDecline(Delivery $d, string $driverId, string $reason, ?string $note): void
+    {
+        $row = DeliveryDecline::query()->where('delivery_id', $d->id)->where('driver_id', $driverId)->first();
+        if ($row !== null) {
+            $row->forceFill(['reason' => $reason, 'note' => $note !== null ? Str::limit($note, 295, '') : null, 'created_at' => now()])->save();
+
+            return;
+        }
+        DeliveryDecline::create(['delivery_id' => $d->id, 'driver_id' => $driverId, 'reason' => $reason, 'note' => $note !== null ? Str::limit($note, 295, '') : null]);
     }
 
     /** Failed delivery brought back to the branch: stock re-added via the fulfillment's return. Only the driver who has the job, or branch staff, may record it. */
@@ -570,20 +691,52 @@ class DeliveryService
             'source' => $source, 'note' => $note ? Str::limit($note, 495) : null, 'latitude' => $lat, 'longitude' => $lng]);
     }
 
-    private function storeProof(Delivery $d, User $actor, UploadedFile $file, string $type, ?string $recipient): void
+    /** @param array{latitude: float, longitude: float, accuracy: ?int}|null $gps */
+    private function storeProof(Delivery $d, User $actor, UploadedFile $file, string $type, ?string $recipient, ?array $gps = null): void
     {
         if (! in_array($file->getMimeType(), ['image/jpeg', 'image/png', 'image/webp'], true) || $file->getSize() > 8 * 1024 * 1024) {
             throw DomainException::make('media_invalid');
         }
         $disk = config('platform.media.disk') === 'public' ? 'local' : config('platform.media.disk'); // proofs are private
         $path = $file->store('delivery-proofs/'.$d->id, $disk);
-        DeliveryProof::create(['delivery_id' => $d->id, 'type' => $type, 'disk' => $disk, 'path' => $path, 'recipient_name' => $recipient, 'captured_by' => $actor->id, 'captured_at' => now()]);
+        DeliveryProof::create(['delivery_id' => $d->id, 'type' => $type, 'disk' => $disk, 'path' => $path, 'recipient_name' => $recipient, 'captured_by' => $actor->id, 'captured_at' => now()]
+            + $this->gpsColumns($gps));
+    }
+
+    /** The driver gave a position but no photo (a delivery that needs none): the position is still kept, as a proof row without a file. @param array{latitude: float, longitude: float, accuracy: ?int} $gps */
+    private function storeLocation(Delivery $d, User $actor, ?string $recipient, array $gps): void
+    {
+        DeliveryProof::create(['delivery_id' => $d->id, 'type' => 'location', 'recipient_name' => $recipient, 'captured_by' => $actor->id, 'captured_at' => now()] + $this->gpsColumns($gps));
+    }
+
+    /**
+     * @param  array{latitude: float, longitude: float, accuracy: ?int}|null  $gps
+     * @return array{latitude: ?float, longitude: ?float, accuracy_m: ?int}
+     */
+    private function gpsColumns(?array $gps): array
+    {
+        return ['latitude' => $gps['latitude'] ?? null, 'longitude' => $gps['longitude'] ?? null, 'accuracy_m' => $gps['accuracy'] ?? null];
     }
 
     private function authorize(User $u, string $permission, string $branchId): void
     {
         if (! $this->access->allows($u, $permission, $branchId)) {
             throw DomainException::make('branch_forbidden', 403);
+        }
+    }
+
+    /**
+     * The driver's own steps (arrived, decline): never a dispatcher's, whatever rights he holds. The person needs deliveries.edit at the branch, and
+     * the job must be his (a driver of the branch who tries another driver's job is told so). With $anyDriver the ownership is checked later, under
+     * the row lock (a driver whose job was already taken from him may still repeat his own decline harmlessly).
+     */
+    private function authorizeDriver(Delivery $d, User $actor, bool $anyDriver = false): void
+    {
+        if (! $this->access->allows($actor, 'deliveries.edit', $d->branch_id)) {
+            throw DomainException::make('branch_forbidden', 403);
+        }
+        if (! $anyDriver && $d->driver_id !== $actor->id) {
+            throw OpsError::make('delivery_not_yours', 403);
         }
     }
 

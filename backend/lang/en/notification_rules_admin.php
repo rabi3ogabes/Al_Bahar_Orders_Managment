@@ -120,6 +120,8 @@ return [
         'order_completed' => ['name' => 'Order delivered or collected', 'when' => 'When the order is delivered or collected, with a request for a review.'],
         'order_cancelled' => ['name' => 'Order cancelled', 'when' => 'When an order is cancelled, with a note about any refund.'],
         'order_items_changed' => ['name' => 'Order items changed', 'when' => 'When the branch changes what is in the order, for example an item is short.'],
+        'delivery_nearby' => ['name' => 'Driver is close', 'when' => 'Once, when the driver is about ten minutes from the customer. Delivery orders only, never pickup.'],
+        'delivery_arrived' => ['name' => 'Driver has arrived', 'when' => 'Once, when the driver taps "I have arrived" at the customer\'s door. Delivery orders only, never pickup.'],
         'payment_link' => ['name' => 'Payment link', 'when' => 'When staff send the customer a link to pay for an order online.'],
         'payment_succeeded' => ['name' => 'Payment received', 'when' => 'When an online payment goes through.'],
         'payment_failed' => ['name' => 'Payment not completed', 'when' => 'When an online payment fails, so the customer can try again.'],

@@ -51,4 +51,8 @@ return [
     'campaign.body' => '{{body}}',
     'order.items_changed.title' => 'Your order was updated',
     'order.items_changed.body' => 'Order {{order_number}} was updated: {{changes}}. Reason: {{reason}}.{{outcome}}',
+    'delivery.nearby.title' => 'Your driver is close',
+    'delivery.nearby.body' => '{{driver}} is a few minutes away with order {{order_number}}. Please be ready to receive it.',
+    'delivery.arrived.title' => 'Your driver has arrived',
+    'delivery.arrived.body' => '{{driver}} is at your door with order {{order_number}}.',
 ];
