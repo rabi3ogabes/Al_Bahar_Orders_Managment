@@ -41,7 +41,7 @@ class LiveRecord<T> extends ConsumerStatefulWidget {
   final Widget Function(BuildContext context, T item) builder;
 
   /// What to tell the person when the record leaves the list (read at that moment); null closes without a message.
-  final String Function(BuildContext context)? goneMessage;
+  final String? Function(BuildContext context)? goneMessage;
 
   /// Only one widget of a window (its body) closes it; the others (its pinned footer) just follow the record.
   final bool closeWhenGone;

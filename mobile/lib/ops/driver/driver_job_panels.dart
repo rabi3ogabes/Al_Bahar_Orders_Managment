@@ -1,16 +1,19 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:albahar_customer/core/l10n/l10n.dart';
-import 'package:albahar_customer/core/map/map_nav.dart';
+import 'package:albahar_customer/core/network/interceptors.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
-import 'package:albahar_customer/core/utils/qatar_time.dart';
+import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/dirty_form_guard.dart';
 import 'package:albahar_customer/core/widgets/side_panel.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
+import 'package:albahar_customer/ops/driver/driver_job_view.dart';
 import 'package:albahar_customer/ops/driver/driver_providers.dart';
+import 'package:albahar_customer/ops/driver/driver_sheets.dart';
+import 'package:albahar_customer/ops/driver/driver_strings.dart';
+import 'package:albahar_customer/ops/driver/driver_support.dart';
 import 'package:albahar_customer/ops/ops_input.dart';
 import 'package:albahar_customer/ops/ops_live.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
@@ -48,7 +51,7 @@ Future<JobPanelResult?> showJobPanel(BuildContext context, {required DriverJob j
       initial: job,
       source: driverLiveJobsProvider(readOnly),
       isSame: (j) => j.id == job.id,
-      goneMessage: (c) => outcome.delivered ? OpsStrings.of(c).deliveryRecorded : OpsStrings.of(c).jobGone,
+      goneMessage: (c) => _goneMessage(c, job.id, delivered: outcome.delivered),
       builder: (_, current) => SidePanelLayout(
         footer: readOnly
             ? null
@@ -64,6 +67,15 @@ Future<JobPanelResult?> showJobPanel(BuildContext context, {required DriverJob j
   );
 }
 
+/// What the window says when its job leaves the list: "Delivery recorded" after the driver's own delivery, nothing when the driver is about to be
+/// told in a dialog that the order was cancelled or taken away (one message, not two), otherwise "no longer in your list".
+String? _goneMessage(BuildContext c, String jobId, {required bool delivered}) {
+  final t = OpsStrings.of(c);
+  if (delivered) return t.deliveryRecorded;
+  final told = ProviderScope.containerOf(c).read(driverLiveProvider).notices.any((n) => n.deliveryId == jobId);
+  return told ? null : t.jobGone;
+}
+
 class _JobDetails extends ConsumerWidget {
   const _JobDetails({required this.job, required this.readOnly});
   final DriverJob job;
@@ -73,13 +85,14 @@ class _JobDetails extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = OpsStrings.of(context);
     final p = context.palette;
-    final when = job.scheduledFor == null
-        ? null
-        : QatarTime.dateTime(job.scheduledFor, Localizations.localeOf(context).languageCode);
+    final when = jobWhen(context, job);
     final address = t.address(job.address);
+    final c = job.context;
+    final phone = primaryPhone(job);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // WHAT and WHEN first: where the job stands and the window it must be delivered in.
         Padding(
           padding: const EdgeInsets.only(bottom: AppSpace.md),
           child: Wrap(
@@ -88,84 +101,47 @@ class _JobDetails extends ConsumerWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               StatusChip(label: t.statusLabel(job.status), tone: toneForOpsStatus(job.status)),
-              if (when != null && !readOnly)
-                StatusChip(label: t.scheduledFor(when), icon: Icons.schedule_rounded, tone: StatusTone.neutral),
+              if (when != null && !readOnly) StatusChip(label: when, icon: Icons.schedule_rounded, tone: StatusTone.neutral),
             ],
           ),
         ),
-        PanelSection(
-          title: t.customer,
-          children: [
-            Text(job.customerName, style: context.text.titleMedium),
-            if (job.customerPhone != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Directionality(
-                  textDirection: TextDirection.ltr,
-                  child: Text(job.customerPhone!, style: context.text.bodyMedium),
-                ),
-              ),
-            if (!readOnly && job.customerPhone != null) ...[
-              const Gap(AppSpace.sm),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => dial(context, job.customerPhone),
-                  icon: const Icon(Icons.call_rounded, size: 18),
-                  label: Text('${t.call} ${job.customerName}', maxLines: 1, overflow: TextOverflow.ellipsis),
-                ),
-              ),
-            ],
-            // The customer's second number, for when the main one is not answered. Shown only while the job is open, and only while the
-            // dashboard's "Alternative phone number" switch is on.
-            if (!readOnly && job.alternatePhone != null && ref.watch(opsAlternatePhoneEnabledProvider))
-              AlternatePhoneCall(key: const ValueKey('call-alternative'), phone: job.alternatePhone!),
-          ],
-        ),
+        // WHERE: who, which address, and the three big buttons.
         PanelSection(
           title: t.deliveryAddress,
           children: [
+            Text(receiverName(job), style: context.text.titleLarge),
+            if (!readOnly && phone != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Directionality(textDirection: TextDirection.ltr, child: Text(phone, style: context.text.bodyMedium?.copyWith(color: p.muted))),
+              ),
+            const Gap(AppSpace.sm),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.place_outlined, size: 20, color: p.muted),
+                Icon(Icons.place_outlined, size: 22, color: p.muted),
                 const Gap(AppSpace.xs),
-                Expanded(child: Text(address, style: context.text.bodyLarge)),
+                Expanded(child: Text(address, style: context.text.titleMedium?.copyWith(fontWeight: FontWeight.w600))),
               ],
             ),
-            if (job.address.notes != null)
+            if (c.landmark != null)
               Padding(
-                padding: const EdgeInsetsDirectional.only(top: AppSpace.xs, start: 28),
+                padding: const EdgeInsetsDirectional.only(top: AppSpace.xxs, start: 30),
+                child: Text('${t.landmark}: ${c.landmark}', style: context.text.bodyMedium),
+              ),
+            if (job.address.notes != null && job.address.notes != c.landmark)
+              Padding(
+                padding: const EdgeInsetsDirectional.only(top: AppSpace.xxs, start: 30),
                 child: Text(job.address.notes!, style: context.text.bodyMedium?.copyWith(color: p.muted)),
               ),
             if (job.branchName.isNotEmpty)
               Padding(
-                padding: const EdgeInsetsDirectional.only(top: AppSpace.xs, start: 28),
+                padding: const EdgeInsetsDirectional.only(top: AppSpace.xs, start: 30),
                 child: Text(t.pickupFrom(job.branchName), style: context.text.bodySmall),
               ),
             if (!readOnly) ...[
-              const Gap(AppSpace.sm),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => openMaps(
-                        context,
-                        lat: job.address.lat,
-                        lng: job.address.lng,
-                        query: job.address.line,
-                        launcher: ref.read(navigationLauncherProvider),
-                      ),
-                      icon: const Icon(Icons.navigation_rounded, size: 18),
-                      label: Text(t.navigate, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ),
-                  ),
-                  const Gap(AppSpace.xs),
-                  Expanded(
-                    child: CopyTextButton(text: address, label: t.copyAddress),
-                  ),
-                ],
-              ),
+              const Gap(AppSpace.md),
+              JobQuickActions(job: job, address: address),
               const Gap(AppSpace.xs),
               SizedBox(
                 width: double.infinity,
@@ -178,7 +154,13 @@ class _JobDetails extends ConsumerWidget {
             ],
           ],
         ),
-        PanelItems(items: job.items),
+        if (!readOnly) ...[
+          BeforeYouGo(job: job),
+          JobNotesBox(job: job),
+          JobContacts(job: job),
+        ],
+        DriverItems(job: job),
+        if (job.items.isEmpty) PanelItems(items: job.items),
         PanelSection(
           title: t.payment,
           children: [
@@ -191,7 +173,7 @@ class _JobDetails extends ConsumerWidget {
               if (!readOnly)
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
-                  child: Text(t.collectCashHint, style: context.text.bodySmall),
+                  child: Text(c.paymentNote ?? t.collectCashHint, style: context.text.bodySmall),
                 ),
             ] else
               Row(
@@ -256,17 +238,19 @@ class _JobActionButtonsState extends ConsumerState<JobActionButtons> {
   }
 
   /// Runs one step. When the server accepted it, the job shows its new state at once ([becomes]); the reads that follow confirm it.
-  Future<void> _run(Future<void> Function() action, {String? becomes}) async {
-    if (_busy) return;
+  Future<bool> _run(Future<void> Function() action, {String? becomes}) async {
+    if (_busy) return false;
     setState(() => _busy = true);
-    final ok = await guarded(context, action);
-    if (!mounted) return;
+    final ok = await driverGuarded(context, action);
+    if (!mounted) return false;
     if (ok && becomes != null) ref.read(driverLiveProvider.notifier).applyOwnStep(widget.job.id, becomes);
     _refresh();
     setState(() => _busy = false);
+    return ok;
   }
 
   Future<void> _step(String action) async {
+    if (action == 'arrived') return _arrived();
     final location = ref.read(locationServiceProvider);
     await _run(
       () async {
@@ -284,6 +268,20 @@ class _JobActionButtonsState extends ConsumerState<JobActionButtons> {
     );
   }
 
+  /// "I have arrived": the customer is told once, and the card moves on to the delivery form at once.
+  Future<void> _arrived() async {
+    final t = OpsStrings.of(context);
+    DateTime? at;
+    final ok = await _run(() async {
+      final spot = await currentSpot(ref);
+      at = await ref.read(opsRepositoryProvider).arrived(widget.job.id, lat: spot?.lat, lng: spot?.lng, accuracy: spot?.accuracy);
+    });
+    if (!ok || !mounted) return;
+    ref.read(driverLiveProvider.notifier).markArrived(widget.job.id, at);
+    Haptics.success();
+    showInfoSnack(context, t.arrivedDone);
+  }
+
   Future<void> _deliver() async {
     final done = await showDeliverPanel(context, widget.job);
     if (done != true || !mounted) return;
@@ -298,18 +296,22 @@ class _JobActionButtonsState extends ConsumerState<JobActionButtons> {
     _refresh();
   }
 
+  /// "Could not deliver": the sheet records the attempt itself (reason, note, photo, position), so a failed upload keeps everything typed.
   Future<void> _fail() async {
-    final t = OpsStrings.of(context);
-    final reason = await _pickReason(context);
-    if (reason == null || !mounted) return;
-    final sure = await opsConfirm(
-      context,
-      title: t.confirmFailQ,
-      body: t.confirmFailBody(t.reasonLabel(reason)),
-      verb: t.reportVerb,
-    );
-    if (!sure || !mounted) return;
-    await _run(() => ref.read(opsRepositoryProvider).fail(widget.job.id, reason), becomes: 'failed');
+    final done = await showFailSheet(context, widget.job);
+    if (done != true || !mounted) return;
+    ref.read(driverLiveProvider.notifier).applyOwnStep(widget.job.id, 'failed');
+    showInfoSnack(context, OpsStrings.of(context).failRecorded);
+    _refresh();
+  }
+
+  /// "I can't take this": a reason, then the job goes back to the branch and leaves the list at once.
+  Future<void> _decline() async {
+    final done = await showDeclineSheet(context, widget.job);
+    if (done != true || !mounted) return;
+    ref.read(driverLiveProvider.notifier).applyOwnRemoval(widget.job.id);
+    showInfoSnack(context, OpsStrings.of(context).declineDone);
+    _refresh();
   }
 
   Future<void> _returnToBranch() async {
@@ -329,6 +331,7 @@ class _JobActionButtonsState extends ConsumerState<JobActionButtons> {
       'accept' => t.accept,
       'pickup' => t.pickedUp,
       'out-for-delivery' => retry ? t.retryDelivery : t.onTheWay,
+      'arrived' => t.iHaveArrived,
       'deliver' => t.markDelivered,
       _ => null,
     };
@@ -337,6 +340,9 @@ class _JobActionButtonsState extends ConsumerState<JobActionButtons> {
     // The dashboard chooses how a step is taken. "Mark delivered" stays a button even then: it opens the proof window, whose last
     // action (Confirm delivery) is the one that is slid.
     final slide = ref.watch(opsStatusStyleProvider) == OpsStatusStyle.slide && next != null && next != 'deliver';
+    final slideLabel = next == 'arrived' ? t.slideArrived : t.slideDriverStep(next ?? '', retry: retry);
+    // Before he says he arrived, the delivery form stays one tap away: if the arrival cannot be sent (no signal at the door) he is never stuck.
+    final skipArrival = next == 'arrived';
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -348,8 +354,8 @@ class _JobActionButtonsState extends ConsumerState<JobActionButtons> {
               Expanded(
                 child: slide
                     ? SlideToConfirm(
-                        key: ValueKey('slide-${job.id}-${job.status}'),
-                        label: t.slideDriverStep(next, retry: retry),
+                        key: ValueKey('slide-${job.id}-${job.status}-$next'),
+                        label: slideLabel,
                         busyLabel: t.updating,
                         loading: _busy,
                         onConfirmed: () => _step(next),
@@ -379,6 +385,19 @@ class _JobActionButtonsState extends ConsumerState<JobActionButtons> {
             ],
           ),
         ],
+        if (skipArrival) ...[
+          const Gap(AppSpace.xxs),
+          TextButton(key: const ValueKey('skip-arrival'), onPressed: _busy ? null : _deliver, child: Text(t.markDelivered)),
+        ],
+        if (job.canDecline) ...[
+          const Gap(AppSpace.xxs),
+          TextButton.icon(
+            key: const ValueKey('decline-job'),
+            onPressed: _busy ? null : _decline,
+            icon: const Icon(Icons.undo_rounded, size: 18),
+            label: Text(t.cantTakeThis),
+          ),
+        ],
         if (job.canFail && panel) ...[
           if (label != null) const Gap(AppSpace.xs),
           OutlinedButton.icon(
@@ -398,37 +417,6 @@ class _JobActionButtonsState extends ConsumerState<JobActionButtons> {
       ],
     );
   }
-}
-
-/// Why the delivery failed: one tap on a reason, then the opener asks for a confirmation.
-Future<String?> _pickReason(BuildContext context) {
-  final t = OpsStrings.of(context);
-  return showSidePanel<String>(
-    context: context,
-    title: t.failed,
-    subtitle: t.chooseReason,
-    builder: (ctx) => Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final r in const [
-          'customer_unreachable',
-          'customer_absent',
-          'wrong_address',
-          'refused',
-          'access_denied',
-          'other',
-        ])
-          ListTile(
-            minTileHeight: 56,
-            contentPadding: EdgeInsets.zero,
-            title: Text(t.reasonLabel(r)),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => Navigator.of(ctx).pop(r),
-          ),
-      ],
-    ),
-  );
 }
 
 /// Proof of delivery in a window: who received it, the cash (cash on delivery) and a photo, with "Confirm delivery"
@@ -462,6 +450,9 @@ class _DeliverFormState extends ConsumerState<_DeliverForm> {
   File? _photo;
   String? _error;
   bool _busy = false;
+
+  /// One key for every try of this delivery: a tap repeated after a lost answer is the same delivery, not a second one.
+  final _key = Idempotency.newKey();
 
   bool get _dirty => _photo != null || _recipient.text.trim().isNotEmpty;
 
@@ -521,16 +512,27 @@ class _DeliverFormState extends ConsumerState<_DeliverForm> {
       _error = null;
     });
     try {
+      // Where the driver stands goes with the proof when the phone knows it; the delivery never waits for GPS (3 seconds at most) or fails without it.
+      final spot = await currentSpot(ref);
       await ref
           .read(opsRepositoryProvider)
-          .deliver(job.id, recipient: _recipient.text.trim(), proof: _photo, codAmount: cod);
+          .deliver(
+            job.id,
+            recipient: _recipient.text.trim(),
+            proof: _photo,
+            codAmount: cod,
+            lat: spot?.lat,
+            lng: spot?.lng,
+            accuracy: spot?.accuracy,
+            idempotencyKey: _key,
+          );
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       // The window cannot close while this runs, so it is still here: show why and keep everything that was typed.
       if (mounted) {
         setState(() {
           _busy = false;
-          _error = describeError(context.l10n, e);
+          _error = driverErrorText(context, e);
         });
       }
     }

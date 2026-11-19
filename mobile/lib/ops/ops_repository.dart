@@ -6,6 +6,7 @@ import 'package:albahar_customer/core/network/interceptors.dart';
 import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/storage/token_storage.dart';
 import 'package:albahar_customer/core/utils/json.dart';
+import 'package:albahar_customer/ops/driver/driver_models.dart';
 import 'package:albahar_customer/ops/ops_account.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:dio/dio.dart';
@@ -136,18 +137,83 @@ class OpsRepository {
     receiveTimeout: const Duration(seconds: 120),
   );
 
-  Future<void> deliver(String id, {String? recipient, File? proof, double? codAmount}) async {
+  /// Records the delivery. [lat] / [lng] / [accuracy] (metres) say where the driver stood: kept with the proof, and never needed (a driver in a
+  /// lift lobby has no GPS). [idempotencyKey] is the same for every retry of one delivery, so a tap repeated after a lost answer changes nothing.
+  Future<void> deliver(
+    String id, {
+    String? recipient,
+    File? proof,
+    double? codAmount,
+    double? lat,
+    double? lng,
+    double? accuracy,
+    String? idempotencyKey,
+  }) async {
     final form = FormData.fromMap({
       if (recipient != null && recipient.isNotEmpty) 'recipient_name': recipient,
       if (proof != null) 'proof': await MultipartFile.fromFile(proof.path, filename: 'proof.jpg'),
       if (codAmount != null) ...{'cod[tender]': 'cash', 'cod[amount]': codAmount.toStringAsFixed(2)},
+      'latitude': ?lat,
+      'longitude': ?lng,
+      'accuracy': ?accuracy?.round(),
     });
-    await _api.post('/admin/deliveries/$id/deliver', data: form, options: _upload);
+    await _api.post(
+      '/admin/deliveries/$id/deliver',
+      data: form,
+      options: idempotencyKey == null ? _upload : Idempotency.options(idempotencyKey, _upload),
+    );
   }
 
-  Future<void> fail(String id, String reason) async {
-    await _api.post('/admin/deliveries/$id/fail', data: {'reason_code': reason});
+  /// "Could not deliver": a reason (`customer_absent`, `customer_unreachable`, `wrong_address`, `refused`, `access_denied`, `damaged`,
+  /// `other`), a note (required by the server for `damaged` and `other`), an optional photo of the door or the damage, and where the driver stood.
+  Future<void> fail(
+    String id,
+    String reason, {
+    String? notes,
+    File? photo,
+    double? lat,
+    double? lng,
+    double? accuracy,
+    String? idempotencyKey,
+  }) async {
+    final text = notes?.trim() ?? '';
+    final fields = <String, Object>{
+      'reason_code': reason,
+      if (text.isNotEmpty) 'notes': text,
+      'latitude': ?lat,
+      'longitude': ?lng,
+      'accuracy': ?accuracy?.round(),
+    };
+    final options = photo == null ? null : _upload;
+    await _api.post(
+      '/admin/deliveries/$id/fail',
+      data: photo == null
+          ? fields
+          : FormData.fromMap({...fields, 'photo': await MultipartFile.fromFile(photo.path, filename: 'failed.jpg')}),
+      options: idempotencyKey == null ? options : Idempotency.options(idempotencyKey, options),
+    );
   }
+
+  /// "I have arrived" at the customer's door (only while the job is out for delivery). The customer is told once; a repeat changes nothing.
+  /// Returns when the server recorded the arrival.
+  Future<DateTime?> arrived(String id, {double? lat, double? lng, double? accuracy}) async {
+    final data = asMap(
+      await _api.post(
+        '/admin/deliveries/$id/arrived',
+        data: {'latitude': ?lat, 'longitude': ?lng, 'accuracy': ?accuracy?.round()},
+      ),
+    );
+    return asDate(data['arrived_at']);
+  }
+
+  /// Hands back a job that was given to the driver and that he has not accepted: `too_far`, `vehicle`, `shift_ending` or `other`.
+  Future<void> decline(String id, String reason, {String? note}) async {
+    final text = note?.trim() ?? '';
+    await _api.post('/admin/dispatch/jobs/$id/decline', data: {'reason': reason, if (text.isNotEmpty) 'note': text});
+  }
+
+  /// "My day": today's jobs and counts, the cash collected and the cash still held, and when the driver went on duty.
+  Future<DriverDay> day() => _api.getObject('/admin/dispatch/driver/day', DriverDay.fromJson);
 
   /// Failed delivery handed back at the branch.
   Future<void> returnToBranch(String id) async {

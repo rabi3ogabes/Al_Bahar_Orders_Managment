@@ -208,7 +208,7 @@ void main() {
       final before = repo.jobsLoads;
       await tester.tap(find.widgetWithText(FilledButton, 'Accept'));
       await settle(tester);
-      expect(find.text('This delivery is already accepted'), findsOneWidget);
+      expect(find.text('This step is not possible now. The list was updated.'), findsOneWidget);
       expect(repo.jobsLoads, greaterThan(before));
     });
 
@@ -250,25 +250,18 @@ void main() {
       expect(repo.calls.last, 'out-for-delivery:d1');
     });
 
-    testWidgets('could not deliver: reason, then a confirmation, then one request', (tester) async {
+    testWidgets('could not deliver: reason tiles, a confirm, then one request (sent with the key of this report)', (tester) async {
       final repo = FakeOps()..jobList = [FakeOps.job(status: 'out_for_delivery')];
       await _pump(tester, repo);
       await tester.tap(find.byTooltip('Could not deliver'));
       await settle(tester);
-      await tester.tap(find.text('Wrong address'));
+      await tester.tap(find.byKey(const ValueKey('fail-wrong_address')));
       await settle(tester);
-      expect(find.text('Report as not delivered?'), findsOneWidget);
-      await tester.tap(find.text('Cancel'));
-      await settle(tester);
-      expect(repo.calls, isEmpty);
-
-      await tester.tap(find.byTooltip('Could not deliver'));
-      await settle(tester);
-      await tester.tap(find.text('Wrong address'));
-      await settle(tester);
-      await tester.tap(find.widgetWithText(FilledButton, 'Report'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Report: could not deliver'));
       await settle(tester);
       expect(repo.calls, ['fail:d1:wrong_address']);
+      expect(repo.failures.single.key, isNotEmpty);
+      expect(repo.failures.single.lat, 25.28); // the position goes along when the phone knows it
     });
   });
 
@@ -284,8 +277,11 @@ void main() {
       await settle(tester);
     }
 
-    FakeOps outForDelivery({String cod = '303.00', bool proof = true}) =>
-        FakeOps()..jobList = [FakeOps.job(status: 'out_for_delivery', cod: cod, proof: proof)];
+    // The driver has said he arrived: the card offers the delivery form.
+    FakeOps outForDelivery({String cod = '303.00', bool proof = true}) => FakeOps()
+      ..jobList = [
+        FakeOps.job(status: 'out_for_delivery', cod: cod, proof: proof, extra: {'arrived_at': '2026-11-14T12:30:00Z'}),
+      ];
 
     testWidgets('the photo is required; cash is validated; Arabic digits are understood', (tester) async {
       final repo = outForDelivery();
@@ -343,7 +339,10 @@ void main() {
     testWidgets('no cash field for a prepaid order, and a missing photo is fine when proof is not required', (
       tester,
     ) async {
-      final repo = FakeOps()..jobList = [FakeOps.job(status: 'out_for_delivery', cod: '0', proof: false)];
+      final repo = FakeOps()
+        ..jobList = [
+          FakeOps.job(status: 'out_for_delivery', cod: '0', proof: false, extra: {'arrived_at': '2026-11-14T12:30:00Z'}),
+        ];
       await openSheet(tester, repo);
       expect(find.widgetWithText(TextField, 'Cash collected (QAR)'), findsNothing);
       await tester.tap(find.widgetWithText(FilledButton, 'Confirm delivery'));
@@ -362,7 +361,7 @@ void main() {
       await settle(tester);
       await tester.tap(find.widgetWithText(FilledButton, 'Confirm delivery'));
       await settle(tester);
-      expect(find.text('You appear to be offline. Check your connection and try again.'), findsOneWidget);
+      expect(find.text('No connection. Check your signal and try again.'), findsOneWidget);
       expect(find.text('Photo added'), findsOneWidget);
       expect(find.text('Mariam'), findsOneWidget);
 

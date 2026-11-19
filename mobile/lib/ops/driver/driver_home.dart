@@ -1,16 +1,21 @@
 import 'dart:async';
 
 import 'package:albahar_customer/core/map/map_nav.dart';
+import 'package:albahar_customer/core/network/api_exception.dart';
 import 'package:albahar_customer/core/realtime/live_link_badge.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
-import 'package:albahar_customer/core/utils/qatar_time.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
+import 'package:albahar_customer/ops/driver/driver_day_screen.dart';
 import 'package:albahar_customer/ops/driver/driver_job_map.dart';
 import 'package:albahar_customer/ops/driver/driver_job_panels.dart';
+import 'package:albahar_customer/ops/driver/driver_job_view.dart';
+import 'package:albahar_customer/ops/driver/driver_offline_banner.dart';
 import 'package:albahar_customer/ops/driver/driver_providers.dart';
+import 'package:albahar_customer/ops/driver/driver_strings.dart';
+import 'package:albahar_customer/ops/driver/driver_support.dart';
 import 'package:albahar_customer/ops/driver/driver_tracker.dart';
 import 'package:albahar_customer/ops/ops_app.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
@@ -55,6 +60,39 @@ class _DriverHomeState extends ConsumerState<DriverHome> with OpsPolling {
 
   bool get _onDuty => ref.read(driverMeProvider).value?.onDuty ?? false;
 
+  bool _noticeOpen = false;
+
+  /// "This order was cancelled. No need to go." / "This order was given to another driver." One dialog at a time, each seen once. A window or the
+  /// map screen of that job closes itself (its job left the list), so the dialog is all the driver reads.
+  Future<void> _showNotice() async {
+    if (_noticeOpen || !mounted) return;
+    _noticeOpen = true;
+    try {
+      while (mounted) {
+        final pending = ref.read(driverLiveProvider).notices;
+        if (pending.isEmpty) break;
+        final n = pending.first;
+        final t = OpsStrings.of(context);
+        Haptics.warning();
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (c) => AlertDialog(
+            key: const ValueKey('job-notice'),
+            icon: Icon(n.kind == JobNoticeKind.cancelled ? Icons.cancel_outlined : Icons.swap_horiz_rounded, size: 32),
+            title: Text(n.kind == JobNoticeKind.cancelled ? t.noticeCancelledTitle(n.number) : t.noticeRemovedTitle(n.number)),
+            content: Text(n.kind == JobNoticeKind.cancelled ? t.noticeCancelledBody : t.noticeRemovedBody),
+            actions: [FilledButton(autofocus: true, onPressed: () => Navigator.pop(c), child: Text(t.ok))],
+          ),
+        );
+        if (!mounted) break;
+        ref.read(driverLiveProvider.notifier).dismissNotice(n.deliveryId);
+      }
+    } finally {
+      _noticeOpen = false;
+    }
+  }
+
   /// Live tracking runs exactly while the driver is on duty and location is allowed.
   Future<void> _syncTracking(bool onDuty) async {
     if (!onDuty) {
@@ -94,7 +132,7 @@ class _DriverHomeState extends ConsumerState<DriverHome> with OpsPolling {
       pos = await location.currentPosition().timeout(const Duration(seconds: 4), onTimeout: () => null);
     }
     if (!mounted) return;
-    final ok = await guarded(context, () => ref.read(opsRepositoryProvider).setDuty(on, lat: pos?.lat, lng: pos?.lng));
+    final ok = await _setDuty(on, pos);
     if (!mounted) return;
     if (ok) {
       ref
@@ -104,6 +142,31 @@ class _DriverHomeState extends ConsumerState<DriverHome> with OpsPolling {
       await _syncTracking(on);
     }
     if (mounted) setState(() => _dutyBusy = false);
+  }
+
+  /// Switches duty. Going off duty with jobs in hand is refused by the server: that is explained in a dialog (a toast would be gone before
+  /// a driver in a hurry reads it), every other failure is one plain sentence.
+  Future<bool> _setDuty(bool on, ({double lat, double lng})? pos) async {
+    try {
+      await ref.read(opsRepositoryProvider).setDuty(on, lat: pos?.lat, lng: pos?.lng);
+      return true;
+    } catch (e) {
+      if (!mounted) return false;
+      if (e is ApiException && e.code == 'jobs_in_progress') {
+        final t = OpsStrings.of(context);
+        await showDialog<void>(
+          context: context,
+          builder: (c) => AlertDialog(
+            title: Text(t.onDuty),
+            content: Text(driverErrorText(c, e)),
+            actions: [FilledButton(autofocus: true, onPressed: () => Navigator.pop(c), child: Text(t.ok))],
+          ),
+        );
+      } else {
+        showInfoSnack(context, driverErrorText(context, e));
+      }
+      return false;
+    }
   }
 
   @override
@@ -123,6 +186,10 @@ class _DriverHomeState extends ConsumerState<DriverHome> with OpsPolling {
         }
       }
     });
+    // A cancelled or taken-away job is told to the driver once, in one calm dialog; the lists have already dropped it.
+    ref.listen(driverLiveProvider.select((s) => s.notices), (_, next) {
+      if (next.isNotEmpty) unawaited(_showNotice());
+    });
     return DefaultTabController(
       length: 2,
       child: Scaffold(
@@ -137,7 +204,12 @@ class _DriverHomeState extends ConsumerState<DriverHome> with OpsPolling {
           actions: [
             // A phone's app bar is narrow: the colour dot alone (the words are its tooltip and its screen-reader label); a tablet shows them.
             LiveLinkBadge(link: link, labels: t.liveLabels, showLabel: MediaQuery.sizeOf(context).width >= 600),
-            const Gap(AppSpace.xxs),
+            IconButton(
+              key: const ValueKey('open-my-day'),
+              tooltip: t.myDay,
+              icon: const Icon(Icons.today_rounded),
+              onPressed: () => unawaited(Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const DriverDayScreen()))),
+            ),
             const OpsAccountMenu(),
           ],
           bottom: TabBar(
@@ -149,6 +221,7 @@ class _DriverHomeState extends ConsumerState<DriverHome> with OpsPolling {
         ),
         body: Column(
           children: [
+            const DriverOfflineBanner(),
             Padding(
               padding: const EdgeInsets.fromLTRB(AppSpace.gutter, AppSpace.sm, AppSpace.gutter, 0),
               child: _DutyCard(me: me.value, busy: _dutyBusy, onToggle: _toggleDuty),
@@ -298,9 +371,8 @@ class _JobCardState extends ConsumerState<_JobCard> {
   Widget build(BuildContext context) {
     final t = OpsStrings.of(context);
     final job = widget.job;
-    final when = job.scheduledFor == null
-        ? null
-        : QatarTime.dateTime(job.scheduledFor, Localizations.localeOf(context).languageCode);
+    final when = jobWhen(context, job);
+    final c = job.context;
     return SurfaceCard(
       onTap: widget.embedded ? null : _openDetails,
       child: Column(
@@ -338,17 +410,38 @@ class _JobCardState extends ConsumerState<_JobCard> {
                 children: [
                   Icon(Icons.schedule_rounded, size: 16, color: context.palette.muted),
                   const Gap(AppSpace.xxs),
-                  Expanded(child: Text(t.scheduledFor(when), style: context.text.bodySmall)),
+                  Expanded(child: Text(when, style: context.text.bodySmall)),
                 ],
               ),
             ),
-          if (job.isCod)
+          if (job.isCod || (!widget.readOnly && c.hasHeadsUp))
             Padding(
               padding: const EdgeInsets.only(top: AppSpace.xs),
-              child: StatusChip(
-                label: '${t.cod}: ${t.money(job.codAmount.toStringAsFixed(2))}',
-                tone: StatusTone.warning,
-                icon: Icons.payments_outlined,
+              child: Wrap(
+                spacing: AppSpace.xs,
+                runSpacing: AppSpace.xs,
+                children: [
+                  if (job.isCod)
+                    StatusChip(
+                      label: '${t.cod}: ${t.money(job.codAmount.toStringAsFixed(2))}',
+                      tone: StatusTone.warning,
+                      icon: Icons.payments_outlined,
+                    ),
+                  // Only what is true for this parcel: a household order never carries a furniture hint.
+                  if (!widget.readOnly && c.needsTwoPeople) StatusChip(label: t.needsTwoPeople, icon: Icons.groups_rounded, tone: StatusTone.warning),
+                  if (!widget.readOnly && c.requiresAssembly) StatusChip(label: t.assemblyRequested, icon: Icons.handyman_rounded, tone: StatusTone.info),
+                ],
+              ),
+            ),
+          if (!widget.readOnly && c.hasNotes)
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpace.xs),
+              child: Row(
+                children: [
+                  Icon(Icons.sticky_note_2_outlined, size: 16, color: context.palette.brassDeep),
+                  const Gap(AppSpace.xxs),
+                  Expanded(child: Text(t.customerNote, style: context.text.bodySmall?.copyWith(color: context.palette.brassDeep, fontWeight: FontWeight.w600))),
+                ],
               ),
             ),
           if (!widget.readOnly) ...[
@@ -357,7 +450,7 @@ class _JobCardState extends ConsumerState<_JobCard> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: job.customerPhone == null ? null : () => dial(context, job.customerPhone),
+                    onPressed: primaryPhone(job) == null ? null : () => dial(context, primaryPhone(job)),
                     icon: const Icon(Icons.call_rounded, size: 18),
                     label: Text(t.call, maxLines: 1, overflow: TextOverflow.ellipsis),
                   ),

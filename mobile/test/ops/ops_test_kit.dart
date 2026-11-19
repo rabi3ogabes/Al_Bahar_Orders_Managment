@@ -50,6 +50,12 @@ class FakeOps implements OpsRepository {
   Completer<List<DriverJob>>? jobsGate;
   final delivered = <({String id, String? recipient, File? proof, double? cod})>[];
 
+  /// What the driver's steps sent besides what [delivered] records: where he stood and the key of the retry (see driver_context_test.dart).
+  final deliveredExtras = <({double? lat, double? lng, double? accuracy, String? key})>[];
+  final failures = <({String id, String reason, String? notes, File? photo, double? lat, double? lng, String? key})>[];
+  Object? failError;
+  Completer<void>? failGate;
+
   List<String> perms = const ['*'];
   StaffOverview overviewData = StaffOverview.fromJson({
     'branch': {'id': 'b1', 'name': 'Al Markhiya Main Branch', 'dispatch_mode': 'manual'},
@@ -100,6 +106,7 @@ class FakeOps implements OpsRepository {
     bool proof = true,
     Object? items,
     String? alternate,
+    Map<String, dynamic>? extra,
   }) => DriverJob.fromJson({
     'id': id,
     'status': status,
@@ -120,6 +127,7 @@ class FakeOps implements OpsRepository {
     'branch': {'id': 'b1', 'name': 'Al Markhiya'},
     'scheduled_for': '2026-11-14T12:00:00Z',
     'items': ?items,
+    ...?extra,
   });
 
   static QueueOrder order({
@@ -250,15 +258,39 @@ class FakeOps implements OpsRepository {
   }
 
   @override
-  Future<void> deliver(String id, {String? recipient, File? proof, double? codAmount}) async {
+  Future<void> deliver(
+    String id, {
+    String? recipient,
+    File? proof,
+    double? codAmount,
+    double? lat,
+    double? lng,
+    double? accuracy,
+    String? idempotencyKey,
+  }) async {
     calls.add('deliver:$id');
     delivered.add((id: id, recipient: recipient, proof: proof, cod: codAmount));
+    deliveredExtras.add((lat: lat, lng: lng, accuracy: accuracy, key: idempotencyKey));
     await deliverGate?.future;
     if (deliverError != null) throw deliverError!;
   }
 
   @override
-  Future<void> fail(String id, String reason) async => calls.add('fail:$id:$reason');
+  Future<void> fail(
+    String id,
+    String reason, {
+    String? notes,
+    File? photo,
+    double? lat,
+    double? lng,
+    double? accuracy,
+    String? idempotencyKey,
+  }) async {
+    calls.add('fail:$id:$reason');
+    failures.add((id: id, reason: reason, notes: notes, photo: photo, lat: lat, lng: lng, key: idempotencyKey));
+    await failGate?.future;
+    if (failError != null) throw failError!;
+  }
 
   @override
   Future<void> returnToBranch(String id) async => calls.add('return:$id');

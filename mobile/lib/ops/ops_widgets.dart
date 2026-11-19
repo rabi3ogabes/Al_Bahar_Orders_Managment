@@ -7,6 +7,8 @@ import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
+import 'package:albahar_customer/ops/driver/driver_providers.dart';
+import 'package:albahar_customer/ops/driver/driver_strings.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_repository.dart';
 import 'package:albahar_customer/ops/ops_session.dart';
@@ -183,10 +185,16 @@ Future<bool> opsConfirm(
 Future<void> confirmSignOut(BuildContext context, WidgetRef ref) async {
   final t = OpsStrings.of(context);
   final driver = ref.read(opsRoleProvider) == OpsRole.driver;
+  // A driver who still carries jobs stays on duty on the server (it refuses to switch him off): the sentence says so, so he is not surprised.
+  final carrying = !driver
+      ? 0
+      : (ref.read(driverJobsViewProvider(false)).value ?? const <DriverJob>[])
+            .where((j) => const {'accepted', 'picked_up', 'out_for_delivery', 'failed'}.contains(j.status))
+            .length;
   final ok = await opsConfirm(
     context,
     title: driver ? t.signOutDriverQ : t.signOutQ,
-    body: driver ? t.signOutDriverBody : null,
+    body: driver ? (carrying > 0 ? t.signOutJobsBody(carrying) : t.signOutDriverBody) : null,
     verb: t.signOut,
   );
   if (!ok) return;

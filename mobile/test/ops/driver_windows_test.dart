@@ -60,8 +60,7 @@ void main() {
       await _openDetails(tester);
       expect(_sheet, findsOneWidget);
       expect(_title, findsOneWidget);
-      // Customer, address, payment and the cash to collect.
-      expect(find.text('Customer'), findsOneWidget);
+      // Who and where first, then the payment and the cash to collect.
       expect(find.text('Delivery address'), findsOneWidget);
       expect(find.text('Noura'), findsWidgets);
       expect(find.text('+97455123456'), findsOneWidget);
@@ -99,8 +98,8 @@ void main() {
       await tester.tap(find.text('#AB100008').first);
       await settle(tester);
       expect(_sheet, findsOneWidget);
-      expect(find.text('العميل'), findsOneWidget);
       expect(find.text('عنوان التوصيل'), findsOneWidget);
+      expect(find.text('اتصال'), findsWidgets);
       expect(tester.takeException(), isNull);
     });
 
@@ -164,7 +163,8 @@ void main() {
       await _openDetails(tester);
       await tester.tap(find.descendant(of: _sheet, matching: find.widgetWithText(FilledButton, 'Accept')));
       await settle(tester);
-      expect(find.text('This delivery is already accepted'), findsOneWidget);
+      // The server's code is turned into one plain sentence: no status words, nothing raw.
+      expect(find.text('This step is not possible now. The list was updated.'), findsOneWidget);
       expect(_title, findsOneWidget);
     });
 
@@ -213,8 +213,8 @@ void main() {
       await tester.pumpWidget(opsHost(const DriverHome(), FakeOps(), navigation: phone));
       await settle(tester);
       await _openDetails(tester);
-      expect(find.text('Call Noura'), findsOneWidget);
-      await tester.tap(find.descendant(of: _sheet, matching: find.widgetWithText(OutlinedButton, 'Navigate')));
+      expect(find.byKey(const ValueKey('quick-call')), findsOneWidget);
+      await tester.tap(find.descendant(of: _sheet, matching: find.byKey(const ValueKey('quick-navigate'))));
       await settle(tester);
       expect(phone.opened.single.toString(), 'google.navigation:q=25.3,51.5&mode=d');
 
@@ -233,7 +233,7 @@ void main() {
       await tester.pumpWidget(opsHost(const DriverHome(), FakeOps(), navigation: phone));
       await settle(tester);
       await _openDetails(tester);
-      await tester.tap(find.descendant(of: _sheet, matching: find.widgetWithText(OutlinedButton, 'Navigate')));
+      await tester.tap(find.descendant(of: _sheet, matching: find.byKey(const ValueKey('quick-navigate'))));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.text('Could not open this on your phone.'), findsOneWidget);
@@ -418,7 +418,7 @@ void main() {
       await settle(tester);
       await tester.tap(find.widgetWithText(FilledButton, 'Confirm delivery'));
       await settle(tester);
-      expect(find.text('You appear to be offline. Check your connection and try again.'), findsOneWidget);
+      expect(find.text('No connection. Check your signal and try again.'), findsOneWidget);
       expect(find.text('Photo added'), findsOneWidget);
       repo.deliverError = null;
       repo.jobList = [];
@@ -428,44 +428,38 @@ void main() {
       expect(find.text('Proof of delivery'), findsNothing);
     });
 
-    testWidgets('could not deliver: reason window, then a centred question with Cancel focused, then one request', (
-      tester,
-    ) async {
+    testWidgets('could not deliver: one window with the reasons, a note and a photo; one confirm, one request', (tester) async {
       final repo = FakeOps()..jobList = [FakeOps.job(status: 'out_for_delivery')];
       await _pump(tester, repo, _phone);
       await _openDetails(tester);
       await tester.tap(find.descendant(of: find.byType(SidePanelLayout), matching: find.text('Could not deliver')));
       await settle(tester);
-      expect(find.text('Choose the reason'), findsOneWidget);
-      await tester.tap(find.text('Wrong address'));
+      expect(find.text('What happened?'), findsOneWidget);
+      // Nothing is sent until the driver chose what happened.
+      await tester.tap(find.widgetWithText(FilledButton, 'Report: could not deliver'));
       await settle(tester);
-      expect(find.text('Report as not delivered?'), findsOneWidget);
-      // Cancel has the focus: Enter would not report by accident.
-      final cancel = tester.widget<TextButton>(find.widgetWithText(TextButton, 'Cancel'));
-      expect(cancel.autofocus, isTrue);
-      await tester.tap(find.text('Cancel'));
-      await settle(tester);
+      expect(find.text('Choose a reason first.'), findsOneWidget);
       expect(repo.calls, isEmpty);
-      expect(_title, findsOneWidget);
 
-      await tester.tap(find.descendant(of: find.byType(SidePanelLayout), matching: find.text('Could not deliver')));
+      await tester.tap(find.byKey(const ValueKey('fail-wrong_address')));
       await settle(tester);
-      await tester.tap(find.text('Wrong address'));
-      await settle(tester);
-      await tester.tap(find.widgetWithText(FilledButton, 'Report'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Report: could not deliver'));
       await settle(tester);
       expect(repo.calls, ['fail:d1:wrong_address']);
+      // The attempt is recorded: the same window now offers to try again or to bring the order back.
+      expect(find.text('What happened?'), findsNothing);
+      expect(find.text('Try delivery again'), findsWidgets);
     });
 
-    testWidgets('Back in the reason window closes only the reason window', (tester) async {
+    testWidgets('Back in the could-not-deliver window closes only that window', (tester) async {
       final repo = FakeOps()..jobList = [FakeOps.job(status: 'out_for_delivery')];
       await _pump(tester, repo, _wide);
       await _openDetails(tester);
       await tester.tap(find.descendant(of: find.byType(SidePanelLayout), matching: find.text('Could not deliver')));
       await settle(tester);
-      expect(find.text('Choose the reason'), findsOneWidget);
+      expect(find.text('What happened?'), findsOneWidget);
       await _back(tester);
-      expect(find.text('Choose the reason'), findsNothing);
+      expect(find.text('What happened?'), findsNothing);
       expect(_title, findsOneWidget);
     });
 

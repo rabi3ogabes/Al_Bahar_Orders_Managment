@@ -191,7 +191,8 @@ void main() {
         job('out_for_delivery'),
         job('delivered'),
       ].map((j) => j.nextAction),
-      ['accept', 'pickup', 'out-for-delivery', 'deliver', null],
+      // On the road the driver first says he arrived (the customer is told); the delivery form comes after that.
+      ['accept', 'pickup', 'out-for-delivery', 'arrived', null],
     );
     expect(File('lib/main_driver.dart').existsSync() && File('lib/main_staff.dart').existsSync(), isTrue);
   });

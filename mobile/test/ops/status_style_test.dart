@@ -422,9 +422,10 @@ void main() {
   });
 
   group('driver', () {
-    FakeOps jobs(String status, {String cod = '0'}) => FakeOps()
+    // [arrived]: the driver already said "I have arrived", so the card offers the delivery form.
+    FakeOps jobs(String status, {String cod = '0', bool arrived = false}) => FakeOps()
       ..style = OpsStatusStyle.slide
-      ..jobList = [FakeOps.job(status: status, cod: cod)];
+      ..jobList = [FakeOps.job(status: status, cod: cod, extra: arrived ? {'arrived_at': '2026-11-14T12:30:00Z'} : null)];
 
     testWidgets('default: buttons everywhere', (tester) async {
       await _driver(tester, FakeOps());
@@ -456,18 +457,26 @@ void main() {
       expect(repo.calls, ['accept:d1']);
     });
 
-    testWidgets('could not deliver is still a button with a reason and a confirmation', (tester) async {
-      final repo = jobs('out_for_delivery');
+    testWidgets('could not deliver opens from a button; its reason tiles are confirmed by the slide', (tester) async {
+      final repo = jobs('out_for_delivery', arrived: true);
       await _driver(tester, repo);
       expect(find.byTooltip('Could not deliver'), findsOneWidget);
       await tester.tap(find.byTooltip('Could not deliver'));
       await settle(tester);
-      await tester.tap(find.text('Wrong address'));
+      await tester.tap(find.byKey(const ValueKey('fail-wrong_address')));
       await settle(tester);
-      expect(find.text('Report as not delivered?'), findsOneWidget);
-      await tester.tap(find.widgetWithText(FilledButton, 'Report'));
-      await settle(tester);
+      expect(find.text('Slide to report'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Report: could not deliver'), findsNothing);
+      await _slide(tester, within: find.byType(BottomSheet));
       expect(repo.calls, ['fail:d1:wrong_address']);
+    });
+
+    testWidgets('out for delivery: arriving is slid, then the delivery form takes over', (tester) async {
+      final repo = jobs('out_for_delivery');
+      await _driver(tester, repo);
+      expect(find.text('Slide: I have arrived'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Mark delivered'), findsNothing);
+      expect(find.byKey(const ValueKey('skip-arrival')), findsOneWidget);
     });
 
     testWidgets('return to branch keeps its confirmation in slide mode too', (tester) async {
@@ -484,7 +493,7 @@ void main() {
     testWidgets(
       'out for delivery: Mark delivered is a button that opens the proof window, whose Confirm is the slide',
       (tester) async {
-        final repo = jobs('out_for_delivery');
+        final repo = jobs('out_for_delivery', arrived: true);
         final picker = FakePicker();
         await _driver(tester, repo, picker: picker);
         expect(find.byType(SlideToConfirm), findsNothing);
@@ -510,14 +519,14 @@ void main() {
     );
 
     testWidgets('a failed upload keeps the photo and the slide is ready for another try', (tester) async {
-      final repo = jobs('out_for_delivery')..deliverError = apiError(ApiErrorKind.offline, 0);
+      final repo = jobs('out_for_delivery', arrived: true)..deliverError = apiError(ApiErrorKind.offline, 0);
       await _driver(tester, repo);
       await tester.tap(find.widgetWithText(FilledButton, 'Mark delivered'));
       await settle(tester);
       await tester.tap(find.text('Take proof photo'));
       await settle(tester);
       await _slide(tester);
-      expect(find.text('You appear to be offline. Check your connection and try again.'), findsOneWidget);
+      expect(find.text('No connection. Check your signal and try again.'), findsOneWidget);
       expect(find.text('Photo added'), findsOneWidget);
       repo.deliverError = null;
       await _slide(tester);
@@ -525,7 +534,7 @@ void main() {
     });
 
     testWidgets('cash on delivery: the amount is checked before the slide goes through', (tester) async {
-      final repo = jobs('out_for_delivery', cod: '303.00');
+      final repo = jobs('out_for_delivery', cod: '303.00', arrived: true);
       await _driver(tester, repo);
       await tester.tap(find.widgetWithText(FilledButton, 'Mark delivered'));
       await settle(tester);
@@ -538,7 +547,7 @@ void main() {
     });
 
     testWidgets('buttons mode keeps Confirm delivery as the button it always was', (tester) async {
-      final repo = FakeOps()..jobList = [FakeOps.job(status: 'out_for_delivery')];
+      final repo = FakeOps()..jobList = [FakeOps.job(status: 'out_for_delivery', extra: {'arrived_at': '2026-11-14T12:30:00Z'})];
       await _driver(tester, repo);
       await tester.tap(find.widgetWithText(FilledButton, 'Mark delivered'));
       await settle(tester);

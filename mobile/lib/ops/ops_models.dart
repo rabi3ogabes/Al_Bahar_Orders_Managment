@@ -1,5 +1,6 @@
 import 'package:albahar_customer/core/map/map_geo.dart';
 import 'package:albahar_customer/core/utils/json.dart';
+import 'package:albahar_customer/ops/driver/driver_models.dart';
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -135,6 +136,7 @@ class DriverJob {
     this.alternatePhone,
     this.orderId = '',
     this.seq = 0,
+    this.context = DriverJobContext.empty,
   });
 
   factory DriverJob.fromJson(JsonMap j) => DriverJob(
@@ -153,6 +155,7 @@ class DriverJob {
     branchName: asStringOrNull(asMapOrNull(j['branch'])?['name']) ?? '',
     scheduledFor: asDate(j['scheduled_for']),
     items: OpsItem.listFrom(j['items']),
+    context: DriverJobContext.fromJson(j),
   );
 
   final String id;
@@ -179,6 +182,29 @@ class DriverJob {
   final String orderId;
   final int seq;
 
+  /// What a driver needs beyond the basics (notes, recipient, window, weight): empty for a finished job or an older server.
+  final DriverJobContext context;
+
+  /// The same job after the driver said "I have arrived" (shown at once, before the server's list is read again).
+  DriverJob withArrived(DateTime at) => DriverJob(
+    id: id,
+    status: status,
+    orderNumber: orderNumber,
+    customerName: customerName,
+    customerPhone: customerPhone,
+    address: address,
+    paymentMethod: paymentMethod,
+    codAmount: codAmount,
+    requiresProof: requiresProof,
+    branchName: branchName,
+    scheduledFor: scheduledFor,
+    items: items,
+    alternatePhone: alternatePhone,
+    orderId: orderId,
+    seq: seq,
+    context: context.withArrived(at),
+  );
+
   /// The same job in another state (a real-time message said it moved).
   DriverJob withState({String? status, int? seq}) => DriverJob(
     id: id,
@@ -196,6 +222,7 @@ class DriverJob {
     alternatePhone: alternatePhone,
     orderId: orderId,
     seq: seq ?? this.seq,
+    context: context,
   );
 
   bool get isCod => paymentMethod == 'cod' && codAmount > 0;
@@ -205,7 +232,8 @@ class DriverJob {
     'assigned' => 'accept',
     'accepted' => 'pickup',
     'picked_up' => 'out-for-delivery',
-    'out_for_delivery' => 'deliver',
+    // On the road: first "I have arrived" (the customer is told), then the delivery form.
+    'out_for_delivery' => context.arrivedAt == null ? 'arrived' : 'deliver',
     // A failed or rescheduled delivery can go out again (or be handed back to the branch).
     'failed' || 'rescheduled' => 'out-for-delivery',
     _ => null,
@@ -213,6 +241,12 @@ class DriverJob {
 
   /// A failed delivery may also be brought back to the branch.
   bool get canReturn => status == 'failed';
+
+  /// A job that was given to the driver and that he has not accepted yet can be handed back.
+  bool get canDecline => status == 'assigned';
+
+  /// The driver is on the road to the customer and has not said he arrived.
+  bool get canArrive => status == 'out_for_delivery' && context.arrivedAt == null;
 
   /// The driver can report "could not deliver" from these steps.
   bool get canFail => status == 'picked_up' || status == 'out_for_delivery';
