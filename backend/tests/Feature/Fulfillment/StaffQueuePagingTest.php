@@ -1,5 +1,7 @@
 <?php
 
+use App\Domain\Identity\Models\Permission;
+use App\Domain\Identity\Models\Role;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -126,4 +128,20 @@ it('lists every branch a manager of two works in, serves the one asked for, and 
         ->and($second['branch']['id'])->toBe($b->id)->and($second['new'])->toBe(1);
     $this->getJson('/api/v1/admin/dispatch/overview?branch_id='.$other->id)->assertForbidden();
     $this->getJson('/api/v1/admin/dispatch/queue?branch_id='.$other->id)->assertForbidden();
+});
+
+it('says what the person may do per branch: a manager of one, only a clerk at the other', function () {
+    $b = opsBranch(attributes: ['code' => 'BBB']);
+    $user = opsStaff('branch_manager', $this->branch);
+    $clerk = Role::create(['key' => 'ops_t_clerk', 'name_en' => 'Clerk', 'name_ar' => 'موظف', 'scope' => 'branch']);
+    $clerk->permissions()->attach(Permission::whereIn('key', ['orders.view', 'orders.edit', 'pickup.view'])->pluck('id'));
+    DB::table('branch_employees')->insert(['id' => (string) Str::uuid(), 'branch_id' => $b->id, 'user_id' => $user->id, 'is_active' => true, 'created_at' => now(), 'updated_at' => now()]);
+    DB::table('user_roles')->insert(['id' => (string) Str::uuid(), 'user_id' => $user->id, 'role_id' => $clerk->id, 'branch_id' => $b->id, 'created_at' => now(), 'updated_at' => now()]);
+    actingAsStaff($user);
+
+    $here = $this->getJson('/api/v1/admin/dispatch/overview?branch_id='.$this->branch->id)->assertOk()->json('data.can');
+    $there = $this->getJson('/api/v1/admin/dispatch/overview?branch_id='.$b->id)->assertOk()->json('data.can');
+
+    expect($here)->toMatchArray(['orders.approve' => true, 'pickup.approve' => true])
+        ->and($there)->toMatchArray(['orders.approve' => false, 'pickup.approve' => false, 'pickup.view' => true, 'orders.edit' => true]);
 });
