@@ -1,6 +1,7 @@
 import 'package:albahar_customer/core/map/map_geo.dart';
 import 'package:albahar_customer/core/utils/json.dart';
 import 'package:albahar_customer/ops/driver/driver_models.dart';
+import 'package:albahar_customer/ops/ops_staff_models.dart';
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -291,10 +292,17 @@ class StaffOverview {
     required this.waitingForDriver,
     required this.driversOnDuty,
     required this.driversTotal,
+    this.pickupNew = 0,
+    this.pickupPreparing = 0,
+    this.pickupReady = 0,
+    this.branches = const [],
+    this.can,
   });
 
   factory StaffOverview.fromJson(JsonMap j) {
     final b = asMap(j['branch']);
+    final pickup = asMap(j['pickup']);
+    final can = asMapOrNull(j['can']);
     return StaffOverview(
       branchId: asString(b['id']),
       branchName: asString(b['name']),
@@ -307,6 +315,11 @@ class StaffOverview {
       waitingForDriver: asInt(j['waiting_for_driver']),
       driversOnDuty: asInt(j['drivers_on_duty']),
       driversTotal: asInt(j['drivers_total']),
+      pickupNew: asInt(pickup['new']),
+      pickupPreparing: asInt(pickup['preparing']),
+      pickupReady: asInt(pickup['ready']),
+      branches: mapList(j['branches'], StaffBranchRef.fromJson),
+      can: can == null ? null : {for (final e in can.entries) e.key: asBool(e.value)},
     );
   }
 
@@ -321,6 +334,25 @@ class StaffOverview {
   final int waitingForDriver;
   final int driversOnDuty;
   final int driversTotal;
+
+  /// The branch's pickup parts by stage (the Pickup switch of the orders screen); zero from a server that does not send them.
+  final int pickupNew;
+  final int pickupPreparing;
+  final int pickupReady;
+
+  /// Every branch this person works in (the branch picker shows only when there are two or more); empty from an older server.
+  final List<StaffBranchRef> branches;
+
+  /// What the person may do at THIS branch by permission key (a manager of one branch is not one of another); null from an older server,
+  /// where the app falls back to the flat permission list.
+  final Map<String, bool>? can;
+
+  /// Whether [key] is allowed at this branch, or null when the server did not say.
+  bool? allows(String key) => can?[key];
+
+  /// The pickup orders this person sees (none when they may not see pickups at this branch): what the "To do" tab adds to its deliveries.
+  int get pickupVisible => allows('pickup.view') == false ? 0 : pickupNew + pickupPreparing + pickupReady;
+  int get pickupNewVisible => allows('pickup.view') == false ? 0 : pickupNew;
 
   /// The same counts after some orders moved between stages (a real-time message said so): each number moves by the given amount,
   /// never below zero. The next read of the server replaces it.
@@ -343,6 +375,11 @@ class StaffOverview {
     waitingForDriver: _atLeastZero(this.waitingForDriver + waitingForDriver),
     driversOnDuty: driversOnDuty,
     driversTotal: driversTotal,
+    pickupNew: pickupNew,
+    pickupPreparing: pickupPreparing,
+    pickupReady: pickupReady,
+    branches: branches,
+    can: can,
   );
 
   static int _atLeastZero(int n) => n < 0 ? 0 : n;
@@ -369,6 +406,13 @@ class QueueOrder {
     this.alternatePhone,
     this.orderId = '',
     this.seq = 0,
+    this.type = 'delivery',
+    this.placedAt,
+    this.clock,
+    this.cancellation,
+    this.paymentStatus = '',
+    this.amountDue = '0.00',
+    this.pickup,
   });
 
   factory QueueOrder.fromJson(JsonMap j) {
@@ -392,6 +436,13 @@ class QueueOrder {
       driverName: asStringOrNull(driver?['name']),
       driverId: asStringOrNull(driver?['id']),
       items: OpsItem.listFrom(j['items']),
+      type: asString(j['type'], 'delivery'),
+      placedAt: asDate(j['placed_at']),
+      clock: OrderClock.maybeFrom(j['clock']),
+      cancellation: CancellationRequest.maybeFrom(j['cancellation_request']),
+      paymentStatus: asString(j['payment_status']),
+      amountDue: asString(j['amount_due'], '0.00'),
+      pickup: PickupPass.maybeFrom(j['pickup']),
     );
   }
 
@@ -444,7 +495,35 @@ class QueueOrder {
     alternatePhone: alternatePhone,
     orderId: orderId,
     seq: seq ?? this.seq,
+    type: type,
+    placedAt: placedAt,
+    clock: clock,
+    cancellation: cancellation,
+    paymentStatus: paymentStatus,
+    amountDue: amountDue,
+    pickup: pickup,
   );
+
+  /// `delivery` or `pickup` (an older server sends only deliveries).
+  final String type;
+  final DateTime? placedAt;
+
+  /// How long the order has waited and whether that is fine, getting late or late; null from an older server (the card then shows how long since it was placed).
+  final OrderClock? clock;
+
+  /// The customer's request to cancel, while a manager has not decided it: the order must not leave the branch until then.
+  final CancellationRequest? cancellation;
+  final String paymentStatus;
+
+  /// What is still to be collected at the counter (a pickup paid at pickup); `0.00` when nothing is.
+  final String amountDue;
+  final PickupPass? pickup;
+
+  bool get isPickup => type == 'pickup';
+  bool get cancellationOpen => cancellation?.open ?? false;
+
+  /// What is still to be collected, as a number.
+  double get dueAmount => double.tryParse(amountDue) ?? 0;
 
   /// What is in the parcel; empty when the server did not send it (screens then show [itemsCount]).
   final List<OpsItem> items;
@@ -453,9 +532,18 @@ class QueueOrder {
   String? get nextStep => switch (status) {
     'pending' => 'accepted',
     'accepted' => 'preparing',
-    'preparing' => 'ready',
+    // A pickup part is made ready by issuing its pass (its own button), not by this step.
+    'preparing' => isPickup ? null : 'ready',
     _ => null,
   };
+}
+
+/// One page of an order queue and whether another page follows it.
+@immutable
+class QueuePage {
+  const QueuePage(this.rows, {this.hasMore = false});
+  final List<QueueOrder> rows;
+  final bool hasMore;
 }
 
 @immutable

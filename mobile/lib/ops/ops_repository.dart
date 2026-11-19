@@ -9,6 +9,7 @@ import 'package:albahar_customer/core/utils/json.dart';
 import 'package:albahar_customer/ops/driver/driver_models.dart';
 import 'package:albahar_customer/ops/ops_account.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
+import 'package:albahar_customer/ops/ops_staff_models.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -308,6 +309,107 @@ class OpsRepository {
 
   Future<void> advance(String fulfillmentId, String status) async {
     await _api.post('/admin/fulfillments/$fulfillmentId/transition', data: {'status': status});
+  }
+
+  // Branch staff: paging, pickup, cancellation requests, needs attention (see docs/api/STAFF_QUEUE.md)
+
+  /// One page of a queue stage with whether another follows. [type] `pickup` lists the branch's pickup parts (with stage `all`); without it the
+  /// answer is the delivery queue. An older server that knows no paging answers its first 100 rows and no `meta`: that is one page.
+  Future<QueuePage> queuePage(String stage, {String? branchId, String? type, int page = 1, int perPage = 50}) async {
+    final body = asMap(
+      await _api.getRaw(
+        '/admin/dispatch/queue',
+        query: {'stage': stage, 'branch_id': ?branchId, 'type': ?type, 'page': page, 'per_page': perPage},
+      ),
+    );
+    return QueuePage(mapList(body['data'], QueueOrder.fromJson), hasMore: asBool(asMap(body['meta'])['has_more']));
+  }
+
+  /// The top of the needs-attention inbox for this person (the same list as the dashboard's, at most 20 lines) and the counts of all of it.
+  Future<AttentionSummary> attention({String? branchId}) =>
+      _api.getObject('/admin/dispatch/attention', AttentionSummary.fromJson, query: {'branch_id': ?branchId});
+
+  /// Makes a pickup part ready and issues its pass (`POST fulfillments/{id}/pickup-ready`, needs pickup.edit).
+  Future<void> pickupReady(String fulfillmentId) async {
+    await _api.post('/admin/fulfillments/$fulfillmentId/pickup-ready');
+  }
+
+  /// A new pass for a part that is ready for pickup: the old one stops working at once and the customer is told (needs pickup.edit).
+  Future<void> pickupReissue(String fulfillmentId, {String? reason}) async {
+    final text = reason?.trim() ?? '';
+    await _api.post('/admin/fulfillments/$fulfillmentId/pickup-reissue', data: {if (text.isNotEmpty) 'reason': text});
+  }
+
+  /// Checks a scanned or typed pass at [branchId]. A pass that is refused still comes back as an answer (its `result` says why: invalid_token,
+  /// expired, already_used, wrong_branch, not_ready), never as an error; only a request that could not be made throws.
+  Future<PickupCheck> pickupVerify(String code, String branchId) async {
+    final data = await _api.post(
+      '/admin/pickup/verify',
+      data: {'code': code.trim(), 'branch_id': branchId},
+      options: Options(validateStatus: (s) => s == 200 || s == 422),
+    );
+    final map = asMap(data);
+    if (!map.containsKey('result')) {
+      // A 422 about the request itself (a code that is too long), not about the pass.
+      throw ApiException(
+        kind: ApiErrorKind.validation,
+        statusCode: 422,
+        code: asStringOrNull(map['code']),
+        message: asStringOrNull(map['message']),
+      );
+    }
+    return PickupCheck.fromJson(map);
+  }
+
+  /// Hands over part or all of a verified pickup order. [items] is order item id to quantity now (empty hands over everything left);
+  /// [collection] is the money taken first for a pay-at-pickup order. Answers the pass's new status: `collected` or `partially_collected`.
+  Future<String> pickupHandover(
+    String reservationId, {
+    Map<String, int> items = const {},
+    String? collectorName,
+    PickupCollection? collection,
+  }) async {
+    final data = asMap(
+      await _api.post(
+        '/admin/pickup/$reservationId/handover',
+        data: {
+          if (items.isNotEmpty) 'items': items,
+          if (collectorName != null && collectorName.trim().isNotEmpty) 'collector_name': collectorName.trim(),
+          if (collection != null) 'collection': collection.toJson(),
+        },
+      ),
+    );
+    return asString(data['status']);
+  }
+
+  /// A manager hands over without the pass: the order number, the last four digits of the phone number on the order and the reason
+  /// (needs pickup.approve). Answers the pass's new status.
+  Future<String> pickupManualHandover({
+    required String branchId,
+    required String orderNumber,
+    required String phoneLast4,
+    required String reason,
+    PickupCollection? collection,
+  }) async {
+    final data = asMap(
+      await _api.post(
+        '/admin/pickup/manual-handover',
+        data: {
+          'branch_id': branchId,
+          'order_number': orderNumber,
+          'phone_last4': phoneLast4,
+          'reason': reason.trim(),
+          if (collection != null) 'collection': collection.toJson(),
+        },
+      ),
+    );
+    return asString(data['status']);
+  }
+
+  /// A manager decides the customer's request to cancel (needs orders.approve at every branch of the order). Approving cancels the order.
+  Future<void> decideCancellation(String id, {required bool approve, String? note}) async {
+    final text = note?.trim() ?? '';
+    await _api.post('/admin/cancellations/$id/decide', data: {'approve': approve, if (text.isNotEmpty) 'note': text});
   }
 
   // Missing items found while preparing (see docs/api/ORDER_ADJUSTMENTS.md)

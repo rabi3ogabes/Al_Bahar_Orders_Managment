@@ -12,6 +12,7 @@ import 'package:albahar_customer/ops/driver/driver_tracker.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_repository.dart';
 import 'package:albahar_customer/ops/ops_session.dart';
+import 'package:albahar_customer/ops/ops_staff_models.dart';
 import 'package:albahar_customer/ops/ops_widgets.dart';
 import 'package:albahar_customer/ops/staff/staff_home.dart';
 import 'package:flutter/material.dart';
@@ -317,8 +318,12 @@ class FakeOps implements OpsRepository {
 
   @override
   Future<StaffOverview> overview({String? branchId}) async {
+    overviewBranches.add(branchId);
     if (overviewError != null) throw overviewError!;
-    return overviewData;
+    if (branchId != null && overviewFailForBranch.contains(branchId)) {
+      throw apiError(ApiErrorKind.forbidden, 403, message: 'Not your branch');
+    }
+    return overviewByBranch[branchId] ?? overviewData;
   }
 
   @override
@@ -329,8 +334,122 @@ class FakeOps implements OpsRepository {
     return queues[stage] ?? const [];
   }
 
+  /// What each branch's overview says when a manager of several picks one (see staff_branch_test.dart), and which ids the server refuses.
+  final overviewByBranch = <String, StaffOverview>{};
+  final overviewFailForBranch = <String>{};
+  final overviewBranches = <String?>[];
+  final attentionBranches = <String?>[];
+  final driversBranches = <String?>[];
+
+  // Branch staff: paging, pickup, cancellation requests and the needs-attention list (see staff_pickup_flow_test.dart and friends).
+  List<QueueOrder> pickupQueue = [];
+  AttentionSummary attentionData = const AttentionSummary();
+  Object? attentionError;
+  int attentionLoads = 0;
+  int pickupLoads = 0;
+  final queueBranches = <String?>[];
+  final queuePages = <String>[];
+
+  @override
+  Future<QueuePage> queuePage(String stage, {String? branchId, String? type, int page = 1, int perPage = 50}) async {
+    queueBranches.add(branchId);
+    queuePages.add('${type == 'pickup' ? 'pickup' : stage}:$page');
+    if (type == 'pickup') {
+      pickupLoads++;
+      if (queueError != null) throw queueError!;
+      final from = (page - 1) * perPage;
+      return QueuePage(pickupQueue.skip(from).take(perPage).toList(), hasMore: pickupQueue.length > from + perPage);
+    }
+    final all = await queue(stage, branchId: branchId);
+    final from = (page - 1) * perPage;
+    return QueuePage(all.skip(from).take(perPage).toList(), hasMore: all.length > from + perPage);
+  }
+
+  @override
+  Future<AttentionSummary> attention({String? branchId}) async {
+    attentionBranches.add(branchId);
+    attentionLoads++;
+    if (attentionError != null) throw attentionError!;
+    return attentionData;
+  }
+
+  /// What the pickup counter answers (see staff_pickup_flow_test.dart): the check of a pass, the answer of a hand-over, and what was sent.
+  PickupCheck? verifyAnswer;
+  Object? verifyError;
+  Object? pickupError;
+  String handoverAnswer = 'collected';
+  Completer<void>? pickupGate;
+  final verified = <({String code, String branchId})>[];
+  final handovers =
+      <({String reservationId, Map<String, int> items, String? collector, PickupCollection? collection})>[];
+  final manualHandovers =
+      <({String branchId, String orderNumber, String phoneLast4, String reason, PickupCollection? collection})>[];
+  final decisions = <({String id, bool approve, String? note})>[];
+  Object? decideError;
+
+  @override
+  Future<void> pickupReady(String fulfillmentId) async {
+    calls.add('pickup-ready:$fulfillmentId');
+    await pickupGate?.future;
+    if (pickupError != null) throw pickupError!;
+  }
+
+  @override
+  Future<void> pickupReissue(String fulfillmentId, {String? reason}) async {
+    calls.add('pickup-reissue:$fulfillmentId');
+    await pickupGate?.future;
+    if (pickupError != null) throw pickupError!;
+  }
+
+  @override
+  Future<PickupCheck> pickupVerify(String code, String branchId) async {
+    verified.add((code: code, branchId: branchId));
+    if (verifyError != null) throw verifyError!;
+    return verifyAnswer ?? const PickupCheck(result: 'invalid_token');
+  }
+
+  @override
+  Future<String> pickupHandover(
+    String reservationId, {
+    Map<String, int> items = const {},
+    String? collectorName,
+    PickupCollection? collection,
+  }) async {
+    handovers.add((reservationId: reservationId, items: items, collector: collectorName, collection: collection));
+    await pickupGate?.future;
+    if (pickupError != null) throw pickupError!;
+    return handoverAnswer;
+  }
+
+  @override
+  Future<String> pickupManualHandover({
+    required String branchId,
+    required String orderNumber,
+    required String phoneLast4,
+    required String reason,
+    PickupCollection? collection,
+  }) async {
+    manualHandovers.add((
+      branchId: branchId,
+      orderNumber: orderNumber,
+      phoneLast4: phoneLast4,
+      reason: reason,
+      collection: collection,
+    ));
+    await pickupGate?.future;
+    if (pickupError != null) throw pickupError!;
+    return handoverAnswer;
+  }
+
+  @override
+  Future<void> decideCancellation(String id, {required bool approve, String? note}) async {
+    decisions.add((id: id, approve: approve, note: note));
+    if (decideError != null) throw decideError!;
+  }
+
   @override
   Future<List<BranchDriver>> drivers({String? branchId}) async {
+    driversBranches.add(branchId);
     if (driversError != null) throw driversError!;
     return branchDrivers;
   }

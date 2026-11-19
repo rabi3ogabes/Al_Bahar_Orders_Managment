@@ -103,6 +103,14 @@ String notificationLocation(Map<String, dynamic> data) {
     return (v == null || v.isEmpty) ? null : v;
   }
 
+  // The branch staff app's alerts (a new order, an order that waits): the app opens its own order window (see ops/staff/staff_open.dart).
+  if ((event == 'staff.order_new' || event == 'staff.order_reminder') && id('order_id') != null) {
+    final query = {
+      if (id('fulfillment_id') != null) 'fulfillment': id('fulfillment_id')!,
+      if (id('branch_id') != null) 'branch': id('branch_id')!,
+    };
+    return Uri(path: '/staff/orders/${id('order_id')}', queryParameters: query.isEmpty ? null : query).toString();
+  }
   if (event.startsWith('order.') && id('order_id') != null) return '/orders/${id('order_id')}';
   if (event.startsWith('payment.') && id('order_id') != null) return '/orders/${id('order_id')}';
   if (event.startsWith('auction.') || event.startsWith('lot.')) {

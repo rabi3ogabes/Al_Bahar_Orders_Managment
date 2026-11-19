@@ -22,7 +22,7 @@ enum StaffBadgeTone { quiet, attention, danger }
 
 /// The tone of each tab's number from the branch counts: new orders light up To do, a failed delivery turns On the way red.
 StaffBadgeTone staffTabTone(StaffTab tab, StaffOverview? o) => switch (tab) {
-  StaffTab.todo => o != null && o.fresh > 0 ? StaffBadgeTone.attention : StaffBadgeTone.quiet,
+  StaffTab.todo => o != null && o.fresh + o.pickupNewVisible > 0 ? StaffBadgeTone.attention : StaffBadgeTone.quiet,
   StaffTab.way => o != null && o.failed > 0 ? StaffBadgeTone.danger : StaffBadgeTone.quiet,
   StaffTab.drivers => StaffBadgeTone.quiet,
 };
@@ -31,7 +31,7 @@ StaffBadgeTone staffTabTone(StaffTab tab, StaffOverview? o) => switch (tab) {
 int? staffTabCount(StaffTab tab, StaffOverview? o) {
   if (o == null) return null;
   return switch (tab) {
-    StaffTab.todo => o.fresh + o.preparing + o.ready,
+    StaffTab.todo => o.fresh + o.preparing + o.ready + o.pickupVisible,
     StaffTab.way => o.out + o.failed,
     StaffTab.drivers => o.driversOnDuty,
   };
@@ -48,7 +48,11 @@ PreferredSizeWidget? staffTabBar(BuildContext context, List<StaffTab> tabs, Staf
   Tab tab(StaffTab which) {
     final count = staffTabCount(which, o);
     final (icon, label, speech) = switch (which) {
-      StaffTab.todo => (Icons.checklist_rounded, t.tabToDo, t.tabToDoLabel(count ?? 0, o?.fresh ?? 0)),
+      StaffTab.todo => (
+        Icons.checklist_rounded,
+        t.tabToDo,
+        t.tabToDoLabel(count ?? 0, (o?.fresh ?? 0) + (o?.pickupNewVisible ?? 0)),
+      ),
       StaffTab.way => (Icons.local_shipping_outlined, t.stageOut, t.tabWayLabel(count ?? 0, o?.failed ?? 0)),
       StaffTab.drivers => (Icons.two_wheeler_rounded, t.drivers, t.tabDriversLabel(count ?? 0)),
     };

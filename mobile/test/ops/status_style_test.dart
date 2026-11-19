@@ -321,7 +321,7 @@ void main() {
           'new': [FakeOps.order(id: 'f0', status: 'pending')],
           'preparing': [FakeOps.order(id: 'f3', status: 'accepted', number: 'AB100003')],
         };
-      await _staff(tester, repo);
+      await _staff(tester, repo, variant: const Variant('390x1400', Size(390, 1400), kEn));
       // New and preparing orders are on the same To do list, each with its own slide words.
       expect(find.text('Slide to accept order'), findsOneWidget);
       expect(find.text('Slide to start preparing'), findsOneWidget);
@@ -338,13 +338,16 @@ void main() {
       expect(find.byType(SlideToConfirm), findsNothing);
     });
 
-    testWidgets('the server refusing the step (409) shows its message and the slide is ready again', (tester) async {
+    testWidgets('the server refusing the step (409) says it in plain words and the slide is ready again', (
+      tester,
+    ) async {
       final repo = FakeOps()
         ..style = OpsStatusStyle.slide
         ..advanceError = conflict('This action is not allowed while the status is "Accepted".');
       await _staff(tester, repo);
       await _slide(tester);
-      expect(find.text('This action is not allowed while the status is "Accepted".'), findsOneWidget);
+      // The staff app puts the server's refusal in its own plain words (its code decides, not its text).
+      expect(find.text('Someone already moved this order. The list was refreshed.'), findsOneWidget);
       expect(find.byType(SlideToConfirm), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsNothing);
       repo.advanceError = null;

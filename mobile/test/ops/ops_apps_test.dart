@@ -8,6 +8,7 @@ import 'package:albahar_customer/l10n/generated/app_localizations.dart';
 import 'package:albahar_customer/ops/driver/driver_home.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_repository.dart';
+import 'package:albahar_customer/ops/ops_staff_models.dart';
 import 'package:albahar_customer/ops/staff/add_product_screen.dart';
 import 'package:albahar_customer/ops/staff/fleet_map_tab.dart';
 import 'package:albahar_customer/ops/staff/staff_home.dart';
@@ -73,6 +74,13 @@ class _FakeOps implements OpsRepository {
           }),
         ]
       : const [];
+
+  @override
+  Future<QueuePage> queuePage(String stage, {String? branchId, String? type, int page = 1, int perPage = 50}) async =>
+      QueuePage(type == 'pickup' ? const [] : await queue(stage, branchId: branchId));
+
+  @override
+  Future<AttentionSummary> attention({String? branchId}) async => const AttentionSummary();
 
   @override
   Future<List<BranchDriver>> drivers({String? branchId}) async => const [
@@ -162,6 +170,10 @@ void main() {
 
   testWidgets('branch employee assigns a driver to a ready order on a manual-dispatch branch', (tester) async {
     final repo = _FakeOps();
+    // Tall enough for the whole To do list: the strips above it (needs attention, Delivery | Pickup) take their room.
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(_host(const StaffHome(), repo));
     await tester.pumpAndSettle();
     expect(find.text('Al Markhiya Main Branch'), findsOneWidget);

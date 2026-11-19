@@ -123,7 +123,8 @@ void main() {
       final before = repo.queueLoads;
       await tester.tap(find.text('Accept order'));
       await settle(tester);
-      expect(find.text('This action is not allowed while the status is "Accepted".'), findsOneWidget);
+      // The staff app says it in its own plain words (the server's code, not its text, decides).
+      expect(find.text('Someone already moved this order. The list was refreshed.'), findsOneWidget);
       expect(repo.queueLoads, greaterThan(before));
     });
 

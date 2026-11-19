@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:albahar_customer/core/theme/tokens.dart';
+import 'package:albahar_customer/core/utils/qatar_time.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/side_panel.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
@@ -11,7 +14,13 @@ import 'package:albahar_customer/ops/ops_widgets.dart';
 import 'package:albahar_customer/ops/slide_to_confirm.dart';
 import 'package:albahar_customer/ops/staff/adjust_flow.dart';
 import 'package:albahar_customer/ops/staff/fleet_map_tab.dart';
+import 'package:albahar_customer/ops/staff/staff_cancellation.dart';
+import 'package:albahar_customer/ops/staff/staff_clock_widgets.dart';
+import 'package:albahar_customer/ops/staff/staff_errors.dart';
+import 'package:albahar_customer/ops/staff/staff_pickup.dart';
 import 'package:albahar_customer/ops/staff/staff_providers.dart';
+import 'package:albahar_customer/ops/staff/staff_rights.dart';
+import 'package:albahar_customer/ops/staff/staff_strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -30,6 +39,7 @@ class OrderActionButtons extends ConsumerStatefulWidget {
     required this.canAssign,
     required this.canReturn,
     this.inPanel = false,
+    this.startWithAssign = false,
   });
   final QueueOrder order;
   final bool autoDispatch;
@@ -39,6 +49,9 @@ class OrderActionButtons extends ConsumerStatefulWidget {
 
   /// Drawn in a side window: no extra gap above the first button.
   final bool inPanel;
+
+  /// Opens with the driver list (a line of the needs-attention list asked for it).
+  final bool startWithAssign;
 
   /// Whether this person has anything to press on this order right now (an empty footer is not drawn at all).
   static bool hasActions(QueueOrder o, {required bool canEdit, required bool canAssign, required bool canReturn}) =>
@@ -58,19 +71,23 @@ class OrderActionButtons extends ConsumerStatefulWidget {
 class _OrderActionButtonsState extends ConsumerState<OrderActionButtons> {
   bool _busy = false;
 
-  void _refreshAll() {
-    ref.invalidate(staffOverviewProvider);
-    for (final s in kStaffStages) {
-      ref.invalidate(staffQueueProvider(s));
+  @override
+  void initState() {
+    super.initState();
+    if (widget.startWithAssign &&
+        OrderActionButtons._canAssign(widget.order, widget.canAssign) &&
+        !widget.order.cancellationOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => mounted ? unawaited(_assign()) : null);
     }
-    ref.invalidate(staffDriversProvider);
   }
+
+  void _refreshAll() => refreshStaff(ref);
 
   /// Runs one step. When the server accepted it, the screen shows the new state at once ([shown]); the reads that follow confirm it.
   Future<void> _run(Future<void> Function() action, {void Function(StaffLive live)? shown}) async {
     if (_busy) return;
     setState(() => _busy = true);
-    final ok = await guarded(context, action);
+    final ok = await staffGuarded(context, action);
     if (!mounted) return;
     if (ok && shown != null) shown(ref.read(staffLiveProvider.notifier));
     _refreshAll();
@@ -123,8 +140,11 @@ class _OrderActionButtonsState extends ConsumerState<OrderActionButtons> {
     };
     final hasDriver = o.driverName != null;
     final showReturn = OrderActionButtons._canReturn(o, widget.canReturn);
-    final showAssign = OrderActionButtons._canAssign(o, widget.canAssign);
-    if (stepLabel == null && !showAssign && !showReturn) return const SizedBox.shrink();
+    final canAssign = OrderActionButtons._canAssign(o, widget.canAssign);
+    // While the customer's request to cancel waits for a manager nothing may be handed to a driver: shown switched off, with the reason.
+    final blockedAssign = canAssign && o.cancellationOpen;
+    final showAssign = canAssign && !blockedAssign;
+    if (stepLabel == null && !canAssign && !showReturn) return const SizedBox.shrink();
     final gap = widget.inPanel ? 0.0 : AppSpace.sm;
     // The dashboard chooses how a step is taken: a button, or "slide to confirm" (a step then cannot be taken by a stray tap).
     final slide = ref.watch(opsStatusStyleProvider) == OpsStatusStyle.slide;
@@ -180,23 +200,32 @@ class _OrderActionButtonsState extends ConsumerState<OrderActionButtons> {
             ],
           ),
         ],
+        if (blockedAssign) ...[
+          Gap(stepLabel != null ? AppSpace.xs : gap),
+          BlockedAction(
+            label: hasDriver ? t.changeDriver : t.assignDriver,
+            icon: Icons.two_wheeler_rounded,
+            reason: t.cancelHold,
+          ),
+        ],
       ],
     );
   }
 }
 
-/// One order in a window beside the queue: customer, address, what is in it, payment, the driver, and the step
-/// buttons pinned at the bottom. The queue behind keeps its tab and scroll position; one Back closes the window.
+/// One order in a window beside the queue: how long it has waited, the customer's request to cancel (when there is one), customer, address,
+/// what is in it, payment, the driver, and the step buttons pinned at the bottom. The queue behind keeps its tab and scroll position; one Back
+/// closes the window.
 ///
 /// It follows the order from stage to stage (accepting moves it from New to Preparing, and the window moves with it);
-/// when the order leaves the queue (delivered, cancelled, handed over) the window closes itself and says so.
+/// when the order leaves the queue (delivered, cancelled, handed over) the window closes itself and says so. [autoAssign] / [autoReissue]
+/// open the driver list / the "new pass" question at once (a line of the needs-attention list asked for it).
 Future<void> showOrderPanel(
   BuildContext context, {
   required QueueOrder order,
-  required bool autoDispatch,
-  required bool canEdit,
-  required bool canAssign,
-  required bool canReturn,
+  required StaffRights rights,
+  bool autoAssign = false,
+  bool autoReissue = false,
 }) {
   return showSidePanel<void>(
     context: context,
@@ -207,59 +236,106 @@ Future<void> showOrderPanel(
       source: staffOrderLookupProvider,
       isSame: (o) => o.fulfillmentId == order.fulfillmentId,
       goneMessage: (c) => OpsStrings.of(c).orderGone,
-      builder: (_, current) => SidePanelLayout(
-        footer: OrderActionButtons.hasActions(current, canEdit: canEdit, canAssign: canAssign, canReturn: canReturn)
-            ? OrderActionButtons(
-                key: ValueKey(current.fulfillmentId),
-                order: current,
-                autoDispatch: autoDispatch,
-                canEdit: canEdit,
-                canAssign: canAssign,
-                canReturn: canReturn,
-                inPanel: true,
-              )
-            : null,
-        child: _OrderDetails(order: current, canEdit: canEdit),
-      ),
+      builder: (_, current) =>
+          _OrderWindow(order: current, rights: rights, autoAssign: autoAssign, autoReissue: autoReissue),
     ),
   );
 }
 
-class _OrderDetails extends ConsumerWidget {
-  const _OrderDetails({required this.order, required this.canEdit});
+class _OrderWindow extends ConsumerWidget {
+  const _OrderWindow({required this.order, required this.rights, required this.autoAssign, required this.autoReissue});
   final QueueOrder order;
-  final bool canEdit;
+  final StaffRights rights;
+  final bool autoAssign;
+  final bool autoReissue;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final o = order;
+    final Widget? footer;
+    if (o.isPickup) {
+      footer = PickupActionButtons.hasActions(o, rights, ref.watch(staffTickProvider))
+          ? PickupActionButtons(
+              key: ValueKey(o.fulfillmentId),
+              order: o,
+              rights: rights,
+              inPanel: true,
+              autoReissue: autoReissue,
+            )
+          : null;
+    } else {
+      footer =
+          OrderActionButtons.hasActions(
+            o,
+            canEdit: rights.canEdit,
+            canAssign: rights.canAssign,
+            canReturn: rights.canReturn,
+          )
+          ? OrderActionButtons(
+              key: ValueKey(o.fulfillmentId),
+              order: o,
+              autoDispatch: rights.autoDispatch,
+              canEdit: rights.canEdit,
+              canAssign: rights.canAssign,
+              canReturn: rights.canReturn,
+              inPanel: true,
+              startWithAssign: autoAssign,
+            )
+          : null;
+    }
+    return SidePanelLayout(
+      footer: footer,
+      child: _OrderDetails(order: o, rights: rights),
+    );
+  }
+}
+
+class _OrderDetails extends ConsumerWidget {
+  const _OrderDetails({required this.order, required this.rights});
+  final QueueOrder order;
+  final StaffRights rights;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = OpsStrings.of(context);
     final p = context.palette;
     final o = order;
+    final canEdit = rights.canEdit;
     final address = t.address(o.address);
     final cod = o.paymentMethod == 'cod';
+    final pickup = o.isPickup;
     final driverPhone = o.driverId == null
         ? null
         : ref.watch(staffDriversProvider).value?.where((d) => d.id == o.driverId).firstOrNull?.phone;
     final showDelivery =
-        o.driverName != null || const {'ready', 'dispatched', 'out_for_delivery', 'failed'}.contains(o.status);
+        !pickup &&
+        (o.driverName != null || const {'ready', 'dispatched', 'out_for_delivery', 'failed'}.contains(o.status));
+    final request = o.cancellation;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (request != null && request.open) ...[
+          CancellationBanner(request: request, canDecide: rights.canDecideCancellation),
+          if (rights.canDecideCancellation) ...[const Gap(AppSpace.xs), CancellationDecision(request: request)],
+          const Gap(AppSpace.md),
+        ],
         Padding(
           padding: const EdgeInsets.only(bottom: AppSpace.md),
           child: Wrap(
             spacing: AppSpace.xs,
             runSpacing: AppSpace.xs,
             children: [
+              OrderAgeChip(order: o),
               StatusChip(
-                label: t.orderStage(o.status),
+                label: pickup && o.status == 'pickup_ready' ? t.stagePickupReady : t.orderStage(o.status),
                 tone: switch (o.status) {
                   'failed' => StatusTone.danger,
-                  'ready' => StatusTone.success,
+                  'ready' || 'pickup_ready' => StatusTone.success,
                   'pending' => StatusTone.warning,
                   _ => StatusTone.info,
                 },
               ),
+              if (pickup) StatusChip(label: t.pickupOrderTag, tone: StatusTone.accent, icon: Icons.storefront_rounded),
               if (o.status == 'failed')
                 StatusChip(
                   label: t.deliveryFailedTag,
@@ -298,37 +374,44 @@ class _OrderDetails extends ConsumerWidget {
               AlternatePhoneCall(key: const ValueKey('call-alternative'), phone: o.alternatePhone!),
           ],
         ),
-        PanelSection(
-          title: t.deliveryAddress,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.place_outlined, size: 20, color: p.muted),
-                const Gap(AppSpace.xs),
-                Expanded(child: Text(address, style: context.text.bodyLarge)),
-              ],
-            ),
-            if (o.address.notes != null)
-              Padding(
-                padding: const EdgeInsetsDirectional.only(top: AppSpace.xs, start: 28),
-                child: Text(o.address.notes!, style: context.text.bodyMedium?.copyWith(color: p.muted)),
+        if (pickup)
+          _PickupSection(order: o)
+        else
+          PanelSection(
+            title: t.deliveryAddress,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.place_outlined, size: 20, color: p.muted),
+                  const Gap(AppSpace.xs),
+                  Expanded(child: Text(address, style: context.text.bodyLarge)),
+                ],
               ),
-            const Gap(AppSpace.sm),
-            SizedBox(
-              width: double.infinity,
-              child: CopyTextButton(text: address, label: t.copyAddress),
-            ),
-          ],
-        ),
+              if (o.address.notes != null)
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(top: AppSpace.xs, start: 28),
+                  child: Text(o.address.notes!, style: context.text.bodyMedium?.copyWith(color: p.muted)),
+                ),
+              const Gap(AppSpace.sm),
+              SizedBox(
+                width: double.infinity,
+                child: CopyTextButton(text: address, label: t.copyAddress),
+              ),
+            ],
+          ),
         PanelItems(items: o.items, count: o.itemsCount),
         // Something is short on the shelf: only while the branch is accepting or preparing the order, and only for those who may edit it.
         if (canEdit && AdjustEntry.appliesTo(o)) AdjustEntry(order: o),
         PanelSection(
           title: t.orderSection,
           children: [
-            PanelRow(label: t.payment, value: cod ? t.paymentCash : t.paymentOnline),
+            PanelRow(
+              label: t.payment,
+              value: cod ? t.paymentCash : (o.paymentMethod == 'pay_at_pickup' ? t.paymentAtPickup : t.paymentOnline),
+            ),
             PanelRow(label: t.total, value: t.money(o.total), emphasize: true),
+            if (pickup && o.dueAmount > 0) PanelRow(label: t.toCollect, value: t.money(o.amountDue), emphasize: true),
           ],
         ),
         if (showDelivery)
@@ -365,6 +448,57 @@ class _OrderDetails extends ConsumerWidget {
                   ],
                 ),
             ],
+          ),
+      ],
+    );
+  }
+}
+
+/// Where a pickup order stands at the counter: the pass (valid until, or run out) and whether part of the goods was handed over already.
+class _PickupSection extends ConsumerWidget {
+  const _PickupSection({required this.order});
+  final QueueOrder order;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = OpsStrings.of(context);
+    final p = context.palette;
+    final now = ref.watch(staffTickProvider);
+    final pass = order.pickup;
+    final ready = order.status == 'pickup_ready';
+    final expired = ready && (pass?.isExpired(now) ?? false);
+    final until = pass?.expiresAt;
+    final partly = order.items.isNotEmpty && ready && (pass?.status == 'partially_collected');
+    return PanelSection(
+      title: t.modePickup,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              expired ? Icons.timer_off_outlined : Icons.storefront_rounded,
+              size: 20,
+              color: expired ? p.danger : p.muted,
+            ),
+            const Gap(AppSpace.xs),
+            Expanded(
+              child: Text(
+                !ready
+                    ? t.stageLabelPickup(order.status)
+                    : expired
+                    ? '${t.passExpired}. ${t.passExpiredHint}'
+                    : until != null
+                    ? t.passValidUntil(QatarTime.dateTime(until, t.code))
+                    : t.stagePickupReady,
+                style: context.text.bodyLarge?.copyWith(color: expired ? p.danger : null),
+              ),
+            ),
+          ],
+        ),
+        if (partly)
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpace.xs),
+            child: Text(t.partlyHandedOver, style: context.text.bodyMedium?.copyWith(color: p.muted)),
           ),
       ],
     );

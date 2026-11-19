@@ -303,34 +303,48 @@ void main() {
       },
     );
 
-    testWidgets('a full queue (100 per stage, the most the API sends) loses nothing and repeats nothing', (
-      tester,
-    ) async {
-      final repo = FakeOps()
-        ..overviewData = _overview(fresh: 100, preparing: 100, ready: 100)
-        ..queues = {
-          'new': [for (var i = 0; i < 100; i++) _order('n$i', 'pending', 'AB1${i.toString().padLeft(5, '0')}')],
-          'preparing': [for (var i = 0; i < 100; i++) _order('p$i', 'preparing', 'AB2${i.toString().padLeft(5, '0')}')],
-          'ready': [for (var i = 0; i < 100; i++) _order('r$i', 'ready', 'AB3${i.toString().padLeft(5, '0')}')],
-        };
-      await _pump(tester, repo);
-      expect(_chipCount(tester, 'all'), '300');
-      expect(
-        [
-          for (final k in ['new', 'preparing', 'ready']) _chipCount(tester, k),
-        ],
-        ['100', '100', '100'],
-      );
-      expect(find.byType(Card).evaluate().length, lessThan(30), reason: 'the list builds only what is on screen');
-      // All the way down: the very last ready order is reachable, and the list holds 300 distinct cards in total.
-      for (var i = 0; i < 12 && find.text('#AB300099').evaluate().isEmpty; i++) {
-        await tester.drag(_scroll, const Offset(0, -40000));
+    testWidgets(
+      'a full queue (100 per stage) is read 50 at a time: each stage says "50+", "Load more" brings the rest, nothing is lost or repeated',
+      (tester) async {
+        final repo = FakeOps()
+          ..overviewData = _overview(fresh: 100, preparing: 100, ready: 100)
+          ..queues = {
+            'new': [for (var i = 0; i < 100; i++) _order('n$i', 'pending', 'AB1${i.toString().padLeft(5, '0')}')],
+            'preparing': [
+              for (var i = 0; i < 100; i++) _order('p$i', 'preparing', 'AB2${i.toString().padLeft(5, '0')}'),
+            ],
+            'ready': [for (var i = 0; i < 100; i++) _order('r$i', 'ready', 'AB3${i.toString().padLeft(5, '0')}')],
+          };
+        await _pump(tester, repo);
+        expect(_chipCount(tester, 'all'), '150+');
+        expect(
+          [
+            for (final k in ['new', 'preparing', 'ready']) _chipCount(tester, k),
+          ],
+          ['50+', '50+', '50+'],
+        );
+        expect(find.byType(Card).evaluate().length, lessThan(30), reason: 'the list builds only what is on screen');
+        // Down to the end of the first page of "Ready": its "Load more" is there, the 51st order is not.
+        for (var i = 0; i < 12 && find.byKey(const ValueKey('more-ready')).evaluate().isEmpty; i++) {
+          await tester.drag(_scroll, const Offset(0, -40000));
+          await settle(tester);
+        }
+        expect(find.text('#AB300049'), findsOneWidget);
+        expect(find.text('#AB300050'), findsNothing);
+        await tester.tap(find.byKey(const ValueKey('more-ready')));
         await settle(tester);
-      }
-      expect(find.text('#AB300099'), findsOneWidget);
-      final total = repo.queues.values.expand((q) => q).map((o) => o.number).toSet();
-      expect(total.length, 300);
-    });
+        expect(repo.queuePages, containsAll(['ready:1', 'ready:2']));
+        for (var i = 0; i < 12 && find.text('#AB300099').evaluate().isEmpty; i++) {
+          await tester.drag(_scroll, const Offset(0, -40000));
+          await settle(tester);
+        }
+        expect(find.text('#AB300099'), findsOneWidget);
+        expect(find.byKey(const ValueKey('more-ready')), findsNothing, reason: 'the last page: nothing more to load');
+        await tester.drag(_scroll, const Offset(0, 400000));
+        await settle(tester);
+        expect(_chipCount(tester, 'ready'), '100');
+      },
+    );
 
     testWidgets(
       'filter chips: All, New, Preparing, Ready with their numbers; a tap filters, a second tap or All resets',
@@ -403,7 +417,7 @@ void main() {
 
     testWidgets('a chosen stage with no orders says so in plain words and the chips stay to leave it', (tester) async {
       final repo = _branch()..queues['ready'] = const [];
-      await _pump(tester, repo);
+      await _pump(tester, repo, variant: _tall);
       await tester.tap(_chip('ready'));
       await settle(tester);
       expect(find.text('Nothing in this step right now'), findsOneWidget);
@@ -550,7 +564,11 @@ void main() {
       await tester.drag(_scroll, const Offset(0, -700));
       await settle(tester);
       expect(tester.getCenter(header('New')).dy, closeTo(pinnedMiddle(), 8), reason: 'pinned at the top');
-      await tester.drag(_scroll, const Offset(0, -1100));
+      for (var i = 0; i < 60 && header('New').evaluate().isNotEmpty; i++) {
+        await tester.drag(_scroll, const Offset(0, -200));
+        await settle(tester);
+      }
+      await tester.drag(_scroll, const Offset(0, -300));
       await settle(tester);
       expect(header('New'), findsNothing, reason: 'its group has scrolled away and the next header took the place');
       expect(tester.getCenter(header('Preparing')).dy, closeTo(pinnedMiddle(), 8));

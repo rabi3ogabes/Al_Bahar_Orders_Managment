@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:albahar_customer/core/providers.dart';
+import 'package:albahar_customer/core/push/push_service.dart';
 import 'package:albahar_customer/core/realtime/live_link_badge.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
@@ -5,22 +9,28 @@ import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/ops/ops_account_screens.dart';
 import 'package:albahar_customer/ops/ops_app.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
+import 'package:albahar_customer/ops/ops_staff_models.dart';
 import 'package:albahar_customer/ops/ops_strings.dart';
-import 'package:albahar_customer/ops/ops_widgets.dart';
 import 'package:albahar_customer/ops/staff/add_product_screen.dart';
 import 'package:albahar_customer/ops/staff/fleet_map_tab.dart';
+import 'package:albahar_customer/ops/staff/staff_attention.dart';
+import 'package:albahar_customer/ops/staff/staff_branch.dart';
+import 'package:albahar_customer/ops/staff/staff_menu.dart';
+import 'package:albahar_customer/ops/staff/staff_open.dart';
 import 'package:albahar_customer/ops/staff/staff_orders.dart';
 import 'package:albahar_customer/ops/staff/staff_providers.dart';
+import 'package:albahar_customer/ops/staff/staff_scan.dart';
+import 'package:albahar_customer/ops/staff/staff_strings.dart';
 import 'package:albahar_customer/ops/staff/staff_tabs.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 export 'package:albahar_customer/ops/staff/staff_providers.dart';
 
-/// Branch staff app: the day's delivery orders, one-tap order steps, and (when the branch is on manual dispatch) assigning a driver to
-/// a ready order. Three tabs at most, all in view at once: To do (new, preparing and ready orders in one list, grouped by stage),
-/// On the way (failed deliveries first, then the ones out) and Drivers (list and live map). Several employees can use it at once;
-/// every screen reloads often.
+/// Branch staff app: the day's orders (deliveries and pickups) with how long each has waited, one-tap order steps, the pickup counter, the
+/// customer's requests to cancel, and (when the branch is on manual dispatch) assigning a driver to a ready order. Three tabs at most, all in
+/// view at once: To do (new, preparing and ready orders in one list, grouped by stage, with a Delivery | Pickup switch), On the way (failed
+/// deliveries first, then the ones out) and Drivers (list and live map). Several employees can use it at once; every screen reloads often.
 class StaffHome extends ConsumerStatefulWidget {
   const StaffHome({super.key});
 
@@ -32,14 +42,70 @@ class _StaffHomeState extends ConsumerState<StaffHome> {
   // The screen follows the server through ONE orchestrator (staffLiveProvider): a message moves the order at once, a burst is confirmed
   // by one read, a reconnect / return to the foreground / return of the network reads everything, and a poll runs only while the socket is down.
 
+  PushService? _push;
+  void Function(String location)? _pushHandler;
+
+  /// Moves the clock of the age chips on (see [StaffTicker]); started here so it ends with the screen.
+  Timer? _clock;
+
+  @override
+  void initState() {
+    super.initState();
+    _clock = Timer.periodic(StaffTicker.every, (_) => ref.read(staffTickProvider.notifier).tick());
+    _wirePush();
+  }
+
+  /// A tap on an alert (`staff.order_new`, `staff.order_reminder`) opens that order here: while the app runs, and when it was started by the tap
+  /// (the tap was kept by the push service until this screen existed). A phone without push (no Firebase, a test) simply has nothing to wire.
+  void _wirePush() {
+    try {
+      final push = ref.read(pushServiceProvider);
+      _push = push;
+      _pushHandler = _onPushLocation;
+      push.onNavigate = _pushHandler;
+      final pending = push.takePendingLocation();
+      if (pending != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _onPushLocation(pending);
+        });
+      }
+    } catch (_) {
+      _push = null;
+    }
+  }
+
+  void _onPushLocation(String location) {
+    final target = staffOrderFromLocation(location);
+    if (target == null || !mounted) return;
+    unawaited(openStaffOrder(context, ref, target));
+  }
+
+  @override
+  void dispose() {
+    _clock?.cancel();
+    final push = _push;
+    if (push != null && push.onNavigate == _pushHandler) push.onNavigate = null;
+    super.dispose();
+  }
+
   /// The refresh button: read everything now.
   void _reload() {
-    ref.invalidate(staffOverviewProvider);
-    for (final s in kStaffStages) {
-      ref.invalidate(staffQueueProvider(s));
-    }
-    ref.invalidate(staffDriversProvider);
+    refreshStaff(ref);
     ref.invalidate(staffFleetProvider);
+  }
+
+  void _openAttention(AttentionItem item) {
+    final target = StaffOrderRef(fulfillmentId: item.fulfillmentId, orderId: item.orderId, branchId: item.branchId);
+    switch (item.target) {
+      case AttentionTarget.openOrder:
+        unawaited(openStaffOrder(context, ref, target));
+      case AttentionTarget.assignDriver:
+        unawaited(openStaffOrder(context, ref, target, assign: true));
+      case AttentionTarget.reissuePass:
+        unawaited(openStaffOrder(context, ref, target, reissue: true));
+      case AttentionTarget.dashboard:
+        break;
+    }
   }
 
   @override
@@ -56,33 +122,30 @@ class _StaffHomeState extends ConsumerState<StaffHome> {
       );
     }
     final overview = ref.watch(staffOverviewViewProvider);
+    final rawOverview = ref.watch(staffOverviewProvider);
     final link = ref.watch(staffLiveProvider.select((s) => s.link));
+    final online = ref.watch(onlineProvider);
     final o = overview.value;
+    final rights = ref.watch(staffRightsProvider);
     final canAddProduct = hasPermission(perms, 'catalog.create');
     final canSeeDrivers = hasPermission(perms, 'deliveries.view');
-    final canEdit = hasPermission(perms, 'orders.edit');
-    final canAssign = hasPermission(perms, 'deliveries.assign');
-    final canReturn = hasPermission(perms, 'deliveries.edit');
-    // A brand-new order (its first message says "pending"): one alert, however many times the message repeats.
-    ref.listen(staffLiveProvider.select((s) => s.patches), (prev, next) {
-      for (final p in next.values) {
-        if (p.status == 'pending' && prev?[p.fulfillmentId] == null) {
-          Haptics.success();
-          showInfoSnack(context, t.newOrderAlert(p.number));
-        }
-      }
+    // The branch the person just chose is not read yet: nothing of the branch they left is shown meanwhile.
+    final chosen = ref.watch(staffBranchChoiceProvider);
+    final switching = chosen != null && rawOverview.value?.branchId != chosen;
+    // A brand-new order (an order this phone has never seen, its first message says "pending"): one alert, however many times it repeats.
+    ref.listen(staffLiveProvider.select((s) => s.newOrder), (prev, next) {
+      if (next == null || next.id == prev?.id) return;
+      Haptics.success();
+      showInfoSnack(context, next.pickup ? t.newPickupAlert(next.number) : t.newOrderAlert(next.number));
+      if (ref.read(staffSoundProvider)) ref.read(staffChimeProvider).play();
     });
-    // The filter and the Drivers view are kept while this screen is open, even while their tab is not showing.
+    // The filter and the Drivers view are kept while this screen is open, even while their tab is not showing. The clock keeps the ages moving.
     ref
       ..listen(staffTodoFilterProvider, (_, _) {})
-      ..listen(staffDriversViewProvider, (_, _) {});
+      ..listen(staffDriversViewProvider, (_, _) {})
+      ..listen(staffTickProvider, (_, _) {})
+      ..listen(staffOrdersModeProvider, (_, _) {});
     final tabs = staffTabsFor(canSeeDrivers: canSeeDrivers);
-    final rights = StaffRights(
-      autoDispatch: o?.autoDispatch ?? false,
-      canEdit: canEdit,
-      canAssign: canAssign,
-      canReturn: canReturn,
-    );
     return DefaultTabController(
       key: ValueKey(tabs.length),
       length: tabs.length,
@@ -92,13 +155,20 @@ class _StaffHomeState extends ConsumerState<StaffHome> {
             children: [
               const OpsEmblem(role: OpsRole.staff, size: 34),
               const Gap(AppSpace.xs),
-              Flexible(child: Text(o?.branchName ?? t.staffApp, overflow: TextOverflow.ellipsis)),
+              Flexible(child: BranchTitle(overview: o)),
             ],
           ),
           actions: [
             // A phone's app bar is narrow: the colour dot alone (the words are its tooltip and its screen-reader label); a tablet shows them.
             LiveLinkBadge(link: link, labels: t.liveLabels, showLabel: MediaQuery.sizeOf(context).width >= 600),
             const Gap(AppSpace.xxs),
+            if (rights.canPickupView)
+              IconButton(
+                key: const ValueKey('scan-pass'),
+                tooltip: t.scanPass,
+                icon: const Icon(Icons.qr_code_scanner_rounded),
+                onPressed: () => unawaited(showStaffScan(context)),
+              ),
             if (canAddProduct)
               IconButton(
                 tooltip: t.addProduct,
@@ -107,14 +177,20 @@ class _StaffHomeState extends ConsumerState<StaffHome> {
                     .push(MaterialPageRoute<bool>(fullscreenDialog: true, builder: (_) => const AddProductScreen())),
               ),
             IconButton(tooltip: t.refresh, icon: const Icon(Icons.refresh_rounded), onPressed: _reload),
-            const OpsAccountMenu(),
+            const StaffAccountMenu(),
           ],
           bottom: staffTabBar(context, tabs, o),
         ),
         body: overview.hasError && o == null
             ? ErrorState(error: overview.error!, onRetry: () => ref.invalidate(staffOverviewProvider))
+            : switching
+            ? Center(
+                child: Semantics(liveRegion: true, label: t.switchingBranch, child: const CircularProgressIndicator()),
+              )
             : Column(
                 children: [
+                  if (!online) StaffOfflineBanner(onRetry: _reload),
+                  AttentionStrip(onOpen: _openAttention),
                   if (o != null) _OverviewBar(o: o, showOnDuty: !canSeeDrivers),
                   Expanded(
                     child: TabBarView(
@@ -131,6 +207,48 @@ class _StaffHomeState extends ConsumerState<StaffHome> {
                   ),
                 ],
               ),
+      ),
+    );
+  }
+}
+
+/// "You are offline. Showing the last list." with a way to try again (there is no offline queue: what is on screen is the last thing read).
+class StaffOfflineBanner extends StatelessWidget {
+  const StaffOfflineBanner({super.key, required this.onRetry});
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = OpsStrings.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      key: const ValueKey('offline-banner'),
+      color: scheme.inverseSurface,
+      child: Semantics(
+        liveRegion: true,
+        child: Padding(
+          padding: const EdgeInsetsDirectional.only(start: AppSpace.md, end: AppSpace.xs),
+          child: Row(
+            children: [
+              Icon(Icons.cloud_off_rounded, size: 18, color: scheme.onInverseSurface),
+              const Gap(AppSpace.xs),
+              Expanded(
+                child: Text(
+                  t.offlineBanner,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onInverseSurface),
+                ),
+              ),
+              TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: scheme.onInverseSurface,
+                  minimumSize: const Size(kMinTouchTarget, kMinTouchTarget),
+                ),
+                onPressed: onRetry,
+                child: Text(t.retry),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
