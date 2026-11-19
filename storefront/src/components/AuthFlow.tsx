@@ -5,11 +5,27 @@ import { useAuth } from '../lib/auth';
 import { ApiError, get, post } from '../lib/api';
 import { latinDigits } from '../lib/format';
 import { localPhone, normalizePhone, storedReferral } from '../lib/authHelpers';
+import { splitTemplate } from '../lib/template';
 import { useI18n } from '../lib/i18n';
 import { Alert, Button, Checkbox, Input } from './ui';
 import { Modal } from './Dialogs';
 
 type Step = 'phone' | 'code' | 'register' | 'password' | 'reset';
+
+/**
+ * "By continuing you agree to our Terms and Privacy Policy." with the two pages one tap away. They open in a new tab, so the sign-up in progress is never lost.
+ * Plain links, not router links: this window sits above the router (see App.tsx), and a new tab loads the page whole anyway.
+ */
+function LegalNote({ className, testId }: { className: string; testId: string }) {
+  const { t } = useI18n();
+  const link = 'font-medium text-brass-deep underline underline-offset-2 hover:text-ink';
+  return (
+    <p className={className} data-testid={testId}>
+      {splitTemplate(t('auth.legal')).map((p, i) => typeof p === 'string' ? p
+        : <a key={i} href={p.slot === 'terms' ? '/pages/terms' : '/pages/privacy'} target="_blank" rel="noopener noreferrer" className={link}>{t(p.slot === 'terms' ? 'auth.legal_terms' : 'auth.legal_privacy')}</a>)}
+    </p>
+  );
+}
 
 export default function AuthFlow({ reason, onClose }: { reason?: string; onClose: () => void }) {
   const { t, dir } = useI18n();
@@ -91,6 +107,7 @@ export default function AuthFlow({ reason, onClose }: { reason?: string; onClose
           <Input label={t('auth.password_optional')} type="password" autoComplete="new-password" maxLength={128} value={newPass} onChange={(e) => setNewPass(e.target.value)} hint={t('auth.password_rule')} error={f('password')} />
           {refOn.data && <Input label={t('auth.invite_code')} autoComplete="off" autoCapitalize="characters" maxLength={16} value={referral} onChange={(e) => setReferral(e.target.value.replace(/[^A-Za-z0-9-]/g, ''))} error={f('referral_code')} />}
           <Checkbox checked={consent} onChange={setConsent}>{t('auth.marketing')}</Checkbox>
+          <LegalNote className="text-center text-xs text-ink-soft" testId="auth-legal-register" />
           <Button type="submit" size="lg" block loading={busy} disabled={name.trim().length < 2}>{t('auth.create_account')}</Button>
         </form>
       )}
@@ -119,7 +136,7 @@ export default function AuthFlow({ reason, onClose }: { reason?: string; onClose
           </div>
         </form>
       )}
-      <p className="mt-6 text-center text-xs text-muted">{t('auth.legal')}</p>
+      {step !== 'register' && <LegalNote className="mt-6 text-center text-xs text-muted" testId="auth-legal" />}
     </Modal>
   );
 }

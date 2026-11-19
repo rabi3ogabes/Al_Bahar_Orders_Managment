@@ -37,7 +37,7 @@ function Hero() {
   // Two-line headline: the second half is the accent colour.
   let a = t('fresh.hero_a'), b = t('fresh.hero_b');
   if (custom) { const w = custom.split(/\s+/); const k = Math.ceil(w.length / 2); a = w.slice(0, k).join(' '); b = w.slice(k).join(' '); }
-  const trust = [[Truck, t('promise.delivery'), t('promise.delivery_text')], [PackageCheck, t('promise.pickup'), t('promise.pickup_text')], [ShieldCheck, t('promise.warranty'), t('promise.warranty_text')]] as const;
+  const trust = [[Truck, t('promise.delivery'), t('promise.delivery_text')], [PackageCheck, t('promise.pickup'), t('promise.pickup_text')], [ShieldCheck, t('promise.quality'), t('promise.quality_text')]] as const;
   return (
     <section className="wrap pt-4 sm:pt-6">
       <div className="relative isolate overflow-hidden rounded-[var(--r-big)] text-on-band" style={{ background: 'linear-gradient(120deg, var(--band), color-mix(in srgb, var(--band) 68%, var(--primary-soft)))' }}>

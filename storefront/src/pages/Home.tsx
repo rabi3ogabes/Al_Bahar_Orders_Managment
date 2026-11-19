@@ -76,7 +76,7 @@ function PromiseStrip() {
   const { t } = useI18n();
   // A full-width band: with a page background it lets the picture run on behind it (cards elsewhere stay opaque); without one it is unchanged.
   const { picture } = useBackdrop();
-  const items = [[Truck, t('promise.delivery'), t('promise.delivery_text')], [PackageCheck, t('promise.pickup'), t('promise.pickup_text')], [ShieldCheck, t('promise.warranty'), t('promise.warranty_text')], [Clock, t('promise.support'), t('promise.support_text')]] as const;
+  const items = [[Truck, t('promise.delivery'), t('promise.delivery_text')], [PackageCheck, t('promise.pickup'), t('promise.pickup_text')], [ShieldCheck, t('promise.quality'), t('promise.quality_text')], [Clock, t('promise.support'), t('promise.support_text')]] as const;
   return (
     <section aria-label={t('promise.title')} className={picture === 'none' ? 'border-y border-line bg-paper' : 'border-y border-line bg-paper/40'}>
       <ul className="wrap grid grid-cols-2 gap-x-6 gap-y-6 py-7 lg:grid-cols-4">

@@ -2,13 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import QRCode from 'qrcode';
 import { Clock, Flame, MapPin, PackageCheck, Phone, Store, Truck } from 'lucide-react';
-import { ApiError, get, post, uuid } from '../lib/api';
+import { api, ApiError, get, post, uuid } from '../lib/api';
 import { useCart } from '../lib/cart';
 import { useI18n } from '../lib/i18n';
 import { useLivePoll } from '../lib/realtime';
 import { useToast } from '../lib/toast';
 import { cx, mapsHref, money, telHref } from '../lib/format';
 import { orderDealSavings, orderLineDeal } from '../lib/deals';
+import { invoiceFailure } from '../lib/invoice';
+import { returnFailureKey, returnStatusKey, returnTone, returnableOf } from '../lib/returns';
 import type { OrderDetail, PaymentAction, TimelineEvent } from '../lib/types';
 import { Alert, Badge, Pic, QtyStepper, Select, Skeleton, Textarea } from './ui';
 import { Button } from './ui';
@@ -77,7 +79,7 @@ export function useReorder(id: string) {
 /** Orders that can have an invoice: everything except an unpaid online order and a cancelled one (the server refuses the same). */
 export const invoiceAvailable = (o: { status: string }) => !['pending_payment', 'cancelled'].includes(o.status);
 
-/** Downloads the invoice PDF as a file named AlBahar-<number>.pdf (a second click while it is loading is ignored). */
+/** Downloads the invoice PDF as a file named AlBahar-<number>.pdf (a second click while it is loading is ignored). It goes through the shared API layer, so an expired sign-in is renewed first. */
 export function useInvoice(id: string, number?: string) {
   const { t } = useI18n();
   const toast = useToast();
@@ -86,9 +88,8 @@ export function useInvoice(id: string, number?: string) {
     if (busy.current) return;
     busy.current = true;
     try {
-      const res = await fetch(`/api/v1/orders/${id}/invoice`, { headers: { Authorization: `Bearer ${JSON.parse(localStorage.getItem('albahar.tokens') || '{}').access_token}`, Accept: 'application/pdf' } });
-      if (!res.ok) throw new Error();
-      const url = URL.createObjectURL(await res.blob());
+      const blob = await api<Blob>(`/orders/${id}/invoice`, { blob: true });
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `AlBahar-${number ?? id}.pdf`;
@@ -96,7 +97,7 @@ export function useInvoice(id: string, number?: string) {
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch { toast.push(t('order.invoice_unavailable'), 'error'); } finally { busy.current = false; }
+    } catch (e) { toast.push(invoiceFailure(e, t), 'error'); } finally { busy.current = false; }
   };
 }
 
@@ -182,6 +183,7 @@ export function FulfillmentCard({ o, f, compact }: { o: OrderDetail; f: OrderDet
         {o.items.filter((i) => i.fulfillment_id === f.id).map((i) => <ItemRow key={i.id} i={i} compact={compact} />)}
       </ul>
       <div className="mt-1 flex flex-wrap gap-x-5 text-sm">
+        {f.delivery?.driver_phone && <a href={telHref(f.delivery.driver_phone)} className="flex min-h-11 items-center gap-1.5 font-medium text-brass-deep hover:underline" data-testid="call-driver"><Truck size={14} />{f.delivery.driver_name ? t('order.call_driver_named', { n: f.delivery.driver_name }) : t('order.call_driver')}</a>}
         {f.branch.phone && <a href={telHref(f.branch.phone)} className="flex min-h-11 items-center gap-1.5 text-brass-deep hover:underline"><Phone size={14} /><bdi>{f.branch.phone}</bdi></a>}
         {mapsHref(f.branch.latitude, f.branch.longitude, f.branch.name) && <a href={mapsHref(f.branch.latitude, f.branch.longitude, f.branch.name)} target="_blank" rel="noreferrer" className="flex min-h-11 items-center gap-1.5 text-brass-deep hover:underline"><MapPin size={14} />{t('order.directions')}</a>}
       </div>
@@ -231,6 +233,24 @@ export function TotalsCard({ o, compact }: { o: OrderDetail; compact?: boolean }
   );
 }
 
+/** Where the customer's return request stands, in plain words: asked, approved, refused (with the team's note), back with us, refunded. Shown instead of the "Return" button while one is open. */
+export function ReturnStatusCard({ o }: { o: OrderDetail }) {
+  const { t, date } = useI18n();
+  const r = o.return_request;
+  if (!r) return null;
+  const day = (iso?: string | null) => (iso ? date(iso, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Qatar' }) : '');
+  return (
+    <Alert tone={returnTone(r.status)}>
+      <div data-testid="return-status" data-status={r.status}>
+        <p className="font-semibold">{t('return.status.title', { n: r.number })}</p>
+        <p className="mt-0.5">{t(returnStatusKey(r.status), { d: day(r.requested_at), e: day(r.decided_at ?? r.requested_at) })}</p>
+        {r.decision_note && <p className="mt-1.5 italic">{t('return.status.note', { note: r.decision_note })}</p>}
+        {r.status === 'rejected' && <p className="mt-1.5 opacity-90">{t('return.status.rejected_help')}</p>}
+      </div>
+    </Alert>
+  );
+}
+
 const RETURN_REASONS = ['damaged', 'wrong_item', 'not_as_described', 'changed_mind', 'other'] as const;
 
 /** "Request a return": pick the pieces and a reason. The server checks the return window and what was handed over. */
@@ -238,7 +258,7 @@ export function ReturnForm({ o, onDone, onCancel }: { o: OrderDetail; onDone: ()
   const { t } = useI18n();
   const toast = useToast();
   const qc = useQueryClient();
-  const rows = o.items.map((i) => ({ item: i, max: Math.max(0, i.quantity - (i.quantity_cancelled ?? 0) - (i.quantity_returned ?? 0)) })).filter((r) => r.max > 0);
+  const rows = o.items.map((i) => ({ item: i, max: returnableOf(i) })).filter((r) => r.max > 0);
   const [qty, setQty] = useState<Record<string, number>>({});
   const [reason, setReason] = useState<(typeof RETURN_REASONS)[number]>('damaged');
   const [note, setNote] = useState('');
@@ -247,7 +267,7 @@ export function ReturnForm({ o, onDone, onCancel }: { o: OrderDetail; onDone: ()
   const send = useMutation({
     mutationFn: () => post(`/orders/${o.id}/returns`, { items: picked.map(([order_item_id, quantity]) => ({ order_item_id, quantity })), reason_code: reason, reason: note.trim() || undefined }),
     onSuccess: () => { toast.push(t('return.sent')); void qc.invalidateQueries({ queryKey: ['order', o.id] }); onDone(); },
-    onError: (e) => setErr(failMsg(e, t('error.generic'))),
+    onError: (e) => setErr(e instanceof ApiError && (e.status === 0 || e.code === 'session_refresh_unavailable') ? e.message : t(e instanceof ApiError ? returnFailureKey(e.status, e.code, e.errors) : 'error.generic')),
   });
   return (
     <form onSubmit={(e) => { e.preventDefault(); setErr(''); if (picked.length && !send.isPending) send.mutate(); }} className="flex min-h-full flex-col">

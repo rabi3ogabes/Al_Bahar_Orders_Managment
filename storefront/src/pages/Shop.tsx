@@ -11,7 +11,8 @@ import { CardGrid, CardSkeletons, ProductCard } from '../components/ProductCard'
 import { Breadcrumbs, Button, EmptyState, ErrorState, Select } from '../components/ui';
 import { FilterPanel } from '../components/ShopFilters';
 import { FilterWindow } from '../components/windows';
-import { patched, productParams, readFilters } from '../lib/shopQuery';
+import { patched, productParams, readFilters, toggleAttr } from '../lib/shopQuery';
+import { useAttributeFilters } from '../lib/useAttributeFilters';
 
 export default function Shop() {
   const { t, num } = useI18n();
@@ -25,7 +26,8 @@ export default function Shop() {
   const cats = useQuery({ queryKey: ['categories'], queryFn: async () => (await get<{ data: Category[] }>('/categories')).data, staleTime: 10 * 60_000 });
   const brands = useQuery({ queryKey: ['brands'], queryFn: async () => (await get<{ data: Brand[] }>('/brands')).data, staleTime: 10 * 60_000 });
   const f = useMemo(() => readFilters(sp, cats.data ?? [], brands.data ?? []), [sp, cats.data, brands.data]);
-  const { cat, brand, q, sort, min: pmin, max: pmax, inStock, onSale, isNew } = f;
+  const { cat, brand, q, sort, min: pmin, max: pmax, inStock, onSale, isNew, attrs } = f;
+  const attrGroups = useAttributeFilters(cat, cats.data ?? []);
   useDocTitle(cat?.name ?? (q ? `“${q}”` : t('nav.shop')));
 
   // A category/brand slug in the URL must resolve before we query, otherwise we would flash the unfiltered catalogue.
@@ -33,7 +35,7 @@ export default function Shop() {
   const unknownFilter = (!!catSlug && !cats.isLoading && !cat) || (!!brandSlug && !brands.isLoading && !brand);
 
   const list = useInfiniteQuery({
-    queryKey: ['products', { q, cat: cat?.id, brand: brand?.id, sort, pmin, pmax, inStock, onSale, isNew, branchId }],
+    queryKey: ['products', { q, cat: cat?.id, brand: brand?.id, sort, pmin, pmax, inStock, onSale, isNew, attrs, branchId }],
     enabled: !waiting && !unknownFilter,
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => get<Paged<P>>('/products', productParams(f, branchId, pageParam, 24)),
@@ -44,13 +46,19 @@ export default function Shop() {
 
   const set = (patch: Record<string, string | null>) => setSp(patched(sp, patch), { replace: true });
   const chips: { label: string; clear: () => void }[] = [
-    ...(cat ? [{ label: cat.name, clear: () => set({ category: null }) }] : []),
+    ...(cat ? [{ label: cat.name, clear: () => set({ category: null, attr: null }) }] : []),
     ...(brand ? [{ label: brand.name, clear: () => set({ brand: null }) }] : []),
     ...(q ? [{ label: `“${q}”`, clear: () => set({ q: null }) }] : []),
     ...(pmin || pmax ? [{ label: `${pmin || '0'} – ${pmax || '∞'} QAR`, clear: () => set({ min: null, max: null }) }] : []),
     ...(inStock ? [{ label: t('filter.in_stock'), clear: () => set({ stock: null }) }] : []),
     ...(onSale ? [{ label: t('filter.on_sale'), clear: () => set({ sale: null }) }] : []),
     ...(isNew ? [{ label: t('filter.new'), clear: () => set({ new: null }) }] : []),
+    // Each chosen colour / material / size is its own chip ("Colour: Grey") that takes just that choice off.
+    ...attrs.map((id) => {
+      const g = attrGroups.find((x) => x.values.some((v) => String(v.id) === id));
+      const v = g?.values.find((x) => String(x.id) === id);
+      return { label: g && v ? `${g.attribute.name}: ${v.name}` : t('filter.attr_other'), clear: () => set(toggleAttr(attrs, id)) };
+    }),
   ];
 
   return (

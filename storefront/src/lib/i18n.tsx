@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { setApiLocale } from './api';
 import { en } from '../locales/en';
 import { ar } from '../locales/ar';
+import { translate } from './i18nCore';
 
 export type Locale = 'en' | 'ar';
 const dicts: Record<Locale, Record<string, string>> = { en, ar };
@@ -37,11 +38,9 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   // The API locale must be right before the first request fires.
   setApiLocale(locale);
 
-  const t = useCallback((key: string, vars?: Record<string, string | number>) => {
-    let s = dicts[locale][key] ?? dicts.en[key] ?? key;
-    if (vars) for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
-    return s;
-  }, [locale]);
+  const t = useCallback((key: string, vars?: Record<string, string | number>) => translate(dicts, locale, key, vars, (k) => {
+    if (import.meta.env.DEV) console.warn(`[i18n] missing text for "${k}"`);
+  }), [locale]);
 
   const value = useMemo<I18n>(() => ({
     locale, dir, t, setLocale: setLoc,

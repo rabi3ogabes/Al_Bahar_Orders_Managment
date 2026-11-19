@@ -1,3 +1,4 @@
+import type { ReturnRequestInfo } from './returns';
 import type { DealBlock } from './deals';
 export interface Money { amount: string; currency: string; formatted: string }
 /** Money as the server may send it: the usual object, or (for the extra delivery fee) a bare decimal such as "50.00". Read with `parseMoney` (lib/deliveryFee.ts). */
@@ -39,6 +40,8 @@ export interface ProductDetail extends ProductCard {
   related: ProductCard[]; upsell?: ProductCard[]; share_url: string; seo: { title: string | null; description: string | null }
 }
 export interface Category { id: string; slug: string; name: string; description: string | null; image_url: string | null; icon_url: string | null; banner_url: string | null; children: Category[] }
+/** One attribute a shopper can filter by (colour, material, size...) with its values: `GET /categories/{id}` → `filters`. `color_hex` is set for colours. */
+export interface AttributeFilterGroup { attribute: { code: string; name: string; type: string }; values: { id: number; code: string; name: string; color_hex: string | null }[] }
 export interface Brand { id: string; slug: string; name: string; logo_url: string | null }
 
 export interface Branch {
@@ -103,7 +106,7 @@ export interface Quote {
   delivery_extras?: DeliveryExtra[] | null
   /** `free_delivery`: this discount is a free-delivery coupon (it waives the delivery fee; its amount counts that fee). */
   discounts: { code?: string; label?: string; amount?: Money; free_delivery?: boolean; /** `deal` for a countdown offer. */ source?: string }[]
-  payment_methods: { code: 'sadad' | 'cod' | 'pay_at_pickup'; available: boolean; reason: string | null }[]
+  payment_methods: { code: 'sadad' | 'cod' | 'pay_at_pickup'; available: boolean; reason: string | null; /** Cash on delivery, when `reason` is `outside_cod_limits`: the lowest / highest basket total it takes (absent from an older server). */ limits?: { min?: Money | null; max?: Money | null } | null }[]
   loyalty: { balance: number; max_redeemable_points: number; points_applied: number; points_to_earn?: number }
   warnings?: { code?: string; message?: string }[]
 }
@@ -112,18 +115,20 @@ export interface OrderSummary {
   id: string; number: string; status: string; status_label: string; payment_status: string; payment_method: string; fulfillment_type: string
   items_count: number; grand_total: Money; placed_at: string; thumbnail_url: string | null
 }
-export interface OrderItem { id: string; product_id: string; variant_id: string; sku: string; name: string; variant_name: string | null; image_url: string | null; quantity: number; quantity_cancelled?: number; quantity_returned?: number; fulfillment_id?: string | null; unit_price: Money; line_total: Money; adjustment?: ItemAdjustment | null
+export interface OrderItem { id: string; product_id: string; variant_id: string; sku: string; name: string; variant_name: string | null; image_url: string | null; quantity: number; quantity_cancelled?: number; quantity_returned?: number; /** How many of this line can still be asked back right now (an older server leaves it out). */ returnable_quantity?: number; fulfillment_id?: string | null; unit_price: Money; line_total: Money; adjustment?: ItemAdjustment | null
   /** The deal this line got (`{ deal_id, name, units, unit_savings }`), a snapshot; read with `orderLineDeal`. */
   deal?: unknown
 }
 /** What the branch did to one line while preparing the order (see docs/api/ORDER_ADJUSTMENTS.md). */
 export interface ItemAdjustment { kind: 'reduced' | 'removed' | 'replaced' | 'replacement'; original_quantity: number; original_name?: string | null; reason_code?: string | null; reason_label?: string | null; replaces_name?: string | null; replaced_by_name?: string | null }
 export interface OrderRevision { number: number; at: string; reason_label?: string | null; note?: string | null; branch?: string | null; lines?: { text?: string | null }[]; total_before?: Money | null; total_after?: Money | null; order_cancelled?: boolean }
+/** `fulfillments[].delivery`: who is bringing it. `driver_phone` is sent only while the driver has the order (never after delivery, never for pickup). */
+export interface OrderDelivery { tracking_number?: string | null; status?: string; status_label?: string; provider?: string | null; driver_name?: string | null; driver_phone?: string | null; eta?: string | null }
 export interface OrderDetail extends OrderSummary {
   totals: Record<string, Money>; discounts: unknown[]; address: Record<string, string | null> | null; customer_notes: string | null
   items: OrderItem[]
-  fulfillments: { id: string; number: string; type: string; status: string; status_label: string; branch: { id: string; name: string; phone: string | null; latitude: number | null; longitude: number | null }; subtotal: Money; delivery_fee: Money; slot: Slot | null; delivery: Record<string, unknown> | null; pickup: { status: string; token_expires_at: string | null } | null; timestamps: Record<string, string | null> }[]
-  can_cancel: boolean; can_pay?: boolean; can_return?: boolean; payment_due_at?: string | null; was_adjusted?: boolean; revisions?: OrderRevision[]
+  fulfillments: { id: string; number: string; type: string; status: string; status_label: string; branch: { id: string; name: string; phone: string | null; latitude: number | null; longitude: number | null }; subtotal: Money; delivery_fee: Money; slot: Slot | null; delivery: OrderDelivery | null; pickup: { status: string; token_expires_at: string | null } | null; timestamps: Record<string, string | null> }[]
+  can_cancel: boolean; can_pay?: boolean; can_return?: boolean; /** The latest return request of this order (null: none yet; absent from an older server). */ return_request?: ReturnRequestInfo | null; payment_due_at?: string | null; was_adjusted?: boolean; revisions?: OrderRevision[]
   [k: string]: unknown
 }
 export interface TimelineEvent { kind: string; status: string; label: string; fulfillment_id: string | null; at: string }

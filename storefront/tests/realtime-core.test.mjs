@@ -49,3 +49,14 @@ test('the list cache is patched in both shapes, only on the matching row', () =>
   assert.deepEqual(applyOrderEventToCache({ pages: [{ data: rows }] }, event()).pages[0].data.map((r) => r.status), ['out_for_delivery', 'processing']);
   assert.equal(applyOrderEventToCache(undefined, event()), undefined);
 });
+
+test('a live update that ends the delivery takes the "call your driver" number away at once; one that keeps it on the road leaves it', () => {
+  const withPhone = order({ fulfillments: [{ id: 'f1', status: 'dispatched', status_label: 'Dispatched', delivery: { status: 'picked_up', driver_name: 'Omar', driver_phone: '+97455123499' } }] });
+  const road = applyOrderEvent(withPhone, event({ seq: 4, fulfillments: [{ id: 'f1', status: 'out_for_delivery', delivery_status: 'out_for_delivery' }] }));
+  assert.equal(road.fulfillments[0].delivery.driver_phone, '+97455123499');
+  for (const done of ['delivered', 'failed', 'cancelled', 'returned']) {
+    const next = applyOrderEvent(withPhone, event({ seq: 5, fulfillments: [{ id: 'f1', status: 'delivered', delivery_status: done }] }));
+    assert.equal(next.fulfillments[0].delivery.driver_phone, null, done);
+    assert.equal(next.fulfillments[0].delivery.driver_name, 'Omar');
+  }
+});

@@ -8,7 +8,7 @@ import { cx } from '../lib/format';
 import type { OrderDetail } from '../lib/types';
 import { useAuthModal } from './AuthModal';
 import { DrawerLink } from './drawerLink';
-import { CancelOrderDialog, FulfillmentCard, ReturnForm, TimelineCard, TotalsCard, OrderChangesNotice, invoiceAvailable, statusTone, useInvoice, usePay, useReorder, useOrderQuery } from './OrderParts';
+import { CancelOrderDialog, FulfillmentCard, ReturnForm, TimelineCard, TotalsCard, OrderChangesNotice, ReturnStatusCard, invoiceAvailable, statusTone, useInvoice, usePay, useReorder, useOrderQuery } from './OrderParts';
 import { SideDrawer } from './SideDrawer';
 import { Alert, Badge, Button, EmptyState, Skeleton } from './ui';
 
@@ -56,6 +56,7 @@ export default function OrderDrawer({ id, open, onClose }: { id: string; open: b
               <p className="mt-2 text-sm text-muted">{t('order.placed_on', { d: date(o.placed_at) })}</p>
             </div>
             <OrderChangesNotice o={o} />
+            <ReturnStatusCard o={o} />
             {unpaid && <Alert tone="warning">{t('order.unpaid')}</Alert>}
             <TimelineCard events={timeline.data} loading={timeline.isLoading} compact />
             {o.fulfillments.map((f) => <FulfillmentCard key={f.id} o={o} f={f} compact />)}

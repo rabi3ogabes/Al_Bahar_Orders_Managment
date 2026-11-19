@@ -33,6 +33,9 @@ export function createSeqGate() {
   };
 }
 
+/** The delivery stages in which the customer can call the driver (the server sends `driver_phone` only then). A live update to any other stage takes the button away at once. */
+export const DRIVER_CALLABLE = ['assigned', 'accepted', 'picked_up', 'out_for_delivery'];
+
 /** The order as the event says it is, or the order itself when the event is older than it. */
 export function applyOrderEvent<T extends Row>(order: T, e: OrderLiveEvent): T {
   if (order.id !== e.order_id) return order;
@@ -47,7 +50,7 @@ export function applyOrderEvent<T extends Row>(order: T, e: OrderLiveEvent): T {
       if (!p) return f;
       return {
         ...f, status: p.status, status_label: p.status_label ?? f.status_label,
-        delivery: p.delivery_status && f.delivery ? { ...f.delivery, status: p.delivery_status, ...(p.delivery_status_label ? { status_label: p.delivery_status_label } : {}) } : f.delivery,
+        delivery: p.delivery_status && f.delivery ? { ...f.delivery, status: p.delivery_status, ...(p.delivery_status_label ? { status_label: p.delivery_status_label } : {}), ...(DRIVER_CALLABLE.includes(p.delivery_status) ? {} : { driver_phone: null }) } : f.delivery,
       };
     });
   }

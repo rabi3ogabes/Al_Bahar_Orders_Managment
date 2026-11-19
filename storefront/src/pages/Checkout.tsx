@@ -20,6 +20,8 @@ import { Alert, Button, Checkbox, EmptyState, Input, Pic, Segmented, Skeleton, S
 import { AddressWindow } from '../components/windows';
 import { DeliveryFeeRow, ExtraDeliveryRow } from '../components/DeliveryFeeRow';
 import { DealLineNote } from '../components/DealBits';
+import { NoPaymentPanel } from '../components/NoPayment';
+import { nothingToPayWith, payReason } from '../lib/payReasons';
 import { dealSavingsSplit, isDealChanged, minusDeal, quoteFromDealChanged, quoteLineText, readQuoteDeal } from '../lib/deals';
 
 type Method = 'sadad' | 'cod' | 'pay_at_pickup';
@@ -272,6 +274,12 @@ export default function Checkout() {
     pay_at_pickup: { icon: <Store size={22} />, title: t('pay.pickup'), text: t('pay.pickup_text') },
   };
   const grand = q?.totals.grand_total.formatted;
+  // Why a way to pay is missing, in a kind sentence with the numbers (for example cash on delivery's limit next to this basket's total).
+  const payText = (m: Quote['payment_methods'][number]) => { const r = payReason(m, q?.totals.grand_total, (v) => v.formatted); return t(r.key, r.vars); };
+  // No way to pay at all: never a dead end. A showroom where the customer can collect and pay there, that showroom's phone, or the basket sent to the family.
+  const noPay = nothingToPayWith(q?.payment_methods);
+  const payPickup = branches.find((b) => b.pickup_enabled && b.pay_at_pickup_enabled && !(ful === 'pickup' && b.id === pickBranch));
+  const contactBranch = branches.find((b) => b.id === (ful === 'pickup' ? pickBranch : q?.fulfillments[0]?.branch.id) && b.phone) ?? branches.find((b) => b.id === pref && b.phone) ?? branches.find((b) => b.phone) ?? null;
   const feeLine = deliveryFeeLine(q, (v, cur) => money(v, cur, locale));
   // The deal part of the discount is its own row ("Deal savings"), so it is not counted twice.
   const dealSplit = dealSavingsSplit(q, (v, cur) => money(v, cur, locale));
@@ -281,7 +289,7 @@ export default function Checkout() {
   // Never twice: not while an order is on its way, nor after it was accepted (the page is then leaving for the payment page or the order). Not while a bag change is still travelling to the server.
   const canPlace = !!q && !!method && !place.isPending && !place.isSuccess && !cart.adding && !quote.isPlaceholderData && (!slotRequired || !!slotId) && altOk && q.can_place_order !== false && !quote.isFetching && !quoteErr;
   // Why the button waits, in plain words: shown before it is ever pressed.
-  const holdReason = !q || quote.isFetching ? null : !altOk ? (altStatus === 'invalid' ? t('checkout.alt_invalid') : altStatus === 'same' ? t('checkout.alt_same') : t('checkout.alt_required_hint')) : slotRequired && !slotId ? t('checkout.slot_required') : null;
+  const holdReason = !q || quote.isFetching ? null : noPay ? t('pay.none.hold') : !altOk ? (altStatus === 'invalid' ? t('checkout.alt_invalid') : altStatus === 'same' ? t('checkout.alt_same') : t('checkout.alt_required_hint')) : slotRequired && !slotId ? t('checkout.slot_required') : null;
 
   return (
     <div className="wrap py-8 md:py-12">
@@ -352,11 +360,13 @@ export default function Checkout() {
                   return (
                     <button key={m.code} role="radio" aria-checked={on} disabled={!m.available} onClick={() => setMethod(m.code)} className={cx('flex w-full items-start gap-4 rounded-2xl border p-4 text-start transition-colors disabled:cursor-not-allowed disabled:opacity-50', on ? 'border-primary bg-bg ring-1 ring-ink' : 'border-line bg-bg hover:border-brass')}>
                       <span className="mt-0.5 text-brass">{meta.icon}</span>
-                      <span className="flex-1"><b className="block text-sm">{meta.title}</b><span className="text-[13px] text-muted">{m.available ? meta.text : t(`pay.reason.${m.reason ?? 'unavailable'}`)}</span></span>
+                      <span className="flex-1"><b className="block text-sm">{meta.title}</b><span className="text-[13px] text-muted">{m.available ? meta.text : payText(m)}</span></span>
                       <span className={cx('mt-1 flex h-5 w-5 items-center justify-center rounded-full border', on ? 'border-primary bg-primary text-bg' : 'border-line')}>{on && <Check size={12} />}</span>
                     </button>
                   );
                 })}
+                {noPay && <NoPaymentPanel pickup={payPickup ? { name: payPickup.name, onChoose: () => { setFul('pickup'); setPickBranch(payPickup.id); } } : null} phone={contactBranch?.phone ?? null}
+                  lines={cart.lines.map((l) => ({ name: l.name, variantName: l.variantName, qty: l.qty, slug: l.slug }))} total={grand ?? null} />}
               </div>
             )}
           </Step>
