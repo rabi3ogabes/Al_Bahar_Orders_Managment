@@ -14,6 +14,7 @@ return [
     ],
 
     'ui' => [
+        'cancel_part_hint' => 'Cancels only this branch\'s part of the order and releases its reserved stock. What this part is worth comes off what the customer still owes, or a refund request for exactly that amount goes to finance.',
         'partly_handed_over' => 'Part of this order has already left the branch. To cancel the rest, cancel the parts still at the branch one by one, or record a return for what was handed over.',
         'reissue_pass' => 'Re-issue pass',
         'reissue_confirm' => 'Issue a new pass? The old one stops working at once and the customer is told.',

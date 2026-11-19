@@ -11,8 +11,10 @@ use App\Domain\Orders\Services\OrderService;
 use App\Domain\Orders\Services\ParcelShares;
 use App\Domain\Payments\Models\Payment;
 use App\Domain\Payments\Models\Refund;
+use App\Livewire\Admin\Sales\OrderShow;
 use App\Support\DomainException;
 use App\Support\Money;
+use Livewire\Livewire;
 
 require_once __DIR__.'/OpsFixtures.php';
 
@@ -221,4 +223,20 @@ it('the delivery service itself refuses pickUp during a pending cancellation (no
     $d = opsAssignedDelivery('accepted');
     OrderCancellation::create(['order_id' => $d->order->id, 'requested_by' => $d->w->customer->id, 'requested_by_type' => 'customer', 'reason_code' => 'changed_mind', 'status' => 'requested']);
     expect(fn () => app(DeliveryService::class)->pickUp($d->delivery, $d->driver))->toThrow(DomainException::class, __('ops_integrity.errors.cancellation_pending'));
+});
+
+it('hides "Cancel order" on the order page once goods left the branch, explains why, and still refuses it if asked', function () {
+    $s = opsSplitOrder();
+    opsWalk($s->fa, [FS::Accepted, FS::Preparing, FS::Ready, FS::Dispatched]);
+    opsWalk($s->fb, [FS::Accepted, FS::Preparing]);
+    $this->actingAs(staffWithRole('admin'));
+
+    $page = Livewire::test(OrderShow::class, ['order' => $s->order])->assertViewHas('cancellable', false)->assertViewHas('partlyHandedOver', true)
+        ->assertSee(__('ops_integrity.ui.partly_handed_over'));
+    $page->call('open', 'cancel_order')->set('form.reason', 'changed my mind')->call('confirmDialog')->assertDispatched('toast', type: 'error');
+    expect($s->fb->fresh()->status->value)->toBe('preparing')->and($s->order->fresh()->status->value)->not->toBe('cancelled');
+
+    // The part still at the branch can be cancelled on its own, and the dialog says what happens to the money.
+    $page->call('open', 'cancel_fulfillment', $s->fb->id)->assertSee(__('ops_integrity.ui.cancel_part_hint'))->set('form.reason', 'out of stock')->call('confirmDialog')->assertHasNoErrors();
+    expect($s->fb->fresh()->status->value)->toBe('cancelled');
 });

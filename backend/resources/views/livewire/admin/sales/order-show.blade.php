@@ -341,7 +341,7 @@
 
     {{-- Decisions (cancel, return) are centred modals; the delivery form is a side window on the page and a modal when it opens over an order window. --}}
     <x-admin.dialog wire:model="showDialog" :variant="$drawer || $dialog !== 'delivery' ? 'modal' : 'drawer'" max-width="max-w-lg" :title="match ($dialog) { 'cancel_order' => __('drawer_sales.q_cancel_order'), 'cancel_fulfillment' => __('drawer_sales.q_cancel_part'), 'return_fulfillment' => __('drawer_sales.q_return_part'), 'delivery' => __('sales_admin.act_arrange_delivery'), 'pickup_manual' => __('ops_integrity.ui.manual_handover'), default => '' }"
-                    :description="match ($dialog) { 'cancel_order' => __('sales_admin.cancel_order_hint'), 'cancel_fulfillment' => __('sales_admin.cancel_branch_hint'), 'return_fulfillment' => __('sales_admin.return_fulfillment_hint'), 'delivery' => __('sales_admin.arrange_delivery_hint'), 'pickup_manual' => __('ops_integrity.ui.manual_hint'), default => null }">
+                    :description="match ($dialog) { 'cancel_order' => __('sales_admin.cancel_order_hint'), 'cancel_fulfillment' => __('ops_integrity.ui.cancel_part_hint'), 'return_fulfillment' => __('sales_admin.return_fulfillment_hint'), 'delivery' => __('sales_admin.arrange_delivery_hint'), 'pickup_manual' => __('ops_integrity.ui.manual_hint'), default => null }">
         <form wire:submit="confirmDialog" class="space-y-5">
             @if ($dialog === 'delivery')
                 <div class="grid grid-cols-2 gap-2" role="radiogroup">
