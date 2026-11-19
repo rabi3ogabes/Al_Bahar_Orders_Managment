@@ -20,7 +20,7 @@ Legend: value (H/M/L), effort (S = under a day, M = a few days, L = a week or mo
 
 ---
 
-## 1. Wave 1: bugs that cost money, stock or trust (in progress)
+## 1. Wave 1: bugs that cost money, stock or trust (DONE, tested; see docs/api/ORDER_OPERATIONS_INTEGRITY.md)
 
 Verified defects. All are being fixed with tests; none needs new screens.
 
@@ -50,24 +50,26 @@ Verified defects. All are being fixed with tests; none needs new screens.
 
 ---
 
-## 2. Wave 2: "Live Operations Control" (the flagship feature)
+## 2. Wave 2: "Live Operations Control" (the flagship feature): built, see the status column
+
+Status: **done** = built, tested and documented (docs/guides/LIVE_OPERATIONS.md, DRIVER_APP.md, BRANCH_STAFF_GUIDE.md); **next** = not built yet.
 
 One connected feature for the branch, the driver and the owner: *nothing waits silently, and everyone sees what needs them right now.*
 
-| # | Capability | Who | Value | Effort | Builds on |
-|---|-----------|-----|-------|--------|-----------|
-| 2.1 | **New-order alerts that cannot be missed**: push to branch staff for every new order including pickups; live toast on every dashboard page, not only the fleet map | Branch | H | S | `LiveOrderEvent`, `PushNotifier::branch` |
-| 2.2 | **Order clock (SLA)**: every order shows its age; amber after X minutes, red after Y; manager is pushed when an order is not accepted; thresholds editable in settings | Branch, owner | H | S | `placed_at`, `accepted_at`, `ready_at` already stored |
-| 2.3 | **Exception inbox** (dashboard page + home card): unaccepted orders, ready but not dispatched, pickups waiting more than N days, cash held by a driver too long, failed deliveries, refunds waiting, stuck campaigns, failed jobs | Owner, manager | H | S-M | existing lanes and filters |
-| 2.4 | **Driver job card for heavy furniture**: gate code / customer notes, the recipient's name and phone, floor, "needs two people", assembly requested, weight and dimensions | Driver | H | S-M | data already stored but not sent to the app |
-| 2.5 | **Proof of delivery viewer**: photo, time, recipient, GPS on the order page, and (privately) to the customer | Branch, owner, customer | H | S | `delivery_proofs` is write-only today |
-| 2.6 | **Driver day-end**: cash in hand, jobs done, one-tap "off duty"; decline a job, accept timeout with automatic re-assign, auto off-duty when the phone goes silent | Driver, manager | H | M | `CashDrawerService::balancesFor`, `last_seen_at` |
-| 2.7 | **Failed-delivery kit**: reason + note + photo, damaged option, propose a new slot, customer is messaged to rebook | Driver, customer | M | M | `rescheduleToSlot`, delivery slots |
-| 2.8 | **Pickup in the staff app**: pickup tab, QR scanner, pass re-issue, hand over by order number | Branch | M | M | pickup API and `mobile_scanner` exist |
-| 2.9 | **"Arrived" + "10 minutes away"** message to the customer; fewer absent-customer failures | Driver, customer | M | M | ETA service, live card |
-| 2.10 | **Printed picking list and delivery note** (barcode, bin location, COD amount, slot, signature line) | Branch | M | S-M | invoice PDF, `Code128` |
-| 2.11 | **Cash shift**: open / close, float, end-of-day count, Z-report; hand-in by selected collections | Branch, owner | M | M | `CashHandover` |
-| 2.12 | **Branch and driver scorecard**: time to accept / prepare, on-time rate, failure reasons, cash variance | Owner | M | S | timestamps already stored |
+| # | Capability | Who | Value | Effort | Builds on | Status |
+|---|-----------|-----|-------|--------|-----------|--------|
+| 2.1 | **New-order alerts that cannot be missed**: push to branch staff for every new order including pickups; live toast on every dashboard page, not only the fleet map | Branch | H | S | `LiveOrderEvent`, `PushNotifier::branch` | done |
+| 2.2 | **Order clock (SLA)**: every order shows its age; amber after X minutes, red after Y; manager is pushed when an order is not accepted; thresholds editable in settings | Branch, owner | H | S | `placed_at`, `accepted_at`, `ready_at` already stored | done |
+| 2.3 | **Exception inbox** (dashboard page + home card): unaccepted orders, ready but not dispatched, pickups waiting more than N days, cash held by a driver too long, failed deliveries, refunds waiting, stuck campaigns, failed jobs | Owner, manager | H | S-M | existing lanes and filters | done |
+| 2.4 | **Driver job card for heavy furniture**: gate code / customer notes, the recipient's name and phone, floor, "needs two people", assembly requested, weight and dimensions | Driver | H | S-M | data already stored but not sent to the app | done |
+| 2.5 | **Proof of delivery viewer**: photo, time, recipient, GPS on the order page, and (privately) to the customer | Branch, owner, customer | H | S | `delivery_proofs` is write-only today | done (dashboard; customer-facing view is next) |
+| 2.6 | **Driver day-end**: cash in hand, jobs done, one-tap "off duty"; decline a job, accept timeout with automatic re-assign, auto off-duty when the phone goes silent | Driver, manager | H | M | `CashDrawerService::balancesFor`, `last_seen_at` | done |
+| 2.7 | **Failed-delivery kit**: reason + note + photo, damaged option, propose a new slot, customer is messaged to rebook | Driver, customer | M | M | `rescheduleToSlot`, delivery slots | done (reason, note, photo, damaged; proposing a new slot is next) |
+| 2.8 | **Pickup in the staff app**: pickup tab, QR scanner, pass re-issue, hand over by order number | Branch | M | M | pickup API and `mobile_scanner` exist | done (inside Orders, no new tab) |
+| 2.9 | **"Arrived" + "10 minutes away"** message to the customer; fewer absent-customer failures | Driver, customer | M | M | ETA service, live card | done |
+| 2.10 | **Printed picking list and delivery note** (barcode, bin location, COD amount, slot, signature line) | Branch | M | S-M | invoice PDF, `Code128` | next |
+| 2.11 | **Cash shift**: open / close, float, end-of-day count, Z-report; hand-in by selected collections | Branch, owner | M | M | `CashHandover` | next |
+| 2.12 | **Branch and driver scorecard**: time to accept / prepare, on-time rate, failure reasons, cash variance | Owner | M | S | timestamps already stored | next |
 
 ## 3. Wave 3: more orders from the same customers
 

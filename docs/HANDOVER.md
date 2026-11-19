@@ -7,7 +7,7 @@ This report lists, phase by phase, what was delivered, how it is verified, and w
 
 | Area | Delivered | Verified by |
 |---|---|---|
-| Backend API (`backend/`) | Laravel 13 modular monolith, 133 PostgreSQL tables, REST `/api/v1` with 149 documented paths (`docs/api/openapi.json`) | Pest: **325** Unit + Feature tests and **5** Concurrency tests (real multi-process row locks, incl. cash hand-in and deposit races), all passing; migrations up/down/up |
+| Backend API (`backend/`) | Laravel 13 modular monolith, 160 PostgreSQL tables, REST `/api/v1` with 202 documented paths (`docs/api/openapi.json`, regenerated with `php artisan scramble:export --path=../docs/api/openapi.json`) | Pest: **3,248** Unit + Feature tests and **15** Concurrency tests (real multi-process row locks, incl. cash hand-in, deposit and driver-step races), all passing except the health test that needs Redis (not installed in the test container); migrations up/down/up |
 | Admin dashboard | 50+ Blade + Livewire screens covering phases 1–10, EN/AR with RTL, light/dark, phone-friendly; driver view at `/admin/driver`; camera pickup scanner; live auctioneer console | Feature tests per screen (authorised 200 / unauthorised 403, branch isolation, key workflows); screenshot review EN/AR at 1440 px and 390 px |
 | Customer app (`mobile/`) | Flutter Android/iOS, 15 feature modules, EN/AR RTL, push, live auctions | `flutter analyze` (no issues), 116 unit/widget/contract tests, headless integration smoke test |
 | Operations | Docker image, compose stack, CI, deploy workflow, verified backups, monitoring/security/launch docs | CI pipeline (`.github/workflows/ci.yml`) |
