@@ -587,13 +587,22 @@ class DeliveryService
         }
     }
 
-    /** Drivers may act only on deliveries assigned to them; staff need deliveries.edit on the branch. */
+    /**
+     * Drivers may act only on deliveries assigned to them; branch staff need deliveries.assign for the branch. A driver of the branch who tries a job
+     * that is another driver's is told so (not "you are not assigned to this branch").
+     */
     private function authorizeDriverOrStaff(Delivery $d, User $actor): void
     {
         if ($d->driver_id === $actor->id && $this->access->allows($actor, 'deliveries.edit', $d->branch_id)) {
             return;
         }
-        $this->authorize($actor, 'deliveries.assign', $d->branch_id);
+        if ($this->access->allows($actor, 'deliveries.assign', $d->branch_id)) {
+            return;
+        }
+        if ($this->access->allows($actor, 'deliveries.edit', $d->branch_id)) {
+            throw OpsError::make('delivery_not_yours', 403);
+        }
+        throw DomainException::make('branch_forbidden', 403);
     }
 
     private function source(User $actor): string

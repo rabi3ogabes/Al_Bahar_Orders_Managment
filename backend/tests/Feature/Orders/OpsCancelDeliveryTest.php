@@ -3,7 +3,10 @@
 use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Fulfillment\Events\DriverJobUpdated;
 use App\Domain\Fulfillment\Models\Delivery;
+use App\Domain\Fulfillment\Models\DeliveryProvider;
 use App\Domain\Fulfillment\Models\DeliveryStatusHistory;
+use App\Domain\Fulfillment\Providers\MockDeliveryProvider;
+use App\Domain\Fulfillment\Services\DeliveryProviderRegistry;
 use App\Domain\Fulfillment\Services\DeliveryService;
 use App\Domain\Orders\Enums\FulfillmentStatus as FS;
 use App\Domain\Orders\Models\Order;
@@ -156,3 +159,42 @@ it('is safe to call the service twice for the same cancelled parcel', function (
     app(DeliveryService::class)->cancelForFulfillment($f->fresh(), $d->mgr, 'x');
     expect(AuditLog::where('action', 'delivery.cancelled')->count())->toBe(1);
 });
+
+/** A courier whose "cancel booking" is recorded, and can be made to fail. */
+class OpsFlakyCourier extends MockDeliveryProvider
+{
+    public static array $cancelled = [];
+
+    public static bool $fail = false;
+
+    public function cancelBooking(Delivery $delivery): bool
+    {
+        if (self::$fail) {
+            throw new RuntimeException('courier is down');
+        }
+        self::$cancelled[] = $delivery->provider_reference;
+
+        return true;
+    }
+}
+
+it('releases a courier booking after the commit, and a courier that is down never blocks the cancellation', function (bool $courierDown) {
+    OpsFlakyCourier::$cancelled = [];
+    OpsFlakyCourier::$fail = $courierDown;
+    app()->singleton(DeliveryProviderRegistry::class); // one registry for the whole request, so the courier registered below is found
+    app(DeliveryProviderRegistry::class)->register('flaky', OpsFlakyCourier::class);
+    $provider = DeliveryProvider::create(['code' => 'flaky', 'name' => 'Flaky Express', 'driver' => 'flaky', 'is_active' => true, 'webhook_secret' => 'x', 'settings' => []]);
+    $w = commerceWorld();
+    [$f, $mgr] = readyOrder($w);
+    $delivery = app(DeliveryService::class)->create($f, $mgr, 'provider', $provider->id);
+    expect($delivery->status->value)->toBe('accepted')->and($delivery->provider_reference)->toStartWith('MOCK-');
+
+    $this->postJson("/api/v1/admin/fulfillments/{$f->id}/transition", ['status' => 'cancelled'])->assertOk()->assertJsonPath('data.order_status', 'cancelled');
+    $delivery = $delivery->fresh();
+    expect($delivery->status->value)->toBe('cancelled');
+    if ($courierDown) {
+        expect(OpsFlakyCourier::$cancelled)->toBe([])->and($delivery->last_error)->toContain('call the courier');
+    } else {
+        expect(OpsFlakyCourier::$cancelled)->toBe([$delivery->provider_reference])->and($delivery->last_error)->toBeNull();
+    }
+})->with([[false], [true]]);

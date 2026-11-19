@@ -127,7 +127,7 @@ class PickupService
         $r = $f ? PickupReservation::where('order_fulfillment_id', $f->id)->whereIn('status', ['ready', 'partially_collected'])->first() : null;
         $digits = preg_replace('/\D+/', '', (string) $order?->customer_phone) ?? '';
         $given = preg_replace('/\D+/', '', $phoneLast4) ?? '';
-        if ($r === null || strlen($digits) < 4 || strlen($given) !== 4 || ! hash_equals(substr($digits, -4), $given)) {
+        if ($order === null || $r === null || strlen($digits) < 4 || strlen($given) !== 4 || ! hash_equals(substr($digits, -4), $given)) {
             Cache::put($key, (int) Cache::get($key, 0) + 1, now()->addMinutes(self::MANUAL_LOCK_MINUTES));
             PickupVerification::create(['pickup_reservation_id' => $r?->id, 'verified_by' => $staff->id, 'branch_id' => $branchId, 'result' => 'manual_failed', 'ip' => request()->ip()]);
             $this->audit->log('pickup.manual_handover_failed', 'PickupReservation', [], [], ['order' => $number, 'reason' => $reason], branchId: $branchId, actor: $staff);

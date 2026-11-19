@@ -163,7 +163,7 @@
                     @if ($f->type === 'pickup' && $f->pickup && in_array($f->pickup->status, ['ready', 'partially_collected'], true))
                         @php $passExpired = $f->pickup->token_expires_at?->isPast() ?? false; @endphp
                         <div @class(['flex flex-wrap items-center gap-3 border-t border-sand-100 px-5 py-3 text-sm sm:px-6 dark:border-ink-800', 'bg-sky-soft/5' => ! $passExpired, 'bg-amber-soft/5' => $passExpired])>
-                            <x-icon name="qr" @class(['size-4', 'text-sky-soft' => ! $passExpired, 'text-amber-soft' => $passExpired]) />
+                            <x-icon name="qr" class="size-4 {{ $passExpired ? 'text-amber-soft' : 'text-sky-soft' }}" />
                             @if ($passExpired)
                                 <span class="font-medium">{{ __('ops_integrity.ui.pass_expired') }}</span><span class="text-xs text-ink-500 tabular-nums">{{ \App\Support\BusinessTime::display($f->pickup->token_expires_at) }}</span>
                             @else

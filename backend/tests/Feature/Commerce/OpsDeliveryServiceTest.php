@@ -194,9 +194,10 @@ it('lets only the driver who has the job, or branch staff, cancel it, and writes
     $d = opsAssignedDelivery();
     $otherDriver = driverFor($d->w->a);
     actingAsStaff($otherDriver);
-    $this->postJson("/api/v1/admin/deliveries/{$d->delivery->id}/cancel", ['reason' => 'nope'])->assertForbidden();
+    $this->postJson("/api/v1/admin/deliveries/{$d->delivery->id}/cancel", ['reason' => 'nope'])->assertForbidden()->assertJsonPath('code', 'delivery_not_yours')
+        ->assertJsonPath('message', __('ops_integrity.errors.delivery_not_yours'));
     actingAsStaff(staffWithRole('order_manager', $d->w->b));
-    $this->postJson("/api/v1/admin/deliveries/{$d->delivery->id}/cancel", ['reason' => 'nope'])->assertForbidden();
+    $this->postJson("/api/v1/admin/deliveries/{$d->delivery->id}/cancel", ['reason' => 'nope'])->assertForbidden()->assertJsonPath('code', 'branch_forbidden');
     expect($d->delivery->fresh()->status->value)->toBe('assigned')->and(AuditLog::where('action', 'delivery.cancelled')->count())->toBe(0);
 
     actingAsStaff($d->mgr);

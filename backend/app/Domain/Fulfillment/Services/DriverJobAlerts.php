@@ -36,7 +36,7 @@ class DriverJobAlerts
             try {
                 $res = $this->fcm->send($device->push_token, __('push.staff_title', [], $locale), __($key, ['n' => $orderNumber], $locale),
                     ['event' => 'dispatch.updated', 'number' => $orderNumber, 'job' => $job], $device);
-                if (is_array($res) && ($res['unregistered'] ?? false)) {
+                if ($res['unregistered'] ?? false) {
                     $device->update(['disabled_at' => now()]); // the app was uninstalled: stop sending to it
                 }
             } catch (Throwable $e) {
