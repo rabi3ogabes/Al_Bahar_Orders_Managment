@@ -109,7 +109,9 @@ it('keeps nothing from a driver who is off duty with no job on the road', functi
 
 it('still records an off-duty driver who is carrying an order', function () {
     $d = deliveryAt('picked_up');
-    $this->putJson('/api/v1/admin/dispatch/driver/duty', ['on_duty' => false])->assertOk();
+    // He cannot switch himself off with the order on the road (409), but the watchdog sets a silent driver off duty: his pings must still be kept.
+    $this->putJson('/api/v1/admin/dispatch/driver/duty', ['on_duty' => false])->assertStatus(409)->assertJsonPath('code', 'jobs_in_progress');
+    DriverProfile::whereKey($d->driver->id)->update(['on_duty' => false]);
     ping($d->driver)->assertOk()->assertJsonPath('data.recorded', true);
 });
 

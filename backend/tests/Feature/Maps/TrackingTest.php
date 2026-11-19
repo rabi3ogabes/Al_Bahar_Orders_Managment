@@ -224,9 +224,10 @@ describe('staff fleet', function () {
         actingAsStaff($d->mgr);
         expect($ids())->toBe(collect([$d->driver->id, $idle->id])->sort()->values()->all());
 
-        // The busy driver switches off duty with the order still on the road: stays on the map until it is delivered.
+        // The busy driver is set off duty (by the watchdog: he cannot do it himself with the order on the road) with the order still on the road: stays on the map until it is delivered.
         actingAsStaff($d->driver);
-        $this->putJson('/api/v1/admin/dispatch/driver/duty', ['on_duty' => false])->assertOk();
+        $this->putJson('/api/v1/admin/dispatch/driver/duty', ['on_duty' => false])->assertStatus(409)->assertJsonPath('code', 'jobs_in_progress');
+        DriverProfile::whereKey($d->driver->id)->update(['on_duty' => false]);
         actingAsStaff($d->mgr);
         $row = collect($this->getJson('/api/v1/admin/dispatch/fleet')->json('data'))->firstWhere('id', $d->driver->id);
         expect($row['on_duty'])->toBeFalse()->and($row['lat'])->toBe(25.3)->and($ids())->toBe(collect([$d->driver->id, $idle->id])->sort()->values()->all());

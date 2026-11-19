@@ -19,6 +19,7 @@ use App\Domain\Orders\Models\Order;
 use App\Livewire\Admin\Sales\AbandonedCartsIndex;
 use App\Support\AdminNavigation;
 use App\Support\DomainException;
+use Carbon\CarbonImmutable;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
@@ -490,6 +491,8 @@ describe('discard and undo', function () {
 
 describe('reminders', function () {
     beforeEach(function () {
+        // The automatic reminders hold their messages in the quiet hours (22:00 to 08:00 in Qatar): fix the clock at midday so this never depends on when the suite runs.
+        $this->travelTo(CarbonImmutable::parse('2026-11-19 12:00:00', 'Asia/Qatar'));
         $this->w->customer->forceFill(['marketing_consent_at' => now()])->save();
     });
 

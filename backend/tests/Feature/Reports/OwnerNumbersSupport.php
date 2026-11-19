@@ -10,6 +10,7 @@ use App\Domain\Payments\Models\CashCollection;
 use App\Domain\Payments\Models\Payment;
 use App\Domain\Payments\Models\Refund;
 use App\Support\Money;
+use Carbon\CarbonImmutable;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Str;
 
@@ -19,6 +20,9 @@ use Illuminate\Support\Str;
 /** Two branches, a customer and a company-wide admin. */
 function onWorld(): object
 {
+    // "Today" is a Qatar day (UTC+3). Without a fixed clock these tests fail between 21:00 and 24:00 UTC, when Qatar is already on the next date, so every test
+    // here starts at midday on a fixed Qatar day and the expected figures never depend on when the suite runs.
+    test()->travelTo(CarbonImmutable::parse('2026-11-19 12:00:00', 'Asia/Qatar'));
     test()->seed(RolesAndPermissionsSeeder::class);
 
     return (object) [
