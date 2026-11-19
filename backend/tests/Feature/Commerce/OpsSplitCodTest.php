@@ -7,9 +7,11 @@ use App\Domain\Orders\Services\ParcelShares;
 use App\Domain\Payments\Models\CashCollection;
 use App\Domain\Payments\Models\Payment;
 use App\Domain\Settings\Services\Settings;
+use App\Livewire\Admin\Sales\DriverConsole;
 use App\Support\Money;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Livewire;
 
 require_once __DIR__.'/../Orders/OpsFixtures.php';
 
@@ -202,4 +204,13 @@ it('does not change a single-part order: its delivery collects the whole amount'
     $this->postJson("/api/v1/admin/deliveries/{$d->delivery->id}/out-for-delivery")->assertOk();
     opsDeliver($d->delivery, $d->order->grand_total)->assertOk();
     expect($d->order->fresh()->payment_status->value)->toBe('paid');
+});
+
+it('pre-fills the web driver console with this parcel\'s own share, not what is left of the whole order', function () {
+    $s = opsSplitWithDrivers();
+    opsToTheDoor($s->da, $s->driverA);
+    $this->actingAs($s->driverA);
+
+    expect($s->sa->toDecimal())->not->toBe(Money::of($s->order->grand_total)->toDecimal());
+    Livewire::test(DriverConsole::class)->call('openSheet', $s->da->id, 'deliver')->assertSet('cod.amount', $s->sa->toDecimal());
 });

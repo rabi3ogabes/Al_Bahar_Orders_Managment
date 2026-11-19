@@ -78,7 +78,9 @@ class DriverConsole extends Component
         $this->showSheet = true;
         $o = $d->fulfillment->order;
         $this->recipient = $o->customer_name;
-        $this->cod = ['tender' => 'cash', 'amount' => Money::of($o->grand_total)->minus(Money::of($o->paid_total))->toDecimal(), 'receipt_reference' => ''];
+        // A split order is collected parcel by parcel: this parcel's own share, not what is left of the whole order.
+        $due = $d->cod_amount !== null ? Money::of($d->cod_amount) : Money::of($o->grand_total)->minus(Money::of($o->paid_total));
+        $this->cod = ['tender' => 'cash', 'amount' => $due->toDecimal(), 'receipt_reference' => ''];
     }
 
     public function closeSheet(): void

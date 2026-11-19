@@ -43,7 +43,7 @@ return [
     'call_alt' => 'Call alternative number',
     'camera_hint' => 'Point the camera at the customer\'s pickup QR code.',
     'camera_unavailable' => 'Camera unavailable. Allow camera access or type the code instead.',
-    'cancel_branch_hint' => 'Cancels only this branch\'s part of the order and releases its reserved stock. Refunds are raised separately.',
+    'cancel_branch_hint' => 'Cancels only this branch\'s part of the order and releases its reserved stock. A paid order gets a refund request for exactly this part; for cash on delivery the amount due goes down by this part.',
     'cancel_branch_part' => 'Cancel this part',
     'cancel_delivery' => 'Cancel delivery',
     'cancel_order' => 'Cancel order',

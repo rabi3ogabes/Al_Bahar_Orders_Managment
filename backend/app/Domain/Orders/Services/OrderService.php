@@ -325,6 +325,9 @@ class OrderService
     public function cancelOrder(Order $order, ?User $actor, string $reasonCode, ?string $reason = null, bool $system = false): Order
     {
         DB::transaction(function () use ($order, $actor, $reasonCode, $reason, $system) {
+            // The same lock order as transition(): the parcels first (by id), then the order. A tap on one parcel and a whole-order cancel
+            // can then never each hold what the other one is waiting for (a deadlock the database would answer by killing one of them).
+            OrderFulfillment::where('order_id', $order->id)->orderBy('id')->lockForUpdate()->get(['id']);
             $order = Order::whereKey($order->id)->lockForUpdate()->with('fulfillments')->firstOrFail();
             if ($this->partlyHandedOver($order)) {
                 throw OpsError::make('order_partly_handed_over', 409);
