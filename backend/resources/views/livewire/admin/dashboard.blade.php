@@ -52,6 +52,8 @@
         </div>
     @endif
 
+    <div class="mt-6"><livewire:admin.operations.attention-card /></div>
+
     @if ($m['chart'] !== null || $hasAttention)
     <div class="mt-6 grid gap-6 xl:grid-cols-3">
         @if ($m['chart'] !== null)

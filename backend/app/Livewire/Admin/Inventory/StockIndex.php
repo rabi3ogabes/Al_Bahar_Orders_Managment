@@ -6,6 +6,7 @@ use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Inventory\Models\BranchInventory;
+use App\Domain\Reports\Services\StockLevels;
 use App\Livewire\Admin\Concerns\WithAdminTable;
 use App\Support\Money;
 use Illuminate\Support\Facades\DB;
@@ -66,8 +67,8 @@ class StockIndex extends Component
         $q = BranchInventory::query()->with(['branch:id,code,name_en,name_ar', 'variant.product.translations', 'variant.attributeValues'])
             ->when($s !== '', fn ($q) => $q->whereHas('variant', fn ($v) => $v->where('sku', 'ilike', '%'.addcslashes($s, '%_\\').'%')->orWhere('barcode', $s)
                 ->orWhereHas('product.translations', fn ($t) => $t->where('name', 'ilike', '%'.addcslashes($s, '%_\\').'%'))))
-            ->when($this->filterLevel === 'low', fn ($q) => $q->where('minimum_stock', '>', 0)->whereRaw('on_hand - reserved <= minimum_stock')->whereRaw('on_hand - reserved > 0'))
-            ->when($this->filterLevel === 'out', fn ($q) => $q->whereRaw('on_hand - reserved <= 0'))
+            ->when($this->filterLevel === 'low', fn ($q) => $q->whereRaw(...StockLevels::lowSql('branch_inventory')))
+            ->when($this->filterLevel === 'out', fn ($q) => $q->whereRaw(StockLevels::outSql('branch_inventory')))
             ->when($this->filterLevel === 'reserved', fn ($q) => $q->where('reserved', '>', 0))
             ->when($this->filterLevel === 'over', fn ($q) => $q->whereNotNull('maximum_stock')->whereColumn('on_hand', '>', 'maximum_stock'));
         $scope->apply($q->getQuery());
@@ -80,10 +81,12 @@ class StockIndex extends Component
         // Valuation and health per branch (one aggregate query, within scope).
         $agg = DB::table('branch_inventory');
         $scope->apply($agg);
+        // The same definitions as the dashboard tile (StockLevels): "low" falls back to the default minimum, "out" counts only items the branch has held before.
+        [$lowSql, $lowBindings] = StockLevels::lowSql('branch_inventory');
         $summary = $agg->groupBy('branch_id')->selectRaw('branch_id, sum(on_hand) as units, sum(reserved) as reserved,
                 round(sum(on_hand * coalesce(average_cost, 0)), 2) as value,
-                sum(case when on_hand - reserved <= 0 then 1 else 0 end) as out_count,
-                sum(case when minimum_stock > 0 and on_hand - reserved <= minimum_stock and on_hand - reserved > 0 then 1 else 0 end) as low_count')
+                sum(case when '.StockLevels::outSql('branch_inventory').' then 1 else 0 end) as out_count,
+                sum(case when '.$lowSql.' then 1 else 0 end) as low_count', $lowBindings)
             ->get()->keyBy('branch_id');
         $branches = Branch::whereIn('id', $summary->keys())->orderBy('sort_order')->get(['id', 'code', 'name_en', 'name_ar']);
         $money = fn ($v) => Money::of((string) ($v ?? '0'));
