@@ -100,7 +100,7 @@ export const en: Record<string, string> = {
   "promise.pickup": "Click & collect",
   "promise.pickup_text": "Free pickup from our branch.",
   "promise.quality": "Quality you can trust",
-  "promise.quality_text": "Well-made furniture and home pieces, chosen with care for every room.",
+  "promise.quality_text": "Home essentials chosen with care, for every room of your home.",
   "promise.support": "Real people",
   "promise.support_text": "Help by phone, chat or at the showroom.",
   "shop.title": "The collection",

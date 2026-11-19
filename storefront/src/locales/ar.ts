@@ -100,7 +100,7 @@ export const ar: Record<string, string> = {
   "promise.pickup": "اطلب واستلم",
   "promise.pickup_text": "استلام مجاني من الفرع.",
   "promise.quality": "جودة تثق بها",
-  "promise.quality_text": "أثاث وقطع منزلية متقنة الصنع، منتقاة بعناية لكل غرفة في بيتك.",
+  "promise.quality_text": "مستلزمات منزلية منتقاة بعناية، لكل غرفة في بيتك.",
   "promise.support": "فريق حقيقي",
   "promise.support_text": "مساعدة بالهاتف أو الدردشة أو في المعرض.",
   "shop.title": "المجموعة",
