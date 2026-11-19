@@ -147,6 +147,9 @@
                             @if ($this->can('deliveries.view', $f->branch_id))<a href="{{ route('admin.deliveries.index', ['search' => $d->tracking_number]) }}" wire:navigate class="ms-auto text-xs font-medium text-brass-600 hover:underline">{{ __('sales_admin.open_dispatch') }}</a>@endif
                         </div>
                     @endif
+                    @if ($d && in_array($d->status->value, ['delivered', 'failed'], true))
+                        <div class="border-t border-sand-100 p-5 sm:px-6 dark:border-ink-800"><x-admin.sales.delivery-proof :delivery="$d" /></div>
+                    @endif
                     @if (isset($routeCards[$f->id]))
                         @php $rc = $routeCards[$f->id]; @endphp
                         <div class="border-t border-sand-100 dark:border-ink-800">

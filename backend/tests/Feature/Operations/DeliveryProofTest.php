@@ -2,7 +2,9 @@
 
 use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Identity\Models\User;
+use App\Domain\Orders\Models\Order;
 use App\Livewire\Admin\Operations\DeliveryProofWindow;
+use App\Livewire\Admin\Sales\OrderShow;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Blade;
@@ -141,7 +143,7 @@ it('shows the photos, who received the order and when, the driver, where the dri
     $this->actingAs($this->mgrA);
     $html = Blade::render('<x-admin.sales.delivery-proof :delivery="$delivery" />', ['delivery' => Delivery::findOrFail($this->delivery)]);
     expect($html)->toContain(opsProofUrl($this->delivery, $one))->toContain(opsProofUrl($this->delivery, $two))->toContain('Delivery photo 1')->toContain('Delivery photo 2')
-        ->toContain('Mariam')->toContain($this->driver->name)->toContain('15:00')
+        ->toContain('Mariam')->toContain(e($this->driver->name))->toContain('15:00')
         ->toContain('25.28611, 51.53482')->toContain('https://www.google.com/maps/search/?api=1&amp;query=25.286106,51.534817')->toContain('Open in map')
         ->toContain('QAR 100.00 collected (cash)')->not->toContain('25.9999');
 });
@@ -187,4 +189,12 @@ it('opens in a side window for staff of the branch only', function () {
     Livewire::actingAs($this->mgrB)->test(DeliveryProofWindow::class)->dispatch('open-delivery-proof', delivery: $this->delivery)->assertSet('open', false)
         ->assertDispatched('toast', type: 'error', message: __('ops_live.proof.unavailable'));
     Livewire::actingAs($this->mgrA)->test(DeliveryProofWindow::class)->dispatch('open-delivery-proof', delivery: 'junk')->assertSet('open', false);
+});
+
+it('shows the proof on the dashboard order page once the delivery is done', function () {
+    opsProof($this->delivery);
+    $order = Order::findOrFail($this->ids['order']);
+
+    $this->actingAs($this->mgrA);
+    Livewire::test(OrderShow::class, ['order' => $order])->assertSeeHtml('data-delivery-proof="'.$this->delivery.'"');
 });
