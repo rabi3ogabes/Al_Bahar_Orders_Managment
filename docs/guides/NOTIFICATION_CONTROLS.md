@@ -153,9 +153,11 @@ Pulling it (`GET /orders/active-progress`, the order page) is not a send and is 
 | `staff.driver_assigned` | New delivery for a driver | the driver | a delivery is assigned to them |
 | `staff.order_ready` | Order ready, needs a driver | active employees of the branch | an order part is ready |
 | `staff.delivery_failed` | Delivery failed | active employees of the branch | a delivery failed |
+| `staff.order_new` | New order for the branch | staff who can accept orders at that branch | a new order arrives (delivery and pickup; online orders only once paid) |
+| `staff.order_reminder` | Order waiting too long | the branch manager(s) and the staff who can accept | an order has not been accepted and crossed an amber or red limit (see `docs/guides/LIVE_OPERATIONS.md`) |
 
-A **new order for the branch** is not a push: it reaches the open dashboard and branch app live over the socket (`DispatchUpdated` broadcast), which keeps the screens
-current and is not a notification. Likewise `NotificationCreated` (the customer's open app learns about a new inbox entry): it follows the in-app channel.
+Besides the push, a **new order for the branch** also reaches the open dashboard and branch app live over the socket (`DispatchUpdated` broadcast), which keeps the
+screens current and is not a notification. Likewise `NotificationCreated` (the customer's open app learns about a new inbox entry): it follows the in-app channel.
 
 ### Not switched here
 
