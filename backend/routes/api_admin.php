@@ -126,6 +126,12 @@ Route::controller(V1\Admin\DispatchController::class)->prefix('dispatch')->name(
     Route::get('fleet', 'fleet')->middleware('permission:deliveries.view')->name('fleet');
     Route::post('fulfillments/{fulfillment}/assign', 'assign')->middleware('permission:deliveries.assign')->name('assign');
 });
+// Branch staff app: the top of "Needs attention", a new pickup pass, and the manager's hand-over without the pass (docs/api/STAFF_QUEUE.md).
+Route::get('dispatch/attention', [V1\Admin\StaffAttentionController::class, 'index'])->middleware('permission:orders.view')->name('dispatch.attention');
+Route::controller(V1\Admin\StaffPickupController::class)->group(function () {
+    Route::post('fulfillments/{fulfillment}/pickup-reissue', 'reissue')->middleware('permission:pickup.edit')->name('pickup.reissue');
+    Route::post('pickup/manual-handover', 'manualHandover')->middleware('permission:pickup.approve')->name('pickup.manual');
+});
 
 // Push token of the staff / driver apps (same handler as the customer's /me/devices).
 Route::controller(V1\Customer\ProfileController::class)->prefix('devices')->name('devices.')->group(function () {

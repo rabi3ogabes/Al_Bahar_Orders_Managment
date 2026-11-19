@@ -16,6 +16,7 @@ use App\Support\AlternatePhone;
 use App\Support\BusinessTime;
 use App\Support\DomainException;
 use App\Support\Geo;
+use App\Support\StaffQueue;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -112,13 +113,19 @@ class DispatchController extends ApiController
 
     // ── Branch staff app ───────────────────────────────────────────────────
 
-    /** Counts for the staff home: new, preparing, ready, waiting for a driver, out for delivery, drivers on duty. */
-    public function overview(Request $request): JsonResponse
+    /**
+     * Counts for the staff home: new, preparing, ready, waiting for a driver, out for delivery, drivers on duty. Besides the delivery counts (unchanged) it
+     * carries the pickup counts (`pickup`), the branches the person works in (`branches`, for the branch picker of a manager of several) and what they
+     * may do at this branch (`can`). See docs/api/STAFF_QUEUE.md.
+     */
+    public function overview(Request $request, StaffQueue $staff): JsonResponse
     {
         $branch = $this->branchFor($request, 'orders.view');
         $includePickup = $request->boolean('include_pickup');
         $f = $this->parts($branch, $includePickup);
         $count = fn (array $s) => (clone $f)->whereIn('status', $s)->count();
+        $pickups = $this->parts($branch, true, 'pickup');
+        $pickupCount = fn (array $s) => (clone $pickups)->whereIn('status', $s)->count();
         $drivers = $this->dispatch->branchDrivers($branch);
 
         return response()->json(['data' => [
@@ -128,6 +135,9 @@ class DispatchController extends ApiController
             'waiting_for_driver' => Delivery::where('branch_id', $branch->id)->where('status', 'pending')->count()
                 + (clone $f)->where('status', 'ready')->where('type', 'delivery')->whereDoesntHave('deliveries', fn ($q) => $q->whereNotIn('status', ['cancelled', 'failed', 'returned']))->count(),
             'drivers_on_duty' => $drivers->where('on_duty', true)->count(), 'drivers_total' => $drivers->count(),
+            'pickup' => ['new' => $pickupCount(['pending']), 'preparing' => $pickupCount(['accepted', 'preparing']), 'ready' => $pickupCount(['pickup_ready'])],
+            'branches' => $staff->branches($this->user()),
+            'can' => $staff->can($this->user(), $branch->id),
         ]]);
     }
 
@@ -135,18 +145,32 @@ class DispatchController extends ApiController
      * Delivery orders of the branch by stage (new | preparing | ready | out | failed | all). A failed delivery stays visible so staff can bring it back.
      * An online order that is not paid yet is left out (it cannot be accepted: the dashboard hides it the same way). Every row carries its `type`
      * (`delivery`); with `include_pickup=1` the branch's pickup parts are listed too (type `pickup`; `ready` then also means `pickup_ready`), and without
-     * the flag the answer is exactly what it always was.
+     * the flag the answer is exactly what it always was. `type=delivery|pickup` narrows the list to one kind (pickup implies the flag).
+     *
+     * Every row also carries its order clock, the customer's open cancellation request and what is left to pay (docs/api/STAFF_QUEUE.md). `page` / `per_page`
+     * (1-100, default 50) page the list; `meta` says whether `next` exists. A caller that sends neither gets the first 100 rows as before.
      */
-    public function queue(Request $request): JsonResponse
+    public function queue(Request $request, StaffQueue $staff): JsonResponse
     {
         $branch = $this->branchFor($request, 'orders.view');
-        $includePickup = $request->boolean('include_pickup');
+        $v = $request->validate(['type' => 'nullable|in:delivery,pickup', 'page' => 'nullable|integer|min:1|max:10000', 'per_page' => 'nullable|integer|min:1|max:100']);
+        $type = $v['type'] ?? null;
+        $includePickup = $request->boolean('include_pickup') || $type === 'pickup';
         $stages = ['new' => ['pending'], 'preparing' => ['accepted', 'preparing'], 'ready' => $includePickup ? ['ready', 'pickup_ready'] : ['ready'], 'out' => ['dispatched', 'out_for_delivery'], 'failed' => ['failed']];
         $stage = (string) $request->query('stage', 'all');
-        $rows = $this->parts($branch, $includePickup)->with(['order', 'deliveries.driver:id,name', 'items'])
-            ->whereIn('status', $stages[$stage] ?? array_merge(...array_values($stages)))->orderBy('created_at')->limit(100)->get();
+        $paged = isset($v['page']) || isset($v['per_page']);
+        $perPage = $paged ? (int) ($v['per_page'] ?? 50) : 100;
+        $page = (int) ($v['page'] ?? 1);
+        $rows = $this->parts($branch, $includePickup, $type)->with(['order', 'deliveries.driver:id,name', 'items', 'pickup'])
+            ->whereIn('status', $stages[$stage] ?? array_merge(...array_values($stages)))
+            // The longest wait first: a new part from when it was placed, a part being prepared from when it was accepted, a ready one from when it became ready.
+            ->orderByRaw("coalesce(case when order_fulfillments.status in ('accepted', 'preparing') then order_fulfillments.accepted_at when order_fulfillments.status in ('ready', 'pickup_ready') then order_fulfillments.ready_at end, order_fulfillments.created_at)")
+            ->orderBy('order_fulfillments.created_at')->orderBy('order_fulfillments.id')->offset(($page - 1) * $perPage)->limit($perPage + 1)->get();
+        $more = $rows->count() > $perPage;
+        $rows = $rows->take($perPage);
+        $extras = $staff->extras($rows);
 
-        return response()->json(['data' => $rows->map(function (OrderFulfillment $f) {
+        return response()->json(['data' => $rows->map(function (OrderFulfillment $f) use ($extras) {
             $d = $f->activeDelivery();
 
             return [
@@ -159,8 +183,8 @@ class DispatchController extends ApiController
                 'payment_method' => $f->order->payment_method, 'grand_total' => $f->order->grand_total,
                 'scheduled_for' => BusinessTime::iso($f->slot_date ?? null),
                 'delivery' => $d ? ['id' => $d->id, 'status' => $d->status->value, 'driver' => $d->driver ? ['id' => $d->driver->id, 'name' => $d->driver->name] : null] : null,
-            ];
-        })->values()]);
+            ] + $extras[$f->id];
+        })->values(), 'meta' => ['page' => $page, 'per_page' => $perPage, 'has_more' => $more, 'next' => $more ? $page + 1 : null]]);
     }
 
     public function drivers(Request $request): JsonResponse
@@ -184,13 +208,16 @@ class DispatchController extends ApiController
     // ── Helpers ────────────────────────────────────────────────────────────
 
     /**
-     * The branch's parts the staff app works on: deliveries (and pickups when asked), leaving out orders still waiting for their online payment.
+     * The branch's parts the staff app works on: deliveries (and pickups when asked, or only pickups with `$type = 'pickup'`), leaving out orders still
+     * waiting for their online payment.
      *
      * @return Builder<OrderFulfillment>
      */
-    private function parts(Branch $branch, bool $includePickup): Builder
+    private function parts(Branch $branch, bool $includePickup, ?string $type = null): Builder
     {
-        return OrderFulfillment::query()->where('branch_id', $branch->id)->whereIn('type', $includePickup ? ['delivery', 'pickup'] : ['delivery'])
+        $types = $type !== null ? [$type] : ($includePickup ? ['delivery', 'pickup'] : ['delivery']);
+
+        return OrderFulfillment::query()->where('branch_id', $branch->id)->whereIn('type', $types)
             ->whereHas('order', fn ($o) => $o->where('status', '!=', OrderStatus::PendingPayment->value));
     }
 
