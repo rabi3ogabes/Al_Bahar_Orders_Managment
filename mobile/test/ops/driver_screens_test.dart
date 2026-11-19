@@ -250,7 +250,9 @@ void main() {
       expect(repo.calls.last, 'out-for-delivery:d1');
     });
 
-    testWidgets('could not deliver: reason tiles, a confirm, then one request (sent with the key of this report)', (tester) async {
+    testWidgets('could not deliver: reason tiles, a confirm, then one request (sent with the key of this report)', (
+      tester,
+    ) async {
       final repo = FakeOps()..jobList = [FakeOps.job(status: 'out_for_delivery')];
       await _pump(tester, repo);
       await tester.tap(find.byTooltip('Could not deliver'));
@@ -341,7 +343,12 @@ void main() {
     ) async {
       final repo = FakeOps()
         ..jobList = [
-          FakeOps.job(status: 'out_for_delivery', cod: '0', proof: false, extra: {'arrived_at': '2026-11-14T12:30:00Z'}),
+          FakeOps.job(
+            status: 'out_for_delivery',
+            cod: '0',
+            proof: false,
+            extra: {'arrived_at': '2026-11-14T12:30:00Z'},
+          ),
         ];
       await openSheet(tester, repo);
       expect(find.widgetWithText(TextField, 'Cash collected (QAR)'), findsNothing);

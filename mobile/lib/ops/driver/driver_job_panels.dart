@@ -101,7 +101,8 @@ class _JobDetails extends ConsumerWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               StatusChip(label: t.statusLabel(job.status), tone: toneForOpsStatus(job.status)),
-              if (when != null && !readOnly) StatusChip(label: when, icon: Icons.schedule_rounded, tone: StatusTone.neutral),
+              if (when != null && !readOnly)
+                StatusChip(label: when, icon: Icons.schedule_rounded, tone: StatusTone.neutral),
             ],
           ),
         ),
@@ -113,7 +114,10 @@ class _JobDetails extends ConsumerWidget {
             if (!readOnly && phone != null)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
-                child: Directionality(textDirection: TextDirection.ltr, child: Text(phone, style: context.text.bodyMedium?.copyWith(color: p.muted))),
+                child: Directionality(
+                  textDirection: TextDirection.ltr,
+                  child: Text(phone, style: context.text.bodyMedium?.copyWith(color: p.muted)),
+                ),
               ),
             const Gap(AppSpace.sm),
             Row(
@@ -121,7 +125,9 @@ class _JobDetails extends ConsumerWidget {
               children: [
                 Icon(Icons.place_outlined, size: 22, color: p.muted),
                 const Gap(AppSpace.xs),
-                Expanded(child: Text(address, style: context.text.titleMedium?.copyWith(fontWeight: FontWeight.w600))),
+                Expanded(
+                  child: Text(address, style: context.text.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                ),
               ],
             ),
             if (c.landmark != null)
@@ -154,11 +160,7 @@ class _JobDetails extends ConsumerWidget {
             ],
           ],
         ),
-        if (!readOnly) ...[
-          BeforeYouGo(job: job),
-          JobNotesBox(job: job),
-          JobContacts(job: job),
-        ],
+        if (!readOnly) ...[BeforeYouGo(job: job), JobNotesBox(job: job), JobContacts(job: job)],
         DriverItems(job: job),
         if (job.items.isEmpty) PanelItems(items: job.items),
         PanelSection(
@@ -274,7 +276,9 @@ class _JobActionButtonsState extends ConsumerState<JobActionButtons> {
     DateTime? at;
     final ok = await _run(() async {
       final spot = await currentSpot(ref);
-      at = await ref.read(opsRepositoryProvider).arrived(widget.job.id, lat: spot?.lat, lng: spot?.lng, accuracy: spot?.accuracy);
+      at = await ref
+          .read(opsRepositoryProvider)
+          .arrived(widget.job.id, lat: spot?.lat, lng: spot?.lng, accuracy: spot?.accuracy);
     });
     if (!ok || !mounted) return;
     ref.read(driverLiveProvider.notifier).markArrived(widget.job.id, at);
@@ -387,7 +391,11 @@ class _JobActionButtonsState extends ConsumerState<JobActionButtons> {
         ],
         if (skipArrival) ...[
           const Gap(AppSpace.xxs),
-          TextButton(key: const ValueKey('skip-arrival'), onPressed: _busy ? null : _deliver, child: Text(t.markDelivered)),
+          TextButton(
+            key: const ValueKey('skip-arrival'),
+            onPressed: _busy ? null : _deliver,
+            child: Text(t.markDelivered),
+          ),
         ],
         if (job.canDecline) ...[
           const Gap(AppSpace.xxs),

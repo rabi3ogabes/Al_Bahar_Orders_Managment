@@ -425,7 +425,9 @@ void main() {
     // [arrived]: the driver already said "I have arrived", so the card offers the delivery form.
     FakeOps jobs(String status, {String cod = '0', bool arrived = false}) => FakeOps()
       ..style = OpsStatusStyle.slide
-      ..jobList = [FakeOps.job(status: status, cod: cod, extra: arrived ? {'arrived_at': '2026-11-14T12:30:00Z'} : null)];
+      ..jobList = [
+        FakeOps.job(status: status, cod: cod, extra: arrived ? {'arrived_at': '2026-11-14T12:30:00Z'} : null),
+      ];
 
     testWidgets('default: buttons everywhere', (tester) async {
       await _driver(tester, FakeOps());
@@ -547,7 +549,10 @@ void main() {
     });
 
     testWidgets('buttons mode keeps Confirm delivery as the button it always was', (tester) async {
-      final repo = FakeOps()..jobList = [FakeOps.job(status: 'out_for_delivery', extra: {'arrived_at': '2026-11-14T12:30:00Z'})];
+      final repo = FakeOps()
+        ..jobList = [
+          FakeOps.job(status: 'out_for_delivery', extra: {'arrived_at': '2026-11-14T12:30:00Z'}),
+        ];
       await _driver(tester, repo);
       await tester.tap(find.widgetWithText(FilledButton, 'Mark delivered'));
       await settle(tester);

@@ -30,7 +30,10 @@ class DriverDayScreen extends ConsumerWidget {
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              children: [const Gap(AppSpace.xxl), ErrorState(error: e, onRetry: () => ref.invalidate(driverDayProvider))],
+              children: [
+                const Gap(AppSpace.xxl),
+                ErrorState(error: e, onRetry: () => ref.invalidate(driverDayProvider)),
+              ],
             ),
             data: (d) => _DayBody(day: d, stale: day.hasError, onRetry: () => ref.invalidate(driverDayProvider)),
           ),
@@ -181,14 +184,21 @@ class _CashCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(cash.holdsCash ? Icons.payments_outlined : Icons.check_circle_outline_rounded, color: fg, size: 26),
+                Icon(
+                  cash.holdsCash ? Icons.payments_outlined : Icons.check_circle_outline_rounded,
+                  color: fg,
+                  size: 26,
+                ),
                 const Gap(AppSpace.xs),
                 Expanded(
                   child: cash.holdsCash
                       ? Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(t.cashWithYou(cash.held.toStringAsFixed(2)), style: context.text.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+                            Text(
+                              t.cashWithYou(cash.held.toStringAsFixed(2)),
+                              style: context.text.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                            ),
                             const Gap(2),
                             Text(t.handItIn, style: context.text.bodyMedium),
                           ],
@@ -216,11 +226,17 @@ class _CashCard extends StatelessWidget {
             ],
             if (cash.holdsCash && oldest != null) ...[
               const Gap(AppSpace.xs),
-              Text(t.cashOldest(QatarTime.dateTime(oldest, lang)), style: context.text.bodySmall?.copyWith(color: p.muted)),
+              Text(
+                t.cashOldest(QatarTime.dateTime(oldest, lang)),
+                style: context.text.bodySmall?.copyWith(color: p.muted),
+              ),
             ],
             if (cash.collectedToday > 0) ...[
               const Gap(AppSpace.xxs),
-              Text(t.collectedToday(cash.collectedToday.toStringAsFixed(2)), style: context.text.bodySmall?.copyWith(color: p.muted)),
+              Text(
+                t.collectedToday(cash.collectedToday.toStringAsFixed(2)),
+                style: context.text.bodySmall?.copyWith(color: p.muted),
+              ),
             ],
           ],
         ),
@@ -247,13 +263,21 @@ class _JobRow extends StatelessWidget {
               children: [
                 Text('#${job.orderNumber}', style: context.text.titleSmall),
                 if (job.customerName.isNotEmpty) Text(job.customerName, style: context.text.bodyMedium),
-                if (place.isNotEmpty) Text(place, style: context.text.bodySmall?.copyWith(color: context.palette.muted)),
-                if (job.at != null) Text(QatarTime.time(job.at, lang), style: context.text.bodySmall?.copyWith(color: context.palette.muted)),
+                if (place.isNotEmpty)
+                  Text(place, style: context.text.bodySmall?.copyWith(color: context.palette.muted)),
+                if (job.at != null)
+                  Text(
+                    QatarTime.time(job.at, lang),
+                    style: context.text.bodySmall?.copyWith(color: context.palette.muted),
+                  ),
               ],
             ),
           ),
           const Gap(AppSpace.xs),
-          StatusChip(label: t.dayStatus(job.status), tone: job.status == 'declined' ? StatusTone.warning : toneForOpsStatus(job.status)),
+          StatusChip(
+            label: t.dayStatus(job.status),
+            tone: job.status == 'declined' ? StatusTone.warning : toneForOpsStatus(job.status),
+          ),
         ],
       ),
     );

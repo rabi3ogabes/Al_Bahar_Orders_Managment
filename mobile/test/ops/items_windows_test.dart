@@ -165,7 +165,7 @@ void main() {
     testWidgets('a server without the key shows no items section and everything else works', (tester) async {
       await _pumpDriver(tester, _driverRepo(null), _phone);
       expect(find.textContaining('Items'), findsNothing);
-      expect(find.text('Customer'), findsOneWidget);
+      expect(find.text('Delivery address'), findsOneWidget);
       expect(find.widgetWithText(FilledButton, 'Accept'), findsWidgets);
     });
 

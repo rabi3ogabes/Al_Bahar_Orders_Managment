@@ -80,7 +80,9 @@ class _DriverHomeState extends ConsumerState<DriverHome> with OpsPolling {
           builder: (c) => AlertDialog(
             key: const ValueKey('job-notice'),
             icon: Icon(n.kind == JobNoticeKind.cancelled ? Icons.cancel_outlined : Icons.swap_horiz_rounded, size: 32),
-            title: Text(n.kind == JobNoticeKind.cancelled ? t.noticeCancelledTitle(n.number) : t.noticeRemovedTitle(n.number)),
+            title: Text(
+              n.kind == JobNoticeKind.cancelled ? t.noticeCancelledTitle(n.number) : t.noticeRemovedTitle(n.number),
+            ),
             content: Text(n.kind == JobNoticeKind.cancelled ? t.noticeCancelledBody : t.noticeRemovedBody),
             actions: [FilledButton(autofocus: true, onPressed: () => Navigator.pop(c), child: Text(t.ok))],
           ),
@@ -208,7 +210,9 @@ class _DriverHomeState extends ConsumerState<DriverHome> with OpsPolling {
               key: const ValueKey('open-my-day'),
               tooltip: t.myDay,
               icon: const Icon(Icons.today_rounded),
-              onPressed: () => unawaited(Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const DriverDayScreen()))),
+              onPressed: () => unawaited(
+                Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const DriverDayScreen())),
+              ),
             ),
             const OpsAccountMenu(),
           ],
@@ -428,8 +432,10 @@ class _JobCardState extends ConsumerState<_JobCard> {
                       icon: Icons.payments_outlined,
                     ),
                   // Only what is true for this parcel: a household order never carries a furniture hint.
-                  if (!widget.readOnly && c.needsTwoPeople) StatusChip(label: t.needsTwoPeople, icon: Icons.groups_rounded, tone: StatusTone.warning),
-                  if (!widget.readOnly && c.requiresAssembly) StatusChip(label: t.assemblyRequested, icon: Icons.handyman_rounded, tone: StatusTone.info),
+                  if (!widget.readOnly && c.needsTwoPeople)
+                    StatusChip(label: t.needsTwoPeople, icon: Icons.groups_rounded, tone: StatusTone.warning),
+                  if (!widget.readOnly && c.requiresAssembly)
+                    StatusChip(label: t.assemblyRequested, icon: Icons.handyman_rounded, tone: StatusTone.info),
                 ],
               ),
             ),
@@ -440,7 +446,15 @@ class _JobCardState extends ConsumerState<_JobCard> {
                 children: [
                   Icon(Icons.sticky_note_2_outlined, size: 16, color: context.palette.brassDeep),
                   const Gap(AppSpace.xxs),
-                  Expanded(child: Text(t.customerNote, style: context.text.bodySmall?.copyWith(color: context.palette.brassDeep, fontWeight: FontWeight.w600))),
+                  Expanded(
+                    child: Text(
+                      t.customerNote,
+                      style: context.text.bodySmall?.copyWith(
+                        color: context.palette.brassDeep,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),

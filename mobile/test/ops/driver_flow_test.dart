@@ -57,7 +57,12 @@ class DriverFakeOps extends FakeOps {
   }
 }
 
-Future<ProviderContainer> _pump(WidgetTester tester, FakeOps repo, {Variant variant = const Variant('default', Size(390, 844), kEn), FakePicker? picker}) async {
+Future<ProviderContainer> _pump(
+  WidgetTester tester,
+  FakeOps repo, {
+  Variant variant = const Variant('default', Size(390, 844), kEn),
+  FakePicker? picker,
+}) async {
   useVariant(tester, variant);
   await tester.pumpWidget(opsHost(const DriverHome(), repo, variant: variant, picker: picker));
   await settle(tester);
@@ -67,7 +72,8 @@ Future<ProviderContainer> _pump(WidgetTester tester, FakeOps repo, {Variant vari
 DriverJob _onTheRoad({bool arrived = false, String cod = '303.00'}) =>
     FakeOps.job(status: 'out_for_delivery', cod: cod, extra: arrived ? {'arrived_at': '2026-11-14T12:30:00Z'} : null);
 
-PusherEvent _event(Map<String, dynamic> data) => PusherEvent(channel: 'private-drivers.u1', event: 'dispatch.updated', data: data);
+PusherEvent _event(Map<String, dynamic> data) =>
+    PusherEvent(channel: 'private-drivers.u1', event: 'dispatch.updated', data: data);
 
 void main() {
   group('I have arrived', () {
@@ -102,21 +108,24 @@ void main() {
       await settle(tester);
     });
 
-    testWidgets('no signal at the door: a plain sentence, the button stays, and "Mark delivered" is still one tap away', (tester) async {
-      final repo = DriverFakeOps()
-        ..jobList = [_onTheRoad()]
-        ..arrivedError = apiError(ApiErrorKind.offline, 0);
-      await _pump(tester, repo);
-      await tester.tap(find.widgetWithText(FilledButton, 'I have arrived'));
-      await settle(tester);
-      expect(find.text('No connection. Check your signal and try again.'), findsOneWidget);
-      expect(find.widgetWithText(FilledButton, 'I have arrived'), findsOneWidget);
-      // Never a dead end: the driver can still record the delivery.
-      expect(find.byKey(const ValueKey('skip-arrival')), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('skip-arrival')));
-      await settle(tester);
-      expect(find.text('Proof of delivery'), findsOneWidget);
-    });
+    testWidgets(
+      'no signal at the door: a plain sentence, the button stays, and "Mark delivered" is still one tap away',
+      (tester) async {
+        final repo = DriverFakeOps()
+          ..jobList = [_onTheRoad()]
+          ..arrivedError = apiError(ApiErrorKind.offline, 0);
+        await _pump(tester, repo);
+        await tester.tap(find.widgetWithText(FilledButton, 'I have arrived'));
+        await settle(tester);
+        expect(find.text('No connection. Check your signal and try again.'), findsOneWidget);
+        expect(find.widgetWithText(FilledButton, 'I have arrived'), findsOneWidget);
+        // Never a dead end: the driver can still record the delivery.
+        expect(find.byKey(const ValueKey('skip-arrival')), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('skip-arrival')));
+        await settle(tester);
+        expect(find.text('Proof of delivery'), findsOneWidget);
+      },
+    );
 
     testWidgets('the dashboard asks for the slide: arriving is slid, never a stray tap', (tester) async {
       final repo = DriverFakeOps()
@@ -141,7 +150,8 @@ void main() {
 
   group('handing a job back', () {
     testWidgets('only a job that was given and not accepted offers it', (tester) async {
-      final repo = DriverFakeOps()..jobList = [FakeOps.job(id: 'a', status: 'assigned'), FakeOps.job(id: 'b', status: 'accepted')];
+      final repo = DriverFakeOps()
+        ..jobList = [FakeOps.job(id: 'a', status: 'assigned'), FakeOps.job(id: 'b', status: 'accepted')];
       await _pump(tester, repo);
       expect(find.byKey(const ValueKey('decline-job')), findsOneWidget);
     });
@@ -170,7 +180,9 @@ void main() {
       expect(find.text('Handed back. The branch will give it to another driver.'), findsOneWidget);
     });
 
-    testWidgets('the message that echoes it is not news to him: no dialog about a job he handed back himself', (tester) async {
+    testWidgets('the message that echoes it is not news to him: no dialog about a job he handed back himself', (
+      tester,
+    ) async {
       final repo = DriverFakeOps();
       final container = await _pump(tester, repo);
       await tester.tap(find.byKey(const ValueKey('decline-job')));
@@ -180,7 +192,18 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Hand it back'));
       await settle(tester);
 
-      container.read(driverLiveProvider.notifier).onEvent(_event({'delivery_id': 'd1', 'order_id': 'o1', 'number': 'AB100008', 'seq': 9, 'status': 'unassigned', 'assigned': false}));
+      container
+          .read(driverLiveProvider.notifier)
+          .onEvent(
+            _event({
+              'delivery_id': 'd1',
+              'order_id': 'o1',
+              'number': 'AB100008',
+              'seq': 9,
+              'status': 'unassigned',
+              'assigned': false,
+            }),
+          );
       await settle(tester);
 
       expect(find.byKey(const ValueKey('job-notice')), findsNothing);
@@ -209,7 +232,15 @@ void main() {
 
     testWidgets('has a tile for every reason, damaged included', (tester) async {
       await open(tester, DriverFakeOps()..jobList = [_onTheRoad(arrived: true)]);
-      for (final r in ['customer_absent', 'customer_unreachable', 'wrong_address', 'refused', 'access_denied', 'damaged', 'other']) {
+      for (final r in [
+        'customer_absent',
+        'customer_unreachable',
+        'wrong_address',
+        'refused',
+        'access_denied',
+        'damaged',
+        'other',
+      ]) {
         expect(find.byKey(ValueKey('fail-$r')), findsOneWidget, reason: r);
       }
       expect(find.text('Damaged'), findsOneWidget);
@@ -265,7 +296,9 @@ void main() {
       await settle(tester);
     });
 
-    testWidgets('no signal: the sheet keeps the reason, the note and the photo, and the next try is the same report', (tester) async {
+    testWidgets('no signal: the sheet keeps the reason, the note and the photo, and the next try is the same report', (
+      tester,
+    ) async {
       final repo = DriverFakeOps()
         ..jobList = [_onTheRoad(arrived: true)]
         ..failError = apiError(ApiErrorKind.timeout, 0);
@@ -337,7 +370,8 @@ void main() {
   });
 
   group('going off duty with jobs in hand', () {
-    ApiException busy(int n) => apiError(ApiErrorKind.conflict, 409, code: 'jobs_in_progress', message: 'x').copy(context: {'count': n});
+    ApiException busy(int n) =>
+        apiError(ApiErrorKind.conflict, 409, code: 'jobs_in_progress', message: 'x').copy(context: {'count': n});
 
     testWidgets('is refused in plain words, the switch stays on, and nothing is lost', (tester) async {
       final repo = DriverFakeOps()..dutyError = busy(2);
@@ -355,7 +389,7 @@ void main() {
       await _pump(tester, repo, variant: variants[1]);
       await tester.tap(find.byType(Switch));
       await settle(tester);
-      expect(find.text('ما زال عندك طلبان. أنهِها أو اطلب من الفرع استرجاعها.'), findsOneWidget);
+      expect(find.text('ما زال عندك طلبان. أنهِهما أو اطلب من الفرع استرجاعهما.'), findsOneWidget);
     });
 
     testWidgets('one job is "1 job", not "1 jobs"', (tester) async {
@@ -363,7 +397,7 @@ void main() {
       await _pump(tester, repo);
       await tester.tap(find.byType(Switch));
       await settle(tester);
-      expect(find.text('You still have 1 job. Finish them or ask the branch to hand them back.'), findsOneWidget);
+      expect(find.text('You still have 1 job. Finish it or ask the branch to hand it back.'), findsOneWidget);
     });
   });
 
@@ -373,7 +407,18 @@ void main() {
       final container = await _pump(tester, repo);
       expect(find.text('#AB100008'), findsOneWidget);
 
-      container.read(driverLiveProvider.notifier).onEvent(_event({'delivery_id': 'd1', 'order_id': 'o1', 'number': 'AB100008', 'seq': 5, 'status': 'cancelled', 'assigned': true}));
+      container
+          .read(driverLiveProvider.notifier)
+          .onEvent(
+            _event({
+              'delivery_id': 'd1',
+              'order_id': 'o1',
+              'number': 'AB100008',
+              'seq': 5,
+              'status': 'cancelled',
+              'assigned': true,
+            }),
+          );
       await settle(tester);
 
       expect(find.byKey(const ValueKey('job-notice')), findsOneWidget);
@@ -384,7 +429,18 @@ void main() {
       expect(find.byKey(const ValueKey('job-notice')), findsNothing);
       expect(find.text('Accept'), findsNothing);
       // The same message again is not told twice.
-      container.read(driverLiveProvider.notifier).onEvent(_event({'delivery_id': 'd1', 'order_id': 'o1', 'number': 'AB100008', 'seq': 5, 'status': 'cancelled', 'assigned': true}));
+      container
+          .read(driverLiveProvider.notifier)
+          .onEvent(
+            _event({
+              'delivery_id': 'd1',
+              'order_id': 'o1',
+              'number': 'AB100008',
+              'seq': 5,
+              'status': 'cancelled',
+              'assigned': true,
+            }),
+          );
       await settle(tester);
       expect(find.byKey(const ValueKey('job-notice')), findsNothing);
     });
@@ -392,19 +448,43 @@ void main() {
     testWidgets('a job given to another driver is told too, in its own words', (tester) async {
       final repo = DriverFakeOps();
       final container = await _pump(tester, repo);
-      container.read(driverLiveProvider.notifier).onEvent(_event({'delivery_id': 'd1', 'order_id': 'o1', 'number': 'AB100008', 'seq': 5, 'status': 'unassigned', 'assigned': false}));
+      container
+          .read(driverLiveProvider.notifier)
+          .onEvent(
+            _event({
+              'delivery_id': 'd1',
+              'order_id': 'o1',
+              'number': 'AB100008',
+              'seq': 5,
+              'status': 'unassigned',
+              'assigned': false,
+            }),
+          );
       await settle(tester);
       expect(find.text('This order was given to another driver. It is no longer yours.'), findsOneWidget);
     });
 
-    testWidgets('the delivery window of that job closes and says nothing else: the dialog is the only message', (tester) async {
+    testWidgets('the delivery window of that job closes and says nothing else: the dialog is the only message', (
+      tester,
+    ) async {
       final repo = DriverFakeOps();
       final container = await _pump(tester, repo);
       await tester.tap(find.text('#AB100008').first);
       await settle(tester);
       expect(find.byType(SidePanelLayout), findsOneWidget);
 
-      container.read(driverLiveProvider.notifier).onEvent(_event({'delivery_id': 'd1', 'order_id': 'o1', 'number': 'AB100008', 'seq': 5, 'status': 'cancelled', 'assigned': true}));
+      container
+          .read(driverLiveProvider.notifier)
+          .onEvent(
+            _event({
+              'delivery_id': 'd1',
+              'order_id': 'o1',
+              'number': 'AB100008',
+              'seq': 5,
+              'status': 'cancelled',
+              'assigned': true,
+            }),
+          );
       await settle(tester);
       await settle(tester);
 
@@ -416,7 +496,18 @@ void main() {
     testWidgets('in Arabic', (tester) async {
       final repo = DriverFakeOps();
       final container = await _pump(tester, repo, variant: variants[1]);
-      container.read(driverLiveProvider.notifier).onEvent(_event({'delivery_id': 'd1', 'order_id': 'o1', 'number': 'AB100008', 'seq': 5, 'status': 'cancelled', 'assigned': true}));
+      container
+          .read(driverLiveProvider.notifier)
+          .onEvent(
+            _event({
+              'delivery_id': 'd1',
+              'order_id': 'o1',
+              'number': 'AB100008',
+              'seq': 5,
+              'status': 'cancelled',
+              'assigned': true,
+            }),
+          );
       await settle(tester);
       expect(find.text('تم إلغاء هذا الطلب. لا داعي للذهاب.'), findsOneWidget);
     });
@@ -432,11 +523,19 @@ void main() {
     }
 
     testWidgets('with jobs in hand he is told they stay his', (tester) async {
-      await askToSignOut(tester, DriverFakeOps()..jobList = [FakeOps.job(status: 'accepted'), FakeOps.job(id: 'd2', status: 'out_for_delivery')]);
-      expect(find.text('You still have 2 jobs. They stay yours: finish them, or ask the branch to hand them back.'), findsOneWidget);
+      await askToSignOut(
+        tester,
+        DriverFakeOps()..jobList = [FakeOps.job(status: 'accepted'), FakeOps.job(id: 'd2', status: 'out_for_delivery')],
+      );
+      expect(
+        find.text('You still have 2 jobs. They stay yours: finish them, or ask the branch to hand them back.'),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('a job he has not accepted yet does not count: it goes back to the branch when he goes off duty', (tester) async {
+    testWidgets('a job he has not accepted yet does not count: it goes back to the branch when he goes off duty', (
+      tester,
+    ) async {
       await askToSignOut(tester, DriverFakeOps()..jobList = [FakeOps.job(status: 'assigned')]);
       expect(find.text('You will stop receiving deliveries and stop sharing your location.'), findsOneWidget);
     });
@@ -481,10 +580,33 @@ void main() {
       'on_duty': true,
       'on_duty_since': '2026-11-14T04:30:00Z',
       'jobs': {'done': 7, 'failed': 1, 'declined': 2, 'active': 3},
-      'cash': {'currency': 'QAR', 'collected_today': '1200.00', 'held': held.toStringAsFixed(2), 'held_count': 3, 'oldest_at': '2026-11-13T08:00:00Z', 'state': state.name},
+      'cash': {
+        'currency': 'QAR',
+        'collected_today': '1200.00',
+        'held': held.toStringAsFixed(2),
+        'held_count': 3,
+        'oldest_at': '2026-11-13T08:00:00Z',
+        'state': state.name,
+      },
       'list': [
-        {'id': 'x1', 'order_number': 'AB100001', 'status': 'delivered', 'customer_name': 'Hamad', 'address': {'zone_number': '24'}, 'cod_amount': '50.00', 'at': '2026-11-14T08:00:00Z'},
-        {'id': 'x2', 'order_number': 'AB100002', 'status': 'declined', 'customer_name': 'Salem', 'address': {'area': 'Al Wakra'}, 'cod_amount': '0.00', 'at': '2026-11-14T07:00:00Z'},
+        {
+          'id': 'x1',
+          'order_number': 'AB100001',
+          'status': 'delivered',
+          'customer_name': 'Hamad',
+          'address': {'zone_number': '24'},
+          'cod_amount': '50.00',
+          'at': '2026-11-14T08:00:00Z',
+        },
+        {
+          'id': 'x2',
+          'order_number': 'AB100002',
+          'status': 'declined',
+          'customer_name': 'Salem',
+          'address': {'area': 'Al Wakra'},
+          'cod_amount': '0.00',
+          'at': '2026-11-14T07:00:00Z',
+        },
       ],
     });
 
@@ -499,7 +621,10 @@ void main() {
       expect(find.text('My day'), findsWidgets);
       expect(find.descendant(of: find.byKey(const ValueKey('stat-done')), matching: find.text('7')), findsOneWidget);
       expect(find.descendant(of: find.byKey(const ValueKey('stat-failed')), matching: find.text('1')), findsOneWidget);
-      expect(find.descendant(of: find.byKey(const ValueKey('stat-declined')), matching: find.text('2')), findsOneWidget);
+      expect(
+        find.descendant(of: find.byKey(const ValueKey('stat-declined')), matching: find.text('2')),
+        findsOneWidget,
+      );
       expect(find.descendant(of: find.byKey(const ValueKey('stat-active')), matching: find.text('3')), findsOneWidget);
       expect(find.text('Cash with you: QAR 450.00'), findsOneWidget);
       expect(find.text('Hand it in at the branch.'), findsOneWidget);
@@ -510,7 +635,9 @@ void main() {
       expect(find.byKey(const ValueKey('cash-amber')), findsNothing);
     });
 
-    testWidgets('cash held a while shows an amber hint, cash held too long a red one, each with its own words', (tester) async {
+    testWidgets('cash held a while shows an amber hint, cash held too long a red one, each with its own words', (
+      tester,
+    ) async {
       await openDay(tester, DriverFakeOps()..dayData = day(state: CashState.amber));
       expect(find.byKey(const ValueKey('cash-amber')), findsOneWidget);
       expect(find.text('It has been with you a while. Please hand it in soon.'), findsOneWidget);

@@ -13,8 +13,12 @@ import 'ops_test_kit.dart';
 const _phone = Variant('360x800 en', Size(360, 800), kEn);
 
 /// A job with the new fields of the server, over the plain test job.
-DriverJob ctxJob({String status = 'assigned', String cod = '303.00', Map<String, dynamic> extra = const {}, Object? items}) =>
-    FakeOps.job(status: status, cod: cod, items: items, extra: extra);
+DriverJob ctxJob({
+  String status = 'assigned',
+  String cod = '303.00',
+  Map<String, dynamic> extra = const {},
+  Object? items,
+}) => FakeOps.job(status: status, cod: cod, items: items, extra: extra);
 
 Future<void> _open(WidgetTester tester, FakeOps repo, {Variant variant = _phone}) async {
   useVariant(tester, variant);
@@ -64,7 +68,9 @@ void main() {
 
   group('the customer\'s note and the gate code', () {
     testWidgets('are in one highlighted box with their own titles', (tester) async {
-      final job = ctxJob(extra: {'instructions': 'Gate code 4471, call from downstairs', 'customer_notes': 'Please ring twice'});
+      final job = ctxJob(
+        extra: {'instructions': 'Gate code 4471, call from downstairs', 'customer_notes': 'Please ring twice'},
+      );
       await _open(tester, FakeOps()..jobList = [job]);
       expect(find.byKey(const ValueKey('job-notes')), findsOneWidget);
       expect(find.text('Gate code 4471, call from downstairs'), findsOneWidget);
@@ -80,7 +86,13 @@ void main() {
     });
 
     testWidgets('the landmark is under the address', (tester) async {
-      await _open(tester, FakeOps()..jobList = [ctxJob(extra: {'landmark': 'Behind the blue pharmacy'})]);
+      await _open(
+        tester,
+        FakeOps()
+          ..jobList = [
+            ctxJob(extra: {'landmark': 'Behind the blue pharmacy'}),
+          ],
+      );
       expect(find.text('Landmark: Behind the blue pharmacy'), findsOneWidget);
     });
   });
@@ -142,7 +154,17 @@ void main() {
 
   group('the parcel', () {
     final items = [
-      {'id': 'i1', 'name': 'Oslo sofa', 'variant_name': 'Grey', 'sku': 'S1', 'quantity': 2, 'weight_kg': 32.5, 'dimensions_cm': {'length': 210, 'width': 90, 'height': 85}, 'is_oversized': true, 'requires_assembly': false},
+      {
+        'id': 'i1',
+        'name': 'Oslo sofa',
+        'variant_name': 'Grey',
+        'sku': 'S1',
+        'quantity': 2,
+        'weight_kg': 32.5,
+        'dimensions_cm': {'length': 210, 'width': 90, 'height': 85},
+        'is_oversized': true,
+        'requires_assembly': false,
+      },
       {'id': 'i2', 'name': 'Linen cushion', 'variant_name': null, 'sku': 'C1', 'quantity': 4},
     ];
 
@@ -188,7 +210,13 @@ void main() {
         'needs_two_people': true,
         'arrived_at': '2026-11-24T14:30:00+03:00',
         'items': [
-          {'id': 'a', 'weight_kg': 12.5, 'dimensions_cm': {'length': 1.2, 'width': 80, 'height': 40}, 'is_oversized': false, 'requires_assembly': true},
+          {
+            'id': 'a',
+            'weight_kg': 12.5,
+            'dimensions_cm': {'length': 1.2, 'width': 80, 'height': 40},
+            'is_oversized': false,
+            'requires_assembly': true,
+          },
           {'id': 'b'},
         ],
       });
@@ -205,7 +233,10 @@ void main() {
 
     test('the next step on the road is "arrived" first, then the delivery form', () {
       expect(FakeOps.job(status: 'out_for_delivery').nextAction, 'arrived');
-      expect(FakeOps.job(status: 'out_for_delivery', extra: {'arrived_at': '2026-11-24T14:30:00+03:00'}).nextAction, 'deliver');
+      expect(
+        FakeOps.job(status: 'out_for_delivery', extra: {'arrived_at': '2026-11-24T14:30:00+03:00'}).nextAction,
+        'deliver',
+      );
       expect(FakeOps.job(status: 'picked_up').nextAction, 'out-for-delivery');
     });
 
@@ -233,7 +264,16 @@ void main() {
             'total_weight_kg': 65,
           },
           items: [
-            {'id': 'i1', 'name': 'Oslo corner sofa with a very long name that wraps over two lines', 'variant_name': 'Grey linen', 'quantity': 2, 'weight_kg': 32.5, 'dimensions_cm': {'length': 210, 'width': 90, 'height': 85}, 'is_oversized': true, 'requires_assembly': true},
+            {
+              'id': 'i1',
+              'name': 'Oslo corner sofa with a very long name that wraps over two lines',
+              'variant_name': 'Grey linen',
+              'quantity': 2,
+              'weight_kg': 32.5,
+              'dimensions_cm': {'length': 210, 'width': 90, 'height': 85},
+              'is_oversized': true,
+              'requires_assembly': true,
+            },
           ],
         );
         await _open(tester, FakeOps()..jobList = [job], variant: v);

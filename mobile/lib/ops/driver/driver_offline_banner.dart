@@ -55,14 +55,22 @@ class _DriverOfflineBannerState extends ConsumerState<DriverOfflineBanner> {
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
-                  child: Text(t.noConnection, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onErrorContainer, fontWeight: FontWeight.w600)),
+                  child: Text(
+                    t.noConnection,
+                    style: Theme.of(context).textTheme.bodyMedium
+                        ?.copyWith(color: scheme.onErrorContainer, fontWeight: FontWeight.w600),
+                  ),
                 ),
               ),
               TextButton(
                 key: const ValueKey('offline-retry'),
                 onPressed: _busy ? null : () => unawaited(_retry()),
                 child: _busy
-                    ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: scheme.onErrorContainer))
+                    ? SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: scheme.onErrorContainer),
+                      )
                     : Text(t.retry),
               ),
             ],

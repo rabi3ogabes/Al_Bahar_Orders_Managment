@@ -57,7 +57,12 @@ class ReasonTile extends StatelessWidget {
                   Icon(icon, size: 24, color: selected ? scheme.primary : p.muted),
                   const Gap(AppSpace.xs),
                   Expanded(
-                    child: Text(label, style: context.text.titleSmall?.copyWith(fontWeight: selected ? FontWeight.w700 : FontWeight.w600)),
+                    child: Text(
+                      label,
+                      style: context.text.titleSmall?.copyWith(
+                        fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                      ),
+                    ),
                   ),
                   if (selected) Icon(Icons.check_circle_rounded, size: 22, color: scheme.primary),
                 ],
@@ -72,7 +77,13 @@ class ReasonTile extends StatelessWidget {
 
 /// The confirm of a sheet: the slide when the dashboard asks for it, otherwise a big button that shows progress and ignores a second tap.
 class _Confirm extends ConsumerWidget {
-  const _Confirm({required this.label, required this.slideLabel, required this.busy, required this.onConfirm, this.destructive = false});
+  const _Confirm({
+    required this.label,
+    required this.slideLabel,
+    required this.busy,
+    required this.onConfirm,
+    this.destructive = false,
+  });
   final String label;
   final String slideLabel;
   final bool busy;
@@ -87,10 +98,19 @@ class _Confirm extends ConsumerWidget {
     }
     final scheme = Theme.of(context).colorScheme;
     return FilledButton(
-      style: destructive ? FilledButton.styleFrom(backgroundColor: scheme.error, foregroundColor: scheme.onError) : null,
+      style: destructive
+          ? FilledButton.styleFrom(backgroundColor: scheme.error, foregroundColor: scheme.onError)
+          : null,
       onPressed: busy ? null : onConfirm,
       child: busy
-          ? SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: destructive ? scheme.onError : scheme.onPrimary))
+          ? SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.4,
+                color: destructive ? scheme.onError : scheme.onPrimary,
+              ),
+            )
           : Text(label, textAlign: TextAlign.center),
     );
   }
@@ -186,9 +206,17 @@ class _DeclineFormState extends ConsumerState<_DeclineForm> {
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: AppSpace.xs),
-                child: Semantics(liveRegion: true, child: Text(_error!, style: TextStyle(color: p.danger))),
+                child: Semantics(
+                  liveRegion: true,
+                  child: Text(_error!, style: TextStyle(color: p.danger)),
+                ),
               ),
-            _Confirm(label: t.declineVerb, slideLabel: t.slideDecline, busy: _busy, onConfirm: () => unawaited(_submit())),
+            _Confirm(
+              label: t.declineVerb,
+              slideLabel: t.slideDecline,
+              busy: _busy,
+              onConfirm: () => unawaited(_submit()),
+            ),
           ],
         ),
         child: Column(
@@ -288,7 +316,9 @@ class _FailFormState extends ConsumerState<_FailForm> {
   Future<void> _shoot() async {
     final t = OpsStrings.of(context);
     try {
-      final shot = await ref.read(opsImagePickerProvider).pickImage(source: ImageSource.camera, maxWidth: 1600, imageQuality: 80);
+      final shot = await ref
+          .read(opsImagePickerProvider)
+          .pickImage(source: ImageSource.camera, maxWidth: 1600, imageQuality: 80);
       if (shot != null && mounted) {
         setState(() {
           _photo = File(shot.path);
@@ -363,9 +393,18 @@ class _FailFormState extends ConsumerState<_FailForm> {
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: AppSpace.xs),
-                child: Semantics(liveRegion: true, child: Text(_error!, style: TextStyle(color: p.danger))),
+                child: Semantics(
+                  liveRegion: true,
+                  child: Text(_error!, style: TextStyle(color: p.danger)),
+                ),
               ),
-            _Confirm(label: t.failVerb, slideLabel: t.slideReport, busy: _busy, onConfirm: () => unawaited(_submit()), destructive: true),
+            _Confirm(
+              label: t.failVerb,
+              slideLabel: t.slideReport,
+              busy: _busy,
+              onConfirm: () => unawaited(_submit()),
+              destructive: true,
+            ),
           ],
         ),
         child: Column(
@@ -440,7 +479,11 @@ class _FailFormState extends ConsumerState<_FailForm> {
                       height: 96,
                       fit: BoxFit.cover,
                       cacheWidth: 288,
-                      errorBuilder: (_, _, _) => SizedBox(width: 96, height: 96, child: Center(child: Text(t.photoBroken, textAlign: TextAlign.center))),
+                      errorBuilder: (_, _, _) => SizedBox(
+                        width: 96,
+                        height: 96,
+                        child: Center(child: Text(t.photoBroken, textAlign: TextAlign.center)),
+                      ),
                     ),
                   ),
                 ),

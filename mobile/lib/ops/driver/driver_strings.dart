@@ -57,7 +57,8 @@ extension DriverStrings on OpsStrings {
   String get declineNoteHint => _d('Add a short note (optional)', 'أضف ملاحظة قصيرة (اختياري)');
   String get declineVerb => _d('Hand it back', 'إرجاع الطلب');
   String get slideDecline => _d('Slide to hand it back', 'اسحب لإرجاع الطلب');
-  String get declineDone => _d('Handed back. The branch will give it to another driver.', 'تم الإرجاع. سيسنده الفرع إلى سائق آخر.');
+  String get declineDone =>
+      _d('Handed back. The branch will give it to another driver.', 'تم الإرجاع. سيسنده الفرع إلى سائق آخر.');
   String get chooseWhyFirst => _d('Choose a reason first.', 'اختر السبب أولاً.');
 
   // ── Could not deliver ───────────────────────────────────────────────────────────────────────────────────────────────────
@@ -66,12 +67,15 @@ extension DriverStrings on OpsStrings {
   String get failNoteOptional => _d('Note (optional)', 'ملاحظة (اختياري)');
   String get failNoteRequired =>
       _d('Please write a short note so the branch knows what happened.', 'اكتب ملاحظة قصيرة ليعرف الفرع ما حدث.');
-  String get failPhotoHint => _d('A photo of the door or of the damage helps the branch.', 'صورة للباب أو للضرر تساعد الفرع.');
+  String get failPhotoHint =>
+      _d('A photo of the door or of the damage helps the branch.', 'صورة للباب أو للضرر تساعد الفرع.');
   String get failPhotoAdded => _d('Photo added (tap to take another)', 'تمت إضافة الصورة (اضغط لالتقاط أخرى)');
   String get failVerb => _d('Report: could not deliver', 'تأكيد: تعذّر التسليم');
   String get slideReport => _d('Slide to report', 'اسحب للإبلاغ');
-  String get failRecorded =>
-      _d('Reported. The branch will call the customer to arrange a new time.', 'تم الإبلاغ. سيتصل الفرع بالعميل لترتيب موعد جديد.');
+  String get failRecorded => _d(
+    'Reported. The branch will call the customer to arrange a new time.',
+    'تم الإبلاغ. سيتصل الفرع بالعميل لترتيب موعد جديد.',
+  );
 
   // ── My day ───────────────────────────────────────────────────────────────────────────────────────────────────────────────
   String get myDay => _d('My day', 'يومي');
@@ -81,8 +85,10 @@ extension DriverStrings on OpsStrings {
   String cashWithYou(String amount) => _d('Cash with you: ${money(amount)}', 'النقد الذي معك: ${money(amount)}');
   String get handItIn => _d('Hand it in at the branch.', 'سلّمه في الفرع.');
   String get cashNone => _d('You hold no cash. Everything is handed in.', 'لا يوجد نقد معك. تم تسليم كل شيء.');
-  String get cashAmber => _d('It has been with you a while. Please hand it in soon.', 'مضى وقت على وجوده معك. يرجى تسليمه قريباً.');
-  String get cashRed => _d('It is late. Please hand it in at the branch now.', 'تأخر تسليمه. يرجى تسليمه في الفرع الآن.');
+  String get cashAmber =>
+      _d('It has been with you a while. Please hand it in soon.', 'مضى وقت على وجوده معك. يرجى تسليمه قريباً.');
+  String get cashRed =>
+      _d('It is late. Please hand it in at the branch now.', 'تأخر تسليمه. يرجى تسليمه في الفرع الآن.');
   String cashOldest(String when) => _d('Oldest collection: $when', 'أقدم تحصيل: $when');
   String collectedToday(String amount) => _d('Collected today: ${money(amount)}', 'المحصّل اليوم: ${money(amount)}');
   String onDutySince(String time) => _d('On duty since $time', 'متواجد منذ $time');
@@ -104,7 +110,8 @@ extension DriverStrings on OpsStrings {
 
   // ── Cancelled and taken-away jobs ────────────────────────────────────────────────────────────────────────────────────
   String noticeCancelledTitle(String number) => _d('Order #$number cancelled', 'أُلغي الطلب #$number');
-  String get noticeCancelledBody => _d('This order was cancelled. No need to go.', 'تم إلغاء هذا الطلب. لا داعي للذهاب.');
+  String get noticeCancelledBody =>
+      _d('This order was cancelled. No need to go.', 'تم إلغاء هذا الطلب. لا داعي للذهاب.');
   String noticeRemovedTitle(String number) => _d('Order #$number moved', 'تغيّر الطلب #$number');
   String get noticeRemovedBody =>
       _d('This order was given to another driver. It is no longer yours.', 'أُسند هذا الطلب إلى سائق آخر. لم يعد لك.');
@@ -114,10 +121,32 @@ extension DriverStrings on OpsStrings {
   String get noConnection => _d('No connection. Check your signal.', 'لا يوجد اتصال. تحقق من الإشارة.');
 
   // ── Signing out ───────────────────────────────────────────────────────────────────────────────────────────────────────────
-  String signOutJobsBody(int n) => _d(
-    'You still have ${jobsCount(n)}. They stay yours: finish them, or ask the branch to hand them back.',
-    'ما زال عندك ${jobsCount(n)}. تبقى لك: أنهِها أو اطلب من الفرع استرجاعها.',
-  );
+  /// "Finish it or ask the branch to hand it back." with the right pronoun for one, two or many jobs.
+  String finishOrHandBack(int n) {
+    if (!ar) {
+      return n == 1
+          ? 'Finish it or ask the branch to hand it back.'
+          : 'Finish them or ask the branch to hand them back.';
+    }
+    return switch (n) {
+      1 => 'أنهِه أو اطلب من الفرع استرجاعه.',
+      2 => 'أنهِهما أو اطلب من الفرع استرجاعهما.',
+      _ => 'أنهِها أو اطلب من الفرع استرجاعها.',
+    };
+  }
+
+  String signOutJobsBody(int n) {
+    if (!ar) {
+      return n == 1
+          ? 'You still have 1 job. It stays yours: finish it, or ask the branch to hand it back.'
+          : 'You still have ${jobsCount(n)}. They stay yours: finish them, or ask the branch to hand them back.';
+    }
+    return switch (n) {
+      1 => 'ما زال عندك ${jobsCount(n)}. يبقى لك: أنهِه أو اطلب من الفرع استرجاعه.',
+      2 => 'ما زال عندك ${jobsCount(n)}. يبقيان لك: أنهِهما أو اطلب من الفرع استرجاعهما.',
+      _ => 'ما زال عندك ${jobsCount(n)}. تبقى لك: أنهِها أو اطلب من الفرع استرجاعها.',
+    };
+  }
 
   // ── Plain sentences for what the server can answer ────────────────────────────────────────────────────────────────────
   /// The one plain sentence for an error, or null when the app has no better words than the server's own message (which is already in the
@@ -131,7 +160,10 @@ extension DriverStrings on OpsStrings {
       case 'collection_amount_mismatch':
         final due = error.context['due']?.toString();
         return due == null
-            ? _d('The cash is not what is due. Check the amount and try again.', 'المبلغ لا يطابق المستحق. راجعه وحاول مرة أخرى.')
+            ? _d(
+                'The cash is not what is due. Check the amount and try again.',
+                'المبلغ لا يطابق المستحق. راجعه وحاول مرة أخرى.',
+              )
             : _d('Collect exactly $due.', 'حصّل المبلغ المستحق بالضبط: $due.');
       case 'delivery_cancelled':
         return noticeCancelledBody;
@@ -141,12 +173,15 @@ extension DriverStrings on OpsStrings {
           'طلب العميل إلغاء هذا الطلب. انتظر قرار الفرع.',
         );
       case 'invalid_state_transition':
-        return _d('This step is not possible now. The list was updated.', 'لا يمكن تنفيذ هذه الخطوة الآن. تم تحديث القائمة.');
+        return _d(
+          'This step is not possible now. The list was updated.',
+          'لا يمكن تنفيذ هذه الخطوة الآن. تم تحديث القائمة.',
+        );
       case 'jobs_in_progress':
         final n = int.tryParse('${error.context['count'] ?? ''}') ?? 1;
         return _d(
-          'You still have ${jobsCount(n)}. Finish them or ask the branch to hand them back.',
-          'ما زال عندك ${jobsCount(n)}. أنهِها أو اطلب من الفرع استرجاعها.',
+          'You still have ${jobsCount(n)}. ${finishOrHandBack(n)}',
+          'ما زال عندك ${jobsCount(n)}. ${finishOrHandBack(n)}',
         );
       case 'delivery_not_yours':
         return _d('This delivery belongs to another driver.', 'هذا الطلب مع سائق آخر.');
@@ -165,8 +200,14 @@ extension DriverStrings on OpsStrings {
         'لا يوجد اتصال. تحقق من الإشارة وحاول مرة أخرى.',
       ),
       ApiErrorKind.notFound => jobGone,
-      ApiErrorKind.server => _d('Something went wrong on our side. Try again in a moment.', 'حدث خلل من طرفنا. حاول بعد قليل.'),
-      ApiErrorKind.rateLimited => _d('Too many taps. Wait a moment and try again.', 'ضغطات كثيرة. انتظر قليلاً ثم حاول.'),
+      ApiErrorKind.server => _d(
+        'Something went wrong on our side. Try again in a moment.',
+        'حدث خلل من طرفنا. حاول بعد قليل.',
+      ),
+      ApiErrorKind.rateLimited => _d(
+        'Too many taps. Wait a moment and try again.',
+        'ضغطات كثيرة. انتظر قليلاً ثم حاول.',
+      ),
       ApiErrorKind.unauthorized => sessionExpired,
       _ => _plainMessage(error.message) ?? errorFallback,
     };

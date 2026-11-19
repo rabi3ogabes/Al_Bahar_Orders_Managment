@@ -428,7 +428,9 @@ void main() {
       expect(find.text('Proof of delivery'), findsNothing);
     });
 
-    testWidgets('could not deliver: one window with the reasons, a note and a photo; one confirm, one request', (tester) async {
+    testWidgets('could not deliver: one window with the reasons, a note and a photo; one confirm, one request', (
+      tester,
+    ) async {
       final repo = FakeOps()..jobList = [FakeOps.job(status: 'out_for_delivery')];
       await _pump(tester, repo, _phone);
       await _openDetails(tester);

@@ -9,7 +9,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// The one plain sentence for any error (see [DriverStrings.plainError]): never a status code, never English in an Arabic app.
-String driverErrorText(BuildContext context, Object error) => OpsStrings.of(context).plainError(error) ?? OpsStrings.of(context).errorFallback;
+String driverErrorText(BuildContext context, Object error) =>
+    OpsStrings.of(context).plainError(error) ?? OpsStrings.of(context).errorFallback;
 
 /// Runs one step of the driver's work; a failure shows as one plain sentence (a toast inside a window, a snack on a page) and the caller gets
 /// `false`. Every driver step uses it, so no screen shows a raw server string.

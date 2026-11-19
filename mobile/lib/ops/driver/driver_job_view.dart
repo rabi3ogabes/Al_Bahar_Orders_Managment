@@ -83,7 +83,9 @@ class JobQuickActions extends ConsumerWidget {
             ),
           ),
           const Gap(AppSpace.xs),
-          Expanded(child: CopyTile(text: address, label: t.copyAddress)),
+          Expanded(
+            child: CopyTile(text: address, label: t.copyAddress),
+          ),
         ],
       ),
     );
@@ -210,11 +212,26 @@ class BeforeYouGo extends StatelessWidget {
             runSpacing: AppSpace.xs,
             children: [
               if (c.needsTwoPeople)
-                StatusChip(key: const ValueKey('chip-two-people'), label: t.needsTwoPeople, icon: Icons.groups_rounded, tone: StatusTone.warning),
+                StatusChip(
+                  key: const ValueKey('chip-two-people'),
+                  label: t.needsTwoPeople,
+                  icon: Icons.groups_rounded,
+                  tone: StatusTone.warning,
+                ),
               if (c.requiresAssembly)
-                StatusChip(key: const ValueKey('chip-assembly'), label: t.assemblyRequested, icon: Icons.handyman_rounded, tone: StatusTone.info),
+                StatusChip(
+                  key: const ValueKey('chip-assembly'),
+                  label: t.assemblyRequested,
+                  icon: Icons.handyman_rounded,
+                  tone: StatusTone.info,
+                ),
               if (c.isOversized)
-                StatusChip(key: const ValueKey('chip-oversized'), label: t.oversizedChip, icon: Icons.open_in_full_rounded, tone: StatusTone.warning),
+                StatusChip(
+                  key: const ValueKey('chip-oversized'),
+                  label: t.oversizedChip,
+                  icon: Icons.open_in_full_rounded,
+                  tone: StatusTone.warning,
+                ),
               if (job.isCod)
                 StatusChip(
                   key: const ValueKey('chip-cash'),
@@ -259,7 +276,8 @@ class JobNotesBox extends StatelessWidget {
             children: [
               if (c.instructions != null) _note(context, Icons.vpn_key_outlined, t.doorInstructions, c.instructions!),
               if (c.instructions != null && c.customerNotes != null) const Gap(AppSpace.sm),
-              if (c.customerNotes != null) _note(context, Icons.sticky_note_2_outlined, t.customerNote, c.customerNotes!),
+              if (c.customerNotes != null)
+                _note(context, Icons.sticky_note_2_outlined, t.customerNote, c.customerNotes!),
             ],
           ),
         ),
@@ -278,7 +296,10 @@ class JobNotesBox extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: context.text.labelMedium?.copyWith(color: p.brassDeep, fontWeight: FontWeight.w700)),
+              Text(
+                title,
+                style: context.text.labelMedium?.copyWith(color: p.brassDeep, fontWeight: FontWeight.w700),
+              ),
               const Gap(2),
               Text(text, style: context.text.bodyLarge?.copyWith(fontWeight: FontWeight.w500)),
             ],
@@ -307,10 +328,16 @@ class JobContacts extends ConsumerWidget {
     return PanelSection(
       title: t.call,
       children: [
-        if (other) _CallRow(key: const ValueKey('call-recipient'), role: t.callRecipient, name: r.name ?? '', phone: r.phone!),
+        if (other)
+          _CallRow(key: const ValueKey('call-recipient'), role: t.callRecipient, name: r.name ?? '', phone: r.phone!),
         if (other && holderPhone != null) const Gap(AppSpace.xs),
         if (holderPhone != null)
-          _CallRow(key: const ValueKey('call-account-holder'), role: other ? t.callAccountHolder : t.call, name: job.customerName, phone: holderPhone),
+          _CallRow(
+            key: const ValueKey('call-account-holder'),
+            role: other ? t.callAccountHolder : t.call,
+            name: job.customerName,
+            phone: holderPhone,
+          ),
         // The customer's second number, for when the main one is not answered.
         if (alt != null) AlternatePhoneCall(key: const ValueKey('call-alternative'), phone: alt),
       ],
@@ -350,7 +377,10 @@ class _CallRow extends StatelessWidget {
                       children: [
                         Text(role, style: context.text.titleSmall),
                         if (name.isNotEmpty) Text(name, style: context.text.bodyMedium),
-                        Directionality(textDirection: TextDirection.ltr, child: Text(phone, style: context.text.bodySmall?.copyWith(color: context.palette.muted))),
+                        Directionality(
+                          textDirection: TextDirection.ltr,
+                          child: Text(phone, style: context.text.bodySmall?.copyWith(color: context.palette.muted)),
+                        ),
                       ],
                     ),
                   ),
@@ -409,7 +439,10 @@ class DriverItems extends StatelessWidget {
 
   Widget _line(BuildContext context, OpsItem item, ItemFacts? f, Color muted) {
     final t = OpsStrings.of(context);
-    final detail = <String>[if (f?.weightKg != null) t.kg(f!.weightKg!), if (f != null && f.hasSize) t.size(f.length!, f.width!, f.height!)];
+    final detail = <String>[
+      if (f?.weightKg != null) t.kg(f!.weightKg!),
+      if (f != null && f.hasSize) t.size(f.length!, f.width!, f.height!),
+    ];
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -418,7 +451,8 @@ class DriverItems extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(item.name, style: context.text.bodyLarge),
-              if (item.variantName != null) Text(item.variantName!, style: context.text.bodySmall?.copyWith(color: muted)),
+              if (item.variantName != null)
+                Text(item.variantName!, style: context.text.bodySmall?.copyWith(color: muted)),
               if (detail.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 2),

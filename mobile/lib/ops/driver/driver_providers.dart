@@ -45,7 +45,12 @@ class JobNotice {
 /// What the driver's screens know about the live link and about the jobs that moved since the last read of the server.
 @immutable
 class DriverLiveState {
-  const DriverLiveState({required this.link, this.patches = const {}, this.notices = const [], this.arrived = const {}});
+  const DriverLiveState({
+    required this.link,
+    this.patches = const {},
+    this.notices = const [],
+    this.arrived = const {},
+  });
   final LiveLink link;
 
   /// The newest message about each job, by delivery id (laid over the last read by [mergeJobs]).
@@ -108,10 +113,18 @@ class DriverLive extends Notifier<DriverLiveState> {
     if (!_gate.accept(patch.deliveryId, patch.seq)) return;
     final patches = {...state.patches, patch.deliveryId: patch}
       ..removeWhere((id, p) => rows.any((j) => j.id == id && j.seq > p.seq));
+    // A job that comes back to him after he handed it back is his again: its later messages are news.
+    if (patch.assigned) _own.remove(patch.deliveryId);
     final notice = _noticeFor(patch, known: row != null);
     // A job that moved on from the road (failed, delivered, tried again) starts its next arrival from scratch.
-    final arrived = patch.status == 'out_for_delivery' || !state.arrived.containsKey(patch.deliveryId) ? null : ({...state.arrived}..remove(patch.deliveryId));
-    state = state.copyWith(patches: patches, notices: notice == null ? null : [...state.notices, notice], arrived: arrived);
+    final arrived = patch.status == 'out_for_delivery' || !state.arrived.containsKey(patch.deliveryId)
+        ? null
+        : ({...state.arrived}..remove(patch.deliveryId));
+    state = state.copyWith(
+      patches: patches,
+      notices: notice == null ? null : [...state.notices, notice],
+      arrived: arrived,
+    );
     // A job this phone has never seen (just assigned): its details come from the server, now rather than after the burst.
     if (row == null && patch.assigned) _reload(LiveResync.event);
     _sync.eventArrived();
@@ -125,12 +138,21 @@ class DriverLive extends Notifier<DriverLiveState> {
     // A cancelled job this phone had already seen as finished is old news (the list was read after the cancellation).
     if (cancelled && known && _rows().any((j) => j.id == p.deliveryId && j.status == 'cancelled')) return null;
     if (!_told.add('${p.deliveryId}:${cancelled ? 'c' : 'r'}')) return null;
-    return JobNotice(deliveryId: p.deliveryId, number: p.number, kind: cancelled ? JobNoticeKind.cancelled : JobNoticeKind.removed);
+    return JobNotice(
+      deliveryId: p.deliveryId,
+      number: p.number,
+      kind: cancelled ? JobNoticeKind.cancelled : JobNoticeKind.removed,
+    );
   }
 
   /// The driver saw the notice: it is not shown again.
   void dismissNotice(String deliveryId) {
-    state = state.copyWith(notices: [for (final n in state.notices) if (n.deliveryId != deliveryId) n]);
+    state = state.copyWith(
+      notices: [
+        for (final n in state.notices)
+          if (n.deliveryId != deliveryId) n,
+      ],
+    );
   }
 
   /// The driver handed this job back himself: it leaves his list at once and he is not told it "moved".
@@ -138,7 +160,14 @@ class DriverLive extends Notifier<DriverLiveState> {
     _own.add(deliveryId);
     final job = _rows().where((j) => j.id == deliveryId).firstOrNull;
     final seq = _gate.lastOf(deliveryId) ?? job?.seq ?? 0;
-    final patch = JobPatch(deliveryId: deliveryId, orderId: job?.orderId ?? '', number: job?.orderNumber ?? '', seq: seq, status: 'pending', assigned: false);
+    final patch = JobPatch(
+      deliveryId: deliveryId,
+      orderId: job?.orderId ?? '',
+      number: job?.orderNumber ?? '',
+      seq: seq,
+      status: 'pending',
+      assigned: false,
+    );
     state = state.copyWith(patches: {...state.patches, deliveryId: patch});
   }
 
@@ -151,11 +180,21 @@ class DriverLive extends Notifier<DriverLiveState> {
   void applyOwnStep(String deliveryId, String status) {
     final job = _rows().where((j) => j.id == deliveryId).firstOrNull;
     final seq = _gate.lastOf(deliveryId) ?? job?.seq ?? 0;
-    final patch = JobPatch(deliveryId: deliveryId, orderId: job?.orderId ?? '', number: job?.orderNumber ?? '', seq: seq, status: status, assigned: true);
+    final patch = JobPatch(
+      deliveryId: deliveryId,
+      orderId: job?.orderId ?? '',
+      number: job?.orderNumber ?? '',
+      seq: seq,
+      status: status,
+      assigned: true,
+    );
     state = state.copyWith(patches: {...state.patches, deliveryId: patch});
   }
 
-  List<DriverJob> _rows() => [...?ref.read(driverJobsProvider(false)).value, ...?ref.read(driverJobsProvider(true)).value];
+  List<DriverJob> _rows() => [
+    ...?ref.read(driverJobsProvider(false)).value,
+    ...?ref.read(driverJobsProvider(true)).value,
+  ];
 
   void _reload(LiveResync reason) {
     ref.invalidate(driverJobsProvider(false));
@@ -178,11 +217,18 @@ final driverJobsViewProvider = Provider.autoDispose.family<AsyncValue<List<Drive
     final active = history ? other : own;
     final past = history ? own : other;
     merged = own.whenData(
-      (_) => mergeJobs(active: active.value ?? const [], history: past.value ?? const [], patches: patches, wantHistory: history),
+      (_) => mergeJobs(
+        active: active.value ?? const [],
+        history: past.value ?? const [],
+        patches: patches,
+        wantHistory: history,
+      ),
     );
   }
   if (arrived.isEmpty || !merged.hasValue) return merged;
-  return merged.whenData((rows) => [for (final j in rows) arrived.containsKey(j.id) ? j.withArrived(arrived[j.id]!) : j]);
+  return merged.whenData(
+    (rows) => [for (final j in rows) arrived.containsKey(j.id) ? j.withArrived(arrived[j.id]!) : j],
+  );
 });
 
 /// The job list as a window sees it: the rows, and whether the list is up to date (so a window can tell "this job left

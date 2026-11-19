@@ -27,7 +27,14 @@ class DriverRecipient {
 /// that matter at the door. Everything is optional: a line the catalogue knows nothing about shows nothing extra.
 @immutable
 class ItemFacts {
-  const ItemFacts({this.weightKg, this.length, this.width, this.height, this.isOversized = false, this.requiresAssembly = false});
+  const ItemFacts({
+    this.weightKg,
+    this.length,
+    this.width,
+    this.height,
+    this.isOversized = false,
+    this.requiresAssembly = false,
+  });
 
   factory ItemFacts.fromJson(JsonMap j) {
     final d = asMapOrNull(j['dimensions_cm']);
@@ -205,7 +212,16 @@ class DriverCash {
 /// One line of "My day": a job of today and where it stands (`declined` for a job he handed back).
 @immutable
 class DayJob {
-  const DayJob({required this.id, required this.orderNumber, required this.status, this.customerName = '', this.area, this.zone, this.codAmount = 0, this.at});
+  const DayJob({
+    required this.id,
+    required this.orderNumber,
+    required this.status,
+    this.customerName = '',
+    this.area,
+    this.zone,
+    this.codAmount = 0,
+    this.at,
+  });
 
   factory DayJob.fromJson(JsonMap j) {
     final a = asMap(j['address']);
