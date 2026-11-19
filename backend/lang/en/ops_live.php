@@ -59,6 +59,7 @@ return [
     ],
     'detail' => ['driver' => 'Driver :name', 'campaign_stuck' => 'No progress for :time'],
     'note' => [
+        'drivers_silent' => 'No driver accepted it. The system tried :n drivers one after the other.',
         'pass_expired' => 'The pickup pass has expired. Issue a new one so the customer can collect.',
         'queue_fix' => 'Ask your developer to look at the failed jobs. Customers may be missing messages.',
     ],

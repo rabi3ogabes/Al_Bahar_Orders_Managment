@@ -47,7 +47,7 @@ return [
             'delivered' => 'Delivered. Enjoy, and thank you for shopping with Al Bahar.',
             'collected' => 'Collected. Thank you for shopping with Al Bahar.',
             'cancelled' => 'Your order was cancelled.',
-            'failed' => 'We could not deliver your order. We will contact you shortly.',
+            'failed' => 'We could not deliver your order. We will call you to arrange a new time.',
             'cancellation_requested' => 'Your cancellation request is being reviewed.',
         ],
 

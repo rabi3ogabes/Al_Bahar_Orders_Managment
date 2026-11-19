@@ -7,9 +7,11 @@ use App\Domain\Fulfillment\Models\DriverProfile;
 use App\Domain\Fulfillment\Services\DeliveryService;
 use App\Domain\Fulfillment\Services\DispatchService;
 use App\Domain\Notifications\Models\Notification;
+use App\Domain\Operations\Services\AttentionFeed;
 use App\Domain\Settings\Services\Settings;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 require_once __DIR__.'/../Orders/OpsFixtures.php';
@@ -103,6 +105,23 @@ it('stops after three drivers who did not answer: the job waits for a person and
     expect($msg->title)->toBe('No driver took order '.$d->order->number)->and($msg->body)->toContain('3 drivers');
     expect(runWatchdog()['released'])->toBe(0); // and it does not try a fourth time on its own
     expect(count($order))->toBe(4);
+});
+
+it('shows a job the system gave up on in Needs attention, saying the drivers did not answer', function () {
+    $d = autoWorld(3);
+    for ($round = 1; $round <= 3; $round++) {
+        givenMinutesAgo($d->delivery->fresh(), 6);
+        runWatchdog();
+    }
+    expect($d->delivery->fresh()->status->value)->toBe('pending');
+    DB::table('order_fulfillments')->where('id', $d->delivery->order_fulfillment_id)->update(['ready_at' => now()->subMinutes(20)]);
+    Cache::flush();
+
+    $items = app(AttentionFeed::class)->for($d->mgr)->items;
+    $line = $items->first(fn ($i) => $i->subject === $d->order->number);
+
+    expect($line)->not->toBeNull()->and($line->label)->toBe('Driver has not accepted')->and($line->note)->toBe('No driver accepted it. The system tried 3 drivers one after the other.')
+        ->and($line->action['label'])->toBe('Assign driver');
 });
 
 it('never offers the job to a driver who did not answer for it already', function () {

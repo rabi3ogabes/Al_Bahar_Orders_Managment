@@ -3,7 +3,9 @@
 namespace App\Domain\Operations\Services;
 
 use App\Domain\Branches\Models\Branch;
+use App\Domain\Fulfillment\Enums\DeliveryStatus;
 use App\Domain\Fulfillment\Models\Delivery;
+use App\Domain\Fulfillment\Services\DispatchSettings;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Identity\Support\BranchScope;
@@ -51,6 +53,9 @@ final class AttentionFeed
 
     /** Set while a list is built: the part query hit its row limit, so even the longest-waiting lines may not all be here. */
     private bool $cutOff = false;
+
+    /** @var array<string, int> deliveries the system tried drivers for without an answer (delivery id => drivers tried), set while a list is built */
+    private array $silent = [];
 
     public function __construct(private readonly OpsClock $clock, private readonly AccessControl $acl) {}
 
@@ -168,6 +173,7 @@ final class AttentionFeed
         }
 
         $this->clock->preload($rows->pluck('branch_id')->all());
+        $this->silent = $this->silentDeliveries($rows);
         $items = [];
         foreach ($rows as $f) {
             $age = $this->clock->forFulfillment($f);
@@ -197,6 +203,25 @@ final class AttentionFeed
         return $items;
     }
 
+    /**
+     * Deliveries the system handed to drivers one after the other and none of them answered in time (dispatch:watchdog gave up after its
+     * automatic tries): delivery id => how many drivers were tried. One grouped query for the whole page.
+     *
+     * @param  Collection<int, OrderFulfillment>  $rows  with their deliveries loaded
+     * @return array<string, int>
+     */
+    private function silentDeliveries(Collection $rows): array
+    {
+        $ids = $rows->flatMap(fn (OrderFulfillment $f) => $f->deliveries->where('status', DeliveryStatus::Pending)->pluck('id'))->values()->all();
+        if ($ids === []) {
+            return [];
+        }
+        $tries = app(DispatchSettings::class)->maxAutoAttempts();
+
+        return DB::table('delivery_declines')->whereIn('delivery_id', $ids)->where('reason', 'timeout')->groupBy('delivery_id')->havingRaw('count(*) >= ?', [$tries])
+            ->selectRaw('delivery_id, count(*) as n')->pluck('n', 'delivery_id')->map(fn (mixed $n) => (int) $n)->all();
+    }
+
     private function fulfillmentItem(User $user, OrderFulfillment $f, Order $order, OpsAge $age, string $category, ?Branch $branch): AttentionItem
     {
         $delivery = OpsClock::currentDelivery($f->deliveries);
@@ -207,6 +232,7 @@ final class AttentionFeed
         $note = null;
         $call = $order->customer_phone ? ['label' => __('ops_live.call_customer'), 'phone' => $order->customer_phone] : null;
         $assigned = $f->assigned_to;
+        $label = __('ops_live.cat.'.$category.'.label');
 
         switch ($category) {
             case 'driver_silent':
@@ -218,6 +244,11 @@ final class AttentionFeed
                 break;
             case 'undispatched':
                 $action = $search('to_dispatch') + ['label' => __('ops_live.action.assign_driver')];
+                // The system already tried drivers who did not answer (dispatch:watchdog): the line says so, so the manager knows why it waits.
+                if ($delivery !== null && isset($this->silent[$delivery->id])) {
+                    $label = __('ops_live.cat.driver_silent.label');
+                    $note = __('ops_live.note.drivers_silent', ['n' => $this->silent[$delivery->id]]);
+                }
                 break;
             case 'delivery_failed':
                 $reason = $delivery?->failure_reason;
@@ -237,7 +268,7 @@ final class AttentionFeed
         }
 
         return new AttentionItem(
-            id: $category.':'.$f->id, category: $category, icon: self::ICONS[$category], subject: $number, label: __('ops_live.cat.'.$category.'.label'), detail: $who,
+            id: $category.':'.$f->id, category: $category, icon: self::ICONS[$category], subject: $number, label: $label, detail: $who,
             state: $age->state, age: $age, branchId: $f->branch_id, branchCode: $branch?->code, action: $action, call: $call, assignedTo: $assigned, note: $note,
         );
     }

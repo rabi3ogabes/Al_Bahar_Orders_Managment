@@ -65,8 +65,8 @@ it('ends the card for a cancelled order and for a failed delivery, with a clear 
         ->and(lopCard($order, 'ar'))->toMatchArray(['title' => 'تم إلغاء الطلب', 'body' => 'تم إلغاء طلبك.']);
 
     $failed = lopMove(lopPlace($this->w), FS::Failed, delivery: DS::Failed, driver: driverFor($this->w->a));
-    expect(lopCard($failed))->toMatchArray(['phase' => 'failed', 'done' => '1', 'title' => 'Delivery unsuccessful', 'body' => 'We could not deliver your order. We will contact you shortly.', 'eta_from' => null])
-        ->and(lopCard($failed, 'ar')['body'])->toBe('تعذر توصيل طلبك. سنتواصل معك قريباً.');
+    expect(lopCard($failed))->toMatchArray(['phase' => 'failed', 'done' => '1', 'title' => 'Delivery unsuccessful', 'body' => 'We could not deliver your order. We will call you to arrange a new time.', 'eta_from' => null])
+        ->and(lopCard($failed, 'ar')['body'])->toBe('تعذر توصيل طلبك. سنتصل بك لترتيب موعد جديد.');
 });
 
 it('waits for payment without promising an arrival time', function () {
