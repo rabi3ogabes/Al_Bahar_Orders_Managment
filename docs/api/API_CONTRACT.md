@@ -225,7 +225,9 @@ Quote:
   "delivery_extras":[{"product_id":"uuid","name":"Corner sofa","mode":"per_unit|per_line","quantity":2,"fee_each":Money,"amount":Money,"branch_id":"uuid"}],
   "totals":{"subtotal":Money,"discount":Money,"delivery_fee":Money,"extra_delivery_fee":Money,"service_fee":Money,"cod_fee":Money,"tax":Money,"loyalty_discount":Money,"grand_total":Money},
   "discounts":[{"label":"Welcome 10%","code":"WELCOME10","amount":Money}],
-  "payment_methods":[{"code":"sadad","available":true},{"code":"cod","available":false,"reason":"exceeds_cod_limit"}],
+  "payment_methods":[{"code":"sadad","available":true,"reason":null},
+                     {"code":"cod","available":false,"reason":"outside_cod_limits","limits":{"min":Money|null,"max":Money|null}},
+                     {"code":"pay_at_pickup","available":false,"reason":"pickup_only"}],
   "loyalty":{"balance":1200,"max_redeemable_points":600,"points_to_earn":350},
   "warnings":[{"code":"price_changed","message":"…"}], "errors":[{"code":"insufficient_stock","variant_id":"…","message":"…"}],
   "can_place_order": true, "expires_at":"…" }
@@ -273,8 +275,18 @@ Order:
                    "slot":{"date","starts_at","ends_at"}|null,"delivery":{"tracking_number","status","provider","driver_name","driver_phone","eta"}|null,
                    "pickup":{"status","token_expires_at"}|null}],
   "can_cancel": false, "can_pay": false, "can_return": true, "can_review": true,
+  "return_request": {"id","number","status","status_label","requested_at","decided_at":"…"|null,"decision_note":"…"|null}|null,
   "progress": OrderProgress|null }
 ```
+Per item line: `returnable_quantity` (units that can still be asked back right now: handed over, inside the return window, not already in an open request).
+`can_return` is true only while `returnable_quantity` is above zero for some line **and** no return request is waiting on the team; `return_request` is the latest request (or null),
+and `decision_note` is the note the team typed when it approved or rejected, so show it to the customer.
+`delivery.driver_phone` is sent only while the driver has the order (delivery assigned, accepted, picked up or out for delivery), never for pickup orders and never after the delivery ended.
+
+**Why a payment method is unavailable** (`payment_methods[].reason`, `null` when available): `temporarily_unavailable` (online payment is off), `delivery_only` (cash on delivery needs a delivery order),
+`not_offered_in_area` (the branch or delivery zone does not take cash), `outside_cod_limits` (the basket is under the minimum or over the maximum for cash on delivery; `limits.min` / `limits.max` carry the numbers so
+the app can say "available up to QAR 5,000"), `pickup_only` and `not_offered_at_branch` (pay at pickup). Clients must show a plain sentence for every code and never print the raw code; when no method is available
+offer a way out (pay at the showroom, call the branch).
 Order statuses: `pending_payment, confirmed, processing, partially_fulfilled, ready_for_pickup, out_for_delivery, completed, cancellation_requested, cancelled, partially_cancelled, returned`.
 Fulfillment statuses: `pending, accepted, preparing, ready, dispatched, out_for_delivery, delivered, pickup_ready, picked_up, failed, cancelled, returned`.
 Payment statuses: `pending, processing, authorized, paid, failed, cancelled, expired, partially_refunded, refunded`.
