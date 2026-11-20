@@ -10,6 +10,7 @@ use App\Livewire\Admin\Concerns\WithAdminTable;
 use App\Livewire\Admin\Sales\Concerns\PeeksAtOrder;
 use App\Support\BusinessTime;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -138,13 +139,16 @@ class OrderIndex extends Component
      * What each order on the page is waiting for, as its worst open wait (new, being prepared, ready with no driver, driver silent, pickup, failed):
      * order id => OpsAge. Measured from rows already loaded (the part's order and deliveries are set from the page's own query): no extra query per row.
      *
-     * @param  iterable<Order>  $orders
+     * @param  iterable<Model>  $orders  the page's orders (anything else is skipped)
      * @return array<string, OpsAge>
      */
     private function waits(iterable $orders, OpsClock $clock): array
     {
         $branchIds = [];
         foreach ($orders as $o) {
+            if (! $o instanceof Order) {
+                continue;
+            }
             foreach ($o->fulfillments as $f) {
                 $branchIds[] = $f->branch_id;
             }
@@ -152,6 +156,9 @@ class OrderIndex extends Component
         $clock->preload($branchIds);
         $waits = [];
         foreach ($orders as $o) {
+            if (! $o instanceof Order) {
+                continue;
+            }
             foreach ($o->fulfillments as $f) {
                 $f->setRelation('order', $o);
                 $age = $clock->forFulfillment($f);
