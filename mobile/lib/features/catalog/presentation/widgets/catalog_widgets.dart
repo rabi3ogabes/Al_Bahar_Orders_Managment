@@ -7,6 +7,9 @@ import 'package:albahar_customer/core/widgets/app_button.dart';
 import 'package:albahar_customer/core/widgets/product_card.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
+import 'package:albahar_customer/features/alerts/domain/alert_models.dart';
+import 'package:albahar_customer/features/alerts/presentation/alert_actions.dart';
+import 'package:albahar_customer/features/alerts/presentation/state/alerts_controller.dart';
 import 'package:albahar_customer/features/auth/presentation/require_auth.dart';
 import 'package:albahar_customer/features/branches/presentation/branches_screen.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
@@ -56,11 +59,31 @@ class WishlistHeart extends ConsumerWidget {
         try {
           final nowSaved = await ref.read(wishlistControllerProvider.notifier).toggle(product, variantId: variantId);
           if (nowSaved) Haptics.success();
-          if (context.mounted) showInfoSnack(context, nowSaved ? l10n.addedToWishlist : l10n.removedFromWishlist);
+          if (context.mounted) {
+            showInfoSnack(
+              context,
+              nowSaved ? l10n.addedToWishlist : l10n.removedFromWishlist,
+              action: nowSaved ? _priceAlertOffer(context, ref) : null,
+            );
+          }
         } catch (e) {
           if (context.mounted) showErrorSnack(context, e);
         }
       },
+    );
+  }
+}
+
+extension on WishlistHeart {
+  /// "Tell me if the price drops" next to the "Added to wishlist" message: only for a product that can be bought, when the owner has price alerts
+  /// on and the customer does not already watch this variant.
+  SnackBarAction? _priceAlertOffer(BuildContext context, WidgetRef ref) {
+    final id = variantId;
+    if (id == null || !product.inStock || !(ref.read(alertsConfigProvider).value?.priceDrop ?? false)) return null;
+    if (ref.read(alertsControllerProvider.notifier).find(id, AlertType.priceDrop) != null) return null;
+    return SnackBarAction(
+      label: context.l10n.alertPriceToggle,
+      onPressed: () => unawaited(toggleAlert(context, ref, variantId: id, type: AlertType.priceDrop)),
     );
   }
 }

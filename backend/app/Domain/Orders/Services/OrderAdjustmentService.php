@@ -7,6 +7,7 @@ use App\Domain\Catalog\Contracts\ProductSearch;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Catalog\Models\ProductVariant;
 use App\Domain\Checkout\Services\ExtraDeliveryFee;
+use App\Domain\Checkout\Support\Assembly;
 use App\Domain\Deals\Services\DealService;
 use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Fulfillment\Services\DeliveryService;
@@ -80,6 +81,7 @@ class OrderAdjustmentService
         private readonly LoyaltyService $loyalty,
         private readonly InvoiceService $invoices,
         private readonly OrderPresenter $presenter,
+        private readonly SubstitutionService $substitutions,
     ) {}
 
     // ─── Staff reads ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -99,6 +101,8 @@ class OrderAdjustmentService
                 'order_item_id' => $i->id, 'product_id' => $i->product_id, 'variant_id' => $i->product_variant_id, 'sku' => $i->sku,
                 'name' => $i->name(), 'variant_name' => $i->variantName(), 'image_url' => $this->presenter->imageUrl($i->image_path),
                 'quantity' => $i->quantity, 'unit_price' => Money::of($i->unit_final_price)->jsonSerialize(), 'line_total' => Money::of($i->line_total)->jsonSerialize(),
+                // Assembly the customer paid for on this line (null = none): the branch sees it before it takes units away, the fee goes with them.
+                'assembly' => Assembly::placedFee($i) !== null ? ['fee_each' => Assembly::placedFee($i)->jsonSerialize(), 'amount' => Money::of((string) $i->assembly_total)->jsonSerialize()] : null,
                 'adjustment' => $i->adjustment_kind ? ['kind' => $i->adjustment_kind, 'original_quantity' => $i->original_quantity ?? $i->quantity, 'reason_code' => $i->adjustment_reason] : null,
             ])->values()->all(),
             'totals' => ['grand_total' => Money::of($order->grand_total)->jsonSerialize(), 'payment_method' => $order->payment_method, 'payment_status' => $order->payment_status->value],
@@ -176,11 +180,28 @@ class OrderAdjustmentService
         return DB::transaction(fn () => $this->apply($fulfillment->id, $actor, $changes, $reasonCode, $note, $hash), 3);
     }
 
+    /**
+     * The system takes a replacement back out of the order: the customer said no, or the time to answer ran out (SubstitutionService). The same plan and
+     * the same apply as a branch's own removal, so stock, the refund asked for what was paid, the invoice revision and the customer's message all follow the
+     * normal rules. No staff member is behind it ($actor is the customer who said no, or null for the clock), and there is no replay window.
+     *
+     * @param  string  $reasonCode  one of {@see OrderRevision::SYSTEM_REASONS}
+     * @return array<string, mixed>
+     */
+    public function removeSubstitute(OrderItem $replacement, string $reasonCode, string $note, ?User $actor = null): array
+    {
+        abort_unless(in_array($reasonCode, OrderRevision::SYSTEM_REASONS, true), 500);
+        $changes = [['order_item_id' => $replacement->id, 'action' => 'remove']];
+        $hash = $this->requestHash($replacement->order_fulfillment_id, $changes, $reasonCode, $note);
+
+        return DB::transaction(fn () => $this->apply($replacement->order_fulfillment_id, $actor, $changes, $reasonCode, $note, $hash), 3);
+    }
+
     /** @return array<string, mixed> */
-    private function apply(string $fulfillmentId, User $actor, array $changes, string $reasonCode, ?string $note, string $hash): array
+    private function apply(string $fulfillmentId, ?User $actor, array $changes, string $reasonCode, ?string $note, string $hash): array
     {
         // The same request again, soon after it was applied (the app never saw the answer): the answer it already earned, nothing written, nobody told twice.
-        if (($replay = $this->replayOf($fulfillmentId, $actor, $hash)) !== null) {
+        if ($actor !== null && ($replay = $this->replayOf($fulfillmentId, $actor, $hash)) !== null) {
             return $replay;
         }
         app(DealService::class)->lockForFulfillment($fulfillmentId); // deal rows before the stock rows plan() locks, the same order checkout uses
@@ -192,6 +213,9 @@ class OrderAdjustmentService
         $revisionId = (new OrderRevision)->newUniqueId();
         $number = $plan['number'];
         $after = $plan['after'];
+
+        // A replacement the customer was asked about that the branch now changes again no longer describes the order: its question is closed.
+        $this->substitutions->closeForChanged(array_map(fn (array $c) => $c['item']->id, $plan['changes']));
 
         // 1. The lines. Substitutes are created first (they need an id to be reserved under), then each original line.
         $newItems = [];
@@ -207,7 +231,8 @@ class OrderAdjustmentService
             $stock[$item->id] = $this->releaseStock($item, $c['removed'], $c['to'] > 0, $reasonCode, $revisionId, $actor);
             $item->forceFill([
                 'quantity' => $c['to'], 'line_subtotal' => $c['new']['subtotal']->toDecimal(), 'discount_amount' => $c['new']['discount']->toDecimal(),
-                'tax_amount' => $c['new']['tax']->toDecimal(), 'line_total' => $c['new']['total']->toDecimal(), 'original_quantity' => $item->original_quantity ?? $item->quantity,
+                'tax_amount' => $c['new']['tax']->toDecimal(), 'line_total' => $c['new']['total']->toDecimal(), 'assembly_total' => $c['assembly']['new']->toDecimal(),
+                'original_quantity' => $item->original_quantity ?? $item->quantity,
                 'adjustment_kind' => $c['action'] === 'reduce' ? ($item->adjustment_kind === 'replacement' ? 'replacement' : 'reduced') : ($c['action'] === 'replace' ? 'replaced' : 'removed'),
                 'adjustment_reason' => $reasonCode,
             ])->save();
@@ -254,7 +279,7 @@ class OrderAdjustmentService
 
         // 4. The audit row: append-only, so it is written once everything it points at (the refund) exists.
         $revision = new OrderRevision([
-            'order_id' => $order->id, 'order_fulfillment_id' => $f->id, 'branch_id' => $f->branch_id, 'number' => $number, 'actor_id' => $actor->id,
+            'order_id' => $order->id, 'order_fulfillment_id' => $f->id, 'branch_id' => $f->branch_id, 'number' => $number, 'actor_id' => $actor?->id,
             'reason_code' => $reasonCode, 'note' => $note, 'before' => $this->totalsArray($plan['before']), 'after' => $this->totalsArray($plan['after_totals']),
             'difference' => $plan['difference']->toDecimal(), 'refund_id' => $refundId, 'refund_amount' => $refundAmount?->toDecimal(), 'request_hash' => $hash,
             'loyalty_points_returned' => $plan['loyalty_returned'], 'fulfillment_cancelled' => $plan['fulfillment_empty'], 'order_cancelled' => $plan['order_cancelled'],
@@ -280,10 +305,15 @@ class OrderAdjustmentService
             'order_cancelled' => $plan['order_cancelled'], 'lines' => $revision->lines->map(fn (OrderRevisionLine $l) => $l->only(['action', 'sku', 'from_quantity', 'to_quantity', 'stock_corrected']))->all(),
         ], branchId: $f->branch_id, actor: $actor);
 
+        // 4b. Substitution consent: a replacement that is another product, or dearer than what was ordered, is put to the customer (see SubstitutionService).
+        $offers = $this->substitutions->open($order, $f, $revision, $plan['changes'], $newItems, $actor);
+
         // 5. A new invoice revision when one was issued already, the live screens, and the customer's notification.
         $invoice = $plan['order_cancelled'] ? null : $this->invoices->reviseIfIssued($order);
         app(OrderRealtime::class)->fulfillmentChanged($f->fresh());
-        $notified = $this->notifyCustomer($order->fresh(), $revision, $refundAmount, $plan['order_cancelled'], $after['grand_total']);
+        // A question to the customer carries the change itself, so it replaces the plain "your order was updated" (unless that question message is switched off).
+        $notified = ($offers !== [] && $this->substitutions->notifyOffers($order->fresh(), $offers))
+            || $this->notifyCustomer($order->fresh(), $revision, $refundAmount, $plan['order_cancelled'], $after['grand_total']);
 
         $plan['refund'] = $refundAmount ? ['amount' => $refundAmount, 'needs_approval' => true] : null;
 
@@ -346,7 +376,7 @@ class OrderAdjustmentService
             'before' => $totals($revision->before), 'after' => $totals($revision->after), 'difference' => $m($revision->difference),
             'refund' => $revision->refund_amount !== null ? ['amount' => $m($revision->refund_amount), 'needs_approval' => true] : null,
             'fulfillment_cancelled' => $revision->fulfillment_cancelled, 'order_cancelled' => $revision->order_cancelled,
-            'customer_notified' => $order->user_id !== null && Notification::where('user_id', $order->user_id)->where('event', 'order.items_changed')
+            'customer_notified' => $order->user_id !== null && Notification::where('user_id', $order->user_id)->whereIn('event', ['order.items_changed', 'order.substitution_offer'])
                 ->where('data->reference', $order->id)->where('created_at', '>=', $revision->created_at)->exists(),
             'invoice_revision' => OrderInvoice::where('order_id', $order->id)->where('revision', '>', 1)->where('issued_at', '>=', $revision->created_at)->min('revision'),
             'loyalty_points_returned' => $revision->loyalty_points_returned,
@@ -370,7 +400,7 @@ class OrderAdjustmentService
      *
      * @return array<string, mixed>
      */
-    private function plan(string $fulfillmentId, User $actor, array $changes, string $reasonCode, bool $lock): array
+    private function plan(string $fulfillmentId, ?User $actor, array $changes, string $reasonCode, bool $lock): array
     {
         $locked = fn ($query) => $lock ? $query->lockForUpdate() : $query;
         /** @var OrderFulfillment $f */
@@ -391,7 +421,7 @@ class OrderAdjustmentService
         $number = $order->adjustment_count + 1;
 
         // Money per line.
-        $dSubtotal = $dDiscount = $dTax = $zero;
+        $dSubtotal = $dDiscount = $dTax = $dAssembly = $zero;
         $liveAfter = $parcel->where('quantity', '>', 0)->sum('quantity');
         foreach ($resolved as &$c) {
             /** @var OrderItem $item */
@@ -403,6 +433,9 @@ class OrderAdjustmentService
             $dSubtotal = $dSubtotal->plus($c['new']['subtotal'])->minus($c['old']['subtotal']);
             $dDiscount = $dDiscount->plus($c['new']['discount'])->minus($c['old']['discount']);
             $dTax = $dTax->plus($c['new']['tax'])->minus($c['old']['tax']);
+            // Assembly follows the units: what the line owes for it after this change (a substitute carries none), never more than before.
+            $c['assembly'] = ['old' => Money::of((string) $item->assembly_total, $cur), 'new' => Assembly::lineTotal(Assembly::placedFee($item), $c['to'])->min(Money::of((string) $item->assembly_total, $cur))];
+            $dAssembly = $dAssembly->plus($c['assembly']['new'])->minus($c['assembly']['old']);
             $liveAfter -= $c['removed'];
             if ($c['sub'] !== null) {
                 $price = $c['sub']['price'];
@@ -420,7 +453,7 @@ class OrderAdjustmentService
         $others = OrderFulfillment::where('order_id', $order->id)->where('id', '!=', $f->id)->get(['id', 'status']);
         $orderCancelled = $fulfillmentEmpty && $others->every(fn (OrderFulfillment $o) => $o->status === FS::Cancelled);
         // Taking away the last item cancels the parcel (and, when it was the last parcel, the order): a manager's decision, like every other cancellation.
-        if ($fulfillmentEmpty && ! $this->access->allows($actor, 'orders.approve', $f->branch_id)) {
+        if ($fulfillmentEmpty && $actor !== null && ! $this->access->allows($actor, 'orders.approve', $f->branch_id)) {
             throw OpsError::make('approval_required', 403);
         }
 
@@ -433,11 +466,13 @@ class OrderAdjustmentService
             'subtotal' => Money::of($order->subtotal, $cur), 'item_discount' => Money::of($order->discount_total, $cur)->minus($deliveryDiscount)->max($zero),
             'delivery_fee' => Money::of($order->delivery_fee_total, $cur), 'delivery_discount' => $deliveryDiscount, 'service_fee' => $serviceTotal->minus($cod),
             'cod_fee' => $cod, 'tax' => Money::of($order->tax_total, $cur), 'loyalty' => Money::of($order->loyalty_discount, $cur),
+            'assembly' => Money::of((string) $order->assembly_fee_total, $cur),
         ];
         $afterParts = $beforeParts;
         $afterParts['subtotal'] = $beforeParts['subtotal']->plus($dSubtotal)->max($zero);
         $afterParts['item_discount'] = $beforeParts['item_discount']->plus($dDiscount)->max($zero);
         $afterParts['tax'] = $beforeParts['tax']->plus($dTax)->max($zero);
+        $afterParts['assembly'] = $beforeParts['assembly']->plus($dAssembly)->max($zero)->min($beforeParts['assembly']);
         // The extra delivery fee of a bulky product goes with the product: units that are gone are not charged for delivery (per unit), a product that is
         // gone entirely is not charged at all (once per product). A product that stays costs exactly what it did: this never raises a fee.
         $extra = $this->extraDeliveryAfter($order, $f, $parcel, $resolved, $zero);
@@ -450,7 +485,7 @@ class OrderAdjustmentService
             $afterParts['delivery_discount'] = $beforeParts['delivery_discount']->min($afterParts['delivery_fee']); // a free-delivery coupon waived all of it: it waives what is left
         }
         $payableBeforePoints = $afterParts['subtotal']->minus($afterParts['item_discount'])->plus($afterParts['delivery_fee'])->minus($afterParts['delivery_discount'])
-            ->plus($afterParts['service_fee'])->plus($afterParts['tax']);
+            ->plus($afterParts['service_fee'])->plus($afterParts['tax'])->plus($afterParts['assembly']);
         $fit = $order->user_id ? AdjustmentMath::loyaltyThatFits((int) $order->loyalty_points_redeemed, $beforeParts['loyalty'], $payableBeforePoints) : ['points' => (int) $order->loyalty_points_redeemed, 'discount' => $beforeParts['loyalty'], 'returned' => 0];
         $afterParts['loyalty'] = $fit['discount'];
 
@@ -479,7 +514,7 @@ class OrderAdjustmentService
             'fulfillment' => $f, 'order' => $order, 'number' => $number, 'changes' => $resolved, 'reason_code' => $reasonCode,
             'before' => $totalsBefore, 'after_totals' => $totalsAfter, 'difference' => $grandAfter->minus($grandBefore),
             'after' => ['item_discount' => $afterParts['item_discount'], 'delivery_discount' => $afterParts['delivery_discount'], 'delivery_fee' => $afterParts['delivery_fee'],
-                'grand_total' => $grandAfter, 'subtotal' => $afterParts['subtotal'], 'tax' => $afterParts['tax'], 'loyalty' => $afterParts['loyalty']],
+                'grand_total' => $grandAfter, 'subtotal' => $afterParts['subtotal'], 'tax' => $afterParts['tax'], 'loyalty' => $afterParts['loyalty'], 'assembly' => $afterParts['assembly']],
             'loyalty_points' => $fit['points'], 'loyalty_returned' => $fit['returned'], 'extra' => $extra,
             'fulfillment_empty' => $fulfillmentEmpty, 'order_cancelled' => $orderCancelled, 'payment' => $payment, 'refund' => $refund,
             'parcel' => $parcel, 'rest' => $rest,
@@ -641,11 +676,11 @@ class OrderAdjustmentService
         ]);
     }
 
-    private function reserveSubstitute(OrderItem $new, User $actor): void
+    private function reserveSubstitute(OrderItem $new, ?User $actor): void
     {
         try {
             $this->reservations->reserve([['branch_id' => $new->branch_id, 'variant_id' => $new->product_variant_id, 'quantity' => $new->quantity,
-                'reference_type' => 'order_item', 'reference_id' => $new->id]], null, $actor->id);
+                'reference_type' => 'order_item', 'reference_id' => $new->id]], null, $actor?->id);
         } catch (InsufficientStock) {
             throw DomainException::make('substitute_unavailable', 422); // another sale took the last unit between the check and the reservation
         }
@@ -657,12 +692,12 @@ class OrderAdjustmentService
      *
      * @return int units taken off the on-hand count
      */
-    private function releaseStock(OrderItem $item, int $units, bool $keepsLine, string $reasonCode, string $revisionId, User $actor): int
+    private function releaseStock(OrderItem $item, int $units, bool $keepsLine, string $reasonCode, string $revisionId, ?User $actor): int
     {
         $reservation = $this->reservations->forReference('order_item', $item->id);
         $variantId = $reservation?->product_variant_id ?? $item->product_variant_id;
         if ($reservation !== null && $reservation->status === 'active') {
-            $keepsLine ? $this->reservations->reduce($reservation, $units, 'order_adjustment', $actor->id) : $this->reservations->release($reservation, 'order_adjustment', actorId: $actor->id);
+            $keepsLine ? $this->reservations->reduce($reservation, $units, 'order_adjustment', $actor?->id) : $this->reservations->release($reservation, 'order_adjustment', actorId: $actor?->id);
         }
         if (! in_array($reasonCode, OrderRevision::STOCK_CORRECTING_REASONS, true) || $variantId === null) {
             return 0;
@@ -671,7 +706,7 @@ class OrderAdjustmentService
         // Never below what other orders have reserved: the count cannot drop under it.
         $take = min($units, max(0, ($row?->on_hand ?? 0) - ($row?->reserved ?? 0)));
         if ($take > 0) {
-            $this->ledger->apply($item->branch_id, $variantId, MovementType::Correction, -$take, 0, 'order_revision', $revisionId, 'Order adjustment: '.$reasonCode, $actor->id);
+            $this->ledger->apply($item->branch_id, $variantId, MovementType::Correction, -$take, 0, 'order_revision', $revisionId, 'Order adjustment: '.$reasonCode, $actor?->id);
         }
 
         return $take;
@@ -708,7 +743,8 @@ class OrderAdjustmentService
         $f->forceFill(['subtotal' => $liveSubtotal->toDecimal()])->save();
         $order->forceFill([
             'subtotal' => $totals['subtotal']->toDecimal(), 'discount_total' => $totals['discount_total']->toDecimal(), 'tax_total' => $totals['tax_total']->toDecimal(),
-            'delivery_fee_total' => $after['delivery_fee']->toDecimal(), 'loyalty_discount' => $totals['loyalty_discount']->toDecimal(), 'loyalty_points_redeemed' => $plan['loyalty_points'],
+            'delivery_fee_total' => $after['delivery_fee']->toDecimal(), 'assembly_fee_total' => $after['assembly']->toDecimal(),
+            'loyalty_discount' => $totals['loyalty_discount']->toDecimal(), 'loyalty_points_redeemed' => $plan['loyalty_points'],
             'grand_total' => $totals['grand_total']->toDecimal(), 'fee_breakdown' => $fee, 'tax_snapshot' => $tax, 'adjustment_count' => $number,
         ])->save();
     }
@@ -748,7 +784,7 @@ class OrderAdjustmentService
     }
 
     /** Every unit of the parcel is gone: the branch's part is cancelled (stock and slot released, status derived again), its open delivery with it. */
-    private function cancelEmptyFulfillment(OrderFulfillment $f, User $actor, int $number): void
+    private function cancelEmptyFulfillment(OrderFulfillment $f, ?User $actor, int $number): void
     {
         app(DeliveryService::class)->cancelForFulfillment($f, $actor, 'order_adjustment'); // the open delivery goes with the parcel, its driver is told
         $this->orders->transition($f->fresh(), FS::Cancelled, $actor, 'order_adjustment', ['revision' => $number], system: true, moneySettled: true); // its money was settled above

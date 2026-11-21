@@ -6,6 +6,7 @@ use App\Domain\Operations\Services\OpsClock;
 use App\Domain\Operations\Support\OpsAge;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderFulfillment;
+use App\Domain\Orders\Models\SubstitutionRequest;
 use App\Livewire\Admin\Concerns\WithAdminTable;
 use App\Livewire\Admin\Sales\Concerns\PeeksAtOrder;
 use App\Support\BusinessTime;
@@ -205,6 +206,9 @@ class OrderIndex extends Component
         return view('livewire.admin.sales.orders', [
             'orders' => $orders,
             'waits' => $this->waits($orders->getCollection(), $clock),
+            // Orders with a replacement question the customer has not answered yet: order id => when their time runs out.
+            'customerWaits' => SubstitutionRequest::where('status', SubstitutionRequest::WAITING)->whereIn('order_id', $orders->getCollection()->pluck('id'))
+                ->groupBy('order_id')->selectRaw('order_id, min(deadline_at) as deadline')->pluck('deadline', 'order_id'),
             'counts' => $counts,
             'quickCounts' => $quickCounts,
             'branches' => $this->scopedBranches('orders.view'),

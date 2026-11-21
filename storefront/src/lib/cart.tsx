@@ -4,7 +4,8 @@ import { del, get, patch, post, ApiError } from './api';
 import { useAuth } from './auth';
 import { useI18n } from './i18n';
 import { useToast } from './toast';
-import { MAX_QTY, addGuestRow, cartAdd, cartSetQty, lineTotal, removeGuestRow, setGuestQty, sumMoney, type GuestRow } from './cartMath';
+import { MAX_QTY, addGuestRow, cartAdd, cartSetAssembly, cartSetQty, guestAssemblyTotal, lineTotal, removeGuestRow, setGuestAssembly, setGuestQty, sumMoney, type GuestRow } from './cartMath';
+import { parseMoney } from './deliveryFee';
 import { money } from './format';
 import type { Cart, Money, Price, ProductCard, Variant } from './types';
 import type { DealBlock } from './deals';
@@ -15,19 +16,26 @@ export interface Line {
   brand: string | null; unit: Money; total: Money; qty: number; max: number; available: boolean; issue: string | null; priceChanged: boolean
   /** The product's countdown offer (docs/api/DEALS.md), from the server cart; the server prices it at checkout. Null for a guest's browser cart. */
   deal?: DealBlock | null
+  /** Assembly and installation: null when the product offers none; `amount` is what the line adds while ticked. */
+  assembly?: { fee: Money; selected: boolean; amount: Money | null } | null
 }
 
 const GUEST = 'albahar.guest_cart';
 const readGuest = (): GuestRow[] => { try { return JSON.parse(localStorage.getItem(GUEST) || '[]'); } catch { return []; } };
 const writeGuest = (r: GuestRow[]) => { try { localStorage.setItem(GUEST, JSON.stringify(r)); } catch { /* ignore */ } };
 
-type Product = Pick<ProductCard, 'id' | 'slug' | 'name' | 'brand'> & { image?: string | null };
+type Product = Pick<ProductCard, 'id' | 'slug' | 'name' | 'brand'> & { image?: string | null; assembly_fee?: ProductCard['assembly_fee'] };
 const priceOf = (unit: Money): Price => ({ regular: unit, sale: null, final: unit, discount_percent: 0, sale_ends_at: null, source: 'cart' });
 
 interface Ctx {
   lines: Line[]; count: number; subtotal: Money; loading: boolean; cart: Cart | null
-  /** Adds to the cart and (unless `open: false`) opens the cart panel. Updates the badge and the panel at once; the server answers later and a failure rolls back with a toast. */
-  add: (product: Product, variant: Variant, qty?: number, opts?: { open?: boolean }) => Promise<void>
+  /** What the lines that chose assembly add on delivery; null when none did. The subtotal stays goods only. */
+  assemblyTotal: Money | null
+  /** Adds to the cart and (unless `open: false`) opens the cart panel. Updates the badge and the panel at once; the server answers later and a failure rolls back with a toast.
+   * `assembly: true` also adds assembly and installation for the line (only when the product offers it). */
+  add: (product: Product, variant: Variant, qty?: number, opts?: { open?: boolean; assembly?: boolean }) => Promise<void>
+  /** Ticks or unticks "Add assembly" on a line. */
+  setAssembly: (line: Line, on: boolean) => Promise<void>
   /** One tap from a card or a rail: the product's single variant (or `variantId`), `qty` pieces. */
   quickAdd: (p: ProductCard, qty?: number, variantId?: string | null) => Promise<void>
   setQty: (line: Line, qty: number) => Promise<void>
@@ -74,7 +82,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const rows = guest;
     commitGuest([]);
     (async () => {
-      for (const r of rows) { try { await post('/cart/items', { variant_id: r.variant_id, quantity: r.qty }); } catch { /* unavailable item: skip */ } }
+      for (const r of rows) { try { await post('/cart/items', { variant_id: r.variant_id, quantity: r.qty, ...(r.assembly ? { assembly: true } : {}) }); } catch { /* unavailable item: skip */ } }
       await qc.invalidateQueries({ queryKey: ['cart'] });
     })();
   }, [user, guest, qc, commitGuest]);
@@ -111,15 +119,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
         key: i.variant_id, variantId: i.variant_id, productId: i.product.id, slug: i.product.slug, name: i.product.name, variantName: i.variant_name,
         image: i.product.image?.thumb_url ?? null, brand: i.product.brand?.name ?? null, unit: i.unit_price.final, total: i.line_total, qty: i.quantity,
         max: Math.min(MAX_QTY, i.available_quantity || MAX_QTY), available: i.available, issue: i.issue, priceChanged: i.price_changed, deal: i.deal ?? i.product.deal ?? null,
+        assembly: i.assembly ? { fee: i.assembly.fee_each, selected: i.assembly.selected, amount: i.assembly.amount } : null,
       }));
     }
     return guest.map((g) => ({
       key: g.variant_id, variantId: g.variant_id, productId: g.product_id, slug: g.slug, name: g.name, variantName: g.variant_name, image: g.image, brand: g.brand,
       unit: g.unit, total: lineTotal(g.unit, g.qty, fmt), qty: g.qty, max: MAX_QTY, available: true, issue: null, priceChanged: false,
+      assembly: g.assembly_fee ? { fee: g.assembly_fee, selected: !!g.assembly, amount: g.assembly ? lineTotal(g.assembly_fee, g.qty, fmt) : null } : null,
     }));
   }, [user, server.data, guest, fmt]);
 
   const count = lines.reduce((n, l) => n + l.qty, 0);
+  // What assembly adds (the server's figure for a signed-in cart; worked out from the rows in a guest's browser). Zero is "none".
+  const assemblyTotal = useMemo<Money | null>(() => {
+    const m = user && server.data ? server.data.assembly_total ?? null : guestAssemblyTotal(guest, fmt);
+    return m && parseFloat(m.amount) > 0 ? m : null;
+  }, [user, server.data, guest, fmt]);
   const subtotal = useMemo<Money>(() => {
     if (user && server.data) return server.data.subtotal;
     return sumMoney(lines.map((l) => l.total), lines[0]?.unit.currency ?? 'QAR', fmt);
@@ -127,13 +142,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const shown = (variantId: string) => { setLastAdded(variantId); };
 
-  const addLine = async (product: Product, variantId: string, variantName: string | null, price: Price, qty: number, image: string | null, open: boolean) => {
+  // What assembly the product offers (its fee per unit, as the card or page showed it), and whether the customer ticked it with this add.
+  const assemblyAsk = (product: Product, ticked: boolean) => {
+    const fee = parseMoney(product.assembly_fee, 'QAR', fmt);
+    return fee && parseFloat(fee.amount) > 0 ? { fee, selected: ticked } : null;
+  };
+
+  const addLine = async (product: Product, variantId: string, variantName: string | null, price: Price, qty: number, image: string | null, open: boolean, assembly = false) => {
     keepFocus();
+    const asm = assemblyAsk(product, assembly);
     if (user) {
-      write((c) => cartAdd(c, { variantId, qty, variantName, price, product: { ...product, image } }, fmt),
-        async () => (await post<{ data: Cart }>('/cart/items', { variant_id: variantId, quantity: qty })).data).catch(fail);
+      write((c) => cartAdd(c, { variantId, qty, variantName, price, assembly: asm, product: { ...product, image } }, fmt),
+        async () => (await post<{ data: Cart }>('/cart/items', { variant_id: variantId, quantity: qty, ...(asm?.selected ? { assembly: true } : {}) })).data).catch(fail);
     } else {
-      commitGuest(addGuestRow(guestRef.current, { variant_id: variantId, qty, product_id: product.id, slug: product.slug, name: product.name, variant_name: variantName, image, brand: product.brand?.name ?? null, unit: price.final }, qty));
+      const row: GuestRow = { variant_id: variantId, qty, product_id: product.id, slug: product.slug, name: product.name, variant_name: variantName, image, brand: product.brand?.name ?? null, unit: price.final,
+        assembly_fee: asm?.fee ?? null, assembly: !!asm?.selected };
+      // The same variant added again keeps its earlier choice; ticking it now turns it on.
+      const kept = guestRef.current.find((r) => r.variant_id === variantId);
+      commitGuest(addGuestRow(guestRef.current, { ...row, assembly: !!(asm?.selected || kept?.assembly), assembly_fee: asm?.fee ?? kept?.assembly_fee ?? null }, qty));
     }
     shown(variantId);
     if (open) setDrawer(true);
@@ -145,17 +171,29 @@ export function CartProvider({ children }: { children: ReactNode }) {
     reveal: () => setDrawer(true),
     closeDrawer: () => setDrawer(false),
     flush: async () => { await chain.current; },
-    add: (product, variant, qty = 1, opts) => addLine(product, variant.id, variant.name || null, variant.price, qty, product.image ?? variant.image_url, opts?.open !== false),
-    quickAdd: (p, qty = 1, variantId) => { const v = variantId ?? p.variant_id; return v ? addLine({ id: p.id, slug: p.slug, name: p.name, brand: p.brand }, v, null, p.price, qty, p.image?.thumb_url ?? null, true) : Promise.resolve(); },
+    assemblyTotal,
+    add: (product, variant, qty = 1, opts) => addLine(product, variant.id, variant.name || null, variant.price, qty, product.image ?? variant.image_url, opts?.open !== false, !!opts?.assembly),
+    quickAdd: (p, qty = 1, variantId) => { const v = variantId ?? p.variant_id; return v ? addLine({ id: p.id, slug: p.slug, name: p.name, brand: p.brand, assembly_fee: p.assembly_fee }, v, null, p.price, qty, p.image?.thumb_url ?? null, true) : Promise.resolve(); },
+    // Undo of a removal: the same line comes back with its quantity and its assembly choice.
     restore: async (line) => {
       const price = priceOf(line.unit);
+      const asm = line.assembly ? { fee: line.assembly.fee, selected: line.assembly.selected } : null;
       if (user) {
-        write((c) => cartAdd(c, { variantId: line.variantId, qty: line.qty, variantName: line.variantName, price, product: { id: line.productId, slug: line.slug, name: line.name, brand: line.brand ? { id: '', name: line.brand } : null, image: line.image } }, fmt),
-          async () => (await post<{ data: Cart }>('/cart/items', { variant_id: line.variantId, quantity: line.qty })).data).catch(fail);
+        write((c) => cartAdd(c, { variantId: line.variantId, qty: line.qty, variantName: line.variantName, price, assembly: asm, product: { id: line.productId, slug: line.slug, name: line.name, brand: line.brand ? { id: '', name: line.brand } : null, image: line.image } }, fmt),
+          async () => (await post<{ data: Cart }>('/cart/items', { variant_id: line.variantId, quantity: line.qty, ...(asm?.selected ? { assembly: true } : {}) })).data).catch(fail);
       } else {
-        commitGuest(addGuestRow(guestRef.current, { variant_id: line.variantId, qty: line.qty, product_id: line.productId, slug: line.slug, name: line.name, variant_name: line.variantName, image: line.image, brand: line.brand, unit: line.unit }, line.qty));
+        commitGuest(addGuestRow(guestRef.current, { variant_id: line.variantId, qty: line.qty, product_id: line.productId, slug: line.slug, name: line.name, variant_name: line.variantName, image: line.image, brand: line.brand, unit: line.unit,
+          assembly_fee: asm?.fee ?? null, assembly: !!asm?.selected }, line.qty));
       }
       shown(line.variantId);
+    },
+    setAssembly: async (line, on) => {
+      if (user) {
+        write((c) => cartSetAssembly(c, line.variantId, on, fmt), async () => {
+          const id = ids.current.get(line.variantId);
+          return id ? (await patch<{ data: Cart }>(`/cart/items/${id}`, { assembly: on })).data : null;
+        }).catch(fail);
+      } else commitGuest(setGuestAssembly(guestRef.current, line.variantId, on));
     },
     setQty: async (line, qty) => {
       if (user) {

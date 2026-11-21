@@ -659,6 +659,88 @@ class AppLocalizationsEn extends AppLocalizations {
   String get alertCreated => 'We’ll let you know.';
 
   @override
+  String get alertsTitle => 'My alerts';
+
+  @override
+  String get alertBackInStock => 'Back in stock';
+
+  @override
+  String get alertPriceDrop => 'Price drop';
+
+  @override
+  String get alertWaitingStock => 'We’ll tell you when it’s back';
+
+  @override
+  String get alertAvailableNow => 'Available now';
+
+  @override
+  String get alertWatching => 'Watching the price';
+
+  @override
+  String get alertSoldOut => 'Out of stock right now';
+
+  @override
+  String alertSince(String date) {
+    return 'Since $date';
+  }
+
+  @override
+  String alertWas(String price) {
+    return 'Was $price';
+  }
+
+  @override
+  String alertNow(String price) {
+    return 'Now $price';
+  }
+
+  @override
+  String alertDropped(int percent) {
+    return '$percent% lower';
+  }
+
+  @override
+  String get alertRemove => 'Remove alert';
+
+  @override
+  String get alertRemoved => 'Alert removed';
+
+  @override
+  String get alertsEmptyTitle => 'No alerts yet';
+
+  @override
+  String get alertsEmptyMessage =>
+      'Tap the bell on a product that is out of stock, or choose “Tell me if the price drops” on one you like. It will wait for you here.';
+
+  @override
+  String get alertsBrowse => 'Browse products';
+
+  @override
+  String get alertNotifyOn => 'We’ll tell you when it’s back. Tap to cancel.';
+
+  @override
+  String get alertPriceToggle => 'Tell me if the price drops';
+
+  @override
+  String get alertPriceOn => 'We’ll tell you if the price drops. Tap to stop.';
+
+  @override
+  String get alertPriceCreated => 'Got it. We’ll tell you if the price drops.';
+
+  @override
+  String get alertPriceNeedsConsent =>
+      'Price alerts arrive as offers and news. Turn that on in your notification settings to receive them.';
+
+  @override
+  String get roomsTitle => 'Shop by room';
+
+  @override
+  String roomProductsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count products', one: '1 product');
+    return '$_temp0';
+  }
+
+  @override
   String get addToWishlist => 'Add to wishlist';
 
   @override
@@ -1295,19 +1377,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get contactSupport => 'Get help with this order';
 
   @override
-  String get requestReturn => 'Request a return';
+  String get requestReturn => 'Report a problem or return';
 
   @override
-  String get returnReasonDamaged => 'Arrived damaged';
-
-  @override
-  String get returnReasonWrong => 'Wrong item';
-
-  @override
-  String get returnReasonNotAsDescribed => 'Not as described';
-
-  @override
-  String get returnRequested => 'Return requested. Our team will contact you.';
+  String get returnRequested => 'Sent. Our team will look at it shortly.';
 
   @override
   String get selectItemsToReturn => 'Select items to return';
@@ -3345,7 +3418,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'If you have a question, or something has changed, please contact us and we will be glad to help.';
 
   @override
-  String get returnFormIntro => 'Choose what you want to send back and tell us why. We will review it and reply.';
+  String get returnFormIntro => 'Tell us what happened and which items it is about. We will review it and reply here.';
 
   @override
   String returnUpTo(int count) {
@@ -3373,4 +3446,379 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get callDriver => 'Call your driver';
+
+  @override
+  String get claimTypeLabel => 'What happened?';
+
+  @override
+  String get claimTypeDamaged => 'Damaged on arrival';
+
+  @override
+  String get claimTypeDamagedHint => 'Add at least one photo of the damage.';
+
+  @override
+  String get claimTypeWrong => 'Wrong item';
+
+  @override
+  String get claimTypeWrongHint => 'Add a photo of what you received.';
+
+  @override
+  String get claimTypeMissing => 'Something is missing from the box';
+
+  @override
+  String get claimTypeMissingHint => 'Tell us what was not in the box.';
+
+  @override
+  String get claimTypeQuality => 'Quality problem';
+
+  @override
+  String get claimTypeQualityHint => 'Tell us what is wrong. Photos help.';
+
+  @override
+  String get claimTypeChangedMind => 'I changed my mind';
+
+  @override
+  String get claimTypeChangedMindHint => 'Send it back for a refund.';
+
+  @override
+  String get claimPhotosTitle => 'Photos';
+
+  @override
+  String get claimPhotosRequired => 'Needed for this kind of claim';
+
+  @override
+  String get claimPhotosOptional => 'Optional, but they help us decide faster';
+
+  @override
+  String get claimPhotoCamera => 'Take a photo';
+
+  @override
+  String get claimPhotoGallery => 'Choose photos';
+
+  @override
+  String claimPhotoCount(int n, int max) {
+    return '$n of $max photos';
+  }
+
+  @override
+  String get claimPhotoRemove => 'Remove photo';
+
+  @override
+  String claimPhotoAlt(int n) {
+    return 'Photo $n of your claim';
+  }
+
+  @override
+  String get claimPhotoFailed => 'This photo could not be shown.';
+
+  @override
+  String get claimPhotoClose => 'Close photo';
+
+  @override
+  String get claimErrPhotos => 'Please add at least one clear photo (JPEG, PNG or WebP, up to 5, each under 8 MB).';
+
+  @override
+  String get claimErrPhotoType => 'Photos must be JPEG, PNG or WebP.';
+
+  @override
+  String get claimErrPhotoSize => 'Each photo must be under 8 MB.';
+
+  @override
+  String get claimErrPhotoCount => 'You can add up to 5 photos.';
+
+  @override
+  String get claimErrNote => 'Please keep your message under 500 characters.';
+
+  @override
+  String get claimErrLocked =>
+      'Our team has already looked at this claim, so it can no longer be changed. Please contact us if something needs adding.';
+
+  @override
+  String get claimStepReceived => 'Claim received';
+
+  @override
+  String get claimStepUnderReview => 'Under review';
+
+  @override
+  String get claimStepDecision => 'Decision';
+
+  @override
+  String get claimStepApproved => 'Approved';
+
+  @override
+  String get claimStepRejected => 'Not approved';
+
+  @override
+  String get claimStepHandover => 'How it comes back';
+
+  @override
+  String get claimStepPickup => 'Pickup arranged';
+
+  @override
+  String get claimStepBranch => 'Bring it to the branch';
+
+  @override
+  String claimStepBranchDetail(String branch) {
+    return 'Please bring the item to $branch.';
+  }
+
+  @override
+  String get claimStepItemReceived => 'Item received';
+
+  @override
+  String get claimStepRefunded => 'Refunded';
+
+  @override
+  String claimStepRefundDone(String amount, String how) {
+    return '$amount refunded $how.';
+  }
+
+  @override
+  String claimStepRefundWait(String amount, String how) {
+    return '$amount refund is on its way $how.';
+  }
+
+  @override
+  String get claimStepCancelled => 'You cancelled this claim';
+
+  @override
+  String get claimStepOther => 'Update';
+
+  @override
+  String get claimRefundOriginal => 'to your original payment method';
+
+  @override
+  String get claimRefundCash => 'in cash';
+
+  @override
+  String get claimRefundBank => 'by bank transfer';
+
+  @override
+  String get claimRefundOther => 'to you';
+
+  @override
+  String claimTitle(String number) {
+    return 'Claim $number';
+  }
+
+  @override
+  String claimSentOn(String date) {
+    return 'Sent $date';
+  }
+
+  @override
+  String get claimTimelineLabel => 'Where your claim stands';
+
+  @override
+  String get claimAdd => 'Add a photo or a note';
+
+  @override
+  String get claimAddHint => 'Our team has not decided yet. Anything you add reaches them straight away.';
+
+  @override
+  String get claimAddSubmit => 'Send to our team';
+
+  @override
+  String get claimAdded => 'Sent to our team.';
+
+  @override
+  String get claimCancel => 'Cancel this claim';
+
+  @override
+  String get claimCancelConfirm => 'Cancel this claim? You can send a new one while the period is still open.';
+
+  @override
+  String get claimCancelKeep => 'Keep it';
+
+  @override
+  String get claimCancelled => 'Claim cancelled.';
+
+  @override
+  String get claimYourNote => 'Your message';
+
+  @override
+  String claimWindowUntil(String date) {
+    return 'You can report a problem until $date';
+  }
+
+  @override
+  String get returnStatusUnderReview => 'A member of our team is looking at your claim now.';
+
+  @override
+  String get returnStatusCancelled => 'You cancelled this claim.';
+
+  @override
+  String get substTitle => 'Please choose a replacement';
+
+  @override
+  String substAsk(String item, String replacement) {
+    return 'We do not have $item. Replace it with $replacement?';
+  }
+
+  @override
+  String get substPriceSame => 'same price';
+
+  @override
+  String substPriceLess(String amount) {
+    return '$amount less';
+  }
+
+  @override
+  String substPriceLine(String note) {
+    return 'Price: $note. You never pay more than you ordered.';
+  }
+
+  @override
+  String get substYouOrdered => 'You ordered';
+
+  @override
+  String get substReplacement => 'Replacement';
+
+  @override
+  String substQty(int n) {
+    return '× $n';
+  }
+
+  @override
+  String substTimeLeft(int n) {
+    return 'About $n min left to answer (while the shop is open)';
+  }
+
+  @override
+  String get substTimeUp => 'Time is up. We are settling it now.';
+
+  @override
+  String get substFallbackRemove => 'If we do not hear from you, we will remove it from your order and refund you.';
+
+  @override
+  String get substFallbackKeep => 'If we do not hear from you, we will keep the replacement at no extra cost.';
+
+  @override
+  String get substAccept => 'Accept the replacement';
+
+  @override
+  String get substDecline => 'No, remove it and refund me';
+
+  @override
+  String get substAcceptedToast => 'Thank you. We will prepare the replacement.';
+
+  @override
+  String get substDeclinedToast => 'Done. We removed it and are arranging your refund.';
+
+  @override
+  String get substOutcomeAccepted => 'You accepted the replacement.';
+
+  @override
+  String get substOutcomeDeclined =>
+      'You declined the replacement. The item was removed and any payment is being refunded.';
+
+  @override
+  String get substOutcomeExpiredRemoved =>
+      'No answer in time, so the item was removed and any payment is being refunded.';
+
+  @override
+  String get substOutcomeExpiredKept => 'No answer in time, so we kept the replacement at no extra cost.';
+
+  @override
+  String get substOutcomeCancelled => 'This question is closed.';
+
+  @override
+  String get substErrGone => 'We could not find this question. Please reload the order.';
+
+  @override
+  String get substErrAnswered => 'You already answered this differently.';
+
+  @override
+  String get substErrExpired =>
+      'The time to answer ran out, so the shop settings applied. The order shows what happened.';
+
+  @override
+  String get substErrClosed => 'This question is closed: the order has moved on.';
+
+  @override
+  String get promiseConfirmDelivery => 'We will confirm your delivery date';
+
+  @override
+  String get promiseConfirmPickup => 'We will confirm your pick-up time';
+
+  @override
+  String get promiseAddressHint => 'The exact date depends on your address.';
+
+  @override
+  String get assemblyAdd => 'Add assembly and installation';
+
+  @override
+  String assemblyFeeEach(String fee) {
+    return '+$fee each';
+  }
+
+  @override
+  String get assemblyNote => 'Done at your door. For delivery orders only.';
+
+  @override
+  String assemblyLineTotal(String amount) {
+    return '$amount for this item';
+  }
+
+  @override
+  String get assemblyRow => 'Assembly and installation';
+
+  @override
+  String orderAssemblyLine(String amount) {
+    return 'Assembly and installation: $amount';
+  }
+
+  @override
+  String get shareOnWhatsApp => 'Share on WhatsApp';
+
+  @override
+  String get shareOtherWays => 'More ways to share';
+
+  @override
+  String get shareProductIntro => 'Take a look at this at Al Bahar Home & Living:';
+
+  @override
+  String shareProductPrice(String price) {
+    return 'Price: $price';
+  }
+
+  @override
+  String get shareBasketIntro => 'Here is what I picked at Al Bahar Home & Living:';
+
+  @override
+  String shareBasketTotal(String total) {
+    return 'Total: $total';
+  }
+
+  @override
+  String get shareBasketAction => 'Send my cart on WhatsApp';
+
+  @override
+  String get shareWhatsAppMissing => 'WhatsApp could not be opened. Pick another way to share.';
+
+  @override
+  String get guestCheckoutNote => 'Your cart is kept on this phone. You sign in or create an account at checkout.';
+
+  @override
+  String get guestChangesTitle => 'Your cart changed';
+
+  @override
+  String guestChangePrice(String name, String from, String to) {
+    return 'The price of $name changed from $from to $to.';
+  }
+
+  @override
+  String guestChangeReduced(String name, int count) {
+    return 'Only $count of $name are available now, so the quantity was lowered.';
+  }
+
+  @override
+  String guestChangeUnavailable(String name) {
+    return '$name is no longer available.';
+  }
+
+  @override
+  String guestChangeAssembly(String name) {
+    return 'Assembly is no longer offered for $name.';
+  }
 }

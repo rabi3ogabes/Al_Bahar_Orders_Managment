@@ -4,6 +4,7 @@ namespace App\Livewire\Admin\Catalog;
 
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Catalog\Services\ProductService;
+use App\Domain\Catalog\Services\StockAlertService;
 use App\Domain\Checkout\Services\StaffOrderService;
 use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Inventory\Models\BranchInventory;
@@ -112,6 +113,7 @@ class ProductQuickView extends Component
             'stock' => $this->stockByBranch($product),
             'variantCount' => $product->variants()->count(),
             'upsellCount' => $product->upsells()->count(),
+            'waiting' => app(StockAlertService::class)->waiting($product->id),
             'canEdit' => $this->canGlobally('catalog.edit'),
             'canOrder' => app(StaffOrderService::class)->canCreate(auth()->user()) && $product->status === 'active',
         ]);

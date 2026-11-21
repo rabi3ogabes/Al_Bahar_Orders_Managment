@@ -8,6 +8,8 @@ import { useDocTitle } from '../lib/hooks';
 import { useBrand } from '../lib/brand';
 import type { Auction, Brand, Category, HomeSection, Paged, ProductCard as P } from '../lib/types';
 import { BuyAgain } from '../components/BuyAgain';
+import { RoomTiles } from '../components/RoomTiles';
+import type { Room } from '../lib/roomsCore';
 import { DealsStrip } from '../components/DealsStrip';
 import { CardSkeletons, ProductCard } from '../components/ProductCard';
 import { Pic, Skeleton } from '../components/ui';
@@ -183,6 +185,7 @@ export default function FreshHome() {
     switch (s.type) {
       case 'banners': return <BannerSlider key={s.id} section={s} eager={leading[0]?.id === s.id} />;
       case 'categories': return <Categories key={s.id} items={s.items as Category[]} />;
+      case 'rooms': return <RoomTiles key={s.id} items={s.items as Room[]} title={s.title} fresh />;
       case 'best_sellers': return <ProductRow key={s.id} eyebrow={t('fresh.best_eyebrow')} title={s.title || t('fresh.best_title')} items={s.items as P[]} />;
       case 'featured_products': return <ProductRow key={s.id} eyebrow={t('home.featured_eyebrow')} title={s.title || t('fresh.best_title')} items={s.items as P[]} />;
       case 'recommended': case 'product_collection': return <ProductRow key={s.id} eyebrow={t('fresh.best_eyebrow')} title={s.title || t('fresh.best_title')} items={s.items as P[]} />;

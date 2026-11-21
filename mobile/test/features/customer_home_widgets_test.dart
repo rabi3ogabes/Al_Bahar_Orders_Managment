@@ -50,6 +50,7 @@ class _FakeCart extends CartController {
   Future<Cart> addItem(
     String variantId, {
     int quantity = 1,
+    bool assembly = false,
     ProductSummary? product,
     EffectivePrice? unitPrice,
     String? variantName,

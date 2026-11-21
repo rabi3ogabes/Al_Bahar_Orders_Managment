@@ -1,11 +1,15 @@
 <?php
 
 use App\Domain\Auctions\Services\LotService;
+use App\Domain\Catalog\Services\RoomService;
+use App\Domain\Catalog\Services\StockAlertNotifier;
+use App\Domain\Catalog\Services\StockAlertService;
 use App\Domain\Cms\Services\HomeContentPurger;
 use App\Domain\Deals\Services\DealService;
 use App\Domain\Inventory\Services\ReservationService;
 use App\Domain\Marketing\Services\CampaignService;
 use App\Domain\Marketing\Services\LoyaltyService;
+use App\Domain\Orders\Services\SubstitutionService;
 use App\Domain\Payments\Services\PaymentService;
 use App\Domain\Reports\Services\SchedulerHeartbeat;
 use Illuminate\Support\Facades\Artisan;
@@ -33,6 +37,11 @@ Artisan::command('payments:reconcile-pending', fn (PaymentService $p) => $this->
 Artisan::command('loyalty:expire-points', fn (LoyaltyService $l) => $this->info('Expired points: '.$l->expireDue()))
     ->purpose('Expire loyalty points past their expiry date');
 
+Artisan::command('substitutions:expire', fn (SubstitutionService $s) => $this->info('Settled: '.$s->expireDue()))
+    ->purpose('Settle replacement questions the customer did not answer in time, by the fallback the shop chose');
+// A question to the customer about a replacement runs out within a minute of its deadline (docs/guides/RETURNS_AND_SUBSTITUTIONS.md).
+Schedule::command('substitutions:expire')->everyMinute()->withoutOverlapping(10)->onOneServer();
+
 Schedule::command('drivers:prune-locations')->dailyAt('03:30')->timezone('Asia/Qatar')->onOneServer();
 Schedule::command('push:prune-devices')->dailyAt('03:45')->timezone('Asia/Qatar')->onOneServer();
 Schedule::command('orders:expire-unpaid')->everyMinute()->withoutOverlapping(10)->onOneServer();
@@ -59,6 +68,19 @@ Schedule::command('marketing:send-scheduled')->everyMinute()->withoutOverlapping
 Schedule::command('journeys:tick')->everyMinute()->withoutOverlapping(5)->onOneServer();
 
 Schedule::command('messaging:dispatch-due')->everyMinute()->withoutOverlapping(5)->onOneServer();
+
+// Back-in-stock and price-drop alerts (docs/guides/ALERTS_AFTER_DELIVERY_AND_ROOMS.md): a stock movement or a price edit stays the quick path (it queues a job), this
+// sweep is the safety net and the only thing that sees a sale window or a countdown offer starting by itself. Quiet hours, the weekly cap and the switches are read inside.
+Artisan::command('alerts:process', fn (StockAlertNotifier $n) => $this->info(json_encode($n->run())))
+    ->purpose('Tell customers whose product is back in stock or cheaper (each alert once, never at night)');
+Schedule::command('alerts:process')->everyFiveMinutes()->withoutOverlapping(10)->onOneServer();
+Artisan::command('alerts:prune', fn (StockAlertService $a) => $this->info('Removed: '.$a->prune()))
+    ->purpose('Remove alerts that expired and back-in-stock alerts that fired a month ago');
+Schedule::command('alerts:prune')->dailyAt('04:30')->timezone('Asia/Qatar')->onOneServer();
+
+Artisan::command('rooms:ensure-home', fn (RoomService $r) => $this->info($r->ensureHomeSection() ? 'The "Shop by room" section was added to the home page' : 'Nothing to do'))
+    ->purpose('Add the "Shop by room" section to the home page, once (an owner who removes it keeps it removed)');
+Schedule::command('rooms:ensure-home')->hourly()->withoutOverlapping(10)->onOneServer();
 
 Artisan::command('banners:purge-deleted {--days=7}', fn (HomeContentPurger $p) => $this->info(json_encode($p->purge((int) $this->option('days')))))
     ->purpose('Remove slides and sliders that have been in the dashboard bin for a week (files included)');

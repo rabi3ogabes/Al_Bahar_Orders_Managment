@@ -298,6 +298,7 @@ class ProductBuyBar extends StatelessWidget {
     required this.onQuantity,
     required this.onAdd,
     required this.onNotify,
+    this.notifying = false,
     this.multiCount,
     this.onAddMany,
   });
@@ -312,6 +313,9 @@ class ProductBuyBar extends StatelessWidget {
   final ValueChanged<int> onQuantity;
   final VoidCallback? onAdd;
   final VoidCallback? onNotify;
+
+  /// The customer already asked to be told when this is back: the button says so, and a tap cancels it.
+  final bool notifying;
 
   @override
   Widget build(BuildContext context) {
@@ -348,8 +352,12 @@ class ProductBuyBar extends StatelessWidget {
                         ],
                       )
                     : AppButton.secondary(
-                        label: l10n.notifyBackInStock,
-                        icon: constraints.maxWidth < 300 ? null : Icons.notifications_active_outlined,
+                        label: notifying ? l10n.alertNotifyOn : l10n.notifyBackInStock,
+                        icon: constraints.maxWidth < 300
+                            ? null
+                            : notifying
+                            ? Icons.notifications_active_rounded
+                            : Icons.notifications_active_outlined,
                         onPressed: onNotify,
                       );
               },

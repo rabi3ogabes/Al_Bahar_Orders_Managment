@@ -17,7 +17,6 @@ import 'package:albahar_customer/features/auth/data/auth_repository.dart';
 import 'package:albahar_customer/features/auth/domain/auth_models.dart';
 import 'package:albahar_customer/features/auth/presentation/require_auth.dart';
 import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
-import 'package:albahar_customer/features/cart/presentation/state/pending_cart_add.dart';
 import 'package:albahar_customer/features/profile/presentation/state/profile_providers.dart';
 import 'package:albahar_customer/features/support/presentation/cms_page_screen.dart';
 import 'package:flutter/foundation.dart';
@@ -158,15 +157,6 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> with Clears
       title: l10n.loginTitle,
       subtitle: l10n.loginSubtitle,
       showBack: context.canPop(),
-      // Leaving the sign-in without having signed in drops the "Add to cart" that sent the person here, so a sign-in much later never puts
-      // in the cart something they had forgotten.
-      guard: (screen) => PopScope(
-        onPopInvokedWithResult: (didPop, _) {
-          // Closing the screens after a successful sign-in is also a pop: only a person who is still signed out has backed out.
-          if (didPop && !ref.read(isAuthenticatedProvider)) ref.read(pendingCartAddProvider.notifier).clear();
-        },
-        child: screen,
-      ),
       children: [
         AppTextField(
           controller: _phone,
@@ -198,11 +188,7 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> with Clears
         const Gap(AppSpace.lg),
         Center(
           child: TextButton(
-            onPressed: () {
-              // As a guest the add is not wanted any more: it must not come back when they sign in some other day.
-              ref.read(pendingCartAddProvider.notifier).clear();
-              context.go(widget.from ?? '/home');
-            },
+            onPressed: () => context.go(widget.from ?? '/home'),
             child: Text(l10n.continueAsGuest),
           ),
         ),

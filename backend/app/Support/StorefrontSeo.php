@@ -4,7 +4,9 @@ namespace App\Support;
 
 use App\Domain\Catalog\Models\Category;
 use App\Domain\Catalog\Models\Product;
+use App\Domain\Catalog\Models\Room;
 use App\Domain\Catalog\Services\CatalogPresenter;
+use App\Domain\Catalog\Services\RoomService;
 use App\Domain\Cms\Models\CmsPage;
 use App\Domain\Deals\Models\Deal;
 use App\Domain\Deals\Models\DealProduct;
@@ -36,7 +38,7 @@ class StorefrontSeo
     public function for(string $path, array $query = []): array
     {
         $path = trim($path, '/');
-        $key = 'storefront:seo:'.md5($path.'|'.json_encode(array_intersect_key($query, array_flip(['category', 'q', 'brand', 'min', 'max', 'sale', 'new', 'stock']))));
+        $key = 'storefront:seo:'.md5($path.'|'.json_encode(array_intersect_key($query, array_flip(['category', 'room', 'q', 'brand', 'min', 'max', 'sale', 'new', 'stock']))));
 
         // Deals are never remembered: a deal ends, sells out or is paused at any moment, and its page must say noindex the moment it does.
         $remember = $path !== 'deals' && ! str_starts_with($path, 'deals/');
@@ -117,7 +119,11 @@ class StorefrontSeo
         $slug = is_string($query['category'] ?? null) ? $query['category'] : null;
         $category = $slug ? Category::active()->with('translations')->where('slug', $slug)->first() : null;
         $searching = is_string($query['q'] ?? null) && $query['q'] !== '';
+        $room = $category === null && is_string($query['room'] ?? null) && $query['room'] !== '' ? app(RoomService::class)->find($query['room']) : null;
 
+        if ($room !== null) {
+            return $this->roomPage($room, $searching);
+        }
         if ($category === null) {
             return $this->result([
                 'title' => 'Shop · '.self::SUFFIX, 'description' => 'Browse household essentials from Al Bahar: kitchen, cleaning, bath, storage, fragrance, bedding and decor.',
@@ -133,6 +139,24 @@ class StorefrontSeo
             'canonical' => $url, 'robots' => $searching ? 'noindex,follow' : null, 'image' => $image,
             'jsonld' => [
                 ['@context' => 'https://schema.org', '@type' => 'CollectionPage', 'name' => $name, 'url' => $url, 'description' => $this->excerpt((string) $category->trans('description')) ?: null],
+                $this->breadcrumbs([['Home', $base.'/'], ['Shop', $base.'/shop'], [$name, $url]]),
+            ],
+        ]);
+    }
+
+    /** `/shop?room=bedroom`: the page of a room, with its own title, description and picture (the room's texts are the owner's; nothing is invented). */
+    private function roomPage(Room $room, bool $searching): array
+    {
+        $base = $this->base();
+        $url = $base.'/shop?room='.rawurlencode($room->slug);
+        $name = $room->title('en');
+        $description = $this->excerpt((string) $room->description('en')) ?: 'Shop for the '.mb_strtolower($name).' at '.self::SUFFIX.'.';
+        $path = $room->image_path ?: $room->categories()->whereNotNull('image_path')->value('image_path');
+
+        return $this->result([
+            'title' => $name.' · '.self::SUFFIX, 'description' => $description, 'canonical' => $url, 'robots' => $searching ? 'noindex,follow' : null, 'image' => $path ? $this->storageUrl($path) : null,
+            'jsonld' => [
+                ['@context' => 'https://schema.org', '@type' => 'CollectionPage', 'name' => $name, 'url' => $url, 'description' => $description],
                 $this->breadcrumbs([['Home', $base.'/'], ['Shop', $base.'/shop'], [$name, $url]]),
             ],
         ]);

@@ -48,6 +48,7 @@ class CatalogAdminController extends ApiController
                 'id' => $p->id, 'sku' => $p->sku, 'name_en' => $p->trans('name', 'en'), 'name_ar' => $p->trans('name', 'ar'),
                 'status' => $p->status, 'price' => $p->price, 'sale_price' => $p->sale_price, 'variants_count' => $p->variants_count,
                 'extra_delivery_fee' => $p->extra_delivery_fee, 'extra_delivery_fee_mode' => $p->extra_delivery_fee_mode,
+                'assembly_fee' => $p->assembly_fee, 'lead_time_days' => (int) $p->lead_time_days,
                 'brand' => $p->brand?->name_en, 'category' => $p->category?->trans('name'), 'updated_at' => $p->updated_at?->toIso8601String(),
             ]),
             'meta' => ['current_page' => $page->currentPage(), 'per_page' => $page->perPage(), 'total' => $page->total(), 'last_page' => $page->lastPage()],

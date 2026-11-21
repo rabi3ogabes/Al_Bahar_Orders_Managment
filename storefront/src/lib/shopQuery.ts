@@ -1,10 +1,10 @@
 import type { AttributeFilterGroup, Brand, Category } from './types';
 
 /**
- * The shop's filters live in the URL (`?category=&brand=&min=&max=&stock=&sale=&new=&attr=&q=&sort=`). These helpers are shared by the page and the filter window.
+ * The shop's filters live in the URL (`?category=&room=&brand=&min=&max=&stock=&sale=&new=&attr=&q=&sort=`). These helpers are shared by the page and the filter window.
  * `attr` holds the chosen colour / material / size values (the API's attribute value ids) separated by commas: `attr=12,15,31`.
  */
-export const FILTER_KEYS = ['category', 'brand', 'min', 'max', 'stock', 'sale', 'new', 'attr'] as const;
+export const FILTER_KEYS = ['category', 'room', 'brand', 'min', 'max', 'stock', 'sale', 'new', 'attr'] as const;
 const MAX_ATTRS = 30;
 
 /** The attribute value ids in a URL: whole numbers only, each once. Anything else in the address is ignored, never sent to the server. */
@@ -29,14 +29,20 @@ export function mergeAttributeFilters(lists: AttributeFilterGroup[][]): Attribut
   return [...byCode.values()].filter((g) => g.values.length > 0);
 }
 
+/** The room in a URL (`?room=bedroom`): the address word of a room of "Shop by room", lowercase letters, digits and dashes. Anything else is ignored, never sent to the server. */
+export const roomSlug = (sp: URLSearchParams): string => {
+  const v = (sp.get('room') ?? '').trim().toLowerCase();
+  return /^[a-z0-9][a-z0-9-]{0,59}$/.test(v) ? v : '';
+};
+
 export const flatCategories = (cs: Category[]): Category[] => cs.flatMap((c) => [c, ...flatCategories(c.children ?? [])]);
 
-export interface ShopFilters { cat?: Category; brand?: Brand; q: string; sort: string; min: string; max: string; inStock: boolean; onSale: boolean; isNew: boolean; attrs: string[] }
+export interface ShopFilters { cat?: Category; room: string; brand?: Brand; q: string; sort: string; min: string; max: string; inStock: boolean; onSale: boolean; isNew: boolean; attrs: string[] }
 
 export function readFilters(sp: URLSearchParams, cats: Category[], brands: Brand[]): ShopFilters {
   const catSlug = sp.get('category') ?? '', brandSlug = sp.get('brand') ?? '', q = sp.get('q') ?? '';
   return {
-    cat: flatCategories(cats).find((c) => c.slug === catSlug || c.id === catSlug), brand: brands.find((b) => b.slug === brandSlug || b.id === brandSlug),
+    cat: flatCategories(cats).find((c) => c.slug === catSlug || c.id === catSlug), room: roomSlug(sp), brand: brands.find((b) => b.slug === brandSlug || b.id === brandSlug),
     q, sort: sp.get('sort') ?? (q ? 'relevance' : '-popularity'), min: sp.get('min') ?? '', max: sp.get('max') ?? '',
     inStock: sp.get('stock') === '1', onSale: sp.get('sale') === '1', isNew: sp.get('new') === '1', attrs: attrIds(sp),
   };
@@ -45,7 +51,7 @@ export function readFilters(sp: URLSearchParams, cats: Category[], brands: Brand
 /** Query-string parameters for `GET /products`. */
 export function productParams(f: ShopFilters, branchId: string | null | undefined, page: number, perPage: number) {
   return {
-    q: f.q || undefined, category_id: f.cat?.id, brand_id: f.brand ? [f.brand.id] : undefined, sort: f.sort === 'relevance' && !f.q ? undefined : f.sort,
+    q: f.q || undefined, category_id: f.cat?.id, room: f.room || undefined, brand_id: f.brand ? [f.brand.id] : undefined, sort: f.sort === 'relevance' && !f.q ? undefined : f.sort,
     price_min: f.min || undefined, price_max: f.max || undefined, in_stock: f.inStock || undefined, on_sale: f.onSale || undefined, new_arrival: f.isNew || undefined,
     attribute_values: f.attrs.length ? f.attrs : undefined,
     branch_id: branchId ?? undefined, page, per_page: perPage,

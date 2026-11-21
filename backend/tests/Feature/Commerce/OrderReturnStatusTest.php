@@ -33,15 +33,20 @@ it('shows what can still be returned per line and no request before one is made'
     expect($d['can_return'])->toBeTrue()->and($d['return_request'])->toBeNull()->and($d['items'][0]['id'])->toBe($item->id)->and($d['items'][0]['returnable_quantity'])->toBe(2);
 });
 
-it('closes the return button once a request is waiting and shows where it stands', function () {
+it('shows where a claim stands, and keeps the button open only while some piece can still be reported', function () {
     [, $order, $item] = deliveredSofas();
-    $this->postJson("/api/v1/orders/{$order->id}/returns", ['reason_code' => 'damaged', 'items' => [['order_item_id' => $item->id, 'quantity' => 1]]])->assertCreated();
+    $this->postJson("/api/v1/orders/{$order->id}/returns", ['reason_code' => 'changed_mind', 'items' => [['order_item_id' => $item->id, 'quantity' => 1]]])->assertCreated();
 
     $d = $this->getJson("/api/v1/orders/{$order->id}")->assertOk()->json('data');
 
-    expect($d['can_return'])->toBeFalse()->and($d['return_request'])->toMatchArray(['status' => 'requested', 'decision_note' => null, 'decided_at' => null])
+    // One of the two sofas is held by the open claim; the other can still be reported, so the button stays.
+    expect($d['can_return'])->toBeTrue()->and($d['return_request'])->toMatchArray(['status' => 'requested', 'decision_note' => null, 'decided_at' => null])
         ->and($d['return_request']['requested_at'])->toBeString()->and($d['return_request']['number'])->toStartWith('RT')
-        ->and($d['items'][0]['returnable_quantity'])->toBe(1);   // one of the two is held by the open request
+        ->and($d['items'][0]['returnable_quantity'])->toBe(1);
+
+    $this->postJson("/api/v1/orders/{$order->id}/returns", ['reason_code' => 'changed_mind', 'items' => [['order_item_id' => $item->id, 'quantity' => 1]]], ['Idempotency-Key' => 'second-claim-key'])->assertCreated();
+    $d = $this->getJson("/api/v1/orders/{$order->id}")->json('data');
+    expect($d['can_return'])->toBeFalse()->and($d['items'][0]['returnable_quantity'])->toBe(0)->and($d['returns'])->toHaveCount(2);
 });
 
 it('gives the team\'s note back when the request is rejected, and opens the button again', function () {
@@ -59,7 +64,7 @@ it('gives the team\'s note back when the request is rejected, and opens the butt
 
 it('keeps the button closed while an approved request waits for the goods and when nothing is left to return', function () {
     [, $order, $item] = deliveredSofas();
-    $this->postJson("/api/v1/orders/{$order->id}/returns", ['reason_code' => 'damaged', 'items' => [['order_item_id' => $item->id, 'quantity' => 2]]])->assertCreated();
+    $this->postJson("/api/v1/orders/{$order->id}/returns", ['reason_code' => 'changed_mind', 'items' => [['order_item_id' => $item->id, 'quantity' => 2]]])->assertCreated();
     app(ReturnService::class)->decide(ReturnRequest::firstOrFail(), staffWithRole('super_admin'), true);
     actingAsCustomer($order->user);
     $d = $this->getJson("/api/v1/orders/{$order->id}")->json('data');
@@ -80,7 +85,7 @@ it('offers nothing to return before the order is delivered or after the window',
 
 it('does not read the return requests of another order', function () {
     [, $order, $item] = deliveredSofas();
-    $this->postJson("/api/v1/orders/{$order->id}/returns", ['reason_code' => 'damaged', 'items' => [['order_item_id' => $item->id, 'quantity' => 1]]])->assertCreated();
+    $this->postJson("/api/v1/orders/{$order->id}/returns", ['reason_code' => 'changed_mind', 'items' => [['order_item_id' => $item->id, 'quantity' => 1]]])->assertCreated();
     $this->postJson('/api/v1/cart/items', ['variant_id' => $item->product_variant_id, 'quantity' => 1])->assertCreated();
     $second = Order::find(quoteAndPlace(['address_id' => $order->user->addresses()->first()->id, 'payment_method' => 'cod'])->json('data.order.id'));
 

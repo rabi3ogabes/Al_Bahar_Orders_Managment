@@ -6,6 +6,7 @@ import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/utils/json.dart';
 import 'package:albahar_customer/features/cart/domain/cart_models.dart';
 import 'package:albahar_customer/features/orders/domain/order_models.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class OrderRepository {
@@ -85,23 +86,67 @@ class OrderRepository {
   Future<PickupPass> pickupPass(String orderId, String fulfillmentId) =>
       _api.getObject('/orders/$orderId/fulfillments/$fulfillmentId/pickup-pass', PickupPass.fromJson);
 
-  Future<void> requestReturn(
+  /// Sends a return or damage claim as multipart (photos up to [maxClaimPhotos]). The same [idempotencyKey] sent twice answers with the claim
+  /// already made, so a double tap or a retry after a lost answer never makes a second one.
+  Future<ReturnRequestInfo?> requestReturn(
     String orderId, {
     required List<({String orderItemId, int quantity})> items,
     required String reasonCode,
     String? reason,
+    List<PickedPhoto> photos = const [],
+    String? idempotencyKey,
   }) async {
-    await _api.post(
+    final form = FormData();
+    for (var i = 0; i < items.length; i++) {
+      form.fields
+        ..add(MapEntry('items[$i][order_item_id]', items[i].orderItemId))
+        ..add(MapEntry('items[$i][quantity]', '${items[i].quantity}'));
+    }
+    form.fields.add(MapEntry('reason_code', reasonCode));
+    if (reason != null && reason.isNotEmpty) form.fields.add(MapEntry('reason', reason));
+    for (final p in photos) {
+      form.files.add(MapEntry('photos[]', _photo(p)));
+    }
+    final data = await _api.post(
       '/orders/$orderId/returns',
-      data: {
-        'items': [
-          for (final i in items) {'order_item_id': i.orderItemId, 'quantity': i.quantity},
-        ],
-        'reason_code': reasonCode,
-        if (reason != null && reason.isNotEmpty) 'reason': reason,
-      },
+      data: form,
+      options: idempotencyKey == null ? null : Options(headers: {'Idempotency-Key': idempotencyKey}),
     );
+    return ReturnRequestInfo.maybe(data);
   }
+
+  /// The customer's answer to a replacement question: accept it, or have the item removed and refunded. Answering twice the same way is harmless.
+  /// Returns the order as it is now.
+  Future<Order> answerSubstitution(String orderId, String requestId, {required bool accept}) async {
+    final data = asMap(
+      await _api.post('/orders/$orderId/substitutions/$requestId', data: {'answer': accept ? 'accept' : 'decline'}),
+    );
+    return Order.fromJson(asMap(data['order']));
+  }
+
+  /// More photos and/or a note on a claim that still waits for the team.
+  Future<ReturnRequestInfo?> addClaimEvidence(
+    String claimId, {
+    List<PickedPhoto> photos = const [],
+    String? note,
+  }) async {
+    final form = FormData();
+    if (note != null && note.trim().isNotEmpty) form.fields.add(MapEntry('reason', note.trim()));
+    for (final p in photos) {
+      form.files.add(MapEntry('photos[]', _photo(p)));
+    }
+    return ReturnRequestInfo.maybe(await _api.post('/returns/$claimId/evidence', data: form));
+  }
+
+  /// Withdraws a claim before the team has decided it. Cancelling twice is the same as once.
+  Future<ReturnRequestInfo?> cancelClaim(String claimId) async =>
+      ReturnRequestInfo.maybe(await _api.post('/returns/$claimId/cancel'));
+
+  /// One photo of the customer's own claim (a private file: it needs the sign-in, so it is never a plain link).
+  Future<Uint8List> claimPhoto(String path) => _api.getBytes('/$path', accept: 'image/*');
+
+  MultipartFile _photo(PickedPhoto p) =>
+      MultipartFile.fromBytes(p.bytes, filename: p.name, contentType: DioMediaType.parse(p.mimeType ?? 'image/jpeg'));
 }
 
 final orderRepositoryProvider = Provider<OrderRepository>((ref) => OrderRepository(ref.watch(apiClientProvider)));

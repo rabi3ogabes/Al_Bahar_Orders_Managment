@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingBag, Trash2, ShieldCheck, Truck, ArrowRight, ArrowLeft } from 'lucide-react';
+import { ShoppingBag, Trash2, ShieldCheck, Truck, ArrowRight, ArrowLeft, MessageCircle } from 'lucide-react';
 import { useCart } from '../lib/cart';
 import { useAuth } from '../lib/auth';
+import { useBranch } from '../lib/branch';
+import { useBasketPromise } from '../lib/usePromise';
+import { basketShareText, whatsappShareHref } from '../lib/shareBasket';
 import { useI18n } from '../lib/i18n';
 import { useDocTitle } from '../lib/hooks';
 import { Alert, Button, EmptyState, Pic, QtyStepper, Skeleton } from '../components/ui';
@@ -10,6 +13,8 @@ import { useAuthModal } from '../components/AuthModal';
 import { CartSuggestions } from '../components/Upsell';
 import { DeliveryFeeRow } from '../components/DeliveryFeeRow';
 import { CartDealNote, CartDealsHint } from '../components/DealBits';
+import { PromiseNote } from '../components/PromiseNote';
+import { AssemblyChoice } from '../components/AssemblyChoice';
 import { positiveMoney } from '../lib/deals';
 
 export default function CartPage() {
@@ -20,6 +25,9 @@ export default function CartPage() {
   const nav = useNavigate();
   const Arrow = dir === 'rtl' ? ArrowLeft : ArrowRight;
   const [busy, setBusy] = useState(false);
+  const { branchId } = useBranch();
+  // When will I get it? One date per parcel and an overall "all by", for a guest's basket and an account's alike (assembly adds its days).
+  const promise = useBasketPromise({ lines: cart.lines.map((l) => ({ variantId: l.variantId, qty: l.qty, assembly: !!l.assembly?.selected })), type: 'delivery', branchId });
   useDocTitle(t('cart.title'));
 
   if (cart.loading) return <div className="wrap py-12"><Skeleton className="h-10 w-60" /><Skeleton className="mt-8 h-40" /></div>;
@@ -60,6 +68,7 @@ export default function CartPage() {
                   {l.issue && <p className="mt-1 text-xs font-medium text-danger">{t(`cart.issue.${l.issue}`)}</p>}
                   <p className="mt-1 text-sm text-muted">{l.unit.formatted} × {l.qty}</p>
                   <CartDealNote deal={l.deal} qty={l.qty} className="mt-2.5" />
+                  {l.assembly && <AssemblyChoice fee={l.assembly.fee} checked={l.assembly.selected} total={l.assembly.amount} onChange={(on) => void cart.setAssembly(l, on)} className="mt-3" />}
                   <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pt-4">
                     <QtyStepper value={l.qty} max={l.max} onChange={(n) => cart.setQty(l, n)} />
                     <button onClick={() => cart.remove(l)} className="flex items-center gap-1.5 text-sm text-muted hover:text-danger"><Trash2 size={15} />{t('cart.remove')}</button>
@@ -75,11 +84,15 @@ export default function CartPage() {
           <dl className="mt-5 space-y-3 text-sm">
             <div className="flex justify-between"><dt className="text-muted">{t('cart.subtotal')}</dt><dd className="font-semibold tabular-nums">{cart.subtotal.formatted}</dd></div>
             {dealSavings && <div className="flex justify-between"><dt className="text-muted">{t('deal.savings')}</dt><dd className="font-semibold tabular-nums text-success">− {dealSavings.formatted}</dd></div>}
+            {cart.assemblyTotal && <div className="flex justify-between" data-testid="cart-assembly-row"><dt className="text-muted">{t('cart.assembly')}</dt><dd className="font-semibold tabular-nums">+ {cart.assemblyTotal.formatted}</dd></div>}
             <DeliveryFeeRow />
           </dl>
+          <PromiseNote promise={promise.data} loading={promise.isLoading} className="mt-4" />
           <CartDealsHint lines={cart.lines} className="mt-4" />
           <Button size="lg" block className="mt-6" disabled={blocked} loading={busy} onClick={() => void go()}>{t('cart.checkout')}<Arrow size={18} /></Button>
           {blocked && <p className="mt-2 text-center text-xs text-danger">{t('cart.fix_items')}</p>}
+          <a href={whatsappShareHref(basketShareText(cart.lines.map((l) => ({ name: l.name, variantName: l.variantName, qty: l.qty, slug: l.slug })), { intro: t('share.basket_intro'), total: t('pay.none.share_total', { total: cart.subtotal.formatted }) }, window.location.origin))}
+            target="_blank" rel="noopener noreferrer" data-testid="share-whatsapp-basket" className="mt-3 flex min-h-11 items-center justify-center gap-2 rounded-full text-sm font-medium text-ink-soft hover:text-ink"><MessageCircle size={17} strokeWidth={1.7} aria-hidden="true" />{t('share.whatsapp_basket')}</a>
           <ul className="mt-6 space-y-2 text-[13px] text-muted">
             <li className="flex gap-2"><ShieldCheck size={16} className="shrink-0 text-brass" />{t('checkout.secure')}</li>
             <li className="flex gap-2"><Truck size={16} className="shrink-0 text-brass" />{t('cart.shipping_note')}</li>

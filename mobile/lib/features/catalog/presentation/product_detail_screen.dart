@@ -10,11 +10,16 @@ import 'package:albahar_customer/core/widgets/price_tag.dart';
 import 'package:albahar_customer/core/widgets/rating.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
-import 'package:albahar_customer/features/auth/presentation/require_auth.dart';
+import 'package:albahar_customer/features/alerts/domain/alert_models.dart';
+import 'package:albahar_customer/features/alerts/presentation/alert_actions.dart';
+import 'package:albahar_customer/features/alerts/presentation/state/alerts_controller.dart';
+import 'package:albahar_customer/features/alerts/presentation/stock_alert_controls.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
+import 'package:albahar_customer/features/cart/presentation/assembly_choice.dart';
 import 'package:albahar_customer/features/cart/presentation/cart_panel.dart';
-import 'package:albahar_customer/features/catalog/data/catalog_repository.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
+import 'package:albahar_customer/features/catalog/domain/share_text.dart';
+import 'package:albahar_customer/features/catalog/presentation/share_actions.dart';
 import 'package:albahar_customer/features/catalog/presentation/state/catalog_providers.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/catalog_widgets.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/product_gallery.dart';
@@ -23,9 +28,11 @@ import 'package:albahar_customer/features/catalog/presentation/widgets/product_o
 import 'package:albahar_customer/features/catalog/presentation/widgets/product_page_sections.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/review_widgets.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/upsell_widgets.dart';
+import 'package:albahar_customer/features/checkout/presentation/product_promise.dart';
 import 'package:albahar_customer/features/deals/presentation/widgets/deal_clock.dart';
 import 'package:albahar_customer/features/deals/presentation/widgets/deal_price_tag.dart';
 import 'package:albahar_customer/features/deals/presentation/widgets/deal_product_strip.dart';
+import 'package:albahar_customer/features/reviews/presentation/review_deep_link.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
@@ -38,9 +45,18 @@ const ScrollPhysics kProductPagePhysics = BouncingScrollPhysics(parent: AlwaysSc
 /// scrolls (and stretches when pulled down); then the name and price, colours and sizes, stock and delivery, details,
 /// reviews and related products. The buy bar stays at the bottom.
 class ProductDetailScreen extends ConsumerStatefulWidget {
-  const ProductDetailScreen({super.key, required this.productId, this.heroScope = '', this.preview});
+  const ProductDetailScreen({
+    super.key,
+    required this.productId,
+    this.heroScope = '',
+    this.preview,
+    this.openReview = false,
+  });
   final String productId;
   final String heroScope;
+
+  /// Opened from the review request message (`?review=1`): the review window opens at once (see [ReviewDeepLink]).
+  final bool openReview;
 
   /// Summary from the list for an instant, hero-animated first frame.
   final ProductSummary? preview;
@@ -57,6 +73,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   int _quantity = 1;
   final Map<String, int> _colourQty = {};
 
+  /// "Add assembly and installation" ticked for this add (only a product that offers it).
+  bool _assembly = false;
+
   @override
   void didUpdateWidget(covariant ProductDetailScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -65,6 +84,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       _selection = null;
       _quantity = 1;
       _colourQty.clear();
+      _assembly = false;
     }
   }
 
@@ -103,9 +123,24 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final rows = multi ? colourRowsFor(product, colourAttr, selection) : const <ColourRow>[];
     final pickedCount = rows.fold<int>(0, (n, r) => n + (_colourQty[r.variant.id] ?? 0));
     final purchasable = variant != null && variant.purchasable && product.availability.purchasable;
+    // The buy bar's "Notify me" button shows the subscribed state when the customer already asked for this variant.
+    final notifying =
+        variant != null &&
+        (ref.watch(alertsControllerProvider).value ?? const <StockAlert>[]).any(
+          (a) => a.variantId == variant.id && a.type == AlertType.backInStock,
+        );
     final colourBuyable = product.availability.purchasable && rows.any((r) => r.variant.purchasable);
     final sku = variant?.sku ?? product.summary.sku;
     final hasRating = product.summary.rating.count > 0;
+    // What a share says: the name, its option, the price as shown and the product's plain page address (the chat builds its picture card from it).
+    final assemblyFee = product.summary.assemblyFee;
+    final shareText = productShareText(
+      name: product.name,
+      variantName: variant != null && variant.name.isNotEmpty ? variant.name : null,
+      intro: l10n.shareProductIntro,
+      url: product.shareUrl ?? DeepLinks.productShareUrl(product.summary.slug ?? product.id),
+      priceLine: price == null ? null : l10n.shareProductPrice(price.finalPrice.formatted),
+    );
 
     // ONE clock for the whole page (the price, the deal strip and the end-of-deal refetch all read it), ticking only while a deal is on it.
     return DealClockHost(
@@ -126,7 +161,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   builder: (anchor) => ProductHeaderButton(
                     icon: Icons.ios_share_rounded,
                     tooltip: l10n.share,
-                    onPressed: () => unawaited(_share(product, anchor)),
+                    onPressed: () => unawaited(_share(product, shareText, anchor)),
                   ),
                 ),
                 HeaderChrome(
@@ -240,7 +275,23 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       ),
                     ],
                     const Gap(AppSpace.lg),
+                    // Assembly and installation at the door (delivery orders only): ticked here, then chosen per line in the cart.
+                    if (assemblyFee != null) ...[
+                      AssemblyChoice(fee: assemblyFee, selected: _assembly, onChanged: (v) => setState(() => _assembly = v)),
+                      const Gap(AppSpace.md),
+                    ],
+                    // When will I get it? The delivery date and the pickup time from the customer's showroom; never blocks buying.
+                    if (purchasable || (multi && colourBuyable))
+                      ProductPromise(
+                        productId: product.id,
+                        variantId: variant?.id,
+                        quantity: multi ? (pickedCount > 0 ? pickedCount : 1) : _quantity,
+                        assembly: _assembly && assemblyFee != null,
+                      ),
                     ProductAvailabilityCard(product: product, variant: variant, branchName: branch?.name),
+                    WhatsAppShareButton(text: shareText, subject: product.name),
+                    StockAlertControls(variantId: variant?.id, canBuy: purchasable, showBell: false),
+                    ReviewDeepLink(enabled: widget.openReview, productId: product.id, productName: product.name),
                     const Gap(AppSpace.lg),
                     ProductDetailsSection(product: product),
                     const Gap(AppSpace.lg),
@@ -274,7 +325,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           maxQuantity: _maxQuantity,
           onQuantity: (q) => setState(() => _quantity = q),
           onAdd: variant == null ? null : () => _addToCart(product, variant),
-          onNotify: variant == null ? null : () => _notify(variant),
+          notifying: notifying,
+          onNotify: variant == null
+              ? null
+              : () => unawaited(toggleAlert(context, ref, variantId: variant.id, type: AlertType.backInStock)),
         ),
       ),
     );
@@ -291,14 +345,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 
   /// [anchor] is the share button: iPads place the share sheet next to it.
-  Future<void> _share(ProductDetail product, BuildContext anchor) async {
-    final url = product.shareUrl ?? DeepLinks.productShareUrl(product.summary.slug ?? product.id);
+  Future<void> _share(ProductDetail product, String text, BuildContext anchor) async {
     final box = anchor.findRenderObject();
     final origin = box is RenderBox && box.hasSize ? box.localToGlobal(Offset.zero) & box.size : null;
     try {
-      await ref.read(shareActionProvider)(
-        ShareParams(text: '${product.name}\n$url', subject: product.name, sharePositionOrigin: origin),
-      );
+      await ref.read(shareActionProvider)(ShareParams(text: text, subject: product.name, sharePositionOrigin: origin));
     } catch (e) {
       if (mounted) showErrorSnack(context, e);
     }
@@ -314,6 +365,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           quantity: _quantity,
           unitPrice: variant.price,
           variantName: variant.name.isEmpty ? null : variant.name,
+          assembly: _assembly && product.summary.assemblyFee != null,
         ),
       ]),
     );
@@ -337,22 +389,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             quantity: qty,
             unitPrice: v.price,
             variantName: v.name.isEmpty ? null : v.name,
+            assembly: _assembly && product.summary.assemblyFee != null,
           ),
       ]),
     );
     setState(_colourQty.clear);
-  }
-
-  Future<void> _notify(ProductVariant variant) async {
-    if (!requireAuth(context, ref)) return;
-    try {
-      await ref
-          .read(catalogRepositoryProvider)
-          .createStockAlert(variantId: variant.id, branchId: ref.read(preferredBranchIdProvider));
-      if (mounted) showInfoSnack(context, context.l10n.alertCreated);
-    } catch (e) {
-      if (mounted) showErrorSnack(context, e);
-    }
   }
 }
 

@@ -83,10 +83,6 @@ class CatalogRepository {
 
   Future<List<BuyAgainItem>> buyAgain({String? branchId}) =>
       _api.getList('/me/buy-again', BuyAgainItem.fromJson, query: {'branch_id': ?branchId});
-
-  Future<void> createStockAlert({required String variantId, String type = 'back_in_stock', String? branchId}) async {
-    await _api.post('/me/stock-alerts', data: {'variant_id': variantId, 'type': type, 'branch_id': ?branchId});
-  }
 }
 
 final catalogRepositoryProvider = Provider<CatalogRepository>((ref) => CatalogRepository(ref.watch(apiClientProvider)));

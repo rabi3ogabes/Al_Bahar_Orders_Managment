@@ -77,6 +77,7 @@ class DriverJobContext {
     this.needsTwoPeople = false,
     this.isOversized = false,
     this.requiresAssembly = false,
+    this.assemblyOrdered = false,
     this.paymentNote,
     this.arrivedAt,
     this.redacted = false,
@@ -104,6 +105,7 @@ class DriverJobContext {
       needsTwoPeople: asBool(j['needs_two_people']),
       isOversized: asBool(j['is_oversized']),
       requiresAssembly: asBool(j['requires_assembly']),
+      assemblyOrdered: asBool(j['assembly_ordered']),
       paymentNote: asStringOrNull(j['payment_note']),
       arrivedAt: asDate(j['arrived_at']),
       redacted: asBool(j['redacted']),
@@ -125,6 +127,9 @@ class DriverJobContext {
   final bool needsTwoPeople;
   final bool isOversized;
   final bool requiresAssembly;
+
+  /// The customer paid for assembly and installation at the door on a line of this parcel: the driver (or the team he works with) has it to do.
+  final bool assemblyOrdered;
 
   /// The server's one-line payment note ("Collect QAR 303.00 in cash at the door."), in the app's language.
   final String? paymentNote;
@@ -153,6 +158,7 @@ class DriverJobContext {
     needsTwoPeople: needsTwoPeople,
     isOversized: isOversized,
     requiresAssembly: requiresAssembly,
+    assemblyOrdered: assemblyOrdered,
     paymentNote: paymentNote,
     arrivedAt: arrivedAt ?? at,
     redacted: redacted,

@@ -3,9 +3,10 @@
 return [
     'title' => 'Customer journeys',
     'hint' => 'Automatic follow-ups that bring customers back: abandoned carts and birthdays, by push, in-app and WhatsApp.',
-    'tab_cart' => 'Abandoned cart', 'tab_birthday' => 'Birthday', 'tab_templates' => 'Message templates', 'tab_activity' => 'Activity',
-    'name_abandoned_cart' => 'Abandoned cart', 'name_birthday' => 'Birthday',
+    'tab_cart' => 'Abandoned cart', 'tab_birthday' => 'Birthday', 'tab_after_delivery' => 'After delivery', 'tab_templates' => 'Message templates', 'tab_activity' => 'Activity',
+    'name_abandoned_cart' => 'Abandoned cart', 'name_birthday' => 'Birthday', 'name_after_delivery' => 'After delivery',
     'about_abandoned_cart' => 'When a signed-in customer leaves items in the cart, follow up after the times you set below. It stops as soon as they order or come back.',
+    'about_after_delivery' => 'After an order is delivered: a thank-you, a review request a few days later, and an optional "goes well with it" message. Skipped for returned or refunded orders, failed deliveries, open support tickets and open claims.',
     'about_birthday' => 'Send a wish or a gift on the customer\'s birthday, in their app language. Needs the birthday in their profile.',
     'running' => 'Running', 'paused' => 'Paused', 'turned_on' => 'Journey is running.', 'turned_off' => 'Journey paused. Nobody will be messaged.',
     'needs_step' => 'Add at least one active step with a template first.',
@@ -61,5 +62,6 @@ return [
         'sent' => 'Sent', 'no_devices' => 'No app installed', 'push_not_configured' => 'Push is not set up', 'whatsapp_not_configured' => 'WhatsApp is not set up', 'no_phone' => 'No phone number',
         'no_marketing_consent' => 'No marketing consent', 'no_whatsapp_optin' => 'Did not opt in to WhatsApp', 'opted_out' => 'Opted out of this channel', 'inactive_user' => 'Account not active',
         'push_rejected' => 'Push was rejected', 'failed' => 'Failed',
+        'open_ticket' => 'Open support ticket', 'nothing_to_review' => 'Nothing left to review', 'nothing_to_suggest' => 'Nothing to suggest', 'recently_contacted' => 'Messaged by the team recently',
     ],
 ];

@@ -307,7 +307,7 @@ async function order(browser) {
     const text = await page.locator('[data-testid=return-status]').innerText();
     check(`return ${status}`, 'the card says where the request stands', re.test(text), text.replace(/\n/g, ' / '));
     if (status === 'rejected') check('return rejected', 'the team\'s note is shown', text.includes('A used sofa cannot be taken back.'));
-    check(`return ${status}`, status === 'rejected' ? 'the button is back when the server allows another request' : 'the Return button is hidden', status === 'rejected' ? (await page.getByRole('button', { name: 'Request a return' }).count()) === 1 : (await page.getByRole('button', { name: 'Request a return' }).count()) === 0);
+    check(`return ${status}`, status === 'rejected' ? 'the button is back when the server allows another request' : 'the Return button is hidden', status === 'rejected' ? (await page.getByRole('button', { name: 'Report a problem or return' }).count()) === 1 : (await page.getByRole('button', { name: 'Report a problem or return' }).count()) === 0);
     check(`return ${status}`, 'no console errors', errors.length === 0, errors.slice(0, 2).join(' | '));
     if (status === 'requested') { await shot(page, 'return-requested'); }
     await ctx.close();
@@ -315,11 +315,12 @@ async function order(browser) {
   // The form: only what can still be returned, a stepper, the server's refusal in plain words.
   {
     const { ctx, page, S } = await open(browser, { staleAccess: 'a2', canReturn: true, returnable: 1, returnReply: { status: 422, body: { message: 'These items can\'t be returned.', code: 'http_error', request_id: 'r' } } }, '/orders/o1');
-    await page.getByRole('button', { name: 'Request a return' }).click();
+    await page.getByRole('button', { name: 'Report a problem or return' }).click();
     await page.waitForSelector('text=Up to 1 can be returned');
     check('return form', 'the stepper stops at what can still be returned', true);
     await page.getByRole('button', { name: /Increase|\+/ }).first().click();
-    await page.getByRole('button', { name: /Send return request/ }).click();
+    await page.getByText('I changed my mind').click(); // a damaged item needs a photo; a change of mind does not
+    await page.getByRole('button', { name: /Send to our team/ }).click();
     await page.waitForSelector('[role=alert]');
     const alert = await page.locator('[role=alert]').first().innerText();
     check('return form', 'a refusal is explained, not just "can\'t be returned"', /may already be in a request|return period/.test(alert), alert);

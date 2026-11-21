@@ -231,6 +231,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               productId: s.pathParameters['id']!,
               heroScope: s.uri.queryParameters['hero'] ?? '',
               preview: s.extra is ProductSummary ? s.extra! as ProductSummary : null,
+              openReview: s.uri.queryParameters['review'] == '1',
             ),
             routes: [
               GoRoute(

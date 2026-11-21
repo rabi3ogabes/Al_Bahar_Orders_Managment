@@ -42,6 +42,23 @@ class SlotChoice {
   return (from: QatarTime.isoDate(today), to: QatarTime.isoDate(today.add(Duration(days: days - 1))));
 }
 
+/// The server never offers a day more than this many days ahead (today included).
+const int kSlotServerHorizonDays = 30;
+
+/// The dates to ask for when the items need more days before they can leave ([earliest], the quote's `earliest_date`): the list starts there, never
+/// before today and never past what the server offers. `from` after `to` means nothing can be offered (a lead time longer than the horizon).
+({String from, String to}) slotWindowDatesFrom(DateTime now, String? earliest, {int days = kSlotLookAheadDays}) {
+  final window = slotWindowDates(now, days: days);
+  final from = earliest != null && earliest.compareTo(window.from) > 0 ? earliest : window.from;
+  final startDay = QatarTime.parseDay(from);
+  final today = QatarTime.parseDay(window.from);
+  if (startDay == null || today == null) return window;
+  final last = QatarTime.isoDate(today.add(const Duration(days: kSlotServerHorizonDays - 1)));
+  final wanted = QatarTime.isoDate(startDay.add(Duration(days: days - 1)));
+
+  return (from: from, to: wanted.compareTo(last) < 0 ? wanted : last);
+}
+
 /// The moment a slot starts: [date] is a Qatar calendar day and [hhmm] a Qatar wall-clock time ("16:00"). Qatar is UTC+3 all year.
 DateTime slotStartInstant(String date, String hhmm) {
   final day = QatarTime.parseDay(date);

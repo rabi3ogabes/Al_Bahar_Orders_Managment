@@ -50,7 +50,7 @@ it('lets the admin edit the designed-by lines and the returns switch in Settings
 
 it('offers "Return order" while the switch is on and hides and refuses it when the admin turns it off', function () {
     [, $order, $item] = deliveredOrder();
-    $body = ['reason_code' => 'damaged', 'items' => [['order_item_id' => $item->id, 'quantity' => 1]]];
+    $body = ['reason_code' => 'changed_mind', 'items' => [['order_item_id' => $item->id, 'quantity' => 1]]];
 
     $this->getJson("/api/v1/orders/{$order->id}")->assertOk()->assertJsonPath('data.can_return', true);
     app(Settings::class)->set('returns.enabled', false);
@@ -67,7 +67,7 @@ it('offers "Return order" while the switch is on and hides and refuses it when t
 
 it('keeps handling return requests made before the switch was turned off', function () {
     [, $order, $item] = deliveredOrder();
-    $this->postJson("/api/v1/orders/{$order->id}/returns", ['reason_code' => 'damaged', 'items' => [['order_item_id' => $item->id, 'quantity' => 1]]])->assertCreated();
+    $this->postJson("/api/v1/orders/{$order->id}/returns", ['reason_code' => 'changed_mind', 'items' => [['order_item_id' => $item->id, 'quantity' => 1]]])->assertCreated();
     app(Settings::class)->set('returns.enabled', false);
 
     $this->actingAs(staffWithRole('super_admin'));

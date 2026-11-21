@@ -113,7 +113,7 @@
                             <td><x-admin.order-kind :method="$o->payment_method" :type="$o->fulfillment_type" /></td>
                             <td><x-admin.status :value="$o->payment_status->value" bi /></td>
                             <td class="text-end font-medium"><x-admin.money :value="$o->grand_total" /></td>
-                            <td><x-admin.status :value="$o->status->value" bi /></td>
+                            <td><x-admin.status :value="$o->status->value" bi />@if ($d = $customerWaits[$o->id] ?? null)<x-admin.waiting-customer :deadline="$d" class="mt-1" />@endif</td>
                             <td><span class="btn-ghost btn-sm pointer-events-none" aria-hidden="true"><x-icon name="chevron-right" class="size-4 rtl-flip" /></span></td>
                         </tr>
                     @endforeach

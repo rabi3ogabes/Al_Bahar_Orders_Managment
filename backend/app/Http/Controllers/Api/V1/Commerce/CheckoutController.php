@@ -35,16 +35,25 @@ class CheckoutController extends ApiController
 
     public function addItem(Request $request): JsonResponse
     {
-        $data = $request->validate(['variant_id' => 'required|uuid|exists:product_variants,id', 'quantity' => 'required|integer|min:1|max:'.config('platform.checkout.max_quantity_per_line')]);
+        $data = $request->validate(['variant_id' => 'required|uuid|exists:product_variants,id', 'quantity' => 'required|integer|min:1|max:'.config('platform.checkout.max_quantity_per_line'),
+            'assembly' => 'sometimes|boolean']); // assembly and installation for the line (only products that offer it)
 
-        return response()->json(['data' => $this->carts->present($this->carts->add($this->user(), $data['variant_id'], (int) $data['quantity']))], 201);
+        return response()->json(['data' => $this->carts->present($this->carts->add($this->user(), $data['variant_id'], (int) $data['quantity'], array_key_exists('assembly', $data) ? (bool) $data['assembly'] : null))], 201);
     }
 
     public function updateItem(Request $request, string $id): JsonResponse
     {
-        $data = $request->validate(['quantity' => 'required|integer|min:0|max:'.config('platform.checkout.max_quantity_per_line')]);
+        // A line changes its quantity, its assembly choice, or both in one call (at least one of the two).
+        $data = $request->validate(['quantity' => 'required_without:assembly|integer|min:0|max:'.config('platform.checkout.max_quantity_per_line'), 'assembly' => 'required_without:quantity|boolean']);
+        $cart = null;
+        if (array_key_exists('assembly', $data) && (int) ($data['quantity'] ?? 1) > 0) {
+            $cart = $this->carts->setAssembly($this->user(), $id, (bool) $data['assembly']);
+        }
+        if (array_key_exists('quantity', $data)) {
+            $cart = $this->carts->update($this->user(), $id, (int) $data['quantity']);
+        }
 
-        return response()->json(['data' => $this->carts->present($this->carts->update($this->user(), $id, (int) $data['quantity']))]);
+        return response()->json(['data' => $this->carts->present($cart)]);
     }
 
     public function removeItem(string $id): JsonResponse

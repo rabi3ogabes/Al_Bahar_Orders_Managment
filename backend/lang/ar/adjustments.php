@@ -7,6 +7,8 @@ return [
         'not_found' => 'لم يُعثر عليه في الفرع',
         'damaged' => 'تالف',
         'quality' => 'لم يجتز فحص الجودة',
+        'substitute_declined' => 'لم تقبل البديل',
+        'substitute_expired' => 'لم يصل رد بشأن البديل في الوقت المحدد',
         'other' => 'غير متوفر',
     ],
     'line' => [

@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Admin\Sales;
 
+use App\Domain\Checkout\Support\Assembly;
+use App\Domain\Identity\Models\User;
 use App\Domain\Orders\Models\OrderItem;
 use App\Domain\Orders\Models\ReturnRequest;
 use App\Domain\Orders\Services\ReturnService;
@@ -15,8 +17,10 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
- * Return requests queue and decision flow: approve/reject → receive (restock) → raise refund → close.
- * A row opens the return in a side window (`?view=<return id>`); its order opens in a second window on top.
+ * Return and damage claims: start the review → approve (choosing how the goods come back) or reject (a reply is required) → receive (restock or
+ * write off) → raise the refund through the normal refund flow → close. A row opens the claim in a side window (`?view=<claim id>`) with the
+ * customer's photos (private, zoomable), their note and what they added later, the order lines and the claim's own log; the order opens in a
+ * second window on top.
  */
 class ReturnIndex extends Component
 {
@@ -37,7 +41,13 @@ class ReturnIndex extends Component
 
     public string $note = '';
 
-    public bool $restock = true;
+    /** How the goods come back when approving: pickup | branch | none. */
+    public string $method = 'branch';
+
+    public string $methodNote = '';
+
+    /** What happens to the goods when they arrive: restock | write_off. */
+    public string $stockChoice = 'restock';
 
     public string $refundAmount = '';
 
@@ -64,8 +74,10 @@ class ReturnIndex extends Component
         $this->authorizeBranch('orders.view', $rr->branch_id);
         $this->viewId = $rr->id;
         $this->selectedId = $rr->id;
-        $this->reset('note');
-        $this->restock = true;
+        $this->reset('note', 'methodNote');
+        $this->method = $rr->reason_code === 'missing_item' ? 'none' : 'branch';
+        // A claim about the condition of the goods never goes back on the shelf by itself: the manager has to choose it.
+        $this->stockChoice = $rr->isDefect() ? 'write_off' : 'restock';
         $this->refundAmount = $this->suggestedRefund($rr)->toDecimal();
         $this->refundMethod = 'original';
         $this->resetValidation();
@@ -85,7 +97,9 @@ class ReturnIndex extends Component
         foreach ($rr->items as $line) {
             $i = $items[$line['order_item_id']] ?? null;
             if ($i && $i->quantity > 0) {
-                $total = $total->plus(Money::ofMinor(intdiv(Money::of($i->line_total)->minor * (int) $line['quantity'], $i->quantity)));
+                $units = (int) $line['quantity'];
+                // The goods, and the assembly the customer paid for those same units (they are not built, so they are not owed).
+                $total = $total->plus(Money::ofMinor(intdiv(Money::of($i->line_total)->minor * $units, $i->quantity)))->plus(Assembly::refundShare($i, $units));
             }
         }
 
@@ -97,21 +111,32 @@ class ReturnIndex extends Component
         return ReturnRequest::findOrFail((string) $this->selectedId);
     }
 
+    public function startReview(ReturnService $svc): void
+    {
+        $rr = $this->selected();
+        $this->authorizeBranch('orders.edit', $rr->branch_id);
+        $this->attempt(fn () => $svc->startReview($rr, auth()->user()), __('returns_admin.review_started'));
+    }
+
     public function decide(bool $approve, ReturnService $svc): void
     {
         $rr = $this->selected();
         $this->authorizeBranch('orders.approve', $rr->branch_id);
         if (! $approve) {
-            $this->validate(['note' => 'required|string|min:3|max:500'], [], ['note' => __('admin.reason')]);
+            $this->validate(['note' => 'required|string|min:3|max:500'], [], ['note' => __('returns_admin.reply')]);
+        } else {
+            $this->validate(['note' => 'nullable|string|max:500', 'method' => 'required|in:'.implode(',', ReturnService::METHODS), 'methodNote' => 'nullable|string|max:300'], [], ['note' => __('returns_admin.reply')]);
         }
-        $this->attempt(fn () => $svc->decide($rr, auth()->user(), $approve, trim($this->note) ?: null), $approve ? __('sales_admin.return_approved') : __('sales_admin.return_rejected'));
+        $this->attempt(fn () => $svc->decide($rr, auth()->user(), $approve, trim($this->note) ?: null, $approve ? $this->method : null, trim($this->methodNote) ?: null),
+            $approve ? __('sales_admin.return_approved') : __('sales_admin.return_rejected'));
     }
 
     public function receive(ReturnService $svc): void
     {
         $rr = $this->selected();
         $this->authorizeBranch('orders.edit', $rr->branch_id);
-        $this->attempt(fn () => $svc->receive($rr, auth()->user(), $this->restock), __('sales_admin.return_received'));
+        $this->validate(['stockChoice' => 'required|in:restock,write_off']);
+        $this->attempt(fn () => $svc->receive($rr, auth()->user(), $this->stockChoice === 'restock'), __('sales_admin.return_received'));
     }
 
     public function refund(ReturnService $svc): void
@@ -136,19 +161,20 @@ class ReturnIndex extends Component
         $scope = $this->branchScope('orders.view');
         $s = trim($this->search);
         $base = fn () => tap(ReturnRequest::query(), fn ($q) => $scope->apply($q->getQuery(), 'branch_id'));
-        $q = $base()->with(['order:id,number,customer_name,payment_method', 'user:id,name'])
-            ->when($this->filterStatus === 'open', fn ($q) => $q->whereIn('status', ['requested', 'approved', 'received']), fn ($q) => $q->when($this->filterStatus, fn ($q, $st) => $q->where('status', $st)))
+        $q = $base()->with(['order:id,number,customer_name,payment_method', 'user:id,name'])->withCount('photos')
+            ->when($this->filterStatus === 'open', fn ($q) => $q->whereIn('status', ['requested', 'under_review', 'approved', 'received']), fn ($q) => $q->when($this->filterStatus, fn ($q, $st) => $q->where('status', $st)))
             ->when($s, fn ($q) => $q->where(fn ($w) => $w->where('number', 'ilike', "%{$s}%")->orWhereHas('order', fn ($o) => $o->where('number', 'ilike', "%{$s}%"))))
             ->latest();
 
-        $sel = $this->selectedId ? ReturnRequest::with(['order', 'user:id,name'])->find($this->selectedId) : null;
+        $sel = $this->selectedId ? ReturnRequest::with(['order', 'user:id,name', 'photos', 'events', 'branch'])->find($this->selectedId) : null;
         $items = $sel ? OrderItem::whereIn('id', collect($sel->items)->pluck('order_item_id'))->get()->keyBy('id') : collect();
 
         return view('livewire.admin.sales.returns', [
             'returns' => $q->paginate($this->perPage),
-            'pending' => $base()->where('status', 'requested')->count(),
+            'pending' => $base()->whereIn('status', ReturnRequest::UNDECIDED)->count(),
             'sel' => $sel,
             'items' => $items,
+            'actors' => $sel ? User::whereIn('id', $sel->events->pluck('actor_id')->filter()->unique())->pluck('name', 'id') : collect(),
             'refund' => $sel?->refund_id ? Refund::find($sel->refund_id) : null,
             'branches' => $this->scopedBranches('orders.view'),
         ])->title(__('nav.returns'));

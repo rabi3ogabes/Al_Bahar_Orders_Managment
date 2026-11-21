@@ -5,6 +5,7 @@ require_once __DIR__.'/AdjustmentFixtures.php';
 use App\Domain\Orders\Models\OrderItem;
 use App\Domain\Orders\Models\OrderRevision;
 use App\Domain\Payments\Models\Refund;
+use App\Domain\Settings\Services\Settings;
 use App\Livewire\Admin\Sales\OrderAdjust;
 use App\Livewire\Admin\Sales\OrderShow;
 use Livewire\Livewire;
@@ -30,6 +31,7 @@ it('offers "Adjust items" on the order page to the branch that is preparing it, 
 });
 
 it('reduces, replaces and removes from the window, shows the new total before confirming, then does exactly what the API does', function () {
+    app(Settings::class)->set('substitutions.consent_enabled', false);   // these tests are about the change itself; the question to the customer has its own tests
     $a = adjustmentWorld(['qty' => [3, 1]]);
     [$p, $v] = substituteFor($a->w, '600.00');
     $w = adjustWindow($a)->call('open')->assertSet('show', true)->assertSee($a->l1->name_en)->assertSee($a->l2->name_en)->assertSee(__('adjust_admin.act_keep'));

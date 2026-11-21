@@ -232,6 +232,8 @@ class CheckoutController extends Notifier<CheckoutState> {
         _refetchSlots();
       }
       final noSlot = corrected.deliverySlotId == null && corrected.pickupSlotId == null;
+      // Items that need more days (made to order, assembly) start the time lists later; the lists follow the quote.
+      ref.read(slotEarliestDateProvider.notifier).set(quote.fulfillments.firstOrNull?.earliestDate);
       state = state.copyWith(
         quote: () => quote,
         quoting: false,

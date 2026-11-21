@@ -1244,6 +1244,144 @@ abstract class AppLocalizations {
   /// **'We’ll let you know.'**
   String get alertCreated;
 
+  /// No description provided for @alertsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'My alerts'**
+  String get alertsTitle;
+
+  /// No description provided for @alertBackInStock.
+  ///
+  /// In en, this message translates to:
+  /// **'Back in stock'**
+  String get alertBackInStock;
+
+  /// No description provided for @alertPriceDrop.
+  ///
+  /// In en, this message translates to:
+  /// **'Price drop'**
+  String get alertPriceDrop;
+
+  /// No description provided for @alertWaitingStock.
+  ///
+  /// In en, this message translates to:
+  /// **'We’ll tell you when it’s back'**
+  String get alertWaitingStock;
+
+  /// No description provided for @alertAvailableNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Available now'**
+  String get alertAvailableNow;
+
+  /// No description provided for @alertWatching.
+  ///
+  /// In en, this message translates to:
+  /// **'Watching the price'**
+  String get alertWatching;
+
+  /// No description provided for @alertSoldOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Out of stock right now'**
+  String get alertSoldOut;
+
+  /// No description provided for @alertSince.
+  ///
+  /// In en, this message translates to:
+  /// **'Since {date}'**
+  String alertSince(String date);
+
+  /// No description provided for @alertWas.
+  ///
+  /// In en, this message translates to:
+  /// **'Was {price}'**
+  String alertWas(String price);
+
+  /// No description provided for @alertNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Now {price}'**
+  String alertNow(String price);
+
+  /// No description provided for @alertDropped.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}% lower'**
+  String alertDropped(int percent);
+
+  /// No description provided for @alertRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove alert'**
+  String get alertRemove;
+
+  /// No description provided for @alertRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'Alert removed'**
+  String get alertRemoved;
+
+  /// No description provided for @alertsEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No alerts yet'**
+  String get alertsEmptyTitle;
+
+  /// No description provided for @alertsEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the bell on a product that is out of stock, or choose “Tell me if the price drops” on one you like. It will wait for you here.'**
+  String get alertsEmptyMessage;
+
+  /// No description provided for @alertsBrowse.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse products'**
+  String get alertsBrowse;
+
+  /// No description provided for @alertNotifyOn.
+  ///
+  /// In en, this message translates to:
+  /// **'We’ll tell you when it’s back. Tap to cancel.'**
+  String get alertNotifyOn;
+
+  /// No description provided for @alertPriceToggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Tell me if the price drops'**
+  String get alertPriceToggle;
+
+  /// No description provided for @alertPriceOn.
+  ///
+  /// In en, this message translates to:
+  /// **'We’ll tell you if the price drops. Tap to stop.'**
+  String get alertPriceOn;
+
+  /// No description provided for @alertPriceCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Got it. We’ll tell you if the price drops.'**
+  String get alertPriceCreated;
+
+  /// No description provided for @alertPriceNeedsConsent.
+  ///
+  /// In en, this message translates to:
+  /// **'Price alerts arrive as offers and news. Turn that on in your notification settings to receive them.'**
+  String get alertPriceNeedsConsent;
+
+  /// No description provided for @roomsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shop by room'**
+  String get roomsTitle;
+
+  /// No description provided for @roomProductsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 product} other{{count} products}}'**
+  String roomProductsCount(int count);
+
   /// No description provided for @addToWishlist.
   ///
   /// In en, this message translates to:
@@ -2351,31 +2489,13 @@ abstract class AppLocalizations {
   /// No description provided for @requestReturn.
   ///
   /// In en, this message translates to:
-  /// **'Request a return'**
+  /// **'Report a problem or return'**
   String get requestReturn;
-
-  /// No description provided for @returnReasonDamaged.
-  ///
-  /// In en, this message translates to:
-  /// **'Arrived damaged'**
-  String get returnReasonDamaged;
-
-  /// No description provided for @returnReasonWrong.
-  ///
-  /// In en, this message translates to:
-  /// **'Wrong item'**
-  String get returnReasonWrong;
-
-  /// No description provided for @returnReasonNotAsDescribed.
-  ///
-  /// In en, this message translates to:
-  /// **'Not as described'**
-  String get returnReasonNotAsDescribed;
 
   /// No description provided for @returnRequested.
   ///
   /// In en, this message translates to:
-  /// **'Return requested. Our team will contact you.'**
+  /// **'Sent. Our team will look at it shortly.'**
   String get returnRequested;
 
   /// No description provided for @selectItemsToReturn.
@@ -5963,7 +6083,7 @@ abstract class AppLocalizations {
   /// No description provided for @returnFormIntro.
   ///
   /// In en, this message translates to:
-  /// **'Choose what you want to send back and tell us why. We will review it and reply.'**
+  /// **'Tell us what happened and which items it is about. We will review it and reply here.'**
   String get returnFormIntro;
 
   /// No description provided for @returnUpTo.
@@ -6013,6 +6133,660 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Call your driver'**
   String get callDriver;
+
+  /// No description provided for @claimTypeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'What happened?'**
+  String get claimTypeLabel;
+
+  /// No description provided for @claimTypeDamaged.
+  ///
+  /// In en, this message translates to:
+  /// **'Damaged on arrival'**
+  String get claimTypeDamaged;
+
+  /// No description provided for @claimTypeDamagedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add at least one photo of the damage.'**
+  String get claimTypeDamagedHint;
+
+  /// No description provided for @claimTypeWrong.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrong item'**
+  String get claimTypeWrong;
+
+  /// No description provided for @claimTypeWrongHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a photo of what you received.'**
+  String get claimTypeWrongHint;
+
+  /// No description provided for @claimTypeMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Something is missing from the box'**
+  String get claimTypeMissing;
+
+  /// No description provided for @claimTypeMissingHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tell us what was not in the box.'**
+  String get claimTypeMissingHint;
+
+  /// No description provided for @claimTypeQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'Quality problem'**
+  String get claimTypeQuality;
+
+  /// No description provided for @claimTypeQualityHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tell us what is wrong. Photos help.'**
+  String get claimTypeQualityHint;
+
+  /// No description provided for @claimTypeChangedMind.
+  ///
+  /// In en, this message translates to:
+  /// **'I changed my mind'**
+  String get claimTypeChangedMind;
+
+  /// No description provided for @claimTypeChangedMindHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Send it back for a refund.'**
+  String get claimTypeChangedMindHint;
+
+  /// No description provided for @claimPhotosTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Photos'**
+  String get claimPhotosTitle;
+
+  /// No description provided for @claimPhotosRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Needed for this kind of claim'**
+  String get claimPhotosRequired;
+
+  /// No description provided for @claimPhotosOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional, but they help us decide faster'**
+  String get claimPhotosOptional;
+
+  /// No description provided for @claimPhotoCamera.
+  ///
+  /// In en, this message translates to:
+  /// **'Take a photo'**
+  String get claimPhotoCamera;
+
+  /// No description provided for @claimPhotoGallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose photos'**
+  String get claimPhotoGallery;
+
+  /// No description provided for @claimPhotoCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{n} of {max} photos'**
+  String claimPhotoCount(int n, int max);
+
+  /// No description provided for @claimPhotoRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove photo'**
+  String get claimPhotoRemove;
+
+  /// No description provided for @claimPhotoAlt.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo {n} of your claim'**
+  String claimPhotoAlt(int n);
+
+  /// No description provided for @claimPhotoFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'This photo could not be shown.'**
+  String get claimPhotoFailed;
+
+  /// No description provided for @claimPhotoClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close photo'**
+  String get claimPhotoClose;
+
+  /// No description provided for @claimErrPhotos.
+  ///
+  /// In en, this message translates to:
+  /// **'Please add at least one clear photo (JPEG, PNG or WebP, up to 5, each under 8 MB).'**
+  String get claimErrPhotos;
+
+  /// No description provided for @claimErrPhotoType.
+  ///
+  /// In en, this message translates to:
+  /// **'Photos must be JPEG, PNG or WebP.'**
+  String get claimErrPhotoType;
+
+  /// No description provided for @claimErrPhotoSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Each photo must be under 8 MB.'**
+  String get claimErrPhotoSize;
+
+  /// No description provided for @claimErrPhotoCount.
+  ///
+  /// In en, this message translates to:
+  /// **'You can add up to 5 photos.'**
+  String get claimErrPhotoCount;
+
+  /// No description provided for @claimErrNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Please keep your message under 500 characters.'**
+  String get claimErrNote;
+
+  /// No description provided for @claimErrLocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Our team has already looked at this claim, so it can no longer be changed. Please contact us if something needs adding.'**
+  String get claimErrLocked;
+
+  /// No description provided for @claimStepReceived.
+  ///
+  /// In en, this message translates to:
+  /// **'Claim received'**
+  String get claimStepReceived;
+
+  /// No description provided for @claimStepUnderReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Under review'**
+  String get claimStepUnderReview;
+
+  /// No description provided for @claimStepDecision.
+  ///
+  /// In en, this message translates to:
+  /// **'Decision'**
+  String get claimStepDecision;
+
+  /// No description provided for @claimStepApproved.
+  ///
+  /// In en, this message translates to:
+  /// **'Approved'**
+  String get claimStepApproved;
+
+  /// No description provided for @claimStepRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Not approved'**
+  String get claimStepRejected;
+
+  /// No description provided for @claimStepHandover.
+  ///
+  /// In en, this message translates to:
+  /// **'How it comes back'**
+  String get claimStepHandover;
+
+  /// No description provided for @claimStepPickup.
+  ///
+  /// In en, this message translates to:
+  /// **'Pickup arranged'**
+  String get claimStepPickup;
+
+  /// No description provided for @claimStepBranch.
+  ///
+  /// In en, this message translates to:
+  /// **'Bring it to the branch'**
+  String get claimStepBranch;
+
+  /// No description provided for @claimStepBranchDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Please bring the item to {branch}.'**
+  String claimStepBranchDetail(String branch);
+
+  /// No description provided for @claimStepItemReceived.
+  ///
+  /// In en, this message translates to:
+  /// **'Item received'**
+  String get claimStepItemReceived;
+
+  /// No description provided for @claimStepRefunded.
+  ///
+  /// In en, this message translates to:
+  /// **'Refunded'**
+  String get claimStepRefunded;
+
+  /// No description provided for @claimStepRefundDone.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} refunded {how}.'**
+  String claimStepRefundDone(String amount, String how);
+
+  /// No description provided for @claimStepRefundWait.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} refund is on its way {how}.'**
+  String claimStepRefundWait(String amount, String how);
+
+  /// No description provided for @claimStepCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'You cancelled this claim'**
+  String get claimStepCancelled;
+
+  /// No description provided for @claimStepOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Update'**
+  String get claimStepOther;
+
+  /// No description provided for @claimRefundOriginal.
+  ///
+  /// In en, this message translates to:
+  /// **'to your original payment method'**
+  String get claimRefundOriginal;
+
+  /// No description provided for @claimRefundCash.
+  ///
+  /// In en, this message translates to:
+  /// **'in cash'**
+  String get claimRefundCash;
+
+  /// No description provided for @claimRefundBank.
+  ///
+  /// In en, this message translates to:
+  /// **'by bank transfer'**
+  String get claimRefundBank;
+
+  /// No description provided for @claimRefundOther.
+  ///
+  /// In en, this message translates to:
+  /// **'to you'**
+  String get claimRefundOther;
+
+  /// No description provided for @claimTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Claim {number}'**
+  String claimTitle(String number);
+
+  /// No description provided for @claimSentOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent {date}'**
+  String claimSentOn(String date);
+
+  /// No description provided for @claimTimelineLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Where your claim stands'**
+  String get claimTimelineLabel;
+
+  /// No description provided for @claimAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a photo or a note'**
+  String get claimAdd;
+
+  /// No description provided for @claimAddHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Our team has not decided yet. Anything you add reaches them straight away.'**
+  String get claimAddHint;
+
+  /// No description provided for @claimAddSubmit.
+  ///
+  /// In en, this message translates to:
+  /// **'Send to our team'**
+  String get claimAddSubmit;
+
+  /// No description provided for @claimAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent to our team.'**
+  String get claimAdded;
+
+  /// No description provided for @claimCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel this claim'**
+  String get claimCancel;
+
+  /// No description provided for @claimCancelConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel this claim? You can send a new one while the period is still open.'**
+  String get claimCancelConfirm;
+
+  /// No description provided for @claimCancelKeep.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep it'**
+  String get claimCancelKeep;
+
+  /// No description provided for @claimCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Claim cancelled.'**
+  String get claimCancelled;
+
+  /// No description provided for @claimYourNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Your message'**
+  String get claimYourNote;
+
+  /// No description provided for @claimWindowUntil.
+  ///
+  /// In en, this message translates to:
+  /// **'You can report a problem until {date}'**
+  String claimWindowUntil(String date);
+
+  /// No description provided for @returnStatusUnderReview.
+  ///
+  /// In en, this message translates to:
+  /// **'A member of our team is looking at your claim now.'**
+  String get returnStatusUnderReview;
+
+  /// No description provided for @returnStatusCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'You cancelled this claim.'**
+  String get returnStatusCancelled;
+
+  /// No description provided for @substTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Please choose a replacement'**
+  String get substTitle;
+
+  /// No description provided for @substAsk.
+  ///
+  /// In en, this message translates to:
+  /// **'We do not have {item}. Replace it with {replacement}?'**
+  String substAsk(String item, String replacement);
+
+  /// No description provided for @substPriceSame.
+  ///
+  /// In en, this message translates to:
+  /// **'same price'**
+  String get substPriceSame;
+
+  /// No description provided for @substPriceLess.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} less'**
+  String substPriceLess(String amount);
+
+  /// No description provided for @substPriceLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Price: {note}. You never pay more than you ordered.'**
+  String substPriceLine(String note);
+
+  /// No description provided for @substYouOrdered.
+  ///
+  /// In en, this message translates to:
+  /// **'You ordered'**
+  String get substYouOrdered;
+
+  /// No description provided for @substReplacement.
+  ///
+  /// In en, this message translates to:
+  /// **'Replacement'**
+  String get substReplacement;
+
+  /// No description provided for @substQty.
+  ///
+  /// In en, this message translates to:
+  /// **'× {n}'**
+  String substQty(int n);
+
+  /// No description provided for @substTimeLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'About {n} min left to answer (while the shop is open)'**
+  String substTimeLeft(int n);
+
+  /// No description provided for @substTimeUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Time is up. We are settling it now.'**
+  String get substTimeUp;
+
+  /// No description provided for @substFallbackRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'If we do not hear from you, we will remove it from your order and refund you.'**
+  String get substFallbackRemove;
+
+  /// No description provided for @substFallbackKeep.
+  ///
+  /// In en, this message translates to:
+  /// **'If we do not hear from you, we will keep the replacement at no extra cost.'**
+  String get substFallbackKeep;
+
+  /// No description provided for @substAccept.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept the replacement'**
+  String get substAccept;
+
+  /// No description provided for @substDecline.
+  ///
+  /// In en, this message translates to:
+  /// **'No, remove it and refund me'**
+  String get substDecline;
+
+  /// No description provided for @substAcceptedToast.
+  ///
+  /// In en, this message translates to:
+  /// **'Thank you. We will prepare the replacement.'**
+  String get substAcceptedToast;
+
+  /// No description provided for @substDeclinedToast.
+  ///
+  /// In en, this message translates to:
+  /// **'Done. We removed it and are arranging your refund.'**
+  String get substDeclinedToast;
+
+  /// No description provided for @substOutcomeAccepted.
+  ///
+  /// In en, this message translates to:
+  /// **'You accepted the replacement.'**
+  String get substOutcomeAccepted;
+
+  /// No description provided for @substOutcomeDeclined.
+  ///
+  /// In en, this message translates to:
+  /// **'You declined the replacement. The item was removed and any payment is being refunded.'**
+  String get substOutcomeDeclined;
+
+  /// No description provided for @substOutcomeExpiredRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'No answer in time, so the item was removed and any payment is being refunded.'**
+  String get substOutcomeExpiredRemoved;
+
+  /// No description provided for @substOutcomeExpiredKept.
+  ///
+  /// In en, this message translates to:
+  /// **'No answer in time, so we kept the replacement at no extra cost.'**
+  String get substOutcomeExpiredKept;
+
+  /// No description provided for @substOutcomeCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'This question is closed.'**
+  String get substOutcomeCancelled;
+
+  /// No description provided for @substErrGone.
+  ///
+  /// In en, this message translates to:
+  /// **'We could not find this question. Please reload the order.'**
+  String get substErrGone;
+
+  /// No description provided for @substErrAnswered.
+  ///
+  /// In en, this message translates to:
+  /// **'You already answered this differently.'**
+  String get substErrAnswered;
+
+  /// No description provided for @substErrExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'The time to answer ran out, so the shop settings applied. The order shows what happened.'**
+  String get substErrExpired;
+
+  /// No description provided for @substErrClosed.
+  ///
+  /// In en, this message translates to:
+  /// **'This question is closed: the order has moved on.'**
+  String get substErrClosed;
+
+  /// No description provided for @promiseConfirmDelivery.
+  ///
+  /// In en, this message translates to:
+  /// **'We will confirm your delivery date'**
+  String get promiseConfirmDelivery;
+
+  /// No description provided for @promiseConfirmPickup.
+  ///
+  /// In en, this message translates to:
+  /// **'We will confirm your pick-up time'**
+  String get promiseConfirmPickup;
+
+  /// No description provided for @promiseAddressHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The exact date depends on your address.'**
+  String get promiseAddressHint;
+
+  /// No description provided for @assemblyAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add assembly and installation'**
+  String get assemblyAdd;
+
+  /// No description provided for @assemblyFeeEach.
+  ///
+  /// In en, this message translates to:
+  /// **'+{fee} each'**
+  String assemblyFeeEach(String fee);
+
+  /// No description provided for @assemblyNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Done at your door. For delivery orders only.'**
+  String get assemblyNote;
+
+  /// No description provided for @assemblyLineTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} for this item'**
+  String assemblyLineTotal(String amount);
+
+  /// No description provided for @assemblyRow.
+  ///
+  /// In en, this message translates to:
+  /// **'Assembly and installation'**
+  String get assemblyRow;
+
+  /// No description provided for @orderAssemblyLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Assembly and installation: {amount}'**
+  String orderAssemblyLine(String amount);
+
+  /// No description provided for @shareOnWhatsApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Share on WhatsApp'**
+  String get shareOnWhatsApp;
+
+  /// No description provided for @shareOtherWays.
+  ///
+  /// In en, this message translates to:
+  /// **'More ways to share'**
+  String get shareOtherWays;
+
+  /// No description provided for @shareProductIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Take a look at this at Al Bahar Home & Living:'**
+  String get shareProductIntro;
+
+  /// No description provided for @shareProductPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Price: {price}'**
+  String shareProductPrice(String price);
+
+  /// No description provided for @shareBasketIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Here is what I picked at Al Bahar Home & Living:'**
+  String get shareBasketIntro;
+
+  /// No description provided for @shareBasketTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Total: {total}'**
+  String shareBasketTotal(String total);
+
+  /// No description provided for @shareBasketAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Send my cart on WhatsApp'**
+  String get shareBasketAction;
+
+  /// No description provided for @shareWhatsAppMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'WhatsApp could not be opened. Pick another way to share.'**
+  String get shareWhatsAppMissing;
+
+  /// No description provided for @guestCheckoutNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Your cart is kept on this phone. You sign in or create an account at checkout.'**
+  String get guestCheckoutNote;
+
+  /// No description provided for @guestChangesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your cart changed'**
+  String get guestChangesTitle;
+
+  /// No description provided for @guestChangePrice.
+  ///
+  /// In en, this message translates to:
+  /// **'The price of {name} changed from {from} to {to}.'**
+  String guestChangePrice(String name, String from, String to);
+
+  /// No description provided for @guestChangeReduced.
+  ///
+  /// In en, this message translates to:
+  /// **'Only {count} of {name} are available now, so the quantity was lowered.'**
+  String guestChangeReduced(String name, int count);
+
+  /// No description provided for @guestChangeUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is no longer available.'**
+  String guestChangeUnavailable(String name);
+
+  /// No description provided for @guestChangeAssembly.
+  ///
+  /// In en, this message translates to:
+  /// **'Assembly is no longer offered for {name}.'**
+  String guestChangeAssembly(String name);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

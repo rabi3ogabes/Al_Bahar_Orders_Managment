@@ -243,6 +243,8 @@ class CheckoutService
             'discount_total' => $quote->discountTotal()->toDecimal(),
             'delivery_fee_total' => $quote->deliveryFeeTotal()->toDecimal(),
             'service_fee_total' => $quote->serviceFee->toDecimal(),
+            // Assembly and installation the customer chose on delivery lines: part of the grand total, each line keeps its own share (order_items.assembly_total).
+            'assembly_fee_total' => $quote->assemblyTotal()->toDecimal(),
             'tax_total' => $quote->taxTotal()->toDecimal(),
             'loyalty_discount' => $quote->loyaltyDiscount->toDecimal(),
             'loyalty_points_redeemed' => $quote->loyaltyPoints,
@@ -298,6 +300,8 @@ class CheckoutService
             'tax_amount' => $line->tax->toDecimal(),
             'line_total' => $subtotal->minus($line->discount)->plus($line->tax)->toDecimal(),
             'price_source' => $line->price->source,
+            // The assembly the customer bought for this line: the fee per unit as placed and what the line owes (follows its units from here on).
+            'assembly_fee' => $line->assemblyFee?->toDecimal(), 'assembly_total' => $line->assemblyTotal()->toDecimal(),
             // What the deal did to this line, as placed (invoices and revised invoices never read the live deal).
             'deal_id' => $deal?->deal->id, 'deal_name_en' => $deal?->deal->name_en, 'deal_name_ar' => $deal?->deal->name_ar,
             'deal_units' => $deal?->units ?? 0, 'deal_unit_savings' => $deal?->unitSavings->toDecimal(),

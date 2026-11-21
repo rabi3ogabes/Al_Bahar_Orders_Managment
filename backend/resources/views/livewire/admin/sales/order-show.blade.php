@@ -202,6 +202,13 @@
             @endforeach
 
             {{-- Item changes: what the branch changed while preparing, why, what it did to the money and the customer --}}
+            @if ($substitutionWaits->isNotEmpty())
+                <div class="mb-4 rounded-2xl border border-amber-300/60 bg-amber-50 p-4 dark:border-amber-500/30 dark:bg-amber-500/10" data-testid="waiting-for-customer">
+                    <div class="flex flex-wrap items-center gap-2"><x-admin.waiting-customer :deadline="$substitutionWaits->first()->deadline_at" /><span class="text-sm font-medium">{{ trans_choice('substitutions.waiting_n', $substitutionWaits->count(), ['count' => $substitutionWaits->count()]) }}</span></div>
+                    <ul class="mt-2 space-y-1 text-sm">@foreach ($substitutionWaits as $w)<li dir="auto">{{ $w->original?->name() }} → {{ $w->replacement?->name() }}</li>@endforeach</ul>
+                    <p class="mt-2 text-xs text-ink-500">{{ __('substitutions.keep_preparing') }}</p>
+                </div>
+            @endif
             @if ($o->revisions->isNotEmpty())
                 @include('livewire.admin.sales.partials.order-revisions', ['o' => $o, 'drawer' => $drawer])
             @endif
@@ -305,7 +312,7 @@
             <section class="card card-pad {{ $drawer ? 'order-3' : '' }}">
                 <h2 class="mb-4 font-display text-xl font-semibold">{{ __('sales_admin.summary') }}</h2>
                 <dl class="space-y-2 text-sm">
-                    @foreach ([['subtotal', 'subtotal'], ['discount', 'discount_total'], ['delivery_fee', 'delivery_fee_total'], ['service_fee', 'service_fee_total'], ['loyalty', 'loyalty_discount'], ['tax', 'tax_total']] as [$k, $field])
+                    @foreach ([['subtotal', 'subtotal'], ['discount', 'discount_total'], ['delivery_fee', 'delivery_fee_total'], ['assembly', 'assembly_fee_total'], ['service_fee', 'service_fee_total'], ['loyalty', 'loyalty_discount'], ['tax', 'tax_total']] as [$k, $field])
                         @if ($k === 'subtotal' || (float) $o->{$field} > 0)
                             <div class="flex justify-between gap-4"><dt class="text-ink-500">{{ __('sales_admin.sum_'.$k) }}</dt><dd>@if (in_array($k, ['discount', 'loyalty'], true))−@endif<x-admin.money :value="$o->{$field}" /></dd></div>
                         @endif

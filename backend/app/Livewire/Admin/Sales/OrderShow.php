@@ -18,6 +18,7 @@ use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderCancellation;
 use App\Domain\Orders\Models\OrderFulfillment;
 use App\Domain\Orders\Models\ReturnRequest;
+use App\Domain\Orders\Models\SubstitutionRequest;
 use App\Domain\Orders\Services\OrderAdjustmentService;
 use App\Domain\Orders\Services\OrderService;
 use App\Domain\Payments\Models\Payment;
@@ -344,6 +345,8 @@ class OrderShow extends Component
             'canDecide' => $pendingCancellation && $o->fulfillments->every(fn ($f) => $at('orders.approve', $f->branch_id)),
             'payments' => Payment::where('order_id', $o->id)->with(['refunds', 'collections.collector:id,name'])->orderByDesc('attempt')->get(),
             'returns' => ReturnRequest::where('order_id', $o->id)->latest()->get(),
+            // Replacements the customer was asked about and has not answered: shown as "Waiting for the customer" with a live clock.
+            'substitutionWaits' => SubstitutionRequest::where('order_id', $o->id)->where('status', SubstitutionRequest::WAITING)->with(['original', 'replacement'])->orderBy('deadline_at')->get(),
             'timeline' => $timeline,
             'drivers' => $drivers,
             'routeCards' => $routeCards,

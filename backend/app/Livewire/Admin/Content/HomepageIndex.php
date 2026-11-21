@@ -25,7 +25,7 @@ class HomepageIndex extends Component
 {
     use InteractsWithAdmin;
 
-    public const TYPES = ['banners', 'categories', 'featured_products', 'new_arrivals', 'best_sellers', 'recommended', 'product_collection', 'brands', 'promotions', 'upcoming_auctions', 'live_auctions'];
+    public const TYPES = ['banners', 'categories', 'rooms', 'featured_products', 'new_arrivals', 'best_sellers', 'recommended', 'product_collection', 'brands', 'promotions', 'upcoming_auctions', 'live_auctions'];
 
     public const LAYOUTS = ['carousel', 'grid', 'hero', 'chips'];
 

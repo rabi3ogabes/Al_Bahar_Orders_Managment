@@ -6,6 +6,7 @@ use App\Domain\Branches\Models\Branch;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Catalog\Models\ProductVariant;
 use App\Domain\Checkout\Services\ExtraDeliveryFee;
+use App\Domain\Checkout\Support\Assembly;
 use App\Domain\Deals\Services\DealBlocks;
 use App\Domain\Identity\Models\User;
 use App\Domain\Inventory\Models\BranchInventory;
@@ -86,6 +87,9 @@ class CatalogPresenter
             // `per_line` once whatever the quantity. Clients show a small note on the product page when the fee is above zero.
             'extra_delivery_fee' => Money::of((string) $p->extra_delivery_fee)->toDecimal(),
             'extra_delivery_fee_mode' => in_array($p->extra_delivery_fee_mode, ExtraDeliveryFee::MODES, true) ? $p->extra_delivery_fee_mode : ExtraDeliveryFee::PER_UNIT,
+            // Assembly and installation at the door: the fee per unit (string money like "75.00") when the product offers it and the dashboard switch is on,
+            // otherwise null. Delivery orders only; the customer chooses it per cart line and the quote charges it.
+            'assembly_fee' => Assembly::unitFee($p)?->toDecimal(),
             // The countdown offer this product is in (docs/api/DEALS.md section 5), or null. `price` above stays the normal price.
             'deal' => $entry ? $this->deals->block($entry, $normalPrices) : null,
         ];
@@ -142,7 +146,9 @@ class CatalogPresenter
             'weight' => $p->weight ? ['value' => (float) $p->weight, 'unit' => $p->weight_unit] : null,
             'warranty' => $p->warranty ? ['duration_months' => $p->warranty->duration_months, 'provider' => $p->warranty->provider, 'terms' => $p->warranty->localized('terms')] : null,
             'requires_assembly' => $p->requires_assembly,
-            'assembly_service_available' => $p->assembly_service_available,
+            'assembly_service_available' => $p->assembly_service_available || Assembly::offered($p),
+            // Days the branch needs before this product can leave (made to order); 0 = ready now. It moves the delivery date.
+            'lead_time_days' => (int) $p->lead_time_days,
             'is_oversized' => $p->is_oversized,
             'images' => $p->images->map(fn ($i) => ['url' => $i->url(), 'thumb_url' => $i->url(640), 'alt' => $i->alt() ?? $p->trans('name'), 'variant_id' => $i->product_variant_id])->values(),
             'videos' => $p->videos->map(fn ($v) => ['url' => $v->publicUrl(), 'source' => $v->source, 'title' => $v->{'title_'.$locale} ?: $v->title_en])->values(),

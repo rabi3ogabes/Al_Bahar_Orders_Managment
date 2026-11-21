@@ -7,7 +7,9 @@ import { useI18n } from '../lib/i18n';
 import { useDocTitle } from '../lib/hooks';
 import { useAuthModal } from '../components/AuthModal';
 import { PushPrompt } from '../components/PushUI';
-import { CancelOrderDialog, FulfillmentCard, ReturnForm, TimelineCard, TotalsCard, OrderChangesNotice, ReturnStatusCard, invoiceAvailable, statusTone, useInvoice, useOrderQuery, usePay, useReorder } from '../components/OrderParts';
+import { CancelOrderDialog, FulfillmentCard, TimelineCard, TotalsCard, OrderChangesNotice, invoiceAvailable, statusTone, useInvoice, useOrderQuery, usePay, useReorder } from '../components/OrderParts';
+import { ReturnForm, ReturnStatusCard, ReturnWindowNote } from '../components/ReturnClaims';
+import { SubstitutionCards } from '../components/Substitutions';
 import { SideDrawer } from '../components/SideDrawer';
 import { Alert, Badge, Button, EmptyState, LinkButton, Skeleton, Spinner } from '../components/ui';
 
@@ -68,8 +70,9 @@ export default function Order() {
         <div className="flex flex-wrap gap-2"><Badge tone={statusTone(o.status)}>{o.status_label}</Badge><Badge tone={statusTone(o.payment_status)}>{t(`payment.${o.payment_status}`)}</Badge></div>
       </div>
 
+      {(o.substitution_requests?.length ?? 0) > 0 && <div className="mt-6"><SubstitutionCards o={o} /></div>}
       {o.was_adjusted && <div className="mt-6"><OrderChangesNotice o={o} /></div>}
-      {o.return_request && <div className="mt-6"><ReturnStatusCard o={o} /></div>}
+      {(o.returns?.length || o.return_request) && <div className="mt-6"><ReturnStatusCard o={o} /></div>}
 
       {(awaiting || failed) && o.can_pay !== false && (
         <div className="mt-6"><Alert tone="warning"><div className="flex flex-wrap items-center justify-between gap-3"><span>{t('order.unpaid')}</span><Button size="sm" loading={pay.isPending} onClick={() => pay.mutate()}><CreditCard size={15} />{t('order.pay_now')}</Button></div></Alert></div>
@@ -88,6 +91,7 @@ export default function Order() {
             <Button variant="outline" loading={reorder.isPending} onClick={() => reorder.mutate()}><RotateCcw size={16} />{t('order.reorder')}</Button>
             {o.can_return && <Button variant="outline" onClick={() => setReturnOpen(true)}><RotateCcw size={16} />{t('return.title')}</Button>}
             {o.can_cancel && <Button variant="ghost" className="text-danger hover:bg-danger/10" onClick={() => setCancelOpen(true)}><XCircle size={16} />{t('order.cancel')}</Button>}
+            <ReturnWindowNote o={o} />
             <LinkButton to="/account/support" variant="ghost">{t('order.help')}</LinkButton>
           </div>
         </aside>

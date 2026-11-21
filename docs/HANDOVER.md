@@ -7,9 +7,9 @@ This report lists, phase by phase, what was delivered, how it is verified, and w
 
 | Area | Delivered | Verified by |
 |---|---|---|
-| Backend API (`backend/`) | Laravel 13 modular monolith, 160 PostgreSQL tables, REST `/api/v1` with 202 documented paths (`docs/api/openapi.json`, regenerated with `php artisan scramble:export --path=../docs/api/openapi.json`) | Pest: **3,248** Unit + Feature tests and **15** Concurrency tests (real multi-process row locks, incl. cash hand-in, deposit and driver-step races), all passing except the health test that needs Redis (not installed in the test container); migrations up/down/up |
+| Backend API (`backend/`) | Laravel 13 modular monolith, 165 PostgreSQL tables, REST `/api/v1` with 212 documented paths (`docs/api/openapi.json`, regenerated with `php artisan scramble:export --path=../docs/api/openapi.json`) | Pest: **3,430** Unit + Feature tests and **15** Concurrency tests (real multi-process row locks, incl. cash hand-in, deposit and driver-step races), all passing except the health test that needs Redis (not installed in the test container); migrations up/down/up |
 | Admin dashboard | 50+ Blade + Livewire screens covering phases 1–10, EN/AR with RTL, light/dark, phone-friendly; driver view at `/admin/driver`; camera pickup scanner; live auctioneer console | Feature tests per screen (authorised 200 / unauthorised 403, branch isolation, key workflows); screenshot review EN/AR at 1440 px and 390 px |
-| Customer app (`mobile/`) | Flutter Android/iOS, 15 feature modules, EN/AR RTL, push, live auctions | `flutter analyze` (no issues), 116 unit/widget/contract tests, headless integration smoke test |
+| Customer app (`mobile/`) | Flutter Android/iOS, 15 feature modules, EN/AR RTL, push, live auctions | `flutter analyze` (no issues), **2,828** unit/widget/contract tests (10 skipped), headless integration smoke test |
 | Operations | Docker image, compose stack, CI, deploy workflow, verified backups, monitoring/security/launch docs | CI pipeline (`.github/workflows/ci.yml`) |
 
 ## Per phase
@@ -49,6 +49,7 @@ cd mobile && flutter analyze && flutter test
 
 **Scope decisions:**
 - Gift cards: not implemented (not required by the phase acceptance criteria).
+- Wave 3 (customer growth, `product/ROADMAP.md` section 3): **built** — delivery/pickup date promise, paid assembly, guest cart in the app, WhatsApp share (`guides/DELIVERY_PROMISE_ASSEMBLY_AND_SHARING.md`); return and damage claims with photos and substitution consent (`guides/RETURNS_AND_SUBSTITUTIONS.md`); back-in-stock and price-drop alerts, the after-delivery journey and shop-by-room (`guides/ALERTS_AFTER_DELIVERY_AND_ROOMS.md`). The messages that sell (price-drop, review request, "goes well with it") ship off. Not built on purpose: a dearer replacement paid by the customer, a returns screen in the branch app (claims are handled on the dashboard), "assembly done" in the driver app, an assembly revenue column in the sales reports, card/Apple Pay/instalments (needs a payment provider). Arabic wording of the new screens still needs a native speaker's read.
 - Cash drawer: **built** — collector → branch cashier hand-in with counted-vs-expected variance (note required, third-person review), bank deposit with reference, drawer balance, driver-phone balance banner. Custody (receive/bank) needs `payments.edit`.
 - Auction lots: **built** — edit (rules depend on lot state), delete untouched lots, manual "Extend time".
 - Promotion targeting: **whole basket, categories or specific products** (search or paste SKUs, up to 200; branch restriction combines with any). Not offered: excluding products from a promotion, or targeting by brand/attribute.

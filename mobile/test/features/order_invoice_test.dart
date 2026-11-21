@@ -344,6 +344,10 @@ void main() {
       await settle(t);
       await t.tap(find.descendant(of: find.byType(QuantityStepper), matching: find.byIcon(Icons.add_rounded)).first);
       await settle(t);
+      await t.tap(
+        find.byKey(const ValueKey('claim-type-changed_mind')),
+      ); // a damaged item needs a photo; a change of mind does not
+      await settle(t);
       await t.tap(find.widgetWithText(AppButton, en.requestReturn).last);
       await settle(t);
 
@@ -364,6 +368,10 @@ void main() {
       await t.tap(button);
       await settle(t);
       await t.tap(find.descendant(of: find.byType(QuantityStepper), matching: find.byIcon(Icons.add_rounded)).first);
+      await settle(t);
+      await t.tap(
+        find.byKey(const ValueKey('claim-type-changed_mind')),
+      ); // a damaged item needs a photo; a change of mind does not
       await settle(t);
       await t.tap(find.widgetWithText(AppButton, en.requestReturn).last);
       await settle(t);

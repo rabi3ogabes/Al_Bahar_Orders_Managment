@@ -25,6 +25,7 @@ class AppPreferences {
   static const _kLivePermissionPrompt = 'live_order_permission_prompt';
   static const _kPublicConfig = 'public_config';
   static const _kPushReports = 'push_reports';
+  static const _kGuestCart = 'guest_cart';
 
   String? get localeCode => _prefs.getString(_kLocale);
   Future<void> setLocaleCode(String code) => _prefs.setString(_kLocale, code);
@@ -127,6 +128,20 @@ class AppPreferences {
   }
 
   Future<void> setPublicConfig(JsonMap config) => _prefs.setString(_kPublicConfig, jsonEncode(config));
+
+  /// A signed-out customer's cart (`GuestCartRow` JSON, newest last), so it survives closing the app. A row that cannot be read is dropped; the
+  /// rest still opens. Empty when there is none.
+  List<JsonMap> get guestCart {
+    final raw = _prefs.getString(_kGuestCart);
+    if (raw == null) return const [];
+    try {
+      return asList(jsonDecode(raw)).whereType<Map<dynamic, dynamic>>().map(asMap).toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> setGuestCart(List<JsonMap> rows) => rows.isEmpty ? _prefs.remove(_kGuestCart) : _prefs.setString(_kGuestCart, jsonEncode(rows));
 
   /// The push reports this install already sent to the server (`{"stage|code": "2026-11-16"}`, the day it went through), so one failure is
   /// told once a day, not at every start. See core/push/push_diagnostics.dart.

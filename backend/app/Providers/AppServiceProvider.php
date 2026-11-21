@@ -141,6 +141,10 @@ class AppServiceProvider extends ServiceProvider
             ? Limit::perMinute(120)->by('scan:u:'.$user->getAuthIdentifier())
             : Limit::perMinute(60)->by('scan:ip:'.$r->ip()));
         RateLimiter::for('exports', fn (Request $r) => Limit::perHour(30)->by('export:'.$r->user()?->id));
+        // "When will I get it?": a product page and a cart ask often but cheaply. Signed-in callers are counted one by one, guests share their address's bucket.
+        RateLimiter::for('delivery-promise', fn (Request $r) => ($user = $r->user('sanctum'))
+            ? Limit::perMinute(120)->by('promise:u:'.$user->getAuthIdentifier())
+            : Limit::perMinute(60)->by('promise:ip:'.$r->ip()));
     }
 
     private function guardProductionSafety(): void

@@ -21,6 +21,12 @@ final class FulfillmentPlan
      */
     public array $deliveryExtras = [];
 
+    /** The date promised for this parcel (DeliveryPromise::parcel), set by the quote; informational, never part of the quote hash. @var array<string, mixed>|null */
+    public ?array $promise = null;
+
+    /** The first calendar day (Qatar, YYYY-MM-DD) the items can be scheduled on: today plus their lead time. Set by the quote. */
+    public string $earliestDate = '';
+
     /** @param list<QuoteLine> $lines */
     public function __construct(
         public readonly Branch $branch,
@@ -45,6 +51,12 @@ final class FulfillmentPlan
     public function subtotal(): Money
     {
         return array_reduce($this->lines, fn (Money $c, QuoteLine $l) => $c->plus($l->subtotal()), Money::zero());
+    }
+
+    /** What the lines of this parcel cost for assembly (zero when none chose it). */
+    public function assemblyTotal(): Money
+    {
+        return array_reduce($this->lines, fn (Money $c, QuoteLine $l) => $c->plus($l->assemblyTotal()), Money::zero());
     }
 
     public function discountedSubtotal(): Money

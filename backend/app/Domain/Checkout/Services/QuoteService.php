@@ -9,6 +9,7 @@ use App\Domain\Branches\Services\SlotService;
 use App\Domain\Checkout\Data\FulfillmentPlan;
 use App\Domain\Checkout\Data\Quote;
 use App\Domain\Checkout\Data\QuoteLine;
+use App\Domain\Checkout\Support\Assembly;
 use App\Domain\Deals\Services\DealEngine;
 use App\Domain\Identity\Models\User;
 use App\Domain\Marketing\Services\LoyaltyService;
@@ -48,13 +49,14 @@ class QuoteService
         private readonly LoyaltyService $loyalty,
         private readonly Settings $settings,
         private readonly DealEngine $deals,
+        private readonly DeliveryPromise $promise,
     ) {}
 
     /**
      * @param  array{fulfillment_type?: string, address_id?: ?string, branch_id?: ?string, payment_method?: ?string, coupon_code?: ?string,
      *               loyalty_points?: int, allow_split?: bool, express?: bool, pickup_slot_id?: ?string, pickup_date?: ?string,
      *               delivery_slot_id?: ?string, delivery_date?: ?string, latitude?: ?float, longitude?: ?float, restrict_branch_ids?: list<string>,
-     *               alternate_phone?: ?string, no_alternate_phone?: bool, apply_deals?: bool}  $o
+     *               alternate_phone?: ?string, no_alternate_phone?: bool, apply_deals?: bool, with_promise?: bool}  $o
      */
     public function quote(User $user, Cart $cart, array $o): Quote
     {
@@ -129,6 +131,7 @@ class QuoteService
                 $single ? ($q->fulfillmentType === 'pickup' ? ($o['pickup_date'] ?? null) : ($o['delivery_date'] ?? null)) : null,
                 (bool) ($o['express'] ?? false), $alloc['reason']);
         }
+        $this->applyAssembly($q, $cart);
         if ($q->isSplit) {
             $q->warning('split_fulfillment', ['branches' => count($q->plans)]);
             if (! empty($o['pickup_slot_id']) || ! empty($o['delivery_slot_id'])) {
@@ -145,10 +148,13 @@ class QuoteService
             }
         }
 
-        // 6. Delivery fees & zone limits per fulfillment.
+        // 6. Delivery fees & zone limits per fulfillment, the slot, and the date promised for each parcel.
         foreach ($q->plans as $plan) {
             $this->applyFulfillmentFees($plan, $q);
             $this->validateSlot($plan, $q);
+        }
+        if ($this->promise->enabled() && ($o['with_promise'] ?? true)) {
+            $this->promiseDates($q);
         }
 
         // 7. Deals first (units that get a deal price are not discounted twice), then promotions; 8. loyalty, 9. fees & tax, 10. payment methods.
@@ -293,8 +299,56 @@ class QuoteService
         $plan->deliveryFee = $fee;
     }
 
+    /**
+     * The assembly the customer ticked in the cart, as the quote charges it: delivery orders only, only for products that offer it right now. A tick that
+     * can no longer be honoured (the feature was switched off, the fee removed) is not charged and the customer is told in the quote.
+     */
+    private function applyAssembly(Quote $q, Cart $cart): void
+    {
+        if ($q->fulfillmentType !== 'delivery') {
+            return; // assembly is done at the door: a pickup never pays for it, and the cart keeps the tick for when they switch back
+        }
+        $ticked = $cart->items->where('assembly', true)->keyBy('product_variant_id');
+        if ($ticked->isEmpty()) {
+            return;
+        }
+        foreach ($q->lines() as $line) {
+            if ($ticked->has($line->variant->id)) {
+                $line->assemblyFee = Assembly::unitFee($line->variant->product);
+            }
+        }
+        foreach ($ticked as $variantId => $item) {
+            if (! Assembly::offered($item->variant->product)) {
+                $q->warning('assembly_unavailable', ['variant_id' => $variantId, 'name' => $item->variant->product->trans('name')]);
+            }
+        }
+    }
+
+    /** The date promised for every parcel and for the whole basket (informational: it is not part of the quote hash). */
+    private function promiseDates(Quote $q): void
+    {
+        $parcels = [];
+        foreach ($q->plans as $plan) {
+            $chosen = $plan->slotInfo !== null && $plan->slotId !== null && $plan->slotDate !== null
+                ? ['id' => $plan->slotId, 'date' => $plan->slotDate, 'starts_at' => $plan->slotInfo['starts_at'], 'ends_at' => $plan->slotInfo['ends_at']] : null;
+            $plan->promise = $this->promise->parcel($plan->branch, $plan->type, $this->promiseLines($plan), $plan->zoneConfig, null, null, $chosen);
+            $parcels[] = $plan->promise;
+        }
+        $q->promise = ['enabled' => true, 'fulfillment_type' => $q->fulfillmentType] + $this->promise->summarize($parcels, $q->fulfillmentType)
+            + ['location_known' => true, 'parcels' => $parcels];
+    }
+
+    /** @return list<array{variant_id: string, quantity: int, lead_days: int, assembly: bool}> the parcel's lines as DeliveryPromise reads them */
+    private function promiseLines(FulfillmentPlan $plan): array
+    {
+        return array_map(fn (QuoteLine $l) => ['variant_id' => $l->variant->id, 'quantity' => $l->quantity, 'lead_days' => (int) $l->variant->product->lead_time_days,
+            'assembly' => $l->assemblyFee !== null], $plan->lines);
+    }
+
     private function validateSlot(FulfillmentPlan $plan, Quote $q): void
     {
+        // The first day these items can be scheduled on (their lead time); the checkout refuses an earlier slot and the pickers start there.
+        $plan->earliestDate = $this->promise->earliestDate($this->promiseLines($plan), $plan->type);
         // Delivery on a single-branch order needs a slot whenever that branch publishes delivery slots.
         // (Split orders can't share one slot; each branch confirms its own time.)
         $plan->slotRequired = $plan->type === 'delivery' && ! $q->isSplit && $this->slots->hasSlots($plan->branch, 'delivery');
@@ -308,6 +362,9 @@ class QuoteService
         $slot = collect($this->slots->available($plan->branch, $plan->type, $plan->slotDate))->firstWhere('id', $plan->slotId);
         if (! $slot || $slot['is_full']) {
             $q->error('slot_unavailable', ['branch' => $plan->branch->localized('name')]);
+        } elseif ($plan->slotDate < $plan->earliestDate) {
+            // The items need more days than that (made to order, or assembly): the promise says so and the picker starts later; a stale screen is told plainly.
+            $q->error('slot_too_soon', ['branch' => $plan->branch->localized('name'), 'date' => $plan->earliestDate]);
         } else {
             $q->slot = $slot;
             $plan->slotInfo = ['starts_at' => $slot['starts_at'], 'ends_at' => $slot['ends_at']];

@@ -674,6 +674,96 @@ class AppLocalizationsAr extends AppLocalizations {
   String get alertCreated => 'سنُعلمك فور توفّره.';
 
   @override
+  String get alertsTitle => 'تنبيهاتي';
+
+  @override
+  String get alertBackInStock => 'عودة إلى المخزون';
+
+  @override
+  String get alertPriceDrop => 'انخفاض السعر';
+
+  @override
+  String get alertWaitingStock => 'سنخبرك عندما يعود';
+
+  @override
+  String get alertAvailableNow => 'متوفر الآن';
+
+  @override
+  String get alertWatching => 'نتابع السعر';
+
+  @override
+  String get alertSoldOut => 'غير متوفر حالياً';
+
+  @override
+  String alertSince(String date) {
+    return 'منذ $date';
+  }
+
+  @override
+  String alertWas(String price) {
+    return 'كان $price';
+  }
+
+  @override
+  String alertNow(String price) {
+    return 'الآن $price';
+  }
+
+  @override
+  String alertDropped(int percent) {
+    return 'أقل بنسبة $percent%';
+  }
+
+  @override
+  String get alertRemove => 'حذف التنبيه';
+
+  @override
+  String get alertRemoved => 'تم حذف التنبيه';
+
+  @override
+  String get alertsEmptyTitle => 'لا توجد تنبيهات بعد';
+
+  @override
+  String get alertsEmptyMessage =>
+      'اضغط على الجرس في منتج غير متوفر، أو اختر «أخبرني إذا انخفض السعر» في منتج يعجبك، وسيبقى هنا بانتظارك.';
+
+  @override
+  String get alertsBrowse => 'تصفّح المنتجات';
+
+  @override
+  String get alertNotifyOn => 'سنخبرك عندما يعود. اضغط للإلغاء.';
+
+  @override
+  String get alertPriceToggle => 'أخبرني إذا انخفض السعر';
+
+  @override
+  String get alertPriceOn => 'سنخبرك إذا انخفض السعر. اضغط للإيقاف.';
+
+  @override
+  String get alertPriceCreated => 'تم. سنخبرك إذا انخفض السعر.';
+
+  @override
+  String get alertPriceNeedsConsent =>
+      'تنبيهات السعر تصلك ضمن العروض والأخبار. فعّل ذلك من إعدادات الإشعارات لتستلمها.';
+
+  @override
+  String get roomsTitle => 'تسوّق حسب الغرفة';
+
+  @override
+  String roomProductsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count منتج',
+      many: '$count منتجًا',
+      few: '$count منتجات',
+      two: 'منتجان',
+      one: 'منتج واحد',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get addToWishlist => 'أضف إلى المفضلة';
 
   @override
@@ -1316,19 +1406,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get contactSupport => 'المساعدة بخصوص هذا الطلب';
 
   @override
-  String get requestReturn => 'طلب إرجاع';
+  String get requestReturn => 'الإبلاغ عن مشكلة أو إرجاع';
 
   @override
-  String get returnReasonDamaged => 'وصل تالفًا';
-
-  @override
-  String get returnReasonWrong => 'قطعة غير صحيحة';
-
-  @override
-  String get returnReasonNotAsDescribed => 'لا يطابق الوصف';
-
-  @override
-  String get returnRequested => 'تم طلب الإرجاع، وسيتواصل معك فريقنا.';
+  String get returnRequested => 'تم الإرسال. سيطّلع فريقنا عليه قريباً.';
 
   @override
   String get selectItemsToReturn => 'اختر القطع المراد إرجاعها';
@@ -3404,7 +3485,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get returnStatusRejectedHelp => 'إن كان لديك سؤال أو تغيّر شيء، تواصل معنا وسنسعد بمساعدتك.';
 
   @override
-  String get returnFormIntro => 'اختر ما تريد إرجاعه وأخبرنا بالسبب. سنراجع الطلب ونرد عليك.';
+  String get returnFormIntro => 'أخبرنا بما حدث وبالقطع المعنية. سنراجع الطلب ونرد عليك هنا.';
 
   @override
   String returnUpTo(int count) {
@@ -3432,4 +3513,377 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get callDriver => 'اتصل بالسائق';
+
+  @override
+  String get claimTypeLabel => 'ماذا حدث؟';
+
+  @override
+  String get claimTypeDamaged => 'وصلت تالفة';
+
+  @override
+  String get claimTypeDamagedHint => 'أضف صورة واحدة على الأقل للتلف.';
+
+  @override
+  String get claimTypeWrong => 'قطعة خاطئة';
+
+  @override
+  String get claimTypeWrongHint => 'أضف صورة لما وصلك.';
+
+  @override
+  String get claimTypeMissing => 'شيء ناقص من الصندوق';
+
+  @override
+  String get claimTypeMissingHint => 'أخبرنا ما الذي لم يكن في الصندوق.';
+
+  @override
+  String get claimTypeQuality => 'مشكلة في الجودة';
+
+  @override
+  String get claimTypeQualityHint => 'أخبرنا ما المشكلة. الصور تساعدنا.';
+
+  @override
+  String get claimTypeChangedMind => 'غيّرت رأيي';
+
+  @override
+  String get claimTypeChangedMindHint => 'أعدها إلينا لنردّ لك المبلغ.';
+
+  @override
+  String get claimPhotosTitle => 'الصور';
+
+  @override
+  String get claimPhotosRequired => 'مطلوبة لهذا النوع من المطالبات';
+
+  @override
+  String get claimPhotosOptional => 'اختيارية، لكنها تساعدنا على اتخاذ القرار أسرع';
+
+  @override
+  String get claimPhotoCamera => 'التقاط صورة';
+
+  @override
+  String get claimPhotoGallery => 'اختيار صور';
+
+  @override
+  String claimPhotoCount(int n, int max) {
+    return '$n من $max صور';
+  }
+
+  @override
+  String get claimPhotoRemove => 'إزالة الصورة';
+
+  @override
+  String claimPhotoAlt(int n) {
+    return 'الصورة $n من مطالبتك';
+  }
+
+  @override
+  String get claimPhotoFailed => 'تعذّر عرض هذه الصورة.';
+
+  @override
+  String get claimPhotoClose => 'إغلاق الصورة';
+
+  @override
+  String get claimErrPhotos =>
+      'يرجى إضافة صورة واضحة واحدة على الأقل (JPEG أو PNG أو WebP، حتى 5 صور، كل صورة أقل من 8 ميغابايت).';
+
+  @override
+  String get claimErrPhotoType => 'يجب أن تكون الصور بصيغة JPEG أو PNG أو WebP.';
+
+  @override
+  String get claimErrPhotoSize => 'يجب أن يكون حجم كل صورة أقل من 8 ميغابايت.';
+
+  @override
+  String get claimErrPhotoCount => 'يمكنك إضافة حتى 5 صور.';
+
+  @override
+  String get claimErrNote => 'يرجى ألا تتجاوز رسالتك 500 حرف.';
+
+  @override
+  String get claimErrLocked =>
+      'راجع فريقنا هذه المطالبة بالفعل، فلم يعد بالإمكان تعديلها. تواصل معنا إن كان هناك ما يجب إضافته.';
+
+  @override
+  String get claimStepReceived => 'وصلتنا المطالبة';
+
+  @override
+  String get claimStepUnderReview => 'قيد المراجعة';
+
+  @override
+  String get claimStepDecision => 'القرار';
+
+  @override
+  String get claimStepApproved => 'تمت الموافقة';
+
+  @override
+  String get claimStepRejected => 'لم تتم الموافقة';
+
+  @override
+  String get claimStepHandover => 'كيف تعود القطعة';
+
+  @override
+  String get claimStepPickup => 'تم ترتيب الاستلام';
+
+  @override
+  String get claimStepBranch => 'أحضرها إلى الفرع';
+
+  @override
+  String claimStepBranchDetail(String branch) {
+    return 'يرجى إحضار القطعة إلى $branch.';
+  }
+
+  @override
+  String get claimStepItemReceived => 'استلمنا القطعة';
+
+  @override
+  String get claimStepRefunded => 'تم الاسترداد';
+
+  @override
+  String claimStepRefundDone(String amount, String how) {
+    return 'تم رد $amount $how.';
+  }
+
+  @override
+  String claimStepRefundWait(String amount, String how) {
+    return 'مبلغ $amount في طريقه إليك $how.';
+  }
+
+  @override
+  String get claimStepCancelled => 'ألغيتَ هذه المطالبة';
+
+  @override
+  String get claimStepOther => 'تحديث';
+
+  @override
+  String get claimRefundOriginal => 'إلى وسيلة الدفع الأصلية';
+
+  @override
+  String get claimRefundCash => 'نقداً';
+
+  @override
+  String get claimRefundBank => 'بتحويل بنكي';
+
+  @override
+  String get claimRefundOther => 'إليك';
+
+  @override
+  String claimTitle(String number) {
+    return 'المطالبة $number';
+  }
+
+  @override
+  String claimSentOn(String date) {
+    return 'أُرسلت في $date';
+  }
+
+  @override
+  String get claimTimelineLabel => 'أين وصلت مطالبتك';
+
+  @override
+  String get claimAdd => 'أضف صورة أو ملاحظة';
+
+  @override
+  String get claimAddHint => 'لم يقرر فريقنا بعد. كل ما تضيفه يصل إليهم فوراً.';
+
+  @override
+  String get claimAddSubmit => 'إرسال إلى فريقنا';
+
+  @override
+  String get claimAdded => 'تم الإرسال إلى فريقنا.';
+
+  @override
+  String get claimCancel => 'إلغاء هذه المطالبة';
+
+  @override
+  String get claimCancelConfirm => 'هل تريد إلغاء هذه المطالبة؟ يمكنك إرسال مطالبة جديدة طالما المهلة ما زالت مفتوحة.';
+
+  @override
+  String get claimCancelKeep => 'إبقاؤها';
+
+  @override
+  String get claimCancelled => 'تم إلغاء المطالبة.';
+
+  @override
+  String get claimYourNote => 'رسالتك';
+
+  @override
+  String claimWindowUntil(String date) {
+    return 'يمكنك الإبلاغ عن مشكلة حتى $date';
+  }
+
+  @override
+  String get returnStatusUnderReview => 'أحد أعضاء فريقنا يراجع مطالبتك الآن.';
+
+  @override
+  String get returnStatusCancelled => 'ألغيتَ هذه المطالبة.';
+
+  @override
+  String get substTitle => 'يرجى اختيار البديل';
+
+  @override
+  String substAsk(String item, String replacement) {
+    return 'لا يتوفر لدينا $item. هل تريد استبداله بـ $replacement؟';
+  }
+
+  @override
+  String get substPriceSame => 'بالسعر نفسه';
+
+  @override
+  String substPriceLess(String amount) {
+    return 'أقل بـ $amount';
+  }
+
+  @override
+  String substPriceLine(String note) {
+    return 'السعر: $note. لن تدفع أبداً أكثر مما طلبت.';
+  }
+
+  @override
+  String get substYouOrdered => 'طلبتَ';
+
+  @override
+  String get substReplacement => 'البديل';
+
+  @override
+  String substQty(int n) {
+    return 'الكمية $n';
+  }
+
+  @override
+  String substTimeLeft(int n) {
+    return 'متبقٍّ نحو $n دقيقة للرد (أثناء ساعات عمل الفرع)';
+  }
+
+  @override
+  String get substTimeUp => 'انتهى الوقت. نتعامل مع الأمر الآن.';
+
+  @override
+  String get substFallbackRemove => 'إن لم يصلنا ردك فسنزيله من طلبك ونرد لك المبلغ.';
+
+  @override
+  String get substFallbackKeep => 'إن لم يصلنا ردك فسنُبقي البديل دون أي تكلفة إضافية.';
+
+  @override
+  String get substAccept => 'قبول البديل';
+
+  @override
+  String get substDecline => 'لا، أزيلوه وأعيدوا لي المبلغ';
+
+  @override
+  String get substAcceptedToast => 'شكراً لك. سنجهّز البديل.';
+
+  @override
+  String get substDeclinedToast => 'تم. أزلناه ونرتّب استرداد المبلغ.';
+
+  @override
+  String get substOutcomeAccepted => 'قبلتَ البديل.';
+
+  @override
+  String get substOutcomeDeclined => 'رفضتَ البديل. أُزيل الصنف ويُسترد أي مبلغ مدفوع.';
+
+  @override
+  String get substOutcomeExpiredRemoved => 'لم يصل رد في الوقت المحدد، فأُزيل الصنف ويُسترد أي مبلغ مدفوع.';
+
+  @override
+  String get substOutcomeExpiredKept => 'لم يصل رد في الوقت المحدد، فأبقينا على البديل دون أي تكلفة إضافية.';
+
+  @override
+  String get substOutcomeCancelled => 'هذا السؤال مغلق.';
+
+  @override
+  String get substErrGone => 'تعذّر العثور على هذا السؤال. يرجى إعادة تحميل الطلب.';
+
+  @override
+  String get substErrAnswered => 'سبق أن أجبت بإجابة مختلفة.';
+
+  @override
+  String get substErrExpired => 'انتهى وقت الرد فطُبّقت إعدادات المتجر. يعرض الطلب ما حدث.';
+
+  @override
+  String get substErrClosed => 'هذا السؤال مغلق: تقدّم الطلب.';
+
+  @override
+  String get promiseConfirmDelivery => 'سنؤكد لك موعد التوصيل';
+
+  @override
+  String get promiseConfirmPickup => 'سنؤكد لك موعد الاستلام';
+
+  @override
+  String get promiseAddressHint => 'الموعد الدقيق يعتمد على عنوانك.';
+
+  @override
+  String get assemblyAdd => 'إضافة التركيب والتجهيز';
+
+  @override
+  String assemblyFeeEach(String fee) {
+    return '+$fee للقطعة';
+  }
+
+  @override
+  String get assemblyNote => 'يتم عند الباب. لطلبات التوصيل فقط.';
+
+  @override
+  String assemblyLineTotal(String amount) {
+    return '$amount لهذا المنتج';
+  }
+
+  @override
+  String get assemblyRow => 'التركيب والتجهيز';
+
+  @override
+  String orderAssemblyLine(String amount) {
+    return 'التركيب والتجهيز: $amount';
+  }
+
+  @override
+  String get shareOnWhatsApp => 'مشاركة عبر واتساب';
+
+  @override
+  String get shareOtherWays => 'طرق مشاركة أخرى';
+
+  @override
+  String get shareProductIntro => 'شاهد هذا المنتج في البحر للمنزل والمعيشة:';
+
+  @override
+  String shareProductPrice(String price) {
+    return 'السعر: $price';
+  }
+
+  @override
+  String get shareBasketIntro => 'هذا ما اخترته من البحر للمنزل والمعيشة:';
+
+  @override
+  String shareBasketTotal(String total) {
+    return 'الإجمالي: $total';
+  }
+
+  @override
+  String get shareBasketAction => 'إرسال سلتي عبر واتساب';
+
+  @override
+  String get shareWhatsAppMissing => 'تعذّر فتح واتساب. اختر طريقة مشاركة أخرى.';
+
+  @override
+  String get guestCheckoutNote => 'سلتك محفوظة على هذا الهاتف. تسجّل الدخول أو تنشئ حساباً عند إتمام الطلب.';
+
+  @override
+  String get guestChangesTitle => 'تغيّرت سلتك';
+
+  @override
+  String guestChangePrice(String name, String from, String to) {
+    return 'تغيّر سعر $name من $from إلى $to.';
+  }
+
+  @override
+  String guestChangeReduced(String name, int count) {
+    return 'المتوفر الآن $count فقط من $name، لذلك خُفضت الكمية.';
+  }
+
+  @override
+  String guestChangeUnavailable(String name) {
+    return '$name لم يعد متوفراً.';
+  }
+
+  @override
+  String guestChangeAssembly(String name) {
+    return 'لم تعد خدمة التركيب متاحة لـ $name.';
+  }
 }

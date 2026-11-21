@@ -16,6 +16,10 @@ use App\Domain\Orders\Enums\FulfillmentStatus;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderCancellation;
 use App\Domain\Orders\Models\OrderFulfillment;
+use App\Domain\Orders\Models\OrderItem;
+use App\Domain\Orders\Models\ReturnRequest;
+use App\Domain\Orders\Models\SubstitutionRequest;
+use App\Domain\Orders\Services\SubstitutionClock;
 use App\Domain\Payments\Models\Refund;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
@@ -46,7 +50,7 @@ final class AttentionFeed
     public const GATE = ['orders.view', 'deliveries.view', 'payments.view', 'pickup.view'];
 
     /** Kinds that are listed only once amber or red. */
-    private const LATE_ONLY = ['stuck', 'driver_silent', 'pickup_waiting', 'cash'];
+    private const LATE_ONLY = ['stuck', 'driver_silent', 'pickup_waiting', 'cash', 'claim'];
 
     /** Seconds the count behind the sidebar badge is remembered. */
     private const BADGE_TTL = 15;
@@ -83,6 +87,8 @@ final class AttentionFeed
             ->concat($this->fulfillmentItems($user, $branches))
             ->concat($this->cancellationItems($user, $branches))
             ->concat($this->refundItems($user, $branches))
+            ->concat($this->claimItems($user, $branches))
+            ->concat($this->substitutionItems($user, $branches))
             ->concat($this->cashItems($user, $branches))
             ->concat($this->systemItems($user));
 
@@ -275,7 +281,7 @@ final class AttentionFeed
 
     private const ICONS = [
         'unaccepted' => 'bag', 'stuck' => 'package', 'undispatched' => 'truck', 'driver_silent' => 'phone', 'delivery_failed' => 'alert', 'pickup_waiting' => 'qr',
-        'cancellation' => 'x', 'refund' => 'refund', 'cash' => 'cash', 'queue' => 'settings', 'campaign' => 'megaphone',
+        'cancellation' => 'x', 'refund' => 'refund', 'claim' => 'package', 'substitution' => 'bag', 'cash' => 'cash', 'queue' => 'settings', 'campaign' => 'megaphone',
     ];
 
     // ── Cancellation requests awaiting a manager ─────────────────────────────────────────────────────────────────────
@@ -349,6 +355,94 @@ final class AttentionFeed
                 id: 'refund:'.$r->id, category: 'refund', icon: self::ICONS['refund'], subject: $order?->number ?? $r->number, label: __('ops_live.cat.refund.label'),
                 detail: $amount.($order ? ' · '.$order->customer_name : ''), state: $age->state, age: $age, branchId: $branchId, branchCode: $branchId !== null ? $branches->get($branchId)?->code : null,
                 action: ['type' => 'link', 'label' => __('ops_live.action.review_refund'), 'url' => route('admin.refunds.index')], assignedTo: $r->requested_by,
+            );
+        }
+
+        return $items;
+    }
+
+    // ── Return and damage claims nobody has decided ───────────────────────────────────────────────────────────────────
+
+    /**
+     * A claim about the condition of the goods (damaged, wrong, missing, quality) that no one has decided: listed once it has waited longer than the
+     * Operations clock says (opening hours only). A plain "changed my mind" return is not urgent and stays on the Returns page.
+     *
+     * @param  Collection<string, Branch>  $branches
+     * @return list<AttentionItem>
+     */
+    private function claimItems(User $user, Collection $branches): array
+    {
+        $scope = $this->acl->scope($user, 'orders.view');
+        if ($scope->isEmpty()) {
+            return [];
+        }
+        $cut = CarbonImmutable::now()->subMinutes($this->clock->limits(OpsClock::CLAIM)['amber']);
+        $query = ReturnRequest::query()->whereIn('status', ReturnRequest::UNDECIDED)->whereIn('reason_code', ReturnRequest::DEFECT_TYPES)->where('created_at', '<=', $cut);
+        $scope->apply($query->getQuery(), 'branch_id');
+        $rows = $query->with(['order:id,number,customer_name,customer_phone'])->withCount('photos')->orderBy('created_at')->limit(self::CAP + 1)
+            ->get(['id', 'number', 'order_id', 'branch_id', 'reason_code', 'status', 'review_started_by', 'created_at']);
+
+        $this->clock->preload($rows->pluck('branch_id')->all());
+        $items = [];
+        foreach ($rows as $c) {
+            $order = $c->order;
+            $age = $this->clock->evaluate(OpsClock::CLAIM, $c->created_at ?? CarbonImmutable::now(), $c->branch_id);
+            if ($order === null || ! $age->isLate()) {
+                continue;
+            }
+            $type = __('returns.type.'.$c->reason_code);
+            $items[] = new AttentionItem(
+                id: 'claim:'.$c->id, category: 'claim', icon: self::ICONS['claim'], subject: $order->number, label: __('ops_live.cat.claim.label'),
+                detail: $order->customer_name.' · '.$type, state: $age->state, age: $age, branchId: $c->branch_id, branchCode: $branches->get($c->branch_id)?->code,
+                action: ['type' => 'link', 'label' => __('ops_live.action.review_claim'), 'url' => route('admin.returns.index', ['view' => $c->id])],
+                call: $order->customer_phone ? ['label' => __('ops_live.call_customer'), 'phone' => $order->customer_phone] : null,
+                assignedTo: $c->review_started_by, note: trans_choice('ops_live.claim_photos', (int) $c->photos_count, ['count' => (int) $c->photos_count]),
+            );
+        }
+
+        return $items;
+    }
+
+    // ── Replacement questions the customer has not answered ─────────────────────────────────────────────────────────────
+
+    /**
+     * A question to the customer about a replacement that has used half of its time (amber) or all of it (red, waiting for the minute-by-minute job to
+     * settle it by the shop's fallback): the branch may want to call the customer. Time counts opening hours, like the question's own deadline.
+     *
+     * @param  Collection<string, Branch>  $branches
+     * @return list<AttentionItem>
+     */
+    private function substitutionItems(User $user, Collection $branches): array
+    {
+        $scope = $this->acl->scope($user, 'orders.view');
+        if ($scope->isEmpty()) {
+            return [];
+        }
+        $query = SubstitutionRequest::query()->where('status', SubstitutionRequest::WAITING)->where('asked_at', '<=', CarbonImmutable::now()->subMinutes(2));
+        $scope->apply($query->getQuery(), 'branch_id');
+        $rows = $query->with(['order:id,number,customer_name,customer_phone', 'original', 'replacement'])->orderBy('deadline_at')->limit(self::CAP + 1)->get();
+
+        $clock = app(SubstitutionClock::class);
+        $items = [];
+        foreach ($rows as $r) {
+            $order = $r->order;
+            if ($order === null) {
+                continue;
+            }
+            $counted = $clock->counted($r->branch_id, $r->asked_at, CarbonImmutable::now());
+            $state = $r->deadline_at->lte(CarbonImmutable::now()) || $counted >= $r->response_minutes ? OpsAge::RED : ($counted * 2 >= $r->response_minutes ? OpsAge::AMBER : null);
+            if ($state === null) {
+                continue;
+            }
+            $wall = max(0, intdiv(CarbonImmutable::now()->getTimestamp() - $r->asked_at->getTimestamp(), 60));
+            $name = fn (?OrderItem $i) => $i?->name() ?? '';
+            $items[] = new AttentionItem(
+                id: 'substitution:'.$r->id, category: 'substitution', icon: self::ICONS['substitution'], subject: $order->number, label: __('ops_live.cat.substitution.label'),
+                detail: __('substitutions.detail', ['customer' => $order->customer_name, 'item' => $name($r->original), 'replacement' => $name($r->replacement)]),
+                state: $state, age: new OpsAge('substitution', $state, $counted, $wall, OpsClock::label($counted), $r->asked_at), branchId: $r->branch_id, branchCode: $branches->get($r->branch_id)?->code,
+                action: ['type' => 'peek', 'label' => __('ops_live.action.open_order'), 'order' => $order->id],
+                call: $order->customer_phone ? ['label' => __('ops_live.call_customer'), 'phone' => $order->customer_phone] : null,
+                assignedTo: $r->requested_by, note: __('substitutions.attention_note', ['fallback' => __('substitutions.fallback_'.$r->fallback.'_short')]),
             );
         }
 

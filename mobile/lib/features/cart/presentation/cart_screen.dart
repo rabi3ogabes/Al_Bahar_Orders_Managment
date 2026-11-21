@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:albahar_customer/core/l10n/l10n.dart';
 import 'package:albahar_customer/core/network/api_exception.dart';
+import 'package:albahar_customer/core/router/deep_links.dart';
 import 'package:albahar_customer/core/theme/design_tokens.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
@@ -14,9 +15,15 @@ import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
 import 'package:albahar_customer/features/cart/domain/cart_models.dart';
+import 'package:albahar_customer/features/cart/presentation/assembly_choice.dart';
+import 'package:albahar_customer/features/cart/presentation/guest_cart_notice_banner.dart';
 import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
+import 'package:albahar_customer/features/catalog/domain/share_text.dart';
+import 'package:albahar_customer/features/catalog/presentation/share_actions.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/catalog_widgets.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/upsell_widgets.dart';
+import 'package:albahar_customer/features/checkout/presentation/promise_note.dart';
+import 'package:albahar_customer/features/checkout/presentation/state/promise_providers.dart';
 import 'package:albahar_customer/features/checkout/presentation/total_action_bar.dart';
 import 'package:albahar_customer/features/deals/presentation/widgets/deal_line_text.dart';
 import 'package:albahar_customer/features/scan/presentation/widgets/scan_entry.dart';
@@ -31,20 +38,8 @@ class CartScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
+    // A signed-out customer has a cart too (kept on this phone); sign-in is asked at checkout, where the router brings them straight back.
     final signedIn = ref.watch(isAuthenticatedProvider);
-    if (!signedIn) {
-      return FreshScaffold(
-        appBar: AppBar(title: Text(l10n.cartTitle)),
-        header: FreshHeader(title: l10n.cartTitle, tagline: l10n.freshTaglineCart),
-        body: EmptyState(
-          icon: Icons.shopping_bag_outlined,
-          title: l10n.signInRequiredTitle,
-          message: l10n.signInRequiredMessage,
-          actionLabel: l10n.signIn,
-          onAction: () => context.push('/login?from=%2Fcart'),
-        ),
-      );
-    }
     final cart = ref.watch(cartControllerProvider);
     return FreshScaffold(
       appBar: AppBar(
@@ -93,12 +88,13 @@ class CartScreen extends ConsumerWidget {
                           const Gap(AppSpace.md),
                           const ScanToAddTile(),
                           const Gap(AppSpace.md),
+                          const GuestCartNoticeBanner(),
                           if (c.warnings.isNotEmpty || c.hasIssues) CartWarningsBanner(cart: c),
                           for (final item in c.items) CartLine(item: item),
                           const CartSuggestionsStrip(),
                           const Gap(AppSpace.xs),
-                          _CouponField(code: c.couponCode),
-                          const Gap(AppSpace.md),
+                          if (signedIn) ...[_CouponField(code: c.couponCode), const Gap(AppSpace.md)],
+                          _CartPromise(cart: c),
                           SurfaceCard(
                             child: Column(
                               children: [
@@ -110,14 +106,24 @@ class CartScreen extends ConsumerWidget {
                                     value: '− ${c.dealSavings!.formatted}',
                                     valueColor: context.palette.success,
                                   ),
+                                if (c.assemblyTotal != null)
+                                  SummaryRow(label: l10n.assemblyRow, value: '+ ${c.assemblyTotal!.formatted}'),
                                 const Gap(AppSpace.xxs),
                                 Align(
                                   alignment: AlignmentDirectional.centerStart,
                                   child: Text(l10n.totalsCalculatedAtCheckout, style: context.text.bodySmall),
                                 ),
+                                if (!signedIn) ...[
+                                  const Gap(AppSpace.xs),
+                                  Align(
+                                    alignment: AlignmentDirectional.centerStart,
+                                    child: Text(l10n.guestCheckoutNote, style: context.text.bodySmall),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
+                          _ShareCart(cart: c),
                         ],
                       ),
                     ),
@@ -263,6 +269,19 @@ class CartLine extends ConsumerWidget {
                           padding: const EdgeInsets.only(top: 2),
                           child: Text(issue, style: context.text.bodySmall?.copyWith(color: palette.danger)),
                         ),
+                      // Assembly and installation at the door, for a product that offers it: one tick per line.
+                      if (item.assembly != null && !item.hasIssue)
+                        Padding(
+                          padding: const EdgeInsets.only(top: AppSpace.xs),
+                          child: AssemblyChoice(
+                            fee: item.assembly!.feeEach,
+                            selected: item.assembly!.selected,
+                            total: item.assembly!.amount,
+                            onChanged: busy
+                                ? null
+                                : (on) => run(() => ref.read(cartControllerProvider.notifier).setAssembly(item.id, on)),
+                          ),
+                        ),
                       const Gap(AppSpace.xs),
                       // Wraps onto two lines on narrow phones / large text.
                       Wrap(
@@ -315,6 +334,47 @@ class CartLine extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The date the cart will arrive (one per parcel, and "all by"): the server's sentence, never blocking checkout.
+class _CartPromise extends ConsumerWidget {
+  const _CartPromise({required this.cart});
+  final Cart cart;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (cart.isEmpty) return const SizedBox.shrink();
+    final promise = ref.watch(cartPromiseProvider);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpace.md),
+      child: PromiseNote(promise: promise.value, loading: promise.isLoading && promise.value == null),
+    );
+  }
+}
+
+/// "Send my cart on WhatsApp": the pieces with their links and the subtotal, to ask someone's opinion before paying.
+class _ShareCart extends ConsumerWidget {
+  const _ShareCart({required this.cart});
+  final Cart cart;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    const origin = 'https://${DeepLinks.webHost}'; // the store's own pages carry the preview a chat shows
+    final text = basketShareText(
+      [
+        for (final i in cart.items)
+          ShareLine(name: i.product.name, quantity: i.quantity, variantName: i.variantName, slug: i.product.slug),
+      ],
+      intro: l10n.shareBasketIntro,
+      total: l10n.shareBasketTotal(cart.subtotal.formatted),
+      origin: origin,
+    );
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpace.xs),
+      child: WhatsAppShareButton(text: text, label: l10n.shareBasketAction),
     );
   }
 }

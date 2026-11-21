@@ -435,7 +435,11 @@ class _JobCardState extends ConsumerState<_JobCard> {
                   if (!widget.readOnly && c.needsTwoPeople)
                     StatusChip(label: t.needsTwoPeople, icon: Icons.groups_rounded, tone: StatusTone.warning),
                   if (!widget.readOnly && c.requiresAssembly)
-                    StatusChip(label: t.assemblyRequested, icon: Icons.handyman_rounded, tone: StatusTone.info),
+                    StatusChip(
+                      label: c.assemblyOrdered ? t.assemblyPaid : t.assemblyRequested,
+                      icon: Icons.handyman_rounded,
+                      tone: StatusTone.info,
+                    ),
                 ],
               ),
             ),

@@ -2,6 +2,7 @@
 
 namespace App\Domain\Orders\Services;
 
+use App\Domain\Checkout\Support\Assembly;
 use App\Domain\Fulfillment\Enums\DeliveryStatus as DS;
 use App\Domain\Orders\Enums\FulfillmentStatus as FS;
 use App\Domain\Orders\Models\Order;
@@ -44,6 +45,7 @@ class OrderPresenter
         $replacedBy = $o->items->whereNotNull('replaces_order_item_id')->keyBy('replaces_order_item_id');
         $m = fn (string $f) => Money::of($o->{$f} ?? '0')->jsonSerialize();
         $handedOver = $o->fulfillments->contains(fn ($f) => $f->status->stockHandedOver());
+        $substitutions = app(SubstitutionService::class)->present($o);
         $returns = $this->returnRequests($o);
         $returnable = $this->returnableQuantities($o, $returns);
 
@@ -52,6 +54,8 @@ class OrderPresenter
                 'subtotal' => $m('subtotal'), 'discount' => $m('discount_total'), 'delivery_fee' => $m('delivery_fee_total'),
                 // The part of the delivery fee that comes from bulky products ("0.00" when none); see `delivery_extras` for which ones.
                 'extra_delivery_fee' => $o->extraDeliveryFee()->jsonSerialize(),
+                // Assembly and installation the customer bought ("0.00" when none); already inside `grand_total`. Each line shows its own share.
+                'assembly_fee' => $m('assembly_fee_total'),
                 'service_fee' => $m('service_fee_total'), 'tax' => $m('tax_total'), 'loyalty_discount' => $m('loyalty_discount'),
                 'grand_total' => $m('grand_total'), 'paid' => $m('paid_total'), 'refunded' => $m('refunded_total'),
                 // The part of `discount` that came from deal prices ("0.00" when none).
@@ -70,19 +74,27 @@ class OrderPresenter
                 'returnable_quantity' => $returnable[$i->id] ?? 0,
                 'unit_price' => Money::of($i->unit_final_price)->jsonSerialize(), 'discount' => Money::of($i->discount_amount)->jsonSerialize(),
                 'line_total' => Money::of($i->line_total)->jsonSerialize(), 'branch_id' => $i->branch_id, 'fulfillment_id' => $i->order_fulfillment_id,
+                // Assembly and installation bought for this line (null = none): the fee per unit as placed and what the line owes for it now.
+                'assembly' => Assembly::placedFee($i) !== null ? ['fee_each' => Assembly::placedFee($i)->jsonSerialize(), 'amount' => Money::of((string) $i->assembly_total)->jsonSerialize()] : null,
                 'adjustment' => $this->adjustment($i, $byId, $replacedBy),
                 // The deal price the line got, as placed (null when none): `units` of the line were sold at the deal price, `unit_savings` each.
                 'deal' => $i->deal_id !== null && $i->deal_units > 0 ? ['deal_id' => $i->deal_id, 'name' => app()->getLocale() === 'ar' ? ($i->deal_name_ar ?: $i->deal_name_en) : $i->deal_name_en,
                     'units' => $i->deal_units, 'unit_savings' => Money::of($i->deal_unit_savings ?? '0')->jsonSerialize()] : null,
             ])->values(),
             'was_adjusted' => $o->wasAdjusted(),
+            // Replacements the branch offered that the customer is asked about (newest first), and whether one still waits for their answer.
+            'substitution_requests' => $substitutions,
+            'waiting_for_customer' => collect($substitutions)->contains(fn (array $s) => $s['status'] === 'waiting'),
             'revisions' => $o->wasAdjusted() ? $o->revisions->map(fn ($r) => $this->revision($r))->values() : [],
             'fulfillments' => $o->fulfillments->map(fn (OrderFulfillment $f) => $this->fulfillment($f))->values(),
             'can_cancel' => ! $o->status->isTerminal() && ! $handedOver && $o->status->value !== 'cancellation_requested',
             'can_pay' => $o->status->value === 'pending_payment' && $o->payment_method === 'sadad' && ! $o->payment_due_at?->isPast(),
-            // Open while there is something left to return and no request is waiting on the team; `return_request` is the latest request (null when there was none).
-            'can_return' => self::returnsEnabled() && array_sum($returnable) > 0 && $returns->doesntContain(fn (ReturnRequest $r) => in_array($r->status, self::OPEN_RETURN, true)),
-            'return_request' => $this->returnRequest($o, $returns->first()),
+            // Open while some piece can still be reported: delivered or collected, inside the claim window and in no other claim. `return_request` is the
+            // latest claim (null when there was none) and `returns` every claim, newest first, each with its photos and timeline.
+            'can_return' => self::returnsEnabled() && array_sum($returnable) > 0,
+            'return_window' => $this->returnWindow($o, $returnable),
+            'return_request' => $returns->isEmpty() ? null : app(ReturnClaimPresenter::class)->detail($returns->first()),
+            'returns' => $returns->map(fn (ReturnRequest $r) => app(ReturnClaimPresenter::class)->detail($r))->values()->all(),
             'can_review' => $o->fulfillments->contains(fn ($f) => in_array($f->status, [FS::Delivered, FS::PickedUp], true)),
             'payment_due_at' => BusinessTime::iso($o->payment_due_at),
             // The live order card (null for an order with nothing to show); never waits on the routing server.
@@ -109,8 +121,15 @@ class OrderPresenter
     /** The delivery stages in which the customer may call the driver: exactly those of the live order card (OrderProgress), which a test keeps equal. */
     public const DRIVER_CALLABLE = [DS::Assigned, DS::Accepted, DS::PickedUp, DS::OutForDelivery];
 
-    /** Days after delivery/collection during which a customer may ask to return goods. */
+    /** Days after delivery/collection during which a customer may report a problem or ask to return goods, until the dashboard setting says otherwise (Settings → Checkout & fees). */
     public const RETURN_WINDOW_DAYS = 14;
+
+    public static function returnWindowDays(): int
+    {
+        $days = app(Settings::class)->get('returns.window_days', self::RETURN_WINDOW_DAYS);
+
+        return is_numeric($days) && (int) $days >= 1 ? min(90, (int) $days) : self::RETURN_WINDOW_DAYS;
+    }
 
     /** The dashboard switch (Settings → Checkout & fees): off hides "Return order" everywhere and the API refuses new requests. */
     public static function returnsEnabled(): bool
@@ -126,11 +145,8 @@ class OrderPresenter
         }
         $since = $f->delivered_at ?? $f->picked_up_at ?? $f->updated_at;
 
-        return $since !== null && $since->gt(now()->subDays(self::RETURN_WINDOW_DAYS));
+        return $since !== null && $since->gt(now()->subDays(self::returnWindowDays()));
     }
-
-    /** A return request that still waits on the team or on the goods coming back: it holds its quantities and blocks a second request. */
-    private const OPEN_RETURN = ['requested', 'approved'];
 
     /**
      * Every return request of the order, newest first: one query for the order (the detail is built for one order at a time, lists use summary()).
@@ -139,7 +155,7 @@ class OrderPresenter
      */
     private function returnRequests(Order $o): Collection
     {
-        return ReturnRequest::where('order_id', $o->id)->orderByDesc('created_at')->orderByDesc('number')->get();
+        return ReturnRequest::where('order_id', $o->id)->with(['photos', 'events', 'branch'])->orderByDesc('created_at')->orderByDesc('number')->get();
     }
 
     /**
@@ -155,7 +171,7 @@ class OrderPresenter
             return [];
         }
         $claimed = [];
-        foreach ($returns->filter(fn (ReturnRequest $r) => in_array($r->status, self::OPEN_RETURN, true)) as $r) {
+        foreach ($returns->filter(fn (ReturnRequest $r) => $r->holdsUnits()) as $r) {
             foreach ((array) $r->items as $line) {
                 $claimed[$line['order_item_id'] ?? ''] = ($claimed[$line['order_item_id'] ?? ''] ?? 0) + (int) ($line['quantity'] ?? 0);
             }
@@ -174,25 +190,28 @@ class OrderPresenter
     }
 
     /**
-     * The customer's latest return request as they read it: where it stands, when it was asked and, once decided, the team's note.
+     * "You can report a problem until <date>": the last day of the claim window across the parcels that were delivered or collected and still have
+     * a piece to report (null when nothing can be reported now).
      *
-     * @return array<string, mixed>|null
+     * @param  array<string, int>  $returnable
+     * @return array{days: int, until: string|null}
      */
-    private function returnRequest(Order $o, ?ReturnRequest $r): ?array
+    private function returnWindow(Order $o, array $returnable): array
     {
-        if ($r === null) {
-            return null;
+        $days = self::returnWindowDays();
+        $until = null;
+        if (self::returnsEnabled() && $returnable !== []) {
+            $fulfillments = $o->fulfillments->keyBy('id');
+            foreach ($o->items as $i) {
+                $f = isset($returnable[$i->id]) && $i->order_fulfillment_id ? $fulfillments->get($i->order_fulfillment_id) : null;
+                $since = $f !== null ? ($f->delivered_at ?? $f->picked_up_at ?? $f->updated_at) : null;
+                if ($since !== null && ($until === null || $since->gt($until))) {
+                    $until = $since;
+                }
+            }
         }
-        $decided = in_array($r->status, ['approved', 'rejected'], true) || $r->decided_at !== null;
-        // The note the team typed when it decided (kept on the order's history next to the decision).
-        $note = $decided ? $o->history()->where('kind', 'return')->whereIn('to_status', ['approved', 'rejected'])->where('is_customer_visible', true)
-            ->orderByDesc('created_at')->get()->first(fn ($h) => ($h->metadata['return'] ?? null) === $r->number)?->reason : null;
 
-        return [
-            'id' => $r->id, 'number' => $r->number, 'status' => $r->status, 'status_label' => __('status.'.$r->status),
-            'requested_at' => BusinessTime::iso($r->created_at), 'decided_at' => BusinessTime::iso($r->decided_at),
-            'decision_note' => $note !== null && trim($note) !== '' ? trim($note) : null,
-        ];
+        return ['days' => $days, 'until' => $until !== null ? BusinessTime::iso($until->addDays($days)) : null];
     }
 
     public function timeline(Order $o): array

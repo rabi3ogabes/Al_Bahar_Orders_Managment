@@ -65,7 +65,7 @@ test('a missing key anywhere falls back to the generic sentence, never the key',
   assert.equal(translate(dicts, 'en', 'nothing.here', undefined, (k) => seen.push(k)), 'Something went wrong. Please try again.');
   assert.equal(translate(dicts, 'ar', 'nothing.here'), dicts.ar['error.generic']);
   assert.deepEqual(seen, ['nothing.here']);
-  assert.equal(translate(dicts, 'en', 'return.title'), 'Request a return');
+  assert.equal(translate(dicts, 'en', 'return.title'), 'Report a problem or return');
   assert.equal(translate(dicts, 'en', 'checkout.points', { n: 5 }), 'You have 5 points');
   assert.equal(translate({ en: { a: 'English only {n}' }, ar: {} }, 'ar', 'a', { n: 2 }), 'English only 2', 'a key missing in Arabic shows the English text');
 });

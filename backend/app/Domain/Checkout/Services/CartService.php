@@ -5,6 +5,7 @@ namespace App\Domain\Checkout\Services;
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Catalog\Models\ProductVariant;
 use App\Domain\Catalog\Services\CatalogPresenter;
+use App\Domain\Checkout\Support\Assembly;
 use App\Domain\Deals\Services\DealBlocks;
 use App\Domain\Deals\Services\DealEngine;
 use App\Domain\Deals\Support\DealPricing;
@@ -40,9 +41,9 @@ class CartService
         }
     }
 
-    public function add(User $user, string $variantId, int $quantity): Cart
+    public function add(User $user, string $variantId, int $quantity, ?bool $assembly = null): Cart
     {
-        return $this->addTo($this->current($user), $variantId, $quantity);
+        return $this->addTo($this->current($user), $variantId, $quantity, assembly: $assembly);
     }
 
     /**
@@ -50,8 +51,10 @@ class CartService
      *
      * @param  bool  $recordActivity  false when staff edit a customer's cart for them: the customer's idle clock, reminder counters and
      *                                expiry stay as they were (the cart is still abandoned), see AbandonedCartService
+     * @param  ?bool  $assembly  true: also add assembly and installation for the line (only a product that offers it; 422 `assembly_not_offered` otherwise);
+     *                           false: take it off; null: leave the line's choice as it is
      */
-    public function addTo(Cart $cart, string $variantId, int $quantity, bool $recordActivity = true): Cart
+    public function addTo(Cart $cart, string $variantId, int $quantity, bool $recordActivity = true, ?bool $assembly = null): Cart
     {
         $max = (int) config('platform.checkout.max_quantity_per_line');
         if ($quantity < 1 || $quantity > $max) {
@@ -61,16 +64,19 @@ class CartService
         if (! $this->prices->availability($variant, null)->purchasable) {
             throw DomainException::make('item_unavailable_simple');
         }
+        if ($assembly === true && ! Assembly::offered($variant->product)) {
+            throw DomainException::make('assembly_not_offered', 422);
+        }
 
-        DB::transaction(function () use ($cart, $variant, $quantity, $max, $recordActivity) {
+        DB::transaction(function () use ($cart, $variant, $quantity, $max, $recordActivity, $assembly) {
             Cart::whereKey($cart->id)->lockForUpdate()->first(); // one writer at a time per cart (customer and staff edits queue up instead of overwriting each other)
             $item = CartItem::where('cart_id', $cart->id)->where('product_variant_id', $variant->id)->lockForUpdate()->first();
             $branch = $cart->branch_id ? Branch::find($cart->branch_id) : null;
             $price = $this->prices->resolve($variant, $branch) ?? $this->prices->resolve($variant, null);
             if ($item) {
-                $item->update(['quantity' => min($max, $item->quantity + $quantity)]);
+                $item->update(['quantity' => min($max, $item->quantity + $quantity)] + ($assembly !== null ? ['assembly' => $assembly] : []));
             } else {
-                CartItem::create(['cart_id' => $cart->id, 'product_variant_id' => $variant->id, 'quantity' => $quantity, 'price_at_add' => $price?->final()->toDecimal()]);
+                CartItem::create(['cart_id' => $cart->id, 'product_variant_id' => $variant->id, 'quantity' => $quantity, 'price_at_add' => $price?->final()->toDecimal(), 'assembly' => (bool) $assembly]);
             }
             if ($recordActivity) {
                 $this->touch($cart);
@@ -106,6 +112,26 @@ class CartService
     public function remove(User $user, string $itemId): Cart
     {
         return $this->update($user, $itemId, 0);
+    }
+
+    /**
+     * "Add assembly" / "Remove assembly" on one cart line. Choosing it needs a product that offers it (422 `assembly_not_offered`, also while the
+     * dashboard switch is off); taking it off is always allowed. The fee itself is never sent by the client: the quote works it out.
+     */
+    public function setAssembly(User $user, string $itemId, bool $on): Cart
+    {
+        $cart = $this->current($user);
+        DB::transaction(function () use ($cart, $itemId, $on) {
+            Cart::whereKey($cart->id)->lockForUpdate()->first();
+            $item = CartItem::where('cart_id', $cart->id)->with('variant.product')->findOrFail($itemId);
+            if ($on && ! Assembly::offered($item->variant->product)) {
+                throw DomainException::make('assembly_not_offered', 422);
+            }
+            $item->update(['assembly' => $on]);
+            $this->touch($cart);
+        });
+
+        return $cart->refresh();
     }
 
     public function setOptions(User $user, array $o): Cart
@@ -155,8 +181,8 @@ class CartService
             foreach ($guest->items as $gi) {
                 $existing = CartItem::where('cart_id', $cart->id)->where('product_variant_id', $gi->product_variant_id)->first();
                 $existing
-                    ? $existing->update(['quantity' => min((int) config('platform.checkout.max_quantity_per_line'), max($existing->quantity, $gi->quantity))])
-                    : CartItem::create(['cart_id' => $cart->id, 'product_variant_id' => $gi->product_variant_id, 'quantity' => $gi->quantity, 'price_at_add' => $gi->price_at_add]);
+                    ? $existing->update(['quantity' => min((int) config('platform.checkout.max_quantity_per_line'), max($existing->quantity, $gi->quantity)), 'assembly' => $existing->assembly || $gi->assembly])
+                    : CartItem::create(['cart_id' => $cart->id, 'product_variant_id' => $gi->product_variant_id, 'quantity' => $gi->quantity, 'price_at_add' => $gi->price_at_add, 'assembly' => (bool) $gi->assembly]);
             }
             $guest->update(['status' => 'merged']);
             $this->touch($cart);
@@ -179,8 +205,10 @@ class CartService
         $customer = $cart->status === Cart::STAFF_DRAFT ? null : $cart->user;
         $dealEntries = $customer ? $this->deals->load($variants->pluck('product_id'), $customer) : [];
         [$dealUnits, $dealSavings] = $this->dealUnits($cart, $dealEntries, $branch);
+        $assemblyTotal = Money::zero();
+        $delivery = $cart->fulfillment_type !== 'pickup'; // assembly is done at the door: a pickup cart shows the choice but does not charge it
 
-        $items = $cart->items->sortBy('created_at')->map(function (CartItem $item) use ($branch, $stock, $customer, $dealEntries, $dealUnits, &$subtotal, &$warnings) {
+        $items = $cart->items->sortBy('created_at')->map(function (CartItem $item) use ($branch, $stock, $customer, $dealEntries, $dealUnits, $delivery, &$subtotal, &$assemblyTotal, &$warnings) {
             $v = $item->variant;
             $price = $this->prices->resolve($v, $branch);
             $available = max(0, $stock[$v->id] ?? 0);
@@ -197,6 +225,16 @@ class CartService
             $line = $price ? $price->final()->times($item->quantity) : Money::zero();
             if ($issue === null) {
                 $subtotal = $subtotal->plus($line);
+            }
+            // Assembly and installation: offered when the product has a fee (and the dashboard switch is on); `selected` is the customer's tick, charged on delivery only.
+            $fee = Assembly::unitFee($v->product);
+            $assembly = $fee === null ? null : ['selected' => (bool) $item->assembly, 'fee_each' => $fee->jsonSerialize(),
+                'amount' => $item->assembly && $delivery ? $fee->times($item->quantity)->jsonSerialize() : null];
+            if ($fee !== null && $item->assembly && $delivery && $issue === null) {
+                $assemblyTotal = $assemblyTotal->plus($fee->times($item->quantity));
+            }
+            if ($fee === null && $item->assembly) {
+                $warnings[] = __('checkout.assembly_unavailable', ['name' => $v->product->trans('name')]);
             }
 
             return [
@@ -216,6 +254,7 @@ class CartService
                 'price_changed' => $changed,
                 'previous_price' => $changed ? Money::of($item->price_at_add)->jsonSerialize() : null,
                 'issue' => $issue,
+                'assembly' => $assembly,
             ];
         })->values();
 
@@ -229,6 +268,8 @@ class CartService
             'items' => $items,
             'items_count' => $cart->items->sum('quantity'),
             'subtotal' => $subtotal->jsonSerialize(),
+            // What the lines that chose assembly add to the total on delivery ("0.00" when none); `subtotal` stays goods only.
+            'assembly_total' => $assemblyTotal->jsonSerialize(),
             'deal_savings' => $dealSavings->jsonSerialize(),
             'warnings' => $warnings,
         ];

@@ -9,14 +9,19 @@ String returnFailureMessage(AppLocalizations l10n, Object error) {
       case ApiErrorKind.forbidden:
         return l10n.returnsUnavailable;
       case ApiErrorKind.validation:
+        if (error.errors.keys.any((k) => k == 'photos' || k.startsWith('photos.'))) return l10n.claimErrPhotos;
+        if (error.errors.containsKey('reason')) return l10n.claimErrNote;
         if (error.errors.keys.any((k) => k == 'items' || k.startsWith('items.'))) return l10n.returnErrItems;
         if (error.errors.containsKey('reason_code')) return l10n.returnErrReason;
         if (error.errors.isNotEmpty) return describeError(l10n, error);
         // A refusal with no field named: the items are not (or no longer) returnable.
         return l10n.returnErrNotAllowed;
+      case ApiErrorKind.conflict:
+        // The team has already looked at the claim: it can no longer be changed.
+        if (error.code == 'claim_not_editable') return l10n.claimErrLocked;
+        return describeError(l10n, error);
       case ApiErrorKind.unauthorized:
       case ApiErrorKind.notFound:
-      case ApiErrorKind.conflict:
       case ApiErrorKind.rateLimited:
       case ApiErrorKind.server:
       case ApiErrorKind.timeout:

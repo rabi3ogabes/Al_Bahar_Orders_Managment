@@ -475,6 +475,11 @@ class PanelItems extends StatelessWidget {
                     Text(items[i].name, style: context.text.bodyLarge),
                     if (items[i].variantName != null)
                       Text(items[i].variantName!, style: context.text.bodySmall?.copyWith(color: muted)),
+                    if (items[i].assemblyOrdered)
+                      Padding(
+                        padding: const EdgeInsets.only(top: AppSpace.xxs),
+                        child: StatusChip(label: t.lineAssembly, tone: StatusTone.info, dense: true),
+                      ),
                   ],
                 ),
               ),

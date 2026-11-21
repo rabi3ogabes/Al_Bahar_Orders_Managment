@@ -12,6 +12,7 @@ import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/features/orders/domain/order_models.dart';
 import 'package:albahar_customer/features/orders/presentation/return_errors.dart';
 import 'package:albahar_customer/features/orders/presentation/widgets/return_status_card.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -82,6 +83,21 @@ Map<String, dynamic> _request(String status, {String? note, String? decided = '2
   'decision_note': note,
 };
 
+/// A claim is sent as multipart: the lines, the kind, the note and the photos come back as one map for the assertions.
+Map<String, dynamic> _readClaim(FormData form) {
+  final f = {for (final e in form.fields) e.key: e.value};
+  final items = <Map<String, Object>>[];
+  for (var i = 0; f.containsKey('items[$i][order_item_id]'); i++) {
+    items.add({'order_item_id': f['items[$i][order_item_id]']!, 'quantity': int.parse(f['items[$i][quantity]']!)});
+  }
+  return {
+    'items': items,
+    'reason_code': f['reason_code'],
+    if (f.containsKey('reason')) 'reason': f['reason'],
+    'photos': [for (final e in form.files) e.value.filename],
+  };
+}
+
 class _Shop {
   _Shop(this.order);
   Map<String, dynamic> order;
@@ -93,7 +109,7 @@ class _Shop {
       if (r.method == 'GET' && r.path == '/orders/o1') return ok(order);
       if (r.method == 'GET' && r.path == '/orders/o1/timeline') return ok(const []);
       if (r.method == 'POST' && r.path == '/orders/o1/returns') {
-        returns.add(Map<String, dynamic>.from(r.body as Map));
+        returns.add(_readClaim(r.body as FormData));
         return returnReply?.call() ?? ok({'id': 'rr1', 'number': 'RT26001', 'status': 'requested'}, status: 201);
       }
       return null;
@@ -276,7 +292,11 @@ void main() {
       expect(find.byKey(const ValueKey('return-line-i2')), findsNothing, reason: 'nothing of the lamp can be returned');
       expect(find.text(en.returnUpTo(2)), findsOneWidget);
       expect(find.text(en.returnUpTo(1)), findsOneWidget);
-      expect(t.widget<AppButton>(_button(en.requestReturn).last).onPressed, isNull, reason: 'nothing chosen yet');
+      expect(
+        t.widget<AppButton>(find.byKey(const ValueKey('claim-submit'))).onPressed,
+        isNull,
+        reason: 'nothing chosen yet',
+      );
 
       final sofa = find.descendant(
         of: find.byKey(const ValueKey('return-line-i1')),
@@ -295,6 +315,8 @@ void main() {
       final shop = _Shop(twoLines);
       await _open(t, shop);
       await _tapButton(t, en.requestReturn);
+      await t.tap(find.byKey(const ValueKey('claim-type-quality')));
+      await t.pump();
       final sofa = find.descendant(
         of: find.byKey(const ValueKey('return-line-i1')),
         matching: find.byType(QuantityStepper),
@@ -310,7 +332,8 @@ void main() {
       expect(shop.returns.single['items'], [
         {'order_item_id': 'i1', 'quantity': 1},
       ]);
-      expect(shop.returns.single['reason_code'], 'damaged');
+      expect(shop.returns.single['reason_code'], 'quality');
+      expect(shop.returns.single['photos'], isEmpty, reason: 'a quality problem may be sent without a photo');
       expect(shop.returns.single['reason'], 'The leg is cracked');
       expect(find.text(en.returnRequested), findsOneWidget);
       await teardown(t);
@@ -321,6 +344,8 @@ void main() {
         ..returnReply = () => error(422, 'http_error', message: 'These items can\'t be returned.');
       await _open(t, shop);
       await _tapButton(t, en.requestReturn);
+      await t.tap(find.byKey(const ValueKey('claim-type-changed_mind')));
+      await t.pump();
       final sofa = find.descendant(
         of: find.byKey(const ValueKey('return-line-i1')),
         matching: find.byType(QuantityStepper),

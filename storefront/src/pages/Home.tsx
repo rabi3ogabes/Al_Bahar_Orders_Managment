@@ -11,6 +11,8 @@ import type { Auction, Brand, HomeSection, ProductCard as P } from '../lib/types
 import { Rail } from '../components/Rail';
 import { BannerSlider } from '../components/BannerSlider';
 import { BuyAgain } from '../components/BuyAgain';
+import { RoomTiles } from '../components/RoomTiles';
+import type { Room } from '../lib/roomsCore';
 import { DealsStrip } from '../components/DealsStrip';
 import { CardSkeletons, ProductCard } from '../components/ProductCard';
 import { Badge, LinkButton, Pic, SectionHead, Skeleton } from '../components/ui';
@@ -160,6 +162,7 @@ function ClassicHome() {
           </div>
         </section>
       );
+      case 'rooms': return <RoomTiles key={s.id} items={s.items as Room[]} title={s.title} />;
       case 'promotions': return s.items.length === 0 ? null : (
         <section key={s.id} className="wrap mt-24">
           <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

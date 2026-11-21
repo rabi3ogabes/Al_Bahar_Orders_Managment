@@ -52,10 +52,10 @@ it('shows every limit with its default, its unit and a one-line help text, in bo
 it('lists the section in the settings tabs with its own icon', function () {
     $page = Livewire::actingAs($this->admin)->test(SettingsIndex::class);
     expect(array_keys(SettingsIndex::schema()))->toContain('ops_clock')->and($page->html())->toContain(__('ops_live.tab'));
-    // the twelve clock limits first, then the six driver rules (DispatchSettingsTabTest)
-    expect(array_keys(SettingsIndex::schema()['ops_clock']))->toHaveCount(18)
+    // the fourteen clock limits (the last two are the claim limits) first, then the six driver rules (DispatchSettingsTabTest)
+    expect(array_keys(SettingsIndex::schema()['ops_clock']))->toHaveCount(20)
         ->and(array_keys(SettingsIndex::schema()['ops_clock'])[0])->toBe('ops_clock.pending_amber_minutes')
-        ->and(array_keys(SettingsIndex::schema()['ops_clock'])[12])->toBe('dispatch.two_person_weight_kg');
+        ->and(array_keys(SettingsIndex::schema()['ops_clock'])[14])->toBe('dispatch.two_person_weight_kg');
 });
 
 it('saves the limits through the settings service, audits them, and the clock uses them from then on', function () {

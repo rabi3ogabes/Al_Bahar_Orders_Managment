@@ -205,6 +205,20 @@ extension StaffStrings on OpsStrings {
   String get manualDone => _s('Handed over. Your reason was recorded.', 'تم التسليم وسُجّل السبب.');
   String get orderLabel => _s('Order', 'الطلب');
 
+  // ── A replacement the customer has not answered ──────────────────────────────────────────────────────────────────
+
+  String get waitingTitle => _s('Waiting for the customer', 'بانتظار رد العميل');
+  String waitingCount(int n) => _s(
+    n == 1 ? '1 replacement waits for the customer\'s answer' : '$n replacements wait for the customer\'s answer',
+    n == 1 ? 'بديل واحد بانتظار رد العميل' : '$n بدائل بانتظار رد العميل',
+  );
+  String waitingTimeLeft(String time) => _s('$time left', 'متبقٍّ $time');
+  String get waitingTimeUp => _s('Time is up', 'انتهى الوقت');
+  String get waitingHint => _s(
+    'You can keep preparing the rest. This part can be marked ready once the customer answers or the time is up.',
+    'يمكنك متابعة تجهيز الباقي. ويمكن تحديد هذا الجزء جاهزاً بعد رد العميل أو انتهاء الوقت.',
+  );
+
   // ── The customer's request to cancel ─────────────────────────────────────────────────────────────────────────────
 
   String get cancelBannerTitle => _s('The customer asked to cancel', 'طلب العميل إلغاء الطلب');

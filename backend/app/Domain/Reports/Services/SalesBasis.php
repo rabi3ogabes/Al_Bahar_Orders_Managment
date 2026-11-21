@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\DB;
  *  - The amount of a sale is the order's grand total (items, delivery and service fees, tax, less discounts). That is "booked": it says nothing
  *    about whether the money has arrived. What has arrived is a separate number, {@see self::collected()}.
  *  - A branch sees only its own part of an order. An order split between branches is divided in proportion to what each branch's part is worth
- *    (its lines after discount, with tax, plus its own delivery fee: the same weights and the same largest-remainder rounding as
+ *    (its lines after discount, with tax, the assembly bought for them, plus its own delivery fee: the same weights and the same largest-remainder rounding as
  *    App\Domain\Orders\Services\ParcelShares, which divides cash and refunds, so the figures agree to the cent). The division is done in cents, so the
  *    parts ALWAYS add up to the order's grand total exactly. A fulfillment a branch cancelled is not sales: its part drops out of every view.
  *
@@ -121,7 +121,7 @@ final class SalesBasis
     private static function withLines(Builder $query): Builder
     {
         return $query->leftJoinLateral(
-            DB::table('order_items as oi')->selectRaw('coalesce(sum(oi.line_total), 0) as lines')
+            DB::table('order_items as oi')->selectRaw('coalesce(sum(oi.line_total + oi.assembly_total), 0) as lines')
                 ->whereColumn('oi.order_id', 'f.order_id')->whereColumn('oi.order_fulfillment_id', 'f.id')->where('oi.quantity', '>', 0),
             'li'
         );

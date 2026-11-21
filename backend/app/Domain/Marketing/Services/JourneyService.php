@@ -85,6 +85,8 @@ class JourneyService
                 $out['started'] += $this->startAbandonedRuns($journey);
             } elseif ($journey->key === 'birthday') {
                 $out['started'] += $this->startBirthdayRuns($journey);
+            } elseif ($journey->key === AfterDeliveryJourney::KEY) {
+                $out['started'] += app(AfterDeliveryJourney::class)->startRuns($journey);
             }
             $out['sent'] += $this->dispatchDue($journey);
         }
@@ -346,6 +348,23 @@ class JourneyService
                 }
                 $view = $gate['view'] ?? null;
             }
+            $extra = [];
+            if ($journey->key === AfterDeliveryJourney::KEY) {
+                $gate = app(AfterDeliveryJourney::class)->gate($run, $step);
+                if ($gate['stop'] ?? null) {
+                    $this->finish($run, 'stopped', $gate['stop']);
+
+                    return $sent;
+                }
+                if ($gate['skip'] ?? null) {
+                    foreach ($todo as $channel) {
+                        $this->recordSkip($run, $step, $channel, $gate['skip']);
+                    }
+
+                    continue;
+                }
+                $extra = $gate['view'] ?? [];
+            }
             if (! $abandoned && $this->overDailyCap($journey, $run->user_id)) {
                 $pending++;
                 $wake = $this->earlier($wake, now()->addMinutes(15)->toImmutable());
@@ -358,7 +377,7 @@ class JourneyService
             $delivered = [];
             $codes = [];
             foreach ($todo as $channel) {
-                [$d, $mine] = $this->deliver($run, $step, $channel, $view);
+                [$d, $mine] = $this->deliver($run, $step, $channel, $view, $extra);
                 $run->deliveries->push($d);
                 if (! $mine) {
                     continue; // another pass created this row: it sent it, and it counts and audits it
@@ -469,6 +488,11 @@ class JourneyService
 
             return [$due, $due->addHours(self::BIRTHDAY_GRACE_HOURS)];
         }
+        if ($journey->key === AfterDeliveryJourney::KEY) {
+            $due = CarbonImmutable::instance($run->anchor_at)->addMinutes(max(1, (int) $step->delay_minutes)); // the anchor is the moment the order was delivered
+
+            return [$due, $due->addHours(AfterDeliveryJourney::GRACE_HOURS)];
+        }
         $due = CarbonImmutable::instance($run->anchor_at)->addMinutes(max(AbandonedCartReminders::MIN_DELAY_MINUTES, (int) $step->delay_minutes));
 
         return [$due, $due->addHours(AbandonedCartReminders::GRACE_HOURS)];
@@ -487,8 +511,9 @@ class JourneyService
      * Sends one step on one channel. The delivery row is created first (unique per run, step and channel), so only the pass that created it sends.
      *
      * @param  array<string, mixed>|null  $cartView  the cart as the customer would see it now (abandoned-cart reminders)
+     * @param  array<string, string>  $extra  the message's own words and links (the after-delivery journey: the order, the product, the suggestions)
      */
-    private function deliver(JourneyRun $run, JourneyStep $step, string $channel, ?array $cartView = null): array
+    private function deliver(JourneyRun $run, JourneyStep $step, string $channel, ?array $cartView = null, array $extra = []): array
     {
         $user = $run->user;
         $locale = $user->preferredLocale();
@@ -512,7 +537,7 @@ class JourneyService
                     $coupon = $this->couponFor($run, $step, $user);
                 }
             }
-            $vars = $this->variables($run, $user, $step->template, $coupon, $cartView);
+            $vars = array_merge($this->variables($run, $user, $step->template, $coupon, $cartView), $extra);
             $d->update(['coupon_code' => $coupon?->code]);
 
             return [match ($channel) {
@@ -575,8 +600,9 @@ class JourneyService
     private function sendInApp(JourneyDelivery $d, JourneyTemplate $t, User $user, string $locale, array $vars, JourneyRun $run): JourneyDelivery
     {
         [$title, $body] = $this->text($t, $locale, $vars);
-        Notification::create(['user_id' => $user->id, 'event' => 'journey.'.$run->journey->key, 'category' => 'marketing', 'title' => $title, 'body' => $body,
+        $entry = Notification::create(['user_id' => $user->id, 'event' => 'journey.'.$run->journey->key, 'category' => 'marketing', 'title' => $title, 'body' => $body,
             'data' => array_filter(['deep_link' => $this->deepLink($t, $vars), 'coupon' => $vars['coupon'] ?: null])]);
+        $d->notification_id = $entry->id; // so the journey page can count how many were opened (read)
 
         return $this->mark($d, 'sent');
     }
@@ -701,7 +727,7 @@ class JourneyService
 
     private function deepLink(JourneyTemplate $t, array $vars): string
     {
-        return $t->deep_link ?: 'albahar://cart';
+        return ($vars['deep_link'] ?? '') ?: ($t->deep_link ?: 'albahar://cart'); // a message about an order carries its own link
     }
 
     /** A personal, single-use coupon under the template's promotion — one per run+step, shared by all of the step's channels. */
@@ -843,6 +869,7 @@ class JourneyService
     public function ensureDefaults(): void
     {
         app(AbandonedCartReminders::class)->ensure(); // the abandoned-cart journey, with its own defaults (see AbandonedCartReminders)
+        app(AfterDeliveryJourney::class)->ensure(); // the after-delivery journey, switched off (see AfterDeliveryJourney)
         if (Journey::where('key', 'birthday')->exists()) {
             return;
         }

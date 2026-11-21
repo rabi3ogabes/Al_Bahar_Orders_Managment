@@ -28,6 +28,7 @@ Route::controller(V1\Catalog\CatalogController::class)->group(function () {
     Route::get('categories', 'categories')->name('categories.index');
     Route::get('categories/{id}', 'category')->name('categories.show');
     Route::get('brands', 'brands')->name('brands.index');
+    Route::get('rooms', 'rooms')->name('rooms.index');
     Route::get('products', 'products')->name('products.index');
     Route::get('products/search', 'search')->name('products.search');
     Route::get('search/suggest', 'suggest')->middleware('throttle:120,1')->name('search.suggest');
@@ -37,6 +38,10 @@ Route::controller(V1\Catalog\CatalogController::class)->group(function () {
     // "Scan to add": any scanned string (barcode, SKU, store link, deep link, slug). `.+` lets a whole link through as one parameter.
     Route::get('products/by-code/{code}', 'byCode')->where('code', '.+')->middleware('throttle:product-scan')->name('products.by-code');
 });
+
+// ── Delivery / pickup date promise (public: a guest asks too; a signed-in caller's token only adds their own saved address) ─────
+Route::get('products/{id}/delivery-promise', [V1\Commerce\PromiseController::class, 'product'])->whereUuid('id')->middleware('throttle:delivery-promise')->name('products.delivery-promise');
+Route::post('cart/promise', [V1\Commerce\PromiseController::class, 'basket'])->middleware('throttle:delivery-promise')->name('cart.promise');
 
 // ── Customer commerce (auth: customer) ───────────────────────────────────────
 Route::middleware(['auth:sanctum', 'customer'])->group(function () {
@@ -51,6 +56,7 @@ Route::middleware(['auth:sanctum', 'customer'])->group(function () {
     Route::controller(V1\Commerce\CheckoutController::class)->group(function () {
         Route::get('cart', 'cart')->name('cart.show');
         Route::get('cart/suggestions', 'suggestions')->name('cart.suggestions');
+        Route::get('cart/promise', [V1\Commerce\PromiseController::class, 'cart'])->middleware('throttle:delivery-promise')->name('cart.promise.show');
         Route::put('cart', 'updateCart')->name('cart.update');
         Route::post('cart/items', 'addItem')->name('cart.items.store');
         Route::patch('cart/items/{id}', 'updateItem')->name('cart.items.update');
@@ -58,6 +64,15 @@ Route::middleware(['auth:sanctum', 'customer'])->group(function () {
         Route::post('cart/merge', 'merge')->name('cart.merge');
         Route::post('checkout/quote', 'quote')->name('checkout.quote');
         Route::post('checkout/orders', 'place')->middleware('throttle:checkout')->name('checkout.place');
+    });
+    // A customer's own return or damage claim: read it, add photos or a note while it waits, cancel it, and see its photos (private files).
+    // The customer answers a replacement question: accept it, or have the item removed and refunded.
+    Route::post('orders/{id}/substitutions/{requestId}', [V1\Commerce\SubstitutionController::class, 'answer'])->whereUuid(['id', 'requestId'])->middleware('throttle:30,1')->name('orders.substitutions.answer');
+    Route::controller(V1\Commerce\ReturnClaimController::class)->prefix('returns/{id}')->whereUuid('id')->group(function () {
+        Route::get('/', 'show')->name('returns.show');
+        Route::post('evidence', 'evidence')->middleware('throttle:20,1')->name('returns.evidence');
+        Route::post('cancel', 'cancel')->middleware('throttle:20,1')->name('returns.cancel');
+        Route::get('photos/{photoId}', 'photo')->whereUuid('photoId')->name('returns.photo');
     });
     Route::controller(V1\Commerce\OrderController::class)->group(function () {
         Route::get('orders', 'index')->name('orders.index');
@@ -69,7 +84,7 @@ Route::middleware(['auth:sanctum', 'customer'])->group(function () {
         Route::post('orders/{id}/reorder', 'reorder')->name('orders.reorder');
         Route::get('orders/{id}/invoice', 'invoice')->name('orders.invoice');
         Route::post('orders/{id}/payments', 'pay')->middleware('throttle:checkout')->name('orders.pay');
-        Route::post('orders/{id}/returns', 'requestReturn')->name('orders.returns');
+        Route::post('orders/{id}/returns', 'requestReturn')->middleware('throttle:20,1')->name('orders.returns');
         Route::get('orders/{id}/fulfillments/{fulfillmentId}/pickup-pass', 'pickupPass')->name('orders.pickup-pass');
         Route::get('payments/{id}', 'payment')->name('payments.show');
     });
@@ -125,13 +140,20 @@ Route::controller(V1\Engagement\EngagementController::class)->group(function () 
         Route::post('products/{productId}/reviews', 'submitReview')->whereUuid('productId')->middleware('throttle:10,60')->name('products.reviews.store');
         Route::post('reviews/{id}/report', 'reportReview')->middleware('throttle:30,60')->name('reviews.report');
         Route::post('products/{productId}/questions', 'ask')->whereUuid('productId')->middleware('throttle:10,60')->name('products.questions.store');
-        Route::post('me/stock-alerts', 'addAlert')->name('me.alerts.store');
-        Route::delete('me/stock-alerts', 'removeAlert')->name('me.alerts.destroy');
         Route::get('me/support/tickets', 'tickets')->name('me.tickets');
         Route::post('me/support/tickets', 'openTicket')->middleware('throttle:10,60')->name('me.tickets.store');
         Route::get('me/support/tickets/{id}', 'ticket')->name('me.tickets.show');
         Route::post('me/support/tickets/{id}/messages', 'replyTicket')->middleware('throttle:30,60')->name('me.tickets.reply');
     });
+});
+
+// ── Alerts: "tell me when it is back" and "tell me if the price drops" (config is public; the rest is the signed-in customer's own) ──
+Route::get('stock-alerts/config', [V1\Engagement\StockAlertController::class, 'config'])->middleware('throttle:60,1')->name('stock-alerts.config');
+Route::middleware(['auth:sanctum', 'customer'])->controller(V1\Engagement\StockAlertController::class)->group(function () {
+    Route::get('me/stock-alerts', 'index')->name('me.alerts.index');
+    Route::post('me/stock-alerts', 'store')->middleware('throttle:30,1')->name('me.alerts.store');
+    Route::delete('me/stock-alerts', 'destroy')->middleware('throttle:30,1')->name('me.alerts.destroy');
+    Route::delete('me/stock-alerts/{id}', 'remove')->whereUuid('id')->middleware('throttle:30,1')->name('me.alerts.remove');
 });
 
 // ── Store apps: is an update available or required? (public, tiny, never cached) ─────────────────────────

@@ -1,6 +1,7 @@
 import 'package:albahar_customer/core/utils/json.dart';
 import 'package:albahar_customer/features/auctions/domain/auction_models.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
+import 'package:albahar_customer/features/rooms/domain/room_models.dart';
 import 'package:flutter/foundation.dart';
 
 /// Link target for banners and promotions: `{type: category|page|product|brand|auction|url|search, value}`.
@@ -203,6 +204,9 @@ sealed class HomeSection {
       case 'categories':
         final cats = mapList(items, CatalogCategory.fromJson);
         return cats.isEmpty ? null : CategoriesSection(id: id, title: title, layout: layout, categories: cats);
+      case 'rooms':
+        final rooms = mapList(items, ShopRoom.fromJson).where((r) => r.slug.isNotEmpty).toList();
+        return rooms.isEmpty ? null : RoomsSection(id: id, title: title, layout: layout, rooms: rooms);
       case 'brands':
         final brands = mapList(items, Brand.fromJson);
         return brands.isEmpty ? null : BrandsSection(id: id, title: title, layout: layout, brands: brands);
@@ -254,6 +258,12 @@ class CategoriesSection extends HomeSection {
   const CategoriesSection({required super.id, super.title, super.layout, required this.categories})
     : super(type: 'categories');
   final List<CatalogCategory> categories;
+}
+
+/// "Shop by room": big tiles, each leading to the shop filtered to that room.
+class RoomsSection extends HomeSection {
+  const RoomsSection({required super.id, super.title, super.layout, required this.rooms}) : super(type: 'rooms');
+  final List<ShopRoom> rooms;
 }
 
 class ProductsSection extends HomeSection {

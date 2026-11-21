@@ -141,6 +141,25 @@ class UpsellService
         return $this->cardsFor($ids, $branch);
     }
 
+    /**
+     * Cards for a message after delivery: the upsells of these products, minus the ones to leave out (what the customer already bought), strongest first,
+     * at most `$limit`, only what can be bought now.
+     *
+     * @param  list<string>  $productIds  the products the customer received
+     * @param  list<string>  $excludeIds  products never to suggest
+     */
+    public function forProducts(array $productIds, array $excludeIds, ?Branch $branch, int $limit = 3): array
+    {
+        if ($productIds === []) {
+            return [];
+        }
+        $ids = DB::table('product_related')->where('type', self::TYPE)->whereIn('product_id', $productIds)->whereNotIn('related_product_id', array_values(array_unique([...$productIds, ...$excludeIds])))
+            ->selectRaw('related_product_id, min(sort_order) as pos, count(*) as votes')->groupBy('related_product_id')
+            ->orderByDesc('votes')->orderBy('pos')->orderBy('related_product_id')->limit(max(1, $limit) * 3)->pluck('related_product_id')->all();
+
+        return array_slice($this->cardsFor($ids, $branch), 0, max(1, $limit));
+    }
+
     // ── Internals ────────────────────────────────────────────────────────────
 
     /** @param list<string> $ids ordered product ids */

@@ -1,5 +1,6 @@
 import 'package:albahar_customer/core/models/money.dart';
 import 'package:albahar_customer/core/utils/json.dart';
+import 'package:albahar_customer/features/checkout/domain/delivery_promise.dart';
 import 'package:albahar_customer/features/deals/domain/deal_lines.dart';
 import 'package:flutter/foundation.dart';
 
@@ -124,6 +125,7 @@ class QuoteLine {
     this.discount,
     this.branchId,
     this.deal,
+    this.assemblyAmount,
   });
   factory QuoteLine.fromJson(JsonMap json) => QuoteLine(
     variantId: asString(json['variant_id']),
@@ -137,7 +139,11 @@ class QuoteLine {
     lineTotal: Money.maybe(json['line_total']) ?? Money.zero,
     branchId: asStringOrNull(json['branch_id']),
     deal: QuoteLineDeal.maybe(json['deal']),
+    assemblyAmount: Money.lenient(asMapOrNull(json['assembly'])?['amount']),
   );
+
+  /// What this line costs for assembly and installation (null: none chosen). Already inside the order total.
+  final Money? assemblyAmount;
   final String variantId;
   final String name;
   final String? variantName;
@@ -187,6 +193,7 @@ class QuoteFulfillment {
     this.slotRequired = false,
     this.extraDeliveryFee,
     this.deliveryExtras = const [],
+    this.earliestDate,
   });
   factory QuoteFulfillment.fromJson(JsonMap json) => QuoteFulfillment(
     branch: NamedRef.fromJson(asMap(json['branch'])),
@@ -199,7 +206,11 @@ class QuoteFulfillment {
     slotRequired: asBool(json['slot_required']),
     extraDeliveryFee: Money.lenient(json['extra_delivery_fee']),
     deliveryExtras: DeliveryExtra.listFrom(json['delivery_extras']),
+    earliestDate: asStringOrNull(json['earliest_date']),
   );
+
+  /// The first day (`YYYY-MM-DD`, Qatar) these items can be scheduled on: today plus their lead time. The time picker starts there.
+  final String? earliestDate;
   final NamedRef branch;
   final String type;
   final List<QuoteLine> items;
@@ -232,6 +243,7 @@ class OrderTotals {
     this.tax,
     this.loyaltyDiscount,
     this.dealSavings,
+    this.assemblyFee,
   });
   factory OrderTotals.fromJson(JsonMap json) => OrderTotals(
     subtotal: Money.maybe(json['subtotal']) ?? Money.zero,
@@ -243,8 +255,12 @@ class OrderTotals {
     tax: Money.maybe(json['tax']),
     loyaltyDiscount: Money.maybe(json['loyalty_discount']),
     dealSavings: Money.lenient(json['deal_savings']),
+    assemblyFee: Money.lenient(json['assembly_fee']),
     grandTotal: Money.maybe(json['grand_total']) ?? Money.zero,
   );
+
+  /// Assembly and installation chosen on delivery lines (null or zero: none, and always null from an older server). Already inside [grandTotal].
+  final Money? assemblyFee;
   final Money subtotal;
   final Money? discount;
 
@@ -406,6 +422,7 @@ class Quote {
     this.currency = 'QAR',
     this.splitChoice = false,
     this.deliveryExtras = const [],
+    this.promise,
   });
 
   factory Quote.fromJson(JsonMap json) => Quote(
@@ -424,7 +441,11 @@ class Quote {
     canPlaceOrder: asBool(json['can_place_order']),
     expiresAt: asDate(json['expires_at']),
     deliveryExtras: DeliveryExtra.listFrom(json['delivery_extras']),
+    promise: BasketPromise.maybe(json['promise']),
   );
+
+  /// The dates promised for this basket (informational; null when the dashboard switch is off or from an older server).
+  final BasketPromise? promise;
 
   final String quoteHash;
   final String currency;

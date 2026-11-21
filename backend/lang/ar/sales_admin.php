@@ -331,6 +331,8 @@ return [
     'sum_discount' => 'الخصومات',
     'sum_delivery_fee' => 'التوصيل',
     'sum_extra_delivery' => 'منها رسوم إضافية للقطع الكبيرة',
+    'sum_assembly' => 'التركيب والتجهيز',
+    'badge_assembly' => 'تركيب :amount',
     'sum_service_fee' => 'رسوم الخدمة',
     'sum_loyalty' => 'نقاط الولاء',
     'sum_tax' => 'الضريبة',

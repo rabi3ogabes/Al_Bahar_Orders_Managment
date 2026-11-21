@@ -8,6 +8,8 @@ return [
         'damaged' => 'Damaged',
         'quality' => 'Did not pass our quality check',
         'other' => 'Not available',
+        'substitute_declined' => 'You did not accept the replacement',
+        'substitute_expired' => 'No answer about the replacement in time',
     ],
     // One short sentence per changed item, ready to join with "; ".
     'line' => [

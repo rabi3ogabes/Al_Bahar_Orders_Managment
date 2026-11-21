@@ -2,6 +2,7 @@ import { useI18n } from '../lib/i18n';
 import { cx } from '../lib/format';
 import { toggleAttr, type ShopFilters } from '../lib/shopQuery';
 import { useAttributeFilters } from '../lib/useAttributeFilters';
+import { useRooms } from '../lib/rooms';
 import type { AttributeFilterGroup, Brand, Category } from '../lib/types';
 import { Button, Checkbox } from './ui';
 
@@ -42,6 +43,7 @@ export function FilterPanel({ cats, brands, f, set }: { cats: Category[]; brands
   const { t } = useI18n();
   const { cat, brand } = f;
   const groups = useAttributeFilters(cat, cats);
+  const rooms = useRooms().data ?? [];
   return (
     <div className="space-y-8">
       <div>
@@ -58,6 +60,14 @@ export function FilterPanel({ cats, brands, f, set }: { cats: Category[]; brands
           ))}
         </ul>
       </div>
+      {rooms.length > 0 && (
+        <div>
+          <h3 className="eyebrow mb-3">{t('filter.room')}</h3>
+          <ul className="flex flex-wrap gap-2">
+            {rooms.map((r) => <li key={r.id}><button type="button" aria-pressed={f.room === r.slug} onClick={() => set({ room: f.room === r.slug ? null : r.slug })} className={cx('min-h-11 rounded-full border px-3.5 py-1.5 text-[13px] transition-colors', f.room === r.slug ? 'border-primary bg-primary text-on-primary' : 'border-line bg-paper hover:border-brass')}>{r.name}</button></li>)}
+          </ul>
+        </div>
+      )}
       {brands.length > 0 && (
         <div>
           <h3 className="eyebrow mb-3">{t('filter.brand')}</h3>

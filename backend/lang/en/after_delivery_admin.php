@@ -1,0 +1,38 @@
+<?php
+
+// Dashboard words for the "After delivery" journey (Marketing > Customer journeys > After delivery). See docs/guides/ALERTS_AFTER_DELIVERY_AND_ROOMS.md.
+return [
+    'kind_thank_you' => 'Thank you',
+    'kind_review' => 'Review request',
+    'kind_suggest' => 'Goes well with it',
+    'about_thank_you' => 'A short thank-you a little after the order arrives.',
+    'about_review' => 'Asks for a review of a product they received and have not reviewed yet. The link opens the review window.',
+    'about_suggest' => 'Names up to three products that go with what they bought, from your suggestions on each product (Complete the set). Never something they already bought.',
+    'step_on' => 'Message switched on.',
+    'step_off' => 'Message switched off.',
+    'paused_no_steps' => 'Message switched off. No message is left, so the journey is paused.',
+    'enabled' => 'On',
+    'step_stats' => 'Sent :sent · opened :opened',
+    'step_stats_hint' => 'Last 30 days. Sent counts customers reached. Opened counts customers who read the message in the app inbox (a push alone cannot be told apart).',
+    'preview' => 'What the customer reads',
+    'cooldown' => 'Do not repeat within (days)',
+    'cooldown_hint' => 'A customer who got these messages for one order is not sent them for another order delivered within this many days. The first order of the period wins.',
+    'safety_note' => 'Left out for good: an order that was returned or refunded, had a failed delivery, or has a return or damage claim. A message is skipped while the customer has an open support ticket.',
+    'after_hint' => 'Counted from the moment the order is delivered. Up to 30 days.',
+    'delay_range' => 'Choose between 1 minute and 30 days.',
+    'off_by_default' => 'Switched off until you turn it on. Nothing is sent before that.',
+    'fixed_steps' => 'These three messages are fixed. Switch one off, change when it goes, or change its words.',
+    'placeholders_after' => 'Only in the After delivery journey:',
+    'ph_order_number' => 'The order number',
+    'ph_product' => 'The product to review or the first suggestion',
+    'ph_suggestions' => 'Up to three suggested products, named',
+    'ph_link' => 'The web link of the message',
+    'reason_stop' => [
+        'order_changed' => 'The order was returned or cancelled',
+        'refunded' => 'The order was refunded',
+        'return_claim' => 'A return or damage claim was opened',
+        'delivery_problem' => 'The delivery had a problem',
+        'recent_journey' => 'Already got these messages for another order',
+        'inactive_user' => 'Account not active',
+    ],
+];

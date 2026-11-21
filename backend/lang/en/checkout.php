@@ -36,4 +36,6 @@ return [
     'pickup_not_ready' => 'Your pickup pass will appear when the order is ready.',
     'returns_disabled' => 'Returns are not available right now. Please contact support and we will help.',
     'return_not_allowed' => 'These items can\'t be returned.',
+    'slot_too_soon' => 'These items need more time. The earliest date for them from :branch is :date. Please pick a later one.',
+    'assembly_unavailable' => 'Assembly is no longer offered for :name, so it was not added to your total.',
 ];

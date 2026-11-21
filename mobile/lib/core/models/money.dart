@@ -94,6 +94,16 @@ class EffectivePrice {
   final String? source;
 
   bool get isOnSale => sale != null && finalPrice.amount != regular.amount;
+
+  /// The price as the API sent it, so it can be stored and read back (a guest's cart on this phone).
+  JsonMap toJson() => {
+    'regular': regular.toJson(),
+    'sale': sale?.toJson(),
+    'final': finalPrice.toJson(),
+    'discount_percent': discountPercent,
+    'sale_ends_at': saleEndsAt?.toIso8601String(),
+    'source': source,
+  };
 }
 
 @immutable

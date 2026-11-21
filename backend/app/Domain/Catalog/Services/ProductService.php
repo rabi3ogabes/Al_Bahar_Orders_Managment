@@ -21,7 +21,7 @@ class ProductService
 {
     private const CORE = ['sku', 'barcode', 'category_id', 'brand_id', 'status', 'currency', 'cost_price', 'weight', 'weight_unit',
         'length', 'width', 'height', 'dimension_unit', 'is_featured', 'is_bestseller', 'is_new_arrival', 'requires_assembly',
-        'assembly_service_available', 'is_oversized', 'extra_delivery_fee', 'extra_delivery_fee_mode', 'available_in_all_branches', 'tags', 'specifications',
+        'assembly_service_available', 'is_oversized', 'extra_delivery_fee', 'extra_delivery_fee_mode', 'assembly_fee', 'lead_time_days', 'available_in_all_branches', 'tags', 'specifications',
         'allow_sale_above_price'];
 
     public function __construct(private readonly AuditLogger $audit, private readonly PricingService $pricing) {}
@@ -55,7 +55,8 @@ class ProductService
                 $product->warranty()->create($data['warranty']);
             }
             $this->audit->log('catalog.product_created', $product, [], ['sku' => $product->sku, 'price' => $product->price, 'status' => $product->status]
-                + (Money::of((string) $product->extra_delivery_fee)->isPositive() ? ['extra_delivery_fee' => $product->extra_delivery_fee, 'extra_delivery_fee_mode' => $product->extra_delivery_fee_mode] : []));
+                + (Money::of((string) $product->extra_delivery_fee)->isPositive() ? ['extra_delivery_fee' => $product->extra_delivery_fee, 'extra_delivery_fee_mode' => $product->extra_delivery_fee_mode] : [])
+                + ($product->assembly_fee !== null ? ['assembly_fee' => $product->assembly_fee] : []) + ($product->lead_time_days > 0 ? ['lead_time_days' => $product->lead_time_days] : []));
 
             return $product->load('variants', 'translations');
         });
@@ -116,6 +117,26 @@ class ProductService
         }
         if (array_key_exists('extra_delivery_fee_mode', $core) && ! in_array($core['extra_delivery_fee_mode'], ExtraDeliveryFee::MODES, true)) {
             throw DomainException::make('invalid_extra_delivery_fee', 422);
+        }
+        // Assembly and installation (docs/guides/DELIVERY_PROMISE_ASSEMBLY_AND_SHARING.md): empty or zero = not offered (stored as NULL); a fee also marks the
+        // product as one that offers an assembly service, so the old flag never contradicts it.
+        if (array_key_exists('assembly_fee', $core)) {
+            $raw = trim((string) ($core['assembly_fee'] ?? ''));
+            $fee = $raw === '' ? Money::zero() : Money::of($raw);
+            if ($fee->isNegative() || $fee->greaterThan(Money::of(ExtraDeliveryFee::MAX))) {
+                throw DomainException::make('invalid_assembly_fee', 422);
+            }
+            $core['assembly_fee'] = $fee->isPositive() ? $fee->toDecimal() : null;
+            if ($fee->isPositive()) {
+                $core['assembly_service_available'] = true;
+            }
+        }
+        if (array_key_exists('lead_time_days', $core)) {
+            $days = $core['lead_time_days'] === null || $core['lead_time_days'] === '' ? 0 : (int) $core['lead_time_days'];
+            if ($days < 0 || $days > 60) {
+                throw DomainException::make('invalid_lead_time', 422);
+            }
+            $core['lead_time_days'] = $days;
         }
 
         return $core;

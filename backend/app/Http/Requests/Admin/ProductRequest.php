@@ -39,6 +39,9 @@ class ProductRequest extends FormRequest
             // An extra delivery fee for bulky items (docs/api/CHECKOUT_FEES_V2.md section 3): money with at most two decimals, 0 = none; how it is charged is a fixed choice.
             'extra_delivery_fee' => ['sometimes', 'numeric', 'min:0', 'max:'.ExtraDeliveryFee::MAX, 'regex:/^\d+(\.\d{1,2})?$/'],
             'extra_delivery_fee_mode' => ['sometimes', 'string', Rule::in(ExtraDeliveryFee::MODES)],
+            // Paid assembly and installation: the fee per unit in QAR (empty = not offered) and the days the branch needs before the product can leave (0 = ready now).
+            'assembly_fee' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:'.ExtraDeliveryFee::MAX, 'regex:/^\d+(\.\d{1,2})?$/'],
+            'lead_time_days' => ['sometimes', 'integer', 'min:0', 'max:60'],
             'tags' => ['nullable', 'array'], 'tags.*' => ['string', 'max:40'],
             'specifications' => ['nullable', 'array'],
             'specifications.*.label_en' => ['required_with:specifications', 'string', 'max:80'],

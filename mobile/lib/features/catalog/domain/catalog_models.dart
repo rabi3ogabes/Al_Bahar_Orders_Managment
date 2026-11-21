@@ -33,6 +33,7 @@ class ProductSummary {
     required this.hasVariants,
     this.variantId,
     this.deal,
+    this.assemblyFee,
   });
 
   factory ProductSummary.fromJson(JsonMap json) => ProductSummary(
@@ -49,7 +50,15 @@ class ProductSummary {
     hasVariants: asBool(json['has_variants']),
     variantId: asStringOrNull(json['variant_id']),
     deal: DealInfo.maybe(json['deal']),
+    assemblyFee: _assemblyFee(json['assembly_fee']),
   );
+
+  /// The fee per unit for assembly and installation at the door, from a plain decimal ("75.00") or a money object; null when the product
+  /// offers none (missing, zero or unreadable). Always null on an older server.
+  static Money? _assemblyFee(Object? raw) {
+    final fee = Money.lenient(raw is num ? raw.toStringAsFixed(2) : raw);
+    return fee != null && fee.displayValue > 0 && fee.displayValue.isFinite ? fee : null;
+  }
 
   final String id;
   final String? slug;
@@ -68,6 +77,9 @@ class ProductSummary {
 
   /// The single variant a card can add straight to the bag (null when the shopper must pick colour/size first).
   final String? variantId;
+
+  /// Assembly and installation at the door: the fee per unit, or null when the product offers none. Delivery orders only.
+  final Money? assemblyFee;
 
   String heroTag([String scope = '']) => 'product-image-$scope-$id';
 }
@@ -122,6 +134,7 @@ class ProductVariant {
     required this.inStock,
     required this.imageUrl,
     this.dealPrice,
+    this.availableQuantity,
   });
 
   factory ProductVariant.fromJson(JsonMap json) => ProductVariant(
@@ -134,7 +147,11 @@ class ProductVariant {
     inStock: asBool(json['in_stock'], true),
     imageUrl: asStringOrNull(json['image_url']),
     dealPrice: Money.lenient(json['deal_price']),
+    availableQuantity: asIntOrNull(json['available_quantity']),
   );
+
+  /// Units on the shelf at the branch, capped at 10 by the server for display; null when the server does not say.
+  final int? availableQuantity;
 
   final String id;
   final String? sku;
@@ -272,6 +289,7 @@ class ProductDetail {
     this.pickupAvailable,
     this.extraDeliveryFee,
     this.extraDeliveryFeeMode = extraDeliveryPerUnit,
+    this.leadTimeDays = 0,
   });
 
   factory ProductDetail.fromJson(JsonMap json) {
@@ -308,6 +326,7 @@ class ProductDetail {
       extraDeliveryFeeMode: json['extra_delivery_fee_mode'] == extraDeliveryPerLine
           ? extraDeliveryPerLine
           : extraDeliveryPerUnit,
+      leadTimeDays: asInt(json['lead_time_days']),
     );
   }
 
@@ -362,6 +381,9 @@ class ProductDetail {
   final String extraDeliveryFeeMode;
 
   bool get hasExtraDeliveryFee => extraDeliveryFee != null;
+
+  /// Days the branch needs before this product can leave (made to order); 0 = ready now. It moves the delivery date.
+  final int leadTimeDays;
 
   String get id => summary.id;
   String get name => summary.name;
@@ -615,6 +637,7 @@ enum ProductSort {
 class ProductQuery {
   const ProductQuery({
     this.categoryId,
+    this.room,
     this.q,
     this.brandIds = const {},
     this.attributeValueIds = const {},
@@ -629,6 +652,9 @@ class ProductQuery {
   });
 
   final String? categoryId;
+
+  /// The address word of a room ("Shop by room": its categories and tags), from the home tiles. An unknown room shows nothing.
+  final String? room;
   final String? q;
   final Set<String> brandIds;
   final Set<String> attributeValueIds;
@@ -650,6 +676,7 @@ class ProductQuery {
 
   ProductQuery copyWith({
     String? categoryId,
+    String? room,
     String? q,
     Set<String>? brandIds,
     Set<String>? attributeValueIds,
@@ -660,6 +687,7 @@ class ProductQuery {
     ProductSort? sort,
   }) => ProductQuery(
     categoryId: categoryId ?? this.categoryId,
+    room: room ?? this.room,
     q: q ?? this.q,
     brandIds: brandIds ?? this.brandIds,
     attributeValueIds: attributeValueIds ?? this.attributeValueIds,
@@ -675,6 +703,7 @@ class ProductQuery {
 
   ProductQuery clearFilters() => ProductQuery(
     categoryId: categoryId,
+    room: room,
     q: q,
     featured: featured,
     newArrival: newArrival,
@@ -685,6 +714,7 @@ class ProductQuery {
   Map<String, dynamic> toQuery({String? branchId}) => {
     'branch_id': branchId,
     'category_id': categoryId,
+    'room': room,
     'q': q,
     'brand_id': brandIds.toList(),
     'attribute_values': attributeValueIds.toList(),
@@ -701,6 +731,7 @@ class ProductQuery {
   /// Parses query parameters from a deep link / route.
   factory ProductQuery.fromRoute(Map<String, String> params) => ProductQuery(
     categoryId: params['category_id'],
+    room: params['room'],
     q: params['q'],
     featured: params['featured'] == '1',
     newArrival: params['new_arrival'] == '1',
@@ -714,6 +745,7 @@ class ProductQuery {
   bool operator ==(Object other) =>
       other is ProductQuery &&
       other.categoryId == categoryId &&
+      other.room == room &&
       other.q == q &&
       setEquals(other.brandIds, brandIds) &&
       setEquals(other.attributeValueIds, attributeValueIds) &&
@@ -729,6 +761,7 @@ class ProductQuery {
   @override
   int get hashCode => Object.hash(
     categoryId,
+    room,
     q,
     Object.hashAllUnordered(brandIds),
     Object.hashAllUnordered(attributeValueIds),

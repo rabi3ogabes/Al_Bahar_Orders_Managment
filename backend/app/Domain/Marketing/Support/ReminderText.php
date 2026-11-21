@@ -35,6 +35,23 @@ final class ReminderText
     }
 
     /**
+     * Names as one phrase that reads naturally: "A", "A and B", "A, B and C" / "A", "A و B", "A، B و C".
+     *
+     * @param  list<string>  $names
+     */
+    public static function joinNames(array $names, string $locale): string
+    {
+        $names = array_values(array_filter($names, fn (string $n) => $n !== ''));
+        if (count($names) < 2) {
+            return $names[0] ?? '';
+        }
+        $ar = $locale === 'ar';
+        $last = array_pop($names);
+
+        return implode($ar ? '، ' : ', ', $names).($ar ? ' و' : ' and ').$last;
+    }
+
+    /**
      * What the preview (and the test message) shows in place of a real customer's cart.
      *
      * @return array<string, string>
@@ -54,6 +71,10 @@ final class ReminderText
             'coupon' => $withOffer ? 'BAHAR-7K2M9Q' : '',
             'expires' => $withOffer ? ($ar ? 'غدًا 20:00' : 'tomorrow 20:00') : '',
             'offer' => $withOffer ? ($ar ? 'توصيل مجاني' : 'Free delivery') : '',
+            // The after-delivery journey (a message about an order that arrived).
+            'order_number' => 'AB26-1042',
+            'product' => $ar ? 'طقم أغطية سرير قطن' : 'Cotton bedsheet set',
+            'suggestions' => $ar ? 'وسادتان فندقيتان، وواقي مرتبة' : 'Hotel-style pillows and a mattress protector',
         ];
     }
 

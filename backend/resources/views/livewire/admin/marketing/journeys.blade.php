@@ -8,6 +8,7 @@
     <x-admin.tabs :tabs="[
         'abandoned_cart' => ['bag', __('journeys_admin.tab_cart')],
         'birthday' => ['gift', __('journeys_admin.tab_birthday')],
+        'after_delivery' => ['truck', __('journeys_admin.tab_after_delivery')],
         'recovered' => ['cash', __('journeys_admin.tab_recovered')],
         'templates' => ['file-text', __('journeys_admin.tab_templates')],
         'activity' => ['history', __('journeys_admin.tab_activity')],
@@ -22,6 +23,10 @@
                     <span class="{{ $journeyRow->is_enabled ? 'badge-success' : 'badge-neutral' }}">{{ $journeyRow->is_enabled ? __('journeys_admin.running') : __('journeys_admin.paused') }}</span>
                 </div>
                 <p class="mt-1 text-sm text-ink-500">{{ __('journeys_admin.about_'.$journeyRow->key) }}</p>
+                @if ($journeyRow->key === 'after_delivery')
+                    <p class="mt-1.5 text-sm text-ink-500">{{ __('after_delivery_admin.safety_note') }}</p>
+                    @unless ($journeyRow->is_enabled)<p class="mt-1.5 text-sm font-medium text-ink-700 dark:text-sand-100">{{ __('after_delivery_admin.off_by_default') }}</p>@endunless
+                @endif
                 @if ($journeyRow->key === 'abandoned_cart' && auth()->user()?->can('orders.view'))
                     <p class="mt-1.5 text-sm text-ink-500">{{ __('cart_reminders.journeys_hint') }} <a class="font-medium text-brass-700 underline dark:text-brass-300" href="{{ route('admin.sales.abandoned') }}">{{ __('cart_reminders.journeys_link') }}</a></p>
                 @endif
@@ -52,8 +57,9 @@
             <section class="card p-5 sm:p-6" aria-label="{{ __('journeys_admin.timeline') }}">
                 <div class="mb-5 flex items-center justify-between gap-3">
                     <h3 class="font-display text-lg font-semibold">{{ __('journeys_admin.timeline') }}</h3>
-                    @if ($canEdit)<button type="button" wire:click="editStep" class="btn-primary btn-sm"><x-icon name="plus" class="size-4" />{{ __('journeys_admin.add_step') }}</button>@endif
+                    @if ($canEdit && $journeyRow->key !== 'after_delivery')<button type="button" wire:click="editStep" class="btn-primary btn-sm"><x-icon name="plus" class="size-4" />{{ __('journeys_admin.add_step') }}</button>@endif
                 </div>
+                @if ($journeyRow->key === 'after_delivery')<p class="-mt-2 mb-4 text-sm text-ink-500">{{ __('after_delivery_admin.fixed_steps') }}</p>@endif
                 @if ($steps->isEmpty())
                     <x-admin.empty :title="__('journeys_admin.no_steps')" :description="__('journeys_admin.no_steps_hint')" icon="clock" />
                 @else
@@ -63,7 +69,7 @@
                                 <span class="absolute -start-8 top-3 grid size-6 place-items-center rounded-full text-xs font-semibold tabular-nums {{ $s->is_enabled ? 'bg-brass-500 text-ink-950' : 'bg-sand-200 text-ink-500 dark:bg-ink-700' }}">{{ $s->position }}</span>
                                 <div class="rounded-2xl border border-sand-100 p-4 dark:border-ink-800 {{ $s->is_enabled ? '' : 'opacity-60' }}">
                                     <div class="flex flex-wrap items-center gap-2">
-                                        <span class="font-medium text-ink-900 dark:text-ivory">{{ $s->label ?: __('journeys_admin.step_n', ['n' => $s->position]) }}</span>
+                                        <span class="font-medium text-ink-900 dark:text-ivory">{{ $journeyRow->key === 'after_delivery' && $s->kind ? __('after_delivery_admin.kind_'.$s->kind) : ($s->label ?: __('journeys_admin.step_n', ['n' => $s->position])) }}</span>
                                         <span class="badge-neutral tabular-nums"><x-icon name="clock" class="size-3.5" />
                                             @if ($journeyRow->key === 'birthday'){{ $s->offset_days === 0 ? __('journeys_admin.on_the_day') : trans_choice('journeys_admin.days_from', abs($s->offset_days), ['n' => abs($s->offset_days), 'dir' => $s->offset_days < 0 ? __('journeys_admin.before') : __('journeys_admin.after_word')]) }} · {{ $s->send_time }}
                                             @else{{ __('journeys_admin.after_delay', ['t' => $delayLabel($s->delay_minutes)]) }}@endif
@@ -75,10 +81,29 @@
                                         <x-icon name="file-text" class="inline size-4 text-ink-400" /> {{ $s->template?->name ?? __('journeys_admin.no_template') }}
                                         @if ($s->template?->kind === 'offer')<span class="badge-brass ms-1">{{ __('journeys_admin.offer') }}</span>@endif
                                     </p>
+                                    @if ($journeyRow->key === 'after_delivery' && $s->kind)
+                                        @php $loc = app()->getLocale(); $tpl = $s->template; @endphp
+                                        <p class="mt-1 text-xs text-ink-500">{{ __('after_delivery_admin.about_'.$s->kind) }}</p>
+                                        @if ($tpl)
+                                            <div class="mt-3 rounded-xl bg-sand-50 p-3 text-sm dark:bg-ink-800" aria-label="{{ __('after_delivery_admin.preview') }}" dir="{{ $loc === 'ar' ? 'rtl' : 'ltr' }}">
+                                                <p class="font-semibold text-ink-900 dark:text-ivory">{{ \App\Domain\Marketing\Support\ReminderText::fill($loc === 'ar' ? $tpl->title_ar : $tpl->title_en, $sampleVars[$loc]) }}</p>
+                                                <p class="mt-0.5 line-clamp-3 text-xs text-ink-600 dark:text-sand-200">{{ \App\Domain\Marketing\Support\ReminderText::fill($loc === 'ar' ? $tpl->body_ar : $tpl->body_en, $sampleVars[$loc]) }}</p>
+                                            </div>
+                                        @endif
+                                        <p class="mt-2 text-xs tabular-nums text-ink-500" title="{{ __('after_delivery_admin.step_stats_hint') }}">{{ __('after_delivery_admin.step_stats', ['sent' => number_format($stepStats[$s->id]['sent'] ?? 0), 'opened' => number_format($stepStats[$s->id]['opened'] ?? 0)]) }}</p>
+                                    @endif
                                     @if ($canEdit)
-                                        <div class="mt-3 flex gap-2">
+                                        <div class="mt-3 flex flex-wrap items-center gap-2">
                                             <button type="button" wire:click="editStep('{{ $s->id }}')" class="btn-secondary btn-sm"><x-icon name="edit" class="size-4" />{{ __('admin.edit') }}</button>
-                                            <button type="button" wire:click="deleteStep('{{ $s->id }}')" wire:confirm="{{ __('journeys_admin.confirm_delete_step') }}" class="btn-ghost btn-sm text-ruby-soft"><x-icon name="trash" class="size-4" />{{ __('admin.delete') }}</button>
+                                            @if ($journeyRow->key === 'after_delivery')
+                                                <button type="button" role="switch" aria-checked="{{ $s->is_enabled ? 'true' : 'false' }}" wire:click="toggleStep('{{ $s->id }}')" wire:loading.attr="disabled" wire:target="toggleStep"
+                                                        class="ms-auto inline-flex min-h-11 items-center gap-2 rounded-full px-1 text-sm" aria-label="{{ __('after_delivery_admin.enabled') }}: {{ __('after_delivery_admin.kind_'.$s->kind) }}">
+                                                    <span class="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-0.5 transition {{ $s->is_enabled ? 'bg-emerald-soft' : 'bg-sand-300 dark:bg-ink-700' }}"><span class="size-6 rounded-full bg-white shadow transition-transform {{ $s->is_enabled ? 'ltr:translate-x-5 rtl:-translate-x-5' : '' }}"></span></span>
+                                                    <span>{{ __('after_delivery_admin.enabled') }}</span>
+                                                </button>
+                                            @else
+                                                <button type="button" wire:click="deleteStep('{{ $s->id }}')" wire:confirm="{{ __('journeys_admin.confirm_delete_step') }}" class="btn-ghost btn-sm text-ruby-soft"><x-icon name="trash" class="size-4" />{{ __('admin.delete') }}</button>
+                                            @endif
                                         </div>
                                     @endif
                                 </div>
@@ -98,6 +123,9 @@
                     </div>
                     <p class="-mt-2 text-xs text-ink-500">{{ __('journeys_admin.quiet_hint') }}</p>
                     <x-admin.field :label="__('journeys_admin.attribution_days')" for="rules.attribution_days" :hint="__('journeys_admin.attribution_days_hint')"><input id="rules.attribution_days" type="number" min="1" max="30" wire:model="rules.attribution_days" class="input tabular-nums" @disabled(! $canEdit)></x-admin.field>
+                    @if ($journeyRow->key === 'after_delivery')
+                        <x-admin.field :label="__('after_delivery_admin.cooldown')" for="rules.cooldown_days" :hint="__('after_delivery_admin.cooldown_hint')"><input id="rules.cooldown_days" type="number" min="1" max="90" wire:model="rules.cooldown_days" class="input tabular-nums" @disabled(! $canEdit)></x-admin.field>
+                    @endif
                     <x-admin.field :label="__('journeys_admin.max_per_day')" for="rules.max_per_day" :hint="__('journeys_admin.max_per_day_hint')"><input id="rules.max_per_day" type="number" min="0" max="20" wire:model="rules.max_per_day" class="input tabular-nums" @disabled(! $canEdit)></x-admin.field>
                     <p class="rounded-xl bg-sand-50 p-3 text-xs text-ink-600 dark:bg-ink-800 dark:text-ink-300"><x-icon name="shield" class="me-1 inline size-4 text-emerald-soft" />{{ __('journeys_admin.consent_note') }}</p>
                     @if ($canEdit)<button class="btn-primary w-full" :disabled="!dirty" wire:loading.attr="disabled" wire:target="saveRules"><x-icon name="check" class="size-4" />{{ __('admin.save_changes') }}</button>@endif
@@ -111,7 +139,7 @@
             <div class="flex rounded-xl border border-sand-200 p-0.5 text-sm dark:border-ink-700" role="group" aria-label="{{ __('journeys_admin.period') }}">
                 @foreach ([7, 30, 90] as $d)<button type="button" wire:click="$set('days', {{ $d }})" class="min-h-10 rounded-lg px-3 {{ $days === $d ? 'bg-ink-900 text-ivory dark:bg-brass-500 dark:text-ink-950' : 'text-ink-600 dark:text-ink-300' }}">{{ __('journeys_admin.last_n_days', ['n' => $d]) }}</button>@endforeach
             </div>
-            <select wire:model.live="filterJourney" class="input w-auto" aria-label="{{ __('journeys_admin.journey') }}"><option value="">{{ __('journeys_admin.all_journeys') }}</option><option value="abandoned_cart">{{ __('journeys_admin.name_abandoned_cart') }}</option><option value="birthday">{{ __('journeys_admin.name_birthday') }}</option></select>
+            <select wire:model.live="filterJourney" class="input w-auto" aria-label="{{ __('journeys_admin.journey') }}"><option value="">{{ __('journeys_admin.all_journeys') }}</option><option value="abandoned_cart">{{ __('journeys_admin.name_abandoned_cart') }}</option><option value="birthday">{{ __('journeys_admin.name_birthday') }}</option><option value="after_delivery">{{ __('journeys_admin.name_after_delivery') }}</option></select>
             <select wire:model.live="filterChannel" class="input w-auto" aria-label="{{ __('journeys_admin.channels') }}"><option value="">{{ __('journeys_admin.all_channels') }}</option>@foreach ($channels as $ch)<option value="{{ $ch }}">{{ __('content_admin.ch_'.$ch) }}</option>@endforeach</select>
         </div>
         <div class="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -232,7 +260,7 @@
                         <input id="step.delay_value" type="number" min="1" wire:model="step.delay_value" class="input w-28 tabular-nums">
                         <select wire:model="step.delay_unit" class="input w-40" aria-label="{{ __('journeys_admin.unit') }}"><option value="minutes">{{ __('journeys_admin.u_minutes') }}</option><option value="hours">{{ __('journeys_admin.u_hours') }}</option><option value="days">{{ __('journeys_admin.u_days') }}</option></select>
                     </div>
-                    <p class="mt-1 text-xs text-ink-500">{{ __('journeys_admin.after_hint') }}</p>
+                    <p class="mt-1 text-xs text-ink-500">{{ $journeyRow?->key === 'after_delivery' ? __('after_delivery_admin.after_hint') : __('journeys_admin.after_hint') }}</p>
                     @error('step.delay_value')<p class="field-error">{{ $message }}</p>@enderror
                 </div>
             @endif
@@ -263,6 +291,8 @@
                 </div>
                 <div class="flex flex-wrap items-center gap-1.5 text-xs text-ink-500"><span>{{ __('journeys_admin.placeholders') }}</span>
                     @foreach (['name', 'items', 'first_item', 'coupon', 'expires', 'app_link'] as $ph)@php $token = '{'.'{ '.$ph.' }'.'}'; @endphp<button type="button" class="rounded bg-sand-100 px-1.5 py-1 font-mono dark:bg-ink-800" dir="ltr" x-data @click="navigator.clipboard?.writeText(@js($token))" title="{{ __('journeys_admin.copy') }}">{{ $token }}</button>@endforeach</div>
+                <div class="flex flex-wrap items-center gap-1.5 text-xs text-ink-500"><span>{{ __('after_delivery_admin.placeholders_after') }}</span>
+                    @foreach (['order_number', 'product', 'suggestions', 'link'] as $ph)@php $token = '{'.'{ '.$ph.' }'.'}'; @endphp<button type="button" class="rounded bg-sand-100 px-1.5 py-1 font-mono dark:bg-ink-800" dir="ltr" x-data @click="navigator.clipboard?.writeText(@js($token))" title="{{ __('after_delivery_admin.ph_'.$ph) }}">{{ $token }}</button>@endforeach</div>
                 <div class="grid gap-4 sm:grid-cols-2 [&>*]:min-w-0">
                     <x-admin.field :label="__('marketing_admin.title_en')" for="tpl.title_en" required><input id="tpl.title_en" wire:model.live.debounce.300ms="tpl.title_en" class="input" dir="ltr" maxlength="120"></x-admin.field>
                     <x-admin.field :label="__('marketing_admin.title_ar')" for="tpl.title_ar" required><input id="tpl.title_ar" wire:model.live.debounce.300ms="tpl.title_ar" class="input" dir="rtl" maxlength="120"></x-admin.field>
@@ -292,11 +322,11 @@
                         @foreach (['en' => 'ltr', 'ar' => 'rtl'] as $l => $dir)
                             <div x-show="l === '{{ $l }}'" @if ($l === 'ar') x-cloak @endif dir="{{ $dir }}" class="rounded-2xl bg-white/90 p-3 shadow-lg backdrop-blur dark:bg-ink-950/90">
                                 <div class="flex items-center gap-2 text-[0.65rem] text-ink-500"><span class="grid size-4 place-items-center rounded bg-brass-500 text-[0.5rem] font-bold text-ink-950">A</span>{{ $l === 'ar' ? config('platform.brand.name_ar') : config('platform.brand.name_en') }} · {{ $l === 'ar' ? 'الآن' : 'now' }}</div>
-                                <p class="mt-1.5 text-sm font-semibold text-ink-900 dark:text-ivory">{{ ($tpl['title_'.$l] ?? '') ?: '…' }}</p>
-                                <p class="mt-0.5 line-clamp-4 text-xs text-ink-600 dark:text-sand-200">{{ ($tpl['body_'.$l] ?? '') ?: '…' }}</p>
+                                <p class="mt-1.5 text-sm font-semibold text-ink-900 dark:text-ivory">{{ ($tpl['title_'.$l] ?? '') !== '' ? \App\Domain\Marketing\Support\ReminderText::fill($tpl['title_'.$l], $sampleVars[$l]) : '…' }}</p>
+                                <p class="mt-0.5 line-clamp-4 text-xs text-ink-600 dark:text-sand-200">{{ ($tpl['body_'.$l] ?? '') !== '' ? \App\Domain\Marketing\Support\ReminderText::fill($tpl['body_'.$l], $sampleVars[$l]) : '…' }}</p>
                             </div>
                             <div x-show="l === '{{ $l }}'" @if ($l === 'ar') x-cloak @endif dir="{{ $dir }}" class="mt-3 rounded-2xl rounded-tl-sm bg-[#d9fdd3] p-3 text-xs text-ink-900 shadow dark:bg-emerald-900/40 dark:text-ivory">
-                                <p class="whitespace-pre-line">{{ ($tpl['whatsapp_'.$l] ?? '') ?: (trim(($tpl['title_'.$l] ?? '')."\n".($tpl['body_'.$l] ?? '')) ?: '…') }}</p>
+                                <p class="whitespace-pre-line">{{ \App\Domain\Marketing\Support\ReminderText::fill(($tpl['whatsapp_'.$l] ?? '') ?: trim(($tpl['title_'.$l] ?? '')."\n".($tpl['body_'.$l] ?? '')), $sampleVars[$l]) ?: '…' }}</p>
                                 <p class="mt-1 text-end text-[0.6rem] text-ink-500">WhatsApp</p>
                             </div>
                         @endforeach

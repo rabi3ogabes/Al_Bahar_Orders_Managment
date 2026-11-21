@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Domain\Catalog\Models\Category;
 use App\Domain\Catalog\Models\Product;
+use App\Domain\Catalog\Models\Room;
+use App\Domain\Catalog\Services\RoomService;
 use App\Domain\Cms\Models\CmsPage;
 use App\Domain\Deals\Models\Deal;
 use App\Support\StorefrontSeo;
@@ -39,6 +41,13 @@ class SitemapController extends Controller
         Category::active()->orderBy('sort_order')->get(['slug', 'updated_at'])->each(function (Category $c) use (&$rows, $base) {
             $rows[] = $this->url($base.'/shop?category='.rawurlencode($c->slug), $c->updated_at, 'weekly', '0.8');
         });
+        // Rooms that have products: an empty room is not worth a search result.
+        $rooms = app(RoomService::class);
+        foreach (Room::active()->with('categories:id,path')->orderBy('sort_order')->get() as $room) {
+            if ($rooms->productCount($room, null) > 0) {
+                $rows[] = $this->url($base.'/shop?room='.rawurlencode($room->slug), $room->updated_at, 'weekly', '0.8');
+            }
+        }
         Product::active()->with(['translations', 'images'])->orderBy('created_at')->chunk(500, function ($products) use (&$rows, $base) {
             foreach ($products as $p) {
                 $slug = $p->trans('slug');

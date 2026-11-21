@@ -103,3 +103,6 @@ Notification event `order.items_changed` (category transactional, channels in-ap
 
 ## Public config
 `GET /api/v1/app-config` gains `ops: { "status_style": "buttons" | "slide" }` (Settings → Checkout & fees → "Staff and driver apps: how to change an order status"): how the staff and driver apps ask for a status change. `buttons` = today's buttons; `slide` = slide to confirm. Anything stored that is not one of the two is served as `buttons`; the document is public and cached for a minute.
+
+## Substitution consent (replacements the customer is asked about)
+A `replace` of a line with another product, or with one whose own price is above the ordered price, opens a question to the customer (`substitution_requests` on the order): the replacement is already in the parcel, reserved and never dearer; the customer accepts, or has it removed and refunded, and a question nobody answers is settled by the shop's fallback. The removal is this same adjustment run by the system (revision reasons `substitute_declined` and `substitute_expired`, which staff cannot choose). While a question is open the parcel cannot be marked ready. Full rules: [RETURNS_AND_SUBSTITUTIONS.md](../guides/RETURNS_AND_SUBSTITUTIONS.md), API in [API_CONTRACT.md](API_CONTRACT.md) section 8.2. The adjustment response is unchanged; `customer_notified` is true when the question message went out.

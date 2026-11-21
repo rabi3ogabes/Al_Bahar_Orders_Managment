@@ -6,7 +6,7 @@ use App\Domain\Auctions\Events\AuctionOutbid;
 use App\Domain\Auctions\Events\AuctionWon;
 use App\Domain\Auctions\Models\AuctionBid;
 use App\Domain\Auctions\Models\AuctionWinner;
-use App\Domain\Catalog\Models\StockAlert;
+use App\Domain\Catalog\Jobs\ProcessStockAlertsJob;
 use App\Domain\Identity\Events\CustomerRegistered;
 use App\Domain\Identity\Models\User;
 use App\Domain\Inventory\Events\BackInStock;
@@ -129,36 +129,19 @@ class DomainEventSubscriber
         });
     }
 
+    /**
+     * Stock came back: queue a look at the customers who asked (docs/guides/ALERTS_AFTER_DELIVERY_AND_ROOMS.md). The job waits a moment and checks the
+     * stock as it is then, so a variant that sold out again is not announced; it is queued after the stock movement commits.
+     */
     public function backInStock(BackInStock $e): void
     {
-        $this->safely(function () use ($e) {
-            StockAlert::with('user')->where('product_variant_id', $e->variantId)->where('type', 'back_in_stock')->whereNull('notified_at')
-                ->where(fn ($q) => $q->whereNull('branch_id')->orWhere('branch_id', $e->branchId))->limit(500)->get()
-                ->each(function (StockAlert $a) {
-                    $p = $a->variant?->product;
-                    $this->notify->notify($a->user, 'stock.back_in_stock', ['product' => $p?->trans('name', $a->user->preferredLocale()), 'deep_link' => 'albahar://products/'.$p?->id]);
-                    $a->update(['notified_at' => now()]);
-                });
-        });
+        $this->safely(fn () => ProcessStockAlertsJob::dispatch('back_in_stock', $e->variantId)->delay(now()->addSeconds(ProcessStockAlertsJob::DELAY_SECONDS))->afterCommit());
     }
 
+    /** A price was edited: queue a look at the price alerts of that product (the job compares today's price with what each customer last saw). */
     public function priceChanged(PriceChanged $e): void
     {
-        $this->safely(function () use ($e) {
-            $newFinal = $e->newSale ?? $e->newPrice;
-            if ($newFinal === null) {
-                return;
-            }
-            StockAlert::with('user', 'variant.product')->where('type', 'price_drop')->whereNull('notified_at')
-                ->whereHas('variant', fn ($q) => $q->where('product_id', $e->productId))
-                ->when($e->variantId, fn ($q) => $q->where('product_variant_id', $e->variantId))
-                ->get()->filter(fn ($a) => $a->reference_price === null || Money::of($newFinal)->lessThan(Money::of($a->reference_price)))
-                ->each(function (StockAlert $a) use ($newFinal) {
-                    $this->notify->notify($a->user, 'stock.price_drop', ['product' => $a->variant->product->trans('name', $a->user->preferredLocale()),
-                        'price' => Money::of($newFinal)->format($a->user->preferredLocale()), 'deep_link' => 'albahar://products/'.$a->variant->product_id]);
-                    $a->update(['notified_at' => now()]);
-                });
-        });
+        $this->safely(fn () => ProcessStockAlertsJob::dispatch('price_drop', $e->productId)->delay(now()->addSeconds(ProcessStockAlertsJob::DELAY_SECONDS))->afterCommit());
     }
 
     public function customerRegistered(CustomerRegistered $e): void

@@ -24,7 +24,9 @@ import 'package:albahar_customer/features/orders/presentation/order_sections.dar
 import 'package:albahar_customer/features/orders/presentation/return_errors.dart';
 import 'package:albahar_customer/features/orders/presentation/state/order_live.dart';
 import 'package:albahar_customer/features/orders/presentation/state/order_providers.dart';
+import 'package:albahar_customer/features/orders/presentation/widgets/claim_form.dart';
 import 'package:albahar_customer/features/orders/presentation/widgets/order_live_badge.dart';
+import 'package:albahar_customer/features/orders/presentation/widgets/return_status_card.dart';
 import 'package:albahar_customer/features/reviews/presentation/write_review_screen.dart';
 import 'package:albahar_customer/features/support/presentation/support_screens.dart';
 import 'package:flutter/material.dart';
@@ -350,16 +352,20 @@ mixin OrderActionsMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
 
   Future<void> _return(Order o) async {
     final l10n = context.l10n;
-    final result = await _askStep<({List<({String orderItemId, int quantity})> items, String code, String? note})>(
-      l10n.requestReturn,
-      (done) => _ReturnForm(order: o, onDone: done),
-    );
+    final result = await _askStep<ClaimDraft>(l10n.requestReturn, (done) => ClaimForm(order: o, onDone: done));
     if (result == null || result.items.isEmpty) return;
     await _run('return', () async {
       try {
         await ref
             .read(orderRepositoryProvider)
-            .requestReturn(o.id, items: result.items, reasonCode: result.code, reason: result.note);
+            .requestReturn(
+              o.id,
+              items: result.items,
+              reasonCode: result.code,
+              reason: result.note,
+              photos: result.photos,
+              idempotencyKey: result.key,
+            );
       } on ApiException catch (e) {
         // The shop turned returns off (or this order no longer qualifies) after this page was read: say so, and read the order
         // again so the button goes away. Any other refusal is explained in plain words (see returnFailureMessage).
@@ -456,6 +462,8 @@ mixin OrderActionsMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
           loading: _busy == 'return',
           onPressed: () => _return(o),
         ),
+      // "You can report a problem until <date>": the claim window the shop set.
+      if (o.canReturn && o.returnWindowUntil != null) ClaimWindowNote(until: o.returnWindowUntil!),
       if (o.canReview && o.reviewableItems.isNotEmpty)
         AppButton.secondary(label: l10n.writeReview, icon: Icons.rate_review_outlined, onPressed: () => _review(o)),
       AppButton.ghost(
@@ -547,132 +555,6 @@ class _CancelFormState extends State<_CancelForm> {
               keyboardType: TextInputType.multiline,
               textCapitalization: TextCapitalization.sentences,
               inputFormatters: [LengthLimitingTextInputFormatter(500)],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Which items come back, how many of each, and why. Closes with the answer, or with null when the customer backs out.
-class _ReturnForm extends StatefulWidget {
-  const _ReturnForm({required this.order, required this.onDone});
-  final Order order;
-  final void Function(({List<({String orderItemId, int quantity})> items, String code, String? note})?) onDone;
-
-  @override
-  State<_ReturnForm> createState() => _ReturnFormState();
-}
-
-class _ReturnFormState extends State<_ReturnForm> {
-  /// How many of each line are going back (a line that is not in the map, or at 0, stays).
-  final _quantity = <String, int>{};
-  final _note = TextEditingController();
-  String _code = returnReasonCodes.first;
-
-  /// Only what can still be sent back: delivered or collected, inside the return window, not already in a request.
-  late final _lines = [
-    for (final i in widget.order.items)
-      if (!i.isGone && i.returnableNow > 0) i,
-  ];
-
-  int get _picked => _quantity.values.fold(0, (a, b) => a + b);
-
-  @override
-  void dispose() {
-    _note.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    String label(String c) => switch (c) {
-      'damaged' => l10n.returnReasonDamaged,
-      'wrong_item' => l10n.returnReasonWrong,
-      'not_as_described' => l10n.returnReasonNotAsDescribed,
-      'changed_mind' => l10n.cancelReasonChangedMind,
-      _ => l10n.cancelReasonOther,
-    };
-    return DirtyFormGuard(
-      controllers: [_note],
-      isDirty: () => _picked > 0 || _note.text.trim().isNotEmpty,
-      child: SidePanelLayout(
-        footer: AppButton(
-          label: l10n.requestReturn,
-          onPressed: _picked == 0
-              ? null
-              : () => widget.onDone((
-                  items: [
-                    for (final e in _quantity.entries)
-                      if (e.value > 0) (orderItemId: e.key, quantity: e.value),
-                  ],
-                  code: _code,
-                  note: _note.text.trim().isEmpty ? null : _note.text.trim(),
-                )),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(l10n.returnFormIntro, style: context.text.bodyMedium),
-            const Gap(AppSpace.sm),
-            if (_lines.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: AppSpace.md),
-                child: Text(l10n.returnNothing, textAlign: TextAlign.center),
-              )
-            else ...[
-              Text(l10n.selectItemsToReturn, style: context.text.titleSmall),
-              for (final i in _lines)
-                Padding(
-                  key: ValueKey('return-line-${i.id}'),
-                  padding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
-                  child: Row(
-                    children: [
-                      AppNetworkImage(url: i.imageUrl, width: 48, height: 56, borderRadius: BorderRadius.circular(8)),
-                      const Gap(AppSpace.sm),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(i.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: context.text.titleSmall),
-                            if (i.variantName != null) Text(i.variantName!, style: context.text.bodySmall),
-                            Text(
-                              l10n.returnUpTo(i.returnableNow),
-                              style: context.text.bodySmall?.copyWith(color: context.palette.muted),
-                            ),
-                          ],
-                        ),
-                      ),
-                      QuantityStepper(
-                        value: _quantity[i.id] ?? 0,
-                        min: 0,
-                        max: i.returnableNow,
-                        compact: true,
-                        onChanged: (v) => setState(() => _quantity[i.id] = v),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-            const Gap(AppSpace.sm),
-            DropdownButtonFormField<String>(
-              initialValue: _code,
-              isExpanded: true,
-              decoration: InputDecoration(labelText: l10n.cancelReason),
-              items: [for (final c in returnReasonCodes) DropdownMenuItem(value: c, child: Text(label(c)))],
-              onChanged: (v) => setState(() => _code = v ?? _code),
-            ),
-            const Gap(AppSpace.sm),
-            AppTextField(
-              controller: _note,
-              label: l10n.returnNoteLabel,
-              maxLines: 3,
-              minLines: 1,
-              keyboardType: TextInputType.multiline,
-              textCapitalization: TextCapitalization.sentences,
-              inputFormatters: [LengthLimitingTextInputFormatter(1000)],
             ),
           ],
         ),

@@ -107,13 +107,13 @@ export function Alert({ tone = 'info', children }: { tone?: 'info' | 'warning' |
 
 /* ───────────── Imagery ───────────── */
 /** Product / category picture with an on-brand placeholder when the catalogue has no photo yet. */
-export function Pic({ src, alt, ratio = '4/5', className, label, eager }: { src?: string | null; alt: string; ratio?: string; className?: string; label?: string; eager?: boolean }) {
+export function Pic({ src, alt, ratio = '4/5', className, label, eager, srcSet, sizes }: { src?: string | null; alt: string; ratio?: string; className?: string; label?: string; eager?: boolean; srcSet?: string; sizes?: string }) {
   const [bad, setBad] = useState(false);
   const show = src && !bad;
   return (
     <div className={cx('relative overflow-hidden bg-sand', className)} style={{ aspectRatio: ratio }}>
       {show ? (
-        <img src={src} alt={alt} loading={eager ? 'eager' : 'lazy'} decoding="async" onError={() => setBad(true)} className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]" />
+        <img src={src} srcSet={srcSet} sizes={sizes} alt={alt} loading={eager ? 'eager' : 'lazy'} decoding="async" onError={() => setBad(true)} className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]" />
       ) : (
         <div aria-label={alt} role="img" className="flex h-full w-full flex-col items-center justify-center gap-2 bg-[radial-gradient(120%_90%_at_30%_10%,var(--brass-tint),var(--sand)_55%,var(--sand-deep))]">
           <svg width="46" height="46" viewBox="0 0 48 48" fill="none" aria-hidden className="text-brass/70"><path d="M6 30c6 0 6-4 12-4s6 4 12 4 6-4 12-4M6 38c6 0 6-4 12-4s6 4 12 4 6-4 12-4M6 22c6 0 6-4 12-4s6 4 12 4 6-4 12-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>

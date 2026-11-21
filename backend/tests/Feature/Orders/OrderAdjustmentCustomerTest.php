@@ -9,6 +9,7 @@ use App\Domain\Notifications\Models\NotificationPreference;
 use App\Domain\Notifications\Services\NotificationCatalog;
 use App\Domain\Orders\Models\OrderItem;
 use App\Domain\Orders\Models\OrderRevision;
+use App\Domain\Settings\Services\Settings;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 
@@ -22,6 +23,7 @@ it('registers the event as a transactional in-app + push message that the live c
 });
 
 it('tells the customer in-app, in their language, with the changes, the reason and the new total', function (string $locale, array $expects) {
+    app(Settings::class)->set('substitutions.consent_enabled', false);   // these tests are about the change itself; the question to the customer has its own tests
     $a = adjustmentWorld(['locale' => $locale]);
     [, $v] = substituteFor($a->w, '600.00');
     postAdjust($a, [['order_item_id' => $a->l1->id, 'action' => 'reduce', 'new_quantity' => 1], ['order_item_id' => $a->l2->id, 'action' => 'replace', 'variant_id' => $v->id, 'quantity' => 1]], 'out_of_stock')->assertOk()

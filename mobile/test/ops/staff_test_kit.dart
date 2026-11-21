@@ -46,6 +46,7 @@ QueueOrder staffOrder({
   String? phone,
   String? driver,
   String? placedAt,
+  Map<String, dynamic>? waiting,
 }) => QueueOrder.fromJson({
   'fulfillment_id': id,
   'order_id': orderId ?? 'o-$id',
@@ -70,6 +71,7 @@ QueueOrder staffOrder({
         },
   'clock': clock,
   'cancellation_request': cancellation,
+  'waiting_for_customer': waiting,
   'pickup': pickup,
   'items': [
     {'id': 'i-$id', 'name': 'Oslo sofa', 'quantity': 3},

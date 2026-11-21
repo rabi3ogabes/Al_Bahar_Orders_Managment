@@ -331,6 +331,8 @@ return [
     'sum_discount' => 'Discounts',
     'sum_delivery_fee' => 'Delivery',
     'sum_extra_delivery' => 'of which extra fee for bulky items',
+    'sum_assembly' => 'Assembly and installation',
+    'badge_assembly' => 'Assembly :amount',
     'sum_service_fee' => 'Service fee',
     'sum_loyalty' => 'Loyalty points',
     'sum_tax' => 'Tax',

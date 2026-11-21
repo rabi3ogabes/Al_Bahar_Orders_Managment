@@ -35,7 +35,7 @@ class ReferenceDataSeeder extends Seeder
         }
         $sections = [
             ['banners', 'hero', null, null],
-            ['categories', 'chips', 'Shop by room', 'تسوّق حسب الغرفة'],
+            ['categories', 'chips', 'Shop by category', 'تسوّق حسب الفئة'],
             ['featured_products', 'carousel', 'Curated for you', 'مختارات لك'],
             ['live_auctions', 'carousel', 'Live auctions', 'مزادات مباشرة'],
             ['new_arrivals', 'grid', 'New arrivals', 'وصل حديثاً'],

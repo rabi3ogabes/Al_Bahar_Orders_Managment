@@ -10,10 +10,8 @@ import { useToast } from '../lib/toast';
 import { cx, mapsHref, money, telHref } from '../lib/format';
 import { orderDealSavings, orderLineDeal } from '../lib/deals';
 import { invoiceFailure } from '../lib/invoice';
-import { returnFailureKey, returnStatusKey, returnTone, returnableOf } from '../lib/returns';
 import type { OrderDetail, PaymentAction, TimelineEvent } from '../lib/types';
-import { Alert, Badge, Pic, QtyStepper, Select, Skeleton, Textarea } from './ui';
-import { Button } from './ui';
+import { Alert, Badge, Pic, Select, Skeleton, Textarea } from './ui';
 import { ConfirmDialog } from './Dialogs';
 
 /** The pieces of an order, shared by the order page (/orders/:id) and the order side window (?order=<id>). */
@@ -144,6 +142,7 @@ function ItemRow({ i, compact }: { i: OrderDetail['items'][number]; compact?: bo
           ? <p className="text-sm font-medium text-warning">{a?.kind === 'replaced' && a.replaced_by_name ? t('order.replaced_by', { n: a.replaced_by_name }) : t('order.not_available')}</p>
           : <p className="text-sm text-muted">{i.quantity} × {i.unit_price.formatted}</p>}
         {!gone && a?.kind === 'reduced' && <p className="text-sm font-medium text-warning">{t('order.reduced_from', { n: a.original_quantity })}</p>}
+        {!gone && i.assembly && parseFloat(i.assembly.amount.amount) > 0 && <p className="text-sm text-brass-deep" data-testid="order-assembly">{t('order.assembly_line', { amount: i.assembly.amount.formatted })}</p>}
         {!gone && a?.kind === 'replacement' && <p className="text-sm font-medium text-brass-deep">{a.replaces_name ? t('order.replaces', { n: a.replaces_name }) : t('order.replacement')}</p>}
       </div>
       {!gone && <p className="font-semibold tabular-nums">{i.line_total.formatted}</p>}
@@ -217,7 +216,7 @@ export function TotalsCard({ o, compact }: { o: OrderDetail; compact?: boolean }
     <section className={card(compact)}>
       <h3 className={compact ? 'text-xl' : 'text-2xl'}>{t('checkout.summary')}</h3>
       <dl className="mt-4 space-y-2.5 text-sm">
-        {(['subtotal', 'discount', 'loyalty_discount', 'delivery_fee', 'service_fee', 'cod_fee', 'tax'] as const).map((k) => {
+        {(['subtotal', 'discount', 'loyalty_discount', 'delivery_fee', 'assembly_fee', 'service_fee', 'cod_fee', 'tax'] as const).map((k) => {
           const m = o.totals[k]; if (!m || parseFloat(m.amount) === 0) return null;
           const neg = k === 'discount' || k === 'loyalty_discount';
           return <div key={k} className="flex justify-between"><dt className="text-muted">{t(`order.total.${k}`)}</dt><dd className={cx('tabular-nums', neg && 'text-success')}>{neg ? '− ' : ''}{m.formatted}</dd></div>;
@@ -230,70 +229,5 @@ export function TotalsCard({ o, compact }: { o: OrderDetail; compact?: boolean }
       <p className="mt-4 text-xs text-muted">{t('order.method')}: {t(`pay.${o.payment_method === 'pay_at_pickup' ? 'pickup' : o.payment_method}`)}</p>
       {o.customer_notes && <p className="mt-3 rounded-2xl bg-sand/60 p-3 text-sm text-ink-soft">“{o.customer_notes}”</p>}
     </section>
-  );
-}
-
-/** Where the customer's return request stands, in plain words: asked, approved, refused (with the team's note), back with us, refunded. Shown instead of the "Return" button while one is open. */
-export function ReturnStatusCard({ o }: { o: OrderDetail }) {
-  const { t, date } = useI18n();
-  const r = o.return_request;
-  if (!r) return null;
-  const day = (iso?: string | null) => (iso ? date(iso, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Qatar' }) : '');
-  return (
-    <Alert tone={returnTone(r.status)}>
-      <div data-testid="return-status" data-status={r.status}>
-        <p className="font-semibold">{t('return.status.title', { n: r.number })}</p>
-        <p className="mt-0.5">{t(returnStatusKey(r.status), { d: day(r.requested_at), e: day(r.decided_at ?? r.requested_at) })}</p>
-        {r.decision_note && <p className="mt-1.5 italic">{t('return.status.note', { note: r.decision_note })}</p>}
-        {r.status === 'rejected' && <p className="mt-1.5 opacity-90">{t('return.status.rejected_help')}</p>}
-      </div>
-    </Alert>
-  );
-}
-
-const RETURN_REASONS = ['damaged', 'wrong_item', 'not_as_described', 'changed_mind', 'other'] as const;
-
-/** "Request a return": pick the pieces and a reason. The server checks the return window and what was handed over. */
-export function ReturnForm({ o, onDone, onCancel }: { o: OrderDetail; onDone: () => void; onCancel: () => void }) {
-  const { t } = useI18n();
-  const toast = useToast();
-  const qc = useQueryClient();
-  const rows = o.items.map((i) => ({ item: i, max: returnableOf(i) })).filter((r) => r.max > 0);
-  const [qty, setQty] = useState<Record<string, number>>({});
-  const [reason, setReason] = useState<(typeof RETURN_REASONS)[number]>('damaged');
-  const [note, setNote] = useState('');
-  const [err, setErr] = useState('');
-  const picked = Object.entries(qty).filter(([, n]) => n > 0);
-  const send = useMutation({
-    mutationFn: () => post(`/orders/${o.id}/returns`, { items: picked.map(([order_item_id, quantity]) => ({ order_item_id, quantity })), reason_code: reason, reason: note.trim() || undefined }),
-    onSuccess: () => { toast.push(t('return.sent')); void qc.invalidateQueries({ queryKey: ['order', o.id] }); onDone(); },
-    onError: (e) => setErr(e instanceof ApiError && (e.status === 0 || e.code === 'session_refresh_unavailable') ? e.message : t(e instanceof ApiError ? returnFailureKey(e.status, e.code, e.errors) : 'error.generic')),
-  });
-  return (
-    <form onSubmit={(e) => { e.preventDefault(); setErr(''); if (picked.length && !send.isPending) send.mutate(); }} className="flex min-h-full flex-col">
-      <div className="flex-1 space-y-6 p-6">
-        <p className="text-sm text-muted">{t('return.intro')}</p>
-        {err && <p role="alert" className="rounded-2xl border border-danger/30 bg-danger/8 px-4 py-3 text-sm text-danger">{err}</p>}
-        {rows.length === 0 ? <p className="rounded-2xl bg-sand/60 p-5 text-center text-muted">{t('return.none')}</p> : (
-          <ul className="divide-y divide-line rounded-3xl border border-line bg-paper px-4">
-            {rows.map(({ item, max }) => (
-              <li key={item.id} className="flex items-center gap-3 py-3">
-                <div className="w-14 shrink-0"><Pic src={item.image_url} alt="" ratio="1/1" className="rounded-xl" /></div>
-                <div className="min-w-0 flex-1"><p className="line-clamp-2 text-[15px] font-medium leading-snug">{item.name}</p>{item.variant_name && <p className="text-xs text-muted">{item.variant_name}</p>}<p className="text-xs text-muted">{t('return.of', { n: max })}</p></div>
-                <QtyStepper value={qty[item.id] ?? 0} min={0} max={max} onChange={(n) => setQty({ ...qty, [item.id]: n })} />
-              </li>
-            ))}
-          </ul>
-        )}
-        <Select label={t('return.reason')} value={reason} onChange={(e) => setReason(e.target.value as (typeof RETURN_REASONS)[number])}>
-          {RETURN_REASONS.map((r) => <option key={r} value={r}>{t(`return.reason.${r}`)}</option>)}
-        </Select>
-        <Textarea label={t('return.note')} value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} className="[&_textarea]:min-h-24" />
-      </div>
-      <div className="sticky bottom-0 border-t border-line bg-paper px-6 pt-4 pb-[max(16px,env(safe-area-inset-bottom))]">
-        <Button type="submit" size="lg" block loading={send.isPending} disabled={picked.length === 0}>{picked.length ? t('return.submit_n', { n: picked.reduce((s, [, n]) => s + n, 0) }) : t('return.submit')}</Button>
-        <Button type="button" variant="ghost" block className="mt-1.5" onClick={onCancel}>{t('action.cancel')}</Button>
-      </div>
-    </form>
   );
 }

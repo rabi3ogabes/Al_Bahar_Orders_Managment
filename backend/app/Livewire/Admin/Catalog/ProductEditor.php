@@ -11,6 +11,7 @@ use App\Domain\Catalog\Models\ProductPriceHistory;
 use App\Domain\Catalog\Models\ProductVariant;
 use App\Domain\Catalog\Services\ProductAi;
 use App\Domain\Catalog\Services\ProductService;
+use App\Domain\Catalog\Services\StockAlertService;
 use App\Http\Requests\Admin\ProductRequest;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use App\Rules\ProductBarcode;
@@ -50,7 +51,7 @@ class ProductEditor extends Component
             $this->product = $product->load(['translations', 'warranty']);
             $this->form = $product->only(['sku', 'barcode', 'category_id', 'brand_id', 'status', 'cost_price', 'weight', 'weight_unit', 'length', 'width', 'height',
                 'dimension_unit', 'is_featured', 'is_bestseller', 'is_new_arrival', 'requires_assembly', 'assembly_service_available', 'is_oversized',
-                'extra_delivery_fee', 'extra_delivery_fee_mode', 'available_in_all_branches', 'allow_sale_above_price']);
+                'extra_delivery_fee', 'extra_delivery_fee_mode', 'assembly_fee', 'lead_time_days', 'available_in_all_branches', 'allow_sale_above_price']);
             $this->form = array_map(fn ($v) => $v ?? '', $this->form);
             foreach (['en', 'ar'] as $l) {
                 $t = $product->translations->firstWhere('locale', $l);
@@ -186,17 +187,23 @@ class ProductEditor extends Component
         // The extra delivery fee box may be left empty (= no extra fee); the same limits as the API apply.
         $rules['form.extra_delivery_fee'] = ['nullable', ...array_values(array_diff($base['extra_delivery_fee'], ['sometimes']))];
         $rules['form.extra_delivery_fee_mode'] = ['required', ...array_values(array_diff($base['extra_delivery_fee_mode'], ['sometimes']))];
+        // Assembly and installation: the fee box may be left empty (= not offered) and the lead time is a whole number of days (0 = ready now).
+        $rules['form.assembly_fee'] = ['nullable', ...array_values(array_diff($base['assembly_fee'], ['sometimes', 'nullable']))];
+        $rules['form.lead_time_days'] = ['nullable', ...array_values(array_diff($base['lead_time_days'], ['sometimes']))];
         $rules['form.weight_unit'] = 'required|in:kg,g';
         $rules['form.dimension_unit'] = 'required|in:cm,m,mm';
         foreach (['is_featured', 'is_bestseller', 'is_new_arrival', 'requires_assembly', 'assembly_service_available', 'is_oversized', 'available_in_all_branches', 'allow_sale_above_price'] as $f) {
             $rules["form.{$f}"] = 'boolean';
         }
         $this->validate($rules, [], ['warranty.duration_months' => __('catalog_admin.warranty_months'), 'form.extra_delivery_fee' => __('catalog_admin.extra_fee'),
-            'form.extra_delivery_fee_mode' => __('catalog_admin.extra_fee_mode')]);
+            'form.extra_delivery_fee_mode' => __('catalog_admin.extra_fee_mode'),
+            'form.assembly_fee' => __('catalog_admin.assembly_fee'), 'form.lead_time_days' => __('catalog_admin.lead_time')]);
 
         $data = $this->nullable(collect($this->form)->only(['cost_price', 'weight', 'weight_unit', 'length', 'width', 'height', 'dimension_unit'])->all());
         $data['extra_delivery_fee'] = Money::of(trim((string) ($this->form['extra_delivery_fee'] ?? '')))->toDecimal();
         $data['extra_delivery_fee_mode'] = (string) $this->form['extra_delivery_fee_mode'];
+        $data['assembly_fee'] = trim((string) ($this->form['assembly_fee'] ?? '')) === '' ? null : trim((string) $this->form['assembly_fee']);
+        $data['lead_time_days'] = (int) ($this->form['lead_time_days'] ?? 0);
         foreach (['is_featured', 'is_bestseller', 'is_new_arrival', 'requires_assembly', 'assembly_service_available', 'is_oversized', 'available_in_all_branches', 'allow_sale_above_price'] as $f) {
             $data[$f] = (bool) $this->form[$f];
         }
@@ -245,6 +252,7 @@ class ProductEditor extends Component
                 'media' => $this->product->images()->count(),
                 'upsell' => $this->product->upsells()->count(),
             ];
+            $data['waiting'] = app(StockAlertService::class)->waiting($this->product->id); // customers asking to be told when it is back or cheaper: the demand signal
         }
 
         return view('livewire.admin.catalog.product-editor', $data)->title($this->product ? ($this->product->trans('name') ?? $this->product->sku) : __('catalog_admin.new_product'));

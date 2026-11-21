@@ -29,6 +29,7 @@ import 'package:albahar_customer/features/checkout/presentation/extra_delivery_f
 import 'package:albahar_customer/features/checkout/presentation/no_payment_panel.dart';
 import 'package:albahar_customer/features/checkout/presentation/payment_flow.dart';
 import 'package:albahar_customer/features/checkout/presentation/payment_reason_text.dart';
+import 'package:albahar_customer/features/checkout/presentation/promise_note.dart';
 import 'package:albahar_customer/features/checkout/presentation/state/checkout_controller.dart';
 import 'package:albahar_customer/features/checkout/presentation/total_action_bar.dart';
 import 'package:albahar_customer/features/deals/presentation/widgets/deal_line_text.dart';
@@ -916,6 +917,12 @@ class _QuoteSummary extends StatelessWidget {
                           ),
                           // "Deal price on 2 of 3 · limit 2 per order": the quote's own words for what the deal did to this line.
                           if (line.deal != null) DealLineNote(name: line.deal!.name, units: line.deal!.units),
+                          if (line.assemblyAmount != null && !line.assemblyAmount!.isZero)
+                            Text(
+                              l10n.orderAssemblyLine(line.assemblyAmount!.formatted),
+                              key: const ValueKey('checkout-assembly-line'),
+                              style: context.text.bodySmall?.copyWith(color: context.palette.brassDeep),
+                            ),
                         ],
                       ),
                     ),
@@ -947,6 +954,11 @@ class _QuoteSummary extends StatelessWidget {
                 ],
               ),
             ],
+            // The date promised for this order: one per parcel when it splits (informational; the chosen time below is what is booked).
+            if (quote.promise != null && quote.promise!.visible) ...[
+              Divider(color: context.palette.line, height: AppSpace.lg),
+              PromiseNote(promise: quote.promise, compact: true),
+            ],
             Divider(color: context.palette.line, height: AppSpace.lg),
             SummaryRow(label: l10n.subtotal, value: t.subtotal.formatted),
             // The deal prices are one row ("Deal savings"); coupons and promotions are listed one by one.
@@ -964,6 +976,8 @@ class _QuoteSummary extends StatelessWidget {
             ?deliveryRow,
             // A part of the delivery line above (never added to it): the products that cost extra to deliver. Pickup has none.
             if (delivery && quote.extras != null) ExtraDeliveryFeeRow(extras: quote.extras!, waived: waivedFee != null),
+            // Assembly and installation at the door (its own charge, delivery orders only): already inside the total below.
+            if (delivery) ?fee(l10n.assemblyRow, t.assemblyFee),
             ?fee(l10n.serviceFee, t.serviceFee),
             ?fee(l10n.tax, t.tax),
             ?fee(l10n.loyaltyDiscount, t.loyaltyDiscount, negative: true),

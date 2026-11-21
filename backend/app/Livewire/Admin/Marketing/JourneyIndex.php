@@ -9,7 +9,9 @@ use App\Domain\Marketing\Models\JourneyStep;
 use App\Domain\Marketing\Models\JourneyTemplate;
 use App\Domain\Marketing\Models\Promotion;
 use App\Domain\Marketing\Services\AbandonedCartReminders;
+use App\Domain\Marketing\Services\AfterDeliveryJourney;
 use App\Domain\Marketing\Services\JourneyService;
+use App\Domain\Marketing\Support\ReminderText;
 use App\Domain\Notifications\Services\N8nClient;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use Livewire\Attributes\Locked;
@@ -18,7 +20,7 @@ use Livewire\Component;
 use Livewire\WithPagination;
 
 /**
- * Customer journeys: automatic follow-ups for abandoned carts and birthdays. The admin edits the timeline of steps
+ * Customer journeys: automatic follow-ups for abandoned carts, birthdays and delivered orders. The admin edits the timeline of steps
  * (when, which channels, which template), the reusable AR/EN templates (with an optional personal coupon), and watches
  * what was sent and what it earned.
  */
@@ -55,7 +57,7 @@ class JourneyIndex extends Component
 
     public array $tpl = [];
 
-    public array $rules = ['quiet_start' => '', 'quiet_end' => '', 'max_per_day' => 3, 'attribution_days' => 7];
+    public array $rules = ['quiet_start' => '', 'quiet_end' => '', 'max_per_day' => 3, 'attribution_days' => 7, 'cooldown_days' => 14];
 
     public string $previewLocale = 'en';
 
@@ -83,13 +85,14 @@ class JourneyIndex extends Component
 
     private function journey(): ?Journey
     {
-        return in_array($this->tab, ['abandoned_cart', 'birthday'], true) ? Journey::where('key', $this->tab)->first() : null;
+        return in_array($this->tab, ['abandoned_cart', 'birthday', AfterDeliveryJourney::KEY], true) ? Journey::where('key', $this->tab)->first() : null;
     }
 
     private function loadRules(): void
     {
         $j = $this->journey();
-        $this->rules = ['quiet_start' => (string) $j?->setting('quiet_start', ''), 'quiet_end' => (string) $j?->setting('quiet_end', ''), 'max_per_day' => (int) $j?->setting('max_per_day', 3), 'attribution_days' => (int) $j?->setting('attribution_days', 7)];
+        $this->rules = ['quiet_start' => (string) $j?->setting('quiet_start', ''), 'quiet_end' => (string) $j?->setting('quiet_end', ''), 'max_per_day' => (int) $j?->setting('max_per_day', 3), 'attribution_days' => (int) $j?->setting('attribution_days', 7),
+            'cooldown_days' => $j ? AfterDeliveryJourney::cooldownDays($j) : AfterDeliveryJourney::DEFAULT_COOLDOWN_DAYS];
     }
 
     /* ─────────── journey on/off + rules ─────────── */
@@ -116,11 +119,15 @@ class JourneyIndex extends Component
     {
         abort_unless($this->can('marketing.edit'), 403);
         $j = $this->journey() ?? abort(404);
+        $afterDelivery = $j->key === AfterDeliveryJourney::KEY;
         $d = $this->validate([
             'rules.quiet_start' => ['nullable', 'date_format:H:i'], 'rules.quiet_end' => ['nullable', 'date_format:H:i', 'required_with:rules.quiet_start'], 'rules.max_per_day' => ['required', 'integer', 'min:0', 'max:20'], 'rules.attribution_days' => ['required', 'integer', 'min:1', 'max:30'],
-        ], [], ['rules.quiet_start' => __('journeys_admin.quiet_from'), 'rules.quiet_end' => __('journeys_admin.quiet_to'), 'rules.max_per_day' => __('journeys_admin.max_per_day'), 'rules.attribution_days' => __('journeys_admin.attribution_days')])['rules'];
+            'rules.cooldown_days' => [$afterDelivery ? 'required' : 'nullable', 'integer', 'min:1', 'max:90'],
+        ], [], ['rules.quiet_start' => __('journeys_admin.quiet_from'), 'rules.quiet_end' => __('journeys_admin.quiet_to'), 'rules.max_per_day' => __('journeys_admin.max_per_day'), 'rules.attribution_days' => __('journeys_admin.attribution_days'),
+            'rules.cooldown_days' => __('after_delivery_admin.cooldown')])['rules'];
         // Merged, not replaced: the abandoned-cart journey also keeps its most reminders per cart there (Sales > Abandoned orders).
-        $j->update(['settings' => array_merge($j->settings ?? [], ['quiet_start' => $d['quiet_start'] ?: null, 'quiet_end' => $d['quiet_end'] ?: null, 'max_per_day' => (int) $d['max_per_day'], 'attribution_days' => (int) $d['attribution_days']])]);
+        $j->update(['settings' => array_merge($j->settings ?? [], ['quiet_start' => $d['quiet_start'] ?: null, 'quiet_end' => $d['quiet_end'] ?: null, 'max_per_day' => (int) $d['max_per_day'], 'attribution_days' => (int) $d['attribution_days']],
+            $afterDelivery ? ['cooldown_days' => (int) $d['cooldown_days']] : [])]);
         $svc->wake($j);
         $audit->log('marketing.journey_rules_updated', $j, [], $j->settings);
         $this->toast(__('admin.saved'));
@@ -132,6 +139,7 @@ class JourneyIndex extends Component
     {
         abort_unless($this->can('marketing.edit'), 403);
         $j = $this->journey() ?? abort(404);
+        abort_if($j->key === AfterDeliveryJourney::KEY && ! $id, 403); // its three messages are fixed: edit one, do not add
         $s = $id ? $j->steps()->findOrFail($id) : null;
         $minutes = (int) ($s?->delay_minutes ?? 60);
         [$val, $unit] = $minutes % 1440 === 0 ? [intdiv($minutes, 1440), 'days'] : ($minutes % 60 === 0 ? [intdiv($minutes, 60), 'hours'] : [$minutes, 'minutes']);
@@ -147,18 +155,19 @@ class JourneyIndex extends Component
         abort_unless($this->can('marketing.edit'), 403);
         $j = $this->journey() ?? abort(404);
         $birthday = $j->key === 'birthday';
+        $maxMinutes = $j->key === AfterDeliveryJourney::KEY ? 30 * 1440 : 10080; // the messages after a delivery may wait up to a month; the others up to a week
         $d = $this->validate([
             'step.label' => ['nullable', 'string', 'max:80'], 'step.channels' => ['required', 'array', 'min:1'], 'step.channels.*' => ['in:'.implode(',', JourneyService::CHANNELS)],
             'step.template_id' => ['required', 'uuid', 'exists:journey_templates,id'], 'step.is_enabled' => ['boolean'],
-            'step.delay_value' => [$birthday ? 'nullable' : 'required', 'integer', 'min:1', 'max:10080'], 'step.delay_unit' => ['in:minutes,hours,days'],
+            'step.delay_value' => [$birthday ? 'nullable' : 'required', 'integer', 'min:1', 'max:'.$maxMinutes], 'step.delay_unit' => ['in:minutes,hours,days'],
             'step.offset_days' => [$birthday ? 'required' : 'nullable', 'integer', 'min:-30', 'max:30'], 'step.send_time' => [$birthday ? 'required' : 'nullable', 'date_format:H:i'],
         ], [], ['step.channels' => __('journeys_admin.channels'), 'step.template_id' => __('journeys_admin.template'), 'step.delay_value' => __('journeys_admin.after'),
             'step.offset_days' => __('journeys_admin.day'), 'step.send_time' => __('journeys_admin.at_time')])['step'];
         $minutes = null;
         if (! $birthday) {
             $minutes = (int) $d['delay_value'] * ['minutes' => 1, 'hours' => 60, 'days' => 1440][$d['delay_unit']];
-            if ($minutes > 10080 || $minutes < 1) {
-                $this->addError('step.delay_value', __('journeys_admin.delay_range'));
+            if ($minutes > $maxMinutes || $minutes < 1) {
+                $this->addError('step.delay_value', __($j->key === AfterDeliveryJourney::KEY ? 'after_delivery_admin.delay_range' : 'journeys_admin.delay_range'));
 
                 return;
             }
@@ -178,10 +187,32 @@ class JourneyIndex extends Component
         $this->toast(__('admin.saved'));
     }
 
+    /** The switch on a step of the timeline: it acts at once (no Save button) and is audited like the other step changes. */
+    public function toggleStep(string $id, AuditLogger $audit, JourneyService $svc): void
+    {
+        abort_unless($this->can('marketing.edit'), 403);
+        $j = $this->journey() ?? abort(404);
+        $s = $j->steps()->findOrFail($id);
+        if (! $s->is_enabled && ! $s->template_id) {
+            $this->toast(__('journeys_admin.needs_step'), 'error');
+
+            return;
+        }
+        $s->update(['is_enabled' => ! $s->is_enabled]);
+        $svc->wake($j);
+        $stopped = $j->is_enabled && ! $j->steps()->where('is_enabled', true)->exists();
+        if ($stopped) {
+            $j->update(['is_enabled' => false]); // a running journey with nothing left to send is paused, like when the last step is deleted
+        }
+        $audit->log('marketing.journey_step_'.($s->is_enabled ? 'enabled' : 'disabled'), $j, [], ['step' => $s->id, 'label' => $s->label, 'kind' => $s->kind]);
+        $this->toast($stopped ? __('after_delivery_admin.paused_no_steps') : ($s->is_enabled ? __('after_delivery_admin.step_on') : __('after_delivery_admin.step_off')));
+    }
+
     public function deleteStep(string $id, AuditLogger $audit, JourneyService $svc): void
     {
         abort_unless($this->can('marketing.edit'), 403);
         $j = $this->journey() ?? abort(404);
+        abort_if($j->key === AfterDeliveryJourney::KEY, 403); // its three messages are fixed: switch one off instead
         $j->steps()->findOrFail($id)->delete();
         $this->renumber($j);
         $svc->wake($j);
@@ -268,7 +299,7 @@ class JourneyIndex extends Component
     public function render(JourneyService $svc, N8nClient $n8n)
     {
         $j = $this->journey();
-        $steps = $j ? $j->steps()->with('template:id,name,kind')->get() : collect();
+        $steps = $j ? $j->steps()->with('template')->get() : collect();
         $recovered = $this->tab === 'recovered'
             ? $svc->recovered(in_array($this->days, [7, 30, 90], true) ? $this->days : 30, $this->filterJourney ?: null, $this->filterChannel ?: null)
                 ->with(['user:id,name', 'order:id,number,grand_total,placed_at,payment_method', 'journey:id,key', 'attributedDelivery.step:id,label,position'])->latest('converted_at')->paginate(20) : null;
@@ -277,6 +308,8 @@ class JourneyIndex extends Component
             : null;
 
         return view('livewire.admin.marketing.journeys', [
+            'stepStats' => $j?->key === AfterDeliveryJourney::KEY ? app(AfterDeliveryJourney::class)->stepStats($j) : [],
+            'sampleVars' => ['en' => ReminderText::sample('en', true), 'ar' => ReminderText::sample('ar', true)], // the preview shows an example customer and an example offer
             'journeyRow' => $j,
             'steps' => $steps,
             'stats' => $j ? $svc->stats($j) : null,

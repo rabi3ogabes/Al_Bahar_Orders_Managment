@@ -11,10 +11,14 @@ class CartAddition {
     this.quantity = 1,
     this.unitPrice,
     this.variantName,
+    this.assembly = false,
   });
   final String variantId;
   final ProductSummary product;
   final int quantity;
   final EffectivePrice? unitPrice;
   final String? variantName;
+
+  /// Also add assembly and installation for the line (only a product that offers it).
+  final bool assembly;
 }

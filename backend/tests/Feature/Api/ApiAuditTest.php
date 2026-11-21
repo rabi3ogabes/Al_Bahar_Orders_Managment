@@ -127,7 +127,7 @@ it('never lets return requests claim more than was handed over, in one request o
     $item = $order->items()->first();
     $item->forceFill(['quantity_handed_over' => 2])->save();
     $line = fn (int $q) => ['order_item_id' => $item->id, 'quantity' => $q];
-    $ok = ['reason_code' => 'damaged'];
+    $ok = ['reason_code' => 'changed_mind'];
 
     $this->postJson("/api/v1/orders/{$order->id}/returns", $ok + ['items' => [$line(1), $line(1), $line(1)]])->assertStatus(422); // duplicate lines
     $this->postJson("/api/v1/orders/{$order->id}/returns", $ok + ['items' => [$line(3)]])->assertStatus(422);
@@ -231,7 +231,7 @@ it('refuses returns after the return window and reports it in can_return', funct
     $order->fulfillments()->update(['status' => 'delivered', 'delivered_at' => now()->subDays(20)]);
     $order->items()->update(['quantity_handed_over' => 1]);
     $this->getJson("/api/v1/orders/{$order->id}")->assertJsonPath('data.can_return', false);
-    $this->postJson("/api/v1/orders/{$order->id}/returns", ['reason_code' => 'damaged', 'items' => [['order_item_id' => $order->items()->first()->id, 'quantity' => 1]]])->assertStatus(422);
+    $this->postJson("/api/v1/orders/{$order->id}/returns", ['reason_code' => 'changed_mind', 'items' => [['order_item_id' => $order->items()->first()->id, 'quantity' => 1]]])->assertStatus(422);
 });
 
 it('uses one stable error code for a missing Idempotency-Key on every money endpoint', function () {
@@ -275,7 +275,7 @@ it('answers 404 for every customer-owned resource that belongs to someone else',
     $this->getJson("/api/v1/orders/{$order->id}/invoice")->assertNotFound();
     $this->postJson("/api/v1/orders/{$order->id}/cancel", ['reason_code' => 'changed_mind'])->assertNotFound();
     $this->postJson("/api/v1/orders/{$order->id}/reorder")->assertNotFound();
-    $this->postJson("/api/v1/orders/{$order->id}/returns", ['reason_code' => 'damaged', 'items' => [['order_item_id' => (string) Str::uuid(), 'quantity' => 1]]])->assertNotFound();
+    $this->postJson("/api/v1/orders/{$order->id}/returns", ['reason_code' => 'changed_mind', 'items' => [['order_item_id' => (string) Str::uuid(), 'quantity' => 1]]])->assertNotFound();
     $this->postJson("/api/v1/orders/{$order->id}/payments", [], ['Idempotency-Key' => 'pay-key-0000000001'])->assertNotFound();
     $this->getJson("/api/v1/payments/{$payment->id}")->assertNotFound();
     $this->getJson("/api/v1/me/addresses/{$w->address->id}")->assertNotFound();

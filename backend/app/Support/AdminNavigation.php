@@ -75,6 +75,7 @@ final class AdminNavigation
             ['label' => 'nav.content', 'items' => [
                 ['label' => 'nav.homepage', 'route' => 'admin.homepage.index', 'icon' => 'sparkles', 'permission' => 'cms.view'],
                 ['label' => 'nav.banners', 'route' => 'admin.banners.index', 'icon' => 'image', 'permission' => 'cms.view'],
+                ['label' => 'nav.rooms', 'route' => 'admin.rooms.index', 'icon' => 'home', 'permission' => 'cms.view'],
                 ['label' => 'nav.appearance', 'route' => 'admin.appearance.index', 'icon' => 'sparkles', 'permission' => 'cms.view'],
                 ['label' => 'nav.store_design', 'route' => 'admin.appearance.designs', 'icon' => 'layers', 'permission' => 'cms.view'],
                 ['label' => 'nav.app_footer', 'route' => 'admin.appearance.footer', 'icon' => 'menu', 'permission' => 'cms.view'],

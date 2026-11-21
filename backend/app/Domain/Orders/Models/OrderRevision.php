@@ -43,6 +43,9 @@ class OrderRevision extends Model
 
     public const REASONS = ['out_of_stock', 'not_found', 'damaged', 'quality', 'other'];
 
+    /** The reasons only the system uses, for taking a replacement back out: the customer said no, or the time to answer ran out. Never offered to staff. */
+    public const SYSTEM_REASONS = ['substitute_declined', 'substitute_expired'];
+
     /** The reasons for which the branch's on-hand count is also reduced: the unit is not on the shelf, whatever the system believed. */
     public const STOCK_CORRECTING_REASONS = ['out_of_stock', 'not_found'];
 

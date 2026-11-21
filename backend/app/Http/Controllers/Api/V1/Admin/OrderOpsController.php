@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
+use App\Domain\Checkout\Support\Assembly;
 use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Fulfillment\Models\PickupReservation;
 use App\Domain\Fulfillment\Services\DeliveryService;
@@ -114,7 +115,7 @@ class OrderOpsController extends ApiController
             'order' => $f ? ['number' => $f->order->number, 'customer_name' => $f->order->customer_name, 'payment_method' => $f->order->payment_method,
                 'payment_status' => $f->order->payment_status->value, 'amount_due' => Money::of($f->order->grand_total)->minus(Money::of($f->order->paid_total))->jsonSerialize()] : null,
             'items' => $f ? $f->items->where('quantity', '>', 0)->map(fn ($i) => ['id' => $i->id, 'name' => $i->name(), 'variant' => $i->variantName(), 'sku' => $i->sku,
-                'quantity' => $i->activeQuantity(), 'handed_over' => $i->quantity_handed_over]) : [],
+                'quantity' => $i->activeQuantity(), 'handed_over' => $i->quantity_handed_over, 'assembly_ordered' => Assembly::placedFee($i) !== null]) : [],
         ]], $res['result'] === 'success' ? 200 : 422);
     }
 

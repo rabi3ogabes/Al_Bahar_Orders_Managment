@@ -23,7 +23,7 @@ class StaffAttentionController extends ApiController
 
     /** What a line asks the app to do: open the order's card, pick a driver, give a new pass; or nothing in the app (the dashboard handles it). */
     private const TARGETS = [
-        'unaccepted' => 'open_order', 'stuck' => 'open_order', 'delivery_failed' => 'open_order', 'cancellation' => 'open_order',
+        'unaccepted' => 'open_order', 'stuck' => 'open_order', 'delivery_failed' => 'open_order', 'cancellation' => 'open_order', 'substitution' => 'open_order',
         'undispatched' => 'assign_driver', 'driver_silent' => 'assign_driver',
         'pickup_waiting' => 'open_order', // becomes reissue_pass when the person may and the pass can be re-issued
     ];

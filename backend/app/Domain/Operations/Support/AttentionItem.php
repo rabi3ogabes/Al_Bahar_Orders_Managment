@@ -14,7 +14,7 @@ namespace App\Domain\Operations\Support;
 final class AttentionItem
 {
     /** @var list<string> */
-    public const CATEGORIES = ['unaccepted', 'stuck', 'undispatched', 'driver_silent', 'delivery_failed', 'pickup_waiting', 'cancellation', 'refund', 'cash', 'queue', 'campaign'];
+    public const CATEGORIES = ['unaccepted', 'stuck', 'undispatched', 'driver_silent', 'delivery_failed', 'pickup_waiting', 'cancellation', 'refund', 'claim', 'substitution', 'cash', 'queue', 'campaign'];
 
     /**
      * @param  array{type: string, label: string, order?: string, url?: string, fulfillment?: string}  $action

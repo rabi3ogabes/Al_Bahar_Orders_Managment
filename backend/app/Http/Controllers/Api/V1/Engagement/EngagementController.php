@@ -4,8 +4,6 @@ namespace App\Http\Controllers\Api\V1\Engagement;
 
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Catalog\Models\Product;
-use App\Domain\Catalog\Models\ProductVariant;
-use App\Domain\Catalog\Models\StockAlert;
 use App\Domain\Catalog\Services\CatalogPresenter;
 use App\Domain\Cms\Models\CmsPage;
 use App\Domain\Cms\Services\HomepageService;
@@ -19,7 +17,6 @@ use App\Domain\Marketing\Services\ReferralService;
 use App\Domain\Marketing\Services\ReviewService;
 use App\Domain\Notifications\Models\Notification;
 use App\Domain\Notifications\Services\NotificationService;
-use App\Domain\Pricing\Services\PriceResolver;
 use App\Domain\Support\Models\SupportTicket;
 use App\Domain\Support\Services\SupportService;
 use App\Http\Controllers\Api\V1\ApiController;
@@ -221,25 +218,6 @@ class EngagementController extends ApiController
         $q = ProductQuestion::create(['product_id' => Product::active()->findOrFail($productId)->id, 'user_id' => $this->user()->id, 'question' => strip_tags($data['question'])]);
 
         return response()->json(['data' => ['id' => $q->id, 'status' => $q->status ?? 'pending']], 201);
-    }
-
-    public function addAlert(Request $request, PriceResolver $prices): JsonResponse
-    {
-        $data = $request->validate(['variant_id' => 'required|uuid|exists:product_variants,id', 'type' => 'required|in:back_in_stock,price_drop', 'branch_id' => 'nullable|uuid|exists:branches,id']);
-        $variant = ProductVariant::with('product')->findOrFail($data['variant_id']);
-        $ref = $data['type'] === 'price_drop' ? $prices->resolve($variant, isset($data['branch_id']) ? Branch::find($data['branch_id']) : null)?->final()->toDecimal() : null;
-        StockAlert::updateOrCreate(['user_id' => $this->user()->id, 'product_variant_id' => $variant->id, 'type' => $data['type']],
-            ['branch_id' => $data['branch_id'] ?? null, 'reference_price' => $ref, 'notified_at' => null]);
-
-        return response()->json(['data' => ['subscribed' => true]], 201);
-    }
-
-    public function removeAlert(Request $request): JsonResponse
-    {
-        $data = $request->validate(['variant_id' => 'required|uuid', 'type' => 'required|in:back_in_stock,price_drop']);
-        StockAlert::where('user_id', $this->user()->id)->where('product_variant_id', $data['variant_id'])->where('type', $data['type'])->delete();
-
-        return response()->json(['data' => ['subscribed' => false]]);
     }
 
     public function tickets(): JsonResponse

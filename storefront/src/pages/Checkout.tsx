@@ -13,13 +13,14 @@ import { cx, latinDigits, money } from '../lib/format';
 import { deliveryFeeLine, extraDelivery } from '../lib/deliveryFee';
 import { altPhoneAsked, altPhoneReady, altPhoneRequest, altPhoneStatus, nationalDigits } from '../lib/altPhone';
 import { useAltPhoneEnabled } from '../lib/appConfig';
-import { decideSlot, hasFreePlace, isSlotBookable, slotWindowDates } from '../lib/slotPick';
+import { decideSlot, hasFreePlace, isSlotBookable, slotRangeFrom } from '../lib/slotPick';
 import type { Address, Branch, OrderDetail, PaymentAction, Quote, SlotDay } from '../lib/types';
 import { useAuthModal } from '../components/AuthModal';
 import { Alert, Button, Checkbox, EmptyState, Input, Pic, Segmented, Skeleton, Spinner, Textarea } from '../components/ui';
 import { AddressWindow } from '../components/windows';
 import { DeliveryFeeRow, ExtraDeliveryRow } from '../components/DeliveryFeeRow';
 import { DealLineNote } from '../components/DealBits';
+import { PromiseNote } from '../components/PromiseNote';
 import { NoPaymentPanel } from '../components/NoPayment';
 import { nothingToPayWith, payReason } from '../lib/payReasons';
 import { dealSavingsSplit, isDealChanged, minusDeal, quoteFromDealChanged, quoteLineText, readQuoteDeal } from '../lib/deals';
@@ -43,13 +44,14 @@ interface PickMeta { /** Chosen by the page as the earliest bookable time (not b
  * The time step. Once the times load, the earliest one that can still be booked is chosen for the customer (the rule is in lib/slotPick.ts, the same as the app):
  * a time the customer picked is never replaced by an earlier one; a time that fills up or passes its cutoff while the page is open is replaced, and the page says so.
  */
-function Slots({ branchId, kind, value, date, auto, replaced, onPick, required, onSwitch }: { branchId: string; kind: 'delivery' | 'pickup'; value: string | null; date: string | null; auto: boolean; replaced: boolean; onPick: (id: string | null, date: string | null, meta?: PickMeta) => void; required: boolean; onSwitch?: () => void }) {
+function Slots({ branchId, kind, value, date, auto, replaced, onPick, required, onSwitch, earliest }: { branchId: string; kind: 'delivery' | 'pickup'; value: string | null; date: string | null; auto: boolean; replaced: boolean; onPick: (id: string | null, date: string | null, meta?: PickMeta) => void; required: boolean; onSwitch?: () => void; /** The first day these items can be scheduled on (their lead time): earlier days are not offered. */ earliest?: string | null }) {
   const { t, date: fmt } = useI18n();
   // The business day is Qatar's, whatever the browser's clock or zone says. Looked at again every half minute: a time can pass its cutoff while the page stays open.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const id = window.setInterval(() => setNow(Date.now()), 30_000); return () => window.clearInterval(id); }, []);
-  const { from, to } = slotWindowDates(now);
-  const days = useQuery({ queryKey: ['slots', kind, branchId, from], queryFn: async () => (await get<{ data: SlotDay[] }>(`/branches/${branchId}/${kind}-slots`, { from, to })).data });
+  // Items that need more days (made to order, assembly) start the list later; the server never offers more than 30 days ahead.
+  const { from, to } = slotRangeFrom(now, earliest);
+  const days = useQuery({ queryKey: ['slots', kind, branchId, from], enabled: from <= to, queryFn: async () => (await get<{ data: SlotDay[] }>(`/branches/${branchId}/${kind}-slots`, { from, to })).data });
   const list = useMemo(() => (days.data ?? []).filter((d) => d.slots.length > 0), [days.data]);
   const [day, setDay] = useState<string | null>(date);
   useEffect(() => { if (date) setDay(date); }, [date]);
@@ -346,7 +348,7 @@ export default function Checkout() {
 
           {showSlots && (
             <Step n={2} title={ful === 'delivery' ? t('checkout.when_delivery') : t('checkout.when_pickup')} done={!!slotId || !slotRequired}>
-              <Slots key={`${ful}-${slotBranch}`} branchId={slotBranch} kind={ful} value={slotId} date={slotDate} auto={slotAuto} replaced={slotReplaced} required={slotRequired} onPick={pickSlot}
+              <Slots key={`${ful}-${slotBranch}`} branchId={slotBranch} kind={ful} value={slotId} date={slotDate} auto={slotAuto} replaced={slotReplaced} required={slotRequired} onPick={pickSlot} earliest={q?.fulfillments[0]?.earliest_date}
                 onSwitch={ful === 'delivery' ? (anyPickup ? () => setFul('pickup') : undefined) : (anyDelivery ? () => setFul('delivery') : undefined)} />
               {slotRequired && !slotId && <p className="mt-3 text-sm font-medium text-warning">{t('checkout.slot_required')}</p>}
             </Step>
@@ -401,11 +403,14 @@ export default function Checkout() {
               {cart.lines.map((l) => {
                 const dealLine = readQuoteDeal(q?.lines.find((x) => x.variant_id === l.variantId)?.deal);
                 const dealText = quoteLineText(t, locale, dealLine, { per_order: l.deal?.limit_per_order, per_customer: l.deal?.limit_per_customer });
+                // What the quote charges for the assembly of this line (a split line may sit in two parcels).
+                const asmCents = (q?.lines ?? []).filter((x) => x.variant_id === l.variantId && x.assembly).reduce((s, x) => s + Math.round(parseFloat(x.assembly?.amount.amount ?? '0') * 100), 0);
                 return (
                 <li key={l.key}>
                   <div className="flex gap-3.5">
                   <div className="relative w-16 shrink-0"><Pic src={l.image} alt={l.name} ratio="1/1" className="rounded-xl" /><span className="absolute -end-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold text-bg">{l.qty}</span></div>
-                  <div className="min-w-0 flex-1 text-sm"><p className="line-clamp-2 font-display text-lg leading-tight">{l.name}</p>{l.variantName && <p className="text-xs text-muted">{l.variantName}</p>}</div>
+                  <div className="min-w-0 flex-1 text-sm"><p className="line-clamp-2 font-display text-lg leading-tight">{l.name}</p>{l.variantName && <p className="text-xs text-muted">{l.variantName}</p>}
+                    {asmCents > 0 && <p className="mt-0.5 text-xs text-brass-deep" data-testid="checkout-assembly-line">{t('order.assembly_line', { amount: money(asmCents / 100, 'QAR', locale) })}</p>}</div>
                   <span className="text-sm font-semibold tabular-nums">{l.total.formatted}</span>
                   </div>
                   {dealText && <DealLineNote name={dealLine?.name ?? l.deal?.name ?? null} text={dealText} className="mt-2" />}
@@ -413,6 +418,7 @@ export default function Checkout() {
                 );
               })}
             </ul>
+            <PromiseNote promise={q?.promise} className="mt-5" compact />
             {dealChanged && <div className="mt-5" data-testid="deal-changed"><Alert tone="info"><p className="font-semibold">{t('deal.changed')}</p><p className="mt-0.5">{t('deal.changed_text')}</p></Alert></div>}
             {quoteErr && <div className="mt-5"><Alert tone="danger">{quoteErr.message}</Alert></div>}
             {q?.warnings?.map((w, i) => <div key={i} className="mt-4"><Alert tone="warning">{w.message ?? w.code}</Alert></div>)}
@@ -424,6 +430,7 @@ export default function Checkout() {
               {q && parseFloat(q.totals.loyalty_discount.amount) > 0 && <Row k={t('checkout.points_discount')} v={`− ${q.totals.loyalty_discount.formatted}`} good />}
               <DeliveryFeeRow line={feeLine} />
               <ExtraDeliveryRow extra={extra} />
+              {q?.totals.assembly_fee && parseFloat(q.totals.assembly_fee.amount) > 0 && <Row k={t('checkout.assembly')} v={q.totals.assembly_fee.formatted} />}
               {q && parseFloat(q.totals.service_fee.amount) > 0 && <Row k={t('checkout.service_fee')} v={q.totals.service_fee.formatted} />}
               {q && parseFloat(q.totals.tax.amount) > 0 && <Row k={t('checkout.tax')} v={q.totals.tax.formatted} />}
               <div className="flex items-baseline justify-between gap-3 border-t border-line pt-4"><dt className="text-base font-semibold">{t('checkout.total')}</dt><dd className="whitespace-nowrap font-display text-[clamp(26px,9vw,36px)] tabular-nums">{grand ?? '—'}</dd></div>

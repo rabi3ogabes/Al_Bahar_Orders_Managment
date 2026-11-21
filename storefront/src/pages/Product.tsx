@@ -1,8 +1,8 @@
 import { UpsellStrip } from '../components/Upsell';
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Bell, Check, ChevronDown, Heart, MapPin, PackageCheck, Ruler, Share2, ShieldCheck, Truck, Wrench } from 'lucide-react';
+import { Check, ChevronDown, Heart, MapPin, MessageCircle, PackageCheck, Ruler, Share2, ShieldCheck, Truck, Wrench } from 'lucide-react';
 import { ApiError, get, post } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useBranch } from '../lib/branch';
@@ -12,7 +12,10 @@ import { useToast } from '../lib/toast';
 import { useWishlist } from '../lib/wishlist';
 import { useDocTitle } from '../lib/hooks';
 import { sanitizeHtml } from '../lib/sanitize';
-import { cx } from '../lib/format';
+import { cx, money } from '../lib/format';
+import { parseMoney } from '../lib/deliveryFee';
+import { productShareText, productShareUrl, whatsappShareHref } from '../lib/shareBasket';
+import { useProductPromise } from '../lib/usePromise';
 import type { Paged, ProductDetail, Review } from '../lib/types';
 import { useAuthModal } from '../components/AuthModal';
 import { Rail } from '../components/Rail';
@@ -22,6 +25,9 @@ import { DealPriceTag, ProductPrice } from '../components/DealBits';
 import { dealPriceFor } from '../lib/deals';
 import { AttributePicker, useVariantPicker } from '../components/AttributePicker';
 import { ExtraDeliveryNote } from '../components/ExtraDeliveryNote';
+import { PromiseNote } from '../components/PromiseNote';
+import { AssemblyChoice } from '../components/AssemblyChoice';
+import { StockAlertButtons } from '../components/StockAlertButtons';
 import { ReviewWindow } from '../components/windows';
 
 function Accordion({ title, children, open: o = false }: { title: string; children: React.ReactNode; open?: boolean }) {
@@ -39,6 +45,15 @@ function Reviews({ product }: { product: ProductDetail }) {
   const { user } = useAuth();
   const authModal = useAuthModal();
   const [writing, setWriting] = useState(false);
+  // A link from the "How is your ...?" message (`?review=1`) opens the review window at once (after sign-in when the visitor is signed out), then forgets the mark.
+  const [sp, setSp] = useSearchParams();
+  useEffect(() => {
+    if (sp.get('review') !== '1') return;
+    const next = new URLSearchParams(sp);
+    next.delete('review');
+    setSp(next, { replace: true });
+    if (user) setWriting(true); else authModal.open({ reason: t('auth.reason_review'), onDone: () => setWriting(true) });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const list = useQuery({ queryKey: ['reviews', product.id], queryFn: async () => get<Paged<Review>>(`/products/${product.id}/reviews`, { per_page: 20 }) });
   return (
     <div>
@@ -94,14 +109,12 @@ function Questions({ productId }: { productId: string }) {
 
 export default function Product() {
   const { slug = '' } = useParams();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const nav = useNavigate();
   const { branchId, branches } = useBranch();
   const cart = useCart();
   const wl = useWishlist();
   const toast = useToast();
-  const { user } = useAuth();
-  const authModal = useAuthModal();
 
   const q = useQuery({ queryKey: ['product', slug, branchId], queryFn: async () => (await get<{ data: ProductDetail }>(`/products/${slug}`, { branch_id: branchId })).data, retry: (n, e) => !(e instanceof ApiError && e.status === 404) && n < 2 });
   const p = q.data;
@@ -113,6 +126,15 @@ export default function Product() {
   const [img, setImg] = useState(0);
   const [adding, setAdding] = useState(false);
   useEffect(() => { setQty(1); setImg(0); }, [p?.id]);
+  // Assembly and installation at the door (only a product with an assembly fee offers it): ticked before adding, chosen per cart line afterwards.
+  const [assembly, setAssembly] = useState(false);
+  useEffect(() => { setAssembly(false); }, [p?.id]);
+  const assemblyFee = p ? parseMoney(p.assembly_fee, p.price.final.currency, (v, cur) => money(v, cur, locale)) : null;
+  const assemblyOn = assemblyFee !== null && parseFloat(assemblyFee.amount) > 0;
+  // When will I get it? The server's answer for this item at the customer's showroom, for delivery and for pickup (never blocks buying).
+  const promiseFor = { productId: p?.id, variantId: variant?.id ?? null, qty, assembly: assembly && assemblyOn, branchId };
+  const deliveryPromise = useProductPromise({ ...promiseFor, type: 'delivery' });
+  const pickupPromise = useProductPromise({ ...promiseFor, type: 'pickup' });
 
   const avail = useQuery({ queryKey: ['availability', p?.id], enabled: !!p, queryFn: async () => (await get<{ data: { branches: { branch: { id: string; name: string; pickup_enabled: boolean; delivery_enabled: boolean }; variants: { variant_id: string; available_in_branch: boolean; in_stock: boolean; available: number }[] }[] } }>(`/products/${p!.id}/availability`)).data.branches });
 
@@ -139,24 +161,19 @@ export default function Product() {
   const canBuy = !!variant && variant.in_stock && variant.available_in_branch && p.purchasable;
   const liked = wl.has(p.id);
   const low = canBuy && variant!.available_quantity > 0 && variant!.available_quantity <= 5;
-  const productHref = `${location.origin}/products/${p.slug}`;
+  const productHref = productShareUrl(location.origin, p.slug); // the plain link: no query, nothing about the person sharing
 
   const add = async (buyNow = false) => {
     if (!variant) { toast.push(t('product.choose_options'), 'error'); return; }
     setAdding(true);
     try {
       // "Add to cart" opens the cart panel over this page; "Buy now" skips it and goes to checkout once the server has the item.
-      await cart.add({ id: p.id, slug: p.slug, name: p.name, brand: p.brand, image: images[0]?.thumb_url ?? p.image?.thumb_url }, variant, qty, { open: !buyNow });
+      await cart.add({ id: p.id, slug: p.slug, name: p.name, brand: p.brand, image: images[0]?.thumb_url ?? p.image?.thumb_url, assembly_fee: p.assembly_fee }, variant, qty, { open: !buyNow, assembly: assembly && assemblyOn });
       if (buyNow) { await cart.flush(); nav('/checkout'); }
     } catch { /* toast shown by cart */ } finally { setAdding(false); }
   };
   const share = async () => {
     try { if (navigator.share) await navigator.share({ title: p.name, url: productHref }); else { await navigator.clipboard.writeText(productHref); toast.push(t('product.link_copied')); } } catch { /* cancelled */ }
-  };
-  const notify = async () => {
-    if (!user) return authModal.open({ reason: t('product.notify_reason') });
-    if (!variant) return;
-    try { await post('/me/stock-alerts', { variant_id: variant.id, type: 'back_in_stock', branch_id: branchId || undefined }); toast.push(t('product.notify_ok')); } catch (e) { toast.push(e instanceof ApiError ? e.message : t('error.generic'), 'error'); }
   };
 
   // While a deal is live the offer is the deal price, valid until the deal ends.
@@ -199,6 +216,15 @@ export default function Product() {
               : <span className="text-danger">{t('product.out_of_stock')}</span>}
           </div>
 
+          {assemblyOn && assemblyFee && <AssemblyChoice fee={assemblyFee} checked={assembly} onChange={setAssembly} className="mt-5" />}
+
+          {canBuy && (deliveryPromise.data || pickupPromise.data || deliveryPromise.isLoading) && (
+            <div className="mt-5 space-y-2" data-testid="product-promise">
+              <PromiseNote promise={deliveryPromise.data} loading={deliveryPromise.isLoading} compact />
+              <PromiseNote promise={pickupPromise.data} compact />
+            </div>
+          )}
+
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <QtyStepper value={qty} onChange={setQty} max={stockMax} />
             <Button size="lg" className="min-w-0 flex-1" disabled={!canBuy} loading={adding} onClick={() => add(false)}>{t('product.add_to_cart')}</Button>
@@ -208,7 +234,9 @@ export default function Product() {
             <Button variant="brass" size="lg" block disabled={!canBuy} onClick={() => add(true)}>{t('product.buy_now')}</Button>
             <button onClick={share} aria-label={t('product.share')} className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full border border-line bg-paper hover:border-primary"><Share2 size={19} /></button>
           </div>
-          {variant && !canBuy && <button onClick={notify} className="mt-4 flex items-center gap-2 text-sm font-medium text-brass-deep hover:underline"><Bell size={15} />{t('product.notify')}</button>}
+          <a href={whatsappShareHref(productShareText({ name: p.name, variantName: variant?.name || null, price: (dp ? dp.price : price.final).formatted }, { intro: t('share.product_intro'), price: t('share.price', { price: (dp ? dp.price : price.final).formatted }) }, productHref))}
+            target="_blank" rel="noopener noreferrer" data-testid="share-whatsapp" className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full text-sm font-medium text-ink-soft hover:text-ink"><MessageCircle size={17} strokeWidth={1.7} aria-hidden="true" />{t('share.whatsapp')}</a>
+          <StockAlertButtons variantId={variant?.id} canBuy={canBuy} className="mt-4" />
 
           {/* Fulfilment promises */}
           <ul className="mt-8 grid gap-3 rounded-3xl border border-line bg-paper p-5 text-sm">

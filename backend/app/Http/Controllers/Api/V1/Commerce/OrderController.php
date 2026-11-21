@@ -11,17 +11,18 @@ use App\Domain\Orders\Services\InvoiceService;
 use App\Domain\Orders\Services\OrderPresenter;
 use App\Domain\Orders\Services\OrderProgress;
 use App\Domain\Orders\Services\OrderService;
+use App\Domain\Orders\Services\ReturnClaimPresenter;
+use App\Domain\Orders\Services\ReturnClaims;
 use App\Domain\Payments\Models\Payment;
 use App\Domain\Payments\Services\PaymentService;
 use App\Http\Controllers\Api\V1\ApiController;
 use App\Support\BusinessTime;
-use App\Support\DocumentNumber;
 use App\Support\DomainException;
 use App\Support\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 /** @tags Orders */
 class OrderController extends ApiController
@@ -130,37 +131,21 @@ class OrderController extends ApiController
         return response()->json(['data' => $pass + ['branch' => ['id' => $f->branch->id, 'name' => $f->branch->localized('name')], 'fulfillment_number' => $f->number]]);
     }
 
-    public function requestReturn(Request $request, string $id): JsonResponse
+    /**
+     * Send a return or damage claim (JSON, or multipart with `photos[]` up to five). A damaged or wrong item needs at least one photo. The same
+     * `Idempotency-Key` (or an identical claim a moment later) answers with the claim already made (200) instead of a second one.
+     */
+    public function requestReturn(Request $request, ReturnClaims $claims, ReturnClaimPresenter $presenter, string $id): JsonResponse
     {
         $order = $this->own($id);
         abort_unless(OrderPresenter::returnsEnabled(), 403, __('checkout.returns_disabled'));
         $data = $request->validate(['items' => 'required|array|min:1|max:50', 'items.*.order_item_id' => 'required|uuid|distinct', 'items.*.quantity' => 'required|integer|min:1|max:100000',
-            'reason_code' => 'required|in:damaged,wrong_item,not_as_described,changed_mind,other', 'reason' => 'nullable|string|max:1000']);
+            'reason_code' => ['required', Rule::in([...ReturnRequest::TYPES, ...ReturnRequest::LEGACY_TYPES])], 'reason' => 'nullable|string|max:500',
+            'photos' => 'nullable|array|max:'.ReturnRequest::MAX_PHOTOS, 'photos.*' => 'file|mimetypes:image/jpeg,image/png,image/webp|max:8192']);
 
-        // Under the order's row lock, counting what earlier open requests already claim: a double submit or a second
-        // request can never ask to return more than was handed over.
-        $rr = DB::transaction(function () use ($order, $data) {
-            Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
-            $order->load('items.fulfillment');
-            $claimed = [];
-            foreach (ReturnRequest::where('order_id', $order->id)->whereIn('status', ['requested', 'approved'])->get() as $open) {
-                foreach ((array) $open->items as $line) {
-                    $claimed[$line['order_item_id'] ?? ''] = ($claimed[$line['order_item_id'] ?? ''] ?? 0) + (int) ($line['quantity'] ?? 0);
-                }
-            }
-            $branchId = null;
-            foreach ($data['items'] as $line) {
-                $item = $order->items->firstWhere('id', $line['order_item_id']);
-                abort_unless($item && OrderPresenter::returnWindowOpen($item->fulfillment)
-                    && $line['quantity'] <= $item->quantity_handed_over - $item->quantity_returned - ($claimed[$item->id] ?? 0), 422, __('checkout.return_not_allowed'));
-                $branchId ??= $item->branch_id;
-            }
+        $result = $claims->submit($order, $this->user(), $data, array_values($request->file('photos', [])), $request->header('Idempotency-Key'));
 
-            return ReturnRequest::create(['number' => DocumentNumber::make('RT'), 'order_id' => $order->id, 'user_id' => $this->user()->id, 'branch_id' => $branchId,
-                'reason_code' => $data['reason_code'], 'reason' => $data['reason'] ?? null, 'items' => $data['items']]);
-        });
-
-        return response()->json(['data' => ['id' => $rr->id, 'number' => $rr->number, 'status' => $rr->status]], 201);
+        return response()->json(['data' => $presenter->detail($result['claim']->fresh())], $result['replayed'] ? 200 : 201);
     }
 
     private function own(string $id): Order

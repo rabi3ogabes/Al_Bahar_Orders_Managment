@@ -6,6 +6,7 @@ use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderInvoice;
 use App\Domain\Orders\Models\OrderItem;
 use App\Domain\Orders\Models\OrderRevision;
+use App\Domain\Orders\Models\SubstitutionRequest;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -72,19 +73,25 @@ class InvoiceService
             'issued_at' => now(),
             'snapshot' => [
                 'order' => $order->only(['number', 'placed_at', 'payment_method', 'payment_status', 'fulfillment_type', 'currency', 'subtotal', 'discount_total',
-                    'delivery_fee_total', 'service_fee_total', 'tax_total', 'loyalty_discount', 'grand_total', 'paid_total', 'refunded_total', 'customer_name',
+                    'delivery_fee_total', 'service_fee_total', 'assembly_fee_total', 'tax_total', 'loyalty_discount', 'grand_total', 'paid_total', 'refunded_total', 'customer_name',
                     'customer_phone', 'customer_email', 'address_snapshot', 'tax_snapshot']),
                 // The part of the delivery fee that comes from bulky products (the invoice shows it as a sub-line under Delivery); "0.00" when none.
                 'extra_delivery_fee' => $order->extraDeliveryFee()->toDecimal(),
                 // Only what the customer receives: lines the branch removed or swapped out are listed under "Order changes" instead.
                 'items' => $order->items->filter(fn (OrderItem $i) => $i->quantity > 0)->map(fn (OrderItem $i) => $i->only(['sku', 'name_en', 'name_ar', 'variant_name_en', 'variant_name_ar', 'quantity', 'unit_final_price',
-                    'discount_amount', 'tax_amount', 'line_total', 'adjustment_kind', 'original_quantity']) + [
+                    'discount_amount', 'tax_amount', 'line_total', 'assembly_fee', 'assembly_total', 'adjustment_kind', 'original_quantity']) + [
                         'replaces_name_en' => $i->replaces_order_item_id ? $ids->get($i->replaces_order_item_id)?->name_en : null,
                         'replaces_name_ar' => $i->replaces_order_item_id ? $ids->get($i->replaces_order_item_id)?->name_ar : null,
                     ])->values()->all(),
                 'branches' => $order->fulfillments->map(fn ($f) => ['number' => $f->number, 'name_en' => $f->branch->name_en, 'name_ar' => $f->branch->name_ar])->all(),
                 'discounts' => $order->coupons->map->only(['label_en', 'label_ar', 'code', 'discount_amount'])->all(),
                 'company' => ['name_en' => config('platform.brand.name_en'), 'name_ar' => config('platform.brand.name_ar')],
+                // What the customer answered about a replacement (accepted, declined, or no answer in time), so the revised invoice records it.
+                'answers' => SubstitutionRequest::where('order_id', $order->id)->whereIn('status', ['accepted', 'declined', 'expired_removed', 'expired_kept'])
+                    ->with(['original', 'replacement'])->orderBy('answered_at')->get()->map(fn (SubstitutionRequest $a) => [
+                        'status' => $a->status, 'at' => $a->answered_at?->toIso8601String(), 'original_en' => $a->original?->name_en, 'original_ar' => $a->original?->name_ar,
+                        'replacement_en' => $a->replacement?->name_en, 'replacement_ar' => $a->replacement?->name_ar,
+                    ])->all(),
                 'changes' => $order->revisions->map(fn (OrderRevision $r) => [
                     'number' => $r->number, 'at' => $r->created_at?->toIso8601String(), 'reason_code' => $r->reason_code, 'note' => $r->note,
                     'branch_name_en' => $r->branch?->name_en, 'branch_name_ar' => $r->branch?->name_ar,

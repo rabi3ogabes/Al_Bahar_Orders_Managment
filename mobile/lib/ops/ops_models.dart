@@ -92,7 +92,14 @@ class OpsAddress {
 /// delivered (cancelled units are already left out); there are no prices.
 @immutable
 class OpsItem {
-  const OpsItem({required this.id, required this.name, required this.quantity, this.variantName, this.sku});
+  const OpsItem({
+    required this.id,
+    required this.name,
+    required this.quantity,
+    this.variantName,
+    this.sku,
+    this.assemblyOrdered = false,
+  });
 
   factory OpsItem.fromJson(JsonMap j) => OpsItem(
     id: asString(j['id']),
@@ -100,6 +107,7 @@ class OpsItem {
     variantName: asStringOrNull(j['variant_name']),
     sku: asStringOrNull(j['sku']),
     quantity: asInt(j['quantity'], 1),
+    assemblyOrdered: asBool(j['assembly_ordered']),
   );
 
   /// The list from a response; an older server that has no `items` gives an empty list (screens then show the count).
@@ -110,6 +118,9 @@ class OpsItem {
   final String? variantName;
   final String? sku;
   final int quantity;
+
+  /// The customer paid for assembly and installation at the door for this line: the branch sees it when it prepares the parcel.
+  final bool assemblyOrdered;
 }
 
 /// An empty or blank second number is "none".
@@ -385,6 +396,27 @@ class StaffOverview {
   static int _atLeastZero(int n) => n < 0 ? 0 : n;
 }
 
+/// Replacements the customer was asked about and has not answered (`waiting_for_customer` of a queue row): how many, since when and when the first
+/// one runs out. While it lasts the part cannot be marked ready (the rest can still be prepared).
+@immutable
+class WaitingForCustomer {
+  const WaitingForCustomer({required this.count, this.since, this.deadlineAt});
+
+  static WaitingForCustomer? maybeFrom(Object? json) {
+    final m = asMapOrNull(json);
+    if (m == null) return null;
+    final n = asInt(m['count']);
+    return n < 1 ? null : WaitingForCustomer(count: n, since: asDate(m['since']), deadlineAt: asDate(m['deadline_at']));
+  }
+
+  final int count;
+  final DateTime? since;
+  final DateTime? deadlineAt;
+
+  /// Whole seconds until the first question runs out, never below zero; null when the server did not say.
+  int? secondsLeft(DateTime now) => deadlineAt?.difference(now).inSeconds.clamp(0, 1 << 30);
+}
+
 /// A delivery order in the branch queue.
 @immutable
 class QueueOrder {
@@ -413,6 +445,7 @@ class QueueOrder {
     this.paymentStatus = '',
     this.amountDue = '0.00',
     this.pickup,
+    this.waiting,
   });
 
   factory QueueOrder.fromJson(JsonMap j) {
@@ -443,6 +476,7 @@ class QueueOrder {
       paymentStatus: asString(j['payment_status']),
       amountDue: asString(j['amount_due'], '0.00'),
       pickup: PickupPass.maybeFrom(j['pickup']),
+      waiting: WaitingForCustomer.maybeFrom(j['waiting_for_customer']),
     );
   }
 
@@ -502,6 +536,7 @@ class QueueOrder {
     paymentStatus: paymentStatus,
     amountDue: amountDue,
     pickup: pickup,
+    waiting: waiting,
   );
 
   /// `delivery` or `pickup` (an older server sends only deliveries).
@@ -518,6 +553,9 @@ class QueueOrder {
   /// What is still to be collected at the counter (a pickup paid at pickup); `0.00` when nothing is.
   final String amountDue;
   final PickupPass? pickup;
+
+  /// Replacements the customer has not answered yet; null when none (and from an older server).
+  final WaitingForCustomer? waiting;
 
   bool get isPickup => type == 'pickup';
   bool get cancellationOpen => cancellation?.open ?? false;

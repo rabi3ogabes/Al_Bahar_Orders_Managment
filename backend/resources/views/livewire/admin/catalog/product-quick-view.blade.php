@@ -66,6 +66,10 @@
         </section>
     @endif
 
+    @if (($waiting['back_in_stock'] + $waiting['price_drop']) > 0)
+        <div class="flex flex-wrap gap-2">@include('livewire.admin.catalog.partials.waiting-badges', ['waiting' => $waiting])</div>
+    @endif
+
     <section class="grid gap-2 sm:grid-cols-2">
         <a href="{{ route('admin.products.edit', ['product' => $product, 'tab' => 'variants']) }}" wire:navigate class="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-sand-200/70 px-4 py-2.5 text-sm transition hover:border-brass-400 dark:border-ink-700">
             <span>{{ __('catalog_admin.variants') }}</span><span class="badge-neutral tabular-nums">{{ $variantCount }}</span>

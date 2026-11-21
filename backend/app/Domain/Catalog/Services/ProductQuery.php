@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\DB;
  */
 class ProductQuery
 {
-    public function __construct(private readonly ProductSearch $search) {}
+    public function __construct(private readonly ProductSearch $search, private readonly RoomService $rooms) {}
 
     /** @return Builder<Product> */
     public function build(array $f, ?string $branchId): Builder
@@ -31,6 +31,9 @@ class ProductQuery
 
         if (! empty($f['category_id']) && ($category = Category::find($f['category_id']))) {
             $q->whereIn('products.category_id', $category->descendantAndSelfIds());
+        }
+        if (! empty($f['room'])) {
+            $this->rooms->scope($q, (string) $f['room']); // "Shop by room": a room's categories and tags (an unknown room matches nothing)
         }
         if (! empty($f['brand_id'])) {
             $q->whereIn('products.brand_id', (array) $f['brand_id']);

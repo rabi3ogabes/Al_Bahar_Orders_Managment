@@ -3,6 +3,7 @@
 /** Orders, deliveries and money: the rules that keep goods, cash and statuses in step (docs/operations/DISPATCH.md). */
 return [
     'errors' => [
+        'substitution_pending' => 'This part is waiting for the customer to answer about a replacement. You can keep preparing the rest; it can be marked ready once they answer or the time is up.',
         'delivery_cancelled' => 'This delivery was cancelled. Do not pick it up or deliver it.',
         'order_partly_handed_over' => 'Part of this order has already left the branch, so it cannot be cancelled as a whole. Cancel the parts still at the branch one by one, or record a return for what was handed over.',
         'cancellation_pending' => 'The customer asked to cancel this order and a manager has not decided yet. Hand-over is on hold until the request is approved or declined.',

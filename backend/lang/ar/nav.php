@@ -53,6 +53,7 @@ return [
     'app_footer' => 'شريط التنقل السفلي',
     'page_background' => 'خلفية الصفحات',
     'banners' => 'بانرات الصفحة الرئيسية',
+    'rooms' => 'تسوّق حسب الغرفة',
     'pages' => 'الصفحات',
     'notification_templates' => 'قوالب الإشعارات',
     'notification_rules' => 'التحكم بالإشعارات',

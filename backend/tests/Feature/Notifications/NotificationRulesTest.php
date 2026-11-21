@@ -166,12 +166,12 @@ it('never adds a send the customer opted out of or never agreed to', function ()
     $u = User::factory()->create(['marketing_consent_at' => null]);
     NotificationPreference::create(['user_id' => $u->id, 'channel' => 'push', 'category' => 'transactional', 'is_enabled' => false]);
     $this->rules->set('order.processing', true, ['push' => true, 'sms' => true]);
-    $this->rules->set('stock.back_in_stock', true, ['email' => true]);
+    $this->rules->set('stock.price_drop', true, ['email' => true]);
 
     // Push is opted out: the rule cannot bring it back. SMS is allowed by default for transactional messages.
     expect(($this->notify)($u, 'order.processing'))->toBe(['in_app', 'sms'])
-        // No marketing consent: nothing goes out whatever the rules say.
-        ->and(($this->notify)($u, 'stock.back_in_stock'))->toBe([]);
+        // No marketing consent: nothing goes out whatever the rules say. (A back-in-stock alert is different: the customer asked for it, see StockAlertsTest.)
+        ->and(($this->notify)($u, 'stock.price_drop'))->toBe([]);
 });
 
 it('does nothing for a customer who is not active, with or without rules', function () {

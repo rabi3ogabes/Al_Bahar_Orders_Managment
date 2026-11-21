@@ -8,6 +8,7 @@ import 'package:albahar_customer/core/utils/qatar_time.dart';
 import 'package:albahar_customer/core/widgets/app_button.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/fresh.dart';
+import 'package:albahar_customer/features/alerts/presentation/alerts_screen.dart';
 import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
 import 'package:albahar_customer/features/branches/presentation/branches_screen.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
@@ -60,6 +61,12 @@ class AccountScreen extends ConsumerWidget {
           l10n.myWishlist,
           '/wishlist',
           open: () => unawaited(showWishlistPanel(context)),
+        ),
+        row(
+          Icons.notifications_active_outlined,
+          l10n.alertsTitle,
+          '/account',
+          open: () => unawaited(showAlertsPanel(context)),
         ),
         row(Icons.gavel_rounded, l10n.myAuctions, '/my-auctions'),
         row(

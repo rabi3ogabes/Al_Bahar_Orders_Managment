@@ -18,6 +18,7 @@ use App\Domain\Orders\Services\OrderAdjustmentService;
 use App\Domain\Payments\Models\Payment;
 use App\Domain\Payments\Models\Refund;
 use App\Domain\Payments\Services\RefundService;
+use App\Domain\Settings\Services\Settings;
 use App\Support\Money;
 use Illuminate\Support\Str;
 
@@ -136,6 +137,7 @@ it('lets a replacement take fewer units than the line it replaces, never more', 
 });
 
 it('applies every kind of change together in one revision', function () {
+    app(Settings::class)->set('substitutions.consent_enabled', false);   // these tests are about the change itself; the question to the customer has its own tests
     $a = adjustmentWorld(['qty' => [3, 2]]); // 3000 + 500 + 15 + 10 = 3525
     [, $v] = substituteFor($a->w, '100.00');
     $r = postAdjust($a, [
@@ -384,6 +386,7 @@ function adjustmentFootprint(object $a): array
 }
 
 it('answers an identical repeat of an applied request with the original result, writing and telling nobody again', function () {
+    app(Settings::class)->set('substitutions.consent_enabled', false);   // these tests are about the change itself; the question to the customer has its own tests
     $a = adjustmentWorld(['payment' => 'sadad']);
     [, $v] = substituteFor($a->w, '100.00');
     $changes = [['order_item_id' => $a->l1->id, 'action' => 'reduce', 'new_quantity' => 1], ['order_item_id' => $a->l2->id, 'action' => 'replace', 'variant_id' => $v->id, 'quantity' => 1]];

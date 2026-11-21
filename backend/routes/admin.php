@@ -93,6 +93,7 @@ Route::get('support', Admin\Marketing\SupportIndex::class)->middleware('permissi
 // ── Content ───────────────────────────────────────────────────────────────────
 Route::get('homepage', Admin\Content\HomepageIndex::class)->middleware('permission:cms.view')->name('homepage.index');
 Route::get('banners', Admin\Content\BannerIndex::class)->middleware('permission:cms.view')->name('banners.index');
+Route::get('rooms', Admin\Content\RoomIndex::class)->middleware('permission:cms.view')->name('rooms.index');
 Route::get('appearance', Admin\Content\ThemeIndex::class)->middleware('permission:cms.view')->name('appearance.index');
 Route::get('appearance/designs', Admin\Content\DesignIndex::class)->middleware('permission:cms.view')->name('appearance.designs');
 Route::get('appearance/footer', Admin\Content\AppFooterIndex::class)->middleware('permission:cms.view')->name('appearance.footer');

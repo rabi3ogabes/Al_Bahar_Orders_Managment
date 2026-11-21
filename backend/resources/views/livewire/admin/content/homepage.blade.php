@@ -1,5 +1,5 @@
 @php
-    $icons = ['banners' => 'image', 'categories' => 'layers', 'featured_products' => 'star', 'new_arrivals' => 'sparkles', 'best_sellers' => 'chart', 'recommended' => 'gift',
+    $icons = ['banners' => 'image', 'categories' => 'layers', 'rooms' => 'home', 'featured_products' => 'star', 'new_arrivals' => 'sparkles', 'best_sellers' => 'chart', 'recommended' => 'gift',
         'product_collection' => 'sofa', 'brands' => 'crown', 'promotions' => 'percent', 'upcoming_auctions' => 'calendar', 'live_auctions' => 'gavel'];
     $now = now();
 @endphp

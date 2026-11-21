@@ -127,7 +127,8 @@
                 @endphp
                 <td><div class="name">{{ $primary }}</div>@if ($variant)<div class="muted">{{ $variant }}</div>@endif @if ($second && $second !== $primary)<div class="muted">{{ $second }}</div>@endif
                     @if ($kind === 'reduced' && $was > (int) $i['quantity'])<div class="small" style="color:#8a6a2f">Reduced from {{ $was }} <span class="arl">{{ $ar('كان '.$was) }}</span></div>@endif
-                    @if ($kind === 'replacement' && $replacesName)<div class="small" style="color:#8a6a2f">Replaces: {{ $leadAr ? $ar($replacesName) : $replacesName }} <span class="arl">{{ $ar('بديل') }}</span></div>@endif</td>
+                    @if ($kind === 'replacement' && $replacesName)<div class="small" style="color:#8a6a2f">Replaces: {{ $leadAr ? $ar($replacesName) : $replacesName }} <span class="arl">{{ $ar('بديل') }}</span></div>@endif
+                    @if ((float) ($i['assembly_total'] ?? 0) > 0)<div class="small" style="color:#8a6a2f">Assembly and installation: {{ $m($i['assembly_total']) }} <span class="arl">{{ $ar('التركيب والتجهيز') }}</span></div>@endif</td>
                 <td>{{ $i['sku'] }}</td><td class="r">{{ $i['quantity'] }}</td><td class="r">{{ $m($i['unit_final_price']) }}</td>
                 <td class="r">{{ (float) $i['discount_amount'] > 0 ? $m($i['discount_amount']) : '—' }}</td><td class="r"><b>{{ $m($i['line_total']) }}</b></td>
             </tr>
@@ -145,6 +146,7 @@
         @if ((float) ($s['extra_delivery_fee'] ?? 0) > 0)
             <tr><td class="muted small" style="padding-left:16px">{!! $lab('of which extra delivery fee for bulky items', 'منها رسوم توصيل إضافية للقطع الكبيرة') !!}</td><td class="r muted small">{{ $m($s['extra_delivery_fee']) }}</td></tr>
         @endif
+        @if ((float) ($o['assembly_fee_total'] ?? 0) > 0)<tr><td>{!! $lab('Assembly and installation', 'التركيب والتجهيز') !!}</td><td class="r">{{ $m($o['assembly_fee_total']) }}</td></tr>@endif
         @if ((float) $o['service_fee_total'] > 0)<tr><td>{!! $lab('Service fees', 'رسوم الخدمة') !!}</td><td class="r">{{ $m($o['service_fee_total']) }}</td></tr>@endif
         <tr><td>{!! $lab('Tax ('.($o['tax_snapshot']['rate_percent'] ?? 0).'%)', 'الضريبة') !!}</td><td class="r">{{ $m($o['tax_total']) }}</td></tr>
         <tr class="grand"><td>{!! $lab('Total', 'الإجمالي') !!}</td><td class="r">{{ $m($o['grand_total']) }}</td></tr>
@@ -173,6 +175,13 @@
                     <div class="small muted">{!! $lab('Reason', 'السبب') !!}: {{ $leadAr ? $ar($reason) : $reason }}@if (! empty($c['note'])) &nbsp;·&nbsp; “{{ $leadAr ? $ar($c['note']) : $c['note'] }}”@endif</div>
                     <div class="small" style="margin-top:2px">{!! $lab('Total', 'الإجمالي') !!}: {{ $m($c['before_total']) }} &rarr; <b>{{ $m($c['after_total']) }}</b> <span class="minus">({{ $m($c['difference']) }})</span></div>
                 </div>
+            @endforeach
+            @foreach ($s['answers'] ?? [] as $a)
+                @php
+                    $what = ['accepted' => ['Replacement accepted by the customer', 'قَبِل العميل البديل'], 'declined' => ['Replacement declined by the customer', 'رفض العميل البديل'],
+                        'expired_removed' => ['No answer in time: replacement removed', 'لم يصل رد في الوقت المحدد: أُزيل البديل'], 'expired_kept' => ['No answer in time: replacement kept', 'لم يصل رد في الوقت المحدد: أُبقي البديل']][$a['status']];
+                @endphp
+                <div class="small" style="margin-top:4px">{!! $lab($what[0], $what[1]) !!}: {{ $leadAr ? $ar($a['original_ar'] ?: $a['original_en']) : $a['original_en'] }} &rarr; {{ $leadAr ? $ar($a['replacement_ar'] ?: $a['replacement_en']) : $a['replacement_en'] }}@if ($a['at']) &nbsp;·&nbsp; {{ \Carbon\CarbonImmutable::parse($a['at'])->setTimezone('Asia/Qatar')->format('d M Y H:i') }}@endif</div>
             @endforeach
         </div>
     @endif

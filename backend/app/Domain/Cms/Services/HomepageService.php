@@ -9,6 +9,7 @@ use App\Domain\Catalog\Models\Brand;
 use App\Domain\Catalog\Models\Category;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Catalog\Services\CatalogPresenter;
+use App\Domain\Catalog\Services\RoomService;
 use App\Domain\Cms\Models\Banner;
 use App\Domain\Cms\Models\HomepageSection;
 use App\Domain\Marketing\Models\Promotion;
@@ -29,7 +30,7 @@ class HomepageService
 
     private const REVISION_KEY = 'home:revision';
 
-    public function __construct(private readonly CatalogPresenter $catalog, private readonly AuctionPresenter $auctions, private readonly BannerLinks $links) {}
+    public function __construct(private readonly CatalogPresenter $catalog, private readonly AuctionPresenter $auctions, private readonly BannerLinks $links, private readonly RoomService $rooms) {}
 
     /**
      * Drops every cached copy of the home feed (all languages, branches and platforms) at once: the cache key carries this revision.
@@ -93,6 +94,8 @@ class HomepageService
             'banners' => $slides,
             'categories' => Category::active()->with('translations')->when($ids, fn ($q) => $q->whereIn('id', $ids), fn ($q) => $q->whereNull('parent_id'))
                 ->orderBy('sort_order')->limit($limit)->get()->map(fn ($c) => ['id' => $c->id, 'slug' => $c->slug, 'name' => $c->trans('name'), 'image_url' => $this->url($c->image_path), 'icon_url' => $this->url($c->icon_path)])->all(),
+            // "Shop by room": the rooms that have products here (the tiles; a room with nothing in it is left out), see RoomService.
+            'rooms' => $this->rooms->tiles($branch?->id, $limit),
             'featured_products' => $products(Product::query()->when($ids, fn ($q) => $q->whereIn('id', $ids), fn ($q) => $q->where('is_featured', true))),
             'new_arrivals' => $products(Product::query()->where('is_new_arrival', true)->orderByDesc('published_at')),
             'best_sellers' => $products(Product::query()->where(fn ($q) => $q->where('is_bestseller', true)->orWhere('sales_count', '>', 0))->orderByDesc('sales_count')),

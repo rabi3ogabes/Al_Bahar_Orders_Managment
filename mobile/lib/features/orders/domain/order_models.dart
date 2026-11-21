@@ -3,8 +3,13 @@ import 'package:albahar_customer/core/models/money.dart';
 import 'package:albahar_customer/core/utils/json.dart';
 import 'package:albahar_customer/features/checkout/domain/checkout_models.dart';
 import 'package:albahar_customer/features/deals/domain/deal_lines.dart';
+import 'package:albahar_customer/features/orders/domain/claim_models.dart';
+import 'package:albahar_customer/features/orders/domain/substitution_models.dart';
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
+
+export 'package:albahar_customer/features/orders/domain/claim_models.dart';
+export 'package:albahar_customer/features/orders/domain/substitution_models.dart';
 
 /// Row in `GET /orders` (`OrderPresenter::summary`).
 @immutable
@@ -150,6 +155,7 @@ class OrderItem {
     this.adjustment,
     this.deal,
     this.returnableQuantity,
+    this.assemblyAmount,
   });
   factory OrderItem.fromJson(JsonMap json) => OrderItem(
     id: asString(json['id']),
@@ -167,7 +173,13 @@ class OrderItem {
     adjustment: ItemAdjustment.maybe(json['adjustment']),
     deal: OrderLineDeal.maybe(json['deal']),
     returnableQuantity: asIntOrNull(json['returnable_quantity']),
+    assemblyAmount: _positive(Money.lenient(asMapOrNull(json['assembly'])?['amount'])),
   );
+
+  static Money? _positive(Money? m) => m != null && m.displayValue > 0 ? m : null;
+
+  /// What this line owes for the assembly and installation the customer bought for it (null: none). It follows the line's units.
+  final Money? assemblyAmount;
   final String id;
   final String? productId;
   final String? variantId;
@@ -441,47 +453,6 @@ class Fulfillment {
   bool get isOnTheWay => status == 'dispatched' || status == 'out_for_delivery';
 }
 
-/// The customer's latest return request of an order (`return_request`): where it stands and, once decided, the team's note.
-@immutable
-class ReturnRequestInfo {
-  const ReturnRequestInfo({
-    required this.id,
-    required this.number,
-    required this.status,
-    this.requestedAt,
-    this.decidedAt,
-    this.decisionNote,
-  });
-
-  static ReturnRequestInfo? maybe(Object? json) {
-    final m = asMapOrNull(json);
-    if (m == null) return null;
-    return ReturnRequestInfo(
-      id: asString(m['id']),
-      number: asString(m['number']),
-      status: asString(m['status']),
-      requestedAt: asDate(m['requested_at']),
-      decidedAt: asDate(m['decided_at']),
-      decisionNote: _trimmed(m['decision_note']),
-    );
-  }
-
-  final String id;
-  final String number;
-
-  /// `requested`, `approved`, `rejected`, `received`, `refunded` or `closed` (another word from a newer server reads as "other").
-  final String status;
-  final DateTime? requestedAt;
-  final DateTime? decidedAt;
-
-  /// What the team wrote when it decided, if anything.
-  final String? decisionNote;
-
-  static const known = {'requested', 'approved', 'rejected', 'received', 'refunded', 'closed'};
-  bool get isRejected => status == 'rejected';
-  bool get isOpen => status == 'requested' || status == 'approved';
-}
-
 @immutable
 class Order {
   const Order({
@@ -502,6 +473,9 @@ class Order {
     this.canReturn = false,
     this.canReview = false,
     this.returnRequest,
+    this.returns = const [],
+    this.returnWindowUntil,
+    this.substitutions = const [],
     this.seq = 0,
     this.wasAdjusted = false,
     this.revisions = const [],
@@ -532,6 +506,9 @@ class Order {
     canReturn: asBool(json['can_return']),
     canReview: asBool(json['can_review']),
     returnRequest: ReturnRequestInfo.maybe(json['return_request']),
+    returns: [for (final r in asList(json['returns'])) ?ReturnRequestInfo.maybe(r)],
+    returnWindowUntil: asDate(asMapOrNull(json['return_window'])?['until']),
+    substitutions: mapList(json['substitution_requests'], SubstitutionOffer.fromJson),
     wasAdjusted: asBoolOrNull(json['was_adjusted']) ?? revisions.isNotEmpty,
     revisions: revisions,
     discounts: mapList(json['discounts'], QuoteDiscount.fromJson),
@@ -558,6 +535,15 @@ class Order {
 
   /// The latest return request of this order; null when there was none (and from a server that does not send it).
   final ReturnRequestInfo? returnRequest;
+
+  /// Every claim of this order, newest first (an older server sends none: use [returnRequest]).
+  final List<ReturnRequestInfo> returns;
+
+  /// The last day a problem can be reported (the claim window), or null when nothing can be reported now.
+  final DateTime? returnWindowUntil;
+
+  /// Replacements the branch offered that the customer is asked about, newest first (empty from an older server).
+  final List<SubstitutionOffer> substitutions;
 
   /// The order's version when it was read (see SeqGate).
   final int seq;
@@ -609,6 +595,9 @@ class Order {
       canReturn: canReturn,
       canReview: canReview || status == 'completed',
       returnRequest: returnRequest,
+      returns: returns,
+      returnWindowUntil: returnWindowUntil,
+      substitutions: substitutions,
       seq: seq,
       wasAdjusted: wasAdjusted,
       revisions: revisions,
@@ -697,7 +686,6 @@ class PickupPass {
 
 /// Cancellation reason codes (subset of the backend's list, which also has `payment_issue`).
 const cancelReasonCodes = ['changed_mind', 'ordered_by_mistake', 'delivery_too_long', 'found_better_price', 'other'];
-const returnReasonCodes = ['damaged', 'wrong_item', 'not_as_described', 'changed_mind', 'other'];
 
 /// Where the driver is right now (`GET /orders/{id}/tracking`); live moves arrive on `private-orders.{id}`.
 ///

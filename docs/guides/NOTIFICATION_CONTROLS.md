@@ -127,6 +127,9 @@ All go through `NotificationService::notify` (the gate: `NotificationRules::enab
 | `order.completed` | Delivered or collected | customer | push, in-app + live card | `orderStatusChanged` → completed / partially_cancelled |
 | `order.cancelled` | Order cancelled | customer | push, in-app, email + live card | `orderStatusChanged` → cancelled |
 | `order.items_changed` | Order items changed | customer | push, in-app | `OrderAdjustmentService::notifyCustomer` |
+| `order.substitution_offer` | Replacement to accept | customer | push, in-app | `SubstitutionService::notifyOffers` (replaces `order.items_changed` for that revision; see [RETURNS_AND_SUBSTITUTIONS.md](RETURNS_AND_SUBSTITUTIONS.md)) |
+| `order.substitution_kept` | Replacement kept | customer | push, in-app | `SubstitutionService` (no answer in time, fallback *keep*) |
+| `return.received` / `return.under_review` / `return.approved` / `return.rejected` / `return.item_received` | Claim received / under review / approved / not approved / returned item received | customer | received: in-app; the rest: push, in-app | `ReturnClaims::submit`, `ReturnService` (group *Returns and damage claims*) |
 | `payment.link` | Payment link | customer | push, in-app (+ WhatsApp when set up) | `StaffOrderService::sendPaymentLink` (explicit channels) |
 | `payment.succeeded` / `payment.failed` | Payment received / not completed | customer (online payments) | push, in-app | `DomainEventSubscriber::paymentStatusChanged` |
 | `refund.processed` | Refund processed | customer | push, in-app, email | `paymentStatusChanged` (refunded / partially_refunded) |

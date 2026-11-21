@@ -13,6 +13,8 @@ import { FilterPanel } from '../components/ShopFilters';
 import { FilterWindow } from '../components/windows';
 import { patched, productParams, readFilters, toggleAttr } from '../lib/shopQuery';
 import { useAttributeFilters } from '../lib/useAttributeFilters';
+import { useRooms } from '../lib/rooms';
+import { findRoom } from '../lib/roomsCore';
 
 export default function Shop() {
   const { t, num } = useI18n();
@@ -27,15 +29,19 @@ export default function Shop() {
   const brands = useQuery({ queryKey: ['brands'], queryFn: async () => (await get<{ data: Brand[] }>('/brands')).data, staleTime: 10 * 60_000 });
   const f = useMemo(() => readFilters(sp, cats.data ?? [], brands.data ?? []), [sp, cats.data, brands.data]);
   const { cat, brand, q, sort, min: pmin, max: pmax, inStock, onSale, isNew, attrs } = f;
+  // "Shop by room": the room in the URL (its name for the heading and the chip; an unknown or empty room simply has no products).
+  const rooms = useRooms();
+  const room = findRoom(rooms.data, f.room);
+  const roomLabel = room?.name ?? (f.room && !rooms.isLoading ? f.room : '');
   const attrGroups = useAttributeFilters(cat, cats.data ?? []);
-  useDocTitle(cat?.name ?? (q ? `“${q}”` : t('nav.shop')));
+  useDocTitle(cat?.name ?? room?.name ?? (q ? `“${q}”` : t('nav.shop')));
 
   // A category/brand slug in the URL must resolve before we query, otherwise we would flash the unfiltered catalogue.
   const waiting = (!!catSlug && cats.isLoading) || (!!brandSlug && brands.isLoading);
   const unknownFilter = (!!catSlug && !cats.isLoading && !cat) || (!!brandSlug && !brands.isLoading && !brand);
 
   const list = useInfiniteQuery({
-    queryKey: ['products', { q, cat: cat?.id, brand: brand?.id, sort, pmin, pmax, inStock, onSale, isNew, attrs, branchId }],
+    queryKey: ['products', { q, cat: cat?.id, room: f.room, brand: brand?.id, sort, pmin, pmax, inStock, onSale, isNew, attrs, branchId }],
     enabled: !waiting && !unknownFilter,
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => get<Paged<P>>('/products', productParams(f, branchId, pageParam, 24)),
@@ -47,6 +53,7 @@ export default function Shop() {
   const set = (patch: Record<string, string | null>) => setSp(patched(sp, patch), { replace: true });
   const chips: { label: string; clear: () => void }[] = [
     ...(cat ? [{ label: cat.name, clear: () => set({ category: null, attr: null }) }] : []),
+    ...(f.room && roomLabel ? [{ label: roomLabel, clear: () => set({ room: null }) }] : []),
     ...(brand ? [{ label: brand.name, clear: () => set({ brand: null }) }] : []),
     ...(q ? [{ label: `“${q}”`, clear: () => set({ q: null }) }] : []),
     ...(pmin || pmax ? [{ label: `${pmin || '0'} – ${pmax || '∞'} QAR`, clear: () => set({ min: null, max: null }) }] : []),
@@ -63,11 +70,11 @@ export default function Shop() {
 
   return (
     <div className="wrap pb-6 pt-6 md:pt-10">
-      <Breadcrumbs items={[{ to: '/', label: t('nav.home') }, { to: cat ? '/shop' : undefined, label: t('nav.shop') }, ...(cat ? [{ label: cat.name }] : [])]} />
+      <Breadcrumbs items={[{ to: '/', label: t('nav.home') }, { to: cat || room ? '/shop' : undefined, label: t('nav.shop') }, ...(cat ? [{ label: cat.name }] : room ? [{ label: room.name }] : [])]} />
       <div className="mb-8 mt-4 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-[clamp(38px,5vw,60px)] leading-none">{cat?.name ?? (q ? t('shop.results_for', { q }) : t('shop.title'))}</h1>
-          {cat?.description && <p className="mt-3 max-w-2xl text-ink-soft">{cat.description}</p>}
+          <h1 className="text-[clamp(38px,5vw,60px)] leading-none">{cat?.name ?? room?.name ?? (q ? t('shop.results_for', { q }) : t('shop.title'))}</h1>
+          {(cat?.description ?? (cat ? null : room?.description)) && <p className="mt-3 max-w-2xl text-ink-soft">{cat?.description ?? room?.description}</p>}
           {branch && <p className="mt-2 text-[13px] text-muted">{t('shop.showing_for', { branch: branch.name })}</p>}
         </div>
       </div>

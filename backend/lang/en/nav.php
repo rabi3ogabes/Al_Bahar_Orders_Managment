@@ -53,6 +53,7 @@ return [
     'app_footer' => 'App footer',
     'page_background' => 'Page background',
     'banners' => 'Home banners',
+    'rooms' => 'Shop by room',
     'pages' => 'Pages',
     'notification_templates' => 'Notification templates',
     'notification_rules' => 'Notification controls',

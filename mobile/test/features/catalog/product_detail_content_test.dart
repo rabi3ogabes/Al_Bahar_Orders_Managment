@@ -253,13 +253,15 @@ void main() {
       expect(host.requests('POST', '/me/wishlist'), hasLength(1));
     });
 
-    testWidgets('share sends the name and the link', (t) async {
+    testWidgets('share sends the name, the price and the plain link', (t) async {
       final host = await pumpProductPage(t);
       await t.tap(find.byTooltip('Share'));
       await settle(t, 3);
       expect(host.shared, hasLength(1));
       expect(host.shared.single.subject, 'Product p1');
-      expect(host.shared.single.text, startsWith('Product p1\nhttps://'));
+      expect(host.shared.single.text, startsWith('Take a look at this at Al Bahar Home & Living:\n\n*Product p1'));
+      expect(host.shared.single.text, contains('Price: QAR 100.00'));
+      expect(host.shared.single.text, contains('\nhttps://'));
       expect(host.shared.single.text, contains('p-p1'));
       final origin = host.shared.single.sharePositionOrigin;
       expect(origin, isNotNull, reason: 'iPads anchor the share sheet to the button');

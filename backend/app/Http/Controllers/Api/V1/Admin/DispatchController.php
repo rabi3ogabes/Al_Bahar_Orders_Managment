@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Domain\Branches\Models\Branch;
+use App\Domain\Checkout\Support\Assembly;
 use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Fulfillment\Services\DispatchService;
 use App\Domain\Fulfillment\Services\DriverJobPresenter;
@@ -12,6 +13,7 @@ use App\Domain\Orders\Enums\FulfillmentStatus as FS;
 use App\Domain\Orders\Enums\OrderStatus;
 use App\Domain\Orders\Models\OrderFulfillment;
 use App\Domain\Orders\Models\OrderItem;
+use App\Domain\Orders\Services\SubstitutionService;
 use App\Http\Controllers\Api\V1\ApiController;
 use App\Support\AlternatePhone;
 use App\Support\BusinessTime;
@@ -193,8 +195,10 @@ class DispatchController extends ApiController
         $more = $rows->count() > $perPage;
         $rows = $rows->take($perPage);
         $extras = $staff->extras($rows);
+        // Replacements the customer was asked about and has not answered: the part cannot be marked ready until they do (or the time is up).
+        $waiting = app(SubstitutionService::class)->waitingFor($rows->pluck('id')->all());
 
-        return response()->json(['data' => $rows->map(function (OrderFulfillment $f) use ($extras) {
+        return response()->json(['data' => $rows->map(function (OrderFulfillment $f) use ($extras, $waiting) {
             $d = $f->activeDelivery();
 
             return [
@@ -204,6 +208,7 @@ class DispatchController extends ApiController
                 // Only what is still to be prepared and delivered (lines the branch removed or swapped out are not listed); the counters tell the app the order was changed.
                 'items_count' => (int) $f->items->sum(fn ($i) => max(0, (int) $i->quantity - (int) $i->quantity_cancelled)), 'items' => $this->itemRows($f->items),
                 'was_adjusted' => $f->order->wasAdjusted(), 'adjustment_count' => (int) $f->order->adjustment_count, 'can_adjust' => in_array($f->status, [FS::Accepted, FS::Preparing], true),
+                'waiting_for_customer' => $waiting[$f->id] ?? null,
                 'payment_method' => $f->order->payment_method, 'grand_total' => $f->order->grand_total,
                 'scheduled_for' => BusinessTime::iso($f->slot_date ?? null),
                 'delivery' => $d ? ['id' => $d->id, 'status' => $d->status->value, 'driver' => $d->driver ? ['id' => $d->driver->id, 'name' => $d->driver->name] : null] : null,
@@ -303,12 +308,14 @@ class DispatchController extends ApiController
      * `adjustment` says what the branch did to the line (null: nothing). No prices: they are not the driver's business.
      *
      * @param  Collection<int, OrderItem>  $items
-     * @return list<array{id: string, order_item_id: string, name: string, variant_name: ?string, sku: ?string, quantity: int, adjustment: ?array{kind: string, original_quantity: int}}>
+     * @return list<array{id: string, order_item_id: string, name: string, variant_name: ?string, sku: ?string, quantity: int, assembly_ordered: bool, adjustment: ?array{kind: string, original_quantity: int}}>
      */
     private function itemRows($items): array
     {
         return $items->map(fn ($i) => ['id' => $i->id, 'order_item_id' => $i->id, 'name' => $i->name(), 'variant_name' => $i->variantName(), 'sku' => $i->sku,
             'quantity' => max(0, (int) $i->quantity - (int) $i->quantity_cancelled),
+            // The customer paid for assembly and installation at the door for this line: the branch sees it when it prepares the order, the driver when he delivers it.
+            'assembly_ordered' => Assembly::placedFee($i) !== null,
             'adjustment' => $i->adjustment_kind ? ['kind' => $i->adjustment_kind, 'original_quantity' => (int) ($i->original_quantity ?? $i->quantity)] : null])
             ->filter(fn (array $r) => $r['quantity'] > 0)->values()->all();
     }

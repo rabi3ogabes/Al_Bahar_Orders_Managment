@@ -222,12 +222,30 @@ it('decides, receives and refunds a return request', function () {
         ->call('decide', false)->assertHasErrors('note');
     $c->call('decide', true);
     expect($rr->fresh()->status)->toBe('approved');
-    $c->call('receive');
+    // A damaged item is never restocked by itself: the window offers "write off" first, and the manager chooses to put it back.
+    $c->assertSet('stockChoice', 'write_off')->set('stockChoice', 'restock')->call('receive');
     expect($rr->fresh()->status)->toBe('received')->and($item->fresh()->quantity_returned)->toBe(1)->and(stockOf($this->w->a, $this->w->v1)['on_hand'])->toBe(4);
     $c->call('refund');
     expect($rr->fresh()->status)->toBe('refunded')->and($rr->fresh()->refund_id)->not->toBeNull();
     $c->call('close');
     expect($rr->fresh()->status)->toBe('closed');
+});
+
+it('suggests a refund that includes the assembly paid for the returned units', function () {
+    $order = placePickup($this->w);
+    $f = $order->fulfillments->first();
+    $staff = staffWithRole('pickup_employee', $this->w->a);
+    $svc = app(PickupService::class);
+    $r = $svc->markReady($f, $staff);
+    $svc->handover($r, $staff, [], 'Noor', collection: ['tender' => 'cash', 'amount' => $order->grand_total]);
+    $item = $f->items()->where('product_variant_id', $this->w->v1->id)->first();
+    $item->update(['assembly_fee' => '40.00', 'assembly_total' => (string) (40 * $item->quantity).'.00']);
+    $rr = ReturnRequest::create(['number' => DocumentNumber::make('RT'), 'order_id' => $order->id, 'user_id' => $this->w->customer->id, 'branch_id' => $this->w->a->id,
+        'reason_code' => 'damaged', 'items' => [['order_item_id' => $item->id, 'quantity' => 1]]]);
+
+    $this->actingAs($this->mgrA);
+    // 1,000.00 for the unit plus the 40.00 assembly that was paid for it.
+    Livewire::test(ReturnIndex::class)->call('select', $rr->id)->assertSet('refundAmount', '1040.00');
 });
 
 it('masks customer PII unless the viewer may edit customers, and adjusts points with a reason', function () {

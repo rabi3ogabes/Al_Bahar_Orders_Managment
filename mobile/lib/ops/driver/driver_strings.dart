@@ -14,6 +14,7 @@ extension DriverStrings on OpsStrings {
   String get beforeYouGo => _d('Before you go', 'قبل أن تنطلق');
   String get needsTwoPeople => _d('Needs two people', 'يحتاج شخصين');
   String get assemblyRequested => _d('Assembly requested', 'مطلوب تركيب');
+  String get assemblyPaid => _d('Assembly to do: paid by the customer', 'تركيب مطلوب: مدفوع من العميل');
   String get oversizedChip => _d('Oversized', 'حجم كبير');
   String cashChip(String amount) => _d('Cash on delivery ${money(amount)}', 'الدفع عند الاستلام ${money(amount)}');
   String get customerNote => _d('Note from the customer', 'ملاحظة من العميل');

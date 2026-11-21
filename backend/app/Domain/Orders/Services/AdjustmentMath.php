@@ -15,6 +15,8 @@ use App\Support\Money;
  *    original line's discount per unit scaled by that price ratio, so its net price per unit can never be higher than the original's.
  *  - Delivery and service fees are never raised or re-priced by a shortage (the customer is not penalised for it). The one fee that goes down is the
  *    extra delivery fee of a bulky product whose units are gone (OrderAdjustmentService::extraDeliveryAfter): it follows the units, and never rises.
+ *  - Assembly and installation follows its line: the units that are gone take their assembly fee with them (fee per unit as placed x units left), a
+ *    substitute carries none, and it never goes up.
  *  - The total never goes below zero, and loyalty points the new total cannot absorb are handed back (never wasted).
  */
 final class AdjustmentMath
@@ -83,11 +85,15 @@ final class AdjustmentMath
      * below zero; the cash-on-delivery fee is added after that floor. Orders placed today have none ("0.00"): cash on delivery became free, but orders
      * placed before that still carry their own stored `fee_breakdown.cod_fee` and keep adding up exactly as they did.
      *
-     * @param  array{subtotal: Money, item_discount: Money, delivery_fee: Money, delivery_discount: Money, service_fee: Money, cod_fee: Money, tax: Money, loyalty: Money}  $p
+     * @param  array{subtotal: Money, item_discount: Money, delivery_fee: Money, delivery_discount: Money, service_fee: Money, cod_fee: Money, tax: Money, loyalty: Money, assembly?: Money}  $p
+     *                                                                                                                                                                                            `assembly` is the paid assembly and installation of the lines (absent = none)
      */
     public static function grandTotal(array $p): Money
     {
         $base = $p['subtotal']->minus($p['item_discount'])->plus($p['delivery_fee'])->minus($p['delivery_discount'])->plus($p['service_fee'])->plus($p['tax'])->minus($p['loyalty']);
+        if (isset($p['assembly'])) {
+            $base = $base->plus($p['assembly']);
+        }
 
         return ($base->isNegative() ? Money::zero($base->currency) : $base)->plus($p['cod_fee']);
     }

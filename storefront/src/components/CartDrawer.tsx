@@ -54,6 +54,7 @@ function CartFooter() {
       <dl className="mb-1.5 space-y-1">
         <div className="flex items-baseline justify-between"><dt className="text-sm text-muted">{t('cart.subtotal')}</dt><dd className="text-xl font-semibold tabular-nums" aria-live="polite" data-testid="cart-subtotal">{cart.subtotal.formatted}</dd></div>
         {dealSavings && <div className="flex items-baseline justify-between text-sm"><dt className="text-muted">{t('deal.savings')}</dt><dd className="font-semibold tabular-nums text-success">− {dealSavings.formatted}</dd></div>}
+        {cart.assemblyTotal && <div className="flex items-baseline justify-between text-sm"><dt className="text-muted">{t('cart.assembly')}</dt><dd className="font-semibold tabular-nums">+ {cart.assemblyTotal.formatted}</dd></div>}
         <div className="text-sm"><DeliveryFeeRow /></div>
       </dl>
       <CartDealsHint lines={cart.lines} className="mb-2 !text-[12px]" />

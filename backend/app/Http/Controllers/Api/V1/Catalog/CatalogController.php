@@ -11,6 +11,7 @@ use App\Domain\Catalog\Services\CatalogPresenter;
 use App\Domain\Catalog\Services\CategoryService;
 use App\Domain\Catalog\Services\ProductCodeResolver;
 use App\Domain\Catalog\Services\ProductQuery;
+use App\Domain\Catalog\Services\RoomService;
 use App\Domain\Catalog\Services\ScanResultPresenter;
 use App\Domain\Catalog\Services\SearchSuggester;
 use App\Domain\Pricing\Services\PriceResolver;
@@ -47,6 +48,14 @@ class CatalogController extends ApiController
         return response()->json(['data' => [...$this->categoryNode($category), 'children' => $category->children->map(fn ($c) => $this->categoryNode($c)), 'filters' => $filters]]);
     }
 
+    /** "Shop by room": the rooms that have products the shopper can see (at the branch, when one is chosen), in the owner's order. Cached two minutes. */
+    public function rooms(Request $request, RoomService $rooms): JsonResponse
+    {
+        $f = $request->validate(['branch_id' => 'nullable|uuid']);
+
+        return response()->json(['data' => $rooms->tiles($this->branch($f['branch_id'] ?? null)?->id)])->header('Cache-Control', 'public, max-age=60')->header('Vary', 'Accept-Language');
+    }
+
     public function brands(): JsonResponse
     {
         return response()->json(['data' => Brand::where('status', 'active')->orderBy('sort_order')->orderBy('name_en')->get()
@@ -56,7 +65,7 @@ class CatalogController extends ApiController
     public function products(Request $request): JsonResponse
     {
         $f = $request->validate([
-            'q' => 'nullable|string|max:120', 'branch_id' => 'nullable|uuid', 'category_id' => 'nullable|uuid',
+            'q' => 'nullable|string|max:120', 'branch_id' => 'nullable|uuid', 'category_id' => 'nullable|uuid', 'room' => 'nullable|string|max:60',
             'brand_id' => 'nullable|array', 'brand_id.*' => 'uuid', 'attribute_values' => 'nullable|array', 'attribute_values.*' => 'integer',
             'price_min' => 'nullable|numeric|min:0', 'price_max' => 'nullable|numeric|min:0',
             'in_stock' => 'nullable|boolean', 'on_sale' => 'nullable|boolean', 'featured' => 'nullable|boolean',

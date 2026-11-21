@@ -31,6 +31,20 @@ export function slotWindowDates(nowMs: number, days = LOOK_AHEAD_DAYS): { from: 
   return { from, to: addIsoDays(from, days - 1) };
 }
 
+/** The server never offers more than this many days ahead (today included). */
+export const SERVER_HORIZON_DAYS = 30;
+
+/**
+ * The dates to ask for when the items need more days before they can leave (`earliest`, the quote's `earliest_date`): the list starts there, never earlier than
+ * today, and never reaches past what the server offers. `from > to` means nothing can be offered (a lead time longer than the horizon).
+ */
+export function slotRangeFrom(nowMs: number, earliest?: string | null, days = LOOK_AHEAD_DAYS): { from: string; to: string } {
+  const win = slotWindowDates(nowMs, days);
+  const from = earliest && earliest > win.from ? earliest : win.from;
+  const to = [addIsoDays(from, days - 1), addIsoDays(win.from, SERVER_HORIZON_DAYS - 1)].sort()[0];
+  return { from, to };
+}
+
 /** The moment a slot starts: `date` is a Qatar calendar day and `hhmm` a Qatar wall-clock time ("16:00"). */
 export function slotStartMs(date: string, hhmm: string): number {
   const [y, m, d] = date.split('-').map(Number);

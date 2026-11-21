@@ -65,6 +65,15 @@ return [
         'show_split_shipment' => true,
         'service_fee' => '0.00',
         'tax_rate_percent' => '0',               // Qatar: no VAT at time of writing; configurable.
+        // Settings → Checkout & fees. The delivery / pickup date the product page, the cart and the checkout promise (docs/guides/DELIVERY_PROMISE_ASSEMBLY_AND_SHARING.md).
+        // Off: customers see no date and checkout works exactly as before. `same_day_cutoff` (Qatar time) only matters for a branch that publishes no delivery
+        // slots: a branch with slots is decided by its own slot booking cut-off.
+        'promise_enabled' => true,
+        'same_day_cutoff' => '15:00',
+        // Paid assembly and installation: off hides it everywhere and nobody is charged. On (default): only products with an assembly fee offer it.
+        // `assembly_extra_days` are added to the promised delivery date when the order has assembly (0 = no change).
+        'assembly_enabled' => true,
+        'assembly_extra_days' => 0,
         'allocation' => [
             'prefer_selected_branch' => true,
             'prefer_fewest_branches' => true,
@@ -77,6 +86,20 @@ return [
     // the API refuses new return requests; requests already made are still handled in the dashboard.
     'returns' => [
         'enabled' => true,
+    ],
+
+    // Settings → Notifications → "Back in stock and price alerts" (docs/guides/ALERTS_AFTER_DELIVERY_AND_ROOMS.md). Back-in-stock alerts are a service the
+    // customer asked for, so they are on; price-drop messages are marketing-style and ship OFF. A price drop needs both the percentage and the minimum
+    // amount; no customer gets more than `max_price_pushes_per_week` of them; nothing goes out in the quiet hours (Qatar time; both empty = no quiet hours).
+    'alerts' => [
+        'back_in_stock_enabled' => true,
+        'price_drop_enabled' => false,
+        'price_drop_percent' => 5,
+        'price_drop_min_amount' => '5.00',
+        'max_price_pushes_per_week' => 3,
+        'retention_days' => 90,
+        'quiet_start' => '22:00',
+        'quiet_end' => '08:00',
     ],
 
     // Settings → Checkout & fees → "Staff and driver apps: how to change an order status". `buttons` = a button per next step (as always);

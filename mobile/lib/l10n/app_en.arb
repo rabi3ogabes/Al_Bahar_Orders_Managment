@@ -528,6 +528,82 @@
   "@notifyBackInStock": {},
   "alertCreated": "We’ll let you know.",
   "@alertCreated": {},
+  "alertsTitle": "My alerts",
+  "@alertsTitle": {},
+  "alertBackInStock": "Back in stock",
+  "@alertBackInStock": {},
+  "alertPriceDrop": "Price drop",
+  "@alertPriceDrop": {},
+  "alertWaitingStock": "We’ll tell you when it’s back",
+  "@alertWaitingStock": {},
+  "alertAvailableNow": "Available now",
+  "@alertAvailableNow": {},
+  "alertWatching": "Watching the price",
+  "@alertWatching": {},
+  "alertSoldOut": "Out of stock right now",
+  "@alertSoldOut": {},
+  "alertSince": "Since {date}",
+  "@alertSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "alertWas": "Was {price}",
+  "@alertWas": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "alertNow": "Now {price}",
+  "@alertNow": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "alertDropped": "{percent}% lower",
+  "@alertDropped": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "alertRemove": "Remove alert",
+  "@alertRemove": {},
+  "alertRemoved": "Alert removed",
+  "@alertRemoved": {},
+  "alertsEmptyTitle": "No alerts yet",
+  "@alertsEmptyTitle": {},
+  "alertsEmptyMessage": "Tap the bell on a product that is out of stock, or choose “Tell me if the price drops” on one you like. It will wait for you here.",
+  "@alertsEmptyMessage": {},
+  "alertsBrowse": "Browse products",
+  "@alertsBrowse": {},
+  "alertNotifyOn": "We’ll tell you when it’s back. Tap to cancel.",
+  "@alertNotifyOn": {},
+  "alertPriceToggle": "Tell me if the price drops",
+  "@alertPriceToggle": {},
+  "alertPriceOn": "We’ll tell you if the price drops. Tap to stop.",
+  "@alertPriceOn": {},
+  "alertPriceCreated": "Got it. We’ll tell you if the price drops.",
+  "@alertPriceCreated": {},
+  "alertPriceNeedsConsent": "Price alerts arrive as offers and news. Turn that on in your notification settings to receive them.",
+  "@alertPriceNeedsConsent": {},
+  "roomsTitle": "Shop by room",
+  "@roomsTitle": {},
+  "roomProductsCount": "{count, plural, =1{1 product} other{{count} products}}",
+  "@roomProductsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "addToWishlist": "Add to wishlist",
   "@addToWishlist": {},
   "removeFromWishlist": "Remove from wishlist",
@@ -1105,15 +1181,9 @@
   "@filterCancelled": {},
   "contactSupport": "Get help with this order",
   "@contactSupport": {},
-  "requestReturn": "Request a return",
+  "requestReturn": "Report a problem or return",
   "@requestReturn": {},
-  "returnReasonDamaged": "Arrived damaged",
-  "@returnReasonDamaged": {},
-  "returnReasonWrong": "Wrong item",
-  "@returnReasonWrong": {},
-  "returnReasonNotAsDescribed": "Not as described",
-  "@returnReasonNotAsDescribed": {},
-  "returnRequested": "Return requested. Our team will contact you.",
+  "returnRequested": "Sent. Our team will look at it shortly.",
   "@returnRequested": {},
   "selectItemsToReturn": "Select items to return",
   "@selectItemsToReturn": {},
@@ -2782,7 +2852,7 @@
   },
   "returnStatusRejectedHelp": "If you have a question, or something has changed, please contact us and we will be glad to help.",
   "@returnStatusRejectedHelp": {},
-  "returnFormIntro": "Choose what you want to send back and tell us why. We will review it and reply.",
+  "returnFormIntro": "Tell us what happened and which items it is about. We will review it and reply here.",
   "@returnFormIntro": {},
   "returnUpTo": "Up to {count} can be returned",
   "@returnUpTo": {
@@ -2805,5 +2875,342 @@
   "reviewWhichTitle": "Which item would you like to review?",
   "@reviewWhichTitle": {},
   "callDriver": "Call your driver",
-  "@callDriver": {}
+  "@callDriver": {},
+  "claimTypeLabel": "What happened?",
+  "@claimTypeLabel": {},
+  "claimTypeDamaged": "Damaged on arrival",
+  "@claimTypeDamaged": {},
+  "claimTypeDamagedHint": "Add at least one photo of the damage.",
+  "@claimTypeDamagedHint": {},
+  "claimTypeWrong": "Wrong item",
+  "@claimTypeWrong": {},
+  "claimTypeWrongHint": "Add a photo of what you received.",
+  "@claimTypeWrongHint": {},
+  "claimTypeMissing": "Something is missing from the box",
+  "@claimTypeMissing": {},
+  "claimTypeMissingHint": "Tell us what was not in the box.",
+  "@claimTypeMissingHint": {},
+  "claimTypeQuality": "Quality problem",
+  "@claimTypeQuality": {},
+  "claimTypeQualityHint": "Tell us what is wrong. Photos help.",
+  "@claimTypeQualityHint": {},
+  "claimTypeChangedMind": "I changed my mind",
+  "@claimTypeChangedMind": {},
+  "claimTypeChangedMindHint": "Send it back for a refund.",
+  "@claimTypeChangedMindHint": {},
+  "claimPhotosTitle": "Photos",
+  "@claimPhotosTitle": {},
+  "claimPhotosRequired": "Needed for this kind of claim",
+  "@claimPhotosRequired": {},
+  "claimPhotosOptional": "Optional, but they help us decide faster",
+  "@claimPhotosOptional": {},
+  "claimPhotoCamera": "Take a photo",
+  "@claimPhotoCamera": {},
+  "claimPhotoGallery": "Choose photos",
+  "@claimPhotoGallery": {},
+  "claimPhotoCount": "{n} of {max} photos",
+  "@claimPhotoCount": {
+    "placeholders": {
+      "n": {"type": "int"},
+      "max": {"type": "int"}
+    }
+  },
+  "claimPhotoRemove": "Remove photo",
+  "@claimPhotoRemove": {},
+  "claimPhotoAlt": "Photo {n} of your claim",
+  "@claimPhotoAlt": {
+    "placeholders": {
+      "n": {"type": "int"}
+    }
+  },
+  "claimPhotoFailed": "This photo could not be shown.",
+  "@claimPhotoFailed": {},
+  "claimPhotoClose": "Close photo",
+  "@claimPhotoClose": {},
+  "claimErrPhotos": "Please add at least one clear photo (JPEG, PNG or WebP, up to 5, each under 8 MB).",
+  "@claimErrPhotos": {},
+  "claimErrPhotoType": "Photos must be JPEG, PNG or WebP.",
+  "@claimErrPhotoType": {},
+  "claimErrPhotoSize": "Each photo must be under 8 MB.",
+  "@claimErrPhotoSize": {},
+  "claimErrPhotoCount": "You can add up to 5 photos.",
+  "@claimErrPhotoCount": {},
+  "claimErrNote": "Please keep your message under 500 characters.",
+  "@claimErrNote": {},
+  "claimErrLocked": "Our team has already looked at this claim, so it can no longer be changed. Please contact us if something needs adding.",
+  "@claimErrLocked": {},
+  "claimStepReceived": "Claim received",
+  "@claimStepReceived": {},
+  "claimStepUnderReview": "Under review",
+  "@claimStepUnderReview": {},
+  "claimStepDecision": "Decision",
+  "@claimStepDecision": {},
+  "claimStepApproved": "Approved",
+  "@claimStepApproved": {},
+  "claimStepRejected": "Not approved",
+  "@claimStepRejected": {},
+  "claimStepHandover": "How it comes back",
+  "@claimStepHandover": {},
+  "claimStepPickup": "Pickup arranged",
+  "@claimStepPickup": {},
+  "claimStepBranch": "Bring it to the branch",
+  "@claimStepBranch": {},
+  "claimStepBranchDetail": "Please bring the item to {branch}.",
+  "@claimStepBranchDetail": {
+    "placeholders": {
+      "branch": {"type": "String"}
+    }
+  },
+  "claimStepItemReceived": "Item received",
+  "@claimStepItemReceived": {},
+  "claimStepRefunded": "Refunded",
+  "@claimStepRefunded": {},
+  "claimStepRefundDone": "{amount} refunded {how}.",
+  "@claimStepRefundDone": {
+    "placeholders": {
+      "amount": {"type": "String"},
+      "how": {"type": "String"}
+    }
+  },
+  "claimStepRefundWait": "{amount} refund is on its way {how}.",
+  "@claimStepRefundWait": {
+    "placeholders": {
+      "amount": {"type": "String"},
+      "how": {"type": "String"}
+    }
+  },
+  "claimStepCancelled": "You cancelled this claim",
+  "@claimStepCancelled": {},
+  "claimStepOther": "Update",
+  "@claimStepOther": {},
+  "claimRefundOriginal": "to your original payment method",
+  "@claimRefundOriginal": {},
+  "claimRefundCash": "in cash",
+  "@claimRefundCash": {},
+  "claimRefundBank": "by bank transfer",
+  "@claimRefundBank": {},
+  "claimRefundOther": "to you",
+  "@claimRefundOther": {},
+  "claimTitle": "Claim {number}",
+  "@claimTitle": {
+    "placeholders": {
+      "number": {"type": "String"}
+    }
+  },
+  "claimSentOn": "Sent {date}",
+  "@claimSentOn": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "claimTimelineLabel": "Where your claim stands",
+  "@claimTimelineLabel": {},
+  "claimAdd": "Add a photo or a note",
+  "@claimAdd": {},
+  "claimAddHint": "Our team has not decided yet. Anything you add reaches them straight away.",
+  "@claimAddHint": {},
+  "claimAddSubmit": "Send to our team",
+  "@claimAddSubmit": {},
+  "claimAdded": "Sent to our team.",
+  "@claimAdded": {},
+  "claimCancel": "Cancel this claim",
+  "@claimCancel": {},
+  "claimCancelConfirm": "Cancel this claim? You can send a new one while the period is still open.",
+  "@claimCancelConfirm": {},
+  "claimCancelKeep": "Keep it",
+  "@claimCancelKeep": {},
+  "claimCancelled": "Claim cancelled.",
+  "@claimCancelled": {},
+  "claimYourNote": "Your message",
+  "@claimYourNote": {},
+  "claimWindowUntil": "You can report a problem until {date}",
+  "@claimWindowUntil": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "returnStatusUnderReview": "A member of our team is looking at your claim now.",
+  "@returnStatusUnderReview": {},
+  "returnStatusCancelled": "You cancelled this claim.",
+  "@returnStatusCancelled": {},
+  "substTitle": "Please choose a replacement",
+  "@substTitle": {},
+  "substAsk": "We do not have {item}. Replace it with {replacement}?",
+  "@substAsk": {
+    "placeholders": {
+      "item": {"type": "String"},
+      "replacement": {"type": "String"}
+    }
+  },
+  "substPriceSame": "same price",
+  "@substPriceSame": {},
+  "substPriceLess": "{amount} less",
+  "@substPriceLess": {
+    "placeholders": {
+      "amount": {"type": "String"}
+    }
+  },
+  "substPriceLine": "Price: {note}. You never pay more than you ordered.",
+  "@substPriceLine": {
+    "placeholders": {
+      "note": {"type": "String"}
+    }
+  },
+  "substYouOrdered": "You ordered",
+  "@substYouOrdered": {},
+  "substReplacement": "Replacement",
+  "@substReplacement": {},
+  "substQty": "× {n}",
+  "@substQty": {
+    "placeholders": {
+      "n": {"type": "int"}
+    }
+  },
+  "substTimeLeft": "About {n} min left to answer (while the shop is open)",
+  "@substTimeLeft": {
+    "placeholders": {
+      "n": {"type": "int"}
+    }
+  },
+  "substTimeUp": "Time is up. We are settling it now.",
+  "@substTimeUp": {},
+  "substFallbackRemove": "If we do not hear from you, we will remove it from your order and refund you.",
+  "@substFallbackRemove": {},
+  "substFallbackKeep": "If we do not hear from you, we will keep the replacement at no extra cost.",
+  "@substFallbackKeep": {},
+  "substAccept": "Accept the replacement",
+  "@substAccept": {},
+  "substDecline": "No, remove it and refund me",
+  "@substDecline": {},
+  "substAcceptedToast": "Thank you. We will prepare the replacement.",
+  "@substAcceptedToast": {},
+  "substDeclinedToast": "Done. We removed it and are arranging your refund.",
+  "@substDeclinedToast": {},
+  "substOutcomeAccepted": "You accepted the replacement.",
+  "@substOutcomeAccepted": {},
+  "substOutcomeDeclined": "You declined the replacement. The item was removed and any payment is being refunded.",
+  "@substOutcomeDeclined": {},
+  "substOutcomeExpiredRemoved": "No answer in time, so the item was removed and any payment is being refunded.",
+  "@substOutcomeExpiredRemoved": {},
+  "substOutcomeExpiredKept": "No answer in time, so we kept the replacement at no extra cost.",
+  "@substOutcomeExpiredKept": {},
+  "substOutcomeCancelled": "This question is closed.",
+  "@substOutcomeCancelled": {},
+  "substErrGone": "We could not find this question. Please reload the order.",
+  "@substErrGone": {},
+  "substErrAnswered": "You already answered this differently.",
+  "@substErrAnswered": {},
+  "substErrExpired": "The time to answer ran out, so the shop settings applied. The order shows what happened.",
+  "@substErrExpired": {},
+  "substErrClosed": "This question is closed: the order has moved on.",
+  "@substErrClosed": {},
+  "promiseConfirmDelivery": "We will confirm your delivery date",
+  "@promiseConfirmDelivery": {},
+  "promiseConfirmPickup": "We will confirm your pick-up time",
+  "@promiseConfirmPickup": {},
+  "promiseAddressHint": "The exact date depends on your address.",
+  "@promiseAddressHint": {},
+  "assemblyAdd": "Add assembly and installation",
+  "@assemblyAdd": {},
+  "assemblyFeeEach": "+{fee} each",
+  "@assemblyFeeEach": {
+    "placeholders": {
+        "fee": {
+          "type": "String"
+        }
+    }
+  },
+  "assemblyNote": "Done at your door. For delivery orders only.",
+  "@assemblyNote": {},
+  "assemblyLineTotal": "{amount} for this item",
+  "@assemblyLineTotal": {
+    "placeholders": {
+        "amount": {
+          "type": "String"
+        }
+    }
+  },
+  "assemblyRow": "Assembly and installation",
+  "@assemblyRow": {},
+  "orderAssemblyLine": "Assembly and installation: {amount}",
+  "@orderAssemblyLine": {
+    "placeholders": {
+        "amount": {
+          "type": "String"
+        }
+    }
+  },
+  "shareOnWhatsApp": "Share on WhatsApp",
+  "@shareOnWhatsApp": {},
+  "shareOtherWays": "More ways to share",
+  "@shareOtherWays": {},
+  "shareProductIntro": "Take a look at this at Al Bahar Home & Living:",
+  "@shareProductIntro": {},
+  "shareProductPrice": "Price: {price}",
+  "@shareProductPrice": {
+    "placeholders": {
+        "price": {
+          "type": "String"
+        }
+    }
+  },
+  "shareBasketIntro": "Here is what I picked at Al Bahar Home & Living:",
+  "@shareBasketIntro": {},
+  "shareBasketTotal": "Total: {total}",
+  "@shareBasketTotal": {
+    "placeholders": {
+        "total": {
+          "type": "String"
+        }
+    }
+  },
+  "shareBasketAction": "Send my cart on WhatsApp",
+  "@shareBasketAction": {},
+  "shareWhatsAppMissing": "WhatsApp could not be opened. Pick another way to share.",
+  "@shareWhatsAppMissing": {},
+  "guestCheckoutNote": "Your cart is kept on this phone. You sign in or create an account at checkout.",
+  "@guestCheckoutNote": {},
+  "guestChangesTitle": "Your cart changed",
+  "@guestChangesTitle": {},
+  "guestChangePrice": "The price of {name} changed from {from} to {to}.",
+  "@guestChangePrice": {
+    "placeholders": {
+        "name": {
+          "type": "String"
+        },
+        "from": {
+          "type": "String"
+        },
+        "to": {
+          "type": "String"
+        }
+    }
+  },
+  "guestChangeReduced": "Only {count} of {name} are available now, so the quantity was lowered.",
+  "@guestChangeReduced": {
+    "placeholders": {
+        "name": {
+          "type": "String"
+        },
+        "count": {
+          "type": "int"
+        }
+    }
+  },
+  "guestChangeUnavailable": "{name} is no longer available.",
+  "@guestChangeUnavailable": {
+    "placeholders": {
+        "name": {
+          "type": "String"
+        }
+    }
+  },
+  "guestChangeAssembly": "Assembly is no longer offered for {name}.",
+  "@guestChangeAssembly": {
+    "placeholders": {
+        "name": {
+          "type": "String"
+        }
+    }
+  }
 }

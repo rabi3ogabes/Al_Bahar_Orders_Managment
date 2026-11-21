@@ -25,7 +25,7 @@ class Product extends Model
         'status' => 'draft', 'currency' => 'QAR', 'available_in_all_branches' => true, 'has_variants' => false,
         'allow_sale_above_price' => false, 'is_featured' => false, 'is_bestseller' => false, 'is_new_arrival' => false,
         'requires_assembly' => false, 'assembly_service_available' => false, 'is_oversized' => false,
-        'extra_delivery_fee' => '0.00', 'extra_delivery_fee_mode' => 'per_unit',
+        'extra_delivery_fee' => '0.00', 'extra_delivery_fee_mode' => 'per_unit', 'lead_time_days' => 0,
         'weight_unit' => 'kg', 'dimension_unit' => 'cm', 'rating_average' => 0, 'rating_count' => 0, 'sales_count' => 0,
     ];
 
@@ -44,6 +44,9 @@ class Product extends Model
         'is_oversized' => 'boolean',
         // Money as a two-decimal string (like the other money columns), never a float.
         'extra_delivery_fee' => 'decimal:2',
+        // What one unit costs to have assembled at the door (null = assembly is not offered), and the days the branch needs before the product can leave.
+        'assembly_fee' => 'decimal:2',
+        'lead_time_days' => 'integer',
         'available_in_all_branches' => 'boolean',
         'allow_sale_above_price' => 'boolean',
         'rating_average' => 'float',

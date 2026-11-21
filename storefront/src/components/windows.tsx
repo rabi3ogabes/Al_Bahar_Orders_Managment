@@ -4,6 +4,7 @@ import type AddressDrawerT from './AddressDrawer';
 import type ProfileDrawerT from './ProfileDrawer';
 import type SupportDrawerT from './SupportDrawer';
 import type ReviewDrawerT from './ReviewDrawer';
+import type AlertsDrawerT from './AlertsDrawer';
 import type FilterDrawerT from './FilterDrawer';
 
 /**
@@ -14,10 +15,12 @@ const AddressImpl = lazy(() => import('./AddressDrawer'));
 const ProfileImpl = lazy(() => import('./ProfileDrawer'));
 const SupportImpl = lazy(() => import('./SupportDrawer'));
 const ReviewImpl = lazy(() => import('./ReviewDrawer'));
+const AlertsImpl = lazy(() => import('./AlertsDrawer'));
 const FilterImpl = lazy(() => import('./FilterDrawer'));
 
 export function AddressWindow(p: ComponentProps<typeof AddressDrawerT>) { return <LazyHost when={p.open}><AddressImpl {...p} /></LazyHost>; }
 export function ProfileWindow(p: ComponentProps<typeof ProfileDrawerT>) { return <LazyHost when={p.open}><ProfileImpl {...p} /></LazyHost>; }
 export function SupportWindow(p: ComponentProps<typeof SupportDrawerT>) { return <LazyHost when={p.open}><SupportImpl {...p} /></LazyHost>; }
 export function ReviewWindow(p: ComponentProps<typeof ReviewDrawerT>) { return <LazyHost when={p.open}><ReviewImpl {...p} /></LazyHost>; }
+export function AlertsWindow(p: ComponentProps<typeof AlertsDrawerT>) { return <LazyHost when={p.open}><AlertsImpl {...p} /></LazyHost>; }
 export function FilterWindow(p: ComponentProps<typeof FilterDrawerT>) { return <LazyHost when={p.open}><FilterImpl {...p} /></LazyHost>; }

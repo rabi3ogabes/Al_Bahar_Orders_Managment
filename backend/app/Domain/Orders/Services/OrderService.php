@@ -95,6 +95,10 @@ class OrderService
             if (in_array($to, self::HANDOVER, true)) {
                 $this->assertHandoverAllowed($order);
             }
+            // A replacement the customer was asked about and has not answered: the rest can be prepared, but this part cannot leave until they answer or the time is up.
+            if (in_array($to, [FS::Ready, FS::PickupReady, FS::Dispatched, FS::OutForDelivery, FS::Delivered, FS::PickedUp], true) && app(SubstitutionService::class)->isWaiting($f->id)) {
+                throw OpsError::make('substitution_pending', 409);
+            }
             if ($to === FS::Delivered && ! $system && $order->payment_method === 'cod' && ! $order->payment_status->isSettled()) {
                 throw DomainException::make('cod_collection_required', 409, ['amount' => Money::of($order->grand_total)->minus(Money::of($order->paid_total))->format()]);
             }

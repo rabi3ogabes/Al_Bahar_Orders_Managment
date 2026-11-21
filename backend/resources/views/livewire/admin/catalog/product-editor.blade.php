@@ -56,6 +56,7 @@
             <div class="flex flex-wrap items-center gap-2">
                 <x-admin.status :value="$product->status" />
                 <span class="badge-neutral tabular-nums">{{ \App\Support\Money::of($product->price)->format() }}</span>
+                @include('livewire.admin.catalog.partials.waiting-badges', ['waiting' => $waiting])
             </div>
         </div>
 
@@ -207,6 +208,13 @@
                                 @endforeach
                             </div>
                         </fieldset>
+                        <x-admin.field :label="__('catalog_admin.lead_time')" for="form.lead_time_days" :hint="__('catalog_admin.lead_time_hint')" class="sm:w-1/2"><input id="form.lead_time_days" type="number" min="0" max="60" step="1" wire:model="form.lead_time_days" class="input tabular-nums" dir="ltr" autocomplete="off" @disabled(! $canEdit)></x-admin.field>
+                    </div>
+
+                    {{-- Assembly and installation at the door (docs/guides/DELIVERY_PROMISE_ASSEMBLY_AND_SHARING.md): a fee per unit; empty = not offered. --}}
+                    <div class="card card-pad space-y-5">
+                        <div><h2 class="font-display text-xl font-semibold">{{ __('catalog_admin.assembly_title') }}</h2><p class="mt-1 text-sm text-ink-500">{{ __('catalog_admin.assembly_intro') }}</p></div>
+                        <x-admin.field :label="__('catalog_admin.assembly_fee')" for="form.assembly_fee" :hint="__('catalog_admin.assembly_fee_hint')" class="sm:w-1/2"><input id="form.assembly_fee" wire:model="form.assembly_fee" inputmode="decimal" class="input tabular-nums" dir="ltr" maxlength="9" autocomplete="off" placeholder="{{ __('catalog_admin.assembly_fee_ph') }}" @disabled(! $canEdit)></x-admin.field>
                     </div>
 
                     <div class="card card-pad space-y-5">

@@ -71,20 +71,23 @@ One connected feature for the branch, the driver and the owner: *nothing waits s
 | 2.11 | **Cash shift**: open / close, float, end-of-day count, Z-report; hand-in by selected collections | Branch, owner | M | M | `CashHandover` | next |
 | 2.12 | **Branch and driver scorecard**: time to accept / prepare, on-time rate, failure reasons, cash variance | Owner | M | S | timestamps already stored | next |
 
-## 3. Wave 3: more orders from the same customers
+## 3. Wave 3: more orders from the same customers: built, see the status column
 
-| # | Capability | Value | Effort |
-|---|-----------|-------|--------|
-| 3.1 | **Delivery or pickup date on the product page and cart** (furniture buyers need the date before they pay) | H | S-M |
-| 3.2 | Guest cart in the app (the web already has one) | M | S |
-| 3.3 | **Return and damage claims with photos**, status and push notifications | H | S-M |
-| 3.4 | **Substitution consent**: customer accepts the replacement or cancels that line for a refund | M | M |
-| 3.5 | Paid assembly and installation add-on (the flag exists but cannot be bought) | M-H | M |
-| 3.6 | Back-in-stock and price-drop alerts: subscribed state, list, cancel, wishlist price-drop push | M | S |
-| 3.7 | Share a basket or product on WhatsApp | M | S |
-| 3.8 | Post-delivery journey: thank you, review request, "need anything to go with it" | M | S |
-| 3.9 | Room-based browsing and style entry points on the web home | M | S |
-| 3.10 | Card / Apple Pay / instalments (needs O2) | H | L |
+Status: **done** = built, tested and documented in a guide under docs/guides/ (RETURNS_AND_SUBSTITUTIONS.md, DELIVERY_PROMISE_ASSEMBLY_AND_SHARING.md, ALERTS_AFTER_DELIVERY_AND_ROOMS.md); **blocked** = waits for the owner.
+The messages that sell (price-drop, review request, "goes well with it") ship **off** and are switched on from the dashboard; the messages a customer needs (return progress, substitution offers, back in stock) are on.
+
+| # | Capability | Value | Effort | Status |
+|---|-----------|-------|--------|--------|
+| 3.1 | **Delivery or pickup date on the product page and cart** (furniture buyers need the date before they pay) | H | S-M | done (product, quick view, cart, checkout; web and app; the quote refuses a date earlier than promised) |
+| 3.2 | Guest cart in the app (the web already has one) | M | S | done (saved on the phone, merged on sign-in, the higher quantity wins) |
+| 3.3 | **Return and damage claims with photos**, status and push notifications | H | S-M | done (customer form with photos and timeline, dashboard review window, refund through the existing dual control; the branch app only shows "handled on the dashboard") |
+| 3.4 | **Substitution consent**: customer accepts the replacement or cancels that line for a refund | M | M | done (a replacement never costs more than the original; a dearer replacement paid by the customer is not built) |
+| 3.5 | Paid assembly and installation add-on (the flag exists but cannot be bought) | M-H | M | done (per-unit fee on the product, delivery only; the driver sees the instruction, ticking "assembly done" in the driver app is next) |
+| 3.6 | Back-in-stock and price-drop alerts: subscribed state, list, cancel, wishlist price-drop push | M | S | done ("My alerts" on web and app; price-drop is off until switched on) |
+| 3.7 | Share a basket or product on WhatsApp | M | S | done (web and app) |
+| 3.8 | Post-delivery journey: thank you, review request, "need anything to go with it" | M | S | done (Marketing > Customer journeys, off until switched on) |
+| 3.9 | Room-based browsing and style entry points on the web home | M | S | done (Content > Shop by room; five default rooms; run `php artisan rooms:ensure-home` once after the deploy to show the tiles at once) |
+| 3.10 | Card / Apple Pay / instalments (needs O2) | H | L | blocked on O2 |
 
 ## 4. Wave 4: owner intelligence
 

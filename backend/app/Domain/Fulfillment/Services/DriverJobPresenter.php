@@ -3,6 +3,7 @@
 namespace App\Domain\Fulfillment\Services;
 
 use App\Domain\Branches\Models\DeliverySlot;
+use App\Domain\Checkout\Support\Assembly;
 use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderItem;
@@ -100,7 +101,7 @@ final class DriverJobPresenter
      * What an open job adds: the notes, the recipient, the slot's window, the "before you go" facts and the cash.
      *
      * @param  array<string, mixed>  $address
-     * @param  array{rows: list<array<string, mixed>>, weight: ?float, oversized: bool, assembly: bool}  $items
+     * @param  array{rows: list<array<string, mixed>>, weight: ?float, oversized: bool, assembly: bool, assembly_ordered: bool}  $items
      * @return array<string, mixed>
      */
     private function context(Delivery $d, Order $o, array $address, array $items, ?DeliverySlot $slot): array
@@ -124,6 +125,8 @@ final class DriverJobPresenter
             'needs_two_people' => $twoPeople,
             'is_oversized' => $items['oversized'],
             'requires_assembly' => $items['assembly'],
+            // The customer paid for assembly and installation at the door on at least one line of this parcel (each row says which one).
+            'assembly_ordered' => $items['assembly_ordered'],
             'cod' => ['due' => $cod, 'amount' => Money::of($d->cod_amount)->toDecimal(), 'currency' => 'QAR'],
             'payment_note' => match (true) {
                 $cod => __('driver_day.payment.cash', ['amount' => Money::of($d->cod_amount)->format()]),
@@ -165,13 +168,14 @@ final class DriverJobPresenter
      *
      * @param  Collection<int, OrderItem>  $lines
      * @param  array{products: Collection<string, object>, variants: Collection<string, object>}  $catalog
-     * @return array{rows: list<array<string, mixed>>, weight: ?float, oversized: bool, assembly: bool}
+     * @return array{rows: list<array<string, mixed>>, weight: ?float, oversized: bool, assembly: bool, assembly_ordered: bool}
      */
     private function items(Collection $lines, array $catalog): array
     {
         $total = null;
         $oversized = false;
         $assembly = false;
+        $assemblyOrdered = false;
         $rows = [];
         foreach ($lines as $i) {
             $qty = max(0, (int) $i->quantity - (int) $i->quantity_cancelled);
@@ -183,16 +187,19 @@ final class DriverJobPresenter
             $kg = $this->kg($variant?->weight ?? $product?->weight, $product?->weight_unit);
             $size = $this->size($variant, $product);
             $big = (bool) ($product?->is_oversized ?? false);
-            $assemble = (bool) ($product?->requires_assembly ?? false);
+            // Assembly the customer bought for this line (docs/guides/DELIVERY_PROMISE_ASSEMBLY_AND_SHARING.md) always counts as "assembly requested", as does a product flagged as needing it.
+            $paid = Assembly::placedFee($i) !== null;
+            $assemble = $paid || (bool) ($product?->requires_assembly ?? false);
             $oversized = $oversized || $big;
             $assembly = $assembly || $assemble;
+            $assemblyOrdered = $assemblyOrdered || $paid;
             $total = $kg !== null ? ($total ?? 0.0) + $kg * $qty : $total;
             $rows[] = ['id' => $i->id, 'order_item_id' => $i->id, 'name' => $i->name(), 'variant_name' => $i->variantName(), 'sku' => $i->sku, 'quantity' => $qty,
                 'adjustment' => $i->adjustment_kind ? ['kind' => $i->adjustment_kind, 'original_quantity' => (int) ($i->original_quantity ?? $i->quantity)] : null,
-                'weight_kg' => $kg !== null ? round($kg, 2) : null, 'dimensions_cm' => $size, 'is_oversized' => $big, 'requires_assembly' => $assemble];
+                'weight_kg' => $kg !== null ? round($kg, 2) : null, 'dimensions_cm' => $size, 'is_oversized' => $big, 'requires_assembly' => $assemble, 'assembly_ordered' => $paid];
         }
 
-        return ['rows' => $rows, 'weight' => $total, 'oversized' => $oversized, 'assembly' => $assembly];
+        return ['rows' => $rows, 'weight' => $total, 'oversized' => $oversized, 'assembly' => $assembly, 'assembly_ordered' => $assemblyOrdered];
     }
 
     private function kg(mixed $weight, ?string $unit): ?float

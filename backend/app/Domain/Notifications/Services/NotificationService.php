@@ -43,7 +43,7 @@ class NotificationService
         usort($ordered, fn ($a, $b) => ($b === 'in_app') <=> ($a === 'in_app'));
 
         foreach ($ordered as $channel) {
-            if (! $this->allowed($user, $channel, $category)) {
+            if (! $this->allowed($user, $channel, $category, $event)) {
                 continue;
             }
             if ($channel === 'push' && $this->liveCardCovers($user, $event)) {
@@ -106,10 +106,13 @@ class NotificationService
             && $user->devices()->whereNull('disabled_at')->exists();
     }
 
-    /** Consent rules: marketing needs marketing consent + opt-in; every category honours explicit opt-outs. OTP is never blocked. */
-    public function allowed(User $user, string $channel, string $category): bool
+    /**
+     * Consent rules: marketing needs marketing consent + opt-in (a message the customer asked for, see NotificationCatalog::REQUESTED, needs only that nobody
+     * switched the channel off); every category honours explicit opt-outs. OTP is never blocked.
+     */
+    public function allowed(User $user, string $channel, string $category, ?string $event = null): bool
     {
-        if ($category === 'marketing' && ! $user->marketing_consent_at) {
+        if ($category === 'marketing' && ! $user->marketing_consent_at && ! ($event !== null && NotificationCatalog::isRequested($event))) {
             return false;
         }
         $pref = NotificationPreference::where('user_id', $user->id)->where('channel', $channel)->where('category', $category)->value('is_enabled');

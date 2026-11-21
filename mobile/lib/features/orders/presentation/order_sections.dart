@@ -11,6 +11,7 @@ import 'package:albahar_customer/features/deals/presentation/widgets/deal_line_t
 import 'package:albahar_customer/features/orders/domain/order_models.dart';
 import 'package:albahar_customer/features/orders/presentation/state/order_providers.dart';
 import 'package:albahar_customer/features/orders/presentation/widgets/return_status_card.dart';
+import 'package:albahar_customer/features/orders/presentation/widgets/substitution_cards.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -34,10 +35,13 @@ class OrderSections extends StatelessWidget {
         if (justPlaced) _PlacedBanner(number: o.number),
         _Header(order: o),
         const Gap(AppSpace.lg),
+        // A replacement the customer is asked about comes first: it waits for them.
+        SubstitutionCards(order: o),
         // The branch changed what is in the order: say so first, in calm words, with what changed and the new total.
         if (o.wasAdjusted) ...[OrderUpdatedBanner(order: o), const Gap(AppSpace.xs)],
-        // Where the customer's return request stands (instead of a button that would ask them to do it again).
-        if (o.returnRequest != null) ReturnStatusCard(request: o.returnRequest!),
+        // Where each return or damage claim stands, as a timeline (instead of a button that would ask them to do it again).
+        for (final c in o.returns.isNotEmpty ? o.returns : [?o.returnRequest])
+          ReturnStatusCard(request: c, orderId: o.id),
         for (final f in o.fulfillments) ...[_FulfillmentCard(order: o, fulfillment: f), const Gap(AppSpace.sm)],
         const Gap(AppSpace.md),
         _Timeline(orderId: o.id),
@@ -338,6 +342,16 @@ class _ItemRow extends StatelessWidget {
                     Text(
                       [if (item.variantName != null) item.variantName!, '× ${item.quantity}'].join(' · '),
                       style: context.text.bodySmall,
+                    ),
+                  // Assembly and installation bought for this line (it follows the line's units).
+                  if (item.assemblyAmount != null && !gone)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        l10n.orderAssemblyLine(item.assemblyAmount!.formatted),
+                        key: const ValueKey('order-assembly-line'),
+                        style: context.text.bodySmall?.copyWith(color: p.brassDeep),
+                      ),
                     ),
                   // The deal the line was sold under: how many units got the deal price and what each saved.
                   if (item.deal != null && !gone)
@@ -763,6 +777,7 @@ class _Totals extends StatelessWidget {
           ] else
             ?row(l10n.discount, t.discount, negative: true),
           ?row(l10n.deliveryFee, t.deliveryFee),
+          ?row(l10n.assemblyRow, t.assemblyFee),
           ?row(l10n.serviceFee, t.serviceFee),
           ?row(l10n.codFee, t.codFee),
           ?row(l10n.tax, t.tax),

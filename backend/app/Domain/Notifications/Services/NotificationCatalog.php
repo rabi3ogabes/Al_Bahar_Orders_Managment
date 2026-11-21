@@ -19,6 +19,9 @@ final class NotificationCatalog
         'order.cancelled' => ['transactional', ['push', 'in_app', 'email']],
         // The branch changed what is in the order (an item was short): not a live-card event, so the customer always hears it as a push too.
         'order.items_changed' => ['transactional', ['push', 'in_app']],
+        // The branch replaced an item with another product (or a dearer one): the customer is asked to accept it, and told when time ran out and it was kept.
+        'order.substitution_offer' => ['transactional', ['push', 'in_app']],
+        'order.substitution_kept' => ['transactional', ['push', 'in_app']],
         // The driver is close, and at the door (sent once each by the driver app's steps and its position reports; never for a pickup order).
         'delivery.nearby' => ['transactional', ['push', 'in_app']],
         'delivery.arrived' => ['transactional', ['push', 'in_app']],
@@ -34,6 +37,12 @@ final class NotificationCatalog
         'stock.back_in_stock' => ['marketing', ['push', 'in_app']],
         'stock.price_drop' => ['marketing', ['push', 'in_app']],
         'cart.abandoned' => ['marketing', ['push', 'in_app', 'whatsapp']],
+        // A return or damage claim: every step the customer can see (the customer's own submit only lands in the inbox; the refund itself is `refund.processed`).
+        'return.received' => ['transactional', ['in_app']],
+        'return.under_review' => ['transactional', ['push', 'in_app']],
+        'return.approved' => ['transactional', ['push', 'in_app']],
+        'return.rejected' => ['transactional', ['push', 'in_app']],
+        'return.item_received' => ['transactional', ['push', 'in_app']],
         'support.reply' => ['transactional', ['push', 'in_app', 'email']],
         'referral.rewarded' => ['transactional', ['push', 'in_app']],
         'referral.friend_rewarded' => ['transactional', ['push', 'in_app']],
@@ -41,6 +50,18 @@ final class NotificationCatalog
     ];
 
     public const CHANNELS = ['push', 'sms', 'whatsapp', 'email', 'in_app'];
+
+    /**
+     * Messages the customer asked for by pressing a button ("Notify me when it is back"): they are filed with the offers like the other stock messages, but
+     * they do not need the general consent to marketing messages, because the request is the consent. A channel the customer switched off by hand is still
+     * respected (NotificationService::allowed).
+     */
+    public const REQUESTED = ['stock.back_in_stock'];
+
+    public static function isRequested(string $event): bool
+    {
+        return in_array($event, self::REQUESTED, true);
+    }
 
     /**
      * Alerts to the team (the `staff.*` events of NotificationRules::STAFF_EVENTS): [category, default channels]. They are not customer messages,

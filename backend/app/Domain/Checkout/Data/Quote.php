@@ -65,6 +65,9 @@ final class Quote
 
     public array $hints = [];
 
+    /** The dates promised for the whole basket (DeliveryPromise::basket), set by the quote; informational, never part of the quote hash. @var array<string, mixed>|null */
+    public ?array $promise = null;
+
     public ?string $hash = null;
 
     public $expiresAt = null;
@@ -135,6 +138,12 @@ final class Quote
         return array_values(array_merge(...array_map(fn (FulfillmentPlan $p) => $p->deliveryExtras, $this->plans)));
     }
 
+    /** What the lines cost for assembly and installation (delivery orders only, a flat service charge: no discount, no tax). */
+    public function assemblyTotal(): Money
+    {
+        return array_reduce($this->plans, fn (Money $c, FulfillmentPlan $p) => $c->plus($p->assemblyTotal()), Money::zero());
+    }
+
     public function taxTotal(): Money
     {
         return $this->lines()->reduce(fn (Money $c, QuoteLine $l) => $c->plus($l->tax), Money::zero());
@@ -149,7 +158,7 @@ final class Quote
     public function grandTotal(): Money
     {
         $total = $this->subtotal()->minus($this->itemDiscountTotal())->plus($this->deliveryFeeTotal())->minus($this->deliveryDiscountTotal())
-            ->plus($this->serviceFee)->plus($this->taxTotal())->minus($this->loyaltyDiscount);
+            ->plus($this->assemblyTotal())->plus($this->serviceFee)->plus($this->taxTotal())->minus($this->loyaltyDiscount);
 
         return $total->isNegative() ? Money::zero() : $total;
     }
@@ -163,7 +172,9 @@ final class Quote
             'points' => $this->loyaltyPoints,
             'plans' => array_map(fn (FulfillmentPlan $p) => [
                 'b' => $p->branch->id, 'fee' => $p->deliveryFee->minor, 'slot' => [$p->slotId, $p->slotDate], 'x' => $p->express,
-                'l' => array_map(fn (QuoteLine $l) => [$l->variant->id, $l->quantity, $l->price->final()->minor, $l->discount->minor, $l->tax->minor, $l->deal?->deal->id, $l->deal?->units ?? 0], $p->lines),
+                // The assembly fee joins a line's entry only when the customer chose it, so a quote without assembly keeps the hash it always had.
+                'l' => array_map(fn (QuoteLine $l) => array_merge([$l->variant->id, $l->quantity, $l->price->final()->minor, $l->discount->minor, $l->tax->minor, $l->deal?->deal->id, $l->deal?->units ?? 0],
+                    $l->assemblyFee !== null ? [$l->assemblyFee->minor] : []), $p->lines),
             ], $this->plans),
             'disc' => array_map(fn (AppliedDiscount $d) => [$d->sourceId(), $d->amount->minor, $d->deliveryDiscount->minor], $this->discounts),
             'total' => $this->grandTotal()->minor,
@@ -189,6 +200,8 @@ final class Quote
             'line_total' => $l->subtotal()->minus($l->discount)->jsonSerialize(),
             // The deal that covers this product: how many units get the deal price and, when not all, why (docs/api/DEALS.md section 5). Null = no deal.
             'deal' => $l->deal?->toArray(),
+            // The assembly the customer chose for this line: the fee per unit and what the line owes for it. Null = none.
+            'assembly' => $l->assemblyFee !== null ? ['fee_each' => $l->assemblyFee->jsonSerialize(), 'amount' => $l->assemblyTotal()->jsonSerialize()] : null,
         ];
 
         return [
@@ -205,11 +218,15 @@ final class Quote
                 'subtotal' => $p->subtotal()->jsonSerialize(),
                 'delivery_fee' => $p->deliveryFee->jsonSerialize(),
                 'extra_delivery_fee' => $p->extraDeliveryFee()->jsonSerialize(),
+                'assembly_fee' => $p->assemblyTotal()->jsonSerialize(),
                 'delivery_extras' => array_map(fn (DeliveryExtra $e) => $e->toArray(), $p->deliveryExtras),
                 'eta_minutes' => $p->zoneConfig?->estimated_minutes,
                 'slot' => $p->slotId ? ['id' => $p->slotId, 'date' => $p->slotDate] + ($p->slotInfo ?? []) : null,
                 'slot_required' => $p->slotRequired,
+                'earliest_date' => $p->earliestDate !== '' ? $p->earliestDate : null,
                 'allocation_reason' => $p->allocationReason,
+                // The date promised for this parcel (null when the promise is switched off): see docs/guides/DELIVERY_PROMISE_ASSEMBLY_AND_SHARING.md.
+                'promise' => $p->promise,
             ], $this->plans),
             'lines' => $this->lines()->map($line)->all(),
             'totals' => [
@@ -219,6 +236,8 @@ final class Quote
                 'deal_savings' => $this->dealSavingsTotal()->jsonSerialize(),
                 'delivery_fee' => $this->deliveryFeeTotal()->jsonSerialize(),
                 'extra_delivery_fee' => $this->extraDeliveryFeeTotal()->jsonSerialize(),
+                // Assembly and installation chosen on delivery lines ("0.00" when none); already inside `grand_total`.
+                'assembly_fee' => $this->assemblyTotal()->jsonSerialize(),
                 'service_fee' => $this->serviceFee->jsonSerialize(),
                 // Kept so older app builds that read it keep working: cash on delivery never costs extra, so it is always "0.00".
                 'cod_fee' => Money::zero()->jsonSerialize(),
@@ -228,6 +247,7 @@ final class Quote
             ],
             'delivery_extras' => array_map(fn (DeliveryExtra $e) => $e->toArray(), $this->deliveryExtras()),
             'discounts' => array_map(fn (AppliedDiscount $d) => $d->toArray(), $this->discounts),
+            'promise' => $this->promise,
             'payment_methods' => $this->paymentMethods,
             'loyalty' => ['balance' => $this->loyaltyBalance, 'max_redeemable_points' => $this->loyaltyMax, 'points_applied' => $this->loyaltyPoints, 'points_to_earn' => $this->pointsToEarn],
             'address' => $this->address ? ['id' => $this->address->id, 'label' => $this->address->label, 'summary' => $this->address->oneLine()] : null,

@@ -10,10 +10,13 @@ import 'package:albahar_customer/core/widgets/rating.dart';
 import 'package:albahar_customer/core/widgets/side_panel.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
+import 'package:albahar_customer/features/alerts/domain/alert_models.dart';
+import 'package:albahar_customer/features/alerts/presentation/alert_actions.dart';
+import 'package:albahar_customer/features/alerts/presentation/state/alerts_controller.dart';
 import 'package:albahar_customer/features/auth/presentation/require_auth.dart';
+import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
 import 'package:albahar_customer/features/cart/presentation/cart_panel.dart';
-import 'package:albahar_customer/features/catalog/data/catalog_repository.dart';
 import 'package:albahar_customer/features/catalog/domain/catalog_models.dart';
 import 'package:albahar_customer/features/catalog/presentation/state/catalog_providers.dart';
 import 'package:albahar_customer/features/catalog/presentation/widgets/product_options.dart';
@@ -59,22 +62,19 @@ class _QuickViewBodyState extends ConsumerState<QuickViewBody> {
   /// Closes this window, then the cart window opens on the page behind it (the cart and its badge change at once).
   void _add(ProductDetail product, List<CartAddition> additions) {
     if (additions.isEmpty) return;
-    if (!requireAuth(context, ref, beforeLeaving: () => Navigator.of(context).pop())) return;
     final host = widget.host;
     Navigator.of(context).pop();
     if (host.mounted) unawaited(addToCartAndShow(host, ref, additions));
   }
 
+  /// "Notify me": signed out, the window closes for sign-in and the choice is remembered for a few minutes (the product page does it when it opens).
   Future<void> _notify(ProductVariant variant) async {
-    if (!requireAuth(context, ref, beforeLeaving: () => Navigator.of(context).pop())) return;
-    try {
-      await ref
-          .read(catalogRepositoryProvider)
-          .createStockAlert(variantId: variant.id, branchId: ref.read(preferredBranchIdProvider));
-      if (mounted) showInfoSnack(context, context.l10n.alertCreated);
-    } catch (e) {
-      if (mounted) showErrorSnack(context, e);
+    if (!ref.read(isAuthenticatedProvider)) {
+      ref.read(pendingAlertIntentProvider.notifier).set(AlertIntent(variant.id, AlertType.backInStock));
+      requireAuth(context, ref, beforeLeaving: () => Navigator.of(context).pop());
+      return;
     }
+    await toggleAlert(context, ref, variantId: variant.id, type: AlertType.backInStock);
   }
 
   @override

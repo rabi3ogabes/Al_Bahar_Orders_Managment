@@ -28,6 +28,7 @@ import 'package:albahar_customer/features/notifications/presentation/notificatio
 import 'package:albahar_customer/features/notifications/presentation/state/notifications_controller.dart';
 import 'package:albahar_customer/features/orders/presentation/state/order_providers.dart';
 import 'package:albahar_customer/features/orders/presentation/widgets/active_order_card.dart';
+import 'package:albahar_customer/features/rooms/presentation/room_tiles.dart';
 import 'package:albahar_customer/features/scan/presentation/widgets/scan_entry.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -221,6 +222,7 @@ List<HomeSection> freshSectionOrder(List<HomeSection> sections) {
   int rank(HomeSection s) => switch (s) {
     BannersSection() => 0,
     CategoriesSection() => 1,
+    RoomsSection() => 1, // right after the categories (the server's order keeps them apart)
     ProductsSection(type: 'best_sellers') => 2,
     ProductsSection(type: 'new_arrivals') => 3,
     ProductsSection() => 4,
@@ -379,6 +381,13 @@ class HomeSectionView extends StatelessWidget {
         children: [
           SectionHeader(title: s.title ?? l10n.categoriesTitle, onAction: () => context.go('/categories')),
           if (fresh) _FreshCategoryRow(categories: s.categories) else _CategoryChips(categories: s.categories),
+        ],
+      ),
+      RoomsSection() => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SectionHeader(title: s.title ?? l10n.roomsTitle),
+          RoomTiles(rooms: s.rooms),
         ],
       ),
       ProductsSection() => Column(

@@ -17,9 +17,9 @@ beforeEach(function () {
     app(JourneyService::class)->ensureDefaults();
 });
 
-it('opens for marketing staff and seeds both journeys paused', function () {
+it('opens for marketing staff and seeds the abandoned-cart, birthday and after-delivery journeys paused', function () {
     $this->get(route('admin.journeys.index'))->assertOk()->assertSee(__('journeys_admin.title'));
-    expect(Journey::count())->toBe(2)->and(Journey::where('is_enabled', true)->count())->toBe(0);
+    expect(Journey::count())->toBe(3)->and(Journey::where('is_enabled', true)->count())->toBe(0)->and(Journey::pluck('key')->sort()->values()->all())->toBe(['abandoned_cart', 'after_delivery', 'birthday']);
 });
 
 it('is closed to staff without marketing access', function () {

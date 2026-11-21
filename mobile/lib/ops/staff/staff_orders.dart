@@ -16,6 +16,7 @@ import 'package:albahar_customer/ops/staff/staff_providers.dart';
 import 'package:albahar_customer/ops/staff/staff_rights.dart';
 import 'package:albahar_customer/ops/staff/staff_scan.dart';
 import 'package:albahar_customer/ops/staff/staff_strings.dart';
+import 'package:albahar_customer/ops/staff/staff_waiting.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -698,6 +699,7 @@ class _OrderCard extends ConsumerWidget {
                     const Gap(AppSpace.xs),
                     CancellationBanner(request: request, canDecide: rights.canDecideCancellation, compact: true),
                   ],
+                  if (o.waiting != null) ...[const Gap(AppSpace.xs), WaitingBanner(waiting: o.waiting!, compact: true)],
                   if (hasDriver)
                     Padding(
                       padding: const EdgeInsets.only(top: AppSpace.xs),

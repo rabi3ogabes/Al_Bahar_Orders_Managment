@@ -18,11 +18,20 @@ class CartRepository {
   /// Products the shop suggests for what is in the bag (never what is already in it).
   Future<List<ProductSummary>> suggestions() => _api.getList('/cart/suggestions', ProductSummary.fromJson);
 
-  Future<Cart?> addItem(String variantId, int quantity) async =>
-      _cartOrNull(await _api.post('/cart/items', data: {'variant_id': variantId, 'quantity': quantity}));
+  /// [assembly] true also adds assembly and installation for the line (only a product that offers it); leaving it out keeps the line's choice.
+  Future<Cart?> addItem(String variantId, int quantity, {bool assembly = false}) async => _cartOrNull(
+    await _api.post(
+      '/cart/items',
+      data: {'variant_id': variantId, 'quantity': quantity, if (assembly) 'assembly': true},
+    ),
+  );
 
   Future<Cart?> updateItem(String itemId, int quantity) async =>
       _cartOrNull(await _api.patch('/cart/items/$itemId', data: {'quantity': quantity}));
+
+  /// "Add assembly" / "Remove assembly" on one line. The fee is never sent: the server works it out.
+  Future<Cart?> setAssembly(String itemId, bool on) async =>
+      _cartOrNull(await _api.patch('/cart/items/$itemId', data: {'assembly': on}));
 
   Future<Cart?> removeItem(String itemId) async => _cartOrNull(await _api.delete('/cart/items/$itemId'));
 

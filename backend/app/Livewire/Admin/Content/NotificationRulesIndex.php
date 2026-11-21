@@ -26,7 +26,7 @@ class NotificationRulesIndex extends Component
     /** Notifications that always have a warning chip while switched off, by event => the key under `notification_rules_admin.warn`. */
     private const WARNINGS = [
         'payment.link' => 'payment_link', 'payment.failed' => 'payment_failed', 'refund.processed' => 'refund_processed',
-        'order.items_changed' => 'order_items_changed', 'campaign' => 'campaign',
+        'order.items_changed' => 'order_items_changed', 'order.substitution_offer' => 'substitution_offer', 'campaign' => 'campaign',
     ];
 
     /** The last two steps of the live card: switching their card off leaves the card on the step before. */

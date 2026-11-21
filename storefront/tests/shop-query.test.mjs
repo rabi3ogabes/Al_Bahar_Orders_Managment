@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { FILTER_KEYS, activeFilterCount, attrIds, flatCategories, mergeAttributeFilters, patched, productParams, readFilters, toggleAttr } from '../src/lib/shopQuery.ts';
+import { FILTER_KEYS, activeFilterCount, attrIds, flatCategories, mergeAttributeFilters, patched, productParams, readFilters, roomSlug, toggleAttr } from '../src/lib/shopQuery.ts';
 
 const cat = (id, slug, children = []) => ({ id, slug, name: slug, description: null, image_url: null, icon_url: null, banner_url: null, children });
 const CATS = [cat('1', 'living', [cat('11', 'sofas')]), cat('2', 'dining')];
@@ -26,7 +26,7 @@ test('readFilters resolves slugs (and ids) and defaults the sort', () => {
 test('productParams sends only what is set', () => {
   const f = readFilters(sp('category=sofas&brand=nordic&min=100&stock=1'), CATS, BRANDS);
   assert.deepEqual(productParams(f, 'br1', 2, 24), {
-    q: undefined, category_id: '11', brand_id: ['b1'], sort: '-popularity', price_min: '100', price_max: undefined,
+    q: undefined, category_id: '11', room: undefined, brand_id: ['b1'], sort: '-popularity', price_min: '100', price_max: undefined,
     in_stock: true, on_sale: undefined, new_arrival: undefined, attribute_values: undefined, branch_id: 'br1', page: 2, per_page: 24,
   });
   const plain = productParams(readFilters(sp('q=lamp'), CATS, BRANDS), null, 1, 1);
@@ -47,7 +47,7 @@ test('activeFilterCount counts the price range once and ignores q / sort', () =>
   assert.equal(activeFilterCount(sp('q=x&sort=price')), 0);
   assert.equal(activeFilterCount(sp('category=a&brand=b&min=1&max=2&stock=1')), 4);
   assert.equal(activeFilterCount(sp('max=2')), 1);
-  assert.deepEqual([...FILTER_KEYS], ['category', 'brand', 'min', 'max', 'stock', 'sale', 'new', 'attr']);
+  assert.deepEqual([...FILTER_KEYS], ['category', 'room', 'brand', 'min', 'max', 'stock', 'sale', 'new', 'attr']);
 });
 
 // ── Colour / material / size ────────────────────────────────────────────────────────────────────────────────────────────
@@ -92,4 +92,23 @@ test('the colour list of several sections becomes one list: an attribute once, i
   assert.deepEqual(merged.map((g) => g.attribute.code), ['colour', 'material'], 'an attribute with no values is left out');
   assert.deepEqual(merged[0].values.map((v) => v.id), [1, 2, 3]);
   assert.deepEqual(mergeAttributeFilters([]), []);
+});
+
+test('a room in the URL is kept, sent to the server, counted as a filter and cleared with the others', () => {
+  const f = readFilters(sp('room=bedroom&sort=price'), CATS, BRANDS);
+  assert.equal(f.room, 'bedroom');
+  assert.equal(productParams(f, null, 1, 24).room, 'bedroom');
+  assert.equal(readFilters(sp(''), CATS, BRANDS).room, '');
+  assert.equal(productParams(readFilters(sp(''), CATS, BRANDS), null, 1, 24).room, undefined);
+  assert.ok(FILTER_KEYS.includes('room'));
+  assert.equal(activeFilterCount(sp('room=bedroom&stock=1')), 2);
+  assert.equal(patched(sp('room=bedroom&stock=1'), { room: null }).toString(), 'stock=1');
+  assert.equal(patched(sp('category=sofas'), { room: 'kitchen' }).get('room'), 'kitchen');
+});
+
+test('only a plain address word counts as a room, so a hand-edited link never reaches the server', () => {
+  assert.equal(roomSlug(sp('room=Living-Room')), 'living-room', 'case does not matter');
+  assert.equal(roomSlug(sp('room=%20bedroom%20')), 'bedroom');
+  for (const bad of ['', '../x', 'a b', 'bed_room', '-x', 'x'.repeat(61), '<script>', 'غرفة']) assert.equal(roomSlug(new URLSearchParams({ room: bad })), '', bad);
+  assert.equal(readFilters(new URLSearchParams({ room: '<script>' }), CATS, BRANDS).room, '');
 });

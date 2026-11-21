@@ -308,6 +308,10 @@ void main() {
       expect(t.widget<FilledButton>(find.widgetWithText(FilledButton, en.requestReturn)).onPressed, isNull);
       await t.tap(find.descendant(of: find.byType(QuantityStepper), matching: find.byIcon(Icons.add_rounded)).first);
       await settle(t);
+      // A damaged item needs a photo (the default kind); a change of mind does not.
+      expect(t.widget<FilledButton>(find.widgetWithText(FilledButton, en.requestReturn)).onPressed, isNull);
+      await t.tap(find.byKey(const ValueKey('claim-type-changed_mind')));
+      await settle(t);
       await t.tap(find.widgetWithText(FilledButton, en.requestReturn));
       await settle(t);
       expect(h.adapter.where('POST', '/orders/o1/returns'), hasLength(1));
@@ -694,17 +698,21 @@ void main() {
       await teardown(t);
     });
 
-    testWidgets('a guest who adds from the window is sent to sign in, and the window closes first', (t) async {
-      final h = await boot(t, backend(), signedIn: false);
-      await go(t, h, '/products');
-      await t.tap(find.byTooltip(en.quickViewOf('Product 1')));
-      await settle(t);
-      await t.tap(find.widgetWithText(FilledButton, en.addToCart));
-      await settle(t);
-      expect(find.byType(BottomSheet), findsNothing);
-      expect(path(h), '/login');
-      await teardown(t);
-    });
+    testWidgets(
+      'a guest who adds from the window needs no sign-in: the window closes and the cart opens over the list',
+      (t) async {
+        final h = await boot(t, backend(), signedIn: false);
+        await go(t, h, '/products');
+        await t.tap(find.byTooltip(en.quickViewOf('Product 1')));
+        await settle(t);
+        await t.tap(find.widgetWithText(FilledButton, en.addToCart));
+        await settle(t);
+        expect(path(h), '/products', reason: 'no sign-in screen: they stay on the list');
+        expect(find.text(en.addedToCart), findsOneWidget, reason: 'the cart window opened with the usual confirmation');
+        expect(h.read(cartCountProvider), 1);
+        await teardown(t);
+      },
+    );
   });
 
   group('Filters and sort', () {

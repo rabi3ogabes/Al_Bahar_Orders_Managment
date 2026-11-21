@@ -37,14 +37,17 @@ final class OpsClock
 
     public const CASH = 'cash';
 
+    /** A return or damage claim nobody on the team has decided yet. */
+    public const CLAIM = 'claim';
+
     /** @var list<string> */
-    public const KINDS = [self::PENDING, self::PREPARING, self::READY, self::DRIVER, self::PICKUP, self::CASH];
+    public const KINDS = [self::PENDING, self::PREPARING, self::READY, self::DRIVER, self::PICKUP, self::CASH, self::CLAIM];
 
     /** Kinds that count opening hours only. */
-    public const BUSINESS_KINDS = [self::PENDING, self::PREPARING, self::READY, self::DRIVER];
+    public const BUSINESS_KINDS = [self::PENDING, self::PREPARING, self::READY, self::DRIVER, self::CLAIM];
 
     /** The unit the limits of a kind are typed in on the settings page. */
-    public const UNITS = [self::PENDING => 'minutes', self::PREPARING => 'minutes', self::READY => 'minutes', self::DRIVER => 'minutes', self::PICKUP => 'days', self::CASH => 'hours'];
+    public const UNITS = [self::PENDING => 'minutes', self::PREPARING => 'minutes', self::READY => 'minutes', self::DRIVER => 'minutes', self::PICKUP => 'days', self::CASH => 'hours', self::CLAIM => 'hours'];
 
     /** Factory defaults [amber, red], in the unit of the kind. */
     public const DEFAULTS = [
@@ -54,6 +57,7 @@ final class OpsClock
         self::DRIVER => [5, 10],
         self::PICKUP => [2, 4],
         self::CASH => [24, 48],
+        self::CLAIM => [4, 24],
     ];
 
     /** Longest wait a limit may be typed as, per unit (keeps the settings page honest). */

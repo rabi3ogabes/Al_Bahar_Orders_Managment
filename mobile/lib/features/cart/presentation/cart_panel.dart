@@ -10,13 +10,10 @@ import 'package:albahar_customer/core/widgets/price_tag.dart';
 import 'package:albahar_customer/core/widgets/side_panel.dart';
 import 'package:albahar_customer/core/widgets/skeleton.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
-import 'package:albahar_customer/features/auth/presentation/require_auth.dart';
-import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
 import 'package:albahar_customer/features/cart/domain/cart_addition.dart';
 import 'package:albahar_customer/features/cart/domain/cart_models.dart';
 import 'package:albahar_customer/features/cart/presentation/cart_screen.dart';
 import 'package:albahar_customer/features/cart/presentation/state/cart_controller.dart';
-import 'package:albahar_customer/features/cart/presentation/state/pending_cart_add.dart';
 import 'package:albahar_customer/features/deals/presentation/widgets/deal_line_text.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
@@ -25,30 +22,19 @@ import 'package:go_router/go_router.dart';
 
 export 'package:albahar_customer/features/cart/domain/cart_addition.dart';
 
-/// Add to cart, the same way everywhere (product page, cards, quick view, buy again, search, suggestions):
+/// Add to cart, the same way everywhere (product page, cards, quick view, buy again, search, suggestions), signed in or not:
 ///
-/// 1. a guest is sent to sign in first (the add is remembered and done for them right after they sign in);
+/// 1. nobody is asked to sign in to put something in the cart (a guest's cart is kept on the phone; checkout is where sign-in is asked);
 /// 2. the cart and its badge change **at once**, and the cart window opens over the current screen — no navigation;
 /// 3. if the server refuses, the cart goes back, the window closes and the person is told why.
 ///
-/// Resolves when the server has answered. [beforeLeaving] runs before a guest is sent to sign in (a window closes itself).
-Future<void> addToCartAndShow(
-  BuildContext context,
-  WidgetRef ref,
-  List<CartAddition> additions, {
-  VoidCallback? beforeLeaving,
-}) async {
+/// Resolves when the cart has answered.
+Future<void> addToCartAndShow(BuildContext context, WidgetRef ref, List<CartAddition> additions) async {
   if (additions.isEmpty) return;
-  if (!ref.read(isAuthenticatedProvider)) {
-    // Not lost on the way: the same add is done, with the usual confirmation, as soon as they have signed in.
-    ref.read(pendingCartAddProvider.notifier).remember(additions);
-  }
-  if (!requireAuth(context, ref, beforeLeaving: beforeLeaving)) return;
   await performAddToCart(context, ref.read(cartControllerProvider.notifier), additions);
 }
 
-/// The signed-in half of [addToCartAndShow]: the cart changes at once, the cart window opens over [context], a refusal closes it and says why.
-/// Also what runs for an add that was waiting for the person to sign in (`pending_cart_replay.dart`).
+/// What [addToCartAndShow] does: the cart changes at once, the cart window opens over [context], a refusal closes it and says why.
 Future<void> performAddToCart(BuildContext context, CartController controller, List<CartAddition> additions) async {
   final failed = ValueNotifier<bool>(false);
   try {
@@ -61,6 +47,7 @@ Future<void> performAddToCart(BuildContext context, CartController controller, L
           product: a.product,
           unitPrice: a.unitPrice,
           variantName: a.variantName,
+          assembly: a.assembly,
         ),
     ];
     unawaited(showCartPanel(context, addedVariantIds: {for (final a in additions) a.variantId}, closeSignal: failed));

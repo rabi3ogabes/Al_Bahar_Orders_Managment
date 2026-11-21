@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:albahar_customer/core/router/app_router.dart' show isProtectedPath;
 import 'package:albahar_customer/features/auth/presentation/state/session_controller.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,6 +30,9 @@ bool requireAuth(BuildContext context, WidgetRef ref, {VoidCallback? beforeLeavi
 /// After a sign-in: leave the sign-in screens for the page the person came from. A sign-in opened with `push` (Add to cart, a review, a
 /// bid) is closed by popping its screens, which shows the page underneath exactly as it was; one the router sent the person to
 /// (a protected page) is replaced by [from], as the router's own redirect would. Does nothing when the router already moved on.
+///
+/// Checkout is where a signed-out customer is asked to sign in: when [from] is a protected page they were on their way to (`/checkout`), they go
+/// there now, on top of the page they came from (Back returns to it), instead of being left where they started.
 void leaveSignIn(BuildContext context, String? from) {
   final router = GoRouter.of(context);
   for (var i = 0; i < 6 && router.canPop() && currentAppLocation(router).startsWith('/login'); i++) {
@@ -36,5 +40,8 @@ void leaveSignIn(BuildContext context, String? from) {
   }
   if (currentAppLocation(router).startsWith('/login')) {
     router.go(from != null && from.startsWith('/') && !from.startsWith('/login') ? from : '/home');
+    return;
   }
+  final target = from != null && from.startsWith('/') && !from.startsWith('/login') ? Uri.tryParse(from) : null;
+  if (target != null && isProtectedPath(target.path) && currentAppLocation(router) != from) unawaited(router.push(from!));
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, Gift, Heart, LogOut, MapPin, MessageCircle, Package, Pencil, Plus, Trash2, User as UserIcon, Star, Copy, Gavel } from 'lucide-react';
+import { Bell, BellRing, Gift, Heart, LogOut, MapPin, MessageCircle, Package, Pencil, Plus, Trash2, User as UserIcon, Star, Copy, Gavel } from 'lucide-react';
 import { ApiError, del, get, post } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n';
@@ -12,13 +12,15 @@ import { useDocTitle } from '../lib/hooks';
 import { cx } from '../lib/format';
 import type { Address, Auction, Loyalty, Lot, OrderSummary, Paged, Referral, Ticket } from '../lib/types';
 import { PushPrompt, PushSettingsCard } from '../components/PushUI';
+import { StockAlertButtons } from '../components/StockAlertButtons';
+import { useStockAlerts } from '../lib/alerts';
 import { useAuthModal } from '../components/AuthModal';
 import { ProductCard, CardGrid } from '../components/ProductCard';
 import { Badge, Button, EmptyState, LinkButton, Pic, Skeleton, Spinner } from '../components/ui';
 import { ConfirmDialog } from '../components/Dialogs';
 import { preloadOrder } from '../components/OverlayHosts';
 import { PasswordForm, ProfileForm } from '../components/ProfileForms';
-import { AddressWindow, ProfileWindow, SupportWindow } from '../components/windows';
+import { AddressWindow, AlertsWindow, ProfileWindow, SupportWindow } from '../components/windows';
 import { statusTone } from '../components/OrderParts';
 import { useUrlOverlay } from '../lib/useUrlOverlay';
 
@@ -26,7 +28,8 @@ const NAV = [
   { to: '/account', end: true, icon: UserIcon, key: 'account.overview' }, { to: '/account/orders', icon: Package, key: 'account.orders' },
   { to: '/account/addresses', icon: MapPin, key: 'account.addresses' }, { to: '/account/wishlist', icon: Heart, key: 'wishlist.title' },
   { to: '/account/auctions', icon: Gavel, key: 'account.auctions' }, { to: '/account/loyalty', icon: Gift, key: 'account.loyalty' },
-  { to: '/account/notifications', icon: Bell, key: 'account.notifications' }, { to: '/account/support', icon: MessageCircle, key: 'account.support' }, { to: '/account/profile', icon: Pencil, key: 'account.profile' },
+  { to: '/account/notifications', icon: Bell, key: 'account.notifications' }, { to: '/account/alerts', icon: BellRing, key: 'alerts.open' },
+  { to: '/account/support', icon: MessageCircle, key: 'account.support' }, { to: '/account/profile', icon: Pencil, key: 'account.profile' },
 ] as const;
 
 export function AccountLayout() {
@@ -36,6 +39,7 @@ export function AccountLayout() {
   const nav = useNavigate();
   const loc = useLocation();
   const [editing, setEditing] = useState(false);
+  const [alertsOpen, setAlertsOpen] = useState(false);
   useDocTitle(t('account.title'));
   if (loading) return <div className="wrap py-20"><Spinner /></div>;
   if (!user) return <div className="wrap py-16"><EmptyState icon={<UserIcon size={28} />} title={t('account.signin_title')} text={t('account.signin_text')} action={<Button size="lg" onClick={() => authModal.open()}>{t('auth.sign_in')}</Button>} /></div>;
@@ -47,9 +51,9 @@ export function AccountLayout() {
       </div>
       <div className="grid gap-8 lg:grid-cols-[250px_minmax(0,1fr)]">
         <nav aria-label={t('account.title')} className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-2 lg:mx-0 lg:flex-col lg:gap-1 lg:overflow-visible lg:px-0">
-          {NAV.map(({ to, icon: I, key, ...r }) => to === '/account/profile' ? (
-            // Editing the profile opens a side window; the page itself still answers at /account/profile.
-            <button key={to} type="button" onClick={() => setEditing(true)} className={cx('flex min-h-11 shrink-0 items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-colors', loc.pathname === to ? 'bg-primary text-bg' : 'text-ink-soft hover:bg-sand')}><I size={17} />{t(key)}</button>
+          {NAV.map(({ to, icon: I, key, ...r }) => to === '/account/profile' || to === '/account/alerts' ? (
+            // Editing the profile and reading "My alerts" open a side window; the profile page itself still answers at /account/profile.
+            <button key={to} type="button" onClick={() => (to === '/account/alerts' ? setAlertsOpen(true) : setEditing(true))} className={cx('flex min-h-11 shrink-0 items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-colors', loc.pathname === to ? 'bg-primary text-bg' : 'text-ink-soft hover:bg-sand')}><I size={17} />{t(key)}</button>
           ) : (
             <NavLink key={to} to={to} end={'end' in r} className={({ isActive }) => cx('flex min-h-11 shrink-0 items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-colors', isActive ? 'bg-primary text-bg' : 'text-ink-soft hover:bg-sand')}><I size={17} />{t(key)}</NavLink>
           ))}
@@ -57,6 +61,7 @@ export function AccountLayout() {
         <div className="min-w-0"><Outlet /></div>
       </div>
       <ProfileWindow open={editing} onClose={() => setEditing(false)} />
+      <AlertsWindow open={alertsOpen} onClose={() => setAlertsOpen(false)} />
     </div>
   );
 }
@@ -188,13 +193,24 @@ export function Addresses() {
 
 /* ───────────── Wishlist ───────────── */
 export function Wishlist() {
-  const { t } = useI18n();
+  const { t, num } = useI18n();
   const wl = useWishlist();
+  const alerts = useStockAlerts();
+  const [alertsOpen, setAlertsOpen] = useState(false);
+  const count = alerts.list?.length ?? 0;
   return (
     <section className="rounded-[28px] border border-line bg-paper p-6">
-      <h2 className="mb-6 text-3xl">{t('wishlist.title')}</h2>
-      {wl.loading ? <Skeleton className="h-40" /> : wl.items.length ? <CardGrid cols={3}>{wl.items.map((i) => <ProductCard key={i.id} p={i.product!} />)}</CardGrid>
-        : <EmptyState icon={<Heart size={28} />} title={t('wishlist.empty')} text={t('wishlist.empty_text')} action={<LinkButton to="/shop">{t('cart.continue')}</LinkButton>} />}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-3xl">{t('wishlist.title')}</h2>
+        <Button variant="outline" size="sm" onClick={() => setAlertsOpen(true)}><BellRing size={15} />{t('alerts.open')}{count > 0 && <span className="tabular-nums"> ({num(count)})</span>}</Button>
+      </div>
+      {wl.loading ? <Skeleton className="h-40" /> : wl.items.length ? (
+        <CardGrid cols={3}>{wl.items.map((i) => (
+          // A one-variant product can be watched right from here: the bell when it is out of stock, "Tell me if the price drops" when it is not.
+          <div key={i.id}><ProductCard p={i.product!} /><StockAlertButtons variantId={i.product!.variant_id} canBuy={i.product!.in_stock && i.product!.purchasable} className="mt-3" /></div>
+        ))}</CardGrid>
+      ) : <EmptyState icon={<Heart size={28} />} title={t('wishlist.empty')} text={t('wishlist.empty_text')} action={<LinkButton to="/shop">{t('cart.continue')}</LinkButton>} />}
+      <AlertsWindow open={alertsOpen} onClose={() => setAlertsOpen(false)} />
     </section>
   );
 }
