@@ -46,6 +46,9 @@ jobs:
         run: composer audit --no-dev
       - name: Build admin assets
         run: npm ci && npm run build && npm audit --omit=dev --audit-level=high
+      # The printing tests read the PDFs back as text (pdftotext) and count their pages (pdfinfo).
+      - name: PDF tools for the printing tests (poppler-utils)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
       - name: Tests (feature + unit)
         run: php artisan migrate:fresh --force && vendor/bin/pest --testsuite=Unit,Feature
       - name: Concurrency tests (multi-process, PostgreSQL row locks)

@@ -20,6 +20,10 @@ use App\Support\ArabicShaper;
 /** The text of a PDF as a person reads it (poppler's pdftotext), with the direction marks removed; pages are separated by a form feed. */
 function printText(string $bytes): string
 {
+    // Without the tool every PDF would read as empty and the tests would fail with confusing messages: say what is missing (CI installs poppler-utils).
+    if (trim((string) shell_exec('command -v pdftotext')) === '') {
+        throw new RuntimeException('pdftotext is not installed: the printing tests need poppler-utils (apt-get install poppler-utils).');
+    }
     $file = tempnam(sys_get_temp_dir(), 'prt').'.pdf';
     file_put_contents($file, $bytes);
     $text = (string) shell_exec('pdftotext -layout '.escapeshellarg($file).' - 2>/dev/null');

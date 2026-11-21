@@ -347,6 +347,7 @@ it('looks every code up through an index (lower(sku) and lower(barcode))', funct
     DB::statement('SET LOCAL enable_seqscan = off');
     foreach ([['products', 'sku'], ['products', 'barcode'], ['product_variants', 'sku'], ['product_variants', 'barcode']] as [$table, $column]) {
         $plan = collect(DB::select("EXPLAIN SELECT id FROM {$table} WHERE lower({$column}) in (lower('x'), lower('y'))"))->pluck('QUERY PLAN')->implode("\n");
-        expect($plan)->toContain("{$table}_{$column}_lower_idx");
+        // Either index serves an exact lookup: the plain lower() one, or the prefix one the dashboard search added (it also answers "starts with").
+        expect($plan)->toMatch("/{$table}_{$column}_(lower|prefix)_idx/");
     }
 });
