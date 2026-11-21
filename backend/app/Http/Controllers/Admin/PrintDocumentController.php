@@ -74,7 +74,12 @@ class PrintDocumentController extends Controller
     private function respond(Request $request, PrintKind $kind, Collection $parts, PrintDocuments $documents): Response
     {
         abort_if($parts->isEmpty(), 404, __('print_docs.errors.nothing'));
-        set_time_limit(120); // a full batch is a few seconds of PDF work, but never let a long list die half way
+        // A full batch is a few seconds of PDF work, but a web server's shorter limit must not cut a long list half way. A process with no limit at all (a test
+        // run, a queue worker) stays unlimited: setting one there would arm a timer that kills that process 120 seconds later, whatever it is doing by then.
+        $limit = (int) ini_get('max_execution_time');
+        if ($limit > 0 && $limit < 120) {
+            set_time_limit(120);
+        }
         $pdf = $documents->make($this->staff($request), $kind, $parts);
 
         // The PDF carries a customer's name, phone and address: it is never cached, and it opens in the browser (inline) so one click shows it.

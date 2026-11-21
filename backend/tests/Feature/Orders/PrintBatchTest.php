@@ -45,6 +45,15 @@ it('prints every part waiting to be prepared in one PDF with a page for each, an
     expect(printAuditCount($a->f, PrintKind::Picking))->toBe(1)->and(printAuditCount($ready))->toBe(0)->and(printAuditCount($cancelled))->toBe(0);
 });
 
+it('never puts a time limit on a process that has none (a test run, a queue worker), which would kill it 120 seconds later', function () {
+    $a = printWorld();
+    $before = ini_get('max_execution_time');
+
+    printBatch($a->mgr, 'picking')->assertOk();
+
+    expect(ini_get('max_execution_time'))->toBe($before);
+});
+
 it('does not list an online order that is not paid yet', function () {
     opsSadad();
     $a = printWorld();
