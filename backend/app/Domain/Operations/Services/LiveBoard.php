@@ -141,7 +141,7 @@ final class LiveBoard
      * work (an unpaid online order).
      *
      * @param  Collection<string, CarbonImmutable>  $cancels  order id => when the cancellation request was made
-     * @param  Collection<string, array{state: string, counted: int, wall: int, since: CarbonImmutable}>  $waiting  part id => its worst waiting replacement
+     * @param  Collection<string, array{state: string, counted: int, wall: int, since: CarbonImmutable|null}>  $waiting  part id => its worst waiting replacement
      * @return array{f: OrderFulfillment, order: Order, delivery: ?Delivery, lane: string, from: string, reason: ?string, stage: string, age: ?OpsAge, waiting: bool}|null
      */
     private function draft(OrderFulfillment $f, Collection $cancels, Collection $waiting, CarbonInterface $now): ?array
