@@ -310,7 +310,12 @@ class _PanelFrameState extends State<_PanelFrame> {
                       Expanded(
                         child: widget.scrollable ? SingleChildScrollView(padding: _bodyPad, child: content) : content,
                       ),
-                    if (widget.footer != null) PanelFooter(child: widget.footer!),
+                    if (widget.footer != null)
+                      PanelFooter(child: widget.footer!)
+                    else if (sheet)
+                      // A phone sheet reaches under the system navigation bar (a bottom sheet only avoids the top and
+                      // sides), so without a footer its last line would sit behind the three buttons.
+                      SizedBox(height: MediaQuery.paddingOf(context).bottom),
                   ],
                 ),
                 PositionedDirectional(top: 64, start: 12, end: 12, child: _PanelToastView(controller: _toast)),

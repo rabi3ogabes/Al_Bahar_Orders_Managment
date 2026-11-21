@@ -198,6 +198,31 @@ void main() {
       await t.pumpAndSettle();
       expect(t.getBottomLeft(find.text('pinned')).dy, lessThanOrEqualTo(before - 250));
     });
+
+    testWidgets('a phone sheet without a footer keeps its last line clear of the system navigation bar', (t) async {
+      _size(t, 390, 800);
+      t.view.padding = const FakeViewPadding(bottom: 48);
+      t.view.viewPadding = const FakeViewPadding(bottom: 48);
+      addTearDown(t.view.resetPadding);
+      addTearDown(t.view.resetViewPadding);
+      await t.pumpWidget(
+        _page(
+          (c) => showSidePanel<void>(
+            context: c,
+            title: 'List',
+            scrollable: false,
+            builder: (_) => const Padding(padding: EdgeInsets.all(16), child: Text('last line')),
+          ),
+        ),
+      );
+      await t.tap(find.text('open'));
+      await t.pumpAndSettle();
+      expect(
+        t.getBottomLeft(find.text('last line')).dy,
+        lessThanOrEqualTo(800 - 48),
+        reason: 'the three navigation buttons must not cover the last line',
+      );
+    });
   });
 
   group('forms in a window', () {

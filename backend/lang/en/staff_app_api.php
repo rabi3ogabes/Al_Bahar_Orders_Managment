@@ -4,6 +4,7 @@
 return [
     'attention' => [
         'dashboard_only' => 'This is handled on the dashboard.',
+        'cash_on_dashboard' => 'On the dashboard: Cash collections → To hand in → Receive cash. Count it with the driver first.',
     ],
     'pickup' => [
         'reissued' => 'New pass issued. The customer has been told.',

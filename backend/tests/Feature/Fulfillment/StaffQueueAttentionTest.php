@@ -46,6 +46,18 @@ it('lists what waits for the person, worst first, with counts per kind and where
         ->and($data['truncated'])->toBeFalse();
 });
 
+it('tells a manager exactly where to receive cash a driver never handed in', function () {
+    $driver = opsStaff('delivery_employee', $this->a);
+    $sale = opsOrder($this->a, [], ['status' => 'delivered'], opsAgo(3000));
+    opsCash($this->a, $driver, $sale['order'], opsAgo(30 * 60));
+
+    $cash = collect(staffAttention()['items'])->firstWhere('kind', 'cash');
+
+    expect($cash)->toMatchArray(['target' => 'dashboard', 'in_app' => false, 'subject' => $driver->name])
+        ->and($cash['hint'])->toBe(__('staff_app_api.attention.cash_on_dashboard'))
+        ->and($cash['hint'])->not->toBe(__('staff_app_api.attention.dashboard_only'));
+});
+
 it('sends at most 20 lines but counts them all', function () {
     foreach (range(1, 25) as $i) {
         opsOrder($this->a, [], ['status' => 'pending'], opsAgo(2 + $i));

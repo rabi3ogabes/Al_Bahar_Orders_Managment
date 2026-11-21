@@ -65,7 +65,7 @@ class StaffAttentionController extends ApiController
             'order_id' => $i->action['order'] ?? null, 'fulfillment_id' => $part,
             'mine' => $i->assignedTo !== null && $i->assignedTo === $this->user()->id,
             'call' => $i->call,
-            'hint' => $target === 'dashboard' ? __('staff_app_api.attention.dashboard_only') : null,
+            'hint' => $target === 'dashboard' ? __($i->category === 'cash' ? 'staff_app_api.attention.cash_on_dashboard' : 'staff_app_api.attention.dashboard_only') : null,
         ];
     }
 }
