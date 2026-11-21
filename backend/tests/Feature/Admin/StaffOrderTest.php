@@ -160,12 +160,13 @@ it('never lets staff set prices and reports a changed price', function () {
 });
 
 it('quick-creates a customer without duplicates and normalises the phone', function () {
-    $r = $this->svc->createCustomer($this->mgrA, ['name' => 'Walk In', 'phone' => '55 123 999', 'locale' => 'ar']);
+    // A name no fake-name generator makes (it has a "Walker"): the search below must find this one customer and nobody else.
+    $r = $this->svc->createCustomer($this->mgrA, ['name' => 'Zwalk In', 'phone' => '55 123 999', 'locale' => 'ar']);
     expect($r['existed'])->toBeFalse()->and($r['user']->phone)->toBe('+97455123999')->and($r['user']->marketing_consent_at)->toBeNull();
     $again = $this->svc->createCustomer($this->mgrA, ['name' => 'Other Name', 'phone' => '+974 5512 3999', 'locale' => 'en']);
     expect($again['existed'])->toBeTrue()->and($again['user']->id)->toBe($r['user']->id)->and(User::where('phone', '+97455123999')->count())->toBe(1);
     expect(fn () => $this->svc->createCustomer($this->mgrA, ['name' => 'X', 'phone' => 'abc', 'locale' => 'en']))->toThrow(ValidationException::class);
-    $found = $this->svc->searchCustomers($this->mgrA, 'Walk');
+    $found = $this->svc->searchCustomers($this->mgrA, 'Zwalk');
     expect($found)->toHaveCount(1)->and($found[0]['phone'])->not->toContain('55123999');
 });
 
