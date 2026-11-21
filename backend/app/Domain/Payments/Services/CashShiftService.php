@@ -118,7 +118,7 @@ final class CashShiftService
      * coins with more than two decimals) is refused, so the total can only be what was really counted.
      *
      * @param  array<int|string, mixed>  $notes  value => how many
-     * @return array{notes: array<string, int>, coins: Money, total: Money}
+     * @return array{notes: array<int, int>, coins: Money, total: Money}
      */
     public function count(array $notes, string|int|null $coins): array
     {
@@ -131,7 +131,7 @@ final class CashShiftService
         }
         foreach (self::NOTES as $value) {
             $n = $notes[$value] ?? $notes[(string) $value] ?? 0;
-            $n = $n === '' || $n === null ? 0 : $n;
+            $n = $n === '' ? 0 : $n;
             if (! (is_int($n) || (is_string($n) && ctype_digit($n))) || (int) $n < 0 || (int) $n > self::MAX_COUNT) {
                 throw DomainException::make('cash_shift_count_invalid');
             }

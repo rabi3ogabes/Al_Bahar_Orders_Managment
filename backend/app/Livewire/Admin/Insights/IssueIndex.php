@@ -84,6 +84,7 @@ class IssueIndex extends Component
     }
 
     /** Every read of the log goes through here: the issues the viewer may see (see IssueReport::scopeVisibleTo), all of them only for company-wide access. */
+    /** @return Builder<IssueReport> */
     private function visible(): Builder
     {
         return IssueReport::query()->visibleTo(app(AccessControl::class)->scope(auth()->user(), 'orders.view'), (string) auth()->id());

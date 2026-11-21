@@ -83,7 +83,10 @@ final class CommandResults
         return $this->allStart($typed, [...$name, ...$words, ...$group]) ? self::BY_GROUP : null;
     }
 
-    /** @param list<string> $typed @param list<string> $words */
+    /**
+     * @param  list<string>  $typed
+     * @param  list<string>  $words
+     */
     private function allStart(array $typed, array $words): bool
     {
         foreach ($typed as $t) {

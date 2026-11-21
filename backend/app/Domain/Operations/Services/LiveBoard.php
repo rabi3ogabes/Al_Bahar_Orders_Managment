@@ -226,7 +226,7 @@ final class LiveBoard
      * measure as the "Needs attention" inbox: amber from half, red at the end).
      *
      * @param  Collection<int, OrderFulfillment>  $rows
-     * @return Collection<string, array{state: string, counted: int, wall: int, since: CarbonImmutable}>
+     * @return Collection<string, array{state: string, counted: int, wall: int, since: CarbonImmutable|null}>
      */
     private function waitingAnswers(Collection $rows, CarbonInterface $now): Collection
     {

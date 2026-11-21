@@ -312,7 +312,10 @@ final class ScorecardService
         ];
     }
 
-    /** @param  array<string, int>  $byReason @return array<string, int> biggest first, ties by code */
+    /**
+     * @param  array<string, int>  $byReason
+     * @return array<string, int> biggest first, ties by code
+     */
     private function sorted(array $byReason): array
     {
         $keys = array_keys($byReason);

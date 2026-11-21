@@ -173,7 +173,10 @@ final class CustomerValue
         return $this->query($viewer, $filters)->paginate(max(1, min($perPage, 100)))->through(fn (User $u) => $this->row($u));
     }
 
-    /** @param array{tab?: string, sort?: string, search?: string, status?: string, branch?: string} $filters @return EloquentBuilder<User> */
+    /**
+     * @param  array{tab?: string, sort?: string, search?: string, status?: string, branch?: string}  $filters
+     * @return EloquentBuilder<User>
+     */
     public function query(User $viewer, array $filters): EloquentBuilder
     {
         $now = CarbonImmutable::now();

@@ -9,6 +9,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use stdClass;
 
 /**
  * "Did that offer pay for itself?" (docs/guides/OWNER_PACK_AND_CUSTOMER_VALUE.md): for every coupon, promotion, customer journey and sent campaign, what
@@ -105,7 +106,7 @@ final class OfferReturn
      * Groups an attribution (offer_key, label_en, label_ar, order_id, user_id, discount) into one row per offer, limited to the orders of the period that
      * count as sales (the join to $booked): a cancelled order, or one outside the period, never appears.
      *
-     * @return Collection<int, object>
+     * @return Collection<int, stdClass>
      */
     private function aggregate(Builder $attribution, Builder $booked): Collection
     {

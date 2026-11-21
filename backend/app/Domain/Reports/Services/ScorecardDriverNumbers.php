@@ -111,7 +111,9 @@ final class ScorecardDriverNumbers
                 $n++;
                 $rows[] = $shape($r);
             }
-            $truncated = $truncated || $n >= $cap;
+            if ($n >= $cap) {
+                $truncated = true;
+            }
         };
 
         $take(DB::table('deliveries as d')->join('order_fulfillments as f', 'f.id', '=', 'd.order_fulfillment_id')->join('orders as o', 'o.id', '=', 'f.order_id')
