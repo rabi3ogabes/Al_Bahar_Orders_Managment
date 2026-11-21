@@ -17,10 +17,14 @@ use Illuminate\Support\Facades\DB;
  * Cycle counts. Expected quantities are snapshotted at start; on posting, the variance (counted − expected) is applied
  * as a delta to the CURRENT on_hand, so sales/receipts that happened during counting are preserved.
  * Uncounted lines are ignored (not assumed zero). One open session per branch (partial unique index).
+ *
+ * Second person (roadmap 4.6): finishing a count with differences puts it "waiting for approval"; the stock is changed only when someone who did not
+ * count it approves it (see StocktakeApprovals for the rule, its switch and the small-difference threshold). Every door that posts a count (the
+ * dashboard and the staff API) comes through post(), so there is one rule and no bypass.
  */
 class StocktakingService
 {
-    public function __construct(private readonly InventoryLedger $ledger, private readonly AccessControl $access, private readonly AuditLogger $audit) {}
+    public function __construct(private readonly InventoryLedger $ledger, private readonly AccessControl $access, private readonly AuditLogger $audit, private readonly StocktakeApprovals $approvals) {}
 
     public function start(User $actor, string $branchId, ?string $categoryId = null, ?string $notes = null): StocktakingSession
     {
@@ -58,42 +62,106 @@ class StocktakingService
         return $item;
     }
 
+    /** Finishes the count. With differences it waits for a second person; a count that needs no approval is posted here and now. */
     public function submit(User $actor, StocktakingSession $session): StocktakingSession
     {
         $this->authorize($actor, 'stocktaking.edit', $session->branch_id);
-        if ($session->status !== 'counting') {
-            throw DomainException::make('invalid_state_transition', 409, ['from' => $session->status]);
+
+        $session = DB::transaction(function () use ($actor, $session) {
+            $session = StocktakingSession::whereKey($session->id)->lockForUpdate()->firstOrFail();
+            if ($session->status !== 'counting') {
+                throw DomainException::make('invalid_state_transition', 409, ['from' => $session->status]);
+            }
+            $summary = $this->approvals->summary($session);
+            $session->update(['status' => 'submitted', 'submitted_at' => now(), 'submitted_by' => $actor->id, 'variance_lines' => $summary['lines'], 'variance_units' => $summary['units'],
+                'variance_value' => $summary['value']?->toDecimal(), 'returned_by' => null, 'returned_at' => null, 'returned_reason' => null]);
+            $this->audit->log('stocktaking.submitted', $session, ['status' => 'counting'], ['status' => 'submitted', 'variance_lines' => $summary['lines'],
+                'variance_value' => $summary['value']?->toDecimal()], actor: $actor);
+
+            return $this->approvals->postsByItself($summary) ? $this->apply($session, $actor, null, 'auto') : $session;
+        });
+        if ($session->status === 'submitted') {
+            $this->announce(fn () => $this->approvals->announceWaiting($session));
         }
-        $session->update(['status' => 'submitted', 'submitted_at' => now()]);
-        $this->audit->log('stocktaking.submitted', $session, ['status' => 'counting'], ['status' => 'submitted'], actor: $actor);
 
         return $session;
     }
 
+    /** Approves a finished count: the differences become stock movements. Refused for someone who counted it (while the rule is on). */
     public function post(User $actor, StocktakingSession $session): StocktakingSession
     {
         $this->authorize($actor, 'stocktaking.approve', $session->branch_id);
+        $this->guardSecondPerson($actor, StocktakingSession::findOrFail($session->id));
 
         return DB::transaction(function () use ($actor, $session) {
-            $session = StocktakingSession::whereKey($session->id)->lockForUpdate()->first();
+            $session = StocktakingSession::whereKey($session->id)->lockForUpdate()->firstOrFail();
             if ($session->status !== 'submitted') {
                 throw DomainException::make('invalid_state_transition', 409, ['from' => $session->status]);
             }
-            $variances = [];
-            foreach ($session->items()->whereNotNull('counted_quantity')->get() as $item) {
-                $delta = $item->counted_quantity - $item->expected_quantity;
-                if ($delta !== 0) {
-                    $this->ledger->apply($session->branch_id, $item->product_variant_id, MovementType::StocktakeCorrection, $delta, 0,
-                        'stocktaking_session', $session->id, 'Stocktake '.$session->number, $actor->id);
-                    $variances[$item->product_variant_id] = $delta;
-                }
-                BranchInventory::where('branch_id', $session->branch_id)->where('product_variant_id', $item->product_variant_id)->update(['last_counted_at' => now()]);
+            $self = in_array((string) $actor->id, $this->approvals->counters($session), true);
+
+            return $this->apply($session, $actor, $actor, $self ? 'self' : 'second_person');
+        });
+    }
+
+    /** The approver does not agree with the count: it goes back to counting, with the reason, and the people who counted are told. */
+    public function sendBack(User $actor, StocktakingSession $session, string $reason): StocktakingSession
+    {
+        $this->authorize($actor, 'stocktaking.approve', $session->branch_id);
+        $reason = trim($reason);
+        if (mb_strlen($reason) < 3 || mb_strlen($reason) > 500) {
+            throw DomainException::make('stocktake_reason_required');
+        }
+        $this->guardSecondPerson($actor, StocktakingSession::findOrFail($session->id));
+
+        $session = DB::transaction(function () use ($actor, $session, $reason) {
+            $session = StocktakingSession::whereKey($session->id)->lockForUpdate()->firstOrFail();
+            if ($session->status !== 'submitted') {
+                throw DomainException::make('invalid_state_transition', 409, ['from' => $session->status]);
             }
-            $session->update(['status' => 'posted', 'approved_by' => $actor->id, 'posted_at' => now()]);
-            $this->audit->log('stocktaking.posted', $session, [], ['variances' => $variances], actor: $actor);
+            $session->update(['status' => 'counting', 'returned_by' => $actor->id, 'returned_at' => now(), 'returned_reason' => $reason,
+                'submitted_at' => null, 'variance_lines' => null, 'variance_units' => null, 'variance_value' => null]);
+            $this->audit->log('stocktaking.returned', $session, ['status' => 'submitted'], ['status' => 'counting', 'reason' => $reason], actor: $actor);
 
             return $session;
         });
+        $this->announce(fn () => $this->approvals->announceReturned($session, $actor, $reason));
+
+        return $session;
+    }
+
+    /** Someone who counted a session with differences may not approve or send it back while the rule is on. The refusal is written down (outside the caller's transaction, so it is kept). */
+    private function guardSecondPerson(User $actor, StocktakingSession $session): void
+    {
+        if ($session->status === 'submitted' && ! $this->approvals->mayApprove($actor, $session)) {
+            $this->audit->log('stocktaking.self_approval_refused', $session, [], [], ['actor' => $actor->id], actor: $actor);
+            throw DomainException::make('stocktake_second_person', 403);
+        }
+    }
+
+    /** Posts the differences (inside the caller's transaction, with the session row locked) and records who approved it and how. */
+    private function apply(StocktakingSession $session, User $actor, ?User $approver, string $mode): StocktakingSession
+    {
+        $variances = [];
+        foreach ($session->items()->whereNotNull('counted_quantity')->orderBy('id')->get() as $item) {
+            $delta = $item->counted_quantity - $item->expected_quantity;
+            if ($delta !== 0) {
+                $this->ledger->apply($session->branch_id, $item->product_variant_id, MovementType::StocktakeCorrection, $delta, 0,
+                    'stocktaking_session', $session->id, 'Stocktake '.$session->number, $actor->id);
+                $variances[$item->product_variant_id] = $delta;
+            }
+            BranchInventory::where('branch_id', $session->branch_id)->where('product_variant_id', $item->product_variant_id)->update(['last_counted_at' => now()]);
+        }
+        $session->update(['status' => 'posted', 'approved_by' => $approver?->id, 'posted_at' => now(), 'approval_mode' => $mode]);
+        $this->audit->log('stocktaking.posted', $session, [], ['variances' => $variances, 'approval' => $mode], actor: $approver ?? $actor);
+
+        return $session;
+    }
+
+    /** An alert that cannot be sent never undoes a count that was already saved. */
+    private function announce(callable $send): void
+    {
+        rescue($send, report: true);
     }
 
     public function cancel(User $actor, StocktakingSession $session): StocktakingSession

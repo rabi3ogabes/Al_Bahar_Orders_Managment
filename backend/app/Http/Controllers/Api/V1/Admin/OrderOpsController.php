@@ -16,6 +16,7 @@ use App\Domain\Orders\Models\OrderCancellation;
 use App\Domain\Orders\Models\OrderFulfillment;
 use App\Domain\Orders\Services\OrderPresenter;
 use App\Domain\Orders\Services\OrderService;
+use App\Domain\Orders\Support\ParcelAccess;
 use App\Domain\Payments\Models\Payment;
 use App\Domain\Payments\Models\Refund;
 use App\Domain\Payments\Services\CodSplit;
@@ -40,7 +41,9 @@ class OrderOpsController extends ApiController
     public function index(Request $request): JsonResponse
     {
         $scope = $this->scope('orders.view', $request->query('branch_id'));
-        $q = Order::query()->with(['fulfillments.branch:id,code'])
+        $parcels = ParcelAccess::scope($this->user());
+        // The parcels listed with each order are the viewer's own: an order split with another branch does not show that branch's parcel.
+        $q = Order::query()->with(['fulfillments' => fn ($f) => $parcels->apply($f->getQuery(), 'branch_id'), 'fulfillments.branch:id,code'])
             ->whereIn('id', $scope->apply(OrderFulfillment::query()->select('order_id')->getQuery(), 'branch_id'))
             ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
             ->when($request->query('payment_status'), fn ($q, $s) => $q->where('payment_status', $s))
@@ -53,11 +56,15 @@ class OrderOpsController extends ApiController
     public function show(Order $order, OrderPresenter $presenter): JsonResponse
     {
         $this->assertCanSee($order);
+        // A branch-limited member reads their own branches' parcels of a split order, never another branch's (ParcelAccess).
+        $scope = ParcelAccess::scope($this->user());
+        $order->loadMissing(['notes.author:id,name', 'history']);
+        ParcelAccess::narrow($order, $scope);
 
         // The customer's second number (for the driver) is shown to staff only, never by the presenter the customer's own app uses.
-        return response()->json(['data' => $presenter->detail($order) + ['alternate_phone' => AlternatePhone::visible($order->alternate_phone)] + [
-            'internal_notes' => $order->notes()->with('author:id,name')->latest()->get(),
-            'history' => $order->history()->get(),
+        return response()->json(['data' => ParcelAccess::detail($presenter->detail($order), $scope) + ['alternate_phone' => AlternatePhone::visible($order->alternate_phone)] + [
+            'internal_notes' => $order->notes->sortByDesc('created_at')->values(),
+            'history' => $order->history->values(),
             'payments' => Payment::where('order_id', $order->id)->with('refunds', 'collections')->get(),
             'cancellations' => $order->cancellations()->get(),
         ]]);

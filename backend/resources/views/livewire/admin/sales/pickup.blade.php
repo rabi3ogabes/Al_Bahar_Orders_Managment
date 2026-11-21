@@ -8,6 +8,7 @@
 <div>
     <x-admin.page-header :title="__('nav.pickup')" :eyebrow="__('nav.sales')" :description="__('sales_admin.pickup_hint')">
         <x-slot:actions>
+            <livewire:admin.sales.print-window context="pickup" />
             @if ($canScan)<a href="{{ route('admin.pickup.scan', array_filter(['branch' => $branch ?: null])) }}" wire:navigate class="btn-primary"><x-icon name="camera" class="size-4" />{{ __('sales_admin.open_scanner') }}</a>@endif
         </x-slot:actions>
     </x-admin.page-header>
@@ -40,6 +41,9 @@
                             </div>
                             <p class="mt-1 truncate text-sm text-ink-500">{{ $f->order->customer_name }} · {{ trans_choice('sales_admin.units', (int) $f->units, ['count' => (int) $f->units]) }}@if ($f->slot_date) · {{ \App\Support\BusinessTime::display($f->slot_date, 'D d M') }}@endif</p>
                         </div>
+                        @if ($this->can('orders.view', $f->branch_id))
+                            <a href="{{ route('admin.print.picking.part', $f) }}" target="_blank" rel="noopener" class="btn-ghost btn-sm max-md:min-h-11 self-start sm:self-auto" title="{{ __('print_docs.ui.picking_list') }}"><x-icon name="clipboard" class="size-4" /><span class="sr-only">{{ __('print_docs.ui.picking_list') }}</span></a>
+                        @endif
                         @if ($this->can('pickup.edit', $f->branch_id))
                             <button type="button" wire:click="markReady('{{ $f->id }}')" wire:loading.attr="disabled" wire:target="markReady('{{ $f->id }}')" class="btn-secondary btn-sm max-md:min-h-11 self-start sm:self-auto"><x-icon name="qr" class="size-4" />{{ __('sales_admin.act_pickup_ready') }}</button>
                         @endif

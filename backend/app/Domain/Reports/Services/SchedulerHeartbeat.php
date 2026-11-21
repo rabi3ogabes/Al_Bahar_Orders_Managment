@@ -38,6 +38,8 @@ final class SchedulerHeartbeat
         'drivers:prune-locations' => 1440,
         'push:prune-devices' => 1440,
         'banners:purge-deleted' => 1440,
+        'reports:send-owner-pack' => 5,
+        'customers:refresh-value' => 30,
     ];
 
     /** Tasks that run every few seconds write at most once per this many seconds (a heartbeat a minute is plenty to see them alive). */

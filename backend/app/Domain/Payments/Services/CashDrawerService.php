@@ -26,10 +26,13 @@ use Illuminate\Support\Facades\DB;
  *  - Custody needs `payments.edit` at the branch (branch managers, accountants). Collectors only hold `payments.create`,
  *    so a driver can neither receive a colleague's cash nor bank the drawer.
  * Collections themselves stay immutable facts; they only gain a link to the hand-in that settled them.
+ *  - A hand-in can be limited to chosen collections (the cashier ticks which ones the collector is handing over): the counted amount is then compared with
+ *    exactly those, they are marked handed in against this receipt, and the others stay outstanding.
+ *  - Shifts ({@see CashShiftService}): cash received and banked while the branch drawer is open is stamped with that shift, so its Z-report adds up exactly.
  */
 class CashDrawerService
 {
-    public function __construct(private readonly AccessControl $access, private readonly AuditLogger $audit) {}
+    public function __construct(private readonly AccessControl $access, private readonly AuditLogger $audit, private readonly CashShiftService $shifts) {}
 
     /** Cash collections that a collector still holds (not handed in), optionally narrowed to one branch. */
     /** @return Builder<CashCollection> */
@@ -71,14 +74,17 @@ class CashDrawerService
         $note = $note !== null ? trim($note) : null;
 
         return DB::transaction(function () use ($receiver, $collector, $branchId, $counted, $note, $collectionIds) {
+            // The shift row first (closing it takes the same lock): this hand-in is either inside the open shift or after it, never lost between the two.
+            $shift = $this->shifts->forReceiving($branchId);
             $rows = $this->openCollections($collector, $branchId)
                 ->when($collectionIds !== null, fn ($q) => $q->whereIn('id', $collectionIds))
                 ->orderBy('collected_at')->lockForUpdate()->get();
+            // Ticked collections that are gone (already handed in, another collector's, another branch's, unknown) refuse the whole hand-in: nothing is half received.
+            if ($collectionIds !== null && $collectionIds !== [] && $rows->count() !== count(array_unique($collectionIds))) {
+                throw DomainException::make('cash_collection_unavailable', 409);
+            }
             if ($rows->isEmpty()) {
                 throw DomainException::make('cash_nothing_to_hand_in', 422);
-            }
-            if ($collectionIds !== null && $rows->count() !== count(array_unique($collectionIds))) {
-                throw DomainException::make('cash_collection_unavailable', 409);
             }
 
             $expected = $rows->reduce(fn (Money $c, CashCollection $r) => $c->plus(Money::of($r->amount_collected)), Money::zero());
@@ -89,7 +95,7 @@ class CashDrawerService
             }
 
             $handover = CashHandover::create([
-                'number' => DocumentNumber::make('CH'), 'branch_id' => $branchId, 'collector_id' => $collector->id, 'received_by' => $receiver->id,
+                'number' => DocumentNumber::make('CH'), 'branch_id' => $branchId, 'collector_id' => $collector->id, 'received_by' => $receiver->id, 'cash_shift_id' => $shift?->id,
                 'collections_count' => $rows->count(), 'expected_amount' => $expected->toDecimal(), 'counted_amount' => $counted->toDecimal(), 'variance' => $diff->toDecimal(),
                 'status' => $balanced ? 'balanced' : ($diff->isNegative() ? 'short' : 'over'), 'note' => $note,
                 'variance_status' => $balanced ? null : 'open',
@@ -97,7 +103,7 @@ class CashDrawerService
             CashCollection::whereIn('id', $rows->pluck('id'))->update(['handed_in_at' => now(), 'handed_in_to' => $receiver->id, 'cash_handover_id' => $handover->id]);
 
             $this->audit->log('cash.handed_in', $handover, [], ['collector_id' => $collector->id, 'expected' => $expected->toDecimal(), 'counted' => $counted->toDecimal(),
-                'variance' => $diff->toDecimal(), 'collections' => $rows->count()], branchId: $branchId, actor: $receiver);
+                'variance' => $diff->toDecimal(), 'collections' => $rows->count(), 'shift' => $shift?->id], branchId: $branchId, actor: $receiver);
 
             return $handover;
         });
@@ -153,8 +159,9 @@ class CashDrawerService
             }
 
             $total = $rows->reduce(fn (Money $c, CashHandover $h) => $c->plus(Money::of($h->counted_amount)), Money::zero());
-            CashHandover::whereIn('id', $rows->pluck('id'))->update(['deposited_at' => now(), 'deposit_reference' => $reference, 'deposited_by' => $actor->id]);
-            $this->audit->log('cash.deposited', $rows->first(), [], ['handovers' => $rows->pluck('number')->all(), 'amount' => $total->toDecimal(), 'reference' => $reference],
+            $shift = $this->shifts->forDeposit($branchId);
+            CashHandover::whereIn('id', $rows->pluck('id'))->update(['deposited_at' => now(), 'deposit_reference' => $reference, 'deposited_by' => $actor->id, 'deposit_shift_id' => $shift?->id]);
+            $this->audit->log('cash.deposited', $rows->first(), [], ['handovers' => $rows->pluck('number')->all(), 'amount' => $total->toDecimal(), 'reference' => $reference, 'shift' => $shift?->id],
                 branchId: $branchId, actor: $actor);
 
             return ['count' => $rows->count(), 'amount' => $total, 'reference' => $reference];

@@ -3,6 +3,8 @@
 namespace App\Domain\Orders\Services;
 
 use App\Domain\Operations\Services\BranchSchedules;
+use App\Domain\Operations\Support\OpsAge;
+use App\Domain\Orders\Models\SubstitutionRequest;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 
@@ -47,5 +49,24 @@ final class SubstitutionClock
         $this->schedules->preload([$branchId]);
 
         return $this->schedules->minutes($branchId, $from, $to)['counted'];
+    }
+
+    /**
+     * How far a question to the customer has used its time: OK while less than half has gone, AMBER from half, RED when the time is up or the
+     * deadline has passed. `counted` is the opening-hours minutes since it was asked. Used by "Needs attention" and the live board, so both agree.
+     *
+     * @return array{counted: int, state: string}
+     */
+    public function wait(SubstitutionRequest $request, ?CarbonInterface $now = null): array
+    {
+        $now = CarbonImmutable::instance($now ?? CarbonImmutable::now());
+        $counted = $this->counted($request->branch_id, $request->asked_at, $now);
+        $state = match (true) {
+            $request->deadline_at->lte($now) || $counted >= $request->response_minutes => OpsAge::RED,
+            $counted * 2 >= $request->response_minutes => OpsAge::AMBER,
+            default => OpsAge::OK,
+        };
+
+        return ['counted' => $counted, 'state' => $state];
     }
 }

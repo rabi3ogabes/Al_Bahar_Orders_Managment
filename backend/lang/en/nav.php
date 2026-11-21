@@ -19,6 +19,7 @@ return [
     'imports' => 'Imports & exports',
     'inventory' => 'Inventory',
     'stock' => 'Stock levels',
+    'stock_planning' => 'Stock planning',
     'movements' => 'Stock ledger',
     'adjustments' => 'Adjustments',
     'transfers' => 'Transfers',

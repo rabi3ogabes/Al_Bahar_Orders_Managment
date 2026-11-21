@@ -7,6 +7,7 @@ use App\Domain\Operations\Support\OpsAge;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderFulfillment;
 use App\Domain\Orders\Models\SubstitutionRequest;
+use App\Domain\Orders\Support\ParcelAccess;
 use App\Livewire\Admin\Concerns\WithAdminTable;
 use App\Livewire\Admin\Sales\Concerns\PeeksAtOrder;
 use App\Support\BusinessTime;
@@ -175,12 +176,15 @@ class OrderIndex extends Component
 
     public function render(OpsClock $clock)
     {
+        $parcels = ParcelAccess::scope(auth()->user());
         $quickCounts = [];
         foreach (['cod', 'sadad', 'pickup'] as $k) {
             $quickCounts[$k] = $this->applyQuick($this->applyTab($this->scoped(), $this->tab), $k)->count();
         }
         $q = $this->applyQuick($this->applyTab($this->scoped(), $this->tab), $this->quick)
-            ->with(['fulfillments:id,order_id,branch_id,status,type,accepted_at,ready_at,created_at,updated_at', 'fulfillments.branch:id,code,name_en,name_ar',
+            // Each row shows the parcels of the viewer's own branches only (an order split with another branch does not list that branch's parcel).
+            ->with(['fulfillments' => fn ($f) => $parcels->apply($f->getQuery(), 'branch_id')->select(['id', 'order_id', 'branch_id', 'status', 'type', 'accepted_at', 'ready_at', 'created_at', 'updated_at']),
+                'fulfillments.branch:id,code,name_en,name_ar',
                 'fulfillments.deliveries:id,order_fulfillment_id,status,created_at,assigned_at,failed_at'])
             ->when($this->filterStatus, fn ($q, $s) => $q->where('status', $s))
             ->when($this->filterPayment, fn ($q, $s) => $q->where('payment_status', $s))

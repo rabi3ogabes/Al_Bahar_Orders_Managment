@@ -71,6 +71,9 @@ final class NotificationCatalog
     public const STAFF = [
         'staff.order_new' => ['transactional', ['push', 'in_app']],
         'staff.order_reminder' => ['transactional', ['push', 'in_app']],
+        // A stock count is waiting for a second person to approve it, and a count that was sent back (the people who counted are told why).
+        'staff.stocktake_waiting' => ['transactional', ['push', 'in_app']],
+        'staff.stocktake_returned' => ['transactional', ['push', 'in_app']],
     ];
 
     /**

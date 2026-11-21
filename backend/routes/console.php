@@ -86,4 +86,9 @@ Artisan::command('banners:purge-deleted {--days=7}', fn (HomeContentPurger $p) =
     ->purpose('Remove slides and sliders that have been in the dashboard bin for a week (files included)');
 Schedule::command('banners:purge-deleted')->dailyAt('04:10')->timezone('Asia/Qatar')->onOneServer();
 
+// The weekly owner pack by e-mail (docs/guides/OWNER_PACK_AND_CUSTOMER_VALUE.md): a pack goes out once per ISO week and channel, at the weekday and time the owner chose
+// (Reports > Owner pack); a failed or half-sent one is only retried for the people it missed. The customer-value figures behind Sales > Customer value are rebuilt in one pass.
+Schedule::command('reports:send-owner-pack')->everyFiveMinutes()->withoutOverlapping(10)->onOneServer();
+Schedule::command('customers:refresh-value')->everyThirtyMinutes()->withoutOverlapping(10)->onOneServer();
+
 SchedulerHeartbeat::attach(Schedule::getFacadeRoot());

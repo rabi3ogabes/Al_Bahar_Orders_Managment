@@ -21,6 +21,8 @@ use App\Domain\Orders\Models\ReturnRequest;
 use App\Domain\Orders\Models\SubstitutionRequest;
 use App\Domain\Orders\Services\SubstitutionClock;
 use App\Domain\Payments\Models\Refund;
+use App\Domain\Payments\Services\CashShiftSettings;
+use App\Support\BusinessTime;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -90,6 +92,7 @@ final class AttentionFeed
             ->concat($this->claimItems($user, $branches))
             ->concat($this->substitutionItems($user, $branches))
             ->concat($this->cashItems($user, $branches))
+            ->concat($this->cashShiftItems($user, $branches))
             ->concat($this->systemItems($user));
 
         if ($branchId !== null && $branchId !== '' && $branches->has($branchId)) {
@@ -281,7 +284,7 @@ final class AttentionFeed
 
     private const ICONS = [
         'unaccepted' => 'bag', 'stuck' => 'package', 'undispatched' => 'truck', 'driver_silent' => 'phone', 'delivery_failed' => 'alert', 'pickup_waiting' => 'qr',
-        'cancellation' => 'x', 'refund' => 'refund', 'claim' => 'package', 'substitution' => 'bag', 'cash' => 'cash', 'queue' => 'settings', 'campaign' => 'megaphone',
+        'cancellation' => 'x', 'refund' => 'refund', 'claim' => 'package', 'substitution' => 'bag', 'cash' => 'cash', 'cash_shift' => 'scale', 'queue' => 'settings', 'campaign' => 'megaphone',
     ];
 
     // ── Cancellation requests awaiting a manager ─────────────────────────────────────────────────────────────────────
@@ -429,9 +432,8 @@ final class AttentionFeed
             if ($order === null) {
                 continue;
             }
-            $counted = $clock->counted($r->branch_id, $r->asked_at, CarbonImmutable::now());
-            $state = $r->deadline_at->lte(CarbonImmutable::now()) || $counted >= $r->response_minutes ? OpsAge::RED : ($counted * 2 >= $r->response_minutes ? OpsAge::AMBER : null);
-            if ($state === null) {
+            ['counted' => $counted, 'state' => $state] = $clock->wait($r);
+            if ($state === OpsAge::OK) {
                 continue;
             }
             $wall = max(0, intdiv(CarbonImmutable::now()->getTimestamp() - $r->asked_at->getTimestamp(), 60));
@@ -485,6 +487,75 @@ final class AttentionFeed
                 state: $age->state, age: $age, branchId: (string) $r->branch_id, branchCode: $branch?->code,
                 action: ['type' => 'link', 'label' => __('ops_live.action.receive_cash'), 'url' => route('admin.cash.index', ['tab' => 'outstanding'])],
                 assignedTo: (string) $r->collected_by, subjectIsNumber: false,
+            );
+        }
+
+        return $items;
+    }
+
+    // ── Cash shifts (payments.view): a drawer left open for too long, a day with cash and no shift ───────────────────
+
+    /**
+     * Two kinds of line, both for a branch that uses cash shifts:
+     *  - a shift that has been open longer than the limit in Settings > Cash (amber, and red from one and a half times that);
+     *  - cash received from hand-ins while no shift was open, on a finished day (one of the last three). A branch that never opened a shift (or opened its first
+     *    one after that day) is not nagged: it simply does not use shifts yet.
+     * Aggregates only: the line names the cashier or the day, never a customer.
+     *
+     * @param  Collection<string, Branch>  $branches
+     * @return list<AttentionItem>
+     */
+    private function cashShiftItems(User $user, Collection $branches): array
+    {
+        $scope = $this->acl->scope($user, 'payments.view');
+        if ($scope->isEmpty()) {
+            return [];
+        }
+        $now = CarbonImmutable::now();
+        $limit = app(CashShiftSettings::class)->maxOpenHours() * 60;
+        $link = ['type' => 'link', 'label' => __('ops_live.action.close_shift'), 'url' => route('admin.cash.index', ['tab' => 'shifts'])];
+        $items = [];
+
+        $open = DB::table('cash_shifts as s')->join('users as u', 'u.id', '=', 's.opened_by')->where('s.status', 'open')->where('s.opened_at', '<=', $now->subMinutes($limit));
+        $scope->apply($open, 's.branch_id');
+        foreach ($open->orderBy('s.opened_at')->orderBy('s.id')->limit(self::CAP)->get(['s.id', 's.branch_id', 's.opened_by', 's.opened_at', 'u.name']) as $r) {
+            $since = CarbonImmutable::parse((string) $r->opened_at);
+            $minutes = max(0, intdiv($now->getTimestamp() - $since->getTimestamp(), 60));
+            $state = $minutes >= intdiv($limit * 3, 2) ? OpsAge::RED : OpsAge::AMBER;
+            $items[] = new AttentionItem(
+                id: 'cash_shift:'.$r->id, category: 'cash_shift', icon: self::ICONS['cash_shift'], subject: (string) $r->name, label: __('ops_live.cat.cash_shift.label'),
+                detail: __('ops_live.detail.shift_open', ['time' => OpsClock::label($minutes)]), state: $state, age: new OpsAge('cash_shift', $state, $minutes, $minutes, OpsClock::label($minutes), $since),
+                branchId: (string) $r->branch_id, branchCode: $branches->get((string) $r->branch_id)?->code, action: $link, assignedTo: (string) $r->opened_by, subjectIsNumber: false,
+            );
+        }
+
+        // Cash received on a finished day while no shift was open at that moment, per branch and day (one query; the shift check is per hand-in).
+        $today = BusinessTime::now()->startOfDay();
+        $zone = BusinessTime::zone();
+        $taken = DB::table('cash_handovers as h')->where('h.created_at', '>=', $today->subDays(3)->utc())->where('h.created_at', '<', $today->utc())
+            ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('cash_shifts as s')->whereColumn('s.branch_id', 'h.branch_id')->whereColumn('s.opened_at', '<=', 'h.created_at')
+                ->where(fn ($w) => $w->whereNull('s.closed_at')->orWhereColumn('s.closed_at', '>=', 'h.created_at')));
+        $scope->apply($taken, 'h.branch_id');
+        $days = $taken->groupByRaw("1, timezone('{$zone}', h.created_at)::date")->selectRaw("h.branch_id, timezone('{$zone}', h.created_at)::date as day, count(*) as n, coalesce(sum(h.counted_amount), 0) as total")
+            ->orderBy('day')->orderBy('h.branch_id')->limit(self::CAP)->get();
+        if ($days->isEmpty()) {
+            return $items;
+        }
+        // A branch that never opened a shift (or opened its first one after that day) simply does not use shifts yet: no line for it.
+        $first = DB::table('cash_shifts')->whereIn('branch_id', $days->pluck('branch_id')->unique()->all())->groupBy('branch_id')->selectRaw('branch_id, min(opened_at) as first_opened')->pluck('first_opened', 'branch_id');
+        foreach ($days as $d) {
+            $start = CarbonImmutable::parse((string) $d->day, $zone)->startOfDay();
+            $end = $start->addDay();
+            if (! $first->has($d->branch_id) || ! CarbonImmutable::parse((string) $first[$d->branch_id])->lt($end)) {
+                continue;
+            }
+            $minutes = max(0, intdiv($now->getTimestamp() - $end->getTimestamp(), 60));
+            $state = $start->lt($today->subDay()) ? OpsAge::RED : OpsAge::AMBER;
+            $items[] = new AttentionItem(
+                id: 'cash_shift_day:'.$d->branch_id.':'.$d->day, category: 'cash_shift', icon: self::ICONS['cash_shift'], subject: BusinessTime::display($start, 'd M') ?? (string) $d->day,
+                label: __('ops_live.cat.cash_shift.missing'), detail: trans_choice('ops_live.detail.shift_missing', (int) $d->n, ['amount' => Money::of((string) $d->total)->format(), 'count' => (int) $d->n]),
+                state: $state, age: new OpsAge('cash_shift', $state, $minutes, $minutes, OpsClock::label($minutes), $end), branchId: (string) $d->branch_id,
+                branchCode: $branches->get((string) $d->branch_id)?->code, action: $link, subjectIsNumber: false,
             );
         }
 

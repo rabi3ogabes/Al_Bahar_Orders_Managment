@@ -145,6 +145,7 @@ class InventoryAdminController extends ApiController
             'count' => $svc->count($u, $session, ...array_values($request->validate(['variant_id' => 'required|uuid|exists:product_variants,id', 'counted' => 'required|integer|min:0']))),
             'submit' => $svc->submit($u, $session),
             'post' => $svc->post($u, $session),
+            'return' => $svc->sendBack($u, $session, $request->validate(['reason' => 'required|string|min:3|max:500'])['reason']),
             'cancel' => $svc->cancel($u, $session),
             default => abort(404),
         };

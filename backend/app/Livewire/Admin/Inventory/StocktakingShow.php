@@ -3,11 +3,14 @@
 namespace App\Livewire\Admin\Inventory;
 
 use App\Domain\Catalog\Models\ProductVariant;
+use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Inventory\Models\StocktakingItem;
 use App\Domain\Inventory\Models\StocktakingSession;
+use App\Domain\Inventory\Services\StocktakeApprovals;
 use App\Domain\Inventory\Services\StocktakingService;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
+use App\Support\Money;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -37,6 +40,11 @@ class StocktakingShow extends Component
     public string $search = '';
 
     public array $counts = [];
+
+    /** The "send back" window and the reason typed in it. */
+    public bool $showReturn = false;
+
+    public string $returnReason = '';
 
     public function mount(StocktakingSession $session): void
     {
@@ -118,7 +126,11 @@ class StocktakingShow extends Component
     public function submitSession(StocktakingService $svc): void
     {
         $this->authorizeBranch('stocktaking.edit', $this->session->branch_id);
-        $this->attempt(fn () => $svc->submit(auth()->user(), $this->session), __('inventory_admin.session_submitted'));
+        $done = $this->attempt(fn () => $svc->submit(auth()->user(), $this->session));
+        if ($done instanceof StocktakingSession) {
+            // A count with nothing to approve (no differences, or within the limit of Settings > Stock) is posted by finishing it.
+            $this->toast($done->status === 'posted' ? __('inventory_admin.session_posted') : __('inventory_admin.session_submitted'));
+        }
         $this->session->refresh();
     }
 
@@ -126,6 +138,17 @@ class StocktakingShow extends Component
     {
         $this->authorizeBranch('stocktaking.approve', $this->session->branch_id);
         $this->attempt(fn () => $svc->post(auth()->user(), $this->session), __('inventory_admin.session_posted'));
+        $this->session->refresh();
+    }
+
+    public function sendBack(StocktakingService $svc): void
+    {
+        $this->authorizeBranch('stocktaking.approve', $this->session->branch_id);
+        $this->validate(['returnReason' => 'required|string|min:3|max:500'], [], ['returnReason' => __('stock_planning.st.reason')]);
+        if ($this->attempt(fn () => $svc->sendBack(auth()->user(), $this->session, $this->returnReason), __('stock_planning.st.sent_back'))) {
+            $this->showReturn = false;
+            $this->reset('returnReason');
+        }
         $this->session->refresh();
     }
 
@@ -156,6 +179,7 @@ class StocktakingShow extends Component
         $u = auth()->user();
         $active = $this->activeVariant ? ProductVariant::with(['product.translations', 'attributeValues'])->find($this->activeVariant) : null;
         $activeItem = $active ? (clone $base)->where('product_variant_id', $active->id)->first() : null;
+        $canApprove = $acl->allows($u, 'stocktaking.approve', $this->session->branch_id);
 
         return view('livewire.admin.inventory.stocktaking-show', [
             'items' => $items,
@@ -163,8 +187,35 @@ class StocktakingShow extends Component
             'active' => $active,
             'activeExpected' => $activeItem?->expected_quantity,
             'canCount' => $this->session->status === 'counting' && $acl->allows($u, 'stocktaking.edit', $this->session->branch_id),
-            'canApprove' => $acl->allows($u, 'stocktaking.approve', $this->session->branch_id),
+            'canApprove' => $canApprove,
+            'approval' => $this->approval($canApprove),
             'branch' => $this->session->branch,
         ])->title($this->session->number);
+    }
+
+    /**
+     * What the screen says about the second person: the differences and what they are worth, who counted, who may approve this count (never someone who
+     * counted it, while the rule is on), who approved or sent it back.
+     *
+     * @return array<string, mixed>
+     */
+    private function approval(bool $canApprove): array
+    {
+        $rules = app(StocktakeApprovals::class);
+        $s = $this->session;
+        $live = $s->status === 'counting' || $s->variance_lines === null;
+        $summary = $live ? $rules->summary($s) : ['lines' => (int) $s->variance_lines, 'units' => (int) $s->variance_units, 'value' => $s->variance_value !== null ? Money::of((string) $s->variance_value) : null];
+        $counters = $rules->counters($s);
+        $names = User::whereIn('id', array_filter([...$counters, $s->approved_by, $s->returned_by]))->pluck('name', 'id');
+
+        return [
+            'summary' => $summary,
+            'counters' => collect($counters)->map(fn ($id) => $names[$id] ?? null)->filter()->values()->all(),
+            'mayApprove' => $canApprove && $s->status === 'submitted' && $rules->mayApprove(auth()->user(), $s, $summary['lines']),
+            'iCounted' => in_array((string) auth()->id(), $counters, true) && $summary['lines'] > 0 && $rules->secondPersonRequired(),
+            'approvedBy' => $s->approved_by ? ($names[$s->approved_by] ?? null) : null,
+            'returnedBy' => $s->returned_by ? ($names[$s->returned_by] ?? null) : null,
+            'limit' => $rules->autoPostUpTo(),
+        ];
     }
 }

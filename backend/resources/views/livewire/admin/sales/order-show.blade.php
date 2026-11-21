@@ -137,6 +137,8 @@
                     </div>
                     @endif
 
+                    <x-admin.sales.part-print :part="$f" />
+
                     @if ($d)
                         <div class="flex flex-wrap items-center gap-3 border-t border-sand-100 bg-sand-50/50 px-5 py-3 text-sm sm:px-6 dark:border-ink-800 dark:bg-ink-800/30">
                             <x-icon name="truck" class="size-4 text-brass-500" />

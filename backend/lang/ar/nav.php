@@ -19,6 +19,7 @@ return [
     'imports' => 'الاستيراد والتصدير',
     'inventory' => 'المخزون',
     'stock' => 'مستويات المخزون',
+    'stock_planning' => 'تخطيط المخزون',
     'movements' => 'سجل حركة المخزون',
     'adjustments' => 'تسويات المخزون',
     'transfers' => 'التحويلات',

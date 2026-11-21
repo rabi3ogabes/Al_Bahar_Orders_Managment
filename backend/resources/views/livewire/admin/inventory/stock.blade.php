@@ -1,6 +1,7 @@
 <div>
     <x-admin.page-header :title="__('nav.stock')" :eyebrow="__('nav.inventory')" :description="__('inventory_admin.stock_hint')">
         <x-slot:actions>
+            <a href="{{ route('admin.stock-planning.index') }}" wire:navigate class="btn-secondary"><x-icon name="clipboard" class="size-4" />{{ __('nav.stock_planning') }}</a>
             @if ($this->can('inventory.create'))<a href="{{ route('admin.adjustments.index') }}" wire:navigate class="btn-secondary"><x-icon name="scale" class="size-4" />{{ __('nav.adjustments') }}</a>@endif
             @if ($this->can('transfers.create'))<a href="{{ route('admin.transfers.index') }}" wire:navigate class="btn-secondary"><x-icon name="transfer" class="size-4" />{{ __('nav.transfers') }}</a>@endif
         </x-slot:actions>

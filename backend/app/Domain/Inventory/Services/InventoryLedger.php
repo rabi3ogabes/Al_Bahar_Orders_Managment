@@ -59,9 +59,13 @@ class InventoryLedger
                 $row->average_cost = number_format((($oldAvg * $oldQty) + ((float) $unitCost * $onHandDelta)) / ($oldQty + $onHandDelta), 4, '.', '');
             }
 
+            // "Out since": the moment the available units reach zero (kept while it stays out), cleared the moment something is available again.
+            $newAvailable = $newOnHand - $newReserved;
+            $outSince = $newAvailable > 0 ? null : ($oldAvailable > 0 ? now() : $row->out_since);
+
             BranchInventory::$ledgerWriting = true;
             try {
-                $row->forceFill(['on_hand' => $newOnHand, 'reserved' => $newReserved, 'last_movement_at' => now()])->save();
+                $row->forceFill(['on_hand' => $newOnHand, 'reserved' => $newReserved, 'last_movement_at' => now(), 'out_since' => $outSince])->save();
             } finally {
                 BranchInventory::$ledgerWriting = false;
             }
@@ -81,7 +85,7 @@ class InventoryLedger
                 'reason' => $reason ? Str::limit($reason, 495) : null,
             ]);
 
-            if ($oldAvailable <= 0 && $row->available() > 0) {
+            if ($oldAvailable <= 0 && $newAvailable > 0) {
                 event(new BackInStock($branchId, $variantId));
             }
 

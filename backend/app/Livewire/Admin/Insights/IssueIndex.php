@@ -2,10 +2,12 @@
 
 namespace App\Livewire\Admin\Insights;
 
+use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Issues\Models\IssueReport;
 use App\Domain\Issues\Services\IssueService;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use App\Livewire\Admin\Concerns\WithRecordView;
+use Illuminate\Database\Eloquent\Builder;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -81,28 +83,34 @@ class IssueIndex extends Component
         }
     }
 
-    /** The issue log is company-wide (no branch scoping): anyone who can open the page can open an issue. */
+    /** Every read of the log goes through here: the issues the viewer may see (see IssueReport::scopeVisibleTo), all of them only for company-wide access. */
+    private function visible(): Builder
+    {
+        return IssueReport::query()->visibleTo(app(AccessControl::class)->scope(auth()->user(), 'orders.view'), (string) auth()->id());
+    }
+
+    /** An issue the viewer may not see never opens (by id, deep link or tampered request) and leaves no trace. */
     protected function viewable(string $id): bool
     {
-        return $this->can('orders.view') && IssueReport::whereKey($id)->exists();
+        return $this->can('orders.view') && $this->visible()->whereKey($id)->exists();
     }
 
     protected function viewOpened(string $id): void
     {
-        $this->resolution = (string) IssueReport::whereKey($id)->value('resolution');
+        $this->resolution = (string) $this->visible()->whereKey($id)->value('resolution');
     }
 
     public function setStatus(string $status, IssueService $issues): void
     {
         abort_unless($this->can('orders.edit'), 403);
-        $issue = IssueReport::findOrFail($this->viewId);
+        $issue = $this->visible()->findOrFail($this->viewId);
         $this->attempt(fn () => $issues->setStatus($issue, $status, auth()->user(), trim($this->resolution) ?: null), __('issue_admin.updated'));
     }
 
     public function render()
     {
         $s = trim($this->search);
-        $q = IssueReport::query()->with(['order:id,number', 'payment:id,provider_reference', 'reporter:id,name'])
+        $q = $this->visible()->with(['order:id,number', 'payment:id,provider_reference', 'reporter:id,name'])
             ->when($this->tab === 'active', fn ($q) => $q->whereIn('status', ['open', 'investigating']))
             ->when($this->tab === 'closed', fn ($q) => $q->whereIn('status', ['resolved', 'wont_fix']))
             ->when($this->kind, fn ($q, $v) => $q->where('kind', $v))->when($this->app, fn ($q, $v) => $q->where('app', $v))->when($this->severity, fn ($q, $v) => $q->where('severity', $v))
@@ -111,8 +119,8 @@ class IssueIndex extends Component
 
         return view('livewire.admin.insights.issues', [
             'issues' => $q->paginate(20),
-            'counts' => ['active' => IssueReport::whereIn('status', ['open', 'investigating'])->count(), 'critical' => IssueReport::whereIn('status', ['open', 'investigating'])->whereIn('severity', ['high', 'critical'])->count()],
-            'detail' => ($id = $this->viewing()) ? IssueReport::with(['order:id,number', 'payment:id,provider_reference,status', 'reporter:id,name', 'resolver:id,name'])->find($id) : null,
+            'counts' => ['active' => $this->visible()->whereIn('status', ['open', 'investigating'])->count(), 'critical' => $this->visible()->whereIn('status', ['open', 'investigating'])->whereIn('severity', ['high', 'critical'])->count()],
+            'detail' => ($id = $this->viewing()) ? $this->visible()->with(['order:id,number', 'payment:id,provider_reference,status', 'reporter:id,name', 'resolver:id,name'])->find($id) : null,
             'canEdit' => $this->can('orders.edit'),
         ])->title(__('issue_admin.title'));
     }

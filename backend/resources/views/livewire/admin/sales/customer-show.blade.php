@@ -54,7 +54,7 @@
         <div class="mb-5 grid grid-cols-2 gap-3 [&>*]:min-w-0">
             @foreach ([
                 [__('admin.orders'), number_format($stats->n), null],
-                [__('sales_admin.lifetime_spend'), \App\Support\Money::of($stats->spend)->format(), null],
+                [__('sales_admin.lifetime_spend'), \App\Support\Money::of($stats->spend)->format(), $branchOnly ? __('customer_value.branch_only_short') : null],
                 [__('sales_admin.points_balance'), number_format($account->balance), __('sales_admin.worth', ['amount' => \App\Support\Money::ofMinor($account->balance * $pointValue->minor)->format()])],
                 [__('sales_admin.tier'), __('sales_admin.tier_'.$account->tier), $stats->last_at ? __('sales_admin.last_order', ['at' => \App\Support\BusinessTime::display($stats->last_at, 'd M Y')]) : null],
             ] as [$label, $value, $hint])
@@ -68,7 +68,7 @@
     @else
     <div class="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4 [&>*]:min-w-0">
         <x-admin.stat :label="__('admin.orders')" :value="number_format($stats->n)" icon="bag" />
-        <x-admin.stat :label="__('sales_admin.lifetime_spend')" :value="\App\Support\Money::of($stats->spend)->format()" icon="wallet" />
+        <x-admin.stat :label="__('sales_admin.lifetime_spend')" :value="\App\Support\Money::of($stats->spend)->format()" icon="wallet" :hint="$branchOnly ? __('customer_value.branch_only_short') : null" />
         <x-admin.stat :label="__('sales_admin.points_balance')" :value="number_format($account->balance)" icon="gift" tone="brass" :hint="__('sales_admin.worth', ['amount' => \App\Support\Money::ofMinor($account->balance * $pointValue->minor)->format()])" />
         <x-admin.stat :label="__('sales_admin.tier')" :value="__('sales_admin.tier_'.$account->tier)" icon="crown" :hint="$stats->last_at ? __('sales_admin.last_order', ['at' => \App\Support\BusinessTime::display($stats->last_at, 'd M Y')]) : null" />
     </div>

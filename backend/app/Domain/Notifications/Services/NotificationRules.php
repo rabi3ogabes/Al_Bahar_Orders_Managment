@@ -41,7 +41,7 @@ class NotificationRules
      * Alerts to drivers and branch staff. Push is their channel, and the two Live Operations alerts (a new order, a reminder that one waits to be
      * accepted) also go to the in-app inbox: see NotificationCatalog::STAFF for the channels each has by default.
      */
-    public const STAFF_EVENTS = ['staff.driver_assigned', 'staff.order_ready', 'staff.delivery_failed', 'staff.order_new', 'staff.order_reminder'];
+    public const STAFF_EVENTS = ['staff.driver_assigned', 'staff.order_ready', 'staff.delivery_failed', 'staff.order_new', 'staff.order_reminder', 'staff.stocktake_waiting', 'staff.stocktake_returned'];
 
     /** Events the catalog lists but no code sends yet; the page says so, the switches already work. */
     public const NOT_SENT_YET = ['auction.starting', 'auction.payment_reminder'];

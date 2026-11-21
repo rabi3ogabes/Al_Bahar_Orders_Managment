@@ -66,7 +66,8 @@ dispatched can't be cancelled; register a return instead.
 ## Warehouse
 - **Receive a transfer**: Inventory › Transfers › open the *in transit* transfer › enter received and damaged quantities › Receive.
 - **Receive a purchase order**: Inventory › Purchase orders › open › Goods receipt › quantities (rejected with reason) and supplier invoice number.
-- **Stock count**: Inventory › Stocktaking › Start › scan each item (or type the count) › Submit. Your manager posts it.
+- **Stock count**: Inventory › Stocktaking › Start › scan each item (or type the count) › Finish counting. If anything differs, a colleague who did not count it approves it (or sends it back with a reason: you are told).
+- **What to order**: Inventory › Stock planning shows what is out or running out, with the quantity to order.
 - **Damage/loss**: Inventory › Adjustments › New with a reason; a manager approves it. Never edit stock any other way.
 
 ## Driver (phone)
@@ -80,7 +81,7 @@ dispatched can't be cancelled; register a return instead.
 ## Branch manager
 - **Receive cash** from drivers and counters (Finance › Cash › *To hand in* › Receive cash): count it together, enter the amount; explain any difference in the note. **Bank** the drawer from the *Hand-ins & deposits* tab with the bank reference.
 - Reschedule failed deliveries onto one of the branch's free delivery slots, and keep the branch's delivery slots up to date (Branches › Slots).
-- Approve adjustments and transfers, post stocktakes, set branch prices (a reason is required), manage branch staff
+- Approve adjustments and transfers, approve (or send back) stock counts that someone else did, set branch prices (a reason is required), manage branch staff
   within your branch, watch **Dashboard** and **Reports** (low stock, orders, collections) for your branch.
 
 ---

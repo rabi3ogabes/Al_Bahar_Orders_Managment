@@ -45,9 +45,10 @@ final class StaffAlerts
      * @param  Collection<int, User>  $users
      * @param  Closure(string): array{title: string, body: string}  $text  the alert in one language (called once per supported language)
      * @param  array<string, string|null>  $data  what the app receives to open the right screen (no customer data)
+     * @param  bool  $push  false keeps the alert in the in-app inbox only (quiet hours: nobody is woken for it)
      * @return int how many people the alert reached on at least one channel
      */
-    public function send(Collection $users, string $event, Closure $text, array $data, ?string $deepLink): int
+    public function send(Collection $users, string $event, Closure $text, array $data, ?string $deepLink, bool $push = true): int
     {
         $locales = array_values(array_unique((array) config('platform.supported_locales', ['en'])));
         $titles = [];
@@ -58,7 +59,7 @@ final class StaffAlerts
             $bodies[$locale] = $t['body'];
         }
         $inApp = $this->rules->allows($event, 'in_app');
-        $push = $this->rules->allows($event, 'push');
+        $push = $push && $this->rules->allows($event, 'push');
         $reached = 0;
         foreach ($users as $user) {
             $locale = isset($titles[$user->preferredLocale()]) ? $user->preferredLocale() : $locales[0];

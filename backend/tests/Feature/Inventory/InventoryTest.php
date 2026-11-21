@@ -157,7 +157,7 @@ it('applies stocktake variances against the snapshot while preserving sales made
     [$r] = $this->res->reserve([['branch_id' => $this->a->id, 'variant_id' => $this->variant->id, 'quantity' => 1, 'reference_type' => 'order_item', 'reference_id' => 'during']]);
     $this->res->consume($r);
     $svc->count($mgr, $session, $this->variant->id, 9); // counted 9 vs expected 10 at snapshot → shrinkage of 1
-    $svc->post($mgr, $svc->submit($mgr, $session));
+    $svc->post(staffWithRole('branch_manager', $this->a), $svc->submit($mgr, $session)); // a second person approves: the one who counted cannot
     expect(($this->stock)($this->a)->on_hand)->toBe(8) // 10 − 1 sold − 1 shrinkage
         ->and(StockMovement::where('type', 'stocktake_correction')->value('quantity'))->toBe(-1)
         ->and(($this->stock)($this->a)->last_counted_at)->not->toBeNull();
@@ -196,6 +196,7 @@ it('includes sub-categories in a category stocktake and audits submit and cancel
     $session = $svc->start($mgr, $this->a->id, $root->id);
     expect($session->items()->pluck('product_variant_id')->all())->toBe([$this->variant->id]);
 
+    $svc->count($mgr, $session, $this->variant->id, 3); // a difference, so finishing the count leaves it waiting for approval (a count with no difference posts by itself)
     $svc->cancel($mgr, $svc->submit($mgr, $session));
     expect(AuditLog::whereIn('action', ['stocktaking.submitted', 'stocktaking.cancelled'])->count())->toBe(2);
 });

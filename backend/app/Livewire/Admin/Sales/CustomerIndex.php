@@ -6,6 +6,7 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Messaging\Services\CustomerFilter;
 use App\Domain\Messaging\Services\CustomerMessaging;
 use App\Domain\Messaging\Services\CustomerScope;
+use App\Domain\Reports\Services\CustomerValue;
 use App\Livewire\Admin\Concerns\WithAdminTable;
 use App\Livewire\Admin\Sales\Concerns\HasRecordWindow;
 use App\Livewire\Admin\Sales\Concerns\PeeksAtOrder;
@@ -173,11 +174,16 @@ class CustomerIndex extends Component
     {
         $filters = app(CustomerFilter::class);
         $q = $filters->withLastContact($filters->apply(self::visibleTo(auth()->user()), $this->currentFilters()))
-            ->withCount(['orders' => fn ($o) => $o->whereNotIn('status', ['pending_payment', 'cancelled'])])
-            ->withSum(['orders as spend' => fn ($o) => $o->whereNotIn('status', ['pending_payment', 'cancelled'])], 'grand_total')
             ->with('loyaltyAccount:id,user_id,balance,tier')
             ->latest();
         $customers = $q->paginate($this->perPage);
+        // Orders and spend of the customers on this page, read through the viewer's own branches (customers.view): the customers' own branch rule, the dashboard's sales definition.
+        $value = app(CustomerValue::class);
+        $lifetime = $value->lifetime($value->scopeFor(auth()->user()), $customers->getCollection()->map(fn (User $c) => (string) $c->id)->all());
+        $customers->getCollection()->each(function (User $c) use ($lifetime) {
+            $c->setAttribute('orders_count', $lifetime[$c->id]['orders'] ?? 0);
+            $c->setAttribute('spend', $lifetime[$c->id]['spend'] ?? '0.00');
+        });
         $this->matching = $customers->total();
         $this->pageIds = $customers->getCollection()->map(fn (User $c) => (string) $c->id)->all();
 

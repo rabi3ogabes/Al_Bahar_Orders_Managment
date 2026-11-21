@@ -6,6 +6,7 @@ use App\Domain\Branches\Models\DeliverySlot;
 use App\Domain\Checkout\Support\Assembly;
 use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Orders\Models\Order;
+use App\Domain\Orders\Models\OrderFulfillment;
 use App\Domain\Orders\Models\OrderItem;
 use App\Support\AlternatePhone;
 use App\Support\BusinessTime;
@@ -47,6 +48,26 @@ final class DriverJobPresenter
     public function job(Delivery $d): array
     {
         return $this->many(new Collection([$d]))[0];
+    }
+
+    /**
+     * The facts of the driver card for parcels that may not have a delivery yet (the printed picking list and delivery note read them): the lines still
+     * to deliver with weight, size and the oversized and assembly flags, the total weight and whether the parcel needs two people. One answer per part,
+     * keyed by the part's id, from two catalogue queries however many parts there are.
+     *
+     * @param  Collection<int, OrderFulfillment>  $parts  with items loaded
+     * @return array<string, array{rows: list<array<string, mixed>>, weight: ?float, oversized: bool, assembly: bool, assembly_ordered: bool, needs_two_people: bool}>
+     */
+    public function parcelFacts(Collection $parts): array
+    {
+        $catalog = $this->catalogOf($parts->flatMap(fn (OrderFulfillment $p) => $p->items));
+        $facts = [];
+        foreach ($parts as $part) {
+            $items = $this->items($part->items, $catalog);
+            $facts[$part->id] = $items + ['needs_two_people' => $this->needsTwoPeople($items)];
+        }
+
+        return $facts;
     }
 
     /**
@@ -112,7 +133,7 @@ final class DriverJobPresenter
         $someoneElse = ($recipientPhone !== null && ! Phone::same($recipientPhone, $o->customer_phone))
             || ($recipientPhone === null && $recipientName !== null && mb_strtolower($recipientName) !== mb_strtolower(trim((string) $o->customer_name)));
         $weight = $items['weight'];
-        $twoPeople = $items['oversized'] || ($weight !== null && $weight > $this->config->twoPersonWeightKg());
+        $twoPeople = $this->needsTwoPeople($items);
         $cod = $o->payment_method === 'cod' && Money::of($d->cod_amount)->isPositive();
 
         return [
@@ -134,6 +155,16 @@ final class DriverJobPresenter
                 default => __('driver_day.payment.paid'),
             },
         ];
+    }
+
+    /**
+     * An oversized line, or a parcel heavier than the dashboard's limit, takes two people.
+     *
+     * @param  array{weight: ?float, oversized: bool}  $items
+     */
+    private function needsTwoPeople(array $items): bool
+    {
+        return $items['oversized'] || ($items['weight'] !== null && $items['weight'] > $this->config->twoPersonWeightKg());
     }
 
     /** @return array{start: ?string, end: ?string} the slot's window on its day, in Qatar time */
@@ -242,7 +273,15 @@ final class DriverJobPresenter
      */
     private function catalog(Collection $rows): array
     {
-        $lines = $rows->flatMap(fn (Delivery $d) => $d->fulfillment->items);
+        return $this->catalogOf($rows->flatMap(fn (Delivery $d) => $d->fulfillment->items));
+    }
+
+    /**
+     * @param  Collection<int, OrderItem>  $lines
+     * @return array{products: Collection<string, object>, variants: Collection<string, object>}
+     */
+    private function catalogOf(Collection $lines): array
+    {
         $productIds = $lines->pluck('product_id')->filter()->unique()->values()->all();
         $variantIds = $lines->pluck('product_variant_id')->filter()->unique()->values()->all();
 

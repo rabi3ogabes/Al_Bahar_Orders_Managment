@@ -8,6 +8,8 @@
     $brand = app()->getLocale() === 'ar' ? config('platform.brand.name_ar') : config('platform.brand.name_en');
     // Live new-order toasts on every page: staff who see orders of every branch hear one channel, the others one per branch they may see orders of.
     $ordersScope = $firstStepPending ? null : app(\App\Domain\Identity\Services\AccessControl::class)->scope($user, 'orders.view');
+    // The live board's wall display (?wall=1): a screen in the branch shows the board alone, without the menu, the top bar and the footer.
+    $wall = ! $firstStepPending && request()->routeIs('admin.operations.board') && request()->boolean('wall');
     $liveChannels = $ordersScope === null || $ordersScope->isEmpty() ? [] : ($ordersScope->all ? ['live-orders'] : array_map(fn ($b) => 'live-orders.'.$b, $ordersScope->branchIds));
 @endphp
 <!DOCTYPE html>
@@ -26,6 +28,7 @@
 <body class="h-full" x-data="{ sidebar: false }" @keydown.escape="sidebar = false" data-route="{{ request()->route()?->getName() }}">
 <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:start-3 focus:z-50 btn-primary">{{ __('admin.skip_to_content') }}</a>
 
+@unless ($wall)
 {{-- Mobile overlay --}}
 <div x-cloak x-show="sidebar" x-transition.opacity class="fixed inset-0 z-40 bg-ink-950/60 backdrop-blur-sm lg:hidden" @click="sidebar = false"></div>
 
@@ -101,15 +104,27 @@
         </a>
     </div>
 </aside>
+@endunless
 
-<div class="lg:ps-72">
+<div class="{{ $wall ? '' : 'lg:ps-72' }}">
     {{-- Top bar --}}
+    @unless ($wall)
     <header class="sticky top-0 z-30 border-b border-sand-200/60 bg-ivory/85 backdrop-blur-md dark:border-ink-800 dark:bg-ink-950/85">
-        <div class="flex h-16 items-center gap-3 px-4 sm:px-6 lg:px-10">
+        <div class="flex h-16 items-center gap-1 px-4 sm:gap-3 sm:px-6 lg:px-10">
             <button type="button" class="btn-ghost -ms-2 lg:hidden" @click="sidebar = true" aria-label="{{ __('admin.open_menu') }}"><x-icon name="menu" /></button>
             <div class="min-w-0 flex-1">
                 @isset($breadcrumb)<div class="truncate text-xs text-ink-500">{{ $breadcrumb }}</div>@endisset
             </div>
+            @unless ($firstStepPending)
+                {{-- Global search (Ctrl/Cmd+K or "/"): the window is <x-admin.command-palette /> further down, outside this blurred header. --}}
+                <button type="button" data-command-palette-trigger aria-haspopup="dialog" onclick="window.dispatchEvent(new CustomEvent('open-command-palette'))"
+                        x-data="{ mac: /Mac|iPhone|iPad/.test(navigator.platform) }" aria-label="{{ __('search.open') }}" title="{{ __('search.shortcut') }}"
+                        class="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-sand-300 bg-white/70 px-3 text-sm text-ink-500 transition hover:border-brass-400 hover:text-ink-900 max-md:size-11 max-md:justify-center max-md:px-0 md:w-56 lg:w-72 dark:border-ink-600 dark:bg-ink-800/70 dark:text-ink-300 dark:hover:text-sand-100">
+                    <x-icon name="search" class="size-4 shrink-0" />
+                    <span class="hidden flex-1 truncate text-start md:inline">{{ __('search.open') }}…</span>
+                    <kbd class="hidden rounded-md border border-sand-300 px-1.5 py-0.5 font-sans text-[0.7rem] text-ink-500 lg:inline dark:border-ink-600 dark:text-ink-400" x-text="mac ? '⌘K' : 'Ctrl K'">Ctrl K</kbd>
+                </button>
+            @endunless
             @if ($liveChannels !== [])
                 {{-- New-order chime: a personal choice kept in this browser, OFF until turned on (resources/js/live-toasts.js plays it). Shown only when live updates are available. --}}
                 <button type="button" class="btn-ghost btn-sm" data-sound-toggle x-cloak x-show="live"
@@ -134,11 +149,13 @@
             </form>
         </div>
     </header>
+    @endunless
 
-    <main id="main" class="px-4 py-8 sm:px-6 lg:px-10 lg:py-10">
+    <main id="main" class="{{ $wall ? 'px-4 py-4 sm:px-6' : 'px-4 py-8 sm:px-6 lg:px-10 lg:py-10' }}">
         {{ $slot }}
     </main>
 
+    @unless ($wall)
     {{-- Which version is running and when it was last updated (see App\Support\BuildInfo). --}}
     @php $build = \App\Support\BuildInfo::get(); @endphp
     <footer class="px-4 pb-6 sm:px-6 lg:px-10" aria-label="{{ __('admin.build_info') }}" data-build-footer>
@@ -149,12 +166,15 @@
             @if ($build['built_at'])<span>· {{ __('admin.updated') }} <time datetime="{{ $build['built_at']->utc()->toIso8601ZuluString() }}">{{ \App\Support\BusinessTime::display($build['built_at']) }}</time></span>@endif
         </div>
     </footer>
+    @endunless
 </div>
 
 {{-- Order cart overlay (admin-assisted orders): opened from the header/sidebar button, anywhere in the dashboard. The New order page docks its own. --}}
-@if ($canOrder && ! request()->routeIs('admin.orders.create'))
+@if ($canOrder && ! $wall && ! request()->routeIs('admin.orders.create'))
     <livewire:admin.sales.order-cart mode="overlay" />
 @endif
+
+@unless ($firstStepPending)<x-admin.command-palette />@endunless
 
 {{-- Toasts: $this->dispatch('toast', type: 'success', message: '...') — add undoLabel, undoEvent, undoParams for an Undo button --}}
 {{-- z-[80]: above side windows (68) and decisions (72), below the themed confirm (90). While a window is open the stack sits above its pinned action row. --}}

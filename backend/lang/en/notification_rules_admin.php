@@ -153,5 +153,7 @@ return [
         'staff_delivery_failed' => ['name' => 'Delivery failed', 'when' => 'Push to the branch team when a delivery could not be completed.'],
         'staff_order_new' => ['name' => 'New order for the branch', 'when' => 'Push and inbox alert to the branch team when a new order arrives. An online order only after it is paid.'],
         'staff_order_reminder' => ['name' => 'Order still waiting', 'when' => 'Reminder to the branch manager and the order team when a new order has waited too long without being taken on (once when it gets late, once when it is very late).'],
+        'staff_stocktake_waiting' => ['name' => 'Stock count waiting for approval', 'when' => 'Push and inbox alert to the people who may approve stock counts of that branch (not the people who counted it) when a count with differences is finished. Quiet between 22:00 and 08:00: inbox only.'],
+        'staff_stocktake_returned' => ['name' => 'Stock count sent back', 'when' => 'Alert to the people who counted when the approver sends the count back, with the reason.'],
     ],
 ];

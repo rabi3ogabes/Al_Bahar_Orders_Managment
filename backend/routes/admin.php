@@ -2,7 +2,10 @@
 
 // Admin dashboard module routes (prefix /admin, name admin., middleware auth + staff).
 
+use App\Http\Controllers\Admin\CashShiftReportController;
+use App\Http\Controllers\Admin\DailyClosePrintController;
 use App\Http\Controllers\Admin\DocumentController;
+use App\Http\Controllers\Admin\PrintDocumentController;
 use App\Http\Controllers\Admin\ProductLabelController;
 use App\Http\Controllers\Admin\PushDeviceController;
 use App\Http\Controllers\Api\V1\Admin\DeliveryRouteController;
@@ -41,6 +44,7 @@ Route::get('imports', Admin\Catalog\ImportIndex::class)->middleware('permission:
 // ── Inventory ─────────────────────────────────────────────────────────────────
 Route::get('inventory', Admin\Inventory\StockIndex::class)->middleware('permission:inventory.view')->name('inventory.index');
 Route::get('inventory/movements', Admin\Inventory\MovementIndex::class)->middleware('permission:inventory.view')->name('inventory.movements');
+Route::get('inventory/planning', Admin\Inventory\StockPlanningIndex::class)->middleware('permission:inventory.view')->name('stock-planning.index');
 Route::get('adjustments', Admin\Inventory\AdjustmentIndex::class)->middleware('permission:inventory.create,inventory.approve')->name('adjustments.index');
 Route::get('transfers', Admin\Inventory\TransferIndex::class)->middleware('permission:transfers.view')->name('transfers.index');
 Route::get('transfers/{transfer}', Admin\Inventory\TransferShow::class)->middleware('permission:transfers.view')->name('transfers.show');
@@ -55,6 +59,11 @@ Route::get('orders', Admin\Sales\OrderIndex::class)->middleware('permission:orde
 Route::get('orders/create', Admin\Sales\OrderCreate::class)->middleware('permission:orders.create')->name('orders.create');
 Route::get('orders/{order}', Admin\Sales\OrderShow::class)->middleware('permission:orders.view')->name('orders.show');
 Route::get('orders/{order}/invoice', [DocumentController::class, 'invoice'])->middleware('permission:orders.view')->name('orders.invoice');
+// Printed picking list and delivery note of a branch part, or of a batch of parts, as a PDF (docs/guides/PICKING_LIST_AND_DELIVERY_NOTE.md). Same access as viewing the order.
+Route::get('print/picking-list/{fulfillment}', [PrintDocumentController::class, 'pickingPart'])->middleware(['permission:orders.view', 'throttle:60,1,print-part'])->name('print.picking.part');
+Route::get('print/delivery-note/{fulfillment}', [PrintDocumentController::class, 'notePart'])->middleware(['permission:orders.view', 'throttle:60,1,print-part'])->name('print.note.part');
+Route::get('print/picking-lists', [PrintDocumentController::class, 'pickingBatch'])->middleware(['permission:orders.view', 'throttle:20,1,print-batch'])->name('print.picking.batch');
+Route::get('print/delivery-notes', [PrintDocumentController::class, 'noteBatch'])->middleware(['permission:orders.view', 'throttle:20,1,print-batch'])->name('print.note.batch');
 Route::get('abandoned-orders', Admin\Sales\AbandonedCartsIndex::class)->middleware('permission:orders.view')->name('sales.abandoned');
 Route::get('pickup', Admin\Sales\PickupIndex::class)->middleware('permission:pickup.view')->name('pickup.index');
 Route::get('pickup/scan', Admin\Sales\PickupScanner::class)->middleware('permission:pickup.view')->name('pickup.scan');
@@ -63,6 +72,8 @@ Route::get('deliveries/{delivery}/route', [DeliveryRouteController::class, 'show
 Route::get('fleet', Admin\Sales\FleetMap::class)->middleware('permission:deliveries.view')->name('fleet');
 Route::get('driver', Admin\Sales\DriverConsole::class)->middleware('permission:deliveries.edit')->name('driver');
 Route::get('customers', Admin\Sales\CustomerIndex::class)->middleware('permission:customers.view')->name('customers.index');
+// Customer value: top customers, repeat buyers, who has gone quiet (docs/guides/OWNER_PACK_AND_CUSTOMER_VALUE.md). Before customers/{customer}, which would take "value" for an id.
+Route::get('customers/value', Admin\Sales\CustomerValuePage::class)->middleware('permission:customers.view')->name('customer-value.index');
 Route::get('customers/{customer}', Admin\Sales\CustomerShow::class)->middleware('permission:customers.view')->name('customers.show');
 Route::get('returns', Admin\Sales\ReturnIndex::class)->middleware('permission:orders.view')->name('returns.index');
 
@@ -70,6 +81,8 @@ Route::get('returns', Admin\Sales\ReturnIndex::class)->middleware('permission:or
 Route::get('payments', Admin\Finance\PaymentIndex::class)->middleware('permission:payments.view')->name('payments.index');
 Route::get('payments/{payment}', Admin\Finance\PaymentShow::class)->middleware('permission:payments.view')->name('payments.show');
 Route::get('cash', Admin\Finance\CashIndex::class)->middleware('permission:payments.view')->name('cash.index');
+// The printable Z-report of a closed cash shift (docs/guides/CASH_SHIFT.md).
+Route::get('cash/shifts/{shift}/z-report', [CashShiftReportController::class, 'show'])->middleware('permission:payments.view')->name('cash.shifts.report');
 Route::get('refunds', Admin\Finance\RefundIndex::class)->middleware('permission:refunds.view')->name('refunds.index');
 Route::get('reconciliation', Admin\Finance\ReconciliationIndex::class)->middleware('permission:reconciliation.view')->name('reconciliation.index');
 
@@ -81,6 +94,7 @@ Route::get('auction-lots/{lot}/console', Admin\Auctions\AuctionConsole::class)->
 
 // ── Marketing ─────────────────────────────────────────────────────────────────
 Route::get('promotions', Admin\Marketing\PromotionIndex::class)->middleware('permission:marketing.view')->name('promotions.index');
+Route::get('offer-return', Admin\Marketing\OfferReturnPage::class)->middleware('permission:marketing.view')->name('offer-return.index');
 Route::get('deals', Admin\Marketing\DealIndex::class)->middleware('permission:marketing.view')->name('deals.index');
 Route::get('journeys', Admin\Marketing\JourneyIndex::class)->middleware('permission:marketing.view')->name('journeys.index');
 Route::get('messages', Admin\Messaging\MessageHistory::class)->middleware('permission:notifications.view')->name('messages.index');
@@ -107,5 +121,11 @@ Route::get('app-updates', Admin\Organization\AppUpdatesPage::class)->middleware(
 Route::get('issues', Admin\Insights\IssueIndex::class)->middleware('permission:orders.view')->name('issues.index');
 Route::get('partners', Admin\Insights\PartnerAccessPage::class)->middleware('permission:settings.view')->name('partners.index');
 Route::get('reports', Admin\Insights\ReportIndex::class)->middleware('permission:reports.view')->name('reports.index');
+// The owner's pack: the daily close per branch (with a printable page) and the weekly owner pack (docs/guides/OWNER_PACK_AND_CUSTOMER_VALUE.md).
+Route::get('daily-close', Admin\Insights\DailyClosePage::class)->middleware('permission:reports.view')->name('daily-close.index');
+Route::get('daily-close/print', [DailyClosePrintController::class, 'show'])->middleware('permission:reports.view')->name('daily-close.print');
+Route::get('owner-pack', Admin\Insights\OwnerPackPage::class)->middleware('permission:settings.view')->name('owner-pack.index');
+// The branch and driver scorecard (docs/guides/BRANCH_AND_DRIVER_SCORECARD.md): reports.view, limited on the server to the viewer's own branches.
+Route::get('scorecard', Admin\Insights\ScorecardPage::class)->middleware('permission:reports.view')->name('scorecard.index');
 Route::get('exports', Admin\Insights\ExportIndex::class)->middleware('permission:reports.export')->name('exports.index');
 Route::get('exports/{export}/download', [DocumentController::class, 'export'])->middleware('permission:reports.export')->name('exports.download');

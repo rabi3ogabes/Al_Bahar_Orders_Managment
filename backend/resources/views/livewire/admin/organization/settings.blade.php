@@ -1,5 +1,5 @@
 @php
-    $tabIcons = ['general' => 'sparkles', 'checkout' => 'cart', 'loyalty' => 'gift', 'auctions' => 'gavel', 'notifications' => 'bell', 'ops_clock' => 'timer', 'integrations' => 'key', 'security' => 'shield'];
+    $tabIcons = ['general' => 'sparkles', 'checkout' => 'cart', 'loyalty' => 'gift', 'auctions' => 'gavel', 'notifications' => 'bell', 'stock' => 'boxes', 'cash' => 'cash', 'printing' => 'printer', 'ops_clock' => 'timer', 'integrations' => 'key', 'security' => 'shield'];
     $tabTitle = fn (string $g) => $g === 'ops_clock' ? __('ops_live.tab') : __('org_admin.settings_tab.'.$g);
     $tabs = collect($schema)->keys()->mapWithKeys(fn ($g) => [$g => [$tabIcons[$g], $tabTitle($g)]])->all();
 @endphp

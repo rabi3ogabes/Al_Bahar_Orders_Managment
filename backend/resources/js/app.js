@@ -1,5 +1,7 @@
 import './bootstrap';
 import './overlays';
+import './command-palette';
+import './ops-board';
 import Chart from 'chart.js/auto';
 import { bootMap, bootMapWhenVisible } from './maps/boot.js';
 

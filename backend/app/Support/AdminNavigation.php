@@ -24,6 +24,7 @@ final class AdminNavigation
             // Live Operations Control: whatever waits for a person. Anyone who can see orders, deliveries, payments or pickups gets it ('any' = one of these is enough).
             ['label' => 'ops_live.page.eyebrow', 'items' => [
                 ['label' => 'ops_live.nav_attention', 'route' => 'admin.operations.attention', 'icon' => 'bell-ring', 'permission' => 'orders.view', 'any' => ['deliveries.view', 'payments.view', 'pickup.view'], 'badge' => 'attention'],
+                ['label' => 'ops_board.nav', 'route' => 'admin.operations.board', 'icon' => 'columns', 'permission' => 'orders.view'],
             ]],
             ['label' => 'nav.sales', 'items' => [
                 ['label' => 'nav.new_order', 'route' => 'admin.orders.create', 'icon' => 'plus', 'permission' => 'orders.create'],
@@ -34,6 +35,7 @@ final class AdminNavigation
                 ['label' => 'nav.fleet', 'route' => 'admin.fleet', 'icon' => 'map-pin', 'permission' => 'deliveries.view'],
                 ['label' => 'nav.driver', 'route' => 'admin.driver', 'icon' => 'phone', 'permission' => 'deliveries.edit', 'drivers_only' => true],
                 ['label' => 'nav.customers', 'route' => 'admin.customers.index', 'icon' => 'users', 'permission' => 'customers.view'],
+                ['label' => 'customer_value.nav', 'route' => 'admin.customer-value.index', 'icon' => 'crown', 'permission' => 'customers.view'],
                 ['label' => 'nav.returns', 'route' => 'admin.returns.index', 'icon' => 'refund', 'permission' => 'orders.view'],
             ]],
             ['label' => 'nav.catalog', 'items' => [
@@ -45,6 +47,7 @@ final class AdminNavigation
             ]],
             ['label' => 'nav.inventory', 'items' => [
                 ['label' => 'nav.stock', 'route' => 'admin.inventory.index', 'icon' => 'boxes', 'permission' => 'inventory.view'],
+                ['label' => 'nav.stock_planning', 'route' => 'admin.stock-planning.index', 'icon' => 'clipboard', 'permission' => 'inventory.view'],
                 ['label' => 'nav.movements', 'route' => 'admin.inventory.movements', 'icon' => 'history', 'permission' => 'inventory.view'],
                 ['label' => 'nav.adjustments', 'route' => 'admin.adjustments.index', 'icon' => 'scale', 'permission' => 'inventory.create'],
                 ['label' => 'nav.transfers', 'route' => 'admin.transfers.index', 'icon' => 'transfer', 'permission' => 'transfers.view'],
@@ -63,6 +66,7 @@ final class AdminNavigation
             ]],
             ['label' => 'nav.marketing', 'items' => [
                 ['label' => 'nav.promotions', 'route' => 'admin.promotions.index', 'icon' => 'percent', 'permission' => 'marketing.view'],
+                ['label' => 'offer_return.nav', 'route' => 'admin.offer-return.index', 'icon' => 'scale', 'permission' => 'marketing.view'],
                 ['label' => 'nav.deals', 'route' => 'admin.deals.index', 'icon' => 'flame', 'permission' => 'marketing.view'],
                 ['label' => 'nav.campaigns', 'route' => 'admin.campaigns.index', 'icon' => 'megaphone', 'permission' => 'marketing.view'],
                 ['label' => 'nav.journeys', 'route' => 'admin.journeys.index', 'icon' => 'gift', 'permission' => 'marketing.view'],
@@ -88,6 +92,9 @@ final class AdminNavigation
                 ['label' => 'nav.issues', 'route' => 'admin.issues.index', 'icon' => 'alert', 'permission' => 'orders.view'],
                 ['label' => 'nav.partners', 'route' => 'admin.partners.index', 'icon' => 'users', 'permission' => 'settings.view'],
                 ['label' => 'nav.reports', 'route' => 'admin.reports.index', 'icon' => 'chart', 'permission' => 'reports.view'],
+                ['label' => 'daily_close.title', 'route' => 'admin.daily-close.index', 'icon' => 'clipboard', 'permission' => 'reports.view'],
+                ['label' => 'owner_pack.nav', 'route' => 'admin.owner-pack.index', 'icon' => 'mail', 'permission' => 'settings.view'],
+                ['label' => 'scorecard.nav', 'route' => 'admin.scorecard.index', 'icon' => 'timer', 'permission' => 'reports.view'],
                 ['label' => 'nav.exports', 'route' => 'admin.exports.index', 'icon' => 'download', 'permission' => 'reports.export'],
                 ['label' => 'nav.audit', 'route' => 'admin.audit.index', 'icon' => 'history', 'permission' => 'audit.view'],
             ]],

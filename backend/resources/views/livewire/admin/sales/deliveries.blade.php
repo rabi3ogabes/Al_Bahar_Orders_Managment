@@ -11,6 +11,7 @@
 <div>
     <x-admin.page-header :title="__('nav.deliveries')" :eyebrow="__('nav.sales')" :description="__('sales_admin.deliveries_hint')">
         <x-slot:actions>
+            <livewire:admin.sales.print-window context="deliveries" />
             @if ($isDriver && Route::has('admin.driver'))<a href="{{ route('admin.driver') }}" wire:navigate class="btn-secondary"><x-icon name="phone" class="size-4" />{{ __('nav.driver') }}</a>@endif
         </x-slot:actions>
     </x-admin.page-header>
@@ -47,6 +48,9 @@
                                 <p class="mt-1 truncate text-sm text-ink-600 dark:text-sand-200">{{ $o->customer_name }} · <span class="text-ink-500">{{ $addrLine($o->address_snapshot ?? []) }}</span></p>
                                 @if ($row->slot_date)<p class="text-xs text-ink-500 tabular-nums"><x-icon name="calendar" class="me-1 inline size-3.5" />{{ \App\Support\BusinessTime::display($row->slot_date, 'D d M') }}@if ($row->slot) · {{ substr($row->slot->starts_at, 0, 5) }}–{{ substr($row->slot->ends_at, 0, 5) }}@endif</p>@endif
                             </div>
+                            @if ($this->can('orders.view', $row->branch_id))
+                                <a href="{{ route('admin.print.picking.part', $row) }}" target="_blank" rel="noopener" class="btn-ghost btn-sm max-md:min-h-11 self-start md:self-auto" title="{{ __('print_docs.ui.picking_list') }}"><x-icon name="clipboard" class="size-4" /><span class="sr-only">{{ __('print_docs.ui.picking_list') }}</span></a>
+                            @endif
                             @if ($row->status->value === 'ready' && $this->can('deliveries.create', $row->branch_id))
                                 <button type="button" wire:click="open('create', '{{ $row->id }}')" class="btn-primary btn-sm max-md:min-h-11 self-start md:self-auto"><x-icon name="truck" class="size-4" />{{ __('sales_admin.act_arrange_delivery') }}</button>
                             @elseif ($row->status->value !== 'ready')
@@ -78,6 +82,9 @@
                             </div>
                             @if ($lane !== 'done')
                                 <div class="flex flex-wrap items-center gap-2">
+                                    @if ($this->can('orders.view', $d->branch_id))
+                                        <a href="{{ route('admin.print.note.part', $d->order_fulfillment_id) }}" target="_blank" rel="noopener" class="btn-ghost btn-sm max-md:min-h-11" title="{{ __('print_docs.ui.delivery_note') }}"><x-icon name="printer" class="size-4" /><span class="sr-only">{{ __('print_docs.ui.delivery_note') }}</span></a>
+                                    @endif
                                     @if ($canAssign && in_array($st, ['pending', 'assigned', 'accepted', 'rescheduled'], true) && $d->mode === 'internal')
                                         <button type="button" wire:click="open('assign', '{{ $d->id }}')" class="btn-secondary btn-sm max-md:min-h-11"><x-icon name="user" class="size-4" />{{ $d->driver_id ? __('sales_admin.reassign') : __('sales_admin.assign_driver') }}</button>
                                     @endif

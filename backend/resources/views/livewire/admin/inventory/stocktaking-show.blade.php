@@ -13,15 +13,51 @@
         <div class="flex flex-wrap items-center gap-2">
             <x-admin.status :value="$st" />
             @if ($st === 'counting' && $canCount)<button type="button" wire:click="submitSession" wire:confirm="{{ __('inventory_admin.confirm_submit_count') }}" class="btn-primary"><x-icon name="check" class="size-4" />{{ __('inventory_admin.finish_counting') }}</button>@endif
-            @if ($st === 'submitted' && $canApprove)<button type="button" wire:click="post" wire:confirm="{{ __('inventory_admin.confirm_post_count') }}" class="btn-primary"><x-icon name="check" class="size-4" />{{ __('inventory_admin.post_variances') }}</button>@endif
+            @if ($st === 'submitted' && $approval['mayApprove'])
+                <button type="button" wire:click="post" wire:confirm="{{ __('stock_planning.st.confirm_approve') }}" wire:loading.attr="disabled" wire:target="post" class="btn-primary min-h-11"><x-icon name="check" class="size-4" />{{ __('stock_planning.st.approve') }}</button>
+                <button type="button" wire:click="$set('showReturn', true)" class="btn-secondary min-h-11"><x-icon name="refresh" class="size-4" />{{ __('stock_planning.st.send_back') }}</button>
+            @endif
             @if (in_array($st, ['counting', 'submitted']) && $canApprove)<button type="button" wire:click="cancelSession" wire:confirm="{{ __('inventory_admin.confirm_cancel_count') }}" class="btn-ghost text-ruby-soft">{{ __('admin.cancel') }}</button>@endif
         </div>
     </div>
 
+    @php $money = $approval['summary']['value']; @endphp
+    @if ($st === 'submitted')
+        <div class="card mb-6 border-amber-soft/30 bg-amber-soft/5 p-5 sm:p-6" data-banner="waiting" role="status">
+            <div class="flex flex-col gap-3 md:flex-row md:items-start">
+                <span class="grid size-10 shrink-0 place-items-center rounded-xl bg-amber-soft/15 text-amber-soft"><x-icon name="clock" class="size-5" /></span>
+                <div class="min-w-0 flex-1">
+                    <h2 class="font-display text-xl font-semibold">{{ __('stock_planning.st.waiting_title') }}</h2>
+                    <p class="mt-1 text-sm text-ink-600 dark:text-sand-200">{{ __('stock_planning.st.waiting_body', ['lines' => number_format($approval['summary']['lines']), 'units' => number_format($approval['summary']['units']),
+                        'value' => $money ? $money->format() : __('stock_planning.value_unknown'), 'counters' => $approval['counters'] ? implode(', ', $approval['counters']) : __('stock_planning.st.counters_none')]) }}</p>
+                    @if ($approval['iCounted'] && $canApprove)<p class="mt-2 text-sm font-medium text-amber-soft">{{ __('stock_planning.st.you_counted') }}</p>
+                    @elseif (! $canApprove)<p class="mt-2 text-xs text-ink-500">{{ __('stock_planning.st.not_allowed') }}</p>@endif
+                </div>
+            </div>
+        </div>
+    @elseif ($st === 'counting' && $session->returned_reason)
+        <div class="card mb-6 border-ruby-soft/30 bg-ruby-soft/5 p-5 sm:p-6" data-banner="returned" role="status">
+            <div class="flex items-start gap-3">
+                <span class="grid size-10 shrink-0 place-items-center rounded-xl bg-ruby-soft/15 text-ruby-soft"><x-icon name="refresh" class="size-5" /></span>
+                <p class="min-w-0 text-sm text-ink-700 dark:text-sand-100">{{ __('stock_planning.st.returned_banner', ['by' => $approval['returnedBy'] ?? '—', 'at' => \App\Support\BusinessTime::display($session->returned_at), 'reason' => $session->returned_reason]) }}</p>
+            </div>
+        </div>
+    @elseif ($st === 'posted')
+        <p class="mb-6 flex items-start gap-2 text-sm text-ink-600 dark:text-sand-200" data-banner="posted"><x-icon name="check" class="mt-0.5 size-4 shrink-0 text-emerald-soft" />
+            @if ($session->approval_mode === 'auto')
+                {{ $approval['summary']['lines'] === 0 ? __('stock_planning.st.approved_none') : __('stock_planning.st.approved_auto') }}
+            @elseif ($session->approval_mode === 'self')
+                {{ __('stock_planning.st.approved_self', ['by' => $approval['approvedBy'] ?? '—']) }}
+            @else
+                {{ __('stock_planning.st.approved_by', ['by' => $approval['approvedBy'] ?? '—']) }}
+            @endif
+        </p>
+    @endif
+
     <div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <x-admin.stat :label="__('inventory_admin.progress')" :value="$pct.'%'" icon="clipboard" tone="brass" :hint="$stats->counted.' / '.$stats->lines" />
         <x-admin.stat :label="__('inventory_admin.uncounted')" :value="number_format($stats->lines - $stats->counted)" icon="clock" />
-        <x-admin.stat :label="__('inventory_admin.lines_with_variance')" :value="number_format($stats->variances)" icon="alert" />
+        <x-admin.stat :label="__('inventory_admin.lines_with_variance')" :value="number_format($stats->variances)" icon="alert" :hint="$stats->variances ? ($money ? $money->format() : __('stock_planning.value_unknown')) : null" />
         <x-admin.stat :label="__('inventory_admin.net_variance')" :value="($stats->net > 0 ? '+' : '').number_format($stats->net)" icon="scale" />
     </div>
 
@@ -98,4 +134,15 @@
             @if ($items->hasPages())<div class="border-t border-sand-100 p-4 dark:border-ink-800">{{ $items->links('components.admin.pagination') }}</div>@endif
         @endif
     </div>
+    <x-admin.dialog wire:model="showReturn" variant="modal" max-width="max-w-lg" :title="__('stock_planning.st.send_back_title')" :description="__('stock_planning.st.send_back_hint')">
+        <form wire:submit="sendBack" class="space-y-5">
+            <x-admin.field :label="__('stock_planning.st.reason')" for="returnReason" required>
+                <textarea id="returnReason" wire:model="returnReason" rows="3" maxlength="500" class="input" placeholder="{{ __('stock_planning.st.reason_ph') }}" autofocus></textarea>
+            </x-admin.field>
+            <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button type="button" class="btn-secondary min-h-11" @click="open = false">{{ __('admin.back') }}</button>
+                <button class="btn-primary min-h-11" wire:loading.attr="disabled" wire:target="sendBack">{{ __('stock_planning.st.send_back_confirm') }}</button>
+            </div>
+        </form>
+    </x-admin.dialog>
 </div>

@@ -368,7 +368,7 @@ it('refreshes by itself: polls and listens for the live order event', function (
 it('puts the new entry and a live count in the menu for the right people', function () {
     $mgr = AdminNavigation::for($this->mgrA);
     $operations = collect($mgr)->firstWhere('label', 'ops_live.page.eyebrow');
-    expect(collect($operations['items'])->pluck('route')->all())->toBe(['admin.operations.attention'])
+    expect(collect($operations['items'])->pluck('route')->all())->toBe(['admin.operations.attention', 'admin.operations.board'])   // the inbox, then the live board (anyone who sees orders)
         ->and(array_slice(collect($mgr)->pluck('label')->all(), 0, 2))->toBe(['nav.overview', 'ops_live.page.eyebrow']);   // right after the overview
     foreach (['orders.view', 'deliveries.view', 'payments.view', 'pickup.view'] as $permission) {
         $items = collect(AdminNavigation::for(opsStaffWith($this->a, [$permission])))->flatMap(fn ($g) => $g['items'])->pluck('route');

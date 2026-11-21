@@ -35,13 +35,17 @@ final class SalesBasis
     /**
      * One row per live fulfillment of every counted order: order_id, fulfillment_id, branch_id, user_id, placed_at, share (the branch's part).
      * The division is computed over ALL the order's fulfillments, so apply the branch scope on top of this query, never inside it.
+     *
+     * @param  list<string>|null  $userIds  only the orders of these customers (null: every order)
      */
-    public static function orderShares(?CarbonInterface $from = null, ?CarbonInterface $to = null): Builder
+    public static function orderShares(?CarbonInterface $from = null, ?CarbonInterface $to = null, ?array $userIds = null): Builder
     {
         $base = self::withLines(DB::table('order_fulfillments as f')->join('orders as o', 'o.id', '=', 'f.order_id'))
             ->whereNotIn('o.status', self::EXCLUDED_STATUSES)
             ->when($from, fn ($q) => $q->where('o.placed_at', '>=', $from))
             ->when($to, fn ($q) => $q->where('o.placed_at', '<=', $to))
+            // A few customers (their own page, one page of a list): only their orders are read, by the index on orders.user_id.
+            ->when($userIds !== null, fn ($q) => $q->whereIn('o.user_id', $userIds))
             ->selectRaw("f.id as fulfillment_id, f.order_id as gk, f.order_id, f.branch_id, o.user_id, o.placed_at, o.grand_total as amount,
                 (f.status <> 'cancelled') as live, ".self::WEIGHT_SQL.' as weight');
 

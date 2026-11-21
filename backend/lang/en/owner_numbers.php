@@ -67,6 +67,8 @@ return [
         'drivers:prune-locations' => 'Tidy driver location history',
         'push:prune-devices' => 'Remove dead phone registrations',
         'banners:purge-deleted' => 'Empty the banner bin',
+        'reports:send-owner-pack' => 'Send the weekly owner pack',
+        'customers:refresh-value' => 'Work out what each customer is worth',
     ],
 
     // ── Reports ─────────────────────────────────────────────────────────────────

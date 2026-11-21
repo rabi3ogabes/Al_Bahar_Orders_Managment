@@ -9,9 +9,10 @@
 @endphp
 <div>
     <x-admin.page-header :title="__('nav.orders', [], 'en').' · '.__('nav.orders', [], 'ar')" :eyebrow="__('nav.sales', [], 'en').' · '.__('nav.sales', [], 'ar')" :description="__('sales_admin.orders_hint')">
-        @if ($this->can('orders.create'))
-            <x-slot:actions><a href="{{ route('admin.orders.create') }}" wire:navigate class="btn-primary min-h-11"><x-icon name="plus" class="size-4" />{{ __('neworder_admin.new_order') }}</a></x-slot:actions>
-        @endif
+        <x-slot:actions>
+            <livewire:admin.sales.print-window context="orders" />
+            @if ($this->can('orders.create'))<a href="{{ route('admin.orders.create') }}" wire:navigate class="btn-primary min-h-11"><x-icon name="plus" class="size-4" />{{ __('neworder_admin.new_order') }}</a>@endif
+        </x-slot:actions>
     </x-admin.page-header>
 
     <x-admin.tabs :tabs="$tabs" :current="$tab" />

@@ -4,6 +4,12 @@
             @if ($branches->isNotEmpty())<button type="button" wire:click="create" class="btn-primary"><x-icon name="plus" class="size-4" />{{ __('inventory_admin.start_count') }}</button>@endif
         </x-slot:actions>
     </x-admin.page-header>
+    @if ($waiting['count'] > 0)
+        <div class="card mb-6 flex flex-col gap-3 border-amber-soft/30 bg-amber-soft/5 p-5 sm:flex-row sm:items-center sm:justify-between" data-banner="waiting" role="status">
+            <p class="flex items-center gap-3 text-sm font-medium"><x-icon name="clock" class="size-5 text-amber-soft" />{{ trans_choice('stock_planning.st.banner_waiting', $waiting['count'], ['count' => $waiting['count'], 'value' => $waiting['unknown'] ? __('stock_planning.value_unknown') : $waiting['value']->format()]) }}</p>
+            <button type="button" wire:click="$set('filterStatus', 'submitted')" class="btn-secondary min-h-11">{{ __('stock_planning.st.waiting_for_approval') }}</button>
+        </div>
+    @endif
     <div class="card">
         <x-admin.toolbar>
             <x-admin.search :placeholder="__('inventory_admin.number_search')" />
@@ -16,7 +22,7 @@
             <x-admin.empty :title="__('inventory_admin.no_sessions')" :description="__('inventory_admin.no_sessions_hint')" icon="clipboard" />
         @else
             <div class="table-wrap"><table class="table">
-                <thead><tr><th>{{ __('inventory_admin.session') }}</th><th>{{ __('admin.branch') }}</th><th>{{ __('inventory_admin.progress') }}</th><th>{{ __('inventory_admin.started_by') }}</th><th>{{ __('admin.status') }}</th><th class="w-12"></th></tr></thead>
+                <thead><tr><th>{{ __('inventory_admin.session') }}</th><th>{{ __('admin.branch') }}</th><th>{{ __('inventory_admin.progress') }}</th><th>{{ __('inventory_admin.started_by') }}</th><th>{{ __('stock_planning.st.differences') }}</th><th>{{ __('admin.status') }}</th><th class="w-12"></th></tr></thead>
                 <tbody>@foreach ($sessions as $ses)
                     @php $pct = $ses->items_count ? round($ses->counted_count * 100 / $ses->items_count) : 0; @endphp
                     <tr wire:key="ss-{{ $ses->id }}">
@@ -24,7 +30,13 @@
                         <td>{{ $ses->branch->localized('name') }}</td>
                         <td><div class="flex min-w-[10rem] items-center gap-3"><div class="h-1.5 w-24 overflow-hidden rounded-full bg-sand-100 dark:bg-ink-800"><div class="h-full rounded-full bg-brass-500" style="width: {{ $pct }}%"></div></div><span class="text-xs text-ink-500 tabular-nums">{{ $ses->counted_count }} / {{ $ses->items_count }}</span></div></td>
                         <td class="text-sm text-ink-600">{{ $people[$ses->started_by] ?? '—' }}</td>
-                        <td><x-admin.status :value="$ses->status" /></td>
+                        <td class="text-sm tabular-nums">
+                            @if ($ses->variance_lines !== null)
+                                {{ trans_choice('stock_planning.st.differences_n', $ses->variance_lines, ['count' => $ses->variance_lines]) }}
+                                <span class="block text-xs text-ink-500">{{ $ses->variance_value !== null ? \App\Support\Money::of((string) $ses->variance_value)->format() : __('stock_planning.value_unknown') }}</span>
+                            @else<span class="text-ink-400">—</span>@endif
+                        </td>
+                        <td><x-admin.status :value="$ses->status" />@if ($ses->status === 'submitted')<span class="mt-1 block text-xs text-amber-soft">{{ __('stock_planning.st.waiting_for_approval') }}</span>@endif</td>
                         <td><a href="{{ route('admin.stocktaking.index', ['view' => $ses->id]) }}" wire:click.prevent="openView('{{ $ses->id }}')" class="btn-ghost btn-sm" aria-label="{{ __('admin.details') }}"><x-icon name="chevron-right" class="size-4 rtl-flip" /></a></td>
                     </tr>
                 @endforeach</tbody>
@@ -59,6 +71,11 @@
                     <span class="tabular-nums">{{ \App\Support\BusinessTime::display($viewSession->created_at) }}</span>
                 </div>
                 @if ($viewSession->notes)<p class="text-sm text-ink-600 dark:text-sand-200">{{ $viewSession->notes }}</p>@endif
+                @if ($viewSession->status === 'submitted')
+                    <p class="flex items-start gap-2 rounded-xl bg-amber-soft/5 p-3 text-sm text-ink-700 dark:text-sand-100" data-window="waiting"><x-icon name="clock" class="mt-0.5 size-4 shrink-0 text-amber-soft" />{{ __('stock_planning.st.window_waiting', ['lines' => number_format((int) $viewSession->variance_lines), 'value' => $viewSession->variance_value !== null ? \App\Support\Money::of((string) $viewSession->variance_value)->format() : __('stock_planning.value_unknown')]) }}</p>
+                @elseif ($viewSession->status === 'counting' && $viewSession->returned_reason)
+                    <p class="flex items-start gap-2 rounded-xl bg-ruby-soft/5 p-3 text-sm text-ink-700 dark:text-sand-100" data-window="returned"><x-icon name="refresh" class="mt-0.5 size-4 shrink-0 text-ruby-soft" />{{ $viewSession->returned_reason }}</p>
+                @endif
                 <div>
                     <div class="mb-1.5 flex items-center justify-between text-sm"><span class="font-medium">{{ __('inventory_admin.progress') }}</span><span class="tabular-nums text-ink-500">{{ $counted }} / {{ $lines }} · {{ $pct }}%</span></div>
                     <div class="h-2 overflow-hidden rounded-full bg-sand-100 dark:bg-ink-800" role="progressbar" aria-valuenow="{{ $pct }}" aria-valuemin="0" aria-valuemax="100"><div class="h-full rounded-full bg-brass-500" style="width: {{ $pct }}%"></div></div>

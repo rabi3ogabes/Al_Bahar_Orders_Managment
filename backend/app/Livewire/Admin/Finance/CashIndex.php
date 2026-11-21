@@ -6,7 +6,10 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Payments\Models\CashCollection;
 use App\Domain\Payments\Models\CashHandover;
 use App\Domain\Payments\Services\CashDrawerService;
+use App\Domain\Payments\Services\CashShiftService;
+use App\Domain\Payments\Services\CashShiftSettings;
 use App\Livewire\Admin\Concerns\WithAdminTable;
+use App\Livewire\Admin\Finance\Concerns\HandlesCashShifts;
 use App\Livewire\Admin\Sales\Concerns\PeeksAtOrder;
 use App\Support\BusinessTime;
 use App\Support\Money;
@@ -15,24 +18,25 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
- * Cash drawer. Three views of the same money:
- *  collections (what was collected) → to hand in (what collectors still hold) → hand-ins (counted, variances, bank deposits).
+ * Cash drawer. Four views of the same money:
+ *  collections (what was collected) → to hand in (what collectors still hold) → hand-ins (counted, variances, bank deposits) → shifts (the drawer of
+ *  each branch, opened with a counted float and closed with an end-of-day count and a Z-report). The Shift panel on top is always there.
  */
 class CashIndex extends Component
 {
-    use PeeksAtOrder, WithAdminTable;
+    use HandlesCashShifts, PeeksAtOrder, WithAdminTable;
 
-    public const TABS = ['collections', 'outstanding', 'handovers'];
+    public const TABS = ['collections', 'outstanding', 'handovers', 'shifts'];
 
     #[Url(except: 'collections')]
     public string $tab = 'collections';
 
     public bool $showDialog = false;
 
-    /** handin | resolve | deposit */
+    /** handin | resolve | deposit | receipt | shift_open | shift_close | shift_review | shift_done */
     public ?string $dialog = null;
 
-    /** handin: "collectorId|branchId"; resolve: hand-in id. */
+    /** handin: "collectorId|branchId"; resolve and receipt: hand-in id; shift_open: branch id; the other shift windows: shift id. */
     #[Locked]
     public ?string $target = null;
 
@@ -81,6 +85,7 @@ class CashIndex extends Component
         abort_if($collectorId === auth()->id(), 403);
         $this->dialog = 'handin';
         $this->target = $collectorId.'|'.$branchId;
+        $this->tickAll($collectorId, $branchId);
         $this->form = ['counted' => '', 'note' => '', 'resolution' => '', 'reference' => ''];
         $this->resetValidation();
         $this->showDialog = true;
@@ -91,6 +96,18 @@ class CashIndex extends Component
         $h = CashHandover::findOrFail($handoverId);
         $this->authorizeBranch('payments.override', $h->branch_id);
         $this->dialog = 'resolve';
+        $this->target = $h->id;
+        $this->form = ['counted' => '', 'note' => '', 'resolution' => '', 'reference' => ''];
+        $this->resetValidation();
+        $this->showDialog = true;
+    }
+
+    /** The collections one hand-in settled: each is marked handed in against this receipt. */
+    public function openReceipt(string $handoverId): void
+    {
+        $h = CashHandover::findOrFail($handoverId);
+        $this->authorizeBranch('payments.view', $h->branch_id);
+        $this->dialog = 'receipt';
         $this->target = $h->id;
         $this->form = ['counted' => '', 'note' => '', 'resolution' => '', 'reference' => ''];
         $this->resetValidation();
@@ -109,13 +126,17 @@ class CashIndex extends Component
         $this->showDialog = true;
     }
 
-    public function confirmDialog(CashDrawerService $drawer): void
+    public function confirmDialog(CashDrawerService $drawer, CashShiftService $shifts): void
     {
         $user = auth()->user();
         $ok = match ($this->dialog) {
             'handin' => $this->handIn($drawer, $user),
             'resolve' => $this->resolve($drawer, $user),
             'deposit' => $this->deposit($drawer, $user),
+            'shift_open' => $this->openShift($shifts, $user),
+            'shift_close' => $this->closeShift($shifts, $user),
+            'shift_review' => $this->reviewShift($shifts, $user),
+            'shift_done', 'receipt' => true,
             default => abort(422),
         };
         if ($ok) {
@@ -128,8 +149,13 @@ class CashIndex extends Component
         [$collectorId, $branchId] = array_pad(explode('|', (string) $this->target), 2, null);
         $this->authorizeBranch('payments.edit', $branchId);
         $f = $this->validate(['form.counted' => 'required|numeric|min:0', 'form.note' => 'nullable|string|max:500'], [], ['form.counted' => __('finance_admin.counted'), 'form.note' => __('admin.notes')])['form'];
+        if ($this->pick === []) {
+            $this->addError('pick', __('cash_shift.pick_one'));
 
-        return (bool) $this->attempt(fn () => $drawer->handIn($user, User::findOrFail($collectorId), $branchId, (string) $f['counted'], $f['note'] ?: null), __('finance_admin.handed_in_ok'));
+            return false;
+        }
+
+        return (bool) $this->attempt(fn () => $drawer->handIn($user, User::findOrFail($collectorId), $branchId, (string) $f['counted'], $f['note'] ?: null, array_values($this->pick)), __('finance_admin.handed_in_ok'));
     }
 
     private function resolve(CashDrawerService $drawer, User $user): bool
@@ -153,7 +179,7 @@ class CashIndex extends Component
         return (bool) $res;
     }
 
-    public function render()
+    public function render(CashShiftService $shifts, CashShiftSettings $shiftSettings)
     {
         $scope = $this->branchScope('payments.view');
         $from = strtotime($this->filterFrom) ? $this->filterFrom : BusinessTime::now()->toDateString();
@@ -194,13 +220,16 @@ class CashIndex extends Component
                 ->latest()->paginate($this->perPage)
             : null;
         $dialogHandover = $this->dialog === 'resolve' && $this->target ? CashHandover::with(['collector:id,name', 'receiver:id,name'])->find($this->target) : null;
+        $dialogReceipt = $this->dialog === 'receipt' && $this->target ? CashHandover::with(['collector:id,name', 'receiver:id,name', 'branch:id,code'])->find($this->target) : null;
+        $receiptRows = $dialogReceipt ? CashCollection::where('cash_handover_id', $dialogReceipt->id)->with('payment.order:id,number')->orderBy('collected_at')->orderBy('id')->limit(self::HAND_IN_LIST_LIMIT)->get() : collect();
+        $shiftData = $this->shiftViewData($shifts, $shiftSettings, $start, $end);
         $dialogExpected = null;
         if ($this->dialog === 'handin' && $this->target) {
-            [$cid, $bid] = array_pad(explode('|', $this->target), 2, null);
-            $dialogExpected = Money::of((string) app(CashDrawerService::class)->openCollections((string) $cid, $bid)->sum('amount_collected'));
+            // What the cashier is receiving is exactly the ticked collections.
+            $dialogExpected = $shiftData['handinCollections']->whereIn('id', $this->pick)->reduce(fn (Money $c, CashCollection $r) => $c->plus(Money::of((string) $r->amount_collected)), Money::zero());
         }
 
-        return view('livewire.admin.finance.cash', [
+        return view('livewire.admin.finance.cash', $shiftData + [
             'rows' => $this->tab === 'collections' ? $base()->with(['payment.order:id,number,customer_name', 'collector:id,name', 'branch:id,code'])->latest('collected_at')->paginate($this->perPage) : null,
             'totals' => $totals,
             'branches' => $this->scopedBranches('payments.view'),
@@ -211,6 +240,8 @@ class CashIndex extends Component
             'branchCodes' => $branchCodes,
             'handoverRows' => $handoverRows,
             'dialogHandover' => $dialogHandover,
+            'dialogReceipt' => $dialogReceipt,
+            'receiptRows' => $receiptRows,
             'dialogExpected' => $dialogExpected,
             'selectedTotal' => $this->selected ? Money::of((string) CashHandover::whereIn('id', $this->selected)->sum('counted_amount')) : null,
         ])->title(__('nav.cash'));

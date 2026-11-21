@@ -20,6 +20,7 @@
             ['truck', __('admin.out_for_delivery'), $m['out_for_delivery'], 'admin.deliveries.index'],
             ['qr', __('admin.awaiting_pickup'), $m['ready_for_pickup'], 'admin.pickup.index'],
             ['refund', __('admin.pending_refunds'), $m['pending_refunds'], 'admin.refunds.index'],
+            ['clipboard', __('stock_planning.st.dashboard'), $m['stocktakes_waiting'], 'admin.stocktaking.index'],
             ['gavel', __('admin.live_auctions'), $m['live_auctions'], 'admin.auctions.index'],
             ['life-buoy', __('admin.open_tickets'), $m['open_tickets'], 'admin.support.index'],
         ];

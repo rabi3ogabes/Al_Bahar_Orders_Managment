@@ -21,6 +21,7 @@ use App\Domain\Orders\Models\ReturnRequest;
 use App\Domain\Orders\Models\SubstitutionRequest;
 use App\Domain\Orders\Services\OrderAdjustmentService;
 use App\Domain\Orders\Services\OrderService;
+use App\Domain\Orders\Support\ParcelAccess;
 use App\Domain\Payments\Models\Payment;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use App\Support\BusinessTime;
@@ -278,6 +279,16 @@ class OrderShow extends Component
         $acl = app(AccessControl::class);
         $at = fn (string $perm, string $branch) => $acl->allows($u, $perm, $branch);
 
+        // Questions about the WHOLE order (can it be cancelled, may I decide a cancellation) are answered from every parcel. What the page then shows is
+        // narrowed to the viewer's own branches: another branch's parcels, lines, item changes, notes and timeline are never sent to the browser.
+        $parcelCount = $o->fulfillments->count();
+        $partlyHandedOver = app(OrderService::class)->partlyHandedOver($o);
+        $cancellable = $o->fulfillments->contains(fn ($f) => $f->status->canTransitionTo(FS::Cancelled))
+            && $o->fulfillments->every(fn ($f) => $at('orders.approve', $f->branch_id)) && ! $partlyHandedOver;
+        $canDecideAll = $o->fulfillments->every(fn ($f) => $at('orders.approve', $f->branch_id));
+        $scope = ParcelAccess::scope($u);
+        ParcelAccess::narrow($o, $scope);
+
         $actions = [];
         foreach ($o->fulfillments as $f) {
             $next = collect($f->status->allowedNext());
@@ -299,7 +310,7 @@ class OrderShow extends Component
             $actions[$f->id] = [
                 'adjust' => $at('orders.edit', $f->branch_id) && $adjustments->blockedReason($f, $o) === null,
                 'steps' => $a,
-                'cancel' => $next->contains(FS::Cancelled) && $at('orders.approve', $f->branch_id) && $o->fulfillments->count() > 1,
+                'cancel' => $next->contains(FS::Cancelled) && $at('orders.approve', $f->branch_id) && $parcelCount > 1,
                 'return' => in_array($f->status, [FS::Delivered, FS::PickedUp], true) && $at(OrderService::permissionFor(FS::Returned), $f->branch_id),
                 'delivery' => $active,
                 'scan' => $f->type === 'pickup' && in_array($f->pickup?->status, ['ready', 'partially_collected'], true) && $at('pickup.approve', $f->branch_id),
@@ -310,9 +321,6 @@ class OrderShow extends Component
             ];
         }
         // Goods that already left the branch cannot be cancelled with the order: the manager cancels the parts still at the branch one by one, or records a return.
-        $partlyHandedOver = app(OrderService::class)->partlyHandedOver($o);
-        $cancellable = $o->fulfillments->contains(fn ($f) => $f->status->canTransitionTo(FS::Cancelled))
-            && $o->fulfillments->every(fn ($f) => $at('orders.approve', $f->branch_id)) && ! $partlyHandedOver;
         $pendingCancellation = $o->cancellations->firstWhere('status', 'requested');
 
         $people = User::whereIn('id', $o->history->pluck('actor_id')->filter()->unique())->pluck('name', 'id');
@@ -342,11 +350,12 @@ class OrderShow extends Component
             'cancellable' => $cancellable && ! $o->status->isTerminal(),
             'partlyHandedOver' => $partlyHandedOver && ! $o->status->isTerminal(),
             'pendingCancellation' => $pendingCancellation,
-            'canDecide' => $pendingCancellation && $o->fulfillments->every(fn ($f) => $at('orders.approve', $f->branch_id)),
+            'canDecide' => $pendingCancellation && $canDecideAll,
             'payments' => Payment::where('order_id', $o->id)->with(['refunds', 'collections.collector:id,name'])->orderByDesc('attempt')->get(),
-            'returns' => ReturnRequest::where('order_id', $o->id)->latest()->get(),
+            'returns' => ReturnRequest::where('order_id', $o->id)->when(! $scope->all, fn ($q) => $q->whereIn('branch_id', $scope->branchIds))->latest()->get(),
             // Replacements the customer was asked about and has not answered: shown as "Waiting for the customer" with a live clock.
-            'substitutionWaits' => SubstitutionRequest::where('order_id', $o->id)->where('status', SubstitutionRequest::WAITING)->with(['original', 'replacement'])->orderBy('deadline_at')->get(),
+            'substitutionWaits' => SubstitutionRequest::where('order_id', $o->id)->where('status', SubstitutionRequest::WAITING)->when(! $scope->all, fn ($q) => $q->whereIn('branch_id', $scope->branchIds))
+                ->with(['original', 'replacement'])->orderBy('deadline_at')->get(),
             'timeline' => $timeline,
             'drivers' => $drivers,
             'routeCards' => $routeCards,

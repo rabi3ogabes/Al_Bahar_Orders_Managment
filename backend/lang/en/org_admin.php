@@ -171,6 +171,9 @@ return [
         'auctions' => 'Auctions',
         'notifications' => 'Notifications',
         'integrations' => 'Integrations',
+        'stock' => 'Stock',
+        'cash' => 'Cash',
+        'printing' => 'Printing',
         'security' => 'Security',
     ],
     'settings_tab_hint' => [
@@ -180,6 +183,9 @@ return [
         'auctions' => 'Defaults applied to new auctions.',
         'notifications' => 'Limits that keep customer messaging respectful.',
         'integrations' => 'Payment gateway, messaging, AI and map settings. Secrets are encrypted and never displayed.',
+        'stock' => 'Stock planning (what to order, when) and who may approve a stock count.',
+        'cash' => 'How the cash drawer of each branch is opened, counted and closed, and when a difference needs a reason or a second person.',
+        'printing' => 'The paper of the picking list and the delivery note, and whether a paid order\'s note shows prices.',
         'security' => 'How the team signs in to the dashboard.',
     ],
     'setting' => [
@@ -322,6 +328,8 @@ return [
         'map__routing_url' => 'Optional. An https address of an OSRM-compatible routing server for road-based arrival times. Empty (or an unreachable server) uses a straight-line estimate.',
     ],
     'option' => [
+        'attach' => 'Accept it and add it to the next shift opened',
+        'block' => 'Refuse it until a shift is open',
         'remove' => 'Remove the item and refund',
         'keep' => 'Keep the replacement',
         'offer_next_bidder' => 'Offer to the next highest bidder',
@@ -336,6 +344,8 @@ return [
         'stadia' => 'Stadia Maps (API key)',
         'carto' => 'Carto (free, non-commercial)',
         'custom' => 'Custom tile URL',
+        'a4' => 'A4 (210 × 297 mm)',
+        'a5' => 'A5 (148 × 210 mm)',
     ],
     'unit' => ['min' => 'min', 'hours' => 'hours', 'days' => 'days', 'sec' => 'sec', 'kg' => 'kg', 'm' => 'm'],
 
@@ -404,6 +414,8 @@ return [
         'inventory__adjustment_posted' => 'Stock adjustment approved',
         'inventory__adjustment_rejected' => 'Stock adjustment rejected',
         'inventory__thresholds_updated' => 'Stock thresholds updated',
+        'order__picking_list_printed' => 'Picking list printed',
+        'order__delivery_note_printed' => 'Delivery note printed',
         'transfer__created' => 'Transfer created',
         'transfer__pending_approval' => 'Transfer submitted',
         'transfer__approved' => 'Transfer approved',

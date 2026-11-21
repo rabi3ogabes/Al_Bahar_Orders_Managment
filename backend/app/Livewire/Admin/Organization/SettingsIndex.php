@@ -3,7 +3,11 @@
 namespace App\Livewire\Admin\Organization;
 
 use App\Domain\Fulfillment\Services\DispatchSettings;
+use App\Domain\Inventory\Services\StockPlanningSettings;
+use App\Domain\Inventory\Services\StocktakeApprovals;
 use App\Domain\Operations\Services\OpsClock;
+use App\Domain\Orders\Printing\PrintSettings;
+use App\Domain\Payments\Services\CashShiftSettings;
 use App\Domain\Settings\Services\Settings;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use App\Rules\MapServiceUrl;
@@ -117,6 +121,8 @@ class SettingsIndex extends Component
                 'auctions.unpaid_winner_policy' => ['type' => 'select', 'rules' => ['required', 'in:offer_next_bidder,relist,none'], 'options' => ['offer_next_bidder', 'relist', 'none']],
                 'auctions.bid_rate_limit_per_minute' => ['type' => 'int', 'rules' => $int(1, 600)],
             ],
+            'stock' => self::stockSchema(),
+            'cash' => self::cashSchema(),
             'notifications' => [
                 'notifications.abandoned_cart_min_interval_hours' => ['type' => 'int', 'rules' => $int(1, 720), 'suffix' => 'hours'],
                 'notifications.max_attempts' => ['type' => 'int', 'rules' => $int(1, 20)],
@@ -134,6 +140,7 @@ class SettingsIndex extends Component
                 'alerts.quiet_end' => ['type' => 'text', 'rules' => ['nullable', 'date_format:H:i', 'required_with:values.notifications.alerts__quiet_start'], 'dir' => 'ltr'],
             ],
             'ops_clock' => self::opsClockSchema() + self::dispatchSchema(),
+            'printing' => self::printingSchema(),
             'integrations' => [
                 'payments.sadad.enabled' => ['type' => 'bool', 'rules' => ['boolean']],
                 'payments.sadad.mode' => ['type' => 'select', 'rules' => ['required', 'in:sandbox,live'], 'options' => ['sandbox', 'live']],
@@ -159,6 +166,50 @@ class SettingsIndex extends Component
                 'map.zoom' => ['type' => 'int', 'rules' => ['nullable', 'integer', 'min:3', 'max:19']],
                 'map.routing_url' => ['type' => 'text', 'rules' => ['nullable', 'string', 'max:300', new MapServiceUrl], 'dir' => 'ltr'],
             ],
+        ];
+    }
+
+    /**
+     * Settings > Stock: the numbers behind Stock planning (docs/guides/STOCK_PLANNING_AND_STOCKTAKE.md) and the second-person rule of stock counts. The words
+     * come from lang/*\/stock_planning.php and the factory defaults from {@see StockPlanningSettings} and {@see StocktakeApprovals}.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private static function stockSchema(): array
+    {
+        $schema = [];
+        foreach (StockPlanningSettings::KEYS as $field => $key) {
+            [$default, $min, $max] = StockPlanningSettings::LIMITS[$field];
+            $schema[$key] = ['type' => 'int', 'rules' => ['required', 'integer', "min:{$min}", "max:{$max}"], 'suffix' => 'days', 'default' => $default,
+                'label' => 'stock_planning.setting.'.$field, 'hint' => 'stock_planning.setting_hint.'.$field, 'messages' => []];
+        }
+        $schema[StocktakeApprovals::RULE_KEY] = ['type' => 'bool', 'rules' => ['boolean'], 'default' => true,
+            'label' => 'stock_planning.setting.second_person', 'hint' => 'stock_planning.setting_hint.second_person', 'messages' => []];
+        $schema[StocktakeApprovals::AUTO_KEY] = ['type' => 'money', 'rules' => ['required', 'numeric', 'min:0', 'max:100000', 'regex:/^\d+(\.\d{1,2})?$/'], 'default' => '0',
+            'label' => 'stock_planning.setting.auto_post', 'hint' => 'stock_planning.setting_hint.auto_post', 'messages' => []];
+
+        return $schema;
+    }
+
+    /**
+     * Settings > Cash: how the cash shifts of the branches work (docs/guides/CASH_SHIFT.md). The words come from lang/*\/cash_shift.php and the
+     * factory defaults from {@see CashShiftSettings}.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private static function cashSchema(): array
+    {
+        $money = ['required', 'numeric', 'min:0', 'max:100000', 'regex:/^\d+(\.\d{1,2})?$/'];
+
+        return [
+            CashShiftSettings::POLICY_KEY => ['type' => 'select', 'rules' => ['required', 'in:'.implode(',', CashShiftSettings::POLICIES)], 'options' => CashShiftSettings::POLICIES,
+                'default' => CashShiftSettings::POLICY_ATTACH, 'label' => 'cash_shift.setting.policy', 'hint' => 'cash_shift.setting_hint.policy', 'messages' => []],
+            CashShiftSettings::NOTE_ABOVE_KEY => ['type' => 'money', 'rules' => $money, 'default' => CashShiftSettings::DEFAULT_NOTE_ABOVE,
+                'label' => 'cash_shift.setting.note_above', 'hint' => 'cash_shift.setting_hint.note_above', 'messages' => []],
+            CashShiftSettings::REVIEW_ABOVE_KEY => ['type' => 'money', 'rules' => [...$money, 'gte:values.cash.'.self::field(CashShiftSettings::NOTE_ABOVE_KEY)], 'default' => CashShiftSettings::DEFAULT_REVIEW_ABOVE,
+                'label' => 'cash_shift.setting.review_above', 'hint' => 'cash_shift.setting_hint.review_above', 'messages' => ['gte' => 'cash_shift.setting_gte']],
+            CashShiftSettings::MAX_OPEN_HOURS_KEY => ['type' => 'int', 'rules' => ['required', 'integer', 'min:1', 'max:72'], 'suffix' => 'hours', 'default' => CashShiftSettings::DEFAULT_MAX_OPEN_HOURS,
+                'label' => 'cash_shift.setting.max_open_hours', 'hint' => 'cash_shift.setting_hint.max_open_hours', 'messages' => []],
         ];
     }
 
@@ -216,6 +267,25 @@ class SettingsIndex extends Component
         }
 
         return $schema;
+    }
+
+    /**
+     * Settings > Printing: the paper of the picking list and the delivery note, and whether a paid order's delivery note shows prices
+     * (docs/guides/PICKING_LIST_AND_DELIVERY_NOTE.md). The words come from lang/*\/print_docs.php; the options are labelled in org_admin.option.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private static function printingSchema(): array
+    {
+        $paper = fn (string $field) => ['type' => 'select', 'rules' => ['required', 'in:'.implode(',', PrintSettings::PAPERS)], 'options' => PrintSettings::PAPERS,
+            'default' => 'a4', 'label' => 'print_docs.setting.'.$field, 'hint' => 'print_docs.setting_hint.'.$field, 'messages' => []];
+
+        return [
+            PrintSettings::PICKING_PAPER => $paper('picking_paper'),
+            PrintSettings::NOTE_PAPER => $paper('note_paper'),
+            PrintSettings::NOTE_PRICES => ['type' => 'bool', 'rules' => ['boolean'], 'default' => false,
+                'label' => 'print_docs.setting.note_prices', 'hint' => 'print_docs.setting_hint.note_prices', 'messages' => []],
+        ];
     }
 
     public function save(Settings $settings): void

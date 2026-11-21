@@ -198,8 +198,6 @@ return [
     'counted_at' => 'Time',
     'finish_counting' => 'Finish counting',
     'confirm_submit_count' => 'Finish counting and send for approval? Lines not counted are ignored.',
-    'post_variances' => 'Approve & post variances',
-    'confirm_post_count' => 'Post all variances to stock now?',
     'confirm_cancel_count' => 'Cancel this count? Nothing will be posted.',
     'session_submitted' => 'Count sent for approval.',
     'session_posted' => 'Variances posted to stock.',

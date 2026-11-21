@@ -44,6 +44,9 @@ class DashboardMetrics
             // Both figures follow the viewer's branches (a branch-only grant never sees the company-wide count).
             'open_tickets' => $this->access->allows($user, 'support.view')
                 ? $this->access->scope($user, 'support.view')->narrow($branchId)->apply(DB::table('support_tickets'), 'branch_id')->whereIn('status', ['open', 'pending_staff'])->count() : null,
+            // Stock counts a colleague finished that wait for someone else to approve them (one open count per branch, so this is a handful at most).
+            'stocktakes_waiting' => $this->access->allows($user, 'stocktaking.view')
+                ? $this->access->scope($user, 'stocktaking.view')->narrow($branchId)->apply(DB::table('stocktaking_sessions'))->where('status', 'submitted')->count() : null,
             'pending_refunds' => $this->access->allows($user, 'refunds.view')
                 ? DB::table('refunds')->whereIn('status', ['requested', 'approved'])
                     ->whereIn('order_id', $this->access->scope($user, 'refunds.view')->narrow($branchId)->apply(DB::table('order_fulfillments'), 'branch_id')->select('order_id'))->count() : null,

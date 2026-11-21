@@ -172,6 +172,10 @@ class RefundService
                 app(DealService::class)->release($order->id, everything: true);
             }
         }
+        // Cash handed back to the customer comes out of the branch drawer: if a shift is open there, its Z-report shows it (docs/guides/CASH_SHIFT.md).
+        if ($r->method === 'manual_cash') {
+            app(CashShiftService::class)->attachRefund($r, $actor);
+        }
         $this->audit->log('refund.processed', $r, [], ['amount' => $r->amount, 'reference' => $reference], actor: $actor);
     }
 

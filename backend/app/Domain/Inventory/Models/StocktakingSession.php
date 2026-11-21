@@ -17,7 +17,8 @@ class StocktakingSession extends Model
 
     protected $guarded = ['id'];
 
-    protected $casts = ['submitted_at' => 'immutable_datetime', 'posted_at' => 'immutable_datetime'];
+    protected $casts = ['submitted_at' => 'immutable_datetime', 'posted_at' => 'immutable_datetime', 'returned_at' => 'immutable_datetime',
+        'variance_lines' => 'integer', 'variance_units' => 'integer'];
 
     /** @return HasMany<StocktakingItem, $this> */
     public function items(): HasMany

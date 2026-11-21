@@ -24,7 +24,8 @@ class BranchInventory extends Model
     protected $attributes = ['on_hand' => 0, 'reserved' => 0, 'minimum_stock' => 0];
 
     protected $casts = ['on_hand' => 'integer', 'reserved' => 'integer', 'minimum_stock' => 'integer', 'maximum_stock' => 'integer',
-        'last_counted_at' => 'immutable_datetime', 'last_movement_at' => 'immutable_datetime'];
+        'last_counted_at' => 'immutable_datetime', 'last_movement_at' => 'immutable_datetime', 'out_since' => 'immutable_datetime',
+        'lead_time_days' => 'integer', 'safety_days' => 'integer', 'reorder_point' => 'integer', 'reorder_quantity' => 'integer'];
 
     /** Set by InventoryLedger while it holds the row lock. */
     public static bool $ledgerWriting = false;

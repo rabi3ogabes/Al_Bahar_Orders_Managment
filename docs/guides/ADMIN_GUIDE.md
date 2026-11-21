@@ -38,8 +38,10 @@ they don't hold, or change their own roles or status.
 - **Stock levels** shows on hand, reserved and available per branch; set min/max thresholds for low-stock alerts. An item with no minimum of its own counts as *low* when 3 or fewer are left (the shop-wide default, setting `inventory.low_stock_default`); the dashboard tile and the stock report use the same rule, and *out of stock* counts only items the branch has held before (an empty row for something never stocked there is not "out").
 - **Adjustments** (damage, loss, found) need a second person to approve.
 - **Transfers**: request → approve (reserves stock at source) → dispatch → receive (partial, damaged quantities) → complete.
-- **Stocktaking**: start a count (whole branch or a category incl. sub-categories), scan or type counts, submit, then a
-  manager posts the variances. Sales during counting are handled automatically.
+- **Stocktaking**: start a count (whole branch or a category incl. sub-categories), scan or type counts, submit. A count with
+  differences waits for a colleague who did not count it to approve or send it back (owners too); then the variances post.
+  Sales during counting are handled automatically. See [STOCK_PLANNING_AND_STOCKTAKE.md](STOCK_PLANNING_AND_STOCKTAKE.md).
+- **Stock planning** (Inventory › Stock planning): what to order today, days of stock, reorder points, customers waiting, one tap to a draft purchase order.
 - **Purchase orders**: draft → approval → goods receipt (partial/rejected quantities, supplier invoice) → close.
 
 ## 5. Orders, pickup & delivery

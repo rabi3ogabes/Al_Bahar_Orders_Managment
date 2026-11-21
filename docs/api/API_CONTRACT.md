@@ -497,3 +497,13 @@ Deep links: `albahar://products/{id}`, `albahar://orders/{id}`, `albahar://aucti
 
 Push payload (FCM `data`): `{ "event": "order.ready_for_pickup", "deep_link": "albahar://orders/…", "notification_id": "uuid" }`.
 The customer's live order card is a separate data-only push, `{ "kind": "order_progress", "order_id", "step", "total", "title", "body", "eta_from", "eta_to", "seq", … }` (all values strings): see [LIVE_ORDER_NOTIFICATION.md](../guides/LIVE_ORDER_NOTIFICATION.md).
+
+## 11. Staff API: stock counts and split orders (4.2, 4.6)
+Dashboard and staff apps only (`/admin/...`, staff token). Guide: [STOCK_PLANNING_AND_STOCKTAKE.md](../guides/STOCK_PLANNING_AND_STOCKTAKE.md).
+
+**Stock counts**: `POST /admin/inventory/stocktakes` (start), then `POST /admin/inventory/stocktakes/{id}/{action}` with `action` one of `count` (`{variant_id, counted}`), `submit`, `post`, `return` (new, `{reason}` 3–500 characters) or `cancel`.
+- `submit` finishes the count. With differences it answers `status: "submitted"` (waiting for approval, stock untouched, `variance_lines`, `variance_units` and `variance_value` set; the value is `null` when an item that differs has no cost). With no difference, or differences worth no more than the setting `stocktake.auto_post_up_to` (QAR, default 0), it answers `status: "posted"` and `approval_mode: "auto"`: the stock is corrected at once.
+- `post` approves: `403 stocktake_second_person` for anyone who counted a line or finished the count, owners and super admins included, unless the setting `stocktake.second_person_required` was switched off (then `approval_mode: "self"`). Otherwise `approval_mode: "second_person"`. `403 branch_forbidden` without `stocktaking.approve` at the branch; `409 invalid_state_transition` when it is not waiting.
+- `return` sends it back to `counting` with `returned_by`, `returned_at`, `returned_reason`; the same `403 stocktake_second_person` and `409` apply; `422 stocktake_reason_required` for a missing or short reason.
+
+**Split orders**: `GET /admin/orders` and `GET /admin/orders/{id}` return, for a branch-limited member, only the parcels of their own branches: `fulfillments`, `items`, `revisions`, `substitution_requests`, `returns`, `history` and `internal_notes` of other branches' parcels are left out, and `progress` (the customer's live card) is `null`. A member with access to every branch gets the whole order. An order with no parcel at the caller's branches is `403` as before.

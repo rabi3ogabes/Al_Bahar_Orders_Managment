@@ -3,6 +3,8 @@
 **One rule: nothing waits silently.** Every new order, delivery, pickup and cash balance that needs a person is shown, says how long it has
 been waiting, and is one tap away from the action, for the right person only.
 
+See also **[SEARCH_AND_LIVE_BOARD.md](SEARCH_AND_LIVE_BOARD.md)**: the *Live board* (every open order in lanes, with a wall display for a screen in the branch) and the global search (Ctrl/Cmd+K) build on the clock and the feed described here.
+
 Four things work together:
 
 | What | Where | For whom |

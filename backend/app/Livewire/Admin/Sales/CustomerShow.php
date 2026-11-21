@@ -14,6 +14,7 @@ use App\Domain\Messaging\Services\CustomerMessaging;
 use App\Domain\Notifications\Services\NotificationService;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderFulfillment;
+use App\Domain\Reports\Services\CustomerValue;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
@@ -139,7 +140,10 @@ class CustomerShow extends Component
         $orders = Order::where('user_id', $c->id)->whereIn('id', $scope->apply(OrderFulfillment::query()->select('order_id')->getQuery(), 'branch_id'))
             ->with('fulfillments.branch:id,code')->orderByDesc('placed_at');
         $account = $loyalty->account($c);
-        $stats = Order::where('user_id', $c->id)->whereNotIn('status', ['pending_payment', 'cancelled'])->selectRaw('count(*) as n, coalesce(sum(grand_total),0) as spend, max(placed_at) as last_at')->first();
+        // What the customer spent is read through the viewer's own branches (customers.view): a branch manager never learns what was spent at another branch.
+        $value = app(CustomerValue::class);
+        $life = $value->lifetimeOf(auth()->user(), $c->id);
+        $stats = (object) ['n' => $life['orders'], 'spend' => $life['spend'], 'last_at' => $life['last_at']];
         $reveal = $this->can('customers.edit');
         $current = $this->drawer ? $this->pane : $this->tab;
         $ledger = LoyaltyTransaction::where('loyalty_account_id', $account->id)->orderByDesc('id');
@@ -154,6 +158,7 @@ class CustomerShow extends Component
             'account' => $account,
             'ledger' => $current === 'loyalty' ? ($this->drawer ? $ledger->limit(10)->get() : $ledger->paginate(15, pageName: 'lp')) : null,
             'stats' => $stats,
+            'branchOnly' => ! $value->scopeFor(auth()->user())->all,
             'prefs' => collect($notifications->preferences($c))->groupBy('category'),
             'referral' => $referrals->staffSummary($c),
             'canAdjust' => $this->canGlobally('loyalty.edit'),

@@ -52,7 +52,7 @@ Route::controller(V1\Admin\InventoryAdminController::class)->prefix('inventory')
     Route::post('transfers', 'storeTransfer')->middleware('permission:transfers.create')->name('transfers.store');
     Route::post('transfers/{transfer}/{action}', 'transferAction')->middleware('permission:transfers.view')->whereIn('action', ['submit', 'approve', 'reject', 'dispatch', 'receive', 'complete', 'cancel'])->name('transfers.action');
     Route::post('stocktakes', 'startStocktake')->middleware('permission:stocktaking.create')->name('stocktakes.store');
-    Route::post('stocktakes/{session}/{action}', 'stocktakeAction')->middleware('permission:stocktaking.view')->whereIn('action', ['count', 'submit', 'post', 'cancel'])->name('stocktakes.action');
+    Route::post('stocktakes/{session}/{action}', 'stocktakeAction')->middleware('permission:stocktaking.view')->whereIn('action', ['count', 'submit', 'post', 'return', 'cancel'])->name('stocktakes.action');
     Route::get('suppliers', 'suppliers')->middleware('permission:suppliers.view')->name('suppliers.index');
     Route::post('suppliers', 'storeSupplier')->middleware('permission:suppliers.create')->name('suppliers.store');
     Route::post('purchase-orders', 'storePurchaseOrder')->middleware('permission:purchasing.create')->name('purchase-orders.store');

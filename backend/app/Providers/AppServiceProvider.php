@@ -141,6 +141,8 @@ class AppServiceProvider extends ServiceProvider
             ? Limit::perMinute(120)->by('scan:u:'.$user->getAuthIdentifier())
             : Limit::perMinute(60)->by('scan:ip:'.$r->ip()));
         RateLimiter::for('exports', fn (Request $r) => Limit::perHour(30)->by('export:'.$r->user()?->id));
+        // The dashboard's global search asks once per pause in typing: generous for a person, a wall for a script. Counted per staff member (a branch shares one address).
+        RateLimiter::for('admin-search', fn (Request $r) => Limit::perMinute(90)->by('admin-search:'.($r->user()?->id ?: $r->ip())));
         // "When will I get it?": a product page and a cart ask often but cheaply. Signed-in callers are counted one by one, guests share their address's bucket.
         RateLimiter::for('delivery-promise', fn (Request $r) => ($user = $r->user('sanctum'))
             ? Limit::perMinute(120)->by('promise:u:'.$user->getAuthIdentifier())
