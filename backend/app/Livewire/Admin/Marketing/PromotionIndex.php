@@ -209,7 +209,10 @@ class PromotionIndex extends Component
         }
         $found = Product::query()->where('status', '!=', 'archived')
             ->where(fn ($q) => $q->whereIn(DB::raw('upper(sku)'), $skus->all())->orWhereHas('variants', fn ($v) => $v->whereIn(DB::raw('upper(sku)'), $skus->all())))
-            ->with('variants:id,product_id,sku')->get(['id', 'sku']);
+            ->with('variants:id,product_id,sku')->get(['id', 'sku'])
+            // The database returns them in whatever order its plan likes; keep the order the person pasted, so the list reads as they wrote it.
+            ->sortBy(fn ($p) => $p->variants->pluck('sku')->prepend($p->sku)->map(fn ($v) => $skus->search(mb_strtoupper($v), true))->filter(fn ($i) => $i !== false)->min() ?? PHP_INT_MAX)
+            ->values();
         $matched = $found->flatMap(fn ($p) => array_merge([mb_strtoupper($p->sku)], $p->variants->pluck('sku')->map(fn ($v) => mb_strtoupper($v))->all()));
         $missing = $skus->reject(fn ($k) => $matched->contains($k))->values();
 
