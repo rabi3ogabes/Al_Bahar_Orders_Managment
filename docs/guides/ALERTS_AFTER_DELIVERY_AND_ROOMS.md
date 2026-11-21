@@ -98,6 +98,9 @@ The five default rooms are created by the migration and mapped to the real categ
 - **Arabic wording** needs a native read (above).
 - **Room pictures**: the tiles borrow category artwork until you upload room pictures; real photography will sell better.
 
+## Known limit (independent review, accepted for now)
+The five-minute sweep takes the oldest 200 back-in-stock alerts that have stock; an alert whose product can no longer be bought (switched off after the alert was made) is not marked, so a very large backlog of those could delay newer alerts on the sweep. The event-driven path (a restock) is not affected. They expire with the retention period (default 90 days).
+
 ## Tests
 - Backend: `backend/tests/Feature/Catalog/StockAlertsTest.php`, `tests/Feature/Marketing/AfterDeliveryJourneyTest.php`, `tests/Feature/Catalog/RoomsTest.php`. Run: `cd backend && CACHE_STORE=array vendor/bin/pest tests/Feature/Catalog/StockAlertsTest.php tests/Feature/Marketing/AfterDeliveryJourneyTest.php tests/Feature/Catalog/RoomsTest.php`
 - Storefront: `storefront/tests/alerts.test.mjs`, `tests/rooms.test.mjs`, `tests/shop-query.test.mjs`. Run: `cd storefront && npm run typecheck && npm test`

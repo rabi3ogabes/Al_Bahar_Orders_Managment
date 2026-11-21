@@ -11,6 +11,7 @@ use App\Domain\Checkout\Support\Assembly;
 use App\Domain\Settings\Services\Settings;
 use App\Support\BusinessTime;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 
 /**
@@ -147,13 +148,13 @@ class BasketPromise
         $with = ['hours', 'holidays' => fn ($q) => $q->where('ends_at', '>', now())];
         if ($type === 'delivery' && $zone !== null) {
             $configs = $this->zones->servingBranches($zone);
-            $branches = $configs->map(function (BranchDeliveryZone $c): Branch {
+            $branches = (new EloquentCollection($configs->map(function (BranchDeliveryZone $c): Branch {
                 /** @var Branch $branch the FK is NOT NULL */
                 $branch = $c->branch;
                 $branch->setAttribute('zone_priority', $c->priority);
 
                 return $branch;
-            })->values();
+            })->all()))->values();
             $branches->load($with);
 
             return [$branches, $configs->keyBy('branch_id')->all()];

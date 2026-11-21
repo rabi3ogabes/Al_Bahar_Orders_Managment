@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property string|null $notification_id the inbox entry the message created (added by raw SQL, so declared here for static analysis)
+ */
 class JourneyDelivery extends Model
 {
     use HasUuids;

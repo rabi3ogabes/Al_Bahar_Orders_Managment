@@ -157,6 +157,20 @@ it('takes the replacement out and refunds what was paid when the customer says n
         ->and(Notification::where('event', 'order.items_changed')->where('user_id', $a->customer->id)->latest('created_at')->first()->body)->toContain('You did not accept the replacement');
 });
 
+it('lets the customer say no when the replacement is the only thing left in the order: the order is cancelled and refunded', function () {
+    $a = adjustmentWorld(['payment' => 'sadad', 'qty' => [2, 0]]);
+    [, , , $q] = replaceSofas($a);
+
+    // Taking the last line away ends the order, which is a manager's decision for the branch, but here it is the customer's own answer (or the clock's).
+    $this->postJson(answerUrl($a, $q), ['answer' => 'decline'])->assertOk()->assertJsonPath('data.status', 'declined');
+
+    $q = $q->fresh();
+    $rev = OrderRevision::find($q->resolution_revision_id);
+    expect($q->status)->toBe('declined')->and($rev->reason_code)->toBe('substitute_declined')->and($rev->actor_id)->toBe($a->customer->id)
+        ->and(OrderItem::find($q->replacement_order_item_id)->quantity)->toBe(0)->and($rev->refund_id)->not->toBeNull()
+        ->and(Order::find($a->order->id)->status->value)->toBe('cancelled');
+});
+
 it('lets only the order\'s owner answer, and answers another order\'s question with not found', function () {
     $a = adjustmentWorld();
     [, , , $q] = replaceSofas($a);

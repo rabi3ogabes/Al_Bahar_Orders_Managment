@@ -4,6 +4,7 @@ namespace App\Domain\Catalog\Models;
 
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Identity\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -12,6 +13,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * A customer's request to be told when a variant is back in stock (`back_in_stock`: done after the first message) or when its price falls
  * (`price_drop`: keeps watching; `reference_price` is the price the customer last saw, and moves to the price they are told about).
+ *
+ * @property CarbonImmutable $expires_at when the alert is forgotten if nobody acted on it (added by raw SQL, so declared here for static analysis)
  */
 class StockAlert extends Model
 {

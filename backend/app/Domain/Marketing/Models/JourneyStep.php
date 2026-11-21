@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property string|null $kind which message of the after-delivery journey the step is: thank_you, review or suggest (added by raw SQL, so declared here for static analysis)
+ */
 class JourneyStep extends Model
 {
     use HasUuids;

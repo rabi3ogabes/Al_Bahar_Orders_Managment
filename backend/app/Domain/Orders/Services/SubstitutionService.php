@@ -331,7 +331,7 @@ class SubstitutionService
 
             return [
                 'id' => $r->id, 'status' => $r->status,
-                'original' => $line($orig, (int) ($orig?->original_quantity ?? $orig?->quantity ?? 0), $r->original_total), 'replacement' => $line($repl, (int) ($repl?->quantity ?? 0), $r->replacement_total),
+                'original' => $line($orig, (int) ($orig?->original_quantity ?? $orig?->quantity ?? 0), (string) $r->original_total), 'replacement' => $line($repl, (int) ($repl?->quantity ?? 0), (string) $r->replacement_total),
                 // What the customer pays more (or, as a negative amount, less) than for the line they ordered: never above zero.
                 'price_difference' => Money::of($r->replacement_total)->minus(Money::of($r->original_total))->jsonSerialize(),
                 'fallback' => $r->fallback, 'asked_at' => BusinessTime::iso($r->asked_at), 'expires_at' => BusinessTime::iso($r->deadline_at), 'answered_at' => BusinessTime::iso($r->answered_at),
@@ -353,7 +353,7 @@ class SubstitutionService
         }
         $out = [];
         foreach (SubstitutionRequest::where('status', SubstitutionRequest::WAITING)->whereIn('order_fulfillment_id', $fulfillmentIds)
-            ->selectRaw('order_fulfillment_id, count(*) as n, min(asked_at) as since, min(deadline_at) as deadline')->groupBy('order_fulfillment_id')->get() as $row) {
+            ->selectRaw('order_fulfillment_id, count(*) as n, min(asked_at) as since, min(deadline_at) as deadline')->groupBy('order_fulfillment_id')->toBase()->get() as $row) {
             $out[$row->order_fulfillment_id] = ['count' => (int) $row->n, 'since' => BusinessTime::iso($row->since), 'deadline_at' => BusinessTime::iso($row->deadline)];
         }
 

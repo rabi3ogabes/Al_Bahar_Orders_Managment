@@ -110,7 +110,7 @@ class ReturnClaims
                 throw $e;
             }
             $added = count($fresh);
-            $last = $c->events()->where('kind', 'evidence_added')->get()->last();
+            $last = $c->events()->where('kind', 'evidence_added')->latest('created_at')->latest('id')->first();
             $newNote = $note !== null && trim((string) $last?->note) !== $note ? $note : null;
             if ($added > 0 || $newNote !== null) {
                 $this->event($c, 'evidence_added', 'customer', $customer, $newNote, ['photos' => $added]);

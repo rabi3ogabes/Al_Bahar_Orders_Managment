@@ -9,6 +9,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property string|null $trigger_order_id the delivered order the run was started for (added by raw SQL, so declared here for static analysis)
+ */
 class JourneyRun extends Model
 {
     use HasUuids;

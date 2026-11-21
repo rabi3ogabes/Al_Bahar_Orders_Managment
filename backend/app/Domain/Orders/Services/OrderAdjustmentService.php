@@ -453,7 +453,9 @@ class OrderAdjustmentService
         $others = OrderFulfillment::where('order_id', $order->id)->where('id', '!=', $f->id)->get(['id', 'status']);
         $orderCancelled = $fulfillmentEmpty && $others->every(fn (OrderFulfillment $o) => $o->status === FS::Cancelled);
         // Taking away the last item cancels the parcel (and, when it was the last parcel, the order): a manager's decision, like every other cancellation.
-        if ($fulfillmentEmpty && $actor !== null && ! $this->access->allows($actor, 'orders.approve', $f->branch_id)) {
+        // Not when the system does it for the customer (they said no to the replacement, or the time ran out): that is their answer, not a staff cancellation,
+        // and only SubstitutionService can use those reasons (the staff entry point accepts nothing but OrderRevision::REASONS).
+        if ($fulfillmentEmpty && $actor !== null && ! in_array($reasonCode, OrderRevision::SYSTEM_REASONS, true) && ! $this->access->allows($actor, 'orders.approve', $f->branch_id)) {
             throw OpsError::make('approval_required', 403);
         }
 

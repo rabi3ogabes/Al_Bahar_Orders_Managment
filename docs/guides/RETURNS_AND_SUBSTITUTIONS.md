@@ -75,5 +75,12 @@ Settings → Checkout & fees: **Ask the customer before replacing an item** (def
 12. **One message per revision**: when a revision opens questions, `order.substitution_offer` carries the whole change and the plain `order.items_changed` is not sent; if the offer message is switched off, the plain one is.
 13. **Staff app list for claims**: dashboard-only (the app's Needs attention list shows the line and says it is handled on the dashboard); the app does not have a returns screen.
 
+14. **Declining the only line of a parcel**: when the replacement is the last live line, the customer's "no" (or the clock) cancels the parcel and, if it was the last one, the order, with the normal refund. A removal like this does not need a manager's approval, because it is the customer's own answer: the approval rule applies only to the five staff reasons (`OrderRevision::REASONS`), and only `SubstitutionService` can use the two system reasons. Found by the independent review of the release and covered by a test.
+
+### Known limits (independent review, accepted for now)
+- If the branch reduces the quantity of a replacement that is still waiting for an answer, the question is closed (the line stays, never dearer). It would be better to keep asking; no money is at risk.
+- A claim's evidence log has no cap on the number of notes a customer can add (each note is 500 characters, 20 requests a minute); staff see the long log. A cap per claim is the next step if it is ever abused.
+- Photos are decoded up to 50 million pixels per file, inside the claim's database lock. The photo count is checked after storing on purpose (a retried upload that already worked must not trip the limit), so a rejected upload still pays the decode once.
+
 ## 4. Tests
-`backend/tests/Feature/Orders/ReturnClaimsTest.php` (31), `SubstitutionConsentTest.php` (21); updated: `OrderReturnStatusTest`, `AppConfigReturnsInvoiceTest`, `ApiAuditTest`, `SalesScreensTest`, `OpsClockSettingsTest`. Web: `storefront/tests/return-claims.test.mjs`, `substitutions.test.mjs`. App: `mobile/test/features/orders/claims_test.dart`, `substitution_test.dart`, `mobile/test/ops/staff_waiting_test.dart`; updated `returns_reviews_calls_test.dart`.
+`backend/tests/Feature/Orders/ReturnClaimsTest.php` (31), `SubstitutionConsentTest.php` (22); updated: `OrderReturnStatusTest`, `AppConfigReturnsInvoiceTest`, `ApiAuditTest`, `SalesScreensTest`, `OpsClockSettingsTest`. Web: `storefront/tests/return-claims.test.mjs`, `substitutions.test.mjs`. App: `mobile/test/features/orders/claims_test.dart`, `substitution_test.dart`, `mobile/test/ops/staff_waiting_test.dart`; updated `returns_reviews_calls_test.dart`.
