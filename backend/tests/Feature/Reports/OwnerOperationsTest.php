@@ -52,7 +52,8 @@ describe('E · a secret setting is never written to the shared cache', function 
         expect($dump)->not->toContain('SADAD-TOP-SECRET-VALUE-123')->and($dump)->not->toContain('sk-ant-ANOTHER-SECRET-456')
             ->and($dump)->toContain('Furniture for the majlis');                  // ordinary settings are still cached
         $cached = Cache::get('system_settings:v2');
-        expect($cached['secrets'])->toBe(['payments.sadad.secret_key' => true, 'ai.anthropic_api_key' => true])   // only that they exist
+        // Only that they exist. The table is read without an order, so which comes first depends on where the database keeps the rows: not part of the promise.
+        expect($cached['secrets'])->toEqual(['payments.sadad.secret_key' => true, 'ai.anthropic_api_key' => true])
             ->and($cached['values'])->not->toHaveKey('payments.sadad.secret_key');
     });
 
