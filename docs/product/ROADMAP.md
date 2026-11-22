@@ -52,7 +52,7 @@ Verified defects. All are being fixed with tests; none needs new screens.
 
 ## 2. Wave 2: "Live Operations Control" (the flagship feature): built, see the status column
 
-Status: **done** = built, tested and documented (docs/guides/LIVE_OPERATIONS.md, DRIVER_APP.md, BRANCH_STAFF_GUIDE.md); **next** = not built yet.
+Status: **done** = built, tested and documented (docs/guides/LIVE_OPERATIONS.md, DRIVER_APP.md, BRANCH_STAFF_GUIDE.md, PICKING_LIST_AND_DELIVERY_NOTE.md, CASH_SHIFT.md, BRANCH_AND_DRIVER_SCORECARD.md); **next** = not built yet.
 
 One connected feature for the branch, the driver and the owner: *nothing waits silently, and everyone sees what needs them right now.*
 
@@ -67,9 +67,9 @@ One connected feature for the branch, the driver and the owner: *nothing waits s
 | 2.7 | **Failed-delivery kit**: reason + note + photo, damaged option, propose a new slot, customer is messaged to rebook | Driver, customer | M | M | `rescheduleToSlot`, delivery slots | done (reason, note, photo, damaged; proposing a new slot is next) |
 | 2.8 | **Pickup in the staff app**: pickup tab, QR scanner, pass re-issue, hand over by order number | Branch | M | M | pickup API and `mobile_scanner` exist | done (inside Orders, no new tab) |
 | 2.9 | **"Arrived" + "10 minutes away"** message to the customer; fewer absent-customer failures | Driver, customer | M | M | ETA service, live card | done |
-| 2.10 | **Printed picking list and delivery note** (barcode, bin location, COD amount, slot, signature line) | Branch | M | S-M | invoice PDF, `Code128` | next |
-| 2.11 | **Cash shift**: open / close, float, end-of-day count, Z-report; hand-in by selected collections | Branch, owner | M | M | `CashHandover` | next |
-| 2.12 | **Branch and driver scorecard**: time to accept / prepare, on-time rate, failure reasons, cash variance | Owner | M | S | timestamps already stored | next |
+| 2.10 | **Printed picking list and delivery note** (barcode, bin location, COD amount, slot, signature line) | Branch | M | S-M | invoice PDF, `Code128` | done (A4 picking list and delivery note for one part or a batch; barcode, bin location, COD amount only on COD notes, signature line; every print is audit-logged) |
+| 2.11 | **Cash shift**: open / close, float, end-of-day count, Z-report; hand-in by selected collections | Branch, owner | M | M | `CashHandover` | done (shift panel on Cash, float, counted-vs-expected close with reason and second person above the limits, Z-report print, hand-in by selected collections) |
+| 2.12 | **Branch and driver scorecard**: time to accept / prepare, on-time rate, failure reasons, cash variance | Owner | M | S | timestamps already stored | done (Insights > Scorecard: branches and drivers, minimum sample of 10, failure reasons and cash variance) |
 
 ## 3. Wave 3: more orders from the same customers: built, see the status column
 
@@ -89,16 +89,20 @@ The messages that sell (price-drop, review request, "goes well with it") ship **
 | 3.9 | Room-based browsing and style entry points on the web home | M | S | done (Content > Shop by room; five default rooms; run `php artisan rooms:ensure-home` once after the deploy to show the tiles at once) |
 | 3.10 | Card / Apple Pay / instalments (needs O2) | H | L | blocked on O2 |
 
-## 4. Wave 4: owner intelligence
+## 4. Wave 4: owner intelligence: built, see the status column
 
-| # | Capability | Value | Effort |
-|---|-----------|-------|--------|
-| 4.1 | Daily close per branch and weekly owner pack by email / WhatsApp (aggregates only, no personal data) | M | M |
-| 4.2 | Reorder points and stock-out report (days of cover, demand from alerts and wishlists) | M | M |
-| 4.3 | Global search / command palette (orders by number or phone, customers, SKUs) | M | S-M |
-| 4.4 | Live operations board with auto-refreshing lanes per branch | M | M |
-| 4.5 | Customer value and "gone quiet" lists; coupon / campaign return on investment | M | M |
-| 4.6 | Stocktake approval by a second person; branch-scoped read access on issue log, customer lifetime spend and split orders | M | S |
+Status: all six are **done** = built, tested and documented in a guide under docs/guides/ (OWNER_PACK_AND_CUSTOMER_VALUE.md, STOCK_PLANNING_AND_STOCKTAKE.md, SEARCH_AND_LIVE_BOARD.md).
+
+| # | Capability | Value | Effort | Status |
+|---|-----------|-------|--------|--------|
+| 4.1 | Daily close per branch and weekly owner pack by email / WhatsApp (aggregates only, no personal data) | M | M | done (Insights > Daily close with print; the weekly pack is OFF until the owner adds a mail account and recipients; WhatsApp shows "not connected yet") |
+| 4.2 | Reorder points and stock-out report (days of cover, demand from alerts and wishlists) | M | M | done (Inventory > Stock planning) |
+| 4.3 | Global search / command palette (orders by number or phone, customers, SKUs) | M | S-M | done (Ctrl/Cmd+K, branch-scoped, customer details masked like the rest of the dashboard) |
+| 4.4 | Live operations board with auto-refreshing lanes per branch | M | M | done (Operations > Live board, `?wall=1` for a full-screen TV) |
+| 4.5 | Customer value and "gone quiet" lists; coupon / campaign return on investment | M | M | done (Customers > Value, Marketing > Offer return) |
+| 4.6 | Stocktake approval by a second person; branch-scoped read access on issue log, customer lifetime spend and split orders | M | S | done (the auto-post limit starts at 0, so every difference needs a second person) |
+
+Choices to confirm with the owner are listed at the end of each guide (defaults for the pack day and time, quiet-customer days, ROI factors, the stocktake limit, cash shift limits, scorecard minimum sample).
 
 ---
 

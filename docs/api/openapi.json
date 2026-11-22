@@ -41758,6 +41758,37 @@
                             "null"
                         ],
                         "format": "date-time"
+                    },
+                    "out_since": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "lead_time_days": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "safety_days": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "reorder_point": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "reorder_quantity": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     }
                 },
                 "required": [
@@ -41773,7 +41804,12 @@
                     "last_counted_at",
                     "last_movement_at",
                     "created_at",
-                    "updated_at"
+                    "updated_at",
+                    "out_since",
+                    "lead_time_days",
+                    "safety_days",
+                    "reorder_point",
+                    "reorder_quantity"
                 ],
                 "title": "BranchInventory"
             },
@@ -44109,6 +44145,12 @@
                             "null"
                         ],
                         "format": "date-time"
+                    },
+                    "cash_shift_id": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     }
                 },
                 "required": [
@@ -44131,7 +44173,8 @@
                     "processed_at",
                     "failure_reason",
                     "created_at",
-                    "updated_at"
+                    "updated_at",
+                    "cash_shift_id"
                 ],
                 "title": "Refund"
             },
@@ -44608,6 +44651,55 @@
                             "null"
                         ],
                         "format": "date-time"
+                    },
+                    "submitted_by": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "returned_by": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "returned_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "returned_reason": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "variance_lines": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "variance_units": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "variance_value": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "approval_mode": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     }
                 },
                 "required": [
@@ -44622,7 +44714,15 @@
                     "submitted_at",
                     "posted_at",
                     "created_at",
-                    "updated_at"
+                    "updated_at",
+                    "submitted_by",
+                    "returned_by",
+                    "returned_at",
+                    "returned_reason",
+                    "variance_lines",
+                    "variance_units",
+                    "variance_value",
+                    "approval_mode"
                 ],
                 "title": "StocktakingSession"
             },
