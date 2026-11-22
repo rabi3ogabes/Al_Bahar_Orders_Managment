@@ -28,6 +28,7 @@ use App\Domain\Settings\Services\Settings;
 use App\Support\DomainException;
 use App\Support\Money;
 use App\Support\Redactor;
+use App\Support\StepTime;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -323,7 +324,7 @@ class PaymentService
                 'payment_id' => $p->id, 'order_fulfillment_id' => $fulfillment->id, 'branch_id' => $fulfillment->branch_id, 'collected_by' => $staff->id,
                 'context' => $p->method, 'tender' => $tender, 'amount_due' => $expected->toDecimal(), 'amount_collected' => $status === 'failed' ? '0.00' : $got->toDecimal(),
                 'status' => $status === 'failed' ? 'failed' : ($got->lessThan($expected) ? 'partial' : 'collected'),
-                'receipt_reference' => $receiptRef, 'failure_reason' => $failureReason, 'collected_at' => now(),
+                'receipt_reference' => $receiptRef, 'failure_reason' => $failureReason, 'collected_at' => StepTime::now(), // when the driver took it, also from his outbox
             ]);
             $this->transaction($p, 'collection', 'offline', $collection->status, $receiptRef, null, ['tender' => $tender, 'collected_by' => $staff->id], $collection->amount_collected);
             if ($collection->status !== 'failed') {

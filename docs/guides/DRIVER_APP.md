@@ -15,8 +15,11 @@ Arabic and English, right-to-left, light and dark. The words below are the Engli
    stops when you go off duty.
 3. **My day** (the calendar icon at the top) shows today's numbers and the cash you hold. It is not a tab: it opens on top of the list and Back brings you home.
 
-**No signal?** A strip across the top says *No connection. Check your signal.* with **Try again**. The lists keep their last good rows. Nothing is saved for
-later: when the signal is back, tap Try again (or just keep going, it reconnects by itself).
+**No signal?** A strip across the top says *No connection. Your steps are saved and sent when the signal is back.* with **Try again**. The lists keep
+their last good rows, also after the app was closed (*Last updated 2:05 PM*). Accept, Picked up, On my way, Mark delivered (photo, cash, recipient),
+Could not deliver and the assembly answer still work: the job moves at once and says **Waiting to send**, a strip at the top counts them (*2 updates
+waiting to send*), and they go by themselves when the signal is back, in the order you pressed them, recorded at the time you pressed. "I have arrived"
+and "I can't take this" need a signal (the customer and the branch must hear them now). Full detail: [OFFLINE_DRIVER_AND_STAFF_APPS.md](OFFLINE_DRIVER_AND_STAFF_APPS.md).
 
 ---
 
@@ -74,7 +77,9 @@ If the arrival cannot be sent (no signal at the door) a small **Mark delivered**
 - **Take proof photo**: required for most deliveries.
 - **Confirm delivery**. Your position goes with the proof when the phone knows it; **a delivery never waits for GPS and never fails without it.**
 
-Typed something and the signal dropped? The form stays open with the photo and the name; try again and it is the same delivery, never a second one.
+The signal dropped? The delivery is kept on the phone with the photo, the name and the cash, the job says **Waiting to send**, and it goes by itself when
+the signal is back: always the same delivery, never a second one. If the server refuses something you typed (the cash is not what is due, say) while you
+still have signal, the form stays open with the reason, as before.
 
 ### Could not deliver
 

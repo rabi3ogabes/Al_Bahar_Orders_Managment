@@ -5,10 +5,12 @@ import 'package:albahar_customer/core/push/push_service.dart';
 import 'package:albahar_customer/core/realtime/live_link_badge.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
+import 'package:albahar_customer/core/utils/qatar_time.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/ops/ops_account_screens.dart';
 import 'package:albahar_customer/ops/ops_app.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
+import 'package:albahar_customer/ops/ops_read_cache.dart';
 import 'package:albahar_customer/ops/ops_staff_models.dart';
 import 'package:albahar_customer/ops/ops_strings.dart';
 import 'package:albahar_customer/ops/staff/add_product_screen.dart';
@@ -189,7 +191,12 @@ class _StaffHomeState extends ConsumerState<StaffHome> {
               )
             : Column(
                 children: [
-                  if (!online) StaffOfflineBanner(onRetry: _reload),
+                  if (!online || staleSince(ref.watch(opsStaleProvider), 'staff.') != null)
+                    StaffOfflineBanner(
+                      onRetry: _reload,
+                      online: online,
+                      since: staleSince(ref.watch(opsStaleProvider), 'staff.'),
+                    ),
                   AttentionStrip(onOpen: _openAttention),
                   if (o != null) _OverviewBar(o: o, showOnDuty: !canSeeDrivers),
                   Expanded(
@@ -212,10 +219,17 @@ class _StaffHomeState extends ConsumerState<StaffHome> {
   }
 }
 
-/// "You are offline. Showing the last list." with a way to try again (there is no offline queue: what is on screen is the last thing read).
+/// "You are offline. Showing the list from 2:05 PM." with a way to try again. The lists are the last ones read (kept on the tablet, also after a
+/// restart); the actions are switched off with "Needs a connection" until it is back (StaffOnlineGate: a branch keeps no queue of its own).
 class StaffOfflineBanner extends StatelessWidget {
-  const StaffOfflineBanner({super.key, required this.onRetry});
+  const StaffOfflineBanner({super.key, required this.onRetry, this.online = false, this.since});
   final VoidCallback onRetry;
+
+  /// Online, but the server could not be reached (the lists are the kept ones).
+  final bool online;
+
+  /// When the lists shown were read (null: the list read while the app stayed open).
+  final DateTime? since;
 
   @override
   Widget build(BuildContext context) {
@@ -234,7 +248,9 @@ class StaffOfflineBanner extends StatelessWidget {
               const Gap(AppSpace.xs),
               Expanded(
                 child: Text(
-                  t.offlineBanner,
+                  since == null
+                      ? t.offlineBanner
+                      : (online ? t.staleListFrom : t.offlineListFrom)(QatarTime.time(since, t.code)),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onInverseSurface),
                 ),
               ),

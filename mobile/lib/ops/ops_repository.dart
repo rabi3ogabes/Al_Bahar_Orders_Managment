@@ -9,6 +9,7 @@ import 'package:albahar_customer/core/utils/json.dart';
 import 'package:albahar_customer/ops/driver/driver_models.dart';
 import 'package:albahar_customer/ops/ops_account.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
+import 'package:albahar_customer/ops/ops_read_cache.dart';
 import 'package:albahar_customer/ops/ops_staff_models.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
@@ -16,8 +17,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Calls the staff API (`/admin/...`) used by both the driver and the branch staff app.
 class OpsRepository {
-  OpsRepository(this._api);
+  OpsRepository(this._api, {this.cache});
   final ApiClient _api;
+
+  /// Keeps the last good lists on the phone (see [OpsReadCache]); null in tests and where the phone storage is not available.
+  final OpsReadCache? cache;
+
+  /// Reads a list through the [cache] when there is one: a phone without signal shows the last good answer instead of an error.
+  Future<T> _cached<T>(
+    String key,
+    Future<Object?> Function() fetch,
+    T Function(Object? raw) parse, {
+    Object? Function(Object? raw)? keep,
+  }) {
+    final c = cache;
+    return c == null ? fetch().then(parse) : c.read(key, fetch, parse, keep: keep);
+  }
+
+  /// `acted_at`: when the driver pressed (UTC with `Z`), for a step sent later from the outbox.
+  static String _at(DateTime at) => at.toUtc().toIso8601String();
 
   /// Staff sign-in with an e-mail or a mobile number (both go in `email`) and the password. Returns the token pair and whether the
   /// person must now choose their own password (`must_change_password`).
@@ -124,12 +142,36 @@ class OpsRepository {
     }
   }
 
-  Future<List<DriverJob>> jobs({bool history = false}) =>
-      _api.getList('/admin/dispatch/driver/jobs', DriverJob.fromJson, query: {'scope': history ? 'history' : 'active'});
+  /// The driver's open jobs, or [history] (today's finished ones). The last good list is kept on the phone: the active jobs as the job card shows them,
+  /// and of the history only what the server still shows in full (a finished job older than a day comes back without the door or the phone numbers and
+  /// is not kept).
+  Future<List<DriverJob>> jobs({bool history = false}) => _cached(
+    history ? 'driver.jobs.history' : 'driver.jobs.active',
+    () => _api.get('/admin/dispatch/driver/jobs', query: {'scope': history ? 'history' : 'active'}),
+    (raw) => mapList(raw, DriverJob.fromJson),
+    keep: history
+        ? (raw) => [
+            for (final r in asList(raw))
+              if (r is Map && !asBool(r['redacted'])) r,
+          ]
+        : null,
+  );
 
-  /// accept | pickup | out-for-delivery (simple steps).
-  Future<void> jobStep(String id, String action, {double? lat, double? lng}) async {
-    await _api.post('/admin/deliveries/$id/$action', data: {'latitude': ?lat, 'longitude': ?lng});
+  /// accept | pickup | out-for-delivery (simple steps). [idempotencyKey] and [actedAt] go with a step sent from the outbox (the same key on every try,
+  /// the time the driver pressed).
+  Future<void> jobStep(
+    String id,
+    String action, {
+    double? lat,
+    double? lng,
+    String? idempotencyKey,
+    DateTime? actedAt,
+  }) async {
+    await _api.post(
+      '/admin/deliveries/$id/$action',
+      data: {'latitude': ?lat, 'longitude': ?lng, if (actedAt != null) 'acted_at': _at(actedAt)},
+      options: idempotencyKey == null ? null : Idempotency.options(idempotencyKey),
+    );
   }
 
   /// A photo upload on a mobile connection needs more time than a normal call; never retried automatically.
@@ -149,8 +191,10 @@ class OpsRepository {
     double? lng,
     double? accuracy,
     String? idempotencyKey,
+    DateTime? actedAt,
   }) async {
     final form = FormData.fromMap({
+      if (actedAt != null) 'acted_at': _at(actedAt),
       if (recipient != null && recipient.isNotEmpty) 'recipient_name': recipient,
       if (proof != null) 'proof': await MultipartFile.fromFile(proof.path, filename: 'proof.jpg'),
       if (codAmount != null) ...{'cod[tender]': 'cash', 'cod[amount]': codAmount.toStringAsFixed(2)},
@@ -178,9 +222,11 @@ class OpsRepository {
     double? lng,
     double? accuracy,
     String? idempotencyKey,
+    DateTime? actedAt,
   }) async {
     final text = notes?.trim() ?? '';
     final fields = <String, Object>{
+      if (actedAt != null) 'acted_at': _at(actedAt),
       'reason_code': reason,
       if (text.isNotEmpty) 'notes': text,
       'latitude': ?lat,
@@ -206,9 +252,15 @@ class OpsRepository {
     String? note,
     File? photo,
     String? idempotencyKey,
+    DateTime? actedAt,
   }) async {
     final text = note?.trim() ?? '';
-    final fields = <String, Object>{'status': status, 'reason': ?reason, if (text.isNotEmpty) 'note': text};
+    final fields = <String, Object>{
+      'status': status,
+      'reason': ?reason,
+      if (text.isNotEmpty) 'note': text,
+      if (actedAt != null) 'acted_at': _at(actedAt),
+    };
     final options = photo == null ? null : _upload;
     await _api.post(
       '/admin/deliveries/$id/assembly',
@@ -315,8 +367,12 @@ class OpsRepository {
   }
 
   // Branch staff
-  Future<StaffOverview> overview({String? branchId}) =>
-      _api.getObject('/admin/dispatch/overview', StaffOverview.fromJson, query: {'branch_id': ?branchId});
+  /// The branch's counts (kept on the phone like the lanes, so a tablet without Wi-Fi still shows them).
+  Future<StaffOverview> overview({String? branchId}) => _cached(
+    'staff.overview.${branchId ?? ''}',
+    () => _api.get('/admin/dispatch/overview', query: {'branch_id': ?branchId}),
+    (raw) => StaffOverview.fromJson(asMap(raw)),
+  );
 
   Future<List<QueueOrder>> queue(String stage, {String? branchId}) =>
       _api.getList('/admin/dispatch/queue', QueueOrder.fromJson, query: {'stage': stage, 'branch_id': ?branchId});
@@ -339,15 +395,21 @@ class OpsRepository {
 
   /// One page of a queue stage with whether another follows. [type] `pickup` lists the branch's pickup parts (with stage `all`); without it the
   /// answer is the delivery queue. An older server that knows no paging answers its first 100 rows and no `meta`: that is one page.
-  Future<QueuePage> queuePage(String stage, {String? branchId, String? type, int page = 1, int perPage = 50}) async {
-    final body = asMap(
-      await _api.getRaw(
-        '/admin/dispatch/queue',
-        query: {'stage': stage, 'branch_id': ?branchId, 'type': ?type, 'page': page, 'per_page': perPage},
-      ),
-    );
-    return QueuePage(mapList(body['data'], QueueOrder.fromJson), hasMore: asBool(asMap(body['meta'])['has_more']));
-  }
+  Future<QueuePage> queuePage(String stage, {String? branchId, String? type, int page = 1, int perPage = 50}) =>
+      _cached(
+        'staff.queue.${branchId ?? ''}.$stage.${type ?? ''}.$page.$perPage',
+        () => _api.getRaw(
+          '/admin/dispatch/queue',
+          query: {'stage': stage, 'branch_id': ?branchId, 'type': ?type, 'page': page, 'per_page': perPage},
+        ),
+        (raw) {
+          final body = asMap(raw);
+          return QueuePage(
+            mapList(body['data'], QueueOrder.fromJson),
+            hasMore: asBool(asMap(body['meta'])['has_more']),
+          );
+        },
+      );
 
   /// The top of the needs-attention inbox for this person (the same list as the dashboard's, at most 20 lines) and the counts of all of it.
   Future<AttentionSummary> attention({String? branchId}) =>
@@ -472,4 +534,6 @@ class OpsRepository {
   }
 }
 
-final opsRepositoryProvider = Provider<OpsRepository>((ref) => OpsRepository(ref.watch(apiClientProvider)));
+final opsRepositoryProvider = Provider<OpsRepository>(
+  (ref) => OpsRepository(ref.watch(apiClientProvider), cache: ref.watch(opsReadCacheProvider)),
+);

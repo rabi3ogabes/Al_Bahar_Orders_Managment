@@ -6,6 +6,7 @@ import 'package:albahar_customer/core/realtime/live_sync.dart';
 import 'package:albahar_customer/core/realtime/pusher_client.dart';
 import 'package:albahar_customer/features/auctions/data/auction_repository.dart';
 import 'package:albahar_customer/ops/driver/driver_models.dart';
+import 'package:albahar_customer/ops/driver/driver_outbox_provider.dart';
 import 'package:albahar_customer/ops/driver/driver_tracker.dart';
 import 'package:albahar_customer/ops/ops_board.dart';
 import 'package:albahar_customer/ops/ops_live.dart';
@@ -94,6 +95,10 @@ class DriverLive extends Notifier<DriverLiveState> {
     ref.listen(driverEventsProvider, (_, next) {
       final e = next.value;
       if (e != null) onEvent(e);
+    });
+    // The outbox sends only with the session of the driver who pressed (another account on this phone never sends his steps).
+    ref.listen(driverMeProvider.select((m) => m.value?.id), (_, id) {
+      if (id != null && id.isNotEmpty) ref.read(driverOutboxProvider.notifier).adoptOwner(id);
     });
     final links = _sync.links.listen((l) => state = state.copyWith(link: l));
     ref.onDispose(links.cancel);
@@ -225,10 +230,15 @@ final driverJobsViewProvider = Provider.autoDispose.family<AsyncValue<List<Drive
       ),
     );
   }
-  if (arrived.isEmpty || !merged.hasValue) return merged;
-  return merged.whenData(
-    (rows) => [for (final j in rows) arrived.containsKey(j.id) ? j.withArrived(arrived[j.id]!) : j],
-  );
+  if (arrived.isNotEmpty && merged.hasValue) {
+    merged = merged.whenData(
+      (rows) => [for (final j in rows) arrived.containsKey(j.id) ? j.withArrived(arrived[j.id]!) : j],
+    );
+  }
+  // A job whose steps wait in the outbox is shown in the state of the driver's last step (and stays in his list until the server has it).
+  final waiting = ref.watch(driverOutboxProvider);
+  if (waiting.isEmpty || !merged.hasValue) return merged;
+  return merged.whenData((rows) => [for (final j in rows) withOutbox(j, outboxFor(waiting, j.id))]);
 });
 
 /// The job list as a window sees it: the rows, and whether the list is up to date (so a window can tell "this job left

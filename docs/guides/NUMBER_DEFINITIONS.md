@@ -24,6 +24,10 @@ This page is the answer to "what does this number mean?" for the **Daily close**
 - **A week is Monday to Sunday** (ISO week) on the owner pack; the scorecard takes any whole days (up to 366). The same dates give the same figure on both.
 - **A figure belongs to the day it HAPPENED, not the day of its order**, except sales and the speed of an order, which belong to the day the order was placed:
   a refund paid on Monday is Monday's refund; goods that come back on Thursday are Thursday's "returned"; a delivery made on Sunday is Sunday's delivery.
+- **A driver's step happened when he pressed it**, also when his phone had no signal and sent it later (`acted_at`, see
+  [OFFLINE_DRIVER_AND_STAFF_APPS.md](OFFLINE_DRIVER_AND_STAFF_APPS.md)): picked up, out for delivery, delivered, failed, the cash he took and the assembly answer carry
+  that time on every screen. A delivery made at 23:50 and received at 00:10 is the earlier day's delivery (and on time for that day); a day that was already
+  closed keeps the figures it had.
 - **Now-numbers say so**: open work, cash held, unexplained differences and stock are "as they stand now". A past day shows today's value of them (a closed day keeps
   the value it had when it was closed). They have no "before".
 - **Money is in QAR, in cents, never floats.** A rate is worked out from the sums (never an average of averages), as a percent with one decimal.

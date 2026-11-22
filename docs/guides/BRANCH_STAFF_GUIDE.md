@@ -35,7 +35,7 @@ Three tabs, nothing else to learn: **To do** (new, preparing and ready orders), 
 
 **More than one branch?** If you work in several branches, the branch name in the header has a small arrow: tap it to choose the branch. The app remembers your choice. With one branch nothing changes.
 
-**Long lists and a lost connection.** A stage with more than 50 orders shows 50 and a **Load more** button. When the phone has no network a bar says so with **Try again**; the last list stays on screen.
+**Long lists and a lost connection.** A stage with more than 50 orders shows 50 and a **Load more** button. When the phone or tablet has no network a bar says so with **Try again**, and the last list stays on screen, also after the app was closed (*You are offline. Showing the list from 2:05 PM.*). The buttons (accept, ready, assign a driver, hand over, decide a cancellation) are switched off with *Needs a connection* until it is back: a branch step is never saved for later. Detail: [OFFLINE_DRIVER_AND_STAFF_APPS.md](OFFLINE_DRIVER_AND_STAFF_APPS.md).
 
 ---
 
@@ -116,7 +116,7 @@ dispatched can't be cancelled; register a return instead.
 
 **أكثر من فرع؟** إن كنت تعمل في عدة فروع ففي اسم الفرع بالأعلى سهم صغير: اضغطه لاختيار الفرع، ويتذكر التطبيق اختيارك. مع فرع واحد لا يتغير شيء.
 
-**القوائم الطويلة وانقطاع الاتصال.** المرحلة التي فيها أكثر من 50 طلباً تعرض 50 وزر **عرض المزيد**. عند انقطاع الشبكة يظهر شريط بذلك مع **حاول مرة أخرى** وتبقى آخر قائمة على الشاشة.
+**القوائم الطويلة وانقطاع الاتصال.** المرحلة التي فيها أكثر من 50 طلباً تعرض 50 وزر **عرض المزيد**. عند انقطاع الشبكة يظهر شريط بذلك مع **حاول مرة أخرى** وتبقى آخر قائمة على الشاشة، حتى بعد إغلاق التطبيق (*أنت غير متصل. تُعرض القائمة كما كانت الساعة 2:05 م.*). الأزرار (قبول، جاهز، إسناد سائق، تسليم، قرار الإلغاء) تتوقف مع عبارة *يحتاج إلى اتصال* حتى يعود الاتصال: خطوات الفرع لا تُحفظ لإرسالها لاحقاً.
 
 ---
 

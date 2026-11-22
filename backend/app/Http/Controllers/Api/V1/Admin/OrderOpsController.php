@@ -7,6 +7,7 @@ use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Fulfillment\Models\PickupReservation;
 use App\Domain\Fulfillment\Services\AssemblyFacts;
 use App\Domain\Fulfillment\Services\DeliveryService;
+use App\Domain\Fulfillment\Services\DeliveryStepReplay;
 use App\Domain\Fulfillment\Services\DriverGps;
 use App\Domain\Fulfillment\Services\PickupService;
 use App\Domain\Identity\Models\User;
@@ -149,10 +150,22 @@ class OrderOpsController extends ApiController
         return response()->json(['data' => $d], 201);
     }
 
-    public function deliveryAction(Request $request, Delivery $delivery, string $action, DeliveryService $svc): JsonResponse
+    public function deliveryAction(Request $request, Delivery $delivery, string $action, DeliveryService $svc, DeliveryStepReplay $replay): JsonResponse
+    {
+        // The steps the driver app may send later from its outbox: safe to send again (Idempotency-Key) and recorded at the time he pressed (acted_at).
+        if (in_array($action, DeliveryStepReplay::ACTIONS, true)) {
+            return $replay->run($request, $this->user(), $delivery, $action, $this->idempotencyKey($request, required: false),
+                fn () => $this->deliveryStep($request, $delivery, $action, $svc));
+        }
+
+        return response()->json(['data' => $this->deliveryStep($request, $delivery, $action, $svc)]);
+    }
+
+    private function deliveryStep(Request $request, Delivery $delivery, string $action, DeliveryService $svc): Delivery
     {
         $u = $this->user();
-        $d = match ($action) {
+
+        return match ($action) {
             'assign' => $svc->assignDriver($delivery, User::findOrFail($request->validate(['driver_id' => 'required|uuid'])['driver_id']), $u),
             'accept' => $svc->accept($delivery, $u),
             'pickup' => $svc->pickUp($delivery, $u),
@@ -173,8 +186,6 @@ class OrderOpsController extends ApiController
             'retry-booking' => $svc->book($delivery),
             default => abort(404),
         };
-
-        return response()->json(['data' => $d]);
     }
 
     private function assembly(Request $request, Delivery $delivery, DeliveryService $svc): Delivery

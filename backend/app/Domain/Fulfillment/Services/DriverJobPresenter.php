@@ -103,7 +103,8 @@ final class DriverJobPresenter
             // The customer's second number, for the driver of THIS delivery (the callers only ask for the driver's own jobs).
             'alternate_phone' => AlternatePhone::visible($o->alternate_phone), 'address' => $address ?: $o->address_snapshot,
             'payment_method' => $o->payment_method, 'cod_amount' => $d->cod_amount, 'requires_proof' => $d->requires_proof,
-            'branch' => ['id' => $d->branch_id, 'name' => $f->branch?->localized('name')],
+            // The branch's own number: the driver app offers "Call the branch" when a step it sent later was refused (docs/guides/OFFLINE_DRIVER_AND_STAFF_APPS.md).
+            'branch' => ['id' => $d->branch_id, 'name' => $f->branch?->localized('name'), 'phone' => $f->branch?->phone],
             'scheduled_for' => BusinessTime::iso($d->scheduled_for), 'assigned_at' => BusinessTime::iso($d->assigned_at),
             'items' => $items['rows'],
             'arrived_at' => BusinessTime::iso($d->arrived_at),

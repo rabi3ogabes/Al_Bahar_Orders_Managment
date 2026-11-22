@@ -277,7 +277,7 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Report: could not deliver'));
       await settle(tester);
       expect(repo.failures.single.photo!.path, picker.next);
-      expect(repo.failures.single.notes, '');
+      expect(repo.failures.single.notes, isNull); // no note: nothing is sent for it
     });
 
     testWidgets('a double tap reports once', (tester) async {
@@ -296,31 +296,41 @@ void main() {
       await settle(tester);
     });
 
-    testWidgets('no signal: the sheet keeps the reason, the note and the photo, and the next try is the same report', (
-      tester,
-    ) async {
-      final repo = DriverFakeOps()
-        ..jobList = [_onTheRoad(arrived: true)]
-        ..failError = apiError(ApiErrorKind.timeout, 0);
-      await open(tester, repo);
-      await tester.tap(find.byKey(const ValueKey('fail-other')));
-      await settle(tester);
-      await tester.enterText(find.byType(TextField), 'The lift is out of order');
-      await tester.tap(find.byKey(const ValueKey('fail-photo')));
-      await settle(tester);
-      await tester.tap(find.widgetWithText(FilledButton, 'Report: could not deliver'));
-      await settle(tester);
-      expect(find.text('No connection. Check your signal and try again.'), findsOneWidget);
-      expect(find.text('The lift is out of order'), findsOneWidget);
-      expect(find.text('Photo added (tap to take another)'), findsOneWidget);
+    testWidgets(
+      'no signal: the report is kept on the phone with its note and photo, and the next try is the same report',
+      (tester) async {
+        final repo = DriverFakeOps()
+          ..jobList = [_onTheRoad(arrived: true)]
+          ..failError = apiError(ApiErrorKind.timeout, 0);
+        final picker = FakePicker();
+        await open(tester, repo, picker: picker);
+        await tester.tap(find.byKey(const ValueKey('fail-other')));
+        await settle(tester);
+        await tester.enterText(find.byType(TextField), 'The lift is out of order');
+        await tester.tap(find.byKey(const ValueKey('fail-photo')));
+        await settle(tester);
+        await tester.tap(find.widgetWithText(FilledButton, 'Report: could not deliver'));
+        await settle(tester);
+        // The sheet closes: the report waits in the outbox and the job says so.
+        expect(find.text('Report: could not deliver'), findsNothing);
+        expect(
+          find.text('No signal. Saved on the phone: it is sent by itself when the signal is back.'),
+          findsOneWidget,
+        );
+        expect(find.text('Waiting to send'), findsWidgets);
 
-      repo.failError = null;
-      await tester.tap(find.widgetWithText(FilledButton, 'Report: could not deliver'));
-      await settle(tester);
-      expect(repo.failures, hasLength(2));
-      expect(repo.failures[0].key, repo.failures[1].key); // one report, however often it is sent
-      expect(repo.failures[1].notes, 'The lift is out of order');
-    });
+        repo.failError = null;
+        await tester.tap(find.byKey(const ValueKey('outbox-open')).first);
+        await settle(tester);
+        await tester.tap(find.byKey(const ValueKey('outbox-send-now')));
+        await settle(tester);
+        expect(repo.failures, hasLength(2));
+        expect(repo.failures[0].key, repo.failures[1].key); // one report, however often it is sent
+        expect(repo.failures[1].notes, 'The lift is out of order');
+        expect(repo.failures[1].photo!.path, picker.next);
+        expect(find.text('Everything has been sent.'), findsOneWidget);
+      },
+    );
 
     testWidgets('closing with something typed asks first', (tester) async {
       final repo = DriverFakeOps()..jobList = [_onTheRoad(arrived: true)];
@@ -554,7 +564,7 @@ void main() {
 
       container.read(onlineProvider.notifier).set(false);
       await settle(tester);
-      expect(find.text('No connection. Check your signal.'), findsOneWidget);
+      expect(find.text('No connection. Your steps are saved and sent when the signal is back.'), findsOneWidget);
       final before = repo.jobsLoads;
       await tester.tap(find.byKey(const ValueKey('offline-retry')));
       await settle(tester);

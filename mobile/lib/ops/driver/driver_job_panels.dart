@@ -11,6 +11,10 @@ import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
 import 'package:albahar_customer/ops/driver/driver_assembly.dart';
 import 'package:albahar_customer/ops/driver/driver_job_view.dart';
+import 'package:albahar_customer/ops/driver/driver_outbox.dart';
+import 'package:albahar_customer/ops/driver/driver_outbox_provider.dart';
+import 'package:albahar_customer/ops/driver/driver_outbox_strings.dart';
+import 'package:albahar_customer/ops/driver/driver_outbox_widgets.dart';
 import 'package:albahar_customer/ops/driver/driver_providers.dart';
 import 'package:albahar_customer/ops/driver/driver_sheets.dart';
 import 'package:albahar_customer/ops/driver/driver_strings.dart';
@@ -240,36 +244,50 @@ class _JobActionButtonsState extends ConsumerState<JobActionButtons> {
       ..invalidate(driverMeProvider);
   }
 
-  /// Runs one step. When the server accepted it, the job shows its new state at once ([becomes]); the reads that follow confirm it.
-  Future<bool> _run(Future<void> Function() action, {String? becomes}) async {
+  /// Runs one step. When the server accepted it, the job shows its new state at once ([becomes], read once the step ran); the reads that follow
+  /// confirm it.
+  Future<bool> _run(Future<void> Function() action, {String? Function()? becomes}) async {
     if (_busy) return false;
     setState(() => _busy = true);
     final ok = await driverGuarded(context, action);
     if (!mounted) return false;
-    if (ok && becomes != null) ref.read(driverLiveProvider.notifier).applyOwnStep(widget.job.id, becomes);
+    final status = ok ? becomes?.call() : null;
+    if (status != null) ref.read(driverLiveProvider.notifier).applyOwnStep(widget.job.id, status);
     _refresh();
     setState(() => _busy = false);
     return ok;
   }
 
+  /// Accept, picked up, on the way: through the outbox, so a step pressed without signal is kept and sent later (the card moves at once and says
+  /// "Waiting to send"); with signal it goes straight away, as before.
   Future<void> _step(String action) async {
     if (action == 'arrived') return _arrived();
     final location = ref.read(locationServiceProvider);
-    await _run(
+    final t = OpsStrings.of(context);
+    var result = OutboxSubmit.sent;
+    final ok = await _run(
       () async {
         final pos = action == 'out-for-delivery'
             ? await location.currentPosition().timeout(const Duration(seconds: 4), onTimeout: () => null)
             : null;
-        await ref.read(opsRepositoryProvider).jobStep(widget.job.id, action, lat: pos?.lat, lng: pos?.lng);
+        result = await ref
+            .read(driverOutboxProvider.notifier)
+            .press(widget.job, action, key: Idempotency.newKey(), fields: {'lat': pos?.lat, 'lng': pos?.lng});
       },
-      becomes: switch (action) {
-        'accept' => 'accepted',
-        'pickup' => 'picked_up',
-        'out-for-delivery' => 'out_for_delivery',
-        _ => null,
-      },
+      becomes: () => result == OutboxSubmit.sent
+          ? switch (action) {
+              'accept' => 'accepted',
+              'pickup' => 'picked_up',
+              'out-for-delivery' => 'out_for_delivery',
+              _ => null,
+            }
+          : null,
     );
+    if (ok && result == OutboxSubmit.queued && mounted) showInfoSnack(context, t.savedForLater);
   }
+
+  /// True while some step of this job waits in the outbox (it was pressed without signal).
+  bool get _waiting => outboxFor(ref.read(driverOutboxProvider), widget.job.id).isNotEmpty;
 
   /// "I have arrived": the customer is told once, and the card moves on to the delivery form at once.
   Future<void> _arrived() async {
@@ -296,6 +314,11 @@ class _JobActionButtonsState extends ConsumerState<JobActionButtons> {
     }
     final done = await showDeliverPanel(context, widget.job);
     if (done != true || !mounted) return;
+    if (_waiting) {
+      // No signal: the delivery is kept on the phone and the card says "Waiting to send" until the server has it.
+      showInfoSnack(context, OpsStrings.of(context).savedForLater);
+      return;
+    }
     ref.read(driverLiveProvider.notifier).applyOwnStep(widget.job.id, 'delivered');
     // Tell the window first: when the job leaves the list it closes with the right message.
     final onDelivered = widget.onDelivered;
@@ -311,6 +334,10 @@ class _JobActionButtonsState extends ConsumerState<JobActionButtons> {
   Future<void> _fail() async {
     final done = await showFailSheet(context, widget.job);
     if (done != true || !mounted) return;
+    if (_waiting) {
+      showInfoSnack(context, OpsStrings.of(context).savedForLater);
+      return;
+    }
     ref.read(driverLiveProvider.notifier).applyOwnStep(widget.job.id, 'failed');
     showInfoSnack(context, OpsStrings.of(context).failRecorded);
     _refresh();
@@ -329,7 +356,7 @@ class _JobActionButtonsState extends ConsumerState<JobActionButtons> {
     final t = OpsStrings.of(context);
     final sure = await opsConfirm(context, title: t.confirmReturnQ, body: t.confirmReturnBody, verb: t.confirmReturn);
     if (!sure || !mounted) return;
-    await _run(() => ref.read(opsRepositoryProvider).returnToBranch(widget.job.id), becomes: 'returned');
+    await _run(() => ref.read(opsRepositoryProvider).returnToBranch(widget.job.id), becomes: () => 'returned');
   }
 
   @override
@@ -347,7 +374,17 @@ class _JobActionButtonsState extends ConsumerState<JobActionButtons> {
       _ => null,
     };
     final panel = widget.inPanel;
-    if (label == null && !job.canReturn) return const SizedBox.shrink();
+    // Steps of this job that wait in the outbox (or that the server refused) are said first, on the card and in its window.
+    final hasStrip = outboxFor(ref.watch(driverOutboxProvider), job.id).isNotEmpty;
+    final strip = OutboxJobStrip(deliveryId: job.id);
+    if (label == null && !job.canReturn) {
+      return hasStrip
+          ? Padding(
+              padding: EdgeInsets.only(top: panel ? 0 : AppSpace.sm),
+              child: strip,
+            )
+          : const SizedBox.shrink();
+    }
     // The dashboard chooses how a step is taken. "Mark delivered" stays a button even then: it opens the proof window, whose last
     // action (Confirm delivery) is the one that is slid.
     final slide = ref.watch(opsStatusStyleProvider) == OpsStatusStyle.slide && next != null && next != 'deliver';
@@ -358,10 +395,11 @@ class _JobActionButtonsState extends ConsumerState<JobActionButtons> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (hasStrip) ...[if (!panel) const Gap(AppSpace.sm), strip],
         // The paid assembly is answered here, one tap, before the delivery is confirmed.
-        if (showsAssemblyStrip(job)) ...[if (!panel) const Gap(AppSpace.sm), AssemblyStrip(job: job)],
+        if (showsAssemblyStrip(job)) ...[if (!panel && !hasStrip) const Gap(AppSpace.sm), AssemblyStrip(job: job)],
         if (label != null) ...[
-          if (!panel && !showsAssemblyStrip(job)) const Gap(AppSpace.sm),
+          if (!panel && !showsAssemblyStrip(job) && !hasStrip) const Gap(AppSpace.sm),
           Row(
             children: [
               Expanded(
@@ -530,18 +568,22 @@ class _DeliverFormState extends ConsumerState<_DeliverForm> {
     });
     try {
       // Where the driver stands goes with the proof when the phone knows it; the delivery never waits for GPS (3 seconds at most) or fails without it.
+      // Through the outbox: without signal it is kept on the phone (the photo copied into the app's private files) and sent later with this key.
       final spot = await currentSpot(ref);
       await ref
-          .read(opsRepositoryProvider)
-          .deliver(
-            job.id,
-            recipient: _recipient.text.trim(),
-            proof: _photo,
-            codAmount: cod,
-            lat: spot?.lat,
-            lng: spot?.lng,
-            accuracy: spot?.accuracy,
-            idempotencyKey: _key,
+          .read(driverOutboxProvider.notifier)
+          .press(
+            job,
+            'deliver',
+            key: _key,
+            photo: _photo,
+            fields: {
+              'recipient': _recipient.text.trim(),
+              'cod': cod,
+              'lat': spot?.lat,
+              'lng': spot?.lng,
+              'accuracy': spot?.accuracy,
+            },
           );
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {

@@ -182,6 +182,28 @@ class DriverJobContext {
   /// Some "Before you go" fact is true (cash on delivery is added by the screen, which knows the amount).
   bool get hasHeadsUp => needsTwoPeople || requiresAssembly || isOversized;
 
+  /// The same facts with the assembly answer that waits in the outbox: the job card shows it and the delivery form no longer asks for it.
+  DriverJobContext withAssembly(String status, {String? reason, String? note}) => DriverJobContext(
+    instructions: instructions,
+    customerNotes: customerNotes,
+    landmark: landmark,
+    recipient: recipient,
+    slotStart: slotStart,
+    slotEnd: slotEnd,
+    totalWeightKg: totalWeightKg,
+    needsTwoPeople: needsTwoPeople,
+    isOversized: isOversized,
+    requiresAssembly: requiresAssembly,
+    assemblyOrdered: assemblyOrdered,
+    assembly: assembly == null
+        ? null
+        : DriverAssembly(status: status, reason: reason, reasonLabel: null, note: note, required: assembly!.required),
+    paymentNote: paymentNote,
+    arrivedAt: arrivedAt,
+    redacted: redacted,
+    itemFacts: itemFacts,
+  );
+
   /// The same facts after the driver said he arrived (shown at once, before the server's list is read again).
   DriverJobContext withArrived(DateTime at) => DriverJobContext(
     instructions: instructions,

@@ -407,26 +407,29 @@ void main() {
       expect(find.text('Proof of delivery'), findsNothing);
     });
 
-    testWidgets('offline: the proof stays open with its photo, and the pinned button works on the next try', (
-      tester,
-    ) async {
-      final repo = FakeOps()
-        ..jobList = [FakeOps.job(status: 'out_for_delivery', cod: '0')]
-        ..deliverError = apiError(ApiErrorKind.offline, 0);
-      await openProof(tester, _phone, repo: repo);
-      await tester.tap(find.text('Take proof photo'));
-      await settle(tester);
-      await tester.tap(find.widgetWithText(FilledButton, 'Confirm delivery'));
-      await settle(tester);
-      expect(find.text('No connection. Check your signal and try again.'), findsOneWidget);
-      expect(find.text('Photo added'), findsOneWidget);
-      repo.deliverError = null;
-      repo.jobList = [];
-      await tester.tap(find.widgetWithText(FilledButton, 'Confirm delivery'));
-      await settle(tester);
-      expect(repo.delivered, hasLength(2));
-      expect(find.text('Proof of delivery'), findsNothing);
-    });
+    testWidgets(
+      'offline: the proof window closes, the job window says "Waiting to send", and its strip sends it later',
+      (tester) async {
+        final repo = FakeOps()
+          ..jobList = [FakeOps.job(status: 'out_for_delivery', cod: '0')]
+          ..deliverError = apiError(ApiErrorKind.offline, 0);
+        await openProof(tester, _phone, repo: repo);
+        await tester.tap(find.text('Take proof photo'));
+        await settle(tester);
+        await tester.tap(find.widgetWithText(FilledButton, 'Confirm delivery'));
+        await settle(tester);
+        expect(find.text('Proof of delivery'), findsNothing);
+        expect(find.byKey(const ValueKey('outbox-job-d1')), findsWidgets);
+        repo.deliverError = null;
+        repo.jobList = [];
+        await tester.tap(find.byKey(const ValueKey('outbox-job-d1')).last);
+        await settle(tester);
+        await tester.tap(find.byKey(const ValueKey('outbox-send-now')));
+        await settle(tester);
+        expect(repo.delivered, hasLength(2));
+        expect(find.text('Everything has been sent.'), findsOneWidget);
+      },
+    );
 
     testWidgets('could not deliver: one window with the reasons, a note and a photo; one confirm, one request', (
       tester,

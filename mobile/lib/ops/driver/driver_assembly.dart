@@ -7,12 +7,14 @@ import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/widgets/dirty_form_guard.dart';
 import 'package:albahar_customer/core/widgets/side_panel.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
+import 'package:albahar_customer/ops/driver/driver_outbox.dart';
+import 'package:albahar_customer/ops/driver/driver_outbox_provider.dart';
+import 'package:albahar_customer/ops/driver/driver_outbox_strings.dart';
 import 'package:albahar_customer/ops/driver/driver_providers.dart';
 import 'package:albahar_customer/ops/driver/driver_sheets.dart';
 import 'package:albahar_customer/ops/driver/driver_strings.dart';
 import 'package:albahar_customer/ops/driver/driver_support.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
-import 'package:albahar_customer/ops/ops_repository.dart';
 import 'package:albahar_customer/ops/ops_status_style.dart';
 import 'package:albahar_customer/ops/ops_strings.dart';
 import 'package:albahar_customer/ops/ops_widgets.dart';
@@ -70,18 +72,21 @@ class _AssemblyStripState extends ConsumerState<AssemblyStrip> {
       ..invalidate(driverJobsProvider(true));
   }
 
-  /// The one-tap answer: done, with no note and no photo.
+  /// The one-tap answer: done, with no note and no photo (through the outbox: without signal it is kept and sent later).
   Future<void> _done() async {
     if (_busy) return;
     setState(() => _busy = true);
-    final ok = await driverGuarded(
-      context,
-      () => ref.read(opsRepositoryProvider).assembly(widget.job.id, 'done', idempotencyKey: _key),
-    );
+    var result = OutboxSubmit.sent;
+    final ok = await driverGuarded(context, () async {
+      result = await ref
+          .read(driverOutboxProvider.notifier)
+          .press(widget.job, 'assembly', key: _key, fields: const {'status': 'done'});
+    });
     if (!mounted) return;
     if (ok) {
       Haptics.success();
-      showInfoSnack(context, OpsStrings.of(context).assemblySaved);
+      final t = OpsStrings.of(context);
+      showInfoSnack(context, result == OutboxSubmit.queued ? t.savedForLater : t.assemblySaved);
     }
     _refresh();
     setState(() => _busy = false);
@@ -90,7 +95,9 @@ class _AssemblyStripState extends ConsumerState<AssemblyStrip> {
   Future<void> _sheet({bool notDone = false}) async {
     final saved = await showAssemblySheet(context, widget.job, startNotDone: notDone);
     if (saved != true || !mounted) return;
-    showInfoSnack(context, OpsStrings.of(context).assemblySaved);
+    final t = OpsStrings.of(context);
+    final waiting = outboxFor(ref.read(driverOutboxProvider), widget.job.id).isNotEmpty;
+    showInfoSnack(context, waiting ? t.savedForLater : t.assemblySaved);
     _refresh();
   }
 
@@ -268,15 +275,19 @@ class _AssemblyFormState extends ConsumerState<_AssemblyForm> {
       _error = null;
     });
     try {
+      final note = _note.text.trim();
       await ref
-          .read(opsRepositoryProvider)
-          .assembly(
-            widget.job.id,
-            done ? 'done' : 'not_done',
-            reason: done ? null : _reason,
-            note: _note.text,
+          .read(driverOutboxProvider.notifier)
+          .press(
+            widget.job,
+            'assembly',
+            key: _key,
             photo: _photo,
-            idempotencyKey: _key,
+            fields: {
+              'status': done ? 'done' : 'not_done',
+              'reason': done ? null : _reason,
+              'note': note.isEmpty ? null : note,
+            },
           );
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {

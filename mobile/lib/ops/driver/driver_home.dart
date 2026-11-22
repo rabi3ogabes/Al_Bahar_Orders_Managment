@@ -13,6 +13,7 @@ import 'package:albahar_customer/ops/driver/driver_job_map.dart';
 import 'package:albahar_customer/ops/driver/driver_job_panels.dart';
 import 'package:albahar_customer/ops/driver/driver_job_view.dart';
 import 'package:albahar_customer/ops/driver/driver_offline_banner.dart';
+import 'package:albahar_customer/ops/driver/driver_outbox_widgets.dart';
 import 'package:albahar_customer/ops/driver/driver_providers.dart';
 import 'package:albahar_customer/ops/driver/driver_strings.dart';
 import 'package:albahar_customer/ops/driver/driver_support.dart';
@@ -226,6 +227,9 @@ class _DriverHomeState extends ConsumerState<DriverHome> with OpsPolling {
         body: Column(
           children: [
             const DriverOfflineBanner(),
+            // The steps pressed without signal, waiting to be sent (at the top, never over a job's buttons or the slide).
+            const DriverOutboxBanner(),
+            const DriverLastUpdated(),
             Padding(
               padding: const EdgeInsets.fromLTRB(AppSpace.gutter, AppSpace.sm, AppSpace.gutter, 0),
               child: _DutyCard(me: me.value, busy: _dutyBusy, onToggle: _toggleDuty),

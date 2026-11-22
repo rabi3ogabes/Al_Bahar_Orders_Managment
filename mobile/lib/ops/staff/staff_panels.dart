@@ -17,6 +17,7 @@ import 'package:albahar_customer/ops/staff/fleet_map_tab.dart';
 import 'package:albahar_customer/ops/staff/staff_cancellation.dart';
 import 'package:albahar_customer/ops/staff/staff_clock_widgets.dart';
 import 'package:albahar_customer/ops/staff/staff_errors.dart';
+import 'package:albahar_customer/ops/staff/staff_offline.dart';
 import 'package:albahar_customer/ops/staff/staff_pickup.dart';
 import 'package:albahar_customer/ops/staff/staff_providers.dart';
 import 'package:albahar_customer/ops/staff/staff_rights.dart';
@@ -149,67 +150,71 @@ class _OrderActionButtonsState extends ConsumerState<OrderActionButtons> {
     final gap = widget.inPanel ? 0.0 : AppSpace.sm;
     // The dashboard chooses how a step is taken: a button, or "slide to confirm" (a step then cannot be taken by a stray tap).
     final slide = ref.watch(opsStatusStyleProvider) == OpsStatusStyle.slide;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (showReturn) ...[
-          Gap(gap),
-          OutlinedButton.icon(
-            onPressed: _busy ? null : _returnToBranch,
-            icon: const Icon(Icons.assignment_return_rounded, size: 18),
-            label: Text(t.returnToBranch),
-          ),
-        ],
-        if (stepLabel != null || showAssign) ...[
-          Gap(gap),
-          Row(
-            children: [
-              if (stepLabel != null && slide)
-                Expanded(
-                  child: SlideToConfirm(
-                    key: ValueKey('slide-${o.fulfillmentId}-${o.status}'),
-                    label: t.slideStaffStep(step!),
-                    busyLabel: t.updating,
-                    loading: _busy,
-                    onConfirmed: () => _advance(step),
+    final offlineLabel = stepLabel ?? (canAssign ? (hasDriver ? t.changeDriver : t.assignDriver) : t.returnToBranch);
+    return StaffOnlineGate(
+      label: offlineLabel,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (showReturn) ...[
+            Gap(gap),
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _returnToBranch,
+              icon: const Icon(Icons.assignment_return_rounded, size: 18),
+              label: Text(t.returnToBranch),
+            ),
+          ],
+          if (stepLabel != null || showAssign) ...[
+            Gap(gap),
+            Row(
+              children: [
+                if (stepLabel != null && slide)
+                  Expanded(
+                    child: SlideToConfirm(
+                      key: ValueKey('slide-${o.fulfillmentId}-${o.status}'),
+                      label: t.slideStaffStep(step!),
+                      busyLabel: t.updating,
+                      loading: _busy,
+                      onConfirmed: () => _advance(step),
+                    ),
+                  )
+                else if (stepLabel != null)
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _busy ? null : () => _advance(step!),
+                      child: _busy
+                          ? SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.2,
+                                color: Theme.of(context).colorScheme.onPrimary,
+                              ),
+                            )
+                          : Text(stepLabel, textAlign: TextAlign.center),
+                    ),
                   ),
-                )
-              else if (stepLabel != null)
-                Expanded(
-                  child: FilledButton(
-                    onPressed: _busy ? null : () => _advance(step!),
-                    child: _busy
-                        ? SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.2,
-                              color: Theme.of(context).colorScheme.onPrimary,
-                            ),
-                          )
-                        : Text(stepLabel, textAlign: TextAlign.center),
+                if (showAssign)
+                  Expanded(
+                    child: (hasDriver || widget.autoDispatch ? OutlinedButton.new : FilledButton.new)(
+                      onPressed: _busy ? null : _assign,
+                      child: Text(hasDriver ? t.changeDriver : t.assignDriver, textAlign: TextAlign.center),
+                    ),
                   ),
-                ),
-              if (showAssign)
-                Expanded(
-                  child: (hasDriver || widget.autoDispatch ? OutlinedButton.new : FilledButton.new)(
-                    onPressed: _busy ? null : _assign,
-                    child: Text(hasDriver ? t.changeDriver : t.assignDriver, textAlign: TextAlign.center),
-                  ),
-                ),
-            ],
-          ),
+              ],
+            ),
+          ],
+          if (blockedAssign) ...[
+            Gap(stepLabel != null ? AppSpace.xs : gap),
+            BlockedAction(
+              label: hasDriver ? t.changeDriver : t.assignDriver,
+              icon: Icons.two_wheeler_rounded,
+              reason: t.cancelHold,
+            ),
+          ],
         ],
-        if (blockedAssign) ...[
-          Gap(stepLabel != null ? AppSpace.xs : gap),
-          BlockedAction(
-            label: hasDriver ? t.changeDriver : t.assignDriver,
-            icon: Icons.two_wheeler_rounded,
-            reason: t.cancelHold,
-          ),
-        ],
-      ],
+      ),
     );
   }
 }

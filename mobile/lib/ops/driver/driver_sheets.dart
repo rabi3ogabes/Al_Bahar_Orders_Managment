@@ -5,6 +5,7 @@ import 'package:albahar_customer/core/network/interceptors.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/widgets/dirty_form_guard.dart';
 import 'package:albahar_customer/core/widgets/side_panel.dart';
+import 'package:albahar_customer/ops/driver/driver_outbox_provider.dart';
 import 'package:albahar_customer/ops/driver/driver_strings.dart';
 import 'package:albahar_customer/ops/driver/driver_support.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
@@ -351,17 +352,22 @@ class _FailFormState extends ConsumerState<_FailForm> {
     });
     try {
       final spot = await currentSpot(ref);
+      // Through the outbox: without signal the report is kept on the phone and sent later with this key (see driver_outbox.dart).
+      final text = _note.text.trim();
       await ref
-          .read(opsRepositoryProvider)
-          .fail(
-            widget.job.id,
-            reason,
-            notes: _note.text,
+          .read(driverOutboxProvider.notifier)
+          .press(
+            widget.job,
+            'fail',
+            key: _key,
             photo: _photo,
-            lat: spot?.lat,
-            lng: spot?.lng,
-            accuracy: spot?.accuracy,
-            idempotencyKey: _key,
+            fields: {
+              'reason': reason,
+              'notes': text.isEmpty ? null : text,
+              'lat': spot?.lat,
+              'lng': spot?.lng,
+              'accuracy': spot?.accuracy,
+            },
           );
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {

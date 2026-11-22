@@ -6,6 +6,7 @@ use App\Domain\Catalog\Services\StockAlertNotifier;
 use App\Domain\Catalog\Services\StockAlertService;
 use App\Domain\Cms\Services\HomeContentPurger;
 use App\Domain\Deals\Services\DealService;
+use App\Domain\Fulfillment\Services\DeliveryStepReplay;
 use App\Domain\Fulfillment\Services\SlotOffers;
 use App\Domain\Inventory\Services\ReservationService;
 use App\Domain\Marketing\Services\CampaignService;
@@ -47,6 +48,10 @@ Artisan::command('deliveries:process-slot-offers', fn (SlotOffers $o) => $this->
     ->purpose('Tell customers whose new-time offer was held back for the night, and close the offers whose time ran out');
 // The new times offered to a customer after a failed delivery: held-back messages go out at 08:00, an offer past its time is closed (docs/guides/DELIVERY_FOLLOW_UPS.md).
 Schedule::command('deliveries:process-slot-offers')->everyFiveMinutes()->withoutOverlapping(10)->onOneServer();
+Artisan::command('deliveries:prune-step-keys', fn (DeliveryStepReplay $r) => $this->info('Removed: '.$r->prune()))
+    ->purpose('Forget the keys of driver steps sent more than a week ago (a step is never sent again after a day)');
+// The driver app's outbox sends each step with a key so a retry never records it twice (docs/guides/OFFLINE_DRIVER_AND_STAFF_APPS.md); a week later the key is not needed.
+Schedule::command('deliveries:prune-step-keys')->dailyAt('03:50')->timezone('Asia/Qatar')->onOneServer();
 
 Schedule::command('drivers:prune-locations')->dailyAt('03:30')->timezone('Asia/Qatar')->onOneServer();
 Schedule::command('push:prune-devices')->dailyAt('03:45')->timezone('Asia/Qatar')->onOneServer();

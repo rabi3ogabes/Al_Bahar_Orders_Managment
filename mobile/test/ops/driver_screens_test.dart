@@ -358,26 +358,32 @@ void main() {
       expect(repo.delivered.single.cod, isNull);
     });
 
-    testWidgets('offline: the sheet stays open with the photo and the typed name, and works on the next try', (
-      tester,
-    ) async {
-      final repo = outForDelivery(cod: '0')..deliverError = apiError(ApiErrorKind.offline, 0);
-      await openSheet(tester, repo);
-      await tester.enterText(find.widgetWithText(TextField, 'Received by'), 'Mariam');
-      await tester.tap(find.text('Take proof photo'));
-      await settle(tester);
-      await tester.tap(find.widgetWithText(FilledButton, 'Confirm delivery'));
-      await settle(tester);
-      expect(find.text('No connection. Check your signal and try again.'), findsOneWidget);
-      expect(find.text('Photo added'), findsOneWidget);
-      expect(find.text('Mariam'), findsOneWidget);
+    testWidgets(
+      'offline: the delivery is kept on the phone with the photo and the typed name, and the next try is the same delivery',
+      (tester) async {
+        final repo = outForDelivery(cod: '0')..deliverError = apiError(ApiErrorKind.offline, 0);
+        await openSheet(tester, repo);
+        await tester.enterText(find.widgetWithText(TextField, 'Received by'), 'Mariam');
+        await tester.tap(find.text('Take proof photo'));
+        await settle(tester);
+        await tester.tap(find.widgetWithText(FilledButton, 'Confirm delivery'));
+        await settle(tester);
+        // The window closes: the delivery waits in the outbox, and the job card says so.
+        expect(find.text('Photo added'), findsNothing);
+        expect(find.text('Waiting to send'), findsWidgets);
+        expect(find.text('1 update waiting to send'), findsOneWidget);
 
-      repo.deliverError = null;
-      await tester.tap(find.widgetWithText(FilledButton, 'Confirm delivery'));
-      await settle(tester);
-      expect(repo.delivered, hasLength(2));
-      expect(find.text('Photo added'), findsNothing);
-    });
+        repo.deliverError = null;
+        await tester.tap(find.byKey(const ValueKey('outbox-open')));
+        await settle(tester);
+        await tester.tap(find.byKey(const ValueKey('outbox-send-now')));
+        await settle(tester);
+        expect(repo.delivered, hasLength(2));
+        expect(repo.delivered[1].recipient, 'Mariam');
+        expect(repo.deliveredExtras[0].key, repo.deliveredExtras[1].key); // one delivery, however often it is sent
+        expect(find.text('1 update waiting to send'), findsNothing);
+      },
+    );
 
     testWidgets('422 from the server (amount changed) shows its message in the sheet', (tester) async {
       final repo = outForDelivery()

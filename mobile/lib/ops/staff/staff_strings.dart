@@ -292,6 +292,18 @@ extension StaffStrings on OpsStrings {
 
   String get offlineBanner => _s('You are offline. Showing the last list.', 'أنت غير متصل. تُعرض آخر قائمة.');
 
+  /// The list the tablet kept, with the time it was read: "You are offline. Showing the list from 2:05 PM."
+  String offlineListFrom(String time) =>
+      _s('You are offline. Showing the list from $time.', 'أنت غير متصل. تُعرض القائمة كما كانت الساعة $time.');
+
+  /// Online, but the server could not be reached: the kept list, with its time.
+  String staleListFrom(String time) =>
+      _s('Could not refresh. Showing the list from $time.', 'تعذّر التحديث. تُعرض القائمة كما كانت الساعة $time.');
+
+  /// Under an action that is switched off while there is no connection (branch steps are never queued: they must reach the server at once).
+  String get needsConnection =>
+      _s('Needs a connection. Try again when the Wi-Fi is back.', 'يحتاج إلى اتصال. حاول مرة أخرى عند عودة الشبكة.');
+
   // ── What the server says, in plain words ─────────────────────────────────────────────────────────────────────────
 
   /// The plain sentence for the answers the branch staff meet at the counter; null for any other (the screen then falls back to the server's

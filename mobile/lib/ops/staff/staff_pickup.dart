@@ -11,6 +11,7 @@ import 'package:albahar_customer/ops/slide_to_confirm.dart';
 import 'package:albahar_customer/ops/staff/staff_clock_widgets.dart';
 import 'package:albahar_customer/ops/staff/staff_errors.dart';
 import 'package:albahar_customer/ops/staff/staff_manual_handover.dart';
+import 'package:albahar_customer/ops/staff/staff_offline.dart';
 import 'package:albahar_customer/ops/staff/staff_providers.dart';
 import 'package:albahar_customer/ops/staff/staff_rights.dart';
 import 'package:albahar_customer/ops/staff/staff_scan.dart';
@@ -260,12 +261,24 @@ class _PickupActionButtonsState extends ConsumerState<PickupActionButtons> {
         }
       }
     }
+    final offlineLabel = plan.step != null
+        ? (plan.step == 'accepted' ? t.acceptOrder : t.startPreparing)
+        : (plan.ready ? t.markPickupReady : t.scanPass);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Gap(gap),
-        for (var i = 0; i < children.length; i++) ...[if (i > 0) const Gap(AppSpace.xs), children[i]],
+        StaffOnlineGate(
+          label: offlineLabel,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < children.length; i++) ...[if (i > 0) const Gap(AppSpace.xs), children[i]],
+            ],
+          ),
+        ),
       ],
     );
   }

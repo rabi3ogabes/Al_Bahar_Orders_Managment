@@ -26,6 +26,7 @@ use App\Domain\Orders\Models\OrderStatusHistory;
 use App\Domain\Payments\Services\PaymentService;
 use App\Support\DomainException;
 use App\Support\Money;
+use App\Support\StepTime;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -138,7 +139,7 @@ class OrderService
             ];
             $f->status = $to;
             if (isset($timestamps[$to->value]) && ! $f->{$timestamps[$to->value]}) {
-                $f->{$timestamps[$to->value]} = now();
+                $f->{$timestamps[$to->value]} = StepTime::now(); // a driver's step sent late from his outbox: the time he pressed
             }
             if ($to === FS::Accepted && $actor) {
                 $f->assigned_to = $f->assigned_to ?? $actor->id;
@@ -223,7 +224,7 @@ class OrderService
         if ($from !== $to) {
             $order->status = $to;
             if ($to === OS::Completed && ! $order->completed_at) {
-                $order->completed_at = now();
+                $order->completed_at = StepTime::now();
             }
             if ($to === OS::Cancelled && ! $order->cancelled_at) {
                 $order->cancelled_at = now();
@@ -392,7 +393,7 @@ class OrderService
         OrderStatusHistory::create([
             'order_id' => $order->id, 'order_fulfillment_id' => $f?->id, 'kind' => $kind, 'from_status' => $from, 'to_status' => $to,
             'actor_id' => $actor?->id, 'actor_type' => $actor ? $actor->type->value : 'system', 'reason' => $reason,
-            'metadata' => $meta ?: null, 'is_customer_visible' => $visible,
+            'metadata' => $meta ?: null, 'is_customer_visible' => $visible, 'created_at' => StepTime::now(),
         ]);
     }
 

@@ -149,6 +149,7 @@ class DriverJob {
     this.orderId = '',
     this.seq = 0,
     this.context = DriverJobContext.empty,
+    this.branchPhone,
   });
 
   factory DriverJob.fromJson(JsonMap j) => DriverJob(
@@ -165,6 +166,7 @@ class DriverJob {
     codAmount: double.tryParse(asString(j['cod_amount'], '0')) ?? 0,
     requiresProof: asBool(j['requires_proof'], true),
     branchName: asStringOrNull(asMapOrNull(j['branch'])?['name']) ?? '',
+    branchPhone: asStringOrNull(asMapOrNull(j['branch'])?['phone']),
     scheduledFor: asDate(j['scheduled_for']),
     items: OpsItem.listFrom(j['items']),
     context: DriverJobContext.fromJson(j),
@@ -184,6 +186,9 @@ class DriverJob {
   final double codAmount;
   final bool requiresProof;
   final String branchName;
+
+  /// The branch's own number ("Call the branch" when an update sent later was refused); null from an older server.
+  final String? branchPhone;
   final DateTime? scheduledFor;
 
   /// What is in the parcel; empty when the server did not send it.
@@ -215,6 +220,7 @@ class DriverJob {
     orderId: orderId,
     seq: seq,
     context: context.withArrived(at),
+    branchPhone: branchPhone,
   );
 
   /// The same job in another state (a real-time message said it moved).
@@ -235,6 +241,28 @@ class DriverJob {
     orderId: orderId,
     seq: seq ?? this.seq,
     context: context,
+    branchPhone: branchPhone,
+  );
+
+  /// The same job with the assembly answer the driver gave while it waits in the outbox (the delivery form then no longer asks for it).
+  DriverJob withAssemblyAnswer(String answer, {String? reason, String? note}) => DriverJob(
+    id: id,
+    status: status,
+    orderNumber: orderNumber,
+    customerName: customerName,
+    customerPhone: customerPhone,
+    address: address,
+    paymentMethod: paymentMethod,
+    codAmount: codAmount,
+    requiresProof: requiresProof,
+    branchName: branchName,
+    scheduledFor: scheduledFor,
+    items: items,
+    alternatePhone: alternatePhone,
+    orderId: orderId,
+    seq: seq,
+    context: context.withAssembly(answer, reason: reason, note: note),
+    branchPhone: branchPhone,
   );
 
   bool get isCod => paymentMethod == 'cod' && codAmount > 0;

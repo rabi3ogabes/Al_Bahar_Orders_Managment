@@ -45,7 +45,14 @@ class _FakeOps implements OpsRepository {
         ];
 
   @override
-  Future<void> jobStep(String id, String action, {double? lat, double? lng}) async => calls.add('$action:$id');
+  Future<void> jobStep(
+    String id,
+    String action, {
+    double? lat,
+    double? lng,
+    String? idempotencyKey,
+    DateTime? actedAt,
+  }) async => calls.add('$action:$id');
 
   @override
   Future<StaffOverview> overview({String? branchId}) async => StaffOverview.fromJson({

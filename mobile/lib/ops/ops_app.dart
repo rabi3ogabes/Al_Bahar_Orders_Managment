@@ -8,8 +8,10 @@ import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/update/app_update.dart';
 import 'package:albahar_customer/ops/driver/driver_home.dart';
+import 'package:albahar_customer/ops/driver/driver_outbox_provider.dart';
 import 'package:albahar_customer/ops/ops_account_screens.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
+import 'package:albahar_customer/ops/ops_read_cache.dart';
 import 'package:albahar_customer/ops/ops_session.dart';
 import 'package:albahar_customer/ops/ops_status_style.dart';
 import 'package:albahar_customer/ops/ops_strings.dart';
@@ -62,8 +64,17 @@ class _OpsAppState extends ConsumerState<OpsApp> {
     final role = ref.watch(opsRoleProvider);
     final locale = Locale(ref.watch(localeCodeProvider));
     final auth = ref.watch(opsSessionProvider);
-    ref.listen(opsSessionProvider, (_, next) {
+    ref.listen(opsSessionProvider, (prev, next) {
       if (next == OpsAuth.signedIn) _registerPush();
+      // Back in after the session ended: the driver's updates that waited for it are sent now (docs/guides/OFFLINE_DRIVER_AND_STAFF_APPS.md).
+      if (next == OpsAuth.signedIn && prev == OpsAuth.signedOut && role == OpsRole.driver) {
+        unawaited(ref.read(driverOutboxProvider.notifier).resumeAfterSignIn());
+      }
+      // The lists kept on the phone belong to the person who signed in: they go when the session ends, for any reason.
+      if (next == OpsAuth.signedOut) {
+        unawaited(ref.read(opsReadCacheProvider)?.clear());
+        ref.read(opsStaleProvider.notifier).clear();
+      }
       // Signed out (or expired), or told to choose a password first, while a pushed screen or sheet is open: close them so only the
       // sign-in (or the password) screen is left.
       if (next != OpsAuth.signedIn) _navigator.currentState?.popUntil((r) => r.isFirst);

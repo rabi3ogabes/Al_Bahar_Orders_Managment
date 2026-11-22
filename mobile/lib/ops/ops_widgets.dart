@@ -7,6 +7,8 @@ import 'package:albahar_customer/core/theme/tokens.dart';
 import 'package:albahar_customer/core/utils/haptics.dart';
 import 'package:albahar_customer/core/widgets/common.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
+import 'package:albahar_customer/ops/driver/driver_outbox_provider.dart';
+import 'package:albahar_customer/ops/driver/driver_outbox_strings.dart';
 import 'package:albahar_customer/ops/driver/driver_providers.dart';
 import 'package:albahar_customer/ops/driver/driver_strings.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
@@ -181,10 +183,31 @@ Future<bool> opsConfirm(
   return ok ?? false;
 }
 
-/// Asks, then (for a driver) goes off duty and signs out. Going off duty is best effort: offline must not trap the user.
+/// Asks, then (for a driver) goes off duty and signs out. Going off duty is best effort: offline must not trap the user. A driver with updates still
+/// waiting in the outbox is asked first whether to send them (signing out drops them: they belong to his session).
 Future<void> confirmSignOut(BuildContext context, WidgetRef ref) async {
   final t = OpsStrings.of(context);
   final driver = ref.read(opsRoleProvider) == OpsRole.driver;
+  if (driver && ref.read(driverOutboxProvider).isNotEmpty) {
+    final send = await _askToSendFirst(context, ref.read(driverOutboxProvider).length);
+    if (send == null || !context.mounted) return;
+    final outbox = ref.read(driverOutboxProvider.notifier);
+    if (send) {
+      await outbox.flush(force: true);
+      if (!context.mounted) return;
+      if (ref.read(driverOutboxProvider).isNotEmpty) {
+        showInfoSnack(context, t.stillNotSent);
+        return;
+      }
+    } else {
+      await outbox.clear();
+      try {
+        await ref.read(opsRepositoryProvider).setDuty(false);
+      } catch (_) {}
+      await ref.read(opsSessionProvider.notifier).signOut();
+      return;
+    }
+  }
   // A driver who still carries jobs stays on duty on the server (it refuses to switch him off): the sentence says so, so he is not surprised.
   final carrying = !driver
       ? 0
@@ -204,6 +227,36 @@ Future<void> confirmSignOut(BuildContext context, WidgetRef ref) async {
     } catch (_) {}
   }
   await ref.read(opsSessionProvider.notifier).signOut();
+}
+
+/// "3 updates have not been sent. Send them first?": true to send first, false to sign out anyway (they are lost), null to stay.
+Future<bool?> _askToSendFirst(BuildContext context, int n) {
+  final t = OpsStrings.of(context);
+  return showDialog<bool>(
+    context: context,
+    builder: (c) => AlertDialog(
+      title: Text(t.outboxSignOutQ(n)),
+      content: Text(t.outboxSignOutBody),
+      actionsOverflowButtonSpacing: AppSpace.xs,
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(c), child: Text(t.cancel)),
+        TextButton(
+          key: const ValueKey('signout-anyway'),
+          style: TextButton.styleFrom(foregroundColor: Theme.of(c).colorScheme.error),
+          onPressed: () {
+            Haptics.heavy();
+            Navigator.pop(c, false);
+          },
+          child: Text(t.signOutAnyway),
+        ),
+        FilledButton(
+          key: const ValueKey('signout-send-first'),
+          onPressed: () => Navigator.pop(c, true),
+          child: Text(t.sendFirst),
+        ),
+      ],
+    ),
+  );
 }
 
 /// Language and sign-out, in one menu at the end of the app bar.

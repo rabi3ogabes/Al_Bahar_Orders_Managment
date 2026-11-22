@@ -7,6 +7,7 @@ import 'package:albahar_customer/ops/ops_repository.dart';
 import 'package:albahar_customer/ops/ops_staff_models.dart';
 import 'package:albahar_customer/ops/ops_strings.dart';
 import 'package:albahar_customer/ops/staff/staff_errors.dart';
+import 'package:albahar_customer/ops/staff/staff_offline.dart';
 import 'package:albahar_customer/ops/staff/staff_providers.dart';
 import 'package:albahar_customer/ops/staff/staff_strings.dart';
 import 'package:flutter/material.dart';
@@ -49,30 +50,33 @@ class _CancellationDecisionState extends ConsumerState<CancellationDecision> {
   Widget build(BuildContext context) {
     final t = OpsStrings.of(context);
     final p = context.palette;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        FilledButton.tonalIcon(
-          key: const ValueKey('cancellation-keep'),
-          onPressed: _busy ? null : () => unawaited(_decide(approve: false)),
-          icon: const Icon(Icons.undo_rounded, size: 18),
-          label: Text(t.keepOrder, maxLines: 1, overflow: TextOverflow.ellipsis),
-        ),
-        const Gap(AppSpace.xs),
-        FilledButton.icon(
-          key: const ValueKey('cancellation-approve'),
-          style: FilledButton.styleFrom(backgroundColor: p.danger, foregroundColor: Colors.white),
-          onPressed: _busy ? null : () => unawaited(_decide(approve: true)),
-          icon: _busy
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                )
-              : const Icon(Icons.cancel_outlined, size: 18),
-          label: Text(t.approveCancellation, maxLines: 1, overflow: TextOverflow.ellipsis),
-        ),
-      ],
+    return StaffOnlineGate(
+      label: t.approveCancellation,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          FilledButton.tonalIcon(
+            key: const ValueKey('cancellation-keep'),
+            onPressed: _busy ? null : () => unawaited(_decide(approve: false)),
+            icon: const Icon(Icons.undo_rounded, size: 18),
+            label: Text(t.keepOrder, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+          const Gap(AppSpace.xs),
+          FilledButton.icon(
+            key: const ValueKey('cancellation-approve'),
+            style: FilledButton.styleFrom(backgroundColor: p.danger, foregroundColor: Colors.white),
+            onPressed: _busy ? null : () => unawaited(_decide(approve: true)),
+            icon: _busy
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.cancel_outlined, size: 18),
+            label: Text(t.approveCancellation, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+        ],
+      ),
     );
   }
 }

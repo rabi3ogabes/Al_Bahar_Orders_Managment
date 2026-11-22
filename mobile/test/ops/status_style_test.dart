@@ -523,7 +523,9 @@ void main() {
       },
     );
 
-    testWidgets('a failed upload keeps the photo and the slide is ready for another try', (tester) async {
+    testWidgets('a slide without signal keeps the delivery on the phone, and it is sent later with the same key', (
+      tester,
+    ) async {
       final repo = jobs('out_for_delivery', arrived: true)..deliverError = apiError(ApiErrorKind.offline, 0);
       await _driver(tester, repo);
       await tester.tap(find.widgetWithText(FilledButton, 'Mark delivered'));
@@ -531,11 +533,15 @@ void main() {
       await tester.tap(find.text('Take proof photo'));
       await settle(tester);
       await _slide(tester);
-      expect(find.text('No connection. Check your signal and try again.'), findsOneWidget);
-      expect(find.text('Photo added'), findsOneWidget);
+      expect(find.text('Photo added'), findsNothing);
+      expect(find.text('1 update waiting to send'), findsOneWidget);
       repo.deliverError = null;
-      await _slide(tester);
+      await tester.tap(find.byKey(const ValueKey('outbox-open')));
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('outbox-send-now')));
+      await settle(tester);
       expect(repo.delivered, hasLength(2));
+      expect(repo.deliveredExtras[0].key, repo.deliveredExtras[1].key);
     });
 
     testWidgets('cash on delivery: the amount is checked before the slide goes through', (tester) async {

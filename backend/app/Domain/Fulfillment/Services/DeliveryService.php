@@ -27,6 +27,8 @@ use App\Support\BusinessTime;
 use App\Support\DomainException;
 use App\Support\Money;
 use App\Support\Redactor;
+use App\Support\StepTime;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Client\ConnectionException;
@@ -212,7 +214,7 @@ class DeliveryService
             $this->assertLive($f, $d);
             $this->orders->assertHandoverAllowed($f->order);
             $this->transition($d, DS::PickedUp, $actor, $this->source($actor), null);
-            $d->update(['picked_up_at' => now()]);
+            $d->update(['picked_up_at' => StepTime::now()]);
             $this->orders->advanceTo($f->fresh(), FS::Dispatched, $actor);
 
             return $d->fresh();
@@ -232,7 +234,7 @@ class DeliveryService
             $this->orders->assertHandoverAllowed($f->order);
             $this->transition($d, DS::OutForDelivery, $actor, $this->source($actor), null, $lat, $lng);
             // Every trip to the door is announced on its own: a delivery that is tried again says "close" and "arrived" again.
-            $d->update(['out_for_delivery_at' => now(), 'arrived_at' => null, 'nearby_at' => null]);
+            $d->update(['out_for_delivery_at' => StepTime::now(), 'arrived_at' => null, 'nearby_at' => null]);
             $f = $f->fresh();
             if ($f->status->canTransitionTo(FS::OutForDelivery)) {
                 $this->orders->transition($f, FS::OutForDelivery, $actor, system: true);
@@ -291,8 +293,8 @@ class DeliveryService
                 app(PaymentService::class)->recordCollection($payment, $f, $actor, $cod['tender'], $cod['amount'], $cod['receipt_reference'] ?? null, expected: Money::of($d->cod_amount));
             }
             $attempt = $d->attempt_count + 1;
-            DeliveryAttempt::create(['delivery_id' => $d->id, 'attempt_number' => $attempt, 'result' => 'delivered', 'attempted_by' => $actor->id, 'attempted_at' => now()]);
-            $d->update(['attempt_count' => $attempt, 'delivered_at' => now()]);
+            DeliveryAttempt::create(['delivery_id' => $d->id, 'attempt_number' => $attempt, 'result' => 'delivered', 'attempted_by' => $actor->id, 'attempted_at' => StepTime::now()]);
+            $d->update(['attempt_count' => $attempt, 'delivered_at' => StepTime::now()]);
             $this->transition($d, DS::Delivered, $actor, $this->source($actor), $recipientName ? 'received by '.$recipientName : null, $gps['latitude'] ?? null, $gps['longitude'] ?? null);
             $this->orders->transition($f->fresh(), FS::Delivered, $actor, system: true);
             CodSplit::refresh($order->fresh()); // what is left to collect is split among the parcels still on their way
@@ -327,8 +329,8 @@ class DeliveryService
             }
             $attempt = $d->attempt_count + 1;
             DeliveryAttempt::create(['delivery_id' => $d->id, 'attempt_number' => $attempt, 'result' => 'failed', 'failure_reason_code' => $reasonCode,
-                'notes' => $notes, 'attempted_by' => $actor->id, 'attempted_at' => now()]);
-            $d->update(['attempt_count' => $attempt, 'failed_at' => now(), 'failure_reason' => $reasonCode]);
+                'notes' => $notes, 'attempted_by' => $actor->id, 'attempted_at' => StepTime::now()]);
+            $d->update(['attempt_count' => $attempt, 'failed_at' => StepTime::now(), 'failure_reason' => $reasonCode]);
             $this->transition($d, DS::Failed, $actor, $this->source($actor), $reasonCode.($notes ? ': '.$notes : ''), $gps['latitude'] ?? null, $gps['longitude'] ?? null);
             if ($photo) {
                 $this->storeProof($d, $actor, $photo, 'failed', null, $gps);
@@ -341,7 +343,7 @@ class DeliveryService
             if ($payment && ! $payment->status->isSettled()) {
                 CashCollection::create(['payment_id' => $payment->id, 'order_fulfillment_id' => $f->id, 'branch_id' => $f->branch_id,
                     'collected_by' => $actor->id, 'context' => 'cod', 'tender' => 'cash', 'amount_due' => $d->cod_amount, 'amount_collected' => '0.00',
-                    'status' => 'failed', 'failure_reason' => $reasonCode, 'collected_at' => now()]);
+                    'status' => 'failed', 'failure_reason' => $reasonCode, 'collected_at' => StepTime::now()]);
             }
             // The customer is offered new times to choose from (SlotOffers decides whether this failure gets an offer); never at the cost of the attempt itself.
             $id = $d->id;
@@ -446,8 +448,8 @@ class DeliveryService
                 return $d->fresh();
             }
             $old = ['assembly_status' => $f->assembly_status, 'reason' => $f->assembly_reason];
-            $f->update(['assembly_status' => $status, 'assembly_answered_at' => now(), 'assembly_answered_by' => $actor->id, 'assembly_reason' => $reason, 'assembly_note' => $note,
-                'assembly_done_at' => $status === AssemblyFacts::DONE ? now() : null, 'assembly_handled_at' => null, 'assembly_handled_by' => null]);
+            $f->update(['assembly_status' => $status, 'assembly_answered_at' => StepTime::now(), 'assembly_answered_by' => $actor->id, 'assembly_reason' => $reason, 'assembly_note' => $note,
+                'assembly_done_at' => $status === AssemblyFacts::DONE ? StepTime::now() : null, 'assembly_handled_at' => null, 'assembly_handled_by' => null]);
             $this->audit->log('delivery.assembly_answered', $d, $old, ['assembly_status' => $status, 'reason' => $reason], ['order' => $f->order->number, 'fulfillment' => $f->number],
                 branchId: $d->branch_id, actor: $actor);
             if ($status === AssemblyFacts::NOT_DONE) {
@@ -781,6 +783,11 @@ class DeliveryService
         $f = OrderFulfillment::whereKey($delivery->order_fulfillment_id)->lockForUpdate()->firstOrFail();
         $f->load('order');
         $d = Delivery::whereKey($delivery->id)->lockForUpdate()->firstOrFail();
+        if (StepTime::backdated()) {
+            // A step sent late from the driver's outbox is never recorded before the step that came before it (StepTime).
+            $last = DeliveryStatusHistory::where('delivery_id', $d->id)->max('created_at');
+            StepTime::notBefore(is_string($last) ? CarbonImmutable::parse($last) : null);
+        }
 
         return [$f, $d];
     }
@@ -796,7 +803,7 @@ class DeliveryService
     private function log(Delivery $d, ?DS $from, DS $to, ?User $actor, string $source, ?string $note, ?float $lat = null, ?float $lng = null): void
     {
         DeliveryStatusHistory::create(['delivery_id' => $d->id, 'from_status' => $from?->value, 'to_status' => $to->value, 'actor_id' => $actor?->id,
-            'source' => $source, 'note' => $note ? Str::limit($note, 495) : null, 'latitude' => $lat, 'longitude' => $lng]);
+            'source' => $source, 'note' => $note ? Str::limit($note, 495) : null, 'latitude' => $lat, 'longitude' => $lng, 'created_at' => StepTime::now()]);
     }
 
     /** @param array{latitude: float, longitude: float, accuracy: ?int}|null $gps */
@@ -807,14 +814,14 @@ class DeliveryService
         }
         $disk = config('platform.media.disk') === 'public' ? 'local' : config('platform.media.disk'); // proofs are private
         $path = $file->store('delivery-proofs/'.$d->id, $disk);
-        DeliveryProof::create(['delivery_id' => $d->id, 'type' => $type, 'disk' => $disk, 'path' => $path, 'recipient_name' => $recipient, 'captured_by' => $actor->id, 'captured_at' => now()]
+        DeliveryProof::create(['delivery_id' => $d->id, 'type' => $type, 'disk' => $disk, 'path' => $path, 'recipient_name' => $recipient, 'captured_by' => $actor->id, 'captured_at' => StepTime::now()]
             + $this->gpsColumns($gps));
     }
 
     /** The driver gave a position but no photo (a delivery that needs none): the position is still kept, as a proof row without a file. @param array{latitude: float, longitude: float, accuracy: ?int} $gps */
     private function storeLocation(Delivery $d, User $actor, ?string $recipient, array $gps): void
     {
-        DeliveryProof::create(['delivery_id' => $d->id, 'type' => 'location', 'recipient_name' => $recipient, 'captured_by' => $actor->id, 'captured_at' => now()] + $this->gpsColumns($gps));
+        DeliveryProof::create(['delivery_id' => $d->id, 'type' => 'location', 'recipient_name' => $recipient, 'captured_by' => $actor->id, 'captured_at' => StepTime::now()] + $this->gpsColumns($gps));
     }
 
     /**

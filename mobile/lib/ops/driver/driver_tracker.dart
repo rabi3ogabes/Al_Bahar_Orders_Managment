@@ -26,6 +26,7 @@ enum TrackerMode {
 ///   dispatch can tell "waiting at the branch" from "phone off".
 /// * Heading is only sent while moving (a standing phone reports a meaningless 0), and the fix time goes along so a
 ///   report that sat in a queue is not mistaken for a live one.
+/// * No signal: nothing is queued; the newest fix is sent the moment the network is back ([resendLast]).
 /// * The stream settings are never changed while running: restarting an Android foreground service from the background
 ///   is not allowed on recent Android versions, so "slower when idle" is done on the sending side.
 class DriverTracker {
@@ -203,6 +204,15 @@ class DriverTracker {
     } finally {
       _sending = false;
     }
+  }
+
+  /// The signal is back: the newest position goes now (with the time the phone took it) instead of waiting for the next fix or the keep-alive.
+  /// Positions are not queued while there is no signal (one report every few seconds would pile up for nothing): dispatch sees a gap in the
+  /// route, then where the driver is now. A fix older than 10 minutes says nothing about now and is not sent.
+  Future<void> resendLast() async {
+    final p = _last;
+    if (p == null || !running || now().difference(p.timestamp) >= const Duration(minutes: 10)) return;
+    await _send(p);
   }
 
   Future<void> stop() async {

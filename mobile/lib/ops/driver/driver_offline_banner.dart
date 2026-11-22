@@ -2,14 +2,17 @@ import 'dart:async';
 
 import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/theme/tokens.dart';
+import 'package:albahar_customer/ops/driver/driver_outbox_provider.dart';
+import 'package:albahar_customer/ops/driver/driver_outbox_strings.dart';
 import 'package:albahar_customer/ops/driver/driver_providers.dart';
-import 'package:albahar_customer/ops/driver/driver_strings.dart';
+import 'package:albahar_customer/ops/ops_read_cache.dart';
 import 'package:albahar_customer/ops/ops_strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// "No connection. Check your signal." across the top of the driver's home while the phone has no network, with a Try again button that reads
-/// the lists once more (and clears the banner when that works). The lists below keep their last good rows; nothing is queued for later.
+/// "No connection. Your steps are saved and sent when the signal is back." across the top of the driver's home while the phone has no network, with
+/// a Try again button that reads the lists once more (and clears the banner when that works). The lists below keep their last good rows (also after
+/// a restart: "Last updated 2:05 PM"), and the steps the driver presses meanwhile wait in the outbox (driver_outbox.dart).
 class DriverOfflineBanner extends ConsumerStatefulWidget {
   const DriverOfflineBanner({super.key});
 
@@ -29,7 +32,11 @@ class _DriverOfflineBannerState extends ConsumerState<DriverOfflineBanner> {
       ..invalidate(driverMeProvider);
     try {
       await ref.read(driverJobsProvider(false).future);
-      if (mounted) ref.read(onlineProvider.notifier).set(true);
+      // A list that came from the phone (the server still cannot be reached) is not a signal.
+      if (mounted && !ref.read(opsStaleProvider).containsKey('driver.jobs.active')) {
+        ref.read(onlineProvider.notifier).set(true);
+        unawaited(ref.read(driverOutboxProvider.notifier).flush(force: true));
+      }
     } catch (_) {
       // Still no signal: the banner stays.
     }
@@ -56,7 +63,7 @@ class _DriverOfflineBannerState extends ConsumerState<DriverOfflineBanner> {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
                   child: Text(
-                    t.noConnection,
+                    t.offlineSaved,
                     style: Theme.of(context).textTheme.bodyMedium
                         ?.copyWith(color: scheme.onErrorContainer, fontWeight: FontWeight.w600),
                   ),

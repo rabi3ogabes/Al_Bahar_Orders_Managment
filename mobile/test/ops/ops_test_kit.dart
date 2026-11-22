@@ -8,6 +8,7 @@ import 'package:albahar_customer/core/theme/app_theme.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
 import 'package:albahar_customer/l10n/generated/app_localizations.dart';
 import 'package:albahar_customer/ops/driver/driver_home.dart';
+import 'package:albahar_customer/ops/driver/driver_outbox_provider.dart';
 import 'package:albahar_customer/ops/driver/driver_tracker.dart';
 import 'package:albahar_customer/ops/ops_models.dart';
 import 'package:albahar_customer/ops/ops_repository.dart';
@@ -251,9 +252,22 @@ class FakeOps implements OpsRepository {
     return history ? const [] : jobList;
   }
 
+  /// The key and the time each step went with (by the call, `pickup:d1`), for the outbox tests.
+  final stepKeys = <String, String?>{};
+  final actedAts = <String, DateTime?>{};
+
   @override
-  Future<void> jobStep(String id, String action, {double? lat, double? lng}) async {
+  Future<void> jobStep(
+    String id,
+    String action, {
+    double? lat,
+    double? lng,
+    String? idempotencyKey,
+    DateTime? actedAt,
+  }) async {
     calls.add('$action:$id');
+    stepKeys['$action:$id'] = idempotencyKey;
+    actedAts['$action:$id'] = actedAt;
     await stepGate?.future;
     if (stepError != null) throw stepError!;
   }
@@ -268,8 +282,10 @@ class FakeOps implements OpsRepository {
     double? lng,
     double? accuracy,
     String? idempotencyKey,
+    DateTime? actedAt,
   }) async {
     calls.add('deliver:$id');
+    actedAts['deliver:$id'] = actedAt;
     delivered.add((id: id, recipient: recipient, proof: proof, cod: codAmount));
     deliveredExtras.add((lat: lat, lng: lng, accuracy: accuracy, key: idempotencyKey));
     await deliverGate?.future;
@@ -286,8 +302,10 @@ class FakeOps implements OpsRepository {
     double? lng,
     double? accuracy,
     String? idempotencyKey,
+    DateTime? actedAt,
   }) async {
     calls.add('fail:$id:$reason');
+    actedAts['fail:$id'] = actedAt;
     failures.add((id: id, reason: reason, notes: notes, photo: photo, lat: lat, lng: lng, key: idempotencyKey));
     await failGate?.future;
     if (failError != null) throw failError!;
@@ -306,8 +324,10 @@ class FakeOps implements OpsRepository {
     String? note,
     File? photo,
     String? idempotencyKey,
+    DateTime? actedAt,
   }) async {
     calls.add('assembly:$id:$status${reason == null ? '' : ':$reason'}');
+    actedAts['assembly:$id'] = actedAt;
     assemblies.add((id: id, status: status, reason: reason, note: note, photo: photo, key: idempotencyKey));
     if (assemblyError != null) throw assemblyError!;
     onAssembly?.call(status, reason);
@@ -584,6 +604,21 @@ class FakeTracker extends DriverTracker {
   }
 }
 
+/// Stands in for the outbox's private photo files: the path the camera gave is used as it is, and what was kept or deleted is recorded.
+class FakeOutboxFiles implements OutboxFiles {
+  final kept = <String>[];
+  final deleted = <String>[];
+
+  @override
+  Future<String> keep(File photo, String key) async {
+    kept.add(photo.path);
+    return photo.path;
+  }
+
+  @override
+  Future<void> delete(String path) async => deleted.add(path);
+}
+
 /// Stands in for the camera and the gallery.
 class FakePicker implements ImagePicker {
   final shots = <String>[];
@@ -660,6 +695,7 @@ Widget opsHost(
   FakePicker? picker,
   FakeTracker? tracker,
   FakeNavigation? navigation,
+  FakeOutboxFiles? outboxFiles,
   OpsRole role = OpsRole.driver,
   Stream<PusherEvent>? staffEvents,
   List<Override> overrides = const [],
@@ -673,6 +709,7 @@ Widget opsHost(
     locationServiceProvider.overrideWithValue(location ?? FakeLocation()),
     opsImagePickerProvider.overrideWithValue(picker ?? FakePicker()),
     driverTrackerProvider.overrideWithValue(tracker ?? FakeTracker(repo)),
+    outboxFilesProvider.overrideWithValue(outboxFiles ?? FakeOutboxFiles()),
     // No socket in tests: real-time pings are covered by the backend tests.
     driverEventsProvider.overrideWith((ref) => const Stream.empty()),
     staffEventsProvider.overrideWith((ref) => staffEvents ?? const Stream.empty()),
