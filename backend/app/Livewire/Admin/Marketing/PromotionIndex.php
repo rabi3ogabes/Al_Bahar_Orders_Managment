@@ -237,6 +237,7 @@ class PromotionIndex extends Component
      */
     private function skuLookup(string $paste): array
     {
+        /** @var Collection<int, string> $skus */
         $skus = collect(preg_split('/[\s,;]+/', trim($paste)))->filter()->map(fn ($v) => mb_strtoupper($v))->unique()->values();
         if ($skus->isEmpty()) {
             return ['found' => collect(), 'missing' => collect(), 'any' => false];
