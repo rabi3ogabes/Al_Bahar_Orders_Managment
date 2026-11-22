@@ -205,7 +205,7 @@ it('tells the customer\'s open apps about a new inbox entry on their private cha
     $first = Event::dispatched(NotificationCreated::class)->first()[0];
     expect($first->broadcastOn()[0]->name)->toBe('private-users.'.$user->id)->and($first->broadcastAs())->toBe('notification.created')
         ->and($first->broadcastWith())->toMatchArray(['event' => 'order.confirmed', 'category' => 'transactional', 'deep_link' => 'albahar://orders/1', 'unread_count' => 1])
-        ->and($first->broadcastWith()['notification_id'])->toBe(Notification::where('user_id', $user->id)->oldest()->value('id'))
+        ->and($first->broadcastWith()['notification_id'])->toBe(Notification::where('user_id', $user->id)->oldest()->orderBy('id')->value('id')) // same second: the time-ordered id breaks the tie
         ->and($last->broadcastWith()['unread_count'])->toBe(2)->and($first->broadcastQueue())->toBe('notifications');
     expect(is_subclass_of(NotificationCreated::class, ShouldBroadcast::class))->toBeTrue()->and(is_subclass_of(NotificationCreated::class, ShouldDispatchAfterCommit::class))->toBeTrue();
 });
