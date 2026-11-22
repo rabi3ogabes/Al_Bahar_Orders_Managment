@@ -4,6 +4,7 @@ namespace App\Livewire\Admin\Marketing;
 
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Branches\Models\Branch;
+use App\Domain\Catalog\Models\Brand;
 use App\Domain\Catalog\Models\Category;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Marketing\Models\Coupon;
@@ -12,6 +13,7 @@ use App\Domain\Marketing\Models\Promotion;
 use App\Livewire\Admin\Concerns\WithAdminTable;
 use App\Support\BusinessTime;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -20,8 +22,9 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
- * Promotions (automatic or coupon-based, stacking/priority, windows, usage limits, scope by categories/products/branches) and
- * their coupon codes. Discount maths stays in PromotionEngine; this screen only manages the configuration.
+ * Promotions (automatic or coupon-based, stacking/priority, windows, usage limits, scope by categories/products/branches, and exclusions: products,
+ * categories and brands the promotion never discounts, see docs/guides/PROMOTION_EXCLUSIONS.md) and their coupon codes. Discount maths stays in
+ * PromotionEngine; this screen only manages the configuration.
  */
 class PromotionIndex extends Component
 {
@@ -57,6 +60,17 @@ class PromotionIndex extends Component
     public string $productSearch = '';
 
     public string $skuPaste = '';
+
+    /** Products, categories and brands the promotion leaves out ("the whole basket except these"); an exclusion beats an inclusion. */
+    public array $excludedProductIds = [];
+
+    public string $excludeSearch = '';
+
+    public string $excludeSkuPaste = '';
+
+    public array $excludedCategoryIds = [];
+
+    public array $excludedBrandIds = [];
 
     public array $branchIds = [];
 
@@ -101,6 +115,8 @@ class PromotionIndex extends Component
         $this->categoryIds = [];
         $this->productIds = [];
         $this->productSearch = $this->skuPaste = '';
+        $this->excludedProductIds = $this->excludedCategoryIds = $this->excludedBrandIds = [];
+        $this->excludeSearch = $this->excludeSkuPaste = '';
         $this->branchIds = [];
         $this->resetValidation();
         $this->showPromo = true;
@@ -109,7 +125,7 @@ class PromotionIndex extends Component
     public function editPromotion(string $id): void
     {
         abort_unless($this->can('marketing.edit'), 403);
-        $promo = Promotion::with(['categories:id', 'branches:id', 'products:id'])->findOrFail($id);
+        $promo = Promotion::with(['categories:id', 'branches:id', 'products:id', 'excludedProducts:id', 'excludedCategories:id', 'excludedBrands:id'])->findOrFail($id);
         $this->editingId = $promo->id;
         $this->p = collect($promo->only(['name_en', 'name_ar', 'description_en', 'description_ar', 'type', 'value', 'scope', 'min_basket_amount', 'max_discount_amount',
             'buy_quantity', 'get_quantity', 'get_discount_percent', 'first_order_only', 'customer_group_id', 'requires_coupon', 'is_stackable', 'priority',
@@ -121,6 +137,10 @@ class PromotionIndex extends Component
         $this->categoryIds = $promo->categories->pluck('id')->all();
         $this->productIds = $promo->products->pluck('id')->all();
         $this->productSearch = $this->skuPaste = '';
+        $this->excludedProductIds = $promo->excludedProducts->pluck('id')->all();
+        $this->excludedCategoryIds = $promo->excludedCategories->pluck('id')->all();
+        $this->excludedBrandIds = $promo->excludedBrands->pluck('id')->all();
+        $this->excludeSearch = $this->excludeSkuPaste = '';
         $this->branchIds = $promo->branches->pluck('id')->all();
         $this->resetValidation();
         $this->showPromo = true;
@@ -147,6 +167,9 @@ class PromotionIndex extends Component
             'p.is_active' => 'boolean', 'p.applies_to_auctions' => 'boolean',
             'categoryIds' => 'array', 'categoryIds.*' => 'uuid|exists:categories,id',
             'productIds' => 'array|max:'.self::MAX_PRODUCTS, 'productIds.*' => 'uuid|exists:products,id', 'branchIds' => 'array', 'branchIds.*' => 'uuid|exists:branches,id',
+            'excludedProductIds' => 'array|max:'.self::MAX_PRODUCTS, 'excludedProductIds.*' => 'uuid|exists:products,id',
+            'excludedCategoryIds' => 'array|max:200', 'excludedCategoryIds.*' => 'uuid|exists:categories,id',
+            'excludedBrandIds' => 'array|max:200', 'excludedBrandIds.*' => 'uuid|exists:brands,id',
         ], ['p.requires_coupon.accepted' => __('marketing_admin.free_delivery_needs_code')], ['p.name_en' => __('marketing_admin.name_en'), 'p.name_ar' => __('marketing_admin.name_ar'), 'p.value' => __('marketing_admin.value'), 'p.ends_at' => __('marketing_admin.ends_at'),
             'p.buy_quantity' => __('marketing_admin.buy_qty'), 'p.get_quantity' => __('marketing_admin.get_qty')]);
         $attrs = collect($data['p'])->map(fn ($v) => $v === '' ? null : $v)->all();
@@ -163,15 +186,23 @@ class PromotionIndex extends Component
 
             return;
         }
-        DB::transaction(function () use ($attrs, $data, $audit) {
+        $saved = DB::transaction(function () use ($attrs, $data, $audit) {
             $promo = $this->editingId ? Promotion::findOrFail($this->editingId) : new Promotion(['created_by' => auth()->id()]);
             $old = $promo->exists ? $promo->only(array_keys($attrs)) : [];
             $promo->fill($attrs)->save();
             $promo->categories()->sync($data['p']['scope'] === 'categories' ? $data['categoryIds'] : []);
             $promo->products()->sync($data['p']['scope'] === 'products' ? array_values(array_unique($data['productIds'])) : []);
             $promo->branches()->sync($data['branchIds']);
-            $audit->log($old ? 'marketing.promotion_updated' : 'marketing.promotion_created', $promo, $old, $promo->getChanges() ?: $attrs, ['categories' => $data['categoryIds'], 'products' => $data['p']['scope'] === 'products' ? $data['productIds'] : [], 'branches' => $data['branchIds']]);
+            $promo->excludedProducts()->sync(array_values(array_unique($data['excludedProductIds'])));
+            $promo->excludedCategories()->sync(array_values(array_unique($data['excludedCategoryIds'])));
+            $promo->excludedBrands()->sync(array_values(array_unique($data['excludedBrandIds'])));
+            $audit->log($old ? 'marketing.promotion_updated' : 'marketing.promotion_created', $promo, $old, $promo->getChanges() ?: $attrs, ['categories' => $data['categoryIds'], 'products' => $data['p']['scope'] === 'products' ? $data['productIds'] : [], 'branches' => $data['branchIds'],
+                'excluded_products' => array_values(array_unique($data['excludedProductIds'])), 'excluded_categories' => array_values(array_unique($data['excludedCategoryIds'])), 'excluded_brands' => array_values(array_unique($data['excludedBrandIds']))]);
+
+            return $promo;
         });
+        // A second tap on "Save" (the request was sent twice) is an update of the promotion just made, never a second promotion.
+        $this->editingId = $saved->id;
         $this->showPromo = false;
         $this->toast(__('admin.saved'));
     }
@@ -199,13 +230,16 @@ class PromotionIndex extends Component
         $this->productIds = array_values(array_diff($this->productIds, [$id]));
     }
 
-    /** Add many products at once from a pasted list of product or variant SKUs (one per line or comma-separated). */
-    public function addBySkus(): void
+    /**
+     * Looks a pasted list of product or variant SKUs up (one per line or comma-separated): the products found, in the order they were pasted, and the SKUs that matched nothing.
+     *
+     * @return array{found: Collection<int, Product>, missing: Collection<int, string>, any: bool}
+     */
+    private function skuLookup(string $paste): array
     {
-        abort_unless($this->can('marketing.edit') || $this->can('marketing.create'), 403);
-        $skus = collect(preg_split('/[\s,;]+/', trim($this->skuPaste)))->filter()->map(fn ($v) => mb_strtoupper($v))->unique()->values();
+        $skus = collect(preg_split('/[\s,;]+/', trim($paste)))->filter()->map(fn ($v) => mb_strtoupper($v))->unique()->values();
         if ($skus->isEmpty()) {
-            return;
+            return ['found' => collect(), 'missing' => collect(), 'any' => false];
         }
         $found = Product::query()->where('status', '!=', 'archived')
             ->where(fn ($q) => $q->whereIn(DB::raw('upper(sku)'), $skus->all())->orWhereHas('variants', fn ($v) => $v->whereIn(DB::raw('upper(sku)'), $skus->all())))
@@ -214,8 +248,24 @@ class PromotionIndex extends Component
             ->sortBy(fn ($p) => $p->variants->pluck('sku')->prepend($p->sku)->map(fn ($v) => $skus->search(mb_strtoupper($v), true))->filter(fn ($i) => $i !== false)->min() ?? PHP_INT_MAX)
             ->values();
         $matched = $found->flatMap(fn ($p) => array_merge([mb_strtoupper($p->sku)], $p->variants->pluck('sku')->map(fn ($v) => mb_strtoupper($v))->all()));
-        $missing = $skus->reject(fn ($k) => $matched->contains($k))->values();
 
+        return ['found' => $found, 'missing' => $skus->reject(fn ($k) => $matched->contains($k))->values(), 'any' => true];
+    }
+
+    /** Tells how many SKUs were added and which ones matched nothing. */
+    private function skusToast(int $added, Collection $missing): void
+    {
+        $this->toast(__('marketing_admin.skus_added', ['n' => $added]).($missing->isNotEmpty() ? ' '.__('marketing_admin.skus_missing', ['list' => $missing->take(5)->implode(', ').($missing->count() > 5 ? '…' : '')]) : ''), $missing->isNotEmpty() ? 'warning' : 'success');
+    }
+
+    /** Add many products at once from a pasted list of product or variant SKUs (one per line or comma-separated). */
+    public function addBySkus(): void
+    {
+        abort_unless($this->can('marketing.edit') || $this->can('marketing.create'), 403);
+        ['found' => $found, 'missing' => $missing, 'any' => $any] = $this->skuLookup($this->skuPaste);
+        if (! $any) {
+            return;
+        }
         $before = count($this->productIds);
         $this->productIds = array_values(array_unique(array_merge($this->productIds, $found->pluck('id')->all())));
         if (count($this->productIds) > self::MAX_PRODUCTS) {
@@ -223,8 +273,50 @@ class PromotionIndex extends Component
             $this->toast(__('marketing_admin.max_products', ['n' => self::MAX_PRODUCTS]), 'warning');
         }
         $this->resetErrorBag('productIds');
-        $this->toast(__('marketing_admin.skus_added', ['n' => count($this->productIds) - $before]).($missing->isNotEmpty() ? ' '.__('marketing_admin.skus_missing', ['list' => $missing->take(5)->implode(', ').($missing->count() > 5 ? '…' : '')]) : ''), $missing->isNotEmpty() ? 'warning' : 'success');
+        $this->skusToast(count($this->productIds) - $before, $missing);
         $this->skuPaste = '';
+    }
+
+    public function addExcludedProduct(string $id): void
+    {
+        abort_unless($this->can('marketing.edit') || $this->can('marketing.create'), 403);
+        if (! Str::isUuid($id) || in_array($id, $this->excludedProductIds, true)) {
+            return;
+        }
+        if (count($this->excludedProductIds) >= self::MAX_PRODUCTS) {
+            $this->toast(__('marketing_admin.max_products', ['n' => self::MAX_PRODUCTS]), 'warning');
+
+            return;
+        }
+        if (Product::whereKey($id)->where('status', '!=', 'archived')->exists()) {
+            $this->excludedProductIds[] = $id;
+            $this->resetErrorBag('excludedProductIds');
+        }
+        $this->excludeSearch = '';
+    }
+
+    public function removeExcludedProduct(string $id): void
+    {
+        $this->excludedProductIds = array_values(array_diff($this->excludedProductIds, [$id]));
+    }
+
+    /** The same paste-SKUs box as the products a promotion covers, for the products it leaves out. */
+    public function addExcludedBySkus(): void
+    {
+        abort_unless($this->can('marketing.edit') || $this->can('marketing.create'), 403);
+        ['found' => $found, 'missing' => $missing, 'any' => $any] = $this->skuLookup($this->excludeSkuPaste);
+        if (! $any) {
+            return;
+        }
+        $before = count($this->excludedProductIds);
+        $this->excludedProductIds = array_values(array_unique(array_merge($this->excludedProductIds, $found->pluck('id')->all())));
+        if (count($this->excludedProductIds) > self::MAX_PRODUCTS) {
+            $this->excludedProductIds = array_slice($this->excludedProductIds, 0, self::MAX_PRODUCTS);
+            $this->toast(__('marketing_admin.max_products', ['n' => self::MAX_PRODUCTS]), 'warning');
+        }
+        $this->resetErrorBag('excludedProductIds');
+        $this->skusToast(count($this->excludedProductIds) - $before, $missing);
+        $this->excludeSkuPaste = '';
     }
 
     public function toggle(string $model, string $id, AuditLogger $audit): void
@@ -268,25 +360,40 @@ class PromotionIndex extends Component
         $this->toast(__('marketing_admin.coupon_created', ['code' => $coupon->code]));
     }
 
-    /** Client-supplied ids can be anything until save-time validation; never feed unvalidated values to a uuid column. */
-    private function validProductIds(): array
+    /**
+     * Client-supplied ids can be anything until save-time validation; never feed unvalidated values to a uuid column.
+     *
+     * @param  array<int, mixed>  $ids
+     * @return list<string>
+     */
+    private function validIds(array $ids): array
     {
-        return array_values(array_filter($this->productIds, fn ($id) => is_string($id) && Str::isUuid($id)));
+        return array_values(array_filter($ids, fn ($id) => is_string($id) && Str::isUuid($id)));
     }
 
-    /** Products matching the picker search (max 8), excluding archived ones and those already chosen. */
-    private function productMatches()
+    /** Products matching a picker search (max 8), excluding archived ones and those already chosen. @param  list<string>  $already */
+    private function productMatches(string $search, array $already)
     {
-        $term = trim($this->productSearch);
+        $term = trim($search);
         if (mb_strlen($term) < 2) {
             return collect();
         }
         $like = '%'.addcslashes($term, '%_\\').'%';
 
-        return Product::query()->with('translations')->where('status', '!=', 'archived')->whereNotIn('id', $this->validProductIds())
+        return Product::query()->with('translations')->where('status', '!=', 'archived')->whereNotIn('id', $already)
             ->where(fn ($w) => $w->where('sku', 'ilike', $like)->orWhereHas('translations', fn ($t) => $t->where('name', 'ilike', $like))
                 ->orWhereHas('variants', fn ($v) => $v->where('sku', 'ilike', $like)))
             ->orderBy('sku')->limit(8)->get();
+    }
+
+    /**
+     * The chosen products as rows, in the order they were added.
+     *
+     * @param  list<string>  $ids
+     */
+    private function pickedProducts(array $ids)
+    {
+        return $ids === [] ? collect() : Product::with('translations')->whereIn('id', $ids)->get()->sortBy(fn ($p) => array_search($p->id, $ids, true))->values();
     }
 
     public function render()
@@ -302,16 +409,18 @@ class PromotionIndex extends Component
         };
         $rows = $this->tab === 'coupons'
             ? Coupon::query()->with('promotion:id,name_en,name_ar,type,value')->tap($state)->when($s, fn ($q) => $q->where('code', 'ilike', "%{$s}%"))->latest()->paginate($this->perPage)
-            : Promotion::query()->withCount(['coupons', 'products'])->tap($state)->when($s, fn ($q) => $q->where(fn ($w) => $w->where('name_en', 'ilike', "%{$s}%")->orWhere('name_ar', 'ilike', "%{$s}%")))
+            : Promotion::query()->withCount(['coupons', 'products', 'categories', 'excludedProducts', 'excludedCategories', 'excludedBrands'])->tap($state)->when($s, fn ($q) => $q->where(fn ($w) => $w->where('name_en', 'ilike', "%{$s}%")->orWhere('name_ar', 'ilike', "%{$s}%")))
                 ->orderBy('priority')->latest()->paginate($this->perPage);
 
         return view('livewire.admin.marketing.promotions', [
             'rows' => $rows,
             'promotions' => $this->showCoupon ? Promotion::where('requires_coupon', true)->orderBy('name_en')->get(['id', 'name_en', 'name_ar']) : collect(),
             'categories' => $this->showPromo ? Category::with('translations')->orderBy('sort_order')->get() : collect(),
-            'productMatches' => $this->showPromo && ($this->p['scope'] ?? '') === 'products' ? $this->productMatches() : collect(),
-            'pickedProducts' => $this->showPromo && ($this->p['scope'] ?? '') === 'products' && $this->validProductIds()
-                ? Product::with('translations')->whereIn('id', $this->validProductIds())->get()->sortBy(fn ($p) => array_search($p->id, $this->productIds, true))->values() : collect(),
+            'productMatches' => $this->showPromo && ($this->p['scope'] ?? '') === 'products' ? $this->productMatches($this->productSearch, $this->validIds($this->productIds)) : collect(),
+            'pickedProducts' => $this->showPromo && ($this->p['scope'] ?? '') === 'products' ? $this->pickedProducts($this->validIds($this->productIds)) : collect(),
+            'excludeMatches' => $this->showPromo ? $this->productMatches($this->excludeSearch, $this->validIds($this->excludedProductIds)) : collect(),
+            'pickedExcluded' => $this->showPromo ? $this->pickedProducts($this->validIds($this->excludedProductIds)) : collect(),
+            'brands' => $this->showPromo ? Brand::orderBy('name_en')->get(['id', 'name_en', 'name_ar']) : collect(),
             'branches' => $this->showPromo ? Branch::orderBy('sort_order')->get(['id', 'code', 'name_en', 'name_ar']) : collect(),
             'groups' => $this->showPromo ? CustomerGroup::orderBy('name_en')->get() : collect(),
             'canCreate' => $this->can('marketing.create'),

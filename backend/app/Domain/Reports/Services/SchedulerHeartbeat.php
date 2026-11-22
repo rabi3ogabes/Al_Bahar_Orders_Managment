@@ -40,6 +40,7 @@ final class SchedulerHeartbeat
         'banners:purge-deleted' => 1440,
         'reports:send-owner-pack' => 5,
         'customers:refresh-value' => 30,
+        'deliveries:process-slot-offers' => 5,
     ];
 
     /** Tasks that run every few seconds write at most once per this many seconds (a heartbeat a minute is plenty to see them alive). */

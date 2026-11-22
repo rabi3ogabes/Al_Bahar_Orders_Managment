@@ -3,6 +3,7 @@
 namespace App\Domain\Marketing\Models;
 
 use App\Domain\Branches\Models\Branch;
+use App\Domain\Catalog\Models\Brand;
 use App\Domain\Catalog\Models\Category;
 use App\Domain\Catalog\Models\Product;
 use App\Domain\Shared\HasTranslations;
@@ -29,6 +30,30 @@ class Promotion extends Model
     public function categories(): BelongsToMany
     {
         return $this->belongsToMany(Category::class, 'promotion_categories');
+    }
+
+    /** Products the promotion never discounts (docs/guides/PROMOTION_EXCLUSIONS.md). @return BelongsToMany<Product, $this> */
+    public function excludedProducts(): BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'promotion_excluded_products');
+    }
+
+    /** Categories (with their sub-categories) the promotion never discounts. @return BelongsToMany<Category, $this> */
+    public function excludedCategories(): BelongsToMany
+    {
+        return $this->belongsToMany(Category::class, 'promotion_excluded_categories');
+    }
+
+    /** Brands the promotion never discounts. @return BelongsToMany<Brand, $this> */
+    public function excludedBrands(): BelongsToMany
+    {
+        return $this->belongsToMany(Brand::class, 'promotion_excluded_brands');
+    }
+
+    /** Does the promotion leave anything out? */
+    public function hasExclusions(): bool
+    {
+        return $this->excludedProducts->isNotEmpty() || $this->excludedCategories->isNotEmpty() || $this->excludedBrands->isNotEmpty();
     }
 
     /** @return BelongsToMany<Branch, $this> */

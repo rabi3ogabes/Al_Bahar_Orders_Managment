@@ -81,4 +81,10 @@ class CashShift extends Model
     {
         return $this->hasMany(Refund::class, 'cash_shift_id');
     }
+
+    /** Petty cash paid out of this shift's drawer (voided ones included). @return HasMany<CashPayout, $this> */
+    public function payouts(): HasMany
+    {
+        return $this->hasMany(CashPayout::class, 'cash_shift_id');
+    }
 }

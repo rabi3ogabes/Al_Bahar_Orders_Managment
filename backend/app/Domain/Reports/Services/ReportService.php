@@ -33,16 +33,22 @@ class ReportService
     public const REPORTS = [
         'sales_summary' => 'reports.view', 'sales_by_branch' => 'reports.view', 'sales_by_product' => 'reports.view', 'sales_by_category' => 'reports.view',
         'sales_by_brand' => 'reports.view', 'sales_by_payment_method' => 'reports.view', 'sales_by_fulfillment' => 'reports.view', 'order_status' => 'reports.view',
+        'sales_assembly' => 'reports.view',
         'inventory_levels' => 'inventory.view', 'inventory_valuation' => 'inventory.view', 'stock_movements' => 'inventory.view', 'fast_slow_movers' => 'inventory.view',
         'transfers' => 'transfers.view', 'damaged_lost' => 'inventory.view',
         'customers' => 'customers.view', 'deliveries' => 'deliveries.view', 'pickups' => 'pickup.view', 'auctions' => 'auctions.view',
         'finance_collections' => 'payments.view', 'finance_refunds' => 'refunds.view', 'finance_outstanding' => 'payments.view', 'sadad_reconciliation' => 'reconciliation.view',
     ];
 
-    /** Refund reasons whose money the order lines have already dropped (cancelled quantities, items changed by the branch). */
+    /**
+     * The reports that can be narrowed to "orders with assembly" ({@see AssemblySales::onlyParts()}). The assembly report itself is always about assembly, so it is not listed.
+     */
+    public const ASSEMBLY_FILTER = ['sales_summary', 'sales_by_branch', 'sales_by_product', 'sales_by_category', 'sales_by_brand', 'sales_by_payment_method', 'sales_by_fulfillment', 'order_status'];
+
     /** The stock list shows the emptiest rows first and stops here; the low / out counts above it cover every row. */
     public const LEVEL_ROWS = 5000;
 
+    /** Refund reasons whose money the order lines have already dropped (cancelled quantities, items changed by the branch). */
     public const REFUNDS_ALREADY_IN_LINES = ['order_cancelled', 'order_adjustment'];
 
     /** How many rows of the stock list are returned (a property so a test can shrink it). */
@@ -50,8 +56,11 @@ class ReportService
 
     public function __construct(private readonly AccessControl $access) {}
 
-    /** @return array{columns: list<string>, rows: list<array>, summary: array} */
-    public function run(User $user, string $report, string $from, string $to, ?string $branchId = null): array
+    /**
+     * @param  bool  $assemblyOnly  only the branch parts that have paid assembly (the sales reports in {@see self::ASSEMBLY_FILTER}; any other report ignores it)
+     * @return array{columns: list<string>, rows: list<array>, summary: array}
+     */
+    public function run(User $user, string $report, string $from, string $to, ?string $branchId = null, bool $assemblyOnly = false): array
     {
         $perm = self::REPORTS[$report] ?? throw DomainException::make('not_found', 404);
         if (! $this->access->allows($user, 'reports.view') || ! $this->access->allows($user, $perm)) {
@@ -60,47 +69,50 @@ class ReportService
         $scope = $this->access->scope($user, $perm)->narrow($branchId);
         [$start, $end] = BusinessTime::dateRange($from, $to);
 
-        return $this->{lcfirst(str_replace('_', '', ucwords($report, '_')))}($scope, $start, $end);
+        return $this->{lcfirst(str_replace('_', '', ucwords($report, '_')))}($scope, $start, $end, $assemblyOnly && in_array($report, self::ASSEMBLY_FILTER, true));
     }
 
     // ── Sales ────────────────────────────────────────────────────────────────
     /** Order lines of the orders that count as sales (see SalesBasis), limited to the viewer's branches. */
-    private function lines(BranchScope $s, $start, $end): Builder
+    private function lines(BranchScope $s, $start, $end, bool $assemblyOnly = false): Builder
     {
         $q = DB::table('order_items as oi')->join('orders as o', 'o.id', '=', 'oi.order_id')
             ->whereBetween('o.placed_at', [$start, $end])->whereNotIn('o.status', SalesBasis::EXCLUDED_STATUSES);
+        if ($assemblyOnly) {
+            AssemblySales::onlyParts($q, 'oi.order_fulfillment_id');
+        }
 
         return $s->apply($q, 'oi.branch_id');
     }
 
     /**
-     * Refunds processed in the window that are NOT already explained by the order lines (see the class comment), as the viewer's share: a refund of
-     * an order that several branches fulfilled is divided in the same proportions as the sale itself. One row per refund, so two refunds of the
-     * same amount are two refunds (they used to collapse into one).
+     * Refunds processed in the window that are NOT already explained by the order lines (see the class comment), as the viewer's share: a refund of an order
+     * that several branches fulfilled is divided in the same proportions as the sale itself. The division is {@see SalesBasis::refunds()}, the one the daily
+     * close uses, so the two cannot disagree. With `$assemblyOnly`, only the refunds of orders that have a part with paid assembly.
      */
-    private function refundsOutsideLines(BranchScope $s, $start, $end): string
+    private function refundsOutsideLines(BranchScope $s, $start, $end, bool $assemblyOnly = false): string
     {
-        $perOrder = DB::table('refunds as r')->where('r.status', 'processed')->whereBetween('r.processed_at', [$start, $end])
-            ->whereNotNull('r.order_id')->whereNotIn('r.reason_code', self::REFUNDS_ALREADY_IN_LINES)
-            ->selectRaw('r.order_id, sum(r.amount) as amount')->groupBy('r.order_id');
-        $total = DB::query()->fromSub($perOrder, 'ro')->joinSub(SalesBasis::branchFraction($s), 'bf', 'bf.order_id', '=', 'ro.order_id')
-            ->selectRaw('coalesce(sum(round(ro.amount * bf.fraction, 2)), 0)::numeric(14,2) as total')->value('total');
+        // The orders that have a part with paid assembly AT ONE OF THE VIEWER'S BRANCHES (the same judgement as the lines above): a split order whose assembly sits at
+        // another branch is not an assembly order for this viewer, so a refund of it is not taken off their narrowed net sales.
+        $onlyOrders = $assemblyOnly ? AssemblySales::onlyParts($s->apply(DB::table('order_fulfillments as af')->select('af.order_id'), 'af.branch_id'), 'af.id') : null;
 
-        return (string) $total;
+        return SalesBasis::refunds($s, $start, $end, self::REFUNDS_ALREADY_IN_LINES, $onlyOrders)['amount']->toDecimal();
     }
 
-    private function salesSummary(BranchScope $s, $start, $end): array
+    private function salesSummary(BranchScope $s, $start, $end, bool $assemblyOnly = false): array
     {
-        $l = $this->lines($s, $start, $end)->selectRaw('coalesce(sum(oi.line_subtotal), 0) as gross, coalesce(sum(oi.discount_amount), 0) as discounts,
+        $l = $this->lines($s, $start, $end, $assemblyOnly)->selectRaw('coalesce(sum(oi.line_subtotal), 0) as gross, coalesce(sum(oi.discount_amount), 0) as discounts,
             coalesce(sum(oi.unit_final_price * oi.quantity_cancelled), 0)::numeric(14,2) as cancelled')->first();
         $gross = Money::of((string) $l->gross);
         $discounts = Money::of((string) $l->discounts);
         $cancelled = Money::of((string) $l->cancelled);
-        $refunds = Money::of($this->refundsOutsideLines($s, $start, $end));
-        $booked = SalesBasis::totals($s, $start, $end);
+        $refunds = Money::of($this->refundsOutsideLines($s, $start, $end, $assemblyOnly));
+        $booked = $assemblyOnly ? AssemblySales::bookedOfAssemblyOrders($s, $start, $end) : SalesBasis::totals($s, $start, $end);
         $net = $gross->minus($discounts)->minus($cancelled)->minus($refunds);
         $orders = $booked['orders']; // the dashboard's count: orders with a live part in the viewer's branches
         $average = $orders > 0 ? Money::ofMinor((int) round($net->minor / $orders)) : Money::zero();
+        // Paid assembly is a service charge outside the item lines above (see AssemblySales): its own rows, so net sales keeps its meaning.
+        $assembly = AssemblySales::totals($s, $start, $end);
 
         return ['columns' => ['metric', 'value'], 'rows' => [
             ['metric' => 'orders', 'value' => $orders], ['metric' => 'booked_sales', 'value' => $booked['total']->toDecimal()],
@@ -108,44 +120,65 @@ class ReportService
             ['metric' => 'discounts', 'value' => $discounts->toDecimal()], ['metric' => 'cancelled', 'value' => $cancelled->toDecimal()],
             ['metric' => 'refunds', 'value' => $refunds->toDecimal()], ['metric' => 'net_sales', 'value' => $net->toDecimal()],
             ['metric' => 'average_order_value', 'value' => $average->toDecimal()],
+            ['metric' => 'assembly_jobs', 'value' => $assembly['jobs']], ['metric' => 'assembly_units', 'value' => $assembly['units']],
+            ['metric' => 'assembly_gross', 'value' => $assembly['gross']->toDecimal()], ['metric' => 'assembly_refunded', 'value' => $assembly['refunded']->toDecimal()],
+            ['metric' => 'assembly_net', 'value' => $assembly['net']->toDecimal()],
         ], 'summary' => ['net_sales' => $net->toDecimal(), 'orders' => $orders, 'booked_sales' => $booked['total']->toDecimal()]];
     }
 
-    private function salesByBranch(BranchScope $s, $start, $end): array
+    /**
+     * Paid assembly per branch (see {@see AssemblySales} for what each column means). Always about assembly, so the "orders with assembly" switch changes nothing here.
+     */
+    private function salesAssembly(BranchScope $s, $start, $end): array
     {
-        return $this->grouped($this->lines($s, $start, $end)->join('branches as b', 'b.id', '=', 'oi.branch_id'), 'b.code, b.name_en', ['b.code as branch', 'b.name_en as name']);
+        $rows = AssemblySales::perBranch($s, $start, $end);
+        $total = AssemblySales::totals($s, $start, $end);
+
+        return ['columns' => ['branch', 'name', 'jobs', 'units', 'returned_units', 'gross', 'refunded', 'net'],
+            'rows' => array_map(fn (array $r) => ['branch' => $r['branch'], 'name' => $r['name'], 'jobs' => $r['jobs'], 'units' => $r['units'], 'returned_units' => $r['returned_units'],
+                'gross' => $r['gross']->toDecimal(), 'refunded' => $r['refunded']->toDecimal(), 'net' => $r['net']->toDecimal()], $rows),
+            'summary' => ['jobs' => $total['jobs'], 'units' => $total['units'], 'gross' => $total['gross']->toDecimal(), 'refunded' => $total['refunded']->toDecimal(), 'net' => $total['net']->toDecimal()]];
     }
 
-    private function salesByProduct(BranchScope $s, $start, $end): array
+    private function salesByBranch(BranchScope $s, $start, $end, bool $assemblyOnly = false): array
     {
-        return $this->grouped($this->lines($s, $start, $end), 'oi.sku, oi.name_en', ['oi.sku', 'oi.name_en as product'], 200);
+        return $this->grouped($this->lines($s, $start, $end, $assemblyOnly)->join('branches as b', 'b.id', '=', 'oi.branch_id'), 'b.code, b.name_en', ['b.code as branch', 'b.name_en as name']);
     }
 
-    private function salesByCategory(BranchScope $s, $start, $end): array
+    private function salesByProduct(BranchScope $s, $start, $end, bool $assemblyOnly = false): array
     {
-        return $this->grouped($this->lines($s, $start, $end)->leftJoin('products as p', 'p.id', '=', 'oi.product_id')->leftJoin('category_translations as ct', fn ($j) => $j->on('ct.category_id', '=', 'p.category_id')->where('ct.locale', 'en')),
+        return $this->grouped($this->lines($s, $start, $end, $assemblyOnly), 'oi.sku, oi.name_en', ['oi.sku', 'oi.name_en as product'], 200);
+    }
+
+    private function salesByCategory(BranchScope $s, $start, $end, bool $assemblyOnly = false): array
+    {
+        return $this->grouped($this->lines($s, $start, $end, $assemblyOnly)->leftJoin('products as p', 'p.id', '=', 'oi.product_id')->leftJoin('category_translations as ct', fn ($j) => $j->on('ct.category_id', '=', 'p.category_id')->where('ct.locale', 'en')),
             'ct.name', ["coalesce(ct.name, 'Uncategorised') as category"]);
     }
 
-    private function salesByBrand(BranchScope $s, $start, $end): array
+    private function salesByBrand(BranchScope $s, $start, $end, bool $assemblyOnly = false): array
     {
-        return $this->grouped($this->lines($s, $start, $end)->leftJoin('products as p', 'p.id', '=', 'oi.product_id')->leftJoin('brands as br', 'br.id', '=', 'p.brand_id'),
+        return $this->grouped($this->lines($s, $start, $end, $assemblyOnly)->leftJoin('products as p', 'p.id', '=', 'oi.product_id')->leftJoin('brands as br', 'br.id', '=', 'p.brand_id'),
             'br.name_en', ["coalesce(br.name_en, 'Unbranded') as brand"]);
     }
 
-    private function salesByPaymentMethod(BranchScope $s, $start, $end): array
+    private function salesByPaymentMethod(BranchScope $s, $start, $end, bool $assemblyOnly = false): array
     {
-        return $this->grouped($this->lines($s, $start, $end), 'o.payment_method', ['o.payment_method']);
+        return $this->grouped($this->lines($s, $start, $end, $assemblyOnly), 'o.payment_method', ['o.payment_method']);
     }
 
-    private function salesByFulfillment(BranchScope $s, $start, $end): array
+    private function salesByFulfillment(BranchScope $s, $start, $end, bool $assemblyOnly = false): array
     {
-        return $this->grouped($this->lines($s, $start, $end), 'o.fulfillment_type', ['o.fulfillment_type']);
+        return $this->grouped($this->lines($s, $start, $end, $assemblyOnly), 'o.fulfillment_type', ['o.fulfillment_type']);
     }
 
-    private function orderStatus(BranchScope $s, $start, $end): array
+    private function orderStatus(BranchScope $s, $start, $end, bool $assemblyOnly = false): array
     {
-        $rows = $s->apply(DB::table('orders as o')->join('order_fulfillments as f', 'f.order_id', '=', 'o.id')->whereBetween('o.placed_at', [$start, $end]), 'f.branch_id')
+        $q = DB::table('orders as o')->join('order_fulfillments as f', 'f.order_id', '=', 'o.id')->whereBetween('o.placed_at', [$start, $end]);
+        if ($assemblyOnly) {
+            AssemblySales::onlyParts($q, 'f.id');
+        }
+        $rows = $s->apply($q, 'f.branch_id')
             ->selectRaw('o.status, count(distinct o.id) as orders')->groupBy('o.status')->orderByDesc('orders')->get();
 
         return ['columns' => ['status', 'orders'], 'rows' => $rows->map(fn ($r) => (array) $r)->all(), 'summary' => ['orders' => $rows->sum('orders')]];

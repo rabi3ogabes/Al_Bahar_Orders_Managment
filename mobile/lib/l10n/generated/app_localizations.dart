@@ -6787,6 +6787,120 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Assembly is no longer offered for {name}.'**
   String guestChangeAssembly(String name);
+
+  /// No description provided for @slotOfferTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a new delivery time'**
+  String get slotOfferTitle;
+
+  /// No description provided for @slotOfferIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'We could not deliver your order. Pick a time that suits you and we will bring it then.'**
+  String get slotOfferIntro;
+
+  /// No description provided for @slotOfferUntil.
+  ///
+  /// In en, this message translates to:
+  /// **'Please choose before {when}.'**
+  String slotOfferUntil(String when);
+
+  /// No description provided for @slotOfferConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm this time'**
+  String get slotOfferConfirm;
+
+  /// No description provided for @slotOfferTaken.
+  ///
+  /// In en, this message translates to:
+  /// **'Taken'**
+  String get slotOfferTaken;
+
+  /// No description provided for @slotOfferAllTaken.
+  ///
+  /// In en, this message translates to:
+  /// **'Those times were just taken. We will call you to arrange a new one.'**
+  String get slotOfferAllTaken;
+
+  /// No description provided for @slotOfferExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'This offer has ended. We will call you to arrange a new time.'**
+  String get slotOfferExpired;
+
+  /// No description provided for @slotOfferChosen.
+  ///
+  /// In en, this message translates to:
+  /// **'Your new delivery time'**
+  String get slotOfferChosen;
+
+  /// No description provided for @slotOfferChosenToast.
+  ///
+  /// In en, this message translates to:
+  /// **'Thank you. We will deliver on {time}.'**
+  String slotOfferChosenToast(String time);
+
+  /// No description provided for @slotOfferErrGone.
+  ///
+  /// In en, this message translates to:
+  /// **'We could not find this offer. Please reload the order.'**
+  String get slotOfferErrGone;
+
+  /// No description provided for @slotOfferErrChosen.
+  ///
+  /// In en, this message translates to:
+  /// **'A new time was already chosen for this order.'**
+  String get slotOfferErrChosen;
+
+  /// No description provided for @slotOfferErrClosed.
+  ///
+  /// In en, this message translates to:
+  /// **'The branch has already arranged your delivery.'**
+  String get slotOfferErrClosed;
+
+  /// No description provided for @slotOfferErrTaken.
+  ///
+  /// In en, this message translates to:
+  /// **'That time was just taken. Please choose another.'**
+  String get slotOfferErrTaken;
+
+  /// No description provided for @proofDelivered.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivered on {when}'**
+  String proofDelivered(String when);
+
+  /// No description provided for @proofDeliveredBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivered on {when} · received by {name}'**
+  String proofDeliveredBy(String when, String name);
+
+  /// No description provided for @proofPhotoLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo of your delivery'**
+  String get proofPhotoLabel;
+
+  /// No description provided for @proofPhotoFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The photo could not be loaded.'**
+  String get proofPhotoFailed;
+
+  /// No description provided for @assemblyDoneOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Assembled on {when}'**
+  String assemblyDoneOn(String when);
+
+  /// No description provided for @assemblyNotDone.
+  ///
+  /// In en, this message translates to:
+  /// **'The assembly was not done: {reason}. The branch will contact you.'**
+  String assemblyNotDone(String reason);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

@@ -71,6 +71,11 @@ final class QuoteLine
         return $this->variant->product->category_id;
     }
 
+    public function brandId(): ?string
+    {
+        return $this->variant->product->brand_id;
+    }
+
     public function isOversized(): bool
     {
         return (bool) $this->variant->product->is_oversized;

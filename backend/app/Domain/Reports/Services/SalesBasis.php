@@ -101,6 +101,59 @@ final class SalesBasis
     }
 
     /**
+     * The sales of a window branch by branch (each branch's own share of every order it took part in), and of all the branches TOGETHER, in one pass. An order
+     * shared between two branches is one order of each, so the orders of the branches add up to more than the orders together, which count it once (the
+     * dashboard's figure); the amounts add up exactly.
+     *
+     * @return array{branches: array<string, array{total: Money, orders: int}>, together: array{total: Money, orders: int}} the branches (of the scope) that sold something, and all of them together
+     */
+    public static function byBranch(BranchScope $scope, CarbonInterface $from, CarbonInterface $to): array
+    {
+        $rows = $scope->apply(self::orderShares($from, $to), 's.branch_id')->selectRaw('s.branch_id, grouping(s.branch_id) as everyone, coalesce(sum(s.share), 0)::numeric(14,2) as total, count(distinct s.order_id) as orders')
+            ->groupByRaw('grouping sets ((s.branch_id), ())')->get();
+        $out = ['branches' => [], 'together' => ['total' => Money::zero(), 'orders' => 0]];
+        foreach ($rows as $r) {
+            $line = ['total' => Money::of((string) $r->total), 'orders' => (int) $r->orders];
+            if ((int) $r->everyone === 1) {
+                $out['together'] = $line;
+            } else {
+                $out['branches'][(string) $r->branch_id] = $line;
+            }
+        }
+
+        return $out;
+    }
+
+    /** The average basket: sales divided by the orders that made them, to the nearest cent; nothing when there were no orders. */
+    public static function average(Money $total, int $orders): Money
+    {
+        return $orders > 0 ? Money::ofMinor((int) round($total->minor / $orders)) : Money::zero();
+    }
+
+    /**
+     * Refunds paid out (processed) in the window for orders the scope took part in, each divided between the branches like the sale itself ({@see self::branchFraction()}),
+     * so two branches never both claim a whole refund. One row per refund: two refunds of the same amount are two refunds. `$exceptReasons` leaves out refunds whose
+     * reason code says the order lines already dropped that money (a cancellation, an item change): the daily close counts every refund, the sales report only the rest.
+     * `$onlyOrders` (a query of order ids) keeps only the refunds of those orders.
+     *
+     * @param  list<string>  $exceptReasons
+     * @return array{count: int, amount: Money}
+     */
+    public static function refunds(BranchScope $scope, CarbonInterface $from, CarbonInterface $to, array $exceptReasons = [], ?Builder $onlyOrders = null): array
+    {
+        $day = fn () => DB::table('refunds as r')->where('r.status', 'processed')->whereNotNull('r.order_id')->whereBetween('r.processed_at', [$from, $to])
+            ->when($exceptReasons !== [], fn ($q) => $q->whereNotIn('r.reason_code', $exceptReasons))
+            ->when($onlyOrders !== null, fn ($q) => $q->whereIn('r.order_id', $onlyOrders));
+        $perOrder = $day()->selectRaw('r.order_id, sum(r.amount) as amount, count(*) as n')->groupBy('r.order_id');
+        // The branch's share is worked out only for the orders that were refunded in the window (never for every order of the company).
+        $fractions = self::branchFraction($scope)->whereIn('f.order_id', $day()->select('r.order_id'));
+        $row = DB::query()->fromSub($perOrder, 'ro')->joinSub($fractions, 'bf', 'bf.order_id', '=', 'ro.order_id')
+            ->selectRaw('coalesce(sum(round(ro.amount * bf.fraction, 2)), 0)::numeric(14,2) as total, coalesce(sum(ro.n) filter (where bf.fraction > 0), 0) as n')->first();
+
+        return ['count' => (int) ($row->n ?? 0), 'amount' => Money::of((string) ($row->total ?? '0'))];
+    }
+
+    /**
      * The fraction of each order that belongs to the branches in the scope, for amounts that are not sales (a refund of an order). 1 for a
      * viewer who sees every branch. Rows: order_id, fraction.
      */

@@ -45,7 +45,7 @@ use Throwable;
 class DeliveryService
 {
     /** Proof rows that do not show the order was handed over: the photo of a failed attempt and a bare position. */
-    private const NOT_A_PROOF = ['failed', 'location'];
+    private const NOT_A_PROOF = ['failed', 'location', 'assembly'];
 
     public function __construct(
         private readonly OrderService $orders,
@@ -251,11 +251,11 @@ class DeliveryService
      * @param  array{tender: string, amount: string, receipt_reference?: ?string}|null  $cod
      * @param  array{latitude: float, longitude: float, accuracy: ?int}|null  $gps  where the driver stood (optional: a delivery never needs GPS); kept with the proof
      */
-    public function deliver(Delivery $delivery, User $actor, ?string $recipientName = null, ?UploadedFile $proof = null, string $proofType = 'photo', ?array $cod = null, ?array $gps = null): Delivery
+    public function deliver(Delivery $delivery, User $actor, ?string $recipientName = null, ?UploadedFile $proof = null, string $proofType = 'photo', ?array $cod = null, ?array $gps = null, bool $answersAssembly = false): Delivery
     {
         $this->authorizeDriverOrStaff($delivery, $actor);
 
-        return DB::transaction(function () use ($delivery, $actor, $recipientName, $proof, $proofType, $cod, $gps) {
+        return DB::transaction(function () use ($delivery, $actor, $recipientName, $proof, $proofType, $cod, $gps, $answersAssembly) {
             [$f, $d] = $this->lockJob($delivery);
             if ($d->status === DS::Delivered) {
                 return $d;
@@ -266,6 +266,12 @@ class DeliveryService
             }
             $order = $f->order;
             $this->orders->assertHandoverAllowed($order);
+            // A part with paid assembly is not "delivered" until the driver has said whether the assembly was done (Settings > Checkout & fees can switch the rule off).
+            // Only a client that can ask the question says so (`answers_assembly`, the driver app from Wave 5 on): older driver apps and the dashboard's driver
+            // view have no assembly step, and refusing them would leave a parcel undeliverable until the phone is updated.
+            if ($answersAssembly && $f->assembly_status === null && app(DeliveryFollowUpSettings::class)->assemblyAnswerRequired() && AssemblyFacts::ordered($f)) {
+                throw FollowUpError::make('assembly_answer_required', 422);
+            }
             // A photo of a failed attempt (or a bare position) is not proof that the order was handed over.
             if ($d->requires_proof && ! $proof && ! $d->proofs()->whereNotIn('type', self::NOT_A_PROOF)->exists()) {
                 throw DomainException::make('delivery_proof_required', 422);
@@ -337,6 +343,9 @@ class DeliveryService
                     'collected_by' => $actor->id, 'context' => 'cod', 'tender' => 'cash', 'amount_due' => $d->cod_amount, 'amount_collected' => '0.00',
                     'status' => 'failed', 'failure_reason' => $reasonCode, 'collected_at' => now()]);
             }
+            // The customer is offered new times to choose from (SlotOffers decides whether this failure gets an offer); never at the cost of the attempt itself.
+            $id = $d->id;
+            DB::afterCommit(fn () => rescue(fn () => app(SlotOffers::class)->offerAfterFailure($id), report: true));
 
             return $d->fresh();
         });
@@ -365,17 +374,110 @@ class DeliveryService
     {
         $this->authorize($actor, 'deliveries.assign', $delivery->branch_id);
 
-        return DB::transaction(function () use ($delivery, $actor, $slotId, $date) {
-            $f = OrderFulfillment::whereKey($delivery->order_fulfillment_id)->lockForUpdate()->firstOrFail();
-            $this->slots->move($f->delivery_slot_id, $f->slot_date?->toDateString(), $slotId, $date, $f->branch_id, 'delivery');
-            $old = ['slot_id' => $f->delivery_slot_id, 'date' => $f->slot_date?->toDateString()];
-            $f->update(['delivery_slot_id' => $slotId, 'slot_date' => $date]);
-            $when = $this->slots->startsAt($slotId, $date);
-            $delivery->update(['scheduled_for' => $when->utc()]);
-            $this->transition($delivery, DS::Rescheduled, $actor, $this->source($actor), 'rescheduled to slot '.$when->toDateTimeString());
-            $this->audit->log('delivery.rescheduled_to_slot', $delivery, $old, ['slot_id' => $slotId, 'date' => $date], branchId: $delivery->branch_id, actor: $actor);
+        return DB::transaction(fn () => $this->moveToSlot($delivery, $actor, $this->source($actor), $slotId, $date));
+    }
 
-            return $delivery->fresh();
+    /**
+     * The customer chose one of the times offered after a failed delivery (SlotOffers::choose calls this inside its own transaction, after it has checked
+     * the offer and whose it is). Same move as the dashboard's reschedule, so capacity and booking cut-offs are the same rules; only a failed delivery of a
+     * live order can be moved by a customer. Cash due is not touched.
+     */
+    public function rescheduleForCustomer(Delivery $delivery, User $customer, string $slotId, string $date): Delivery
+    {
+        [$f, $d] = $this->lockJob($delivery);
+        $this->assertLive($f, $d);
+        if ($d->status !== DS::Failed) {
+            throw FollowUpError::make('offer_closed', 409);
+        }
+
+        return $this->moveToSlot($d, $customer, 'customer', $slotId, $date);
+    }
+
+    /** The one move onto a slot, for staff and for the customer: book the new slot (a full one throws and changes nothing), release the old, set the time, audit it. */
+    private function moveToSlot(Delivery $delivery, User $actor, string $source, string $slotId, string $date): Delivery
+    {
+        $f = OrderFulfillment::whereKey($delivery->order_fulfillment_id)->lockForUpdate()->firstOrFail();
+        $this->slots->move($f->delivery_slot_id, $f->slot_date?->toDateString(), $slotId, $date, $f->branch_id, 'delivery');
+        $old = ['slot_id' => $f->delivery_slot_id, 'date' => $f->slot_date?->toDateString()];
+        $f->update(['delivery_slot_id' => $slotId, 'slot_date' => $date]);
+        $when = $this->slots->startsAt($slotId, $date);
+        $delivery->update(['scheduled_for' => $when->utc()]);
+        $this->transition($delivery, DS::Rescheduled, $actor, $source, 'rescheduled to slot '.$when->toDateTimeString());
+        $this->audit->log('delivery.rescheduled_to_slot', $delivery, $old, ['slot_id' => $slotId, 'date' => $date], ['source' => $source], branchId: $delivery->branch_id, actor: $actor);
+
+        return $delivery->fresh();
+    }
+
+    /**
+     * The driver's answer for the paid assembly of this part: `done`, or `not_done` with a reason from {@see AssemblyFacts::REASONS} (`other` needs a note), an
+     * optional note and an optional photo (kept as a proof photo of type `assembly`, private like every other). Allowed while the goods are with the driver. The
+     * same answer again changes nothing (no second alert, photo or audit row); a different one corrects it. A `not_done` is told to the branch at once and waits in
+     * "Needs attention" until someone handles it (refund or rebook, see {@see self::handleAssembly()}).
+     */
+    public function answerAssembly(Delivery $delivery, User $actor, string $status, ?string $reason = null, ?string $note = null, ?UploadedFile $photo = null): Delivery
+    {
+        $this->authorizeDriverOrStaff($delivery, $actor);
+        $note = $note !== null && trim($note) !== '' ? Str::limit(trim($note), 295, '') : null;
+        if (! in_array($status, [AssemblyFacts::DONE, AssemblyFacts::NOT_DONE], true)) {
+            throw FollowUpError::make('assembly_answer_invalid', 422);
+        }
+        if ($status === AssemblyFacts::NOT_DONE && ($reason === null || ! in_array($reason, AssemblyFacts::REASONS, true) || ($reason === 'other' && $note === null))) {
+            throw FollowUpError::make('assembly_reason_required', 422);
+        }
+        $reason = $status === AssemblyFacts::NOT_DONE ? $reason : null;
+
+        return DB::transaction(function () use ($delivery, $actor, $status, $reason, $note, $photo) {
+            [$f, $d] = $this->lockJob($delivery);
+            $this->assertLive($f, $d);
+            if (! AssemblyFacts::ordered($f)) {
+                throw FollowUpError::make('assembly_not_ordered', 422);
+            }
+            if (! in_array($d->status, [DS::PickedUp, DS::OutForDelivery], true)) {
+                throw DomainException::make('invalid_state_transition', 409, ['from' => __('status.'.$d->status->value)]);
+            }
+            $same = $f->assembly_status === $status && $f->assembly_reason === $reason && $f->assembly_note === $note;
+            if ($same && $photo === null) {
+                return $d; // the app asked twice
+            }
+            if ($photo) {
+                $this->storeProof($d, $actor, $photo, 'assembly', null);
+            }
+            if ($same) {
+                return $d->fresh();
+            }
+            $old = ['assembly_status' => $f->assembly_status, 'reason' => $f->assembly_reason];
+            $f->update(['assembly_status' => $status, 'assembly_answered_at' => now(), 'assembly_answered_by' => $actor->id, 'assembly_reason' => $reason, 'assembly_note' => $note,
+                'assembly_done_at' => $status === AssemblyFacts::DONE ? now() : null, 'assembly_handled_at' => null, 'assembly_handled_by' => null]);
+            $this->audit->log('delivery.assembly_answered', $d, $old, ['assembly_status' => $status, 'reason' => $reason], ['order' => $f->order->number, 'fulfillment' => $f->number],
+                branchId: $d->branch_id, actor: $actor);
+            if ($status === AssemblyFacts::NOT_DONE) {
+                $partId = $f->id;
+                DB::afterCommit(fn () => rescue(fn () => app(AssemblyAlerts::class)->notDone($partId), report: true));
+            }
+
+            return $d->fresh();
+        });
+    }
+
+    /**
+     * The branch dealt with an assembly that was not done (refunded the fee through the normal refund approval, or booked it again): the line leaves "Needs attention".
+     * Needs deliveries.assign at the part's branch; written to the audit log. Handling twice changes nothing.
+     */
+    public function handleAssembly(OrderFulfillment $part, User $staff): OrderFulfillment
+    {
+        $this->authorize($staff, 'deliveries.assign', $part->branch_id);
+
+        return DB::transaction(function () use ($part, $staff) {
+            $f = OrderFulfillment::whereKey($part->id)->lockForUpdate()->firstOrFail();
+            if ($f->assembly_status !== AssemblyFacts::NOT_DONE) {
+                throw FollowUpError::make('assembly_nothing_to_handle', 409);
+            }
+            if ($f->assembly_handled_at === null) {
+                $f->update(['assembly_handled_at' => now(), 'assembly_handled_by' => $staff->id]);
+                $this->audit->log('delivery.assembly_handled', $f, [], ['assembly_reason' => $f->assembly_reason], ['fulfillment' => $f->number], branchId: $f->branch_id, actor: $staff);
+            }
+
+            return $f->fresh();
         });
     }
 
@@ -659,6 +761,12 @@ class DeliveryService
         }
         $d->update(['status' => $to]);
         $this->log($d, $from, $to, $actor, $source, $note, $lat, $lng);
+        if ($from === DS::Failed) {
+            // Whatever happens next (a new time, a new try, a return), the times that were offered are no longer the plan. A customer's own choice is written first, so it stays.
+            app(SlotOffers::class)->closeOpen($d->id, match ($to) {
+                DS::Rescheduled => 'rescheduled_by_branch', DS::OutForDelivery => 'tried_again', default => 'delivery_moved_on',
+            }, $actor);
+        }
         // The customer, the branch and the driver hear about it from the Delivery model itself (OrderRealtime), once, after the commit.
     }
 

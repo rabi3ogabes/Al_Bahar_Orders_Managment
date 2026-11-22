@@ -10,6 +10,7 @@ import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/deals/presentation/widgets/deal_line_text.dart';
 import 'package:albahar_customer/features/orders/domain/order_models.dart';
 import 'package:albahar_customer/features/orders/presentation/state/order_providers.dart';
+import 'package:albahar_customer/features/orders/presentation/widgets/follow_up_cards.dart';
 import 'package:albahar_customer/features/orders/presentation/widgets/return_status_card.dart';
 import 'package:albahar_customer/features/orders/presentation/widgets/substitution_cards.dart';
 import 'package:flutter/material.dart';
@@ -37,6 +38,8 @@ class OrderSections extends StatelessWidget {
         const Gap(AppSpace.lg),
         // A replacement the customer is asked about comes first: it waits for them.
         SubstitutionCards(order: o),
+        // A failed delivery that was offered new times waits for the customer too: they choose here, in one tap.
+        SlotOfferCards(order: o),
         // The branch changed what is in the order: say so first, in calm words, with what changed and the new total.
         if (o.wasAdjusted) ...[OrderUpdatedBanner(order: o), const Gap(AppSpace.xs)],
         // Where each return or damage claim stands, as a timeline (instead of a button that would ask them to do it again).
@@ -205,6 +208,8 @@ class _FulfillmentCard extends StatelessWidget {
             ),
           for (final i in shown) _ItemRow(item: i, order: order),
           if (f.delivery != null) _DeliveryTracking(info: f.delivery!),
+          if (f.proof != null) DeliveredProofCard(proof: f.proof!),
+          if (f.assembly != null) AssemblyLine(answer: f.assembly!),
           if (f.isPickupReady) ...[
             const Gap(AppSpace.sm),
             AppButton.accent(

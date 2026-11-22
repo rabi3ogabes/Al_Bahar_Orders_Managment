@@ -42,7 +42,7 @@ final class DriverJobPresenter
     /** The address parts that locate the door: dropped from an old history row. */
     private const DOOR = ['street_number', 'building_number', 'unit_number', 'landmark', 'instructions', 'notes', 'latitude', 'longitude', 'recipient_name', 'recipient_phone', 'label'];
 
-    public function __construct(private readonly DispatchSettings $config) {}
+    public function __construct(private readonly DispatchSettings $config, private readonly DeliveryFollowUpSettings $followUps) {}
 
     /** @return array<string, mixed> */
     public function job(Delivery $d): array
@@ -148,6 +148,9 @@ final class DriverJobPresenter
             'requires_assembly' => $items['assembly'],
             // The customer paid for assembly and installation at the door on at least one line of this parcel (each row says which one).
             'assembly_ordered' => $items['assembly_ordered'],
+            // The driver's answer for it (null when nothing was bought): `status` is `pending` until he says `done` or `not_done`; `required` says whether
+            // the delivery can be confirmed before he answers (Settings > Checkout & fees).
+            'assembly' => ($assembly = AssemblyFacts::state($d->fulfillment)) === null ? null : $assembly + ['required' => $this->followUps->assemblyAnswerRequired()],
             'cod' => ['due' => $cod, 'amount' => Money::of($d->cod_amount)->toDecimal(), 'currency' => 'QAR'],
             'payment_note' => match (true) {
                 $cod => __('driver_day.payment.cash', ['amount' => Money::of($d->cod_amount)->format()]),

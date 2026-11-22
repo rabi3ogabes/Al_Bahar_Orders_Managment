@@ -21,7 +21,7 @@ class ReportAdminController extends ApiController
     {
         $data = $this->filters($request);
 
-        return response()->json(['data' => $reports->run($this->user(), $report, $data['from'], $data['to'], $data['branch_id'] ?? null)]);
+        return response()->json(['data' => $reports->run($this->user(), $report, $data['from'], $data['to'], $data['branch_id'] ?? null, (bool) ($data['assembly_only'] ?? false))]);
     }
 
     /** Queue an export; every export request is audited. */
@@ -52,6 +52,6 @@ class ReportAdminController extends ApiController
 
     private function filters(Request $request): array
     {
-        return $request->validate(['from' => 'required|date_format:Y-m-d', 'to' => 'required|date_format:Y-m-d|after_or_equal:from', 'branch_id' => 'nullable|uuid']);
+        return $request->validate(['from' => 'required|date_format:Y-m-d', 'to' => 'required|date_format:Y-m-d|after_or_equal:from', 'branch_id' => 'nullable|uuid', 'assembly_only' => 'nullable|boolean']);
     }
 }

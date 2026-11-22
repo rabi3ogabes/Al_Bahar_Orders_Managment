@@ -13,6 +13,7 @@ import { invoiceFailure } from '../lib/invoice';
 import type { OrderDetail, PaymentAction, TimelineEvent } from '../lib/types';
 import { Alert, Badge, Pic, Select, Skeleton, Textarea } from './ui';
 import { ConfirmDialog } from './Dialogs';
+import { AssemblyLine, DeliveredProof } from './FollowUps';
 
 /** The pieces of an order, shared by the order page (/orders/:id) and the order side window (?order=<id>). */
 
@@ -187,6 +188,8 @@ export function FulfillmentCard({ o, f, compact }: { o: OrderDetail; f: OrderDet
         {mapsHref(f.branch.latitude, f.branch.longitude, f.branch.name) && <a href={mapsHref(f.branch.latitude, f.branch.longitude, f.branch.name)} target="_blank" rel="noreferrer" className="flex min-h-11 items-center gap-1.5 text-brass-deep hover:underline"><MapPin size={14} />{t('order.directions')}</a>}
       </div>
       {f.type === 'pickup' && f.pickup && ['ready', 'partially_collected'].includes(f.pickup.status) && <PickupPass orderId={o.id} fulfillmentId={f.id} />}
+      {f.proof && <DeliveredProof proof={f.proof} />}
+      {f.assembly && <AssemblyLine a={f.assembly} />}
     </section>
   );
 }

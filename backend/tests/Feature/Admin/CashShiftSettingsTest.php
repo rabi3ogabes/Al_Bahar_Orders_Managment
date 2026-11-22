@@ -14,15 +14,15 @@ beforeEach(function () {
     $this->admin = User::factory()->superAdmin()->create();
 });
 
-it('lists the Cash tab with its four settings, their defaults and a help line, in English and Arabic', function (string $locale) {
+it('lists the Cash tab with its five settings, their defaults and a help line, in English and Arabic', function (string $locale) {
     app()->setLocale($locale);
     $page = Livewire::actingAs($this->admin)->test(SettingsIndex::class)->set('tab', 'cash')->assertOk();
     $html = $page->html();
 
-    expect(array_keys(SettingsIndex::schema()['cash']))->toBe(['cash.shift_policy', 'cash.shift_note_above', 'cash.shift_review_above', 'cash.shift_max_open_hours']);
+    expect(array_keys(SettingsIndex::schema()['cash']))->toBe(['cash.shift_policy', 'cash.shift_note_above', 'cash.shift_review_above', 'cash.shift_max_open_hours', 'cash.payout_approval_above']);
     $page->assertSet('values.cash.cash__shift_policy', 'attach')->assertSet('values.cash.cash__shift_note_above', '1.00')->assertSet('values.cash.cash__shift_review_above', '50.00')
-        ->assertSet('values.cash.cash__shift_max_open_hours', '16');
-    foreach (['policy', 'note_above', 'review_above', 'max_open_hours'] as $name) {
+        ->assertSet('values.cash.cash__shift_max_open_hours', '16')->assertSet('values.cash.cash__payout_approval_above', '100.00');
+    foreach (['policy', 'note_above', 'review_above', 'max_open_hours', 'payout_approval'] as $name) {
         expect($html)->toContain(e(__('cash_shift.setting.'.$name, [], $locale)))->toContain(e(__('cash_shift.setting_hint.'.$name, [], $locale)));
     }
     expect($html)->toContain(__('org_admin.settings_tab.cash', [], $locale))->toContain(__('org_admin.settings_tab_hint.cash', [], $locale))

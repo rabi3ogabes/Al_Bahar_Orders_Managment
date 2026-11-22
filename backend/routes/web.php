@@ -73,8 +73,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Live Operations Control: the "Needs attention" inbox (any of the four permissions, on at least one branch) and the private
         // photo of a delivery's proof (the controller itself answers 404, not 403, to anyone who may not see that delivery's branch).
         Route::get('operations/attention', Admin\Operations\NeedsAttention::class)->middleware('permission:orders.view,deliveries.view,payments.view,pickup.view')->name('operations.attention');
-        // The live board: every open branch part of an order in the lane that says where it stands (and its wall display, ?wall=1).
-        Route::get('operations/board', Admin\Operations\LiveBoardPage::class)->middleware('permission:orders.view')->name('operations.board');
+        // The live board: every open branch part of an order in the lane that says where it stands (and its wall display, ?wall=1). A wall display account (board.view only) opens this page and no other.
+        Route::get('operations/board', Admin\Operations\LiveBoardPage::class)->middleware('permission:orders.view,board.view')->name('operations.board');
         Route::get('deliveries/{delivery}/proofs/{proof}', [DeliveryProofController::class, 'show'])->name('deliveries.proof');
         // The global search (Ctrl/Cmd+K): JSON for the palette in the top bar. Every group checks its own permission and branches.
         Route::get('search', SearchController::class)->middleware('throttle:admin-search')->name('search');

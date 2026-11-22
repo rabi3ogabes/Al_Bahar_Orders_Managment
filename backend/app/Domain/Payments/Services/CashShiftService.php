@@ -24,8 +24,8 @@ use Illuminate\Support\Facades\DB;
  *  - WHO: whoever may receive cash at the branch (`payments.edit`, the same level as {@see CashDrawerService::handIn}). Reading needs `payments.view`.
  *  - ONE open shift per branch (a partial unique index backs it), so one drawer is never opened twice. Opening and closing twice with the same count
  *    (a double tap) answers with the shift that already exists instead of failing or doing it again.
- *  - EXPECTED CASH = float + hand-ins received (what the receiver COUNTED) - hand-ins banked in the shift - cash refunds paid out of the drawer. All
- *    money is {@see Money} (whole dirham), never floats.
+ *  - EXPECTED CASH = float + hand-ins received (what the receiver COUNTED) - hand-ins banked in the shift - cash refunds paid out of the drawer - petty-cash
+ *    payouts that were not voided ({@see CashPayoutService}). All money is {@see Money} (whole dirham), never floats.
  *  - THE COUNT is by note (QAR 500/200/100/50/10/5/1) plus a coins total; the server adds it up, nobody types a total.
  *  - VARIANCE reuses the hand-in rules: above `cash.shift_note_above` a written reason is needed (same wording); above `cash.shift_review_above` a
  *    second person who holds `payments.override` and neither opened nor closed the shift has to review it.
@@ -57,7 +57,7 @@ final class CashShiftService
      * the cash came from), what was banked, the cash refunds, the expected cash, and the cash the cashier collected personally and has not handed in.
      *
      * @param  Collection<int, CashShift>  $shifts
-     * @return array<string, array<string, mixed>> shift id => figures: float, received (+ _cod, _counter, _difference), handins, collections, deposits (+ _count), refunds (+ _count), expected, own_count, own_amount
+     * @return array<string, array<string, mixed>> shift id => figures: float, received (+ _cod, _counter, _difference), handins, collections, deposits (+ _count), refunds (+ _count), payouts (+ _count), expected, own_count, own_amount
      */
     public function figuresFor(Collection $shifts): array
     {
@@ -77,6 +77,8 @@ final class CashShiftService
                 (SELECT coalesce(sum(h.counted_amount), 0) FROM cash_handovers h WHERE h.deposit_shift_id = s.id) AS deposits,
                 (SELECT count(*) FROM refunds r WHERE r.cash_shift_id = s.id) AS refunds_count,
                 (SELECT coalesce(sum(r.amount), 0) FROM refunds r WHERE r.cash_shift_id = s.id) AS refunds,
+                (SELECT count(*) FROM cash_payouts p WHERE p.cash_shift_id = s.id AND p.voided_at IS NULL) AS payouts_count,
+                (SELECT coalesce(sum(p.amount), 0) FROM cash_payouts p WHERE p.cash_shift_id = s.id AND p.voided_at IS NULL) AS payouts,
                 (SELECT count(*) FROM cash_collections c WHERE c.branch_id = s.branch_id AND c.collected_by = s.opened_by AND c.collected_at >= s.opened_at
                     AND c.tender = 'cash' AND c.status IN ('collected', 'partial') AND c.amount_collected > 0 AND c.handed_in_at IS NULL) AS own_count,
                 (SELECT coalesce(sum(c.amount_collected), 0) FROM cash_collections c WHERE c.branch_id = s.branch_id AND c.collected_by = s.opened_by AND c.collected_at >= s.opened_at
@@ -93,13 +95,15 @@ final class CashShiftService
             $counter = Money::of((string) $r->counter);
             $deposits = Money::of((string) $r->deposits);
             $refunds = Money::of((string) $r->refunds);
+            $payouts = Money::of((string) $r->payouts);
             $out[(string) $r->id] = [
                 'float' => $float[(string) $r->id],
                 'received' => $received, 'received_cod' => $cod, 'received_counter' => $counter, 'received_difference' => $received->minus($cod)->minus($counter),
                 'handins' => (int) $r->handins, 'collections' => (int) $r->collections,
                 'deposits' => $deposits, 'deposits_count' => (int) $r->deposits_count,
                 'refunds' => $refunds, 'refunds_count' => (int) $r->refunds_count,
-                'expected' => $float[(string) $r->id]->plus($received)->minus($deposits)->minus($refunds),
+                'payouts' => $payouts, 'payouts_count' => (int) $r->payouts_count,
+                'expected' => $float[(string) $r->id]->plus($received)->minus($deposits)->minus($refunds)->minus($payouts),
                 'own_count' => (int) $r->own_count, 'own_amount' => Money::of((string) $r->own_amount),
             ];
         }
@@ -362,6 +366,7 @@ final class CashShiftService
                 'difference' => $f['received_difference']->toDecimal(), 'handins' => $f['handins'], 'collections' => $f['collections']],
             'deposits' => ['amount' => $f['deposits']->toDecimal(), 'count' => $f['deposits_count']],
             'refunds' => ['amount' => $f['refunds']->toDecimal(), 'count' => $f['refunds_count']],
+            'payouts' => ['amount' => $f['payouts']->toDecimal(), 'count' => $f['payouts_count']],
             'expected' => $f['expected']->toDecimal(),
             'own' => ['amount' => $f['own_amount']->toDecimal(), 'count' => $f['own_count']],
         ];

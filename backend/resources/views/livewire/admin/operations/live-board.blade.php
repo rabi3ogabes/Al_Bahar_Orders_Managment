@@ -41,13 +41,22 @@
                 @include('livewire.admin.operations.partials.board-summary', ['counts' => $counts, 'big' => true])
                 <span class="font-display text-3xl font-semibold tabular-nums text-ink-900 dark:text-ivory" x-text="clock" dir="ltr" aria-hidden="true"></span>
                 @include('livewire.admin.operations.partials.board-link', ['big' => true])
+                @unless ($wallOnly)
                 <button type="button" x-on:click="toggleSound()" x-bind:aria-pressed="sound ? 'true' : 'false'" x-bind:aria-label="sound ? text.sound_off : text.sound_on" x-bind:title="sound ? text.sound_off : text.sound_on" class="{{ $tools }} size-11 p-0">
                     <svg class="size-5 rtl-flip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path x-show="sound" d="M16 9a4 4 0 0 1 0 6"/><path x-show="! sound" d="m17 9 4 6M21 9l-4 6"/></svg>
                 </button>
+                @endunless
                 <button type="button" x-on:click="toggleFullscreen()" x-bind:aria-pressed="fullscreen ? 'true' : 'false'" x-bind:aria-label="fullscreen ? text.leave_fullscreen : text.fullscreen" x-bind:title="fullscreen ? text.leave_fullscreen : text.fullscreen" class="{{ $tools }} size-11 p-0">
                     <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
                 </button>
-                <a href="{{ $wallUrl(false) }}" wire:navigate class="{{ $tools }}"><x-icon name="x" class="size-4" />{{ __('ops_board.wall.exit') }}</a>
+                @if ($wallOnly)
+                    {{-- The screen has no other page to go to: it signs out, and that is the only way out. --}}
+                    <form method="POST" action="{{ route('admin.logout') }}" data-wall-signout>@csrf
+                        <button class="{{ $tools }}"><x-icon name="logout" class="size-4 rtl-flip" />{{ __('wall_display.sign_out') }}</button>
+                    </form>
+                @else
+                    <a href="{{ $wallUrl(false) }}" wire:navigate class="{{ $tools }}"><x-icon name="x" class="size-4" />{{ __('ops_board.wall.exit') }}</a>
+                @endif
             </div>
         </div>
         <p class="sr-only">{{ __('ops_board.wall.read_only') }}</p>

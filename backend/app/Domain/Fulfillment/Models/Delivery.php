@@ -48,6 +48,12 @@ class Delivery extends Model
         return $this->hasMany(DeliveryAttempt::class);
     }
 
+    /** @return HasMany<DeliverySlotOffer, $this> */
+    public function slotOffers(): HasMany
+    {
+        return $this->hasMany(DeliverySlotOffer::class);
+    }
+
     /** @return HasMany<DeliveryProof, $this> */
     public function proofs(): HasMany
     {

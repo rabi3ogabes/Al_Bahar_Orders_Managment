@@ -69,4 +69,6 @@ return [
     'delivery.nearby.body' => '{{driver}} is a few minutes away with order {{order_number}}. Please be ready to receive it.',
     'delivery.arrived.title' => 'Your driver has arrived',
     'delivery.arrived.body' => '{{driver}} is at your door with order {{order_number}}.',
+    'delivery.slots_offered.title' => 'Choose a new delivery time',
+    'delivery.slots_offered.body' => 'We could not deliver order {{order_number}}. Open the order and choose a new time before {{until}}, or we will call you.',
 ];

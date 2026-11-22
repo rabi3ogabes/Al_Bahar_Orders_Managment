@@ -5,7 +5,9 @@ namespace App\Domain\Operations\Services;
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Fulfillment\Enums\DeliveryStatus;
 use App\Domain\Fulfillment\Models\Delivery;
+use App\Domain\Fulfillment\Services\AssemblyFacts;
 use App\Domain\Fulfillment\Services\DispatchSettings;
+use App\Domain\Fulfillment\Services\SlotOffers;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Identity\Support\BranchScope;
@@ -22,6 +24,7 @@ use App\Domain\Orders\Models\SubstitutionRequest;
 use App\Domain\Orders\Services\SubstitutionClock;
 use App\Domain\Payments\Models\Refund;
 use App\Domain\Payments\Services\CashShiftSettings;
+use App\Domain\Reports\Services\Metrics\Cash;
 use App\Support\BusinessTime;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
@@ -63,6 +66,9 @@ final class AttentionFeed
     /** @var array<string, int> deliveries the system tried drivers for without an answer (delivery id => drivers tried), set while a list is built */
     private array $silent = [];
 
+    /** @var array<string, array{state: string, text: string}> what became of the new times offered after a failed delivery (delivery id => the line), set while a list is built */
+    private array $offers = [];
+
     public function __construct(private readonly OpsClock $clock, private readonly AccessControl $acl) {}
 
     public static function canSee(User $user): bool
@@ -91,6 +97,7 @@ final class AttentionFeed
             ->concat($this->refundItems($user, $branches))
             ->concat($this->claimItems($user, $branches))
             ->concat($this->substitutionItems($user, $branches))
+            ->concat($this->assemblyItems($user, $branches))
             ->concat($this->cashItems($user, $branches))
             ->concat($this->cashShiftItems($user, $branches))
             ->concat($this->systemItems($user));
@@ -183,6 +190,7 @@ final class AttentionFeed
 
         $this->clock->preload($rows->pluck('branch_id')->all());
         $this->silent = $this->silentDeliveries($rows);
+        $this->offers = app(SlotOffers::class)->staffNotes($rows->where('status', FulfillmentStatus::Failed)->map(fn (OrderFulfillment $f) => OpsClock::currentDelivery($f->deliveries))->filter()->values());
         $items = [];
         foreach ($rows as $f) {
             $age = $this->clock->forFulfillment($f);
@@ -262,6 +270,8 @@ final class AttentionFeed
             case 'delivery_failed':
                 $reason = $delivery?->failure_reason;
                 $note = $reason !== null && Lang::has('sales_admin.fail_'.$reason) ? __('sales_admin.fail_'.$reason) : null;
+                // What became of the new times offered to the customer: still choosing, did not answer in time, or nothing free to offer.
+                $note = implode(' · ', array_filter([$note, $delivery !== null ? ($this->offers[$delivery->id]['text'] ?? null) : null])) ?: null;
                 $action = $search('exceptions') + ['label' => __('ops_live.action.reschedule')];
                 break;
             case 'pickup_waiting':
@@ -283,7 +293,7 @@ final class AttentionFeed
     }
 
     private const ICONS = [
-        'unaccepted' => 'bag', 'stuck' => 'package', 'undispatched' => 'truck', 'driver_silent' => 'phone', 'delivery_failed' => 'alert', 'pickup_waiting' => 'qr',
+        'assembly' => 'package', 'unaccepted' => 'bag', 'stuck' => 'package', 'undispatched' => 'truck', 'driver_silent' => 'phone', 'delivery_failed' => 'alert', 'pickup_waiting' => 'qr',
         'cancellation' => 'x', 'refund' => 'refund', 'claim' => 'package', 'substitution' => 'bag', 'cash' => 'cash', 'cash_shift' => 'scale', 'queue' => 'settings', 'campaign' => 'megaphone',
     ];
 
@@ -451,6 +461,47 @@ final class AttentionFeed
         return $items;
     }
 
+    // ── Assembly the driver could not do ─────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * The customer paid for assembly and the driver reported that it was not done: the branch refunds the fee (the usual refund approval) or books it again,
+     * then marks it handled on the order. Listed from the first minute (the customer is waiting for an answer) and measured like a failed delivery.
+     *
+     * @param  Collection<string, Branch>  $branches
+     * @return list<AttentionItem>
+     */
+    private function assemblyItems(User $user, Collection $branches): array
+    {
+        $scope = $this->acl->scope($user, 'deliveries.view');
+        if ($scope->isEmpty()) {
+            return [];
+        }
+        $query = OrderFulfillment::query()->where('assembly_status', AssemblyFacts::NOT_DONE)->whereNull('assembly_handled_at');
+        $scope->apply($query->getQuery(), 'order_fulfillments.branch_id');
+        $rows = $query->with(['order:id,number,customer_name,customer_phone'])->orderBy('assembly_answered_at')->orderBy('id')->limit(self::CAP + 1)
+            ->get(['id', 'order_id', 'branch_id', 'number', 'assembly_reason', 'assembly_note', 'assembly_answered_at', 'assembly_answered_by']);
+
+        $this->clock->preload($rows->pluck('branch_id')->all());
+        $items = [];
+        foreach ($rows as $f) {
+            $order = $f->order;
+            if ($order === null) {
+                continue;
+            }
+            $age = $this->clock->evaluate(OpsClock::READY, $f->assembly_answered_at ?? CarbonImmutable::now(), $f->branch_id);
+            $reason = __('delivery_followup.assembly_reason.'.$f->assembly_reason);
+            $items[] = new AttentionItem(
+                id: 'assembly:'.$f->id, category: 'assembly', icon: self::ICONS['assembly'], subject: $order->number, label: __('delivery_followup.attention.label'),
+                detail: $order->customer_name.' · '.$reason, state: $age->state, age: $age, branchId: $f->branch_id, branchCode: $branches->get($f->branch_id)?->code,
+                action: ['type' => 'peek', 'label' => __('ops_live.action.open_order'), 'order' => $order->id],
+                call: $order->customer_phone ? ['label' => __('ops_live.call_customer'), 'phone' => $order->customer_phone] : null,
+                assignedTo: $f->assembly_answered_by, note: $f->assembly_note !== null ? Str::limit($f->assembly_note, 140) : __('delivery_followup.attention.note'),
+            );
+        }
+
+        return $items;
+    }
+
     // ── Cash a driver or cashier still holds ─────────────────────────────────────────────────────────────────────────
 
     /**
@@ -464,7 +515,7 @@ final class AttentionFeed
             return [];
         }
         $cut = CarbonImmutable::now()->subMinutes($this->clock->limits(OpsClock::CASH)['amber']);
-        $query = DB::table('cash_collections')->where('tender', 'cash')->whereIn('status', ['collected', 'partial'])->where('amount_collected', '>', 0)->whereNull('handed_in_at');
+        $query = Cash::heldQuery();
         $scope->apply($query, 'branch_id');
         $rows = $query->groupBy('collected_by', 'branch_id')->havingRaw('min(collected_at) <= ?', [$cut])
             ->selectRaw('collected_by, branch_id, count(*) as n, sum(amount_collected) as total, min(collected_at) as oldest')

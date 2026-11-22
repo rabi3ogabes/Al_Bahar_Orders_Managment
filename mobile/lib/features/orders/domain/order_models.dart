@@ -4,11 +4,13 @@ import 'package:albahar_customer/core/utils/json.dart';
 import 'package:albahar_customer/features/checkout/domain/checkout_models.dart';
 import 'package:albahar_customer/features/deals/domain/deal_lines.dart';
 import 'package:albahar_customer/features/orders/domain/claim_models.dart';
+import 'package:albahar_customer/features/orders/domain/follow_up_models.dart';
 import 'package:albahar_customer/features/orders/domain/substitution_models.dart';
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 
 export 'package:albahar_customer/features/orders/domain/claim_models.dart';
+export 'package:albahar_customer/features/orders/domain/follow_up_models.dart';
 export 'package:albahar_customer/features/orders/domain/substitution_models.dart';
 
 /// Row in `GET /orders` (`OrderPresenter::summary`).
@@ -406,6 +408,9 @@ class Fulfillment {
     this.delivery,
     this.pickupStatus,
     this.pickupTokenExpiresAt,
+    this.slotOffer,
+    this.proof,
+    this.assembly,
   });
   factory Fulfillment.fromJson(JsonMap json) {
     final pickup = asMapOrNull(json['pickup']);
@@ -420,6 +425,9 @@ class Fulfillment {
       delivery: DeliveryInfo.maybe(json['delivery']),
       pickupStatus: asStringOrNull(pickup?['status']),
       pickupTokenExpiresAt: asDate(pickup?['token_expires_at']),
+      slotOffer: SlotOfferInfo.maybe(json['slot_offer']),
+      proof: DeliveryProofInfo.maybe(json['proof']),
+      assembly: AssemblyAnswer.maybe(json['assembly']),
     );
   }
   final String id;
@@ -432,6 +440,15 @@ class Fulfillment {
   final DeliveryInfo? delivery;
   final String? pickupStatus;
   final DateTime? pickupTokenExpiresAt;
+
+  /// New times the customer can choose after a failed delivery (null: none was offered, or it does not apply any more).
+  final SlotOfferInfo? slotOffer;
+
+  /// When the order was delivered, who received it and the photo (null until it is delivered).
+  final DeliveryProofInfo? proof;
+
+  /// The driver's answer for the paid assembly (null: no assembly was bought).
+  final AssemblyAnswer? assembly;
 
   /// The same part after a real-time message: its status and its delivery's status (and the words for them) change at once.
   Fulfillment withLive({required String status, String? statusLabel, String? deliveryStatus}) => Fulfillment(
@@ -447,6 +464,9 @@ class Fulfillment {
         : (delivery?.withStatus(deliveryStatus) ?? DeliveryInfo(status: deliveryStatus)),
     pickupStatus: pickupStatus,
     pickupTokenExpiresAt: pickupTokenExpiresAt,
+    slotOffer: slotOffer,
+    proof: proof,
+    assembly: assembly,
   );
 
   bool get isPickupReady => type == 'pickup' && (status == 'pickup_ready' || status == 'ready');

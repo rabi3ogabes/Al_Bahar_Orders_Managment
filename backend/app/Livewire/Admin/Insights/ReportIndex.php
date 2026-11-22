@@ -27,7 +27,7 @@ class ReportIndex extends Component
     use WithAdminTable;
 
     public const GROUPS = [
-        'sales' => ['sales_summary', 'sales_by_branch', 'sales_by_product', 'sales_by_category', 'sales_by_brand', 'sales_by_payment_method', 'sales_by_fulfillment', 'order_status'],
+        'sales' => ['sales_summary', 'sales_by_branch', 'sales_by_product', 'sales_by_category', 'sales_by_brand', 'sales_by_payment_method', 'sales_by_fulfillment', 'order_status', 'sales_assembly'],
         'inventory' => ['inventory_levels', 'inventory_valuation', 'stock_movements', 'fast_slow_movers', 'transfers', 'damaged_lost'],
         'operations' => ['customers', 'deliveries', 'pickups', 'auctions'],
         'finance' => ['finance_collections', 'finance_refunds', 'finance_outstanding', 'sadad_reconciliation'],
@@ -37,7 +37,7 @@ class ReportIndex extends Component
     public const CHARTS = [
         'sales_by_branch' => ['branch', 'net'], 'sales_by_category' => ['category', 'net'], 'sales_by_brand' => ['brand', 'net'], 'sales_by_payment_method' => ['payment_method', 'net'],
         'sales_by_fulfillment' => ['fulfillment_type', 'net'], 'order_status' => ['status', 'orders'], 'inventory_valuation' => ['branch', 'retail_value'],
-        'deliveries' => ['executor', 'deliveries'], 'pickups' => ['branch', 'pickups'], 'finance_collections' => ['branch', 'collected'], 'sales_by_product' => ['sku', 'net'],
+        'deliveries' => ['executor', 'deliveries'], 'pickups' => ['branch', 'pickups'], 'finance_collections' => ['branch', 'collected'], 'sales_by_product' => ['sku', 'net'], 'sales_assembly' => ['branch', 'net'],
     ];
 
     #[Url(except: '')]
@@ -48,6 +48,10 @@ class ReportIndex extends Component
 
     #[Url(except: '')]
     public string $to = '';
+
+    /** "Orders with assembly": narrows the sales reports to the branch parts that have paid assembly (see ReportService::ASSEMBLY_FILTER). */
+    #[Url(except: false)]
+    public bool $assemblyOnly = false;
 
     public function mount(): void
     {
@@ -114,6 +118,17 @@ class ReportIndex extends Component
         unset($this->outcome);
     }
 
+    public function updatedAssemblyOnly(): void
+    {
+        unset($this->outcome);
+    }
+
+    /** The filter only means something for the sales reports that support it; anywhere else it is off, so a CSV never says it was narrowed when it was not. */
+    private function assemblyFilterOn(): bool
+    {
+        return $this->assemblyOnly && in_array($this->report, ReportService::ASSEMBLY_FILTER, true);
+    }
+
     /**
      * The report for the current filters, run once (see the class comment).
      *
@@ -127,7 +142,7 @@ class ReportIndex extends Component
             return ['result' => null, 'error' => null];
         }
         try {
-            return ['result' => app(ReportService::class)->run(auth()->user(), $this->report, $from, $to, $this->branch ?: null), 'error' => null];
+            return ['result' => app(ReportService::class)->run(auth()->user(), $this->report, $from, $to, $this->branch ?: null, $this->assemblyFilterOn()), 'error' => null];
         } catch (DomainException $e) {
             return ['result' => null, 'error' => $e->getMessage()];
         }
@@ -137,7 +152,7 @@ class ReportIndex extends Component
     {
         abort_unless($this->can('reports.export') && isset(ReportService::REPORTS[$this->report]) && $this->can(ReportService::REPORTS[$this->report]), 403);
         [$from, $to] = $this->range();
-        $filters = array_filter(['from' => $from, 'to' => $to, 'branch_id' => $this->branch ?: null]);
+        $filters = array_filter(['from' => $from, 'to' => $to, 'branch_id' => $this->branch ?: null, 'assembly_only' => $this->assemblyFilterOn()]);
         $export = DataExport::create(['user_id' => auth()->id(), 'type' => $this->report, 'filters' => $filters, 'status' => 'queued']);
         $audit->log('report.exported', $export, [], ['report' => $this->report, 'filters' => $filters]);
         GenerateExportJob::dispatch($export->id);
@@ -168,6 +183,7 @@ class ReportIndex extends Component
             'chart' => $chart,
             'branches' => $this->scopedBranches($perm),
             'canExport' => $this->can('reports.export'),
+            'canFilterAssembly' => in_array($this->report, ReportService::ASSEMBLY_FILTER, true),
         ])->title(__('nav.reports'));
     }
 }

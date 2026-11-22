@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Domain\Audit\Services\AuditLogger;
+use App\Domain\Operations\Services\WallDisplaySession;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -10,10 +11,11 @@ use Illuminate\Support\Facades\Auth;
 
 class SessionController extends Controller
 {
-    public function logout(Request $request, AuditLogger $audit): RedirectResponse
+    public function logout(Request $request, AuditLogger $audit, WallDisplaySession $wall): RedirectResponse
     {
         if ($user = $request->user()) {
             $audit->log('auth.logout', $user, [], [], ['channel' => 'admin_web']);
+            $wall->forget($user); // a wall screen that signs out ends its shift: the next sign-in starts a new one
         }
         Auth::guard('web')->logout();
         $locale = $request->session()->get('locale');

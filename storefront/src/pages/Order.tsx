@@ -9,6 +9,7 @@ import { useAuthModal } from '../components/AuthModal';
 import { PushPrompt } from '../components/PushUI';
 import { CancelOrderDialog, FulfillmentCard, TimelineCard, TotalsCard, OrderChangesNotice, invoiceAvailable, statusTone, useInvoice, useOrderQuery, usePay, useReorder } from '../components/OrderParts';
 import { ReturnForm, ReturnStatusCard, ReturnWindowNote } from '../components/ReturnClaims';
+import { SlotOfferCards } from '../components/FollowUps';
 import { SubstitutionCards } from '../components/Substitutions';
 import { SideDrawer } from '../components/SideDrawer';
 import { Alert, Badge, Button, EmptyState, LinkButton, Skeleton, Spinner } from '../components/ui';
@@ -71,6 +72,7 @@ export default function Order() {
       </div>
 
       {(o.substitution_requests?.length ?? 0) > 0 && <div className="mt-6"><SubstitutionCards o={o} /></div>}
+      {o.fulfillments.some((f) => f.slot_offer) && <div className="mt-6"><SlotOfferCards o={o} /></div>}
       {o.was_adjusted && <div className="mt-6"><OrderChangesNotice o={o} /></div>}
       {(o.returns?.length || o.return_request) && <div className="mt-6"><ReturnStatusCard o={o} /></div>}
 

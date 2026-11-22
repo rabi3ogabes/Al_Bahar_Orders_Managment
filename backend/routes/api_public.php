@@ -88,7 +88,12 @@ Route::middleware(['auth:sanctum', 'customer'])->group(function () {
         Route::get('orders/{id}/fulfillments/{fulfillmentId}/pickup-pass', 'pickupPass')->name('orders.pickup-pass');
         Route::get('payments/{id}', 'payment')->name('payments.show');
     });
+    // The customer chooses one of the new times offered after a failed delivery (Idempotency-Key required; docs/guides/DELIVERY_FOLLOW_UPS.md).
+    Route::post('orders/{id}/slot-offers/{offerId}/choose', [V1\Commerce\SlotOfferController::class, 'choose'])->whereUuid(['id', 'offerId'])->middleware('throttle:30,1')->name('orders.slot-offers.choose');
 });
+
+// The photo of a delivery, for the customer: only through the short-lived signed link their own order page carries (no sign-in header: an <img> cannot send one).
+Route::get('orders/{id}/delivery-proof/{proof}/photo', [V1\Commerce\DeliveryProofPhotoController::class, 'show'])->whereUuid(['id', 'proof'])->middleware(['signed', 'throttle:60,1'])->name('orders.proof-photo');
 
 // ── Deals: countdown offers (public; a signed-in customer also sees how many units they may still buy) ──────────
 Route::controller(V1\Deals\DealController::class)->group(function () {

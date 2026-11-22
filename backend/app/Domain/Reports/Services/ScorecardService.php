@@ -86,11 +86,12 @@ final class ScorecardService
             $rows = [];
             foreach ($branches as $b) {
                 $rows[] = ['id' => (string) $b->id, 'code' => (string) $b->code, 'name_en' => (string) $b->name_en, 'name_ar' => (string) ($b->name_ar ?: $b->name_en)]
-                    + $this->shapeBranch($now[$b->id], $before[$b->id], $standing[$b->id], $min);
+                    + $this->shapeBranch($now['branches'][$b->id], $before['branches'][$b->id], $standing[$b->id], $min);
             }
             $total = null;
             if (count($ids) > 1) {
-                $total = $this->shapeBranch($this->mergeBranches($now), $this->mergeBranches($before), $this->mergeStanding($standing), $min);
+                // An order shared by two branches is one order of the company: its orders are counted over the branches together, never added up.
+                $total = $this->shapeBranch($this->mergeBranches($now['branches'], $now['placed_together']), $this->mergeBranches($before['branches'], $before['placed_together']), $this->mergeStanding($standing), $min);
             }
 
             return ['rows' => $rows, 'total' => $total, 'generated_at' => BusinessTime::iso(now()) ?? ''];
@@ -215,8 +216,8 @@ final class ScorecardService
         ];
         $ran = $now['delivered'] + $now['failed'];
         $ranBefore = $before['delivered'] + $before['failed'];
-        $reached = $now['delivered'] + $now['collected'];
-        $reachedBefore = $before['delivered'] + $before['collected'];
+        $reached = $now['reached'];
+        $reachedBefore = $before['reached'];
         $pickups = $now['collected'] + $now['pass_expired'];
         $pickupsBefore = $before['collected'] + $before['pass_expired'];
         $failNow = ScorecardCauses::split($now['fail_reasons']);
@@ -328,13 +329,15 @@ final class ScorecardService
 
     /**
      * @param  array<string, array<string, mixed>>  $raws
+     * @param  int  $placed  the distinct orders of all these branches together (an order shared by two of them is one)
      * @return array<string, mixed>
      */
-    private function mergeBranches(array $raws): array
+    private function mergeBranches(array $raws, int $placed): array
     {
         $sum = ScorecardBranchNumbers::blank();
+        $sum['placed'] = $placed;
         foreach ($raws as $raw) {
-            foreach (['placed', 'delivered', 'promised', 'on_time', 'moved', 'collected', 'collected_in_time', 'pass_expired', 'cancelled', 'failed', 'claims', 'substitutions', 'handins', 'variances'] as $k) {
+            foreach (['reached', 'delivered', 'promised', 'on_time', 'moved', 'collected', 'collected_in_time', 'pass_expired', 'cancelled', 'failed', 'claims', 'substitutions', 'handins', 'variances'] as $k) {
                 $sum[$k] += $raw[$k];
             }
             foreach (['accept', 'prepare'] as $k) {
@@ -436,7 +439,7 @@ final class ScorecardService
     {
         sort($ids);
 
-        return 'scorecard:v1:'.$tab.':'.$period->key().':'.md5(implode(',', $ids)).':min'.$min.':cash'.$this->clock->limits(OpsClock::CASH)['amber'];
+        return 'scorecard:v2:'.$tab.':'.$period->key().':'.md5(implode(',', $ids)).':min'.$min.':cash'.$this->clock->limits(OpsClock::CASH)['amber'];
     }
 
     /** @return array{from: string, to: string, days: int, previous_from: string, previous_to: string, preset: ?int, includes_today: bool} */

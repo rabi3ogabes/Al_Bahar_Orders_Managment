@@ -15,6 +15,10 @@ final class StaffLanding
     public static function url(User $user): string
     {
         $acl = app(AccessControl::class);
+        // A wall display account has one page: the live board in its wall mode.
+        if ($acl->isWallDisplay($user)) {
+            return route('admin.operations.board', ['wall' => 1]);
+        }
         if ($acl->allows($user, 'dashboard.view') || $acl->allows($user, 'deliveries.view')) {
             return route('admin.dashboard');
         }

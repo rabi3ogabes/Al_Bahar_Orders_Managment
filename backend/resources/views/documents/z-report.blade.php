@@ -90,6 +90,7 @@
         @endif
         <tr><td>− {{ trans_choice('cash_shift.l_banked_n', (int) ($s['deposits']['count'] ?? 0), ['count' => (int) ($s['deposits']['count'] ?? 0)]) }}</td><td class="v">{{ $money($s['deposits']['amount'] ?? 0) }}</td></tr>
         <tr><td>− {{ trans_choice('cash_shift.l_refunds_n', (int) ($s['refunds']['count'] ?? 0), ['count' => (int) ($s['refunds']['count'] ?? 0)]) }}</td><td class="v">{{ $money($s['refunds']['amount'] ?? 0) }}</td></tr>
+        <tr><td>− {{ trans_choice('petty_cash.l_payouts_n', (int) ($s['payouts']['count'] ?? 0), ['count' => (int) ($s['payouts']['count'] ?? 0)]) }}</td><td class="v">{{ $money($s['payouts']['amount'] ?? 0) }}</td></tr>
         <tr class="total"><td>{{ __('cash_shift.expected_cash') }}</td><td class="v">{{ $money($report['expected']->toDecimal()) }}</td></tr>
         <tr class="total"><td>{{ __('cash_shift.z.counted') }}</td><td class="v">{{ $money($report['counted']->toDecimal()) }}</td></tr>
         <tr class="total"><td>{{ __('finance_admin.variance') }}</td>
@@ -124,6 +125,26 @@
                 <tr><td dir="ltr" style="text-align:start">{{ $d['reference'] }}</td><td class="v">{{ $d['handins'] }}</td><td class="v">{{ $d['amount']->format() }}</td></tr>
             @endforeach
         </table>
+    @endif
+
+    <h2>{{ __('petty_cash.z.s_payouts') }}</h2>
+    @if ($report['payouts']->isEmpty())
+        <p class="help">{{ __('petty_cash.z.none') }}</p>
+    @else
+        <table data-payouts>
+            <tr><th>{{ __('petty_cash.z.time') }}</th><th>{{ __('petty_cash.z.reason') }}</th><th>{{ __('petty_cash.z.paid_by') }}</th><th>{{ __('petty_cash.z.approved_by') }}</th><th class="v">{{ __('petty_cash.z.amount') }}</th></tr>
+            @foreach ($report['payouts'] as $p)
+                <tr @if ($p->isVoided()) style="color:#8a8f9c" @endif>
+                    <td class="v" style="text-align:start">{{ BusinessTime::display($p->created_at, 'd M, H:i') }}</td>
+                    <td>{{ __('petty_cash.reasons.'.$p->reason_code) }}@if ($p->note) · {{ $p->note }}@endif
+                        @if ($p->isVoided())<br><strong>{{ __('petty_cash.z.reversed') }}</strong> · {{ __('petty_cash.z.reversed_note', ['name' => $p->voider?->name, 'reason' => $p->void_reason]) }}@endif</td>
+                    <td><bdi>{{ $p->payer?->name }}</bdi></td><td><bdi>{{ $p->approver?->name ?? '—' }}</bdi></td>
+                    <td class="v" @if ($p->isVoided()) style="text-decoration:line-through" @endif>{{ $money($p->amount) }}</td>
+                </tr>
+            @endforeach
+            <tr class="total"><td colspan="4">{{ __('petty_cash.z.total') }}</td><td class="v">{{ $money($s['payouts']['amount'] ?? 0) }}</td></tr>
+        </table>
+        @if (! $report['payouts_listed_all'])<p class="help">{{ __('petty_cash.z.list_cut', ['n' => \App\Domain\Payments\Services\CashShiftReport::LIST_LIMIT]) }}</p>@endif
     @endif
 
     <h2>{{ __('cash_shift.z.s_count') }}</h2>

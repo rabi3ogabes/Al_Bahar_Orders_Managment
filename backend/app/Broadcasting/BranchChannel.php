@@ -5,6 +5,7 @@ namespace App\Broadcasting;
 use App\Domain\Branches\Models\BranchEmployee;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
+use App\Domain\Identity\Support\PermissionRegistry;
 
 /**
  * private-branches.{id}: the employees of the branch who may SEE its orders (orders.view for that branch) and super admins hear its
@@ -19,7 +20,10 @@ class BranchChannel
             return true;
         }
 
+        // A wall display account listens too (its board redraws when a part or a delivery changes): the events carry no customer data.
+        $acl = app(AccessControl::class);
+
         return BranchEmployee::where('branch_id', $id)->where('user_id', $user->id)->where('is_active', true)->exists()
-            && app(AccessControl::class)->allows($user, 'orders.view', $id);
+            && ($acl->allows($user, 'orders.view', $id) || $acl->allows($user, PermissionRegistry::WALL_DISPLAY_KEY, $id));
     }
 }

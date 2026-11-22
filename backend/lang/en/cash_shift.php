@@ -89,12 +89,14 @@ return [
         'note_above' => 'A reason is needed above',
         'review_above' => 'A second person must review above',
         'max_open_hours' => 'A shift open longer than this needs attention',
+        'payout_approval' => 'A petty-cash payout needs an approver above',
     ],
     'setting_hint' => [
         'policy' => 'What happens when a driver hands cash in and the branch drawer is shut: accept it and add it to the next shift opened, or refuse it until a shift is open.',
         'note_above' => 'When the counted cash differs from the expected cash by more than this, the cashier must write a reason. A smaller difference may be left without one.',
         'review_above' => 'When the difference is larger than this, someone with the right to review cash differences, who did not open or close the shift, must also sign it off.',
         'max_open_hours' => 'A shift still open after this many hours shows in "Needs attention".',
+        'payout_approval' => 'Money paid out of the drawer for small expenses. A payout above this amount must name a second person who approved it; up to and including it, none is needed.',
     ],
     'setting_gte' => 'The second-person limit cannot be lower than the reason limit.',
 
@@ -111,7 +113,7 @@ return [
         'cashier' => 'Cashier: :name',
         'closed_by' => 'Closed by :name',
         's_cash' => 'Cash in the drawer',
-        'h_cash' => 'Expected cash = opening float + hand-ins received − cash banked − cash refunds paid. The counted cash is what the cashier counted when closing.',
+        'h_cash' => 'Expected cash = opening float + hand-ins received − cash banked − cash refunds paid − petty cash paid out. The counted cash is what the cashier counted when closing.',
         'counted' => 'Counted at closing',
         's_handins' => 'Hand-ins received',
         'from' => 'Received from',

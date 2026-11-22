@@ -61,6 +61,37 @@ class ItemFacts {
   bool get isEmpty => weightKg == null && !hasSize && !isOversized && !requiresAssembly;
 }
 
+/// The driver's answer for the paid assembly of one parcel (`assembly` on the job): `pending` until he says `done` or `not_done` (with a reason code).
+/// [required] says whether the delivery can be confirmed before he answers (the dashboard decides).
+@immutable
+class DriverAssembly {
+  const DriverAssembly({this.status = 'pending', this.reason, this.reasonLabel, this.note, this.required = true});
+
+  static DriverAssembly? maybe(Object? json) {
+    final m = asMapOrNull(json);
+    if (m == null) return null;
+    return DriverAssembly(
+      status: asString(m['status'], 'pending'),
+      reason: asStringOrNull(m['reason']),
+      reasonLabel: asStringOrNull(m['reason_label']),
+      note: asStringOrNull(m['note']),
+      required: asBool(m['required'], true),
+    );
+  }
+
+  final String status;
+  final String? reason;
+  final String? reasonLabel;
+  final String? note;
+  final bool required;
+
+  bool get isDone => status == 'done';
+  bool get isNotDone => status == 'not_done';
+
+  /// The delivery has to wait for his answer.
+  bool get needsAnswer => status == 'pending' && required;
+}
+
 /// Everything a driver needs to know about one OPEN job beyond the basics (see `DriverJobPresenter` on the server): the customer's notes
 /// and the gate code, who receives it, the delivery window, how heavy it is, what is to be collected. A finished job or an older server
 /// has none of it: every field is then empty and the screens show nothing for it.
@@ -78,6 +109,7 @@ class DriverJobContext {
     this.isOversized = false,
     this.requiresAssembly = false,
     this.assemblyOrdered = false,
+    this.assembly,
     this.paymentNote,
     this.arrivedAt,
     this.redacted = false,
@@ -106,6 +138,7 @@ class DriverJobContext {
       isOversized: asBool(j['is_oversized']),
       requiresAssembly: asBool(j['requires_assembly']),
       assemblyOrdered: asBool(j['assembly_ordered']),
+      assembly: DriverAssembly.maybe(j['assembly']),
       paymentNote: asStringOrNull(j['payment_note']),
       arrivedAt: asDate(j['arrived_at']),
       redacted: asBool(j['redacted']),
@@ -130,6 +163,9 @@ class DriverJobContext {
 
   /// The customer paid for assembly and installation at the door on a line of this parcel: the driver (or the team he works with) has it to do.
   final bool assemblyOrdered;
+
+  /// What he answered for that assembly (null when nothing was bought, and from an older server).
+  final DriverAssembly? assembly;
 
   /// The server's one-line payment note ("Collect QAR 303.00 in cash at the door."), in the app's language.
   final String? paymentNote;
@@ -159,6 +195,7 @@ class DriverJobContext {
     isOversized: isOversized,
     requiresAssembly: requiresAssembly,
     assemblyOrdered: assemblyOrdered,
+    assembly: assembly,
     paymentNote: paymentNote,
     arrivedAt: arrivedAt ?? at,
     redacted: redacted,

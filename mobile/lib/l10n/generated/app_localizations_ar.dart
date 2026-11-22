@@ -3886,4 +3886,73 @@ class AppLocalizationsAr extends AppLocalizations {
   String guestChangeAssembly(String name) {
     return 'لم تعد خدمة التركيب متاحة لـ $name.';
   }
+
+  @override
+  String get slotOfferTitle => 'اختر موعد توصيل جديداً';
+
+  @override
+  String get slotOfferIntro => 'تعذّر توصيل طلبك. اختر الموعد المناسب لك وسنوصله فيه.';
+
+  @override
+  String slotOfferUntil(String when) {
+    return 'يرجى الاختيار قبل $when.';
+  }
+
+  @override
+  String get slotOfferConfirm => 'تأكيد هذا الموعد';
+
+  @override
+  String get slotOfferTaken => 'محجوز';
+
+  @override
+  String get slotOfferAllTaken => 'تم حجز هذه المواعيد للتو. سنتصل بك لترتيب موعد جديد.';
+
+  @override
+  String get slotOfferExpired => 'انتهت مدة هذا العرض. سنتصل بك لترتيب موعد جديد.';
+
+  @override
+  String get slotOfferChosen => 'موعد توصيلك الجديد';
+
+  @override
+  String slotOfferChosenToast(String time) {
+    return 'شكراً لك. سنوصل طلبك في $time.';
+  }
+
+  @override
+  String get slotOfferErrGone => 'تعذّر العثور على هذا العرض. يرجى إعادة تحميل الطلب.';
+
+  @override
+  String get slotOfferErrChosen => 'تم اختيار موعد جديد لهذا الطلب بالفعل.';
+
+  @override
+  String get slotOfferErrClosed => 'رتّب الفرع توصيل طلبك بالفعل.';
+
+  @override
+  String get slotOfferErrTaken => 'تم حجز هذا الموعد للتو. يرجى اختيار موعد آخر.';
+
+  @override
+  String proofDelivered(String when) {
+    return 'تم التسليم في $when';
+  }
+
+  @override
+  String proofDeliveredBy(String when, String name) {
+    return 'تم التسليم في $when · استلمه $name';
+  }
+
+  @override
+  String get proofPhotoLabel => 'صورة تسليم طلبك';
+
+  @override
+  String get proofPhotoFailed => 'تعذّر تحميل الصورة.';
+
+  @override
+  String assemblyDoneOn(String when) {
+    return 'تم التركيب في $when';
+  }
+
+  @override
+  String assemblyNotDone(String reason) {
+    return 'لم يتم التركيب: $reason. سيتواصل معك الفرع.';
+  }
 }

@@ -4,6 +4,8 @@ namespace App\Livewire\Admin\Auth;
 
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Identity\Models\User;
+use App\Domain\Identity\Services\AccessControl;
+use App\Domain\Operations\Services\WallDisplaySession;
 use App\Support\Phone;
 use App\Support\StaffLanding;
 use Illuminate\Support\Facades\Auth;
@@ -58,7 +60,13 @@ class Login extends Component
         }
         RateLimiter::clear('admin-login:'.$identity.'|'.request()->ip());
 
-        Auth::guard('web')->login($user, $this->remember);
+        // A wall display screen signs in once and stays signed in for the shift, so it is always remembered (it signs out by its own button or after its idle time),
+        // and its shift starts now.
+        $wall = app(AccessControl::class)->isWallDisplay($user);
+        if ($wall) {
+            app(WallDisplaySession::class)->forget($user);
+        }
+        Auth::guard('web')->login($user, $this->remember || $wall);
         session()->regenerate();
         session(['locale' => $user->locale, 'session_stamp' => (string) $user->session_stamp]);
 

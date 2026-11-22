@@ -3821,4 +3821,73 @@ class AppLocalizationsEn extends AppLocalizations {
   String guestChangeAssembly(String name) {
     return 'Assembly is no longer offered for $name.';
   }
+
+  @override
+  String get slotOfferTitle => 'Choose a new delivery time';
+
+  @override
+  String get slotOfferIntro => 'We could not deliver your order. Pick a time that suits you and we will bring it then.';
+
+  @override
+  String slotOfferUntil(String when) {
+    return 'Please choose before $when.';
+  }
+
+  @override
+  String get slotOfferConfirm => 'Confirm this time';
+
+  @override
+  String get slotOfferTaken => 'Taken';
+
+  @override
+  String get slotOfferAllTaken => 'Those times were just taken. We will call you to arrange a new one.';
+
+  @override
+  String get slotOfferExpired => 'This offer has ended. We will call you to arrange a new time.';
+
+  @override
+  String get slotOfferChosen => 'Your new delivery time';
+
+  @override
+  String slotOfferChosenToast(String time) {
+    return 'Thank you. We will deliver on $time.';
+  }
+
+  @override
+  String get slotOfferErrGone => 'We could not find this offer. Please reload the order.';
+
+  @override
+  String get slotOfferErrChosen => 'A new time was already chosen for this order.';
+
+  @override
+  String get slotOfferErrClosed => 'The branch has already arranged your delivery.';
+
+  @override
+  String get slotOfferErrTaken => 'That time was just taken. Please choose another.';
+
+  @override
+  String proofDelivered(String when) {
+    return 'Delivered on $when';
+  }
+
+  @override
+  String proofDeliveredBy(String when, String name) {
+    return 'Delivered on $when · received by $name';
+  }
+
+  @override
+  String get proofPhotoLabel => 'Photo of your delivery';
+
+  @override
+  String get proofPhotoFailed => 'The photo could not be loaded.';
+
+  @override
+  String assemblyDoneOn(String when) {
+    return 'Assembled on $when';
+  }
+
+  @override
+  String assemblyNotDone(String reason) {
+    return 'The assembly was not done: $reason. The branch will contact you.';
+  }
 }

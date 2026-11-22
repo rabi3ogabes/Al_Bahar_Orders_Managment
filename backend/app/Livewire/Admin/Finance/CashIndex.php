@@ -6,10 +6,12 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Payments\Models\CashCollection;
 use App\Domain\Payments\Models\CashHandover;
 use App\Domain\Payments\Services\CashDrawerService;
+use App\Domain\Payments\Services\CashPayoutService;
 use App\Domain\Payments\Services\CashShiftService;
 use App\Domain\Payments\Services\CashShiftSettings;
 use App\Livewire\Admin\Concerns\WithAdminTable;
 use App\Livewire\Admin\Finance\Concerns\HandlesCashShifts;
+use App\Livewire\Admin\Finance\Concerns\HandlesPettyCash;
 use App\Livewire\Admin\Sales\Concerns\PeeksAtOrder;
 use App\Support\BusinessTime;
 use App\Support\Money;
@@ -24,7 +26,7 @@ use Livewire\Component;
  */
 class CashIndex extends Component
 {
-    use HandlesCashShifts, PeeksAtOrder, WithAdminTable;
+    use HandlesCashShifts, HandlesPettyCash, PeeksAtOrder, WithAdminTable;
 
     public const TABS = ['collections', 'outstanding', 'handovers', 'shifts'];
 
@@ -33,10 +35,10 @@ class CashIndex extends Component
 
     public bool $showDialog = false;
 
-    /** handin | resolve | deposit | receipt | shift_open | shift_close | shift_review | shift_done */
+    /** handin | resolve | deposit | receipt | shift_open | shift_close | shift_review | shift_done | payout */
     public ?string $dialog = null;
 
-    /** handin: "collectorId|branchId"; resolve and receipt: hand-in id; shift_open: branch id; the other shift windows: shift id. */
+    /** handin: "collectorId|branchId"; resolve and receipt: hand-in id; shift_open: branch id; the other shift windows (and payout): shift id. */
     #[Locked]
     public ?string $target = null;
 
@@ -126,7 +128,7 @@ class CashIndex extends Component
         $this->showDialog = true;
     }
 
-    public function confirmDialog(CashDrawerService $drawer, CashShiftService $shifts): void
+    public function confirmDialog(CashDrawerService $drawer, CashShiftService $shifts, CashPayoutService $payouts): void
     {
         $user = auth()->user();
         $ok = match ($this->dialog) {
@@ -136,6 +138,7 @@ class CashIndex extends Component
             'shift_open' => $this->openShift($shifts, $user),
             'shift_close' => $this->closeShift($shifts, $user),
             'shift_review' => $this->reviewShift($shifts, $user),
+            'payout' => $this->payOut($payouts, $user),
             'shift_done', 'receipt' => true,
             default => abort(422),
         };
@@ -179,7 +182,7 @@ class CashIndex extends Component
         return (bool) $res;
     }
 
-    public function render(CashShiftService $shifts, CashShiftSettings $shiftSettings)
+    public function render(CashShiftService $shifts, CashShiftSettings $shiftSettings, CashPayoutService $payouts)
     {
         $scope = $this->branchScope('payments.view');
         $from = strtotime($this->filterFrom) ? $this->filterFrom : BusinessTime::now()->toDateString();
@@ -229,7 +232,7 @@ class CashIndex extends Component
             $dialogExpected = $shiftData['handinCollections']->whereIn('id', $this->pick)->reduce(fn (Money $c, CashCollection $r) => $c->plus(Money::of((string) $r->amount_collected)), Money::zero());
         }
 
-        return view('livewire.admin.finance.cash', $shiftData + [
+        return view('livewire.admin.finance.cash', $shiftData + ['payoutDialog' => $this->payoutDialogData($shifts, $payouts, $shiftSettings)] + [
             'rows' => $this->tab === 'collections' ? $base()->with(['payment.order:id,number,customer_name', 'collector:id,name', 'branch:id,code'])->latest('collected_at')->paginate($this->perPage) : null,
             'totals' => $totals,
             'branches' => $this->scopedBranches('payments.view'),

@@ -20,6 +20,7 @@ it has no company-wide role and no access to settings, roles, marketing, content
    | Stock keeper | stock levels, counts and transfers |
    | Delivery coordinator | plans deliveries and assigns drivers |
    | Read only | looks at orders, stock, products and reports; changes nothing |
+   | Wall display screen | the live board on a wall screen, read only, nothing else |
 
    Ticking a feature also ticks what it cannot work without ("Create orders" also ticks "See orders" and "See products and prices");
    unticking one unticks what needs it. A set that matches no preset is shown as *Custom*.
@@ -74,6 +75,7 @@ per row with **Undo**. Search, branch filter (only your branches), role filter (
 |  | **Collect cash from customers** | Record cash taken at pickup or on delivery. | `payments.create` | — |
 |  | **Hand in and deposit cash** | Hand collected cash to the office and record bank deposits. | `payments.edit` | See cash drawer and payments |
 | Staff of this branch | **See staff of this branch** | Opens the list of people who work at this branch (no changes). | `employees.view` | — |
+| Screen on the wall | **Wall display** | A screen that shows the live board of this branch and nothing else (no menu, search, phone numbers or buttons). Cannot be mixed with other features. See [SEARCH_AND_LIVE_BOARD.md](SEARCH_AND_LIVE_BOARD.md). | `board.view` | — |
 
 *Product details (names, descriptions, photos) are shared by every branch and the website, so editing them is **not** a branch feature: `catalog.edit` (like create, delete and approve) stays with administrators. Branch prices are a feature ("Change this branch’s prices").*
 

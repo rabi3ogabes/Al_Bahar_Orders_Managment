@@ -110,10 +110,12 @@ final class OfferReturn
      */
     private function aggregate(Builder $attribution, Builder $booked): Collection
     {
+        // "New" means the customer had no earlier order that counted as a sale (the same statuses as every sale: SalesBasis).
+        $notSales = implode(', ', array_fill(0, count(SalesBasis::EXCLUDED_STATUSES), '?'));
         $rows = DB::query()->fromSub($attribution, 'a')->joinSub($booked, 'b', 'b.order_id', '=', 'a.order_id')->join('orders as o', 'o.id', '=', 'a.order_id')
             ->selectRaw("a.offer_key, a.label_en, a.label_ar, a.order_id, a.user_id, a.discount, b.booked,
                 (o.user_id is not null and not exists (select 1 from orders p where p.user_id = o.user_id and p.placed_at < o.placed_at
-                    and p.status not in ('cancelled', 'pending_payment'))) as is_new");
+                    and p.status not in ({$notSales}))) as is_new", SalesBasis::EXCLUDED_STATUSES);
 
         return DB::query()->fromSub($rows, 'x')->selectRaw('x.offer_key, max(x.label_en) as label_en, max(x.label_ar) as label_ar, count(distinct x.order_id) as orders,
                 count(distinct x.user_id) as customers, count(distinct x.user_id) filter (where x.is_new) as new_customers,

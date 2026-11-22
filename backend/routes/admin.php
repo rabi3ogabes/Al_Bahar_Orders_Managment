@@ -2,6 +2,7 @@
 
 // Admin dashboard module routes (prefix /admin, name admin., middleware auth + staff).
 
+use App\Http\Controllers\Admin\CashPayoutReceiptController;
 use App\Http\Controllers\Admin\CashShiftReportController;
 use App\Http\Controllers\Admin\DailyClosePrintController;
 use App\Http\Controllers\Admin\DocumentController;
@@ -83,6 +84,9 @@ Route::get('payments/{payment}', Admin\Finance\PaymentShow::class)->middleware('
 Route::get('cash', Admin\Finance\CashIndex::class)->middleware('permission:payments.view')->name('cash.index');
 // The printable Z-report of a closed cash shift (docs/guides/CASH_SHIFT.md).
 Route::get('cash/shifts/{shift}/z-report', [CashShiftReportController::class, 'show'])->middleware('permission:payments.view')->name('cash.shifts.report');
+// The same Z-report as a PDF file, and the private receipt photo of a petty-cash payout (docs/guides/ASSEMBLY_SALES_AND_PETTY_CASH.md).
+Route::get('cash/shifts/{shift}/z-report.pdf', [CashShiftReportController::class, 'pdf'])->middleware('permission:payments.view')->name('cash.shifts.report.pdf');
+Route::get('cash/payouts/{payout}/receipt', [CashPayoutReceiptController::class, 'show'])->middleware('permission:payments.view')->name('cash.payouts.receipt');
 Route::get('refunds', Admin\Finance\RefundIndex::class)->middleware('permission:refunds.view')->name('refunds.index');
 Route::get('reconciliation', Admin\Finance\ReconciliationIndex::class)->middleware('permission:reconciliation.view')->name('reconciliation.index');
 

@@ -25,6 +25,7 @@ return [
     'coupon_expired' => 'This code has expired.',
     'coupon_limit_reached' => 'This code has reached its usage limit.',
     'coupon_not_eligible' => 'Your cart isn\'t eligible for this code.',
+    'coupon_excluded' => 'The items in your cart are not part of this offer.',
     'coupon_first_order_only' => 'This code is for first orders only.',
     'coupon_min_basket' => 'Add more items to use this code.',
     'coupon_not_combinable' => 'A better offer is already applied to your cart.',

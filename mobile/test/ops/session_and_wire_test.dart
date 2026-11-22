@@ -454,7 +454,7 @@ void main() {
       final form = req.body as FormData;
       expect(
         form.fields.map((f) => '${f.key}=${f.value}'),
-        containsAll(['recipient_name=Noura', 'cod[tender]=cash', 'cod[amount]=303.00']),
+        containsAll(['recipient_name=Noura', 'cod[tender]=cash', 'cod[amount]=303.00', 'answers_assembly=1']),
       );
       expect(form.files.single.key, 'proof');
       // A photo upload gets longer than a normal call (mobile networks), and is never retried by the client.

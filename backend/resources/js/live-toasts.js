@@ -241,9 +241,10 @@ export function createLiveToasts(opts) {
  *  - A toast is shown only for a NEW order (a valid placed order, or an online one the moment it is paid), once per order, at most one toast
  *    per 3 seconds, and a burst is collapsed into "N new orders". No toasts on the fleet map: it shows its own, with every status change.
  *  - The channels are the ones the server chose for this person (all branches, or one per branch they may see).
+ *  - `quiet` (the wall display account) passes the live signal on and never shows a toast: a screen everyone can read must not name a customer.
  *
  * @param {Element} host   the persisted element (the toast stack lives inside it)
- * @param {{channels: string[], ordersUrl: string, orderUrl: string, text: Record<string, string>}} boot
+ * @param {{channels: string[], ordersUrl: string, orderUrl: string, text: Record<string, string>, quiet?: boolean}} boot
  */
 export function startOpsLive(host, boot) {
     const echo = typeof window.echo === 'function' ? window.echo() : null;
@@ -262,7 +263,7 @@ export function startOpsLive(host, boot) {
 
     const handle = (raw) => {
         window.dispatchEvent(new CustomEvent('ops-order-live', { detail: raw }));
-        if (onFleetMap()) return;
+        if (onFleetMap() || boot.quiet) return;
         const frame = asNewOrderRaw(raw);
         if (!frame || seen.has(frame.id)) return;
         seen.add(frame.id);

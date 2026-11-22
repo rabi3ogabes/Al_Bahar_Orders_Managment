@@ -71,6 +71,7 @@
                             @endif
                             @if (! $s->isOpen())
                                 <a href="{{ route('admin.cash.shifts.report', $s) }}" target="_blank" rel="noopener" class="btn-secondary btn-sm" aria-label="{{ __('cash_shift.open_z_report', ['z' => $s->zLabel()]) }}"><x-icon name="printer" class="size-4" />{{ __('cash_shift.z_report') }}</a>
+                                <a href="{{ route('admin.cash.shifts.report.pdf', $s) }}" class="btn-ghost btn-sm" aria-label="{{ __('petty_cash.pdf.download_aria', ['z' => $s->zLabel()]) }}" data-action="z-pdf"><x-icon name="download" class="size-4" />PDF</a>
                             @endif
                         </div>
                     </td>

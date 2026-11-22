@@ -4,6 +4,7 @@ namespace App\Domain\Orders\Services;
 
 use App\Domain\Checkout\Support\Assembly;
 use App\Domain\Fulfillment\Enums\DeliveryStatus as DS;
+use App\Domain\Fulfillment\Services\DeliveryFollowUps;
 use App\Domain\Orders\Enums\FulfillmentStatus as FS;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderFulfillment;
@@ -48,6 +49,8 @@ class OrderPresenter
         $substitutions = app(SubstitutionService::class)->present($o);
         $returns = $this->returnRequests($o);
         $returnable = $this->returnableQuantities($o, $returns);
+        // New times after a failed delivery, the proof of delivery and the assembly answer, per part (docs/guides/DELIVERY_FOLLOW_UPS.md).
+        $followUps = app(DeliveryFollowUps::class)->forOrder($o);
 
         return $this->summary($o) + [
             'totals' => [
@@ -86,7 +89,7 @@ class OrderPresenter
             'substitution_requests' => $substitutions,
             'waiting_for_customer' => collect($substitutions)->contains(fn (array $s) => $s['status'] === 'waiting'),
             'revisions' => $o->wasAdjusted() ? $o->revisions->map(fn ($r) => $this->revision($r))->values() : [],
-            'fulfillments' => $o->fulfillments->map(fn (OrderFulfillment $f) => $this->fulfillment($f))->values(),
+            'fulfillments' => $o->fulfillments->map(fn (OrderFulfillment $f) => $this->fulfillment($f) + $followUps[$f->id])->values(),
             'can_cancel' => ! $o->status->isTerminal() && ! $handedOver && $o->status->value !== 'cancellation_requested',
             'can_pay' => $o->status->value === 'pending_payment' && $o->payment_method === 'sadad' && ! $o->payment_due_at?->isPast(),
             // Open while some piece can still be reported: delivered or collected, inside the claim window and in no other claim. `return_request` is the

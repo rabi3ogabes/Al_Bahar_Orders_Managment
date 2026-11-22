@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:albahar_customer/core/models/paginated.dart';
 import 'package:albahar_customer/core/network/api_client.dart';
+import 'package:albahar_customer/core/network/interceptors.dart';
 import 'package:albahar_customer/core/providers.dart';
 import 'package:albahar_customer/core/utils/json.dart';
 import 'package:albahar_customer/features/cart/domain/cart_models.dart';
@@ -120,6 +121,25 @@ class OrderRepository {
   Future<Order> answerSubstitution(String orderId, String requestId, {required bool accept}) async {
     final data = asMap(
       await _api.post('/orders/$orderId/substitutions/$requestId', data: {'answer': accept ? 'accept' : 'decline'}),
+    );
+    return Order.fromJson(asMap(data['order']));
+  }
+
+  /// The customer's pick of one of the times offered after a failed delivery. The same [idempotencyKey] sent twice is the same answer (a retry after a
+  /// lost reply never books twice). Returns the order as it is now.
+  Future<Order> chooseDeliveryTime(
+    String orderId,
+    String offerId, {
+    required String slotId,
+    required String date,
+    required String idempotencyKey,
+  }) async {
+    final data = asMap(
+      await _api.post(
+        '/orders/$orderId/slot-offers/$offerId/choose',
+        data: {'slot_id': slotId, 'date': date},
+        options: Idempotency.options(idempotencyKey),
+      ),
     );
     return Order.fromJson(asMap(data['order']));
   }

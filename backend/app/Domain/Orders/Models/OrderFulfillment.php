@@ -19,7 +19,8 @@ class OrderFulfillment extends Model
 
     protected $guarded = ['id'];
 
-    protected $casts = ['status' => 'App\Domain\Orders\Enums\FulfillmentStatus', 'slot_date' => 'date', 'is_express' => 'boolean', 'accepted_at' => 'immutable_datetime', 'ready_at' => 'immutable_datetime', 'dispatched_at' => 'immutable_datetime', 'delivered_at' => 'immutable_datetime', 'picked_up_at' => 'immutable_datetime', 'cancelled_at' => 'immutable_datetime'];
+    protected $casts = ['status' => 'App\Domain\Orders\Enums\FulfillmentStatus', 'slot_date' => 'date', 'is_express' => 'boolean', 'accepted_at' => 'immutable_datetime', 'ready_at' => 'immutable_datetime', 'dispatched_at' => 'immutable_datetime', 'delivered_at' => 'immutable_datetime', 'picked_up_at' => 'immutable_datetime', 'cancelled_at' => 'immutable_datetime',
+        'assembly_answered_at' => 'immutable_datetime', 'assembly_done_at' => 'immutable_datetime', 'assembly_handled_at' => 'immutable_datetime'];
 
     /** @return BelongsTo<Order, $this> */
     public function order(): BelongsTo

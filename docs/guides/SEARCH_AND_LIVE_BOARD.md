@@ -145,6 +145,23 @@ Default **All my branches**; with several, cards are **grouped per branch** insi
 
 **Wall display** (or `?wall=1`, `&branch=` to fix one branch) shows the board **alone**: no menu, top bar or footer, large type, six lanes filling the screen (fits 1920 x 1080 and 1440 wide), the shop clock (Qatar time), the live indicator, a **sound** switch (the same choice as the speaker in the top bar), **Full screen** and **Exit**. It asks the screen not to sleep. It is a display: **no buttons**, no side window, and the server refuses Accept in this mode. Dark and light follow the device. The new-order toast and sound of the dashboard keep working on it. For a screen in a branch, use a **view-only staff account** at that branch (role with `orders.view` only) so the screen cannot be used to change anything.
 
+### Wall display account (view only)
+
+For a screen on the wall, create an **account that can show the board and do nothing else**: **Organization > Employees > Add branch employee**, tap the ready-made set **Wall display screen** (or tick the single feature **Wall display**, group "Screen on the wall"), choose the branch (add it at more branches with Features & branches), give it a password and sign the screen in once at `/admin`. It cannot be mixed with any other feature (the form says so). A branch manager can create one for their own branch.
+
+What the account is, exactly: its **only** permission is `board.view`. Anyone with any other right (an administrator, a manager, someone who also sees orders) is a normal account that merely also holds `board.view`; only a pure `board.view` account is confined.
+
+- **One page.** It opens `/admin/operations/board` in wall mode, **forced by the server** (`?wall=0` or a removed `wall` changes nothing). Every other dashboard page, the search (and its palette, which is not even on the page), the profile, a Livewire call from any other page and the whole staff API answer **403** (`EnsureStaff`, tested route by route over every named dashboard page).
+- **Its branches only.** It sees the branches its right was given for; asking for another branch can only narrow, never widen.
+- **No buttons, and the server refuses the actions anyway.** No Accept, Open, branch chip, "show more", sound switch or Exit link; Accept, Open, branch and lane changes and any property update from the browser answer 403. It has one button: **Sign out**.
+- **No customer data.** Cards show no name, phone or address (as for every wall display), and the account gets **no new-order toast at all** (the toast names the customer's first name): it listens to the live channels only to redraw the board at once.
+- **Signs in once, stays in for the shift.** Every request the board makes (its own refresh polling counts) moves the account's "last seen" forward; if the screen has not been seen for **N hours** it is signed out. **Settings > Security > "Wall display stays signed in for"**, default **16 hours** (1 to 72). A wall account is always remembered at sign-in (so a server-side session purge does not lock the screen), and it signs out by the **Sign out** button (which also ends the remembered sign-in) or after its idle time. A cache flush counts as "just seen", never as expired.
+- It has no profile page, so the "choose your own password" step and the two-factor enrolment step do not apply to it (a reset password does not lock the screen out; if the account later gets other features it must choose its own password like anyone).
+
+Where it lives: `app/Domain/Identity/Services/AccessControl::isWallDisplay`, `app/Http/Middleware/EnsureStaff` (confinement), `app/Domain/Operations/Services/WallDisplaySession` (idle time), `app/Livewire/Admin/Operations/LiveBoardPage`, the permission `board.view` in `PermissionRegistry`, tests `tests/Feature/Operations/WallDisplayAccountTest.php`.
+
+**Rollout:** run the permission seeder once (`php artisan db:seed --class=RolesAndPermissionsSeeder --force`) so `board.view` exists and the Branch Manager role holds it, and rebuild the front-end assets (`resources/js/live-toasts.js` gained a `quiet` option).
+
 ### How big, how fast
 
 Per refresh, **8 statements** whatever the number of parts: **one** for the open parts (a short lookup per part state on `order_fulfillments (branch_id, status, created_at)`, each cut at **150**, oldest first, joined with `UNION ALL`, so a flood of one state never hides the others and the longest-stuck are the ones kept), the eager loads by id (orders, deliveries with their drivers, slots, pickup passes), **one** grouped query for the units, and one each for waiting replacements, cancellation requests and the number of parts of an order. A test asserts the count does not grow from 40 to 200 parts. Lanes, counts and colours are worked out in memory; a lane shows **10 cards** and "Show N more" opens it to **60**; only the shown cards get their slot text and cash amount (plus a cash-split lookup for the few orders that come from several branches).
@@ -218,7 +235,7 @@ npm test                    # includes tests/js/command-palette-core.test.mjs an
 - Staff with a **company-wide role who are not employees of any branch** (and not super admins) are not allowed on the `branches.{id}` socket channels (the existing channel rule), so their board redraws on the order feed (new orders and order status changes) and on the 10/30 s timer: a part moving from *Preparing* to *Ready* shows within 30 s for them, within about a second for branch staff and super admins.
 - The customer's name is not on the card (privacy on a shared screen). To find a customer's order use the global search.
 - Search counts and "N more" are limited by the index-friendly design: a query with a very common word (`mariam`) costs about 30 ms at 250,000 customers; that is the worst measured.
-- No change to any API, to the mobile apps or to the storefront. No new permission, setting, scheduler task or message.
+- No change to any API, to the mobile apps or to the storefront. (The wall display account of Wave 5 adds the permission `board.view` and one setting, see above.)
 
 ---
 

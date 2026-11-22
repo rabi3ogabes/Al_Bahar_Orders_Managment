@@ -10,6 +10,7 @@ import { useAuthModal } from './AuthModal';
 import { DrawerLink } from './drawerLink';
 import { CancelOrderDialog, FulfillmentCard, TimelineCard, TotalsCard, OrderChangesNotice, invoiceAvailable, statusTone, useInvoice, usePay, useReorder, useOrderQuery } from './OrderParts';
 import { ReturnForm, ReturnStatusCard, ReturnWindowNote } from './ReturnClaims';
+import { SlotOfferCards } from './FollowUps';
 import { SubstitutionCards } from './Substitutions';
 import { SideDrawer } from './SideDrawer';
 import { Alert, Badge, Button, EmptyState, Skeleton } from './ui';
@@ -58,6 +59,7 @@ export default function OrderDrawer({ id, open, onClose }: { id: string; open: b
               <p className="mt-2 text-sm text-muted">{t('order.placed_on', { d: date(o.placed_at) })}</p>
             </div>
             <SubstitutionCards o={o} />
+            <SlotOfferCards o={o} />
             <OrderChangesNotice o={o} />
             <ReturnStatusCard o={o} />
             {unpaid && <Alert tone="warning">{t('order.unpaid')}</Alert>}

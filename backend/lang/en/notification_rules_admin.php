@@ -126,6 +126,7 @@ return [
         'order_substitution_kept' => ['name' => 'Replacement kept', 'when' => 'When the customer did not answer in time and the settings say to keep the replacement.'],
         'delivery_nearby' => ['name' => 'Driver is close', 'when' => 'Once, when the driver is about ten minutes from the customer. Delivery orders only, never pickup.'],
         'delivery_arrived' => ['name' => 'Driver has arrived', 'when' => 'Once, when the driver taps "I have arrived" at the customer\'s door. Delivery orders only, never pickup.'],
+        'delivery_slots_offered' => ['name' => 'New delivery times to choose', 'when' => 'After a delivery failed because the customer was not there, could not be reached, or the address or access was wrong, and the branch has free delivery times: the customer is offered up to a few of them to choose in the app or on the web page. Never at night (22:00 to 08:00): it waits for the morning. Switch the offer itself off in Settings > Checkout & fees.'],
         'payment_link' => ['name' => 'Payment link', 'when' => 'When staff send the customer a link to pay for an order online.'],
         'payment_succeeded' => ['name' => 'Payment received', 'when' => 'When an online payment goes through.'],
         'payment_failed' => ['name' => 'Payment not completed', 'when' => 'When an online payment fails, so the customer can try again.'],
@@ -154,6 +155,8 @@ return [
         'staff_order_new' => ['name' => 'New order for the branch', 'when' => 'Push and inbox alert to the branch team when a new order arrives. An online order only after it is paid.'],
         'staff_order_reminder' => ['name' => 'Order still waiting', 'when' => 'Reminder to the branch manager and the order team when a new order has waited too long without being taken on (once when it gets late, once when it is very late).'],
         'staff_stocktake_waiting' => ['name' => 'Stock count waiting for approval', 'when' => 'Push and inbox alert to the people who may approve stock counts of that branch (not the people who counted it) when a count with differences is finished. Quiet between 22:00 and 08:00: inbox only.'],
+        'staff_slot_chosen' => ['name' => 'Customer chose a new delivery time', 'when' => 'Push and inbox alert to the branch team that sends drivers, and to the driver of the job, when the customer picks one of the offered times after a failed delivery. Order number and time only. Quiet between 22:00 and 08:00: inbox only.'],
+        'staff_assembly_not_done' => ['name' => 'Assembly not done', 'when' => 'Push and inbox alert to the branch team that sends drivers when the driver reports that the paid assembly was not done, so the fee can be refunded or the assembly booked again. Quiet between 22:00 and 08:00: inbox only.'],
         'staff_stocktake_returned' => ['name' => 'Stock count sent back', 'when' => 'Alert to the people who counted when the approver sends the count back, with the reason.'],
     ],
 ];

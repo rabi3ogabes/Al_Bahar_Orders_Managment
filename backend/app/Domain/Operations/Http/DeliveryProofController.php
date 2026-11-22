@@ -5,9 +5,9 @@ namespace App\Domain\Operations\Http;
 use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Fulfillment\Models\DeliveryProof;
 use App\Domain\Identity\Services\AccessControl;
+use App\Domain\Operations\Services\ProofFiles;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -22,29 +22,15 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class DeliveryProofController extends Controller
 {
-    private const TYPES = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
-
-    public function show(Request $request, AccessControl $access, string $delivery, string $proof): Response
+    public function show(Request $request, AccessControl $access, ProofFiles $files, string $delivery, string $proof): Response
     {
         abort_unless(Str::isUuid($delivery) && Str::isUuid($proof), 404);
         $d = Delivery::query()->find($delivery, ['id', 'branch_id']);
         abort_unless($d !== null && $access->allows($request->user(), 'deliveries.view', $d->branch_id), 404);
 
         $p = DeliveryProof::query()->where('delivery_id', $d->id)->find($proof);
-        $path = (string) ($p?->path ?? '');
-        $disk = (string) ($p?->disk ?? '');
-        abort_unless($p !== null && $disk !== '' && array_key_exists($disk, (array) config('filesystems.disks')), 404);
-        abort_unless(preg_match('#^delivery-proofs/'.preg_quote($d->id, '#').'/[A-Za-z0-9._-]+$#', $path) === 1 && ! str_contains($path, '..'), 404);
+        abort_unless($p !== null, 404);
 
-        $storage = Storage::disk($disk);
-        abort_unless($storage->exists($path), 404);
-        $mime = (string) $storage->mimeType($path);
-        abort_unless(isset(self::TYPES[$mime]), 404);
-
-        return $storage->response($path, 'proof-'.$p->id.'.'.self::TYPES[$mime], [
-            'Content-Type' => $mime,
-            'Cache-Control' => 'private, max-age=300',
-            'X-Content-Type-Options' => 'nosniff',
-        ]);
+        return $files->response($p, 'private, max-age=300');
     }
 }

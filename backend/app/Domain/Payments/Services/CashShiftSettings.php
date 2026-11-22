@@ -14,6 +14,7 @@ use App\Support\Money;
  *  - noteAbove     a difference between the counted and the expected cash above this amount needs a written reason
  *  - reviewAbove   a difference above this amount also needs a second person (payments.override) to look at it; never lower than noteAbove
  *  - maxOpenHours  a shift open for longer than this shows in Needs attention
+ *  - payoutApprovalAbove  a petty-cash payout above this amount must name a second person who approved it
  */
 final class CashShiftSettings
 {
@@ -31,11 +32,15 @@ final class CashShiftSettings
 
     public const MAX_OPEN_HOURS_KEY = 'cash.shift_max_open_hours';
 
+    public const PAYOUT_APPROVAL_KEY = 'cash.payout_approval_above';
+
     public const DEFAULT_NOTE_ABOVE = '1.00';
 
     public const DEFAULT_REVIEW_ABOVE = '50.00';
 
     public const DEFAULT_MAX_OPEN_HOURS = 16;
+
+    public const DEFAULT_PAYOUT_APPROVAL = '100.00';
 
     public function __construct(private readonly Settings $settings) {}
 
@@ -59,6 +64,12 @@ final class CashShiftSettings
     public function reviewAbove(): Money
     {
         return $this->money(self::REVIEW_ABOVE_KEY, self::DEFAULT_REVIEW_ABOVE)->max($this->noteAbove());
+    }
+
+    /** A petty-cash payout of exactly this amount needs no approver; anything above it does. */
+    public function payoutApprovalAbove(): Money
+    {
+        return $this->money(self::PAYOUT_APPROVAL_KEY, self::DEFAULT_PAYOUT_APPROVAL);
     }
 
     public function maxOpenHours(): int

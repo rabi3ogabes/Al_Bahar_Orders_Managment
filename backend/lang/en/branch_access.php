@@ -17,6 +17,7 @@ return [
     'group_reports' => 'Reports',
     'group_cash' => 'Cash drawer',
     'group_staff' => 'Staff of this branch',
+    'group_wall' => 'Screen on the wall',
 
     // Features: what they are called and what they open
     'home' => 'Home overview',
@@ -73,6 +74,8 @@ return [
     'cash_handover_hint' => 'Hand collected cash to the office and record bank deposits.',
     'staff_view' => 'See staff of this branch',
     'staff_view_hint' => 'Opens the list of people who work at this branch (no changes).',
+    'wall_display' => 'Wall display',
+    'wall_display_hint' => 'A screen on the wall that shows the live board of this branch and nothing else: no menu, no search, no customer phone numbers, no buttons. It cannot be mixed with other features.',
 
     // Presets
     'preset_branch_manager' => 'Branch manager',
@@ -87,6 +90,8 @@ return [
     'preset_delivery_coordinator_hint' => 'Plans deliveries and assigns drivers.',
     'preset_read_only' => 'Read only',
     'preset_read_only_hint' => 'Can look at orders, stock, products and reports but change nothing.',
+    'preset_wall_display' => 'Wall display screen',
+    'preset_wall_display_hint' => 'For a screen on the wall: the live board only, read only.',
 
     // Picker
     'start_from' => 'Start from a ready-made set',
@@ -163,6 +168,7 @@ return [
     'error_contact_taken' => 'That mobile number or e-mail already belongs to another account.',
     'error_feature_unknown' => 'One of the selected features does not exist.',
     'error_feature_required' => 'Tick at least one feature.',
+    'error_wall_display_alone' => 'A wall display account can only show the live board. Untick the other features, or leave "Wall display" unticked.',
     'error_personal_role_replace' => 'This person’s access here is a feature checklist. Change it under Features & branches; roles cannot replace it from this form.',
     'error_password_change_required' => 'Choose your own password before you continue.',
 ];

@@ -53,7 +53,7 @@ English and Arabic, right to left, logical CSS properties, 44 px touch targets, 
 ## 2. How every number is measured
 
 All dates are **Qatar days** (`BusinessTime`), the window is the first instant of the first day to the last instant of the last day, stored in UTC. Only **real
-orders** count: not waiting for online payment, and not an online order that expired unpaid (`DailyCloseNumbers::realOrderSql()`, called, not copied).
+orders** count: not waiting for online payment, and not an online order that expired unpaid (`Orders::realSql()`, the one definition the other screens use too).
 
 ### Branch numbers
 
@@ -113,32 +113,34 @@ who takes cash at the counter is not a driver and does not appear.
 
 ## 3. Agreement with the daily close and the weekly owner pack
 
-The owner must never see two different numbers for the same thing. `ScorecardBranchNumbers` therefore **calls** `DailyCloseNumbers::realOrderSql()` and
-**restates** the other definitions in SQL (a SQL condition cannot call a method), each time with a comment naming the original. The tests compare the scorecard with
-`DailyCloseNumbers` day by day (orders placed, cancellations, failed deliveries, cash differences and their count, the accept time of a single order and the number of orders measured) and with `OwnerPackData` for the same week (on-time rate and number of promised deliveries).
+The owner must never see two different numbers for the same thing, so **none of these numbers is defined by the scorecard any more**: the scorecard, the daily close, the weekly owner
+pack and the dashboard all ask the same shared definitions (`App\Domain\Reports\Services\Metrics\*` and `SalesBasis`), written down in **`NUMBER_DEFINITIONS.md`** (what each
+number means, which screens show it, and the pairs that look alike but are different). `ScorecardBranchNumbers` only asks them about a window and keeps what is the scorecard's own: the
+reasons, the pickups collected in time and the replacements offered. The tests compare the screens day by day (`NumbersAgreementTest`) and against the release that ran before the move
+(`NumbersGoldenTest`).
 
-| Number | Original | Here | Same? |
-|---|---|---|---|
-| Which orders are real | `DailyCloseNumbers::realOrderSql()` | called | identical (shared) |
-| Orders handled | `DailyCloseNumbers::orderCounts()` placed | `ScorecardBranchNumbers::placed()` | same rule |
-| Time to accept / prepare | `DailyCloseNumbers::speed()` (private; **average**, first 2000 parts) | `ScorecardBranchNumbers::timing()` | same parts and same clock; **median and p90** instead of an average; the newest **20,000** parts of a window (not 2000) |
-| On-time delivery | `OwnerPackData::metrics()` on_time (promised day, Qatar date) | `ScorecardBranchNumbers::deliveries()` | same rule and same result for a week; here delivery-type parts delivered in the window |
-| Cancelled parts | `DailyCloseNumbers::orderCounts()` cancelled | `ScorecardBranchNumbers::cancelled()` | same count; **the rate** (cancelled ÷ placed in the window) and the reasons are new |
-| Failed deliveries | `DailyCloseNumbers::for()` failed_deliveries, `OwnerPackData` failed_deliveries | `ScorecardBranchNumbers::failures()` | same count (deliveries by their last failure); reasons and sides are new |
-| Claims opened and claims rate | `OwnerPackData::metrics()` claims, claims_rate | `ScorecardBranchNumbers::claims()` | same |
-| Cash difference net and number of differences | `DailyCloseNumbers::cash()` variance, variance_count; `OwnerPackData` cash_variance | `ScorecardBranchNumbers::handIns()` | same; the absolute total and the number of hand-ins are new |
-| Differences nobody has explained | `DailyCloseNumbers::cash()` open_variances | `ScorecardBranchNumbers::standing()` | same |
-| Cash held | `DailyCloseNumbers::cash()` still_out_total (cash, collected or partial, not handed in) | `standing()` + the exception inbox (`AttentionFeed::cashItems()`) | **differs slightly**: this follows the exception inbox and also requires `amount_collected > 0`; and it adds the part older than the cash limit |
+| Number | Shared definition | Same on |
+|---|---|---|
+| Which orders are real | `Orders::realSql` | close, pack, scorecard |
+| Orders handled / placed | `Orders::placed` | close ("Orders placed"), scorecard |
+| Time to accept / prepare | `Speed::minutes`: the same readings; the close takes their **average**, the scorecard their **median and slowest tenth**; one sample (the newest 20,000 parts of the window) | close, scorecard |
+| On-time delivery | `Deliveries::promises` | pack, scorecard (branch and driver) |
+| Cancelled parts | `Orders::cancelled / cancelledByReason` | close, scorecard |
+| Failed deliveries | `Deliveries::failures` | close, scorecard (branch and driver), pack data |
+| Claims opened and claims rate | `Claims::opened`, `Orders::reached` | pack, scorecard |
+| Cash difference and number of differences | `Cash::handIns` | close, pack, scorecard (branch and driver) |
+| Differences nobody has explained | `Cash::openVariances` | close, pack, scorecard |
+| Cash held | `Cash::held`: cash, collected or part-collected, something to hand in, not handed in; the "Needs attention" inbox lists the late ones by the same rule | close, pack, scorecard, drivers, inbox |
 
-To unify later: the daily close and the owner pack could call the same SQL fragments (an on-time condition, a "timing rows" query) instead of each stating them; the
-speed figure of the daily close could show the median beside its average.
+"All branches together" counts an order shared by two branches **once** (it used to be the sum of the branches' own counts, which counted it twice): orders handled, and the cancellation and
+replacement rates that are shares of it.
 
 ---
 
 ## 4. Speed
 
 One grouped query per family of figures (placed, cancelled with reasons, timing rows, delivery outcomes, pickups, failures, claims, replacements, hand-ins; then the
-cash that stands now), each bounded by the window and by the viewer's branches, run for the window **and** the window before: **25 queries for the Branches tab and 13
+cash that stands now), each bounded by the window and by the viewer's branches, run for the window **and** the window before: **28 queries for the Branches tab and 14
 for the Drivers tab, however many branches, drivers or orders**. A test checks that eight branches still use fewer than 40 queries. The answer (plain arrays, no customer data)
 is kept **120 seconds** under a key made of the tab, the window, the branches, the minimum sample and the cash limit (never the person), and **Refresh** forgets it.
 The only rows read one by one are the order timestamps whose opening-hours minutes can only be counted in PHP: at most the newest **20,000** orders of a window
@@ -161,7 +163,7 @@ The other families use indexes that already exist (`orders_placed_at_index`, `or
 
 **Timings on that seeded scale database, cold (nothing cached), on a machine shared with other work:**
 
-| Window | Branches tab (3 branches, 25 queries) | Drivers tab (12 drivers, 13 queries) |
+| Window | Branches tab (3 branches, 28 queries) | Drivers tab (12 drivers, 14 queries) |
 |---|---|---|
 | 7 days | 0.4 s | 0.08 s |
 | 30 days | 0.9 s | 0.13 s |

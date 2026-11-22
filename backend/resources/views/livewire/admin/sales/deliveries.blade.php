@@ -77,6 +77,7 @@
                                     @if ($d->scheduled_for)<span class="tabular-nums"><x-icon name="clock" class="me-1 inline size-3.5" />{{ \App\Support\BusinessTime::display($d->scheduled_for) }}</span>@endif
                                     @if ($d->attempt_count)<span>{{ __('sales_admin.attempts_n', ['n' => $d->attempt_count]) }}</span>@endif
                                     @if ($d->failure_reason && in_array($st, ['failed', 'rescheduled', 'returning'], true))<span class="text-ruby-soft">{{ __('sales_admin.fail_'.$d->failure_reason) }}</span>@endif
+                                    @if (isset($offerNotes[$d->id]))<span @class(['text-emerald-soft' => $offerNotes[$d->id]['state'] === 'chosen', 'text-amber-soft' => $offerNotes[$d->id]['state'] !== 'chosen']) data-offer-state="{{ $offerNotes[$d->id]['state'] }}"><x-icon name="calendar" class="me-1 inline size-3.5" />{{ $offerNotes[$d->id]['text'] }}</span>@endif
                                     @if ($d->last_error)<span class="text-ruby-soft" title="{{ $d->last_error }}"><x-icon name="alert" class="me-1 inline size-3.5" />{{ __('sales_admin.booking_error') }}</span>@endif
                                 </p>
                             </div>

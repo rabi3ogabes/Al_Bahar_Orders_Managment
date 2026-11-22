@@ -1,0 +1,77 @@
+<?php
+
+/*
+ | Finance > Cash: petty-cash payouts from an open drawer and the Z-report as a PDF (docs/guides/ASSEMBLY_SALES_AND_PETTY_CASH.md).
+ */
+return [
+    'pay_out' => 'Pay out cash',
+    'title' => 'Pay out cash',
+    'hint' => 'Money taken out of the drawer for a small expense. It lowers the cash the drawer should hold, and it appears on the Z-report.',
+    'drawer_now' => 'The drawer should hold',
+    'amount' => 'Amount (QAR)',
+    'reason' => 'What was it for?',
+    'reason_pick' => 'Choose a reason',
+    'reasons' => [
+        'supplies' => 'Supplies',
+        'transport' => 'Transport and fuel',
+        'maintenance' => 'Small repair',
+        'cleaning' => 'Cleaning',
+        'refreshments' => 'Refreshments',
+        'other' => 'Other',
+    ],
+    'note' => 'Details',
+    'note_hint' => 'Required when the reason is "Other". Up to 300 characters.',
+    'receipt' => 'Receipt photo',
+    'receipt_hint' => 'Optional. A photo of the receipt (JPG, PNG or WebP, up to 5 MB). It stays private.',
+    'approver' => 'Approved by',
+    'approver_hint' => 'Choose the colleague who approved this payout.',
+    'approver_pick' => 'Choose who approved it',
+    'approver_none' => 'Nobody else at this branch can approve cash yet. Ask an administrator to give a manager the right to approve cash.',
+    'needs_approver' => 'This is above :amount, so a second person must approve it.',
+    'too_big' => 'The drawer only holds :drawer, so this cannot be paid out.',
+    'record' => 'Pay out',
+    'recorded_ok' => ':amount paid out.',
+    'list_title' => 'Paid out in this shift',
+    'list_empty' => 'Nothing has been paid out in this shift yet.',
+    'paid_by' => 'Paid by :name',
+    'approved_by' => 'Approved by :name',
+    'receipt_open' => 'Receipt',
+    'receipt_aria' => 'Open the receipt photo of this payout',
+    'void' => 'Reverse',
+    'void_aria' => 'Reverse this payout',
+    'void_reason' => 'Why is it reversed?',
+    'void_confirm' => 'Reverse payout',
+    'void_keep' => 'Keep it',
+    'voided' => 'Reversed',
+    'voided_by' => 'Reversed by :name: :reason',
+    'voided_ok' => 'Payout reversed.',
+    'l_payouts_n' => '{0} Petty cash paid out|{1} 1 petty-cash payout|[2,*] :count petty-cash payouts',
+    'gone' => 'This shift is closed or no longer available. Close this window and refresh the page.',
+
+    // The Z-report.
+    'z' => [
+        's_payouts' => 'Petty cash paid out',
+        'none' => 'None.',
+        'time' => 'Time',
+        'reason' => 'Reason',
+        'paid_by' => 'Paid by',
+        'approved_by' => 'Approved by',
+        'amount' => 'Amount',
+        'reversed' => 'REVERSED',
+        'reversed_note' => 'Reversed by :name: :reason',
+        'total' => 'Total paid out',
+        'list_cut' => 'Only the first :n are listed; the figures above cover everything.',
+    ],
+
+    // The PDF download.
+    'pdf' => [
+        'download' => 'Download PDF',
+        'download_aria' => 'Download the Z-report :z as a PDF',
+        'file' => 'z-report-:z-:branch.pdf',
+        'printed' => 'Downloaded by :by on :at',
+        'opened' => 'Opened',
+        'closed' => 'Closed',
+        'open_for' => 'Open for',
+        'closed_by' => 'Closed by',
+    ],
+];

@@ -8,6 +8,7 @@ use App\Domain\Branches\Services\SlotService;
 use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Fulfillment\Models\DeliveryProvider;
 use App\Domain\Fulfillment\Services\DeliveryService;
+use App\Domain\Fulfillment\Services\SlotOffers;
 use App\Domain\Identity\Models\User;
 use App\Domain\Orders\Models\OrderFulfillment;
 use App\Livewire\Admin\Concerns\WithAdminTable;
@@ -215,6 +216,8 @@ class DeliveryIndex extends Component
         }
 
         return view('livewire.admin.sales.deliveries', [
+            // What became of the new times offered to the customer of a failed delivery (docs/guides/DELIVERY_FOLLOW_UPS.md): one line on the row.
+            'offerNotes' => $this->lane === 'exceptions' ? app(SlotOffers::class)->staffNotes($rows->getCollection()) : [],
             'slotOptions' => $slotOptions,
             'rows' => $rows,
             'counts' => $counts,

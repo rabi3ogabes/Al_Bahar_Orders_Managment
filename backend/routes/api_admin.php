@@ -71,7 +71,7 @@ Route::controller(V1\Admin\OrderOpsController::class)->group(function () {
     Route::post('pickup/verify', 'pickupVerify')->middleware('permission:pickup.view')->name('pickup.verify');
     Route::post('pickup/{reservation}/handover', 'pickupHandover')->middleware('permission:pickup.approve')->name('pickup.handover');
     Route::post('fulfillments/{fulfillment}/deliveries', 'createDelivery')->middleware('permission:deliveries.create')->name('deliveries.store');
-    Route::post('deliveries/{delivery}/{action}', 'deliveryAction')->middleware('permission:deliveries.edit')->whereIn('action', ['assign', 'accept', 'pickup', 'out-for-delivery', 'deliver', 'fail', 'reschedule', 'return', 'cancel', 'retry-booking'])->name('deliveries.action');
+    Route::post('deliveries/{delivery}/{action}', 'deliveryAction')->middleware('permission:deliveries.edit')->whereIn('action', ['assign', 'accept', 'pickup', 'out-for-delivery', 'deliver', 'fail', 'assembly', 'reschedule', 'return', 'cancel', 'retry-booking'])->name('deliveries.action');
     Route::get('me/deliveries', 'myDeliveries')->middleware('permission:deliveries.view')->name('deliveries.mine');
     Route::post('payments/{payment}/collections', 'collect')->middleware('permission:payments.create')->name('payments.collect');
     Route::post('payments/{payment}/refunds', 'requestRefund')->middleware('permission:refunds.create')->name('refunds.store');

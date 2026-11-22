@@ -236,6 +236,10 @@ class BranchEmployeeService
         if ($features === []) {
             throw $this->fail('feature_required', 422);
         }
+        // A wall display account is a screen, not a person: the live board and nothing else. Mixed with anything it would be an ordinary account in disguise.
+        if (in_array('wall_display', $features, true) && count($features) > 1) {
+            throw $this->fail('wall_display_alone', 422);
+        }
         $after = BranchFeatureCatalog::permissionKeys($features);
         // Same rule as the role editor: every permission that changes, on or off, is one the actor holds at this branch.
         $changed = array_merge(array_diff($after, $currentKeys), array_diff($currentKeys, $after));

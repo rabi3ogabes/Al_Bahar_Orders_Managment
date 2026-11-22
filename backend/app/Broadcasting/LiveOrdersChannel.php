@@ -4,6 +4,7 @@ namespace App\Broadcasting;
 
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
+use App\Domain\Identity\Support\PermissionRegistry;
 
 /**
  * private-live-orders: staff who see orders of EVERY branch hear all new orders and status changes.
@@ -17,7 +18,10 @@ class LiveOrdersChannel
             return false;
         }
         $access = app(AccessControl::class);
+        // A wall display account hears the new orders of its branches (number, total and payment: no customer data), so its board redraws at once.
+        $wall = $access->isWallDisplay($user);
+        $right = $wall ? PermissionRegistry::WALL_DISPLAY_KEY : 'orders.view';
 
-        return $branch === null ? $access->scope($user, 'orders.view')->all : $access->allows($user, 'orders.view', $branch);
+        return $branch === null ? $access->scope($user, $right)->all : $access->allows($user, $right, $branch);
     }
 }

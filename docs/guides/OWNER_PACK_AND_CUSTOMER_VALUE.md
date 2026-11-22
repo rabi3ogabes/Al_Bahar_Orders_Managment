@@ -2,7 +2,8 @@
 
 **One rule: every page answers one question, in plain words, with the number big and the next step one tap away.**
 Four pages, one set of definitions. All of them read the dashboard's own definition of a sale (`SalesBasis`), so a number here is the number
-on the dashboard, the reports and the branch's own screens.
+on the dashboard, the reports and the branch's own screens. Every number that appears on more than one screen is defined once, in
+**`NUMBER_DEFINITIONS.md`**, which says what each number means and which look-alike names are different numbers.
 
 | Page | Menu | Question it answers | Who sees it |
 |---|---|---|---|
@@ -92,7 +93,7 @@ time (Qatar time, default Monday 08:00), the language (English or Arabic), and a
 | Number | Meaning |
 |---|---|
 | Week | Monday to Sunday, Qatar time, ISO week number. |
-| Sales, orders, average basket | As in the daily close, summed over the week; the company line is the sum of the branches (a rate is recomputed from the sums, never averaged). |
+| Sales, orders, average basket | As in the daily close, summed over the week. The company line adds up the branches' sales, but its **orders are the distinct orders of all the branches together** (an order shared by two branches is one order), and its average basket is the sales divided by them; a rate is recomputed from the sums, never averaged. |
 | Delivered on the promised day | Of the deliveries that reached the customer in the week and had a promised day, the share that arrived on that day or earlier. |
 | Claims per 100 delivered | Return and damage claims opened in the week, for every 100 orders that reached the customer in the week. "n/a" when none did. |
 | Out of stock | Items with nothing available **today** (a stock figure is always as of now). |

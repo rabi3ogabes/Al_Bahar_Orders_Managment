@@ -25,6 +25,8 @@ final class NotificationCatalog
         // The driver is close, and at the door (sent once each by the driver app's steps and its position reports; never for a pickup order).
         'delivery.nearby' => ['transactional', ['push', 'in_app']],
         'delivery.arrived' => ['transactional', ['push', 'in_app']],
+        // After a failed delivery the customer is offered new times to choose from (SlotOffers); held back until 08:00 when it is made at night.
+        'delivery.slots_offered' => ['transactional', ['push', 'in_app']],
         'payment.link' => ['transactional', ['push', 'in_app']],
         'payment.succeeded' => ['transactional', ['push', 'in_app']],
         'payment.failed' => ['transactional', ['push', 'in_app']],
@@ -74,6 +76,9 @@ final class NotificationCatalog
         // A stock count is waiting for a second person to approve it, and a count that was sent back (the people who counted are told why).
         'staff.stocktake_waiting' => ['transactional', ['push', 'in_app']],
         'staff.stocktake_returned' => ['transactional', ['push', 'in_app']],
+        // The customer chose a new delivery time after a failed delivery; the paid assembly was reported as not done.
+        'staff.slot_chosen' => ['transactional', ['push', 'in_app']],
+        'staff.assembly_not_done' => ['transactional', ['push', 'in_app']],
     ];
 
     /**

@@ -29,7 +29,7 @@ class GenerateExportJob implements ShouldQueue
         $export->update(['status' => 'processing']);
         try {
             $f = $export->filters;
-            $result = $reports->run(User::findOrFail($export->user_id), $export->type, $f['from'], $f['to'], $f['branch_id'] ?? null);
+            $result = $reports->run(User::findOrFail($export->user_id), $export->type, $f['from'], $f['to'], $f['branch_id'] ?? null, (bool) ($f['assembly_only'] ?? false));
             $path = 'exports/'.$export->id.'.csv';
             $h = fopen('php://temp', 'w+');
             fwrite($h, "\xEF\xBB\xBF");

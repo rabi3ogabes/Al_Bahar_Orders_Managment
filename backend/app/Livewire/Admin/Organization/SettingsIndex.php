@@ -2,10 +2,12 @@
 
 namespace App\Livewire\Admin\Organization;
 
+use App\Domain\Fulfillment\Services\DeliveryFollowUpSettings;
 use App\Domain\Fulfillment\Services\DispatchSettings;
 use App\Domain\Inventory\Services\StockPlanningSettings;
 use App\Domain\Inventory\Services\StocktakeApprovals;
 use App\Domain\Operations\Services\OpsClock;
+use App\Domain\Operations\Services\WallDisplaySession;
 use App\Domain\Orders\Printing\PrintSettings;
 use App\Domain\Payments\Services\CashShiftSettings;
 use App\Domain\Settings\Services\Settings;
@@ -102,9 +104,13 @@ class SettingsIndex extends Component
                 'pickup.token_ttl_hours' => ['type' => 'int', 'rules' => $int(1, 720), 'suffix' => 'hours'],
                 'orders.default_prep_minutes' => ['type' => 'int', 'rules' => $int(1, 240), 'suffix' => 'min'],
                 'orders.default_delivery_minutes' => ['type' => 'int', 'rules' => $int(1, 240), 'suffix' => 'min'],
+                ...self::deliveryFollowUpSchema(),
             ],
             'security' => [
                 'auth.staff_two_factor_required' => ['type' => 'bool', 'rules' => ['boolean']],
+                // How long a wall display account (the live board on a screen, view only) stays signed in without being seen: docs/guides/SEARCH_AND_LIVE_BOARD.md.
+                WallDisplaySession::HOURS_KEY => ['type' => 'int', 'rules' => $int(1, WallDisplaySession::MAX_HOURS), 'suffix' => 'hours', 'default' => WallDisplaySession::DEFAULT_HOURS,
+                    'label' => 'wall_display.setting.session_hours', 'hint' => 'wall_display.setting_hint.session_hours', 'messages' => []],
             ],
             'loyalty' => [
                 'loyalty.enabled' => ['type' => 'bool', 'rules' => ['boolean']],
@@ -170,6 +176,26 @@ class SettingsIndex extends Component
     }
 
     /**
+     * Settings > Checkout & fees > delivery follow-ups: new times to choose after a failed delivery, the proof of delivery the customer sees, and the answer
+     * the driver gives for paid assembly (docs/guides/DELIVERY_FOLLOW_UPS.md). The words come from lang/*\/delivery_followup.php and the factory defaults
+     * from {@see DeliveryFollowUpSettings}.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private static function deliveryFollowUpSchema(): array
+    {
+        $word = fn (string $field) => ['label' => 'delivery_followup.setting.'.$field, 'hint' => 'delivery_followup.setting_hint.'.$field, 'messages' => []];
+
+        return [
+            DeliveryFollowUpSettings::OFFERS_ENABLED => ['type' => 'bool', 'rules' => ['boolean'], 'default' => true] + $word('slot_offers_enabled'),
+            DeliveryFollowUpSettings::OFFER_COUNT => ['type' => 'int', 'rules' => ['required', 'integer', 'min:1', 'max:5'], 'default' => DeliveryFollowUpSettings::DEFAULT_COUNT] + $word('slot_offer_count'),
+            DeliveryFollowUpSettings::OFFER_HOURS => ['type' => 'int', 'rules' => ['required', 'integer', 'min:1', 'max:336'], 'suffix' => 'hours', 'default' => DeliveryFollowUpSettings::DEFAULT_HOURS] + $word('slot_offer_hours'),
+            DeliveryFollowUpSettings::PROOF_FOR_CUSTOMER => ['type' => 'bool', 'rules' => ['boolean'], 'default' => true] + $word('proof_for_customer'),
+            DeliveryFollowUpSettings::ASSEMBLY_ANSWER_REQUIRED => ['type' => 'bool', 'rules' => ['boolean'], 'default' => true] + $word('assembly_answer_required'),
+        ];
+    }
+
+    /**
      * Settings > Stock: the numbers behind Stock planning (docs/guides/STOCK_PLANNING_AND_STOCKTAKE.md) and the second-person rule of stock counts. The words
      * come from lang/*\/stock_planning.php and the factory defaults from {@see StockPlanningSettings} and {@see StocktakeApprovals}.
      *
@@ -210,6 +236,8 @@ class SettingsIndex extends Component
                 'label' => 'cash_shift.setting.review_above', 'hint' => 'cash_shift.setting_hint.review_above', 'messages' => ['gte' => 'cash_shift.setting_gte']],
             CashShiftSettings::MAX_OPEN_HOURS_KEY => ['type' => 'int', 'rules' => ['required', 'integer', 'min:1', 'max:72'], 'suffix' => 'hours', 'default' => CashShiftSettings::DEFAULT_MAX_OPEN_HOURS,
                 'label' => 'cash_shift.setting.max_open_hours', 'hint' => 'cash_shift.setting_hint.max_open_hours', 'messages' => []],
+            CashShiftSettings::PAYOUT_APPROVAL_KEY => ['type' => 'money', 'rules' => $money, 'default' => CashShiftSettings::DEFAULT_PAYOUT_APPROVAL,
+                'label' => 'cash_shift.setting.payout_approval', 'hint' => 'cash_shift.setting_hint.payout_approval', 'messages' => []],
         ];
     }
 

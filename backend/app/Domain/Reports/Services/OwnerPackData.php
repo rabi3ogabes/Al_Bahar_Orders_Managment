@@ -3,6 +3,11 @@
 namespace App\Domain\Reports\Services;
 
 use App\Domain\Branches\Models\Branch;
+use App\Domain\Identity\Support\BranchScope;
+use App\Domain\Reports\Services\Metrics\Cash;
+use App\Domain\Reports\Services\Metrics\Claims;
+use App\Domain\Reports\Services\Metrics\Deliveries;
+use App\Domain\Reports\Services\Metrics\Orders;
 use App\Support\BusinessTime;
 use App\Support\DomainException;
 use App\Support\Money;
@@ -14,10 +19,13 @@ use Illuminate\Support\Facades\DB;
  * AGGREGATES ONLY: counts, totals and rates, plus the names of products (never of customers, never an order number): the pack leaves the dashboard
  * by e-mail, so nothing in it may identify a person. Every query is bounded by the week and grouped by branch in the database.
  *
- *  - sales and orders: {@see SalesBasis} (the dashboard's definition), so the pack equals the dashboard and the daily close;
+ * NOTHING is defined here. Every figure comes from the shared definitions the other screens use too ({@see SalesBasis} and the classes of
+ * App\Domain\Reports\Services\Metrics), asked about a week, so the pack equals the dashboard, the daily close and the scorecard (docs/guides/NUMBER_DEFINITIONS.md):
+ *
+ *  - sales and orders: {@see SalesBasis} (the dashboard's definition). The company's line counts an order shared by two branches ONCE, like the dashboard;
  *  - average basket: sales divided by orders;
  *  - delivery performance: of the deliveries that reached the customer that week and had a promised day, the share that arrived on that day or earlier;
- *  - returns and claims rate: return and damage claims OPENED that week per 100 orders that reached the customer that week (null when none did);
+ *  - returns and claims rate: return and damage claims OPENED that week per 100 parts that reached the customer that week (null when none did);
  *  - stock-outs: items out of stock NOW (a stock figure cannot be looked up in the past);
  *  - cash difference: what the cashiers found when they counted the cash handed in that week (signed: short is negative);
  *  - days not closed: days of the week, already over, that the branch's manager never closed ({@see DailyCloseService}).
@@ -71,18 +79,18 @@ final class OwnerPackData
         $branches = Branch::query()->active()->with('hours')->orderBy('sort_order')->orderBy('code')->get();
         $ids = $branches->modelKeys();
 
-        $current = $this->metrics($ids, $from, $to);
-        $prev = $this->metrics($ids, $prevFrom, $prevTo);
-        $stock = $this->stockOuts();
+        ['branches' => $current, 'together' => $together] = $this->metrics($ids, $from, $to);
+        ['branches' => $prev, 'together' => $togetherBefore] = $this->metrics($ids, $prevFrom, $prevTo);
+        $stock = $this->stockOuts($ids);
         $unclosed = $this->unclosedDays($branches, $from, $to);
-        $stillOut = $this->cashStillOut();
+        $stillOut = $this->cashStillOut($ids);
 
         $rows = [];
         foreach ($branches as $b) {
             $t = $current[$b->id] + ['stock_out' => $stock[$b->id] ?? 0, 'unclosed_days' => $unclosed[$b->id] ?? 0, 'cash_with_collectors' => $stillOut[$b->id] ?? '0.00'];
             $rows[] = ['id' => $b->id, 'code' => $b->code, 'name_en' => (string) $b->name_en, 'name_ar' => (string) ($b->name_ar ?: $b->name_en), 'this' => $t, 'prev' => $prev[$b->id]];
         }
-        $total = ['this' => $this->sum(array_column($rows, 'this')), 'prev' => $this->sum(array_column($rows, 'prev'))];
+        $total = ['this' => $this->sum(array_column($rows, 'this'), $together), 'prev' => $this->sum(array_column($rows, 'prev'), $togetherBefore)];
         [$topUnits, $topRevenue] = $this->topProducts($from, $to);
 
         return ['week' => $week, 'from' => $from, 'to' => $to, 'prev_from' => $prevFrom, 'prev_to' => $prevTo, 'branches' => $rows, 'total' => $total,
@@ -96,65 +104,60 @@ final class OwnerPackData
     }
 
     /**
-     * The week's figures per branch, one grouped query each.
+     * The week's figures per branch, one grouped query each, and the company's sales and orders (an order shared by two branches counted once).
      *
      * @param  list<string>  $branchIds
-     * @return array<string, array<string, mixed>> branch id => figures
+     * @return array{branches: array<string, array<string, mixed>>, together: array{sales: string, orders: int, average: string}}
      */
     private function metrics(array $branchIds, string $from, string $to): array
     {
         [$start, $end] = BusinessTime::dateRange($from, $to);
-        $zone = BusinessTime::zone();
-        $sales = SalesBasis::orderShares($start, $end)->selectRaw('s.branch_id, coalesce(sum(s.share), 0)::numeric(14,2) as total, count(distinct s.order_id) as orders')
-            ->groupBy('s.branch_id')->get()->keyBy('branch_id');
-        $deliveries = DB::table('order_fulfillments as f')->where(fn ($q) => $q->whereBetween('f.delivered_at', [$start, $end])->orWhereBetween('f.picked_up_at', [$start, $end]))
-            ->selectRaw("f.branch_id, count(*) as reached,
-                count(*) filter (where f.type = 'delivery' and f.slot_date is not null and f.delivered_at is not null) as promised,
-                count(*) filter (where f.type = 'delivery' and f.slot_date is not null and f.delivered_at is not null and (f.delivered_at at time zone ?)::date <= f.slot_date) as on_time", [$zone])
-            ->groupBy('f.branch_id')->get()->keyBy('branch_id');
-        $failed = DB::table('deliveries')->whereBetween('failed_at', [$start, $end])->selectRaw('branch_id, count(*) as n')->groupBy('branch_id')->pluck('n', 'branch_id');
-        $claims = DB::table('return_requests')->whereBetween('created_at', [$start, $end])->selectRaw('branch_id, count(*) as n')->groupBy('branch_id')->pluck('n', 'branch_id');
-        $cash = DB::table('cash_handovers')->whereBetween('created_at', [$start, $end])
-            ->selectRaw('branch_id, coalesce(sum(variance), 0)::numeric(14,2) as variance, count(*) filter (where variance <> 0) as variance_count')->groupBy('branch_id')->get()->keyBy('branch_id');
+        $sales = SalesBasis::byBranch(BranchScope::of($branchIds), $start, $end);
+        $reached = Orders::reached($branchIds, $start, $end);
+        $promises = Deliveries::promises($branchIds, $start, $end);
+        $failed = Deliveries::failures($branchIds, $start, $end);
+        $claims = Claims::opened($branchIds, $start, $end);
+        $cash = Cash::handIns($branchIds, $start, $end);
 
         $out = [];
         foreach ($branchIds as $id) {
-            $orders = (int) ($sales[$id]->orders ?? 0);
-            $total = Money::of((string) ($sales[$id]->total ?? '0'));
-            $reached = (int) ($deliveries[$id]->reached ?? 0);
-            $promised = (int) ($deliveries[$id]->promised ?? 0);
-            $onTime = (int) ($deliveries[$id]->on_time ?? 0);
-            $opened = (int) ($claims[$id] ?? 0);
+            $orders = $sales['branches'][$id]['orders'] ?? 0;
+            $total = $sales['branches'][$id]['total'] ?? Money::zero();
+            $arrived = $reached[$id] ?? 0;
+            $promised = $promises[$id]['promised'] ?? 0;
+            $onTime = $promises[$id]['on_time'] ?? 0;
+            $opened = array_sum($claims[$id] ?? []);
             $out[$id] = [
-                'sales' => $total->toDecimal(), 'orders' => $orders,
-                'average' => ($orders > 0 ? Money::ofMinor((int) round($total->minor / $orders)) : Money::zero())->toDecimal(),
-                'reached' => $reached, 'promised' => $promised, 'on_time' => $onTime, 'on_time_rate' => $promised > 0 ? round($onTime * 100 / $promised, 1) : null,
-                'failed_deliveries' => (int) ($failed[$id] ?? 0),
-                'claims' => $opened, 'claims_rate' => $reached > 0 ? round($opened * 100 / $reached, 1) : null,
-                'cash_variance' => Money::of((string) ($cash[$id]->variance ?? '0'))->toDecimal(), 'cash_variance_count' => (int) ($cash[$id]->variance_count ?? 0),
+                'sales' => $total->toDecimal(), 'orders' => $orders, 'average' => SalesBasis::average($total, $orders)->toDecimal(),
+                'reached' => $arrived, 'promised' => $promised, 'on_time' => $onTime, 'on_time_rate' => $promised > 0 ? round($onTime * 100 / $promised, 1) : null,
+                'failed_deliveries' => array_sum($failed[$id] ?? []),
+                'claims' => $opened, 'claims_rate' => $arrived > 0 ? round($opened * 100 / $arrived, 1) : null,
+                'cash_variance' => $cash[$id]['cash_net'] ?? '0.00', 'cash_variance_count' => $cash[$id]['variances'] ?? 0,
             ];
         }
 
-        return $out;
+        $together = $sales['together'];
+
+        return ['branches' => $out, 'together' => ['sales' => $together['total']->toDecimal(), 'orders' => $together['orders'], 'average' => SalesBasis::average($together['total'], $together['orders'])->toDecimal()]];
     }
 
     /**
-     * The company's line: sums of the branches (a rate is recomputed from the sums, never averaged).
+     * The company's line: sums of the branches, except the orders (and so the average basket), which are the distinct orders of all the branches together; a rate
+     * is recomputed from the sums, never averaged.
      *
      * @param  list<array<string, mixed>>  $lines
+     * @param  array{sales: string, orders: int, average: string}  $together
      * @return array<string, mixed>
      */
-    private function sum(array $lines): array
+    private function sum(array $lines, array $together): array
     {
         $n = fn (string $k) => array_sum(array_map(fn (array $l) => (int) ($l[$k] ?? 0), $lines));
         $money = fn (string $k) => array_reduce($lines, fn (Money $c, array $l) => $c->plus(Money::of((string) ($l[$k] ?? '0'))), Money::zero());
-        $sales = $money('sales');
-        $orders = $n('orders');
         $promised = $n('promised');
         $reached = $n('reached');
 
         return [
-            'sales' => $sales->toDecimal(), 'orders' => $orders, 'average' => ($orders > 0 ? Money::ofMinor((int) round($sales->minor / $orders)) : Money::zero())->toDecimal(),
+            'sales' => $together['sales'], 'orders' => $together['orders'], 'average' => $together['average'],
             'reached' => $reached, 'promised' => $promised, 'on_time' => $n('on_time'), 'on_time_rate' => $promised > 0 ? round($n('on_time') * 100 / $promised, 1) : null,
             'failed_deliveries' => $n('failed_deliveries'), 'claims' => $n('claims'), 'claims_rate' => $reached > 0 ? round($n('claims') * 100 / $reached, 1) : null,
             'cash_variance' => $money('cash_variance')->toDecimal(), 'cash_variance_count' => $n('cash_variance_count'),
@@ -162,19 +165,22 @@ final class OwnerPackData
         ];
     }
 
-    /** @return array<string, int> branch id => items out of stock now */
-    private function stockOuts(): array
+    /**
+     * @param  list<string>  $branchIds
+     * @return array<string, int> branch id => items out of stock now
+     */
+    private function stockOuts(array $branchIds): array
     {
-        return DB::table('branch_inventory as bi')->whereRaw(StockLevels::outSql())->selectRaw('bi.branch_id, count(*) as n')->groupBy('bi.branch_id')->pluck('n', 'branch_id')
-            ->map(fn ($n) => (int) $n)->all();
+        return array_map(fn (array $c) => $c['out'], StockLevels::countsByBranch($branchIds));
     }
 
-    /** @return array<string, string> branch id => cash taken in cash on delivery or at the counter that nobody has handed in yet (any day) */
-    private function cashStillOut(): array
+    /**
+     * @param  list<string>  $branchIds
+     * @return array<string, string> branch id => cash taken in cash on delivery or at the counter that nobody has handed in yet (any day)
+     */
+    private function cashStillOut(array $branchIds): array
     {
-        return DB::table('cash_collections')->where('tender', 'cash')->whereIn('status', ['collected', 'partial'])->whereNull('handed_in_at')
-            ->selectRaw('branch_id, coalesce(sum(amount_collected), 0)::numeric(14,2) as total')->groupBy('branch_id')->pluck('total', 'branch_id')
-            ->map(fn ($v) => Money::of((string) $v)->toDecimal())->all();
+        return array_map(fn (array $h) => $h['amount'], Cash::held($branchIds));
     }
 
     /**
@@ -251,16 +257,15 @@ final class OwnerPackData
         if ($unclosed > 0) {
             $list[] = ['key' => 'unclosed_days', 'count' => $unclosed, 'branches' => $branchNames(array_filter($rows, fn (array $r) => $r['this']['unclosed_days'] > 0))];
         }
-        $neverAccepted = (int) DB::table('order_fulfillments as f')->join('orders as o', 'o.id', '=', 'f.order_id')->whereBetween('o.placed_at', [$start, $end])
-            ->whereRaw(DailyCloseNumbers::realOrderSql())->where('f.status', 'pending')->count();
+        $neverAccepted = array_sum(array_column(Orders::standing(null, $start, $end), 'never_accepted'));
         if ($neverAccepted > 0) {
             $list[] = ['key' => 'never_accepted', 'count' => $neverAccepted];
         }
-        $openVariances = (int) DB::table('cash_handovers')->where('variance_status', 'open')->count();
+        $openVariances = array_sum(Cash::openVariances(null));
         if ($openVariances > 0) {
             $list[] = ['key' => 'open_variances', 'count' => $openVariances];
         }
-        $cash = Money::of((string) $this->sum(array_column($rows, 'this'))['cash_with_collectors']);
+        $cash = array_reduce($rows, fn (Money $c, array $r) => $c->plus(Money::of((string) $r['this']['cash_with_collectors'])), Money::zero());
         if (! $cash->isZero()) {
             $list[] = ['key' => 'cash_with_collectors', 'count' => $cash->toDecimal(), 'branches' => $branchNames(array_filter($rows, fn (array $r) => ! Money::of((string) $r['this']['cash_with_collectors'])->isZero()))];
         }

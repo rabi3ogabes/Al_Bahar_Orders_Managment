@@ -3212,5 +3212,69 @@
           "type": "String"
         }
     }
+  },
+  "slotOfferTitle": "Choose a new delivery time",
+  "slotOfferIntro": "We could not deliver your order. Pick a time that suits you and we will bring it then.",
+  "slotOfferUntil": "Please choose before {when}.",
+  "@slotOfferUntil": {
+    "placeholders": {
+        "when": {
+          "type": "String"
+        }
+    }
+  },
+  "slotOfferConfirm": "Confirm this time",
+  "slotOfferTaken": "Taken",
+  "slotOfferAllTaken": "Those times were just taken. We will call you to arrange a new one.",
+  "slotOfferExpired": "This offer has ended. We will call you to arrange a new time.",
+  "slotOfferChosen": "Your new delivery time",
+  "slotOfferChosenToast": "Thank you. We will deliver on {time}.",
+  "@slotOfferChosenToast": {
+    "placeholders": {
+        "time": {
+          "type": "String"
+        }
+    }
+  },
+  "slotOfferErrGone": "We could not find this offer. Please reload the order.",
+  "slotOfferErrChosen": "A new time was already chosen for this order.",
+  "slotOfferErrClosed": "The branch has already arranged your delivery.",
+  "slotOfferErrTaken": "That time was just taken. Please choose another.",
+  "proofDelivered": "Delivered on {when}",
+  "@proofDelivered": {
+    "placeholders": {
+        "when": {
+          "type": "String"
+        }
+    }
+  },
+  "proofDeliveredBy": "Delivered on {when} · received by {name}",
+  "@proofDeliveredBy": {
+    "placeholders": {
+        "when": {
+          "type": "String"
+        },
+        "name": {
+          "type": "String"
+        }
+    }
+  },
+  "proofPhotoLabel": "Photo of your delivery",
+  "proofPhotoFailed": "The photo could not be loaded.",
+  "assemblyDoneOn": "Assembled on {when}",
+  "@assemblyDoneOn": {
+    "placeholders": {
+        "when": {
+          "type": "String"
+        }
+    }
+  },
+  "assemblyNotDone": "The assembly was not done: {reason}. The branch will contact you.",
+  "@assemblyNotDone": {
+    "placeholders": {
+        "reason": {
+          "type": "String"
+        }
+    }
   }
 }

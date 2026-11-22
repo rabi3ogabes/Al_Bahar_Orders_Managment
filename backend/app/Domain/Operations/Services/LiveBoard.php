@@ -5,8 +5,10 @@ namespace App\Domain\Operations\Services;
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Fulfillment\Enums\DeliveryStatus;
 use App\Domain\Fulfillment\Models\Delivery;
+use App\Domain\Fulfillment\Services\SlotOffers;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
+use App\Domain\Identity\Support\PermissionRegistry;
 use App\Domain\Operations\Support\Board;
 use App\Domain\Operations\Support\BoardCard;
 use App\Domain\Operations\Support\OpsAge;
@@ -68,10 +70,15 @@ final class LiveBoard
         private readonly SubstitutionClock $substitutions,
     ) {}
 
-    /** @return Collection<string, Branch> the branches the person may see orders of, in menu order, by id */
+    /**
+     * The branches the person may see orders of, in menu order, by id. A wall display account has no right to orders at all: the branches its board right was
+     * given for are the ones its screen shows (and the cards carry no customer data, so nothing more is opened up).
+     *
+     * @return Collection<string, Branch>
+     */
     public function branches(User $user): Collection
     {
-        $scope = $this->acl->scope($user, 'orders.view');
+        $scope = $this->acl->scope($user, $this->acl->isWallDisplay($user) ? PermissionRegistry::WALL_DISPLAY_KEY : 'orders.view');
         if ($scope->isEmpty()) {
             return new Collection;
         }
@@ -129,7 +136,9 @@ final class LiveBoard
                 $drafts->push($draft);
             }
         }
-        $cards = $this->lanes($drafts, $expanded, ['user' => $user, 'branches' => $branches, 'partCount' => $partCount, 'units' => $units, 'now' => $now]);
+        // What became of the new times offered to a customer whose delivery failed (still choosing, chose one, did not answer): one line on the card.
+        $offers = app(SlotOffers::class)->staffNotes($drafts->where('reason', 'failed')->pluck('delivery')->filter()->values());
+        $cards = $this->lanes($drafts, $expanded, ['user' => $user, 'branches' => $branches, 'partCount' => $partCount, 'units' => $units, 'now' => $now, 'offers' => $offers]);
 
         return new Board($cards, $chips, $truncated, $drafts->count());
     }
@@ -253,7 +262,7 @@ final class LiveBoard
     /**
      * @param  Collection<int, array{f: OrderFulfillment, order: Order, delivery: ?Delivery, lane: string, from: string, reason: ?string, stage: string, age: ?OpsAge, waiting: bool}>  $drafts
      * @param  list<string>  $expanded
-     * @param  array{user?: ?User, branches?: Collection<string, Branch>, partCount?: Collection<string, mixed>, units?: Collection<string, mixed>, now?: CarbonInterface}  $ctx  what a card needs besides its part
+     * @param  array{user?: ?User, branches?: Collection<string, Branch>, partCount?: Collection<string, mixed>, units?: Collection<string, mixed>, now?: CarbonInterface, offers?: array<string, array{state: string, text: string}>}  $ctx  what a card needs besides its part
      * @return array<string, array{key: string, cards: Collection<int, BoardCard>, total: int, more: int, red: int, amber: int}>
      */
     private function lanes(Collection $drafts, array $expanded, array $ctx = []): array
@@ -286,7 +295,7 @@ final class LiveBoard
 
     /**
      * @param  array{f: OrderFulfillment, order: Order, delivery: ?Delivery, lane: string, from: string, reason: ?string, stage: string, age: ?OpsAge, waiting: bool}  $d
-     * @param  array{user?: ?User, branches?: Collection<string, Branch>, partCount?: Collection<string, mixed>, units?: Collection<string, mixed>, now?: CarbonInterface}  $ctx
+     * @param  array{user?: ?User, branches?: Collection<string, Branch>, partCount?: Collection<string, mixed>, units?: Collection<string, mixed>, now?: CarbonInterface, offers?: array<string, array{state: string, text: string}>}  $ctx
      * @param  array<string, array<string, Money>>  $shares  memo of an order's split cash
      */
     private function card(array $d, array $ctx, array &$shares): BoardCard
@@ -308,7 +317,7 @@ final class LiveBoard
             units: (int) (($ctx['units'] ?? collect())->get($f->id) ?? 0), type: $f->type, express: (bool) $f->is_express,
             when: $this->when($f, $delivery, $now), payment: $order->payment_method, due: $this->due($f, $order, $delivery, $total, $shares),
             driver: $delivery !== null && $f->type === 'delivery' ? $delivery->driver?->name : null,
-            waitingCustomer: $d['waiting'], note: $stage === 'failed' ? $this->failure($delivery) : null,
+            waitingCustomer: $d['waiting'], note: $stage === 'failed' ? $this->failure($delivery, $ctx['offers'] ?? []) : null,
             canAccept: $f->status === FS::Pending && $order->status !== OrderStatus::CancellationRequested && $can('orders.edit'),
             assign: $can('deliveries.view') ? $this->assignUrl($stage, $order->number) : null,
         );
@@ -327,11 +336,17 @@ final class LiveBoard
         return $lane === null ? null : route('admin.deliveries.index', ['lane' => $lane, 'search' => $number]);
     }
 
-    private function failure(?Delivery $delivery): ?string
+    /**
+     * Why the delivery failed, and what became of the new times offered to the customer.
+     *
+     * @param  array<string, array{state: string, text: string}>  $offers  by delivery id
+     */
+    private function failure(?Delivery $delivery, array $offers = []): ?string
     {
         $reason = $delivery?->failure_reason;
+        $why = $reason !== null && Lang::has('sales_admin.fail_'.$reason) ? __('sales_admin.fail_'.$reason) : null;
 
-        return $reason !== null && Lang::has('sales_admin.fail_'.$reason) ? __('sales_admin.fail_'.$reason) : null;
+        return implode(' · ', array_filter([$why, $delivery !== null ? ($offers[$delivery->id]['text'] ?? null) : null])) ?: null;
     }
 
     /** "Today 14:00–16:00", "Sat 22 Nov", or null when the customer chose no time. */

@@ -3,16 +3,22 @@
 namespace App\Domain\Reports\Services;
 
 use App\Domain\Identity\Support\BranchScope;
-use App\Domain\Operations\Services\BranchSchedules;
+use App\Domain\Reports\Services\Metrics\Cash;
+use App\Domain\Reports\Services\Metrics\Claims;
+use App\Domain\Reports\Services\Metrics\Deliveries;
+use App\Domain\Reports\Services\Metrics\Orders;
+use App\Domain\Reports\Services\Metrics\Speed;
 use App\Support\BusinessTime;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\DB;
 
 /**
- * The figures of one branch on one Qatar business day: the page of the daily close, its printout and the weekly owner pack all read these, so
- * the three can never disagree. Read-only, bounded by the branch and the day (every query starts from an indexed date), aggregates only: not a single
- * customer is named and no order number is returned.
+ * The figures of one branch on one Qatar business day: the page of the daily close and its printout read these. Read-only, bounded by the branch and the
+ * day (every query starts from an indexed date), aggregates only: not a single customer is named and no order number is returned.
+ *
+ * NOTHING is defined here. Every figure comes from the shared definitions the other screens use too ({@see SalesBasis} and the classes of
+ * App\Domain\Reports\Services\Metrics), asked about one branch and one day, so the weekly owner pack, the scorecard and the dashboard can never say a different
+ * number for the same branch and day. The one rule written down once for all of them is docs/guides/NUMBER_DEFINITIONS.md.
  *
  *  - sales: {@see SalesBasis}, the dashboard's definition (orders placed that day, not cancelled, not waiting for online payment, the branch's own
  *    share of a split order), split by how the customers pay;
@@ -26,22 +32,7 @@ use Illuminate\Support\Facades\DB;
  */
 final class DailyCloseNumbers
 {
-    /** Parts of an order that are still on their way to the customer (not delivered, collected, cancelled or returned). */
-    public const OPEN_STATUSES = ['pending', 'accepted', 'preparing', 'ready', 'pickup_ready', 'dispatched', 'out_for_delivery', 'failed'];
-
-    /** How many parts the speed figures read at most (a branch does not get anywhere near this in one day). */
-    private const SPEED_SAMPLE = 2000;
-
-    public function __construct(private readonly BranchSchedules $schedules) {}
-
-    /**
-     * An order that really happened: not waiting for its online payment, and not an online order that expired unpaid (cancelled without ever
-     * being confirmed).
-     */
-    public static function realOrderSql(string $o = 'o'): string
-    {
-        return "({$o}.status <> 'pending_payment' and not ({$o}.status = 'cancelled' and {$o}.confirmed_at is null and {$o}.payment_method = 'sadad'))";
-    }
+    public function __construct(private readonly Speed $timing) {}
 
     /**
      * The day's figures: date, branch_id, orders {placed, delivered, cancelled, returned}, sales {total, orders, average}, payment_mix {method: {orders, amount}},
@@ -53,20 +44,19 @@ final class DailyCloseNumbers
     public function for(string $branchId, string $date): array
     {
         [$from, $to] = BusinessTime::dateRange($date, $date);
-        $scope = BranchScope::of([$branchId]);
-
+        $ids = [$branchId];
+        $scope = BranchScope::of($ids);
         $sales = SalesBasis::totals($scope, $from, $to);
-        $average = $sales['orders'] > 0 ? Money::ofMinor((int) round($sales['total']->minor / $sales['orders'])) : Money::zero();
 
         return [
             'date' => $date,
             'branch_id' => $branchId,
             'orders' => $this->orderCounts($branchId, $from, $to),
-            'sales' => ['total' => $sales['total']->toDecimal(), 'orders' => $sales['orders'], 'average' => $average->toDecimal()],
+            'sales' => ['total' => $sales['total']->toDecimal(), 'orders' => $sales['orders'], 'average' => SalesBasis::average($sales['total'], $sales['orders'])->toDecimal()],
             'payment_mix' => $this->paymentMix($scope, $from, $to),
             'cash' => $this->cash($branchId, $from, $to),
             'refunds' => $this->refunds($scope, $from, $to),
-            'failed_deliveries' => (int) DB::table('deliveries')->where('branch_id', $branchId)->whereBetween('failed_at', [$from, $to])->count(),
+            'failed_deliveries' => array_sum(Deliveries::failures($ids, $from, $to)[$branchId] ?? []),
             'speed' => $this->speed($branchId, $from, $to),
             'open' => $this->open($branchId, $from, $to),
             'stock' => $this->stock($branchId),
@@ -76,15 +66,10 @@ final class DailyCloseNumbers
     /** @return array{placed: int, delivered: int, cancelled: int, returned: int} */
     private function orderCounts(string $branchId, CarbonImmutable $from, CarbonImmutable $to): array
     {
-        $placed = DB::table('order_fulfillments as f')->join('orders as o', 'o.id', '=', 'f.order_id')->where('f.branch_id', $branchId)
-            ->whereBetween('o.placed_at', [$from, $to])->whereRaw(self::realOrderSql())->count(DB::raw('distinct f.order_id'));
-        $delivered = DB::table('order_fulfillments as f')->where('f.branch_id', $branchId)
-            ->where(fn ($q) => $q->whereBetween('f.delivered_at', [$from, $to])->orWhereBetween('f.picked_up_at', [$from, $to]))->count();
-        $cancelled = DB::table('order_fulfillments as f')->join('orders as o', 'o.id', '=', 'f.order_id')->where('f.branch_id', $branchId)
-            ->whereBetween('f.cancelled_at', [$from, $to])->whereRaw(self::realOrderSql())->count();
-        $returned = DB::table('return_requests')->where('branch_id', $branchId)->whereBetween('received_at', [$from, $to])->count();
+        $ids = [$branchId];
 
-        return ['placed' => (int) $placed, 'delivered' => (int) $delivered, 'cancelled' => (int) $cancelled, 'returned' => (int) $returned];
+        return ['placed' => Orders::placed($ids, $from, $to)['branches'][$branchId] ?? 0, 'delivered' => Orders::reached($ids, $from, $to)[$branchId] ?? 0,
+            'cancelled' => Orders::cancelled($ids, $from, $to)[$branchId] ?? 0, 'returned' => Claims::received($ids, $from, $to)[$branchId] ?? 0];
     }
 
     /**
@@ -109,85 +94,56 @@ final class DailyCloseNumbers
     /** @return array{collected: string, handed_in: string, with_collectors: string, still_out_total: string, variance: string, variance_count: int, open_variances: int} */
     private function cash(string $branchId, CarbonImmutable $from, CarbonImmutable $to): array
     {
-        $cash = fn () => DB::table('cash_collections')->where('branch_id', $branchId)->where('tender', 'cash')->whereIn('status', ['collected', 'partial']);
-        $day = $cash()->whereBetween('collected_at', [$from, $to])
+        $ids = [$branchId];
+        $day = Cash::takenQuery()->where('branch_id', $branchId)->whereBetween('collected_at', [$from, $to])
             ->selectRaw('coalesce(sum(amount_collected), 0)::numeric(14,2) as collected,
                 coalesce(sum(amount_collected) filter (where handed_in_at is not null), 0)::numeric(14,2) as handed_in')->first();
-        $stillOut = $cash()->whereNull('handed_in_at')->selectRaw('coalesce(sum(amount_collected), 0)::numeric(14,2) as total')->value('total');
-        $counted = DB::table('cash_handovers')->where('branch_id', $branchId)->whereBetween('created_at', [$from, $to])
-            ->selectRaw('coalesce(sum(variance), 0)::numeric(14,2) as variance, count(*) filter (where variance <> 0) as variance_count')->first();
-        $openVariances = DB::table('cash_handovers')->where('branch_id', $branchId)->where('variance_status', 'open')->count();
+        $counted = Cash::handIns($ids, $from, $to)[$branchId] ?? ['cash_net' => '0.00', 'variances' => 0];
 
         $collected = Money::of((string) $day->collected);
         $handedIn = Money::of((string) $day->handed_in);
 
         return ['collected' => $collected->toDecimal(), 'handed_in' => $handedIn->toDecimal(), 'with_collectors' => $collected->minus($handedIn)->toDecimal(),
-            'still_out_total' => Money::of((string) $stillOut)->toDecimal(), 'variance' => Money::of((string) $counted->variance)->toDecimal(),
-            'variance_count' => (int) $counted->variance_count, 'open_variances' => (int) $openVariances];
+            'still_out_total' => Cash::held($ids)[$branchId]['amount'] ?? '0.00', 'variance' => $counted['cash_net'],
+            'variance_count' => $counted['variances'], 'open_variances' => Cash::openVariances($ids)[$branchId] ?? 0];
     }
 
     /**
-     * Refunds paid out that day for orders this branch took part in: the branch's share of each (divided like the sale itself, see
-     * {@see SalesBasis::branchFraction()}), so two branches never both claim the whole refund.
+     * Refunds paid out that day for orders this branch took part in: the branch's share of each ({@see SalesBasis::refunds()}).
      *
      * @return array{count: int, amount: string}
      */
     private function refunds(BranchScope $scope, CarbonImmutable $from, CarbonImmutable $to): array
     {
-        $day = fn () => DB::table('refunds as r')->where('r.status', 'processed')->whereNotNull('r.order_id')->whereBetween('r.processed_at', [$from, $to]);
-        $perOrder = $day()->selectRaw('r.order_id, sum(r.amount) as amount, count(*) as n')->groupBy('r.order_id');
-        // The branch's share is worked out only for the orders that were refunded that day (never for every order of the company).
-        $fractions = SalesBasis::branchFraction($scope)->whereIn('f.order_id', $day()->select('r.order_id'));
-        $row = DB::query()->fromSub($perOrder, 'ro')->joinSub($fractions, 'bf', 'bf.order_id', '=', 'ro.order_id')
-            ->selectRaw('coalesce(sum(round(ro.amount * bf.fraction, 2)), 0)::numeric(14,2) as total, coalesce(sum(ro.n) filter (where bf.fraction > 0), 0) as n')->first();
+        $refunds = SalesBasis::refunds($scope, $from, $to);
 
-        return ['count' => (int) ($row->n ?? 0), 'amount' => Money::of((string) ($row->total ?? '0'))->toDecimal()];
+        return ['count' => $refunds['count'], 'amount' => $refunds['amount']->toDecimal()];
     }
 
     /**
      * Average minutes to accept (from when the part could be accepted to when it was) and to prepare (accepted to ready), for the parts of the
-     * orders placed that day, in opening-hours minutes. null when nothing was measured: a day with no orders has no "average".
+     * orders placed that day, in opening-hours minutes ({@see Speed}). null when nothing was measured: a day with no orders has no "average".
      *
      * @return array{accept_minutes: ?int, accepted: int, prepare_minutes: ?int, prepared: int}
      */
     private function speed(string $branchId, CarbonImmutable $from, CarbonImmutable $to): array
     {
-        $rows = DB::table('order_fulfillments as f')->join('orders as o', 'o.id', '=', 'f.order_id')->where('f.branch_id', $branchId)
-            ->whereBetween('o.placed_at', [$from, $to])->whereRaw(self::realOrderSql())->whereNotNull('f.accepted_at')
-            ->orderBy('f.created_at')->orderBy('f.id')->limit(self::SPEED_SAMPLE)
-            ->get(['f.created_at as created_at', 'o.confirmed_at as confirmed_at', 'f.accepted_at as accepted_at', 'f.ready_at as ready_at']);
-        $this->schedules->preload([$branchId]);
-        $accept = [];
-        $prepare = [];
-        foreach ($rows as $r) {
-            $created = CarbonImmutable::parse($r->created_at);
-            $confirmed = $r->confirmed_at !== null ? CarbonImmutable::parse($r->confirmed_at) : null;
-            $accepted = CarbonImmutable::parse($r->accepted_at);
-            $accept[] = $this->schedules->minutes($branchId, $confirmed !== null && $confirmed > $created ? $confirmed : $created, $accepted)['counted'];
-            if ($r->ready_at !== null) {
-                $prepare[] = $this->schedules->minutes($branchId, $accepted, CarbonImmutable::parse($r->ready_at))['counted'];
-            }
-        }
+        $readings = $this->timing->minutes([$branchId], $from, $to)[$branchId] ?? ['accept' => [], 'prepare' => []];
 
-        return ['accept_minutes' => $accept === [] ? null : (int) round(array_sum($accept) / count($accept)), 'accepted' => count($accept),
-            'prepare_minutes' => $prepare === [] ? null : (int) round(array_sum($prepare) / count($prepare)), 'prepared' => count($prepare)];
+        return ['accept_minutes' => Speed::average($readings['accept']), 'accepted' => count($readings['accept']),
+            'prepare_minutes' => Speed::average($readings['prepare']), 'prepared' => count($readings['prepare'])];
     }
 
     /** @return array{open: int, never_accepted: int} */
     private function open(string $branchId, CarbonImmutable $from, CarbonImmutable $to): array
     {
-        $row = DB::table('order_fulfillments as f')->join('orders as o', 'o.id', '=', 'f.order_id')->where('f.branch_id', $branchId)
-            ->whereBetween('o.placed_at', [$from, $to])->whereRaw(self::realOrderSql())
-            ->selectRaw('count(*) filter (where f.status in ('.implode(',', array_fill(0, count(self::OPEN_STATUSES), '?')).')) as open, count(*) filter (where f.status = \'pending\') as never_accepted',
-                self::OPEN_STATUSES)->first();
-
-        return ['open' => (int) ($row->open ?? 0), 'never_accepted' => (int) ($row->never_accepted ?? 0)];
+        return Orders::standing([$branchId], $from, $to)[$branchId] ?? ['open' => 0, 'never_accepted' => 0];
     }
 
     /** @return array{out: int, low: int} the branch's stock as it stands now (the dashboard's meaning of out and low, see {@see StockLevels}) */
     private function stock(string $branchId): array
     {
-        $counts = StockLevels::counts(DB::table('branch_inventory as bi')->where('bi.branch_id', $branchId));
+        $counts = StockLevels::countsByBranch([$branchId])[$branchId] ?? ['low' => 0, 'out' => 0];
 
         return ['out' => $counts['out'], 'low' => $counts['low']];
     }

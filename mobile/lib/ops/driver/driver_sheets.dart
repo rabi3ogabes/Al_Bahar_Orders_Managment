@@ -76,8 +76,9 @@ class ReasonTile extends StatelessWidget {
 }
 
 /// The confirm of a sheet: the slide when the dashboard asks for it, otherwise a big button that shows progress and ignores a second tap.
-class _Confirm extends ConsumerWidget {
-  const _Confirm({
+class SheetConfirm extends ConsumerWidget {
+  const SheetConfirm({
+    super.key,
     required this.label,
     required this.slideLabel,
     required this.busy,
@@ -211,7 +212,7 @@ class _DeclineFormState extends ConsumerState<_DeclineForm> {
                   child: Text(_error!, style: TextStyle(color: p.danger)),
                 ),
               ),
-            _Confirm(
+            SheetConfirm(
               label: t.declineVerb,
               slideLabel: t.slideDecline,
               busy: _busy,
@@ -398,7 +399,7 @@ class _FailFormState extends ConsumerState<_FailForm> {
                   child: Text(_error!, style: TextStyle(color: p.danger)),
                 ),
               ),
-            _Confirm(
+            SheetConfirm(
               label: t.failVerb,
               slideLabel: t.slideReport,
               busy: _busy,

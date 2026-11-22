@@ -157,6 +157,8 @@ class OpsRepository {
       'latitude': ?lat,
       'longitude': ?lng,
       'accuracy': ?accuracy?.round(),
+      // This app asks about paid assembly before it confirms, so the server may hold it to the answer (older apps never send this).
+      'answers_assembly': '1',
     });
     await _api.post(
       '/admin/deliveries/$id/deliver',
@@ -191,6 +193,28 @@ class OpsRepository {
       data: photo == null
           ? fields
           : FormData.fromMap({...fields, 'photo': await MultipartFile.fromFile(photo.path, filename: 'failed.jpg')}),
+      options: idempotencyKey == null ? options : Idempotency.options(idempotencyKey, options),
+    );
+  }
+
+  /// The driver's answer for the paid assembly of this parcel: `done`, or `not_done` with a reason code from the short list (`other` needs a [note]); an
+  /// optional [photo] of the finished assembly. The same answer again changes nothing. Needed before a delivery that includes paid assembly can be confirmed.
+  Future<void> assembly(
+    String id,
+    String status, {
+    String? reason,
+    String? note,
+    File? photo,
+    String? idempotencyKey,
+  }) async {
+    final text = note?.trim() ?? '';
+    final fields = <String, Object>{'status': status, 'reason': ?reason, if (text.isNotEmpty) 'note': text};
+    final options = photo == null ? null : _upload;
+    await _api.post(
+      '/admin/deliveries/$id/assembly',
+      data: photo == null
+          ? fields
+          : FormData.fromMap({...fields, 'photo': await MultipartFile.fromFile(photo.path, filename: 'assembly.jpg')}),
       options: idempotencyKey == null ? options : Idempotency.options(idempotencyKey, options),
     );
   }

@@ -36,6 +36,7 @@
             @endif
             <dt>− {{ trans_choice('cash_shift.l_banked_n', $f['deposits_count'], ['count' => $f['deposits_count']]) }}</dt><dd dir="ltr">{{ $f['deposits']->format() }}</dd>
             <dt>− {{ trans_choice('cash_shift.l_refunds_n', $f['refunds_count'], ['count' => $f['refunds_count']]) }}</dt><dd dir="ltr">{{ $f['refunds']->format() }}</dd>
+            <dt>− {{ trans_choice('petty_cash.l_payouts_n', $f['payouts_count'], ['count' => $f['payouts_count']]) }}</dt><dd dir="ltr">{{ $f['payouts']->format() }}</dd>
             <dt class="border-t border-sand-200 pt-2 font-semibold dark:border-ink-700">{{ __('cash_shift.expected_cash') }}</dt>
             <dd class="border-t border-sand-200 pt-2 font-display text-lg font-semibold dark:border-ink-700" dir="ltr" data-expected>{{ $f['expected']->format() }}</dd>
         </dl>

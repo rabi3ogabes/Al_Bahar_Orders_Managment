@@ -25,6 +25,7 @@ return [
     'coupon_expired' => 'انتهت صلاحية هذا الرمز.',
     'coupon_limit_reached' => 'وصل هذا الرمز إلى حد الاستخدام.',
     'coupon_not_eligible' => 'سلتك غير مؤهلة لهذا الرمز.',
+    'coupon_excluded' => 'المنتجات في سلتك لا يشملها هذا العرض.',
     'coupon_first_order_only' => 'هذا الرمز مخصص للطلب الأول فقط.',
     'coupon_min_basket' => 'أضف المزيد من المنتجات لاستخدام هذا الرمز.',
     'coupon_not_combinable' => 'تم تطبيق عرض أفضل على سلتك بالفعل.',

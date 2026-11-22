@@ -5,6 +5,7 @@ namespace App\Domain\Orders\Services;
 use App\Domain\Cms\Services\ThemeService;
 use App\Domain\Fulfillment\Enums\DeliveryStatus as DS;
 use App\Domain\Fulfillment\Models\Delivery;
+use App\Domain\Fulfillment\Models\DeliverySlotOffer;
 use App\Domain\Fulfillment\Models\DriverProfile;
 use App\Domain\Fulfillment\Services\DriverPosition;
 use App\Domain\Fulfillment\Services\Eta\EtaService;
@@ -194,12 +195,28 @@ class OrderProgress
                 DS::Assigned => 'driver_assigned', DS::Accepted => 'driver_accepted', default => 'preparing',
             }],
             $f->status === FS::PickupReady => [2, 'ready', 'ready'],
-            $f->status === FS::Failed => [2, 'failed', 'failed'],
+            $f->status === FS::Failed => [2, 'failed', $this->failedDetail($d)],
             $f->status === FS::PickedUp => [3, 'collected', 'collected'],
             default => [3, $f->type === 'pickup' ? 'collected' : 'delivered', $f->type === 'pickup' ? 'collected' : 'delivered'], // delivered, returned
         };
 
         return ['rank' => $rank, 'phase' => $phase, 'detail' => $detail, 'fulfillment' => $f, 'delivery' => $d];
+    }
+
+    /**
+     * What a failed delivery says under its headline: the old "we will call you" (`failed`), "choose a new time in the order" while the customer holds an open
+     * offer of new times (`failed_offer`), or "your new time is booked" once they chose (`failed_rescheduled`). docs/guides/DELIVERY_FOLLOW_UPS.md.
+     */
+    private function failedDetail(?Delivery $d): string
+    {
+        if ($d === null) {
+            return 'failed';
+        }
+        if ($d->status === DS::Rescheduled) {
+            return 'failed_rescheduled';
+        }
+
+        return DeliverySlotOffer::query()->where('delivery_id', $d->id)->where('status', DeliverySlotOffer::OPEN)->where('expires_at', '>', now())->exists() ? 'failed_offer' : 'failed';
     }
 
     private function finishedAt(Order $order, array $chosen): CarbonImmutable

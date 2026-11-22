@@ -69,4 +69,6 @@ return [
     'delivery.nearby.body' => '{{driver}} على بعد دقائق منك ومعه الطلب {{order_number}}. نرجو أن تكون جاهزاً للاستلام.',
     'delivery.arrived.title' => 'وصل السائق',
     'delivery.arrived.body' => '{{driver}} عند بابك ومعه الطلب {{order_number}}.',
+    'delivery.slots_offered.title' => 'اختر موعد توصيل جديداً',
+    'delivery.slots_offered.body' => 'تعذّر توصيل الطلب {{order_number}}. افتح الطلب واختر موعداً جديداً قبل {{until}}، وإلا سنتصل بك.',
 ];

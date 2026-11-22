@@ -166,11 +166,13 @@
 
     @php
         $dialogTitles = ['handin' => __('finance_admin.receive_cash'), 'resolve' => __('finance_admin.review_variance'), 'deposit' => __('finance_admin.make_deposit'), 'receipt' => __('cash_shift.receipt_title', ['number' => $dialogReceipt?->number]),
-            'shift_open' => __('cash_shift.open_shift'), 'shift_close' => __('cash_shift.close_shift'), 'shift_review' => __('cash_shift.review_shift'), 'shift_done' => __('cash_shift.shift_closed')];
+            'shift_open' => __('cash_shift.open_shift'), 'shift_close' => __('cash_shift.close_shift'), 'shift_review' => __('cash_shift.review_shift'), 'shift_done' => __('cash_shift.shift_closed'),
+            'payout' => __('petty_cash.title')];
         $dialogHints = ['handin' => __('finance_admin.handin_hint'), 'resolve' => __('finance_admin.resolve_hint'), 'deposit' => __('finance_admin.deposit_hint'), 'receipt' => __('cash_shift.receipt_hint'),
-            'shift_open' => __('cash_shift.open_hint'), 'shift_close' => __('cash_shift.close_hint'), 'shift_review' => __('cash_shift.review_intro'), 'shift_done' => null];
+            'shift_open' => __('cash_shift.open_hint'), 'shift_close' => __('cash_shift.close_hint'), 'shift_review' => __('cash_shift.review_intro'), 'shift_done' => null,
+            'payout' => __('petty_cash.hint')];
     @endphp
-    <x-admin.dialog wire:model="showDialog" :title="$dialogTitles[(string) $dialog] ?? ''" :description="$dialogHints[(string) $dialog] ?? null" :max-width="in_array($dialog, ['handin', 'shift_open', 'shift_close'], true) ? 'max-w-xl' : 'max-w-lg'">
+    <x-admin.dialog wire:model="showDialog" :title="$dialogTitles[(string) $dialog] ?? ''" :description="$dialogHints[(string) $dialog] ?? null" :max-width="in_array($dialog, ['handin', 'shift_open', 'shift_close', 'payout'], true) ? 'max-w-xl' : 'max-w-lg'">
         <form wire:submit="confirmDialog" class="space-y-5">
             @if ($dialog === 'handin' && $dialogExpected)
                 @php
@@ -257,11 +259,14 @@
                 </ul>
             @elseif ($this->isShiftDialog())
                 @include('livewire.admin.finance.partials.shift-dialogs')
+            @elseif ($dialog === 'payout')
+                @include('livewire.admin.finance.partials.payout-dialog')
             @endif
             <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">
                 @if ($dialog === 'shift_done')
                     <button type="button" class="btn-secondary min-h-11" @click="open = false">{{ __('cash_shift.done') }}</button>
                     @if ($shiftDialog['shift'] ?? null)
+                        <a href="{{ route('admin.cash.shifts.report.pdf', $shiftDialog['shift']) }}" class="btn-secondary min-h-11" data-action="z-pdf"><x-icon name="download" class="size-4" />{{ __('petty_cash.pdf.download') }}</a>
                         <a href="{{ route('admin.cash.shifts.report', $shiftDialog['shift']) }}" target="_blank" rel="noopener" class="btn-primary min-h-11"><x-icon name="printer" class="size-4" />{{ __('cash_shift.print_z') }}</a>
                     @endif
                 @elseif ($dialog === 'receipt')

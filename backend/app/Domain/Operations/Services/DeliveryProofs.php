@@ -45,12 +45,14 @@ final class DeliveryProofs
             if ($proof->disk !== null && $proof->path !== null) {
                 // `kind`: the photo of a failed attempt is shown too (a delivery that was tried, failed and delivered later has both), and says which it is.
                 $photos[] = ['id' => $proof->id, 'url' => route('admin.deliveries.proof', [$delivery->id, $proof->id]), 'at' => BusinessTime::display($proof->captured_at, 'd M, H:i'), 'n' => count($photos) + 1,
-                    'kind' => $proof->type === 'failed' ? 'failed' : 'delivered'];
+                    'kind' => match ($proof->type) {
+                        'failed' => 'failed', 'assembly' => 'assembly', default => 'delivered'
+                    }];
             } elseif ($proof->path !== null && str_starts_with(strtolower($proof->path), 'https://')) {
                 $external[] = $proof->path; // a courier's own proof: a link only, never fetched or embedded
             }
         }
-        $last = $proofs->last();
+        $last = $proofs->reject(fn (DeliveryProof $p) => $p->type === 'assembly')->last(); // the photo of the assembly is not the moment of the handover
         $anchor = $last?->captured_at ?? $delivery->delivered_at;
         $driver = $delivery->driver_id ? User::query()->whereKey($delivery->driver_id)->value('name') : null;
 
@@ -59,7 +61,7 @@ final class DeliveryProofs
             'tracking' => (string) $delivery->tracking_number,
             'photos' => $photos,
             'external' => $external,
-            'recipient' => $proofs->pluck('recipient_name')->filter()->last(),
+            'recipient' => $proofs->reject(fn (DeliveryProof $p) => $p->type === 'assembly')->pluck('recipient_name')->filter()->last(),
             'at' => $anchor !== null ? BusinessTime::display($anchor, 'd M Y, H:i') : null,
             'driver' => is_string($driver) ? $driver : null,
             // The position the driver's phone wrote with the proof comes first; the driver's trail is only the fallback for deliveries made before that.

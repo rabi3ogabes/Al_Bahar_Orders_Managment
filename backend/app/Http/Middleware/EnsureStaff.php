@@ -3,7 +3,9 @@
 namespace App\Http\Middleware;
 
 use App\Domain\Identity\Models\User;
+use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Identity\Services\TwoFactorService;
+use App\Domain\Operations\Services\WallDisplaySession;
 use App\Support\DomainException;
 use Closure;
 use Illuminate\Http\Request;
@@ -21,6 +23,9 @@ use Symfony\Component\HttpFoundation\Response;
  * browser cookie is refused whatever the session driver and even after the account is switched on again.
  * Both "first step" gates (password, two-factor enrolment) look at the REAL route, and at the signed Livewire snapshots of a Livewire
  * call, never at request headers: a client cannot claim to be the profile page.
+ * A wall display account (its only right is board.view, see AccessControl::isWallDisplay) is confined here, whatever any page would say: it may open the live
+ * board, refresh it, join its live channels and sign out, and nothing else (any other page, the search, the profile and the whole staff API answer 403).
+ * It is signed out once it has not been seen for the configured number of hours (WallDisplaySession). It has no profile to open, so the first-step gates do not apply to it.
  */
 class EnsureStaff
 {
@@ -46,6 +51,10 @@ class EnsureStaff
             return redirect()->route('admin.two-factor.challenge');
         }
 
+        if (app(AccessControl::class)->isWallDisplay($user)) {
+            return $this->confineToTheWall($request, $next, $user, $isApiToken);
+        }
+
         if (! $isApiToken && ! $user->hasTwoFactorEnabled() && app(TwoFactorService::class)->required() && ! $this->isProfileRequest($request)) {
             return $this->sendToProfile($request, __('admin.two_factor_enrolment_required'), __('admin.two_factor_enrolment_required'));
         }
@@ -61,6 +70,47 @@ class EnsureStaff
         }
 
         return $next($request);
+    }
+
+    /**
+     * The wall display account: the live board only. Checked on the real route and, for a Livewire call, on the signed snapshots (every component must be the
+     * board), like the first-step gates. Past its time the account is signed out and the screen is sent to the sign-in page.
+     */
+    private function confineToTheWall(Request $request, Closure $next, User $user, bool $isApiToken): Response
+    {
+        if ($isApiToken) {
+            throw new DomainException('wall_display_only', __('wall_display.api_refused'), 403);
+        }
+        if (! app(WallDisplaySession::class)->touch($user)) {
+            auth()->guard('web')->logout();
+            $request->session()->invalidate();
+
+            if ($this->isLivewireUpdate() || $request->expectsJson()) {
+                abort(419); // "page expired": the board reloads and lands on the sign-in page
+            }
+
+            return redirect()->route('admin.login');
+        }
+        if (! $this->isWallRequest($request)) {
+            abort(403, __('errors.forbidden'));
+        }
+
+        return $next($request);
+    }
+
+    private function isWallRequest(Request $request): bool
+    {
+        if ($this->isLivewireUpdate()) {
+            $names = [];
+            foreach ((array) $request->input('components', []) as $component) {
+                $snapshot = is_array($component) && is_string($component['snapshot'] ?? null) ? json_decode($component['snapshot'], true) : null;
+                $names[] = is_array($snapshot) ? ($snapshot['memo']['name'] ?? null) : null;
+            }
+
+            return $names !== [] && array_unique($names) === ['admin.operations.live-board-page'] && $request->routeIs('admin.operations.board');
+        }
+
+        return $request->routeIs('admin.operations.board', 'admin.logout', 'admin.locale') || $request->is('broadcasting/auth');
     }
 
     /** A page goes to the profile with a notice; a Livewire call is simply refused (it is not the profile page's own action). */

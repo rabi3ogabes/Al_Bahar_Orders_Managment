@@ -45,6 +45,40 @@ extension DriverStrings on OpsStrings {
 
   String get lineAssembly => _d('Assembly', 'تركيب');
 
+  // ── "Assembly done": the answer for paid assembly, before the delivery is confirmed ─────────────────────────────────────
+  String get assemblyStripTitle => _d('Assembly and installation', 'التركيب والتجهيز');
+  String get assemblyStripHint => _d(
+    'Paid by the customer. Say whether it was done before you confirm the delivery.',
+    'مدفوع من العميل. حدّد هل تم التركيب قبل تأكيد التسليم.',
+  );
+  String get assemblyDoneVerb => _d('Assembly done', 'تم التركيب');
+  String get slideAssemblyDone => _d('Slide: assembly done', 'اسحب: تم التركيب');
+  String get assemblyNotDoneVerb => _d('Not done', 'لم يتم');
+  String get assemblyAddDetails => _d('Add a note or photo', 'إضافة ملاحظة أو صورة');
+  String get assemblyAnsweredDone => _d('Assembly done', 'تم التركيب');
+  String assemblyAnsweredNotDone(String reason) => _d('Assembly not done: $reason', 'لم يتم التركيب: $reason');
+  String get assemblyChange => _d('Change', 'تغيير');
+  String get assemblySheetTitle => _d('Assembly and installation', 'التركيب والتجهيز');
+  String get assemblyQuestion => _d('Was the assembly done?', 'هل تم التركيب؟');
+  String get assemblyWhyNot => _d('Why was it not done?', 'لماذا لم يتم؟');
+  String assemblyReason(String code) => switch (code) {
+    'customer_not_ready' => _d('The customer was not ready', 'العميل لم يكن مستعداً'),
+    'missing_parts' => _d('Parts or tools were missing', 'كانت قطع أو أدوات ناقصة'),
+    'not_possible' => _d('It could not be done here', 'تعذّر التركيب في هذا المكان'),
+    'no_time' => _d('There was no time', 'لم يتسع الوقت'),
+    _ => _d('Another reason', 'سبب آخر'),
+  };
+  String get assemblyNoteLabel => _d('Note (optional)', 'ملاحظة (اختياري)');
+  String get assemblyNoteRequiredLabel => _d('What happened? (required)', 'ماذا حدث؟ (مطلوب)');
+  String get assemblyPhotoHint =>
+      _d('A photo of the finished assembly is optional.', 'صورة التركيب بعد الانتهاء اختيارية.');
+  String get assemblySave => _d('Save answer', 'حفظ الإجابة');
+  String get slideAssemblySave => _d('Slide to save the answer', 'اسحب لحفظ الإجابة');
+  String get assemblySaved => _d('Saved. The branch knows.', 'تم الحفظ. الفرع على علم.');
+  String get assemblyChooseFirst => _d('Choose done, or why it was not done.', 'اختر «تم»، أو سبب عدم إتمامه.');
+  String get assemblyAnswerFirst =>
+      _d('Say whether the assembly was done before you confirm the delivery.', 'حدّد هل تم التركيب قبل تأكيد التسليم.');
+
   // ── Handing a job back ─────────────────────────────────────────────────────────────────────────────────────────────────
   String get cantTakeThis => _d("I can't take this", 'لا أستطيع توصيله');
   String get declineTitle => _d("Can't take this delivery?", 'لا تستطيع توصيل هذا الطلب؟');
@@ -188,6 +222,10 @@ extension DriverStrings on OpsStrings {
         return _d('This delivery belongs to another driver.', 'هذا الطلب مع سائق آخر.');
       case 'delivery_proof_required':
         return photoRequired;
+      case 'assembly_answer_required':
+        return assemblyAnswerFirst;
+      case 'assembly_reason_required':
+        return assemblyChooseFirst;
       case 'media_invalid':
         return _d('That photo could not be used. Please take it again.', 'تعذّر استخدام الصورة. التقطها مرة أخرى.');
       case 'branch_forbidden':

@@ -48,6 +48,9 @@ return [
             'collected' => 'Collected. Thank you for shopping with Al Bahar.',
             'cancelled' => 'Your order was cancelled.',
             'failed' => 'We could not deliver your order. We will call you to arrange a new time.',
+            // After a failed delivery the customer was offered new times (they choose in the order), or chose one.
+            'failed_offer' => 'We could not deliver your order. Open it to choose a new delivery time.',
+            'failed_rescheduled' => 'We could not deliver your order. Your new delivery time is booked.',
             'cancellation_requested' => 'Your cancellation request is being reviewed.',
         ],
 

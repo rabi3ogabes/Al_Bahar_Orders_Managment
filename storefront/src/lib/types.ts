@@ -1,5 +1,6 @@
 import type { ReturnClaim } from './returns';
 import type { SubstitutionRequest } from './substitutions';
+import type { AssemblyAnswer, DeliveryProof, SlotOffer } from './followUps';
 import type { DealBlock } from './deals';
 import type { BasketPromise, PromiseParcel } from './promise';
 export interface Money { amount: string; currency: string; formatted: string }
@@ -143,7 +144,7 @@ export interface OrderDelivery { tracking_number?: string | null; status?: strin
 export interface OrderDetail extends OrderSummary {
   totals: Record<string, Money>; discounts: unknown[]; address: Record<string, string | null> | null; customer_notes: string | null
   items: OrderItem[]
-  fulfillments: { id: string; number: string; type: string; status: string; status_label: string; branch: { id: string; name: string; phone: string | null; latitude: number | null; longitude: number | null }; subtotal: Money; delivery_fee: Money; slot: Slot | null; delivery: OrderDelivery | null; pickup: { status: string; token_expires_at: string | null } | null; timestamps: Record<string, string | null> }[]
+  fulfillments: { id: string; number: string; type: string; status: string; status_label: string; branch: { id: string; name: string; phone: string | null; latitude: number | null; longitude: number | null }; subtotal: Money; delivery_fee: Money; slot: Slot | null; delivery: OrderDelivery | null; pickup: { status: string; token_expires_at: string | null } | null; timestamps: Record<string, string | null>; /** New times offered after a failed delivery (null: none, or it does not apply any more). */ slot_offer?: SlotOffer | null; /** When it was delivered, who received it and the photo (null until delivered). */ proof?: DeliveryProof | null; /** The driver's answer for paid assembly (null: none was bought). */ assembly?: AssemblyAnswer | null }[]
   can_cancel: boolean; can_pay?: boolean; can_return?: boolean; /** The latest return request of this order (null: none yet; absent from an older server). */ /** Replacements the branch offered that the customer is asked about (newest first), and whether one still waits for their answer. */ substitution_requests?: SubstitutionRequest[]; waiting_for_customer?: boolean; return_request?: ReturnClaim | null; /** Every claim of this order, newest first. */ returns?: ReturnClaim[]; /** The last day a problem can be reported (null: nothing can be reported now). */ return_window?: { days: number; until: string | null }; payment_due_at?: string | null; was_adjusted?: boolean; revisions?: OrderRevision[]
   [k: string]: unknown
 }

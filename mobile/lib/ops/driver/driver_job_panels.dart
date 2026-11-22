@@ -9,6 +9,7 @@ import 'package:albahar_customer/core/widgets/dirty_form_guard.dart';
 import 'package:albahar_customer/core/widgets/side_panel.dart';
 import 'package:albahar_customer/core/widgets/state_views.dart';
 import 'package:albahar_customer/features/branches/presentation/state/branch_providers.dart';
+import 'package:albahar_customer/ops/driver/driver_assembly.dart';
 import 'package:albahar_customer/ops/driver/driver_job_view.dart';
 import 'package:albahar_customer/ops/driver/driver_providers.dart';
 import 'package:albahar_customer/ops/driver/driver_sheets.dart';
@@ -287,6 +288,12 @@ class _JobActionButtonsState extends ConsumerState<JobActionButtons> {
   }
 
   Future<void> _deliver() async {
+    // A parcel with paid assembly is not delivered before the driver says whether it was done: the answer window comes first, then the delivery form.
+    if (widget.job.context.assembly?.needsAnswer ?? false) {
+      final answered = await showAssemblySheet(context, widget.job);
+      if (answered != true || !mounted) return;
+      _refresh();
+    }
     final done = await showDeliverPanel(context, widget.job);
     if (done != true || !mounted) return;
     ref.read(driverLiveProvider.notifier).applyOwnStep(widget.job.id, 'delivered');
@@ -351,8 +358,10 @@ class _JobActionButtonsState extends ConsumerState<JobActionButtons> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // The paid assembly is answered here, one tap, before the delivery is confirmed.
+        if (showsAssemblyStrip(job)) ...[if (!panel) const Gap(AppSpace.sm), AssemblyStrip(job: job)],
         if (label != null) ...[
-          if (!panel) const Gap(AppSpace.sm),
+          if (!panel && !showsAssemblyStrip(job)) const Gap(AppSpace.sm),
           Row(
             children: [
               Expanded(

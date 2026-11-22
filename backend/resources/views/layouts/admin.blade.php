@@ -2,14 +2,16 @@
     $user = auth()->user();
     $rtl = in_array(app()->getLocale(), config('platform.rtl_locales'), true);
     $nav = \App\Support\AdminNavigation::for($user);
+    // A wall display account (its only right is the live board, see AccessControl::isWallDisplay) sees the board alone: no menu, no search, no profile, no order toasts.
+    $wallOnly = app(\App\Domain\Identity\Services\AccessControl::class)->isWallDisplay($user);
     // While a first step is pending (choose a password, enrol two-factor) only the profile page works: no cart components (their calls would be refused).
-    $firstStepPending = $user->must_change_password || (! $user->hasTwoFactorEnabled() && app(\App\Domain\Identity\Services\TwoFactorService::class)->required());
+    $firstStepPending = ! $wallOnly && ($user->must_change_password || (! $user->hasTwoFactorEnabled() && app(\App\Domain\Identity\Services\TwoFactorService::class)->required()));
     $canOrder = ! $firstStepPending && app(\App\Domain\Identity\Services\AccessControl::class)->allows($user, 'orders.create');
     $brand = app()->getLocale() === 'ar' ? config('platform.brand.name_ar') : config('platform.brand.name_en');
     // Live new-order toasts on every page: staff who see orders of every branch hear one channel, the others one per branch they may see orders of.
-    $ordersScope = $firstStepPending ? null : app(\App\Domain\Identity\Services\AccessControl::class)->scope($user, 'orders.view');
-    // The live board's wall display (?wall=1): a screen in the branch shows the board alone, without the menu, the top bar and the footer.
-    $wall = ! $firstStepPending && request()->routeIs('admin.operations.board') && request()->boolean('wall');
+    $ordersScope = $firstStepPending ? null : app(\App\Domain\Identity\Services\AccessControl::class)->scope($user, $wallOnly ? \App\Domain\Identity\Support\PermissionRegistry::WALL_DISPLAY_KEY : 'orders.view');
+    // The live board's wall display (?wall=1): a screen in the branch shows the board alone, without the menu, the top bar and the footer. A wall display account always does.
+    $wall = ! $firstStepPending && request()->routeIs('admin.operations.board') && ($wallOnly || request()->boolean('wall'));
     $liveChannels = $ordersScope === null || $ordersScope->isEmpty() ? [] : ($ordersScope->all ? ['live-orders'] : array_map(fn ($b) => 'live-orders.'.$b, $ordersScope->branchIds));
 @endphp
 <!DOCTYPE html>
@@ -174,7 +176,7 @@
     <livewire:admin.sales.order-cart mode="overlay" />
 @endif
 
-@unless ($firstStepPending)<x-admin.command-palette />@endunless
+@unless ($firstStepPending || $wallOnly)<x-admin.command-palette />@endunless
 
 {{-- Toasts: $this->dispatch('toast', type: 'success', message: '...') — add undoLabel, undoEvent, undoParams for an Undo button --}}
 {{-- z-[80]: above side windows (68) and decisions (72), below the themed confirm (90). While a window is open the stack sits above its pinned action row. --}}
@@ -205,7 +207,7 @@
 @if ($liveChannels !== [])
     @persist('ops-live')
         <div class="contents" x-data x-init="window.loadLiveToasts().then((m) => m.startOpsLive($el, JSON.parse($el.dataset.boot)))"
-             data-boot="{{ json_encode(['channels' => $liveChannels, 'ordersUrl' => route('admin.orders.index'), 'orderUrl' => route('admin.orders.show', '__ID__'), 'text' => array_merge(trans('live'), trans('ops_live.toast'))]) }}"></div>
+             data-boot="{{ json_encode(['channels' => $liveChannels, 'ordersUrl' => route('admin.orders.index'), 'orderUrl' => route('admin.orders.show', '__ID__'), 'text' => array_merge(trans('live'), trans('ops_live.toast')), 'quiet' => $wallOnly]) }}"></div>
     @endpersist
 @endif
 @livewireScripts

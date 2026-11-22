@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Admin;
 use App\Domain\Checkout\Support\Assembly;
 use App\Domain\Fulfillment\Models\Delivery;
 use App\Domain\Fulfillment\Models\PickupReservation;
+use App\Domain\Fulfillment\Services\AssemblyFacts;
 use App\Domain\Fulfillment\Services\DeliveryService;
 use App\Domain\Fulfillment\Services\DriverGps;
 use App\Domain\Fulfillment\Services\PickupService;
@@ -158,13 +159,15 @@ class OrderOpsController extends ApiController
             'out-for-delivery' => $svc->outForDelivery($delivery, $u, $request->float('latitude') ?: null, $request->float('longitude') ?: null),
             'deliver' => $svc->deliver($delivery, $u, $request->input('recipient_name'), $request->file('proof'), $request->input('proof_type', 'photo'),
                 $request->has('cod') ? $request->validate(['cod.tender' => 'required|in:cash,card_terminal', 'cod.amount' => 'required|numeric|min:0', 'cod.receipt_reference' => 'nullable|string'])['cod'] : null,
-                DriverGps::from($request)),
+                DriverGps::from($request), $request->boolean('answers_assembly')),
             // The driver's "could not deliver": a reason, a note (required for other / damaged), an optional photo and position (DriverGps::failure).
             'fail' => $svc->fail($delivery, $u, ...DriverGps::failure($request)),
             // Either onto a delivery slot (capacity-safe) or, for branches without slots, to a free time (Qatar time unless an offset is given).
             'reschedule' => $request->filled('slot_id')
                 ? $svc->rescheduleToSlot($delivery, $u, ...array_values($request->validate(['slot_id' => 'required|uuid', 'date' => 'required|date_format:Y-m-d|after_or_equal:'.BusinessTime::now()->toDateString()])))
                 : $svc->reschedule($delivery, $u, $request->validate(['scheduled_for' => ['required', 'date', fn ($a, $v, $fail) => BusinessTime::toUtc((string) $v)->isFuture() ?: $fail(__('validation.after', ['attribute' => $a, 'date' => 'now']))]])['scheduled_for']),
+            // The driver's answer for the paid assembly of this parcel: done, or not done with a reason (docs/guides/DELIVERY_FOLLOW_UPS.md).
+            'assembly' => $this->assembly($request, $delivery, $svc),
             'return' => $svc->returnToBranch($delivery, $u),
             'cancel' => $svc->cancel($delivery, $u, $request->validate(['reason' => 'required|string|max:500'])['reason']),
             'retry-booking' => $svc->book($delivery),
@@ -172,6 +175,18 @@ class OrderOpsController extends ApiController
         };
 
         return response()->json(['data' => $d]);
+    }
+
+    private function assembly(Request $request, Delivery $delivery, DeliveryService $svc): Delivery
+    {
+        $d = $request->validate([
+            'status' => 'required|in:done,not_done',
+            'reason' => ['nullable', 'string', Rule::in(AssemblyFacts::REASONS), 'required_if:status,not_done'],
+            'note' => 'nullable|string|max:300|required_if:reason,other',
+            'photo' => 'nullable|file|mimetypes:image/jpeg,image/png,image/webp|max:8192',
+        ]);
+
+        return $svc->answerAssembly($delivery, $this->user(), $d['status'], $d['reason'] ?? null, $d['note'] ?? null, $request->file('photo'));
     }
 
     /** Driver's own task list (mobile). */

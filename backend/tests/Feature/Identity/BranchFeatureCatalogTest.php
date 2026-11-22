@@ -57,7 +57,7 @@ it('only lets a feature need another real feature, with no loops', function () {
 });
 
 it('keeps every preset made of real features and closed under what they need', function () {
-    expect(array_keys(BranchFeatureCatalog::presets()))->toBe(['branch_manager', 'order_desk', 'cashier', 'stock_keeper', 'delivery_coordinator', 'read_only']);
+    expect(array_keys(BranchFeatureCatalog::presets()))->toBe(['branch_manager', 'order_desk', 'cashier', 'stock_keeper', 'delivery_coordinator', 'read_only', 'wall_display']);
     foreach (BranchFeatureCatalog::presets() as $preset => $features) {
         foreach ($features as $f) {
             expect(BranchFeatureCatalog::exists($f))->toBeTrue("{$preset}: unknown feature {$f}");

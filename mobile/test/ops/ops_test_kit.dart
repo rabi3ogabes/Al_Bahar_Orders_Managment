@@ -293,6 +293,26 @@ class FakeOps implements OpsRepository {
     if (failError != null) throw failError!;
   }
 
+  /// The answers the driver gave for paid assembly ("Assembly done", see driver_assembly_test.dart); [onAssembly] lets a test change what the next read returns.
+  final assemblies = <({String id, String status, String? reason, String? note, File? photo, String? key})>[];
+  Object? assemblyError;
+  void Function(String status, String? reason)? onAssembly;
+
+  @override
+  Future<void> assembly(
+    String id,
+    String status, {
+    String? reason,
+    String? note,
+    File? photo,
+    String? idempotencyKey,
+  }) async {
+    calls.add('assembly:$id:$status${reason == null ? '' : ':$reason'}');
+    assemblies.add((id: id, status: status, reason: reason, note: note, photo: photo, key: idempotencyKey));
+    if (assemblyError != null) throw assemblyError!;
+    onAssembly?.call(status, reason);
+  }
+
   @override
   Future<void> returnToBranch(String id) async => calls.add('return:$id');
 

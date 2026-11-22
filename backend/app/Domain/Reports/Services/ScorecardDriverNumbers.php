@@ -3,6 +3,8 @@
 namespace App\Domain\Reports\Services;
 
 use App\Domain\Fulfillment\Models\DeliveryDecline;
+use App\Domain\Reports\Services\Metrics\Cash;
+use App\Domain\Reports\Services\Metrics\Deliveries;
 use App\Support\BusinessTime;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
@@ -14,8 +16,8 @@ use Illuminate\Support\Facades\DB;
  * branches, or who was given a delivery at one of them in the window. Read-only; one grouped query per family; every query is bounded by the window and
  * by the branches. No customer is named anywhere: the order NUMBER is the only thing that identifies a delivery.
  *
- * How a delivery is judged (on time, failed) is the same as for a branch ({@see ScorecardBranchNumbers}): arrived on the promised day or earlier, in Qatar
- * time; a failed delivery is one whose (last) failure fell in the window. The trip is measured on the wall clock (a driver's road is not paused by the
+ * How a delivery is judged (on time, failed) is the same as for a branch, because both ask {@see Deliveries}: arrived on the promised day or earlier, in
+ * Qatar time; a failed delivery is one whose (last) failure fell in the window. The cash figures ask {@see Cash}. The trip is measured on the wall clock (a driver's road is not paused by the
  * branch's opening hours), from "out for delivery" to "delivered".
  */
 final class ScorecardDriverNumbers
@@ -77,12 +79,9 @@ final class ScorecardDriverNumbers
         if ($branchIds === [] || $driverIds === []) {
             return [];
         }
-        $rows = DB::table('cash_collections')->whereIn('branch_id', $branchIds)->whereIn('collected_by', $driverIds)->where('tender', 'cash')->whereIn('status', ['collected', 'partial'])
-            ->where('amount_collected', '>', 0)->whereNull('handed_in_at')->groupBy('collected_by')
-            ->selectRaw('collected_by, count(*) as n, coalesce(sum(amount_collected), 0)::numeric(14,2) as amount, min(collected_at) as oldest')->get();
         $out = [];
-        foreach ($rows as $r) {
-            $out[$r->collected_by] = ['held' => (int) $r->n, 'amount' => Money::of((string) $r->amount)->toDecimal(), 'oldest' => $r->oldest !== null ? (string) $r->oldest : null];
+        foreach (Cash::held($branchIds, null, 'collected_by', $driverIds) as $id => $h) {
+            $out[$id] = ['held' => $h['held'], 'amount' => $h['amount'], 'oldest' => $h['oldest']];
         }
 
         return $out;
@@ -170,14 +169,15 @@ final class ScorecardDriverNumbers
     {
         $trip = 'd.out_for_delivery_at is not null and d.out_for_delivery_at <= d.delivered_at';
         $minutes = 'extract(epoch from (d.delivered_at - d.out_for_delivery_at)) / 60';
+        [$onTime, $onTimeBindings] = Deliveries::onTimeSql('d.delivered_at');
         $rows = DB::table('deliveries as d')->join('order_fulfillments as f', 'f.id', '=', 'd.order_fulfillment_id')->whereIn('d.branch_id', $ids)->whereNotNull('d.driver_id')
             ->whereBetween('d.delivered_at', [$start, $end])->when($onlyDriver !== null, fn ($q) => $q->where('d.driver_id', $onlyDriver))->groupBy('d.driver_id')
             ->selectRaw("d.driver_id, count(*) as delivered, count(*) filter (where f.slot_date is not null) as promised,
-                count(*) filter (where f.slot_date is not null and (d.delivered_at at time zone ?)::date <= f.slot_date) as on_time,
+                count(*) filter (where {$onTime}) as on_time,
                 count(*) filter (where {$trip}) as trips,
                 percentile_cont(0.5) within group (order by {$minutes}) filter (where {$trip}) as trip_median,
                 percentile_cont(0.9) within group (order by {$minutes}) filter (where {$trip}) as trip_p90,
-                avg({$minutes}) filter (where {$trip}) as trip_avg", [BusinessTime::zone()])->get();
+                avg({$minutes}) filter (where {$trip}) as trip_avg", $onTimeBindings)->get();
         $out = [];
         foreach ($rows as $r) {
             $out[(string) $r->driver_id] = ['delivered' => (int) $r->delivered, 'promised' => (int) $r->promised, 'on_time' => (int) $r->on_time, 'trips' => (int) $r->trips,
@@ -191,13 +191,12 @@ final class ScorecardDriverNumbers
     /** @return array<string, array<string, int>> driver id => failure reason => deliveries */
     private function failed(array $ids, CarbonImmutable $start, CarbonImmutable $end, ?string $onlyDriver): array
     {
-        $rows = DB::table('deliveries as d')->whereIn('d.branch_id', $ids)->whereNotNull('d.driver_id')->whereBetween('d.failed_at', [$start, $end])
-            ->when($onlyDriver !== null, fn ($q) => $q->where('d.driver_id', $onlyDriver))->groupBy('d.driver_id', 'd.failure_reason')
-            ->selectRaw('d.driver_id, d.failure_reason as reason, count(*) as n')->get();
         $out = [];
-        foreach ($rows as $r) {
-            $code = ScorecardCauses::failReason($r->reason);
-            $out[(string) $r->driver_id][$code] = ($out[(string) $r->driver_id][$code] ?? 0) + (int) $r->n;
+        foreach (Deliveries::failures($ids, $start, $end, 'driver_id', $onlyDriver) as $driver => $reasons) {
+            foreach ($reasons as $reason => $n) {
+                $code = ScorecardCauses::failReason($reason === '' ? null : $reason);
+                $out[$driver][$code] = ($out[$driver][$code] ?? 0) + $n;
+            }
         }
 
         return $out;
@@ -226,17 +225,6 @@ final class ScorecardDriverNumbers
      */
     private function handIns(array $ids, CarbonImmutable $start, CarbonImmutable $end, array $driverIds): array
     {
-        if ($driverIds === []) {
-            return [];
-        }
-        $rows = DB::table('cash_handovers')->whereIn('branch_id', $ids)->whereIn('collector_id', $driverIds)->whereBetween('created_at', [$start, $end])->groupBy('collector_id')
-            ->selectRaw('collector_id, count(*) as n, coalesce(sum(variance), 0)::numeric(14,2) as net, coalesce(sum(abs(variance)), 0)::numeric(14,2) as absolute,
-                count(*) filter (where variance <> 0) as variances')->get();
-        $out = [];
-        foreach ($rows as $r) {
-            $out[(string) $r->collector_id] = ['handins' => (int) $r->n, 'cash_net' => Money::of((string) $r->net)->toDecimal(), 'cash_abs' => Money::of((string) $r->absolute)->toDecimal(), 'variances' => (int) $r->variances];
-        }
-
-        return $out;
+        return $driverIds === [] ? [] : Cash::handIns($ids, $start, $end, 'collector_id', $driverIds);
     }
 }

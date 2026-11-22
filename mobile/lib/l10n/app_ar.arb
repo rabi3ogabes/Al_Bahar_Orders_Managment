@@ -1319,5 +1319,69 @@
   "guestChangePrice": "تغيّر سعر {name} من {from} إلى {to}.",
   "guestChangeReduced": "المتوفر الآن {count} فقط من {name}، لذلك خُفضت الكمية.",
   "guestChangeUnavailable": "{name} لم يعد متوفراً.",
-  "guestChangeAssembly": "لم تعد خدمة التركيب متاحة لـ {name}."
+  "guestChangeAssembly": "لم تعد خدمة التركيب متاحة لـ {name}.",
+  "slotOfferTitle": "اختر موعد توصيل جديداً",
+  "slotOfferIntro": "تعذّر توصيل طلبك. اختر الموعد المناسب لك وسنوصله فيه.",
+  "slotOfferUntil": "يرجى الاختيار قبل {when}.",
+  "@slotOfferUntil": {
+    "placeholders": {
+        "when": {
+          "type": "String"
+        }
+    }
+  },
+  "slotOfferConfirm": "تأكيد هذا الموعد",
+  "slotOfferTaken": "محجوز",
+  "slotOfferAllTaken": "تم حجز هذه المواعيد للتو. سنتصل بك لترتيب موعد جديد.",
+  "slotOfferExpired": "انتهت مدة هذا العرض. سنتصل بك لترتيب موعد جديد.",
+  "slotOfferChosen": "موعد توصيلك الجديد",
+  "slotOfferChosenToast": "شكراً لك. سنوصل طلبك في {time}.",
+  "@slotOfferChosenToast": {
+    "placeholders": {
+        "time": {
+          "type": "String"
+        }
+    }
+  },
+  "slotOfferErrGone": "تعذّر العثور على هذا العرض. يرجى إعادة تحميل الطلب.",
+  "slotOfferErrChosen": "تم اختيار موعد جديد لهذا الطلب بالفعل.",
+  "slotOfferErrClosed": "رتّب الفرع توصيل طلبك بالفعل.",
+  "slotOfferErrTaken": "تم حجز هذا الموعد للتو. يرجى اختيار موعد آخر.",
+  "proofDelivered": "تم التسليم في {when}",
+  "@proofDelivered": {
+    "placeholders": {
+        "when": {
+          "type": "String"
+        }
+    }
+  },
+  "proofDeliveredBy": "تم التسليم في {when} · استلمه {name}",
+  "@proofDeliveredBy": {
+    "placeholders": {
+        "when": {
+          "type": "String"
+        },
+        "name": {
+          "type": "String"
+        }
+    }
+  },
+  "proofPhotoLabel": "صورة تسليم طلبك",
+  "proofPhotoFailed": "تعذّر تحميل الصورة.",
+  "assemblyDoneOn": "تم التركيب في {when}",
+  "@assemblyDoneOn": {
+    "placeholders": {
+        "when": {
+          "type": "String"
+        }
+    }
+  },
+  "assemblyNotDone": "لم يتم التركيب: {reason}. سيتواصل معك الفرع.",
+  "@assemblyNotDone": {
+    "placeholders": {
+        "reason": {
+          "type": "String"
+        }
+    }
+  }
 }

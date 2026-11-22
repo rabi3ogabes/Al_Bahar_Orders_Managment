@@ -3,8 +3,11 @@
 namespace App\Domain\Reports\Services;
 
 use App\Domain\Operations\Services\BranchSchedules;
-use App\Support\BusinessTime;
-use App\Support\Money;
+use App\Domain\Reports\Services\Metrics\Cash;
+use App\Domain\Reports\Services\Metrics\Claims;
+use App\Domain\Reports\Services\Metrics\Deliveries;
+use App\Domain\Reports\Services\Metrics\Orders;
+use App\Domain\Reports\Services\Metrics\Speed;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -14,20 +17,10 @@ use Illuminate\Support\Facades\DB;
  * bounded by the window and by the branches asked about (and started from an indexed date), and aggregating in the database; the only rows that come
  * back one by one are the order timestamps whose minutes can only be counted in PHP (see {@see self::timing()}).
  *
- * WHICH ORDERS COUNT, and how a thing is measured, is the daily close's and the weekly owner pack's definition, so a number here is never different from
- * the same number there. Where this class states a definition again (a SQL condition cannot call a method), the line says which original it follows:
- *
- *  - an order is "real" by {@see DailyCloseNumbers::realOrderSql()} (called, not copied);
- *  - orders handled = DailyCloseNumbers::orderCounts() "placed": distinct orders with a part at the branch, placed in the window;
- *  - time to accept / prepare = DailyCloseNumbers::speed(): parts of the orders PLACED in the window, in OPENING-HOURS minutes (BranchSchedules), from when
- *    the part could be accepted (its creation, or the order's confirmation if that came later) to when it was accepted, and from accepted to ready;
- *    this class takes the median and the 90th percentile of those minutes, the daily close their average;
- *  - delivered on time = OwnerPackData::metrics() on_time: delivery parts that reached the customer in the window and had a promised day, the share that
- *    arrived on that day or earlier (the day in Qatar time);
- *  - cancelled = DailyCloseNumbers::orderCounts() "cancelled": parts cancelled in the window (real orders only);
- *  - failed deliveries = DailyCloseNumbers::for() failed_deliveries: deliveries whose (last) failure fell in the window, here also by reason;
- *  - claims = OwnerPackData::metrics() claims: return and damage claims OPENED in the window;
- *  - cash difference = DailyCloseNumbers::cash() / OwnerPackData cash_variance: the difference the cashiers found on hand-ins received in the window.
+ * WHICH ORDERS COUNT, and how a thing is measured, is decided ONCE, in the shared definitions the daily close, the weekly owner pack and the dashboard use
+ * too ({@see Orders}, {@see Deliveries}, {@see Cash}, {@see Claims}, {@see Speed} in App\Domain\Reports\Services\Metrics, and {@see SalesBasis}), so a number here
+ * is never different from the same number there. This class only asks them about a window and keeps what is particular to the scorecard: the reasons, the
+ * pickups that were collected in time, and the replacements offered.
  */
 class ScorecardBranchNumbers
 {
@@ -37,11 +30,20 @@ class ScorecardBranchNumbers
     /** How many orders are read for the speed figures of one window (a property so a test can shrink it). */
     protected int $timingCap = self::TIMING_CAP;
 
-    public function __construct(private readonly BranchSchedules $schedules) {}
+    private readonly Speed $speed;
+
+    public function __construct(BranchSchedules $schedules)
+    {
+        $this->speed = new Speed($schedules);
+    }
 
     /**
+     * `branches`: branch id => raw cases (every branch asked about has an entry, zeros when nothing happened). `placed_together`: the distinct real orders placed
+     * with a part at ANY of these branches, for the line of "all the branches together", where an order shared by two of them is one order (adding the branches'
+     * own counts would count it twice).
+     *
      * @param  list<string>  $branchIds
-     * @return array<string, array<string, mixed>> branch id => raw cases (every branch asked about has an entry, zeros when nothing happened)
+     * @return array{branches: array<string, array<string, mixed>>, placed_together: int}
      */
     public function forPeriod(array $branchIds, ScorecardPeriod $period): array
     {
@@ -50,21 +52,25 @@ class ScorecardBranchNumbers
             $out[$id] = self::blank();
         }
         if ($branchIds === []) {
-            return $out;
+            return ['branches' => $out, 'placed_together' => 0];
         }
         [$start, $end] = $period->bounds();
 
-        foreach ($this->placed($branchIds, $start, $end) as $id => $n) {
+        $placed = Orders::placed($branchIds, $start, $end);
+        foreach ($placed['branches'] as $id => $n) {
             $out[$id]['placed'] = $n;
         }
         foreach ($this->cancelled($branchIds, $start, $end) as $id => $byReason) {
             $out[$id]['cancelled'] = array_sum($byReason);
             $out[$id]['cancel_reasons'] = $byReason;
         }
-        foreach ($this->timing($branchIds, $start, $end) as $id => $t) {
+        foreach ($this->speed->minutes($branchIds, $start, $end, $this->timingCap) as $id => $t) {
             $out[$id]['accept'] = $t['accept'];
             $out[$id]['prepare'] = $t['prepare'];
             $out[$id]['timing_capped'] = $t['capped'];
+        }
+        foreach (Orders::reached($branchIds, $start, $end) as $id => $n) {
+            $out[$id]['reached'] = $n;
         }
         foreach ($this->deliveries($branchIds, $start, $end) as $id => $d) {
             $out[$id] = array_merge($out[$id], $d);
@@ -87,7 +93,7 @@ class ScorecardBranchNumbers
             $out[$id] = array_merge($out[$id], $h);
         }
 
-        return $out;
+        return ['branches' => $out, 'placed_together' => $placed['together']];
     }
 
     /**
@@ -106,19 +112,12 @@ class ScorecardBranchNumbers
         if ($branchIds === []) {
             return $out;
         }
-        $open = DB::table('cash_handovers')->whereIn('branch_id', $branchIds)->where('variance_status', 'open')->selectRaw('branch_id, count(*) as n')->groupBy('branch_id')->pluck('n', 'branch_id');
-        foreach ($open as $id => $n) {
-            $out[$id]['open_variances'] = (int) $n;
+        foreach (Cash::openVariances($branchIds) as $id => $n) {
+            $out[$id]['open_variances'] = $n;
         }
         // Cash is "held" by the same rule the exception inbox uses (AttentionFeed::cashItems): cash, collected, something to hand in, not handed in yet.
-        $held = DB::table('cash_collections')->whereIn('branch_id', $branchIds)->where('tender', 'cash')->whereIn('status', ['collected', 'partial'])
-            ->where('amount_collected', '>', 0)->whereNull('handed_in_at')
-            ->selectRaw('branch_id, count(*) as held, coalesce(sum(amount_collected), 0)::numeric(14,2) as held_amount,
-                count(*) filter (where collected_at <= ?) as late, coalesce(sum(amount_collected) filter (where collected_at <= ?), 0)::numeric(14,2) as late_amount, min(collected_at) as oldest',
-                [$lateBefore, $lateBefore])->groupBy('branch_id')->get();
-        foreach ($held as $r) {
-            $out[$r->branch_id] = array_merge($out[$r->branch_id], ['cash_held' => (int) $r->held, 'cash_held_amount' => Money::of((string) $r->held_amount)->toDecimal(),
-                'cash_late' => (int) $r->late, 'cash_late_amount' => Money::of((string) $r->late_amount)->toDecimal(), 'cash_oldest' => $r->oldest !== null ? (string) $r->oldest : null]);
+        foreach (Cash::held($branchIds, $lateBefore) as $id => $h) {
+            $out[$id] = array_merge($out[$id], ['cash_held' => $h['held'], 'cash_held_amount' => $h['amount'], 'cash_late' => $h['late'], 'cash_late_amount' => $h['late_amount'], 'cash_oldest' => $h['oldest']]);
         }
 
         return $out;
@@ -129,19 +128,11 @@ class ScorecardBranchNumbers
     {
         return [
             'placed' => 0, 'accept' => [], 'prepare' => [], 'timing_capped' => false,
-            'delivered' => 0, 'promised' => 0, 'on_time' => 0, 'moved' => 0,
+            'reached' => 0, 'delivered' => 0, 'promised' => 0, 'on_time' => 0, 'moved' => 0,
             'collected' => 0, 'collected_in_time' => 0, 'pass_expired' => 0,
             'cancelled' => 0, 'cancel_reasons' => [], 'failed' => 0, 'fail_reasons' => [], 'claims' => 0, 'claim_reasons' => [], 'substitutions' => 0,
             'handins' => 0, 'cash_net' => '0.00', 'cash_abs' => '0.00', 'variances' => 0,
         ];
-    }
-
-    /** @return array<string, int> branch id => distinct real orders placed in the window with a part at the branch */
-    private function placed(array $ids, CarbonImmutable $start, CarbonImmutable $end): array
-    {
-        return DB::table('order_fulfillments as f')->join('orders as o', 'o.id', '=', 'f.order_id')->whereIn('f.branch_id', $ids)
-            ->whereBetween('o.placed_at', [$start, $end])->whereRaw(DailyCloseNumbers::realOrderSql())
-            ->groupBy('f.branch_id')->selectRaw('f.branch_id, count(distinct f.order_id) as n')->pluck('n', 'branch_id')->map(fn (mixed $n) => (int) $n)->all();
     }
 
     /**
@@ -151,42 +142,7 @@ class ScorecardBranchNumbers
      */
     private function cancelled(array $ids, CarbonImmutable $start, CarbonImmutable $end): array
     {
-        $rows = DB::table('order_fulfillments as f')->join('orders as o', 'o.id', '=', 'f.order_id')
-            ->leftJoin('order_status_history as h', fn ($j) => $j->on('h.order_fulfillment_id', '=', 'f.id')->on('h.order_id', '=', 'f.order_id')
-                ->where('h.to_status', 'cancelled')->where('h.kind', 'fulfillment'))
-            ->whereIn('f.branch_id', $ids)->whereBetween('f.cancelled_at', [$start, $end])->whereRaw(DailyCloseNumbers::realOrderSql())
-            ->groupBy('f.branch_id', 'h.reason')->selectRaw('f.branch_id, h.reason as reason, count(distinct f.id) as n')->get();
-
-        return $this->byReason($rows, ScorecardCauses::cancelReason(...));
-    }
-
-    /**
-     * The minutes each order took to accept and to prepare, as lists (the percentiles are taken later, over the lists of all the branches asked about
-     * or of one). Opening-hours minutes: a night the branch was shut is not slowness. The window's newest {@see self::TIMING_CAP} orders at most.
-     *
-     * @return array<string, array{accept: list<float>, prepare: list<float>, capped: bool}>
-     */
-    private function timing(array $ids, CarbonImmutable $start, CarbonImmutable $end): array
-    {
-        $rows = DB::table('order_fulfillments as f')->join('orders as o', 'o.id', '=', 'f.order_id')->whereIn('f.branch_id', $ids)
-            ->whereBetween('o.placed_at', [$start, $end])->whereRaw(DailyCloseNumbers::realOrderSql())->whereNotNull('f.accepted_at')
-            ->orderByDesc('o.placed_at')->orderBy('f.id')->limit($this->timingCap)
-            ->get(['f.branch_id as branch_id', 'f.created_at as created_at', 'o.confirmed_at as confirmed_at', 'f.accepted_at as accepted_at', 'f.ready_at as ready_at']);
-        $this->schedules->preload($ids);
-        $capped = $rows->count() >= $this->timingCap;
-        $out = [];
-        foreach ($rows as $r) {
-            $created = CarbonImmutable::parse($r->created_at);
-            $confirmed = $r->confirmed_at !== null ? CarbonImmutable::parse($r->confirmed_at) : null;
-            $accepted = CarbonImmutable::parse($r->accepted_at);
-            $out[$r->branch_id] ??= ['accept' => [], 'prepare' => [], 'capped' => $capped];
-            $out[$r->branch_id]['accept'][] = (float) $this->schedules->minutes($r->branch_id, $confirmed !== null && $confirmed > $created ? $confirmed : $created, $accepted)['counted'];
-            if ($r->ready_at !== null) {
-                $out[$r->branch_id]['prepare'][] = (float) $this->schedules->minutes($r->branch_id, $accepted, CarbonImmutable::parse($r->ready_at))['counted'];
-            }
-        }
-
-        return $out;
+        return $this->byReason(Orders::cancelledByReason($ids, $start, $end), ScorecardCauses::cancelReason(...));
     }
 
     /**
@@ -197,19 +153,7 @@ class ScorecardBranchNumbers
      */
     private function deliveries(array $ids, CarbonImmutable $start, CarbonImmutable $end): array
     {
-        $rows = DB::table('order_fulfillments as f')->whereIn('f.branch_id', $ids)->where('f.type', 'delivery')->whereBetween('f.delivered_at', [$start, $end])
-            ->groupBy('f.branch_id')
-            ->selectRaw("f.branch_id, count(*) as delivered, count(*) filter (where f.slot_date is not null) as promised,
-                count(*) filter (where f.slot_date is not null and (f.delivered_at at time zone ?)::date <= f.slot_date) as on_time,
-                count(*) filter (where f.slot_date is not null and exists (
-                    select 1 from deliveries d join delivery_status_history h on h.delivery_id = d.id where d.order_fulfillment_id = f.id and h.to_status = 'rescheduled')) as moved",
-                [BusinessTime::zone()])->get();
-        $out = [];
-        foreach ($rows as $r) {
-            $out[$r->branch_id] = ['delivered' => (int) $r->delivered, 'promised' => (int) $r->promised, 'on_time' => (int) $r->on_time, 'moved' => (int) $r->moved];
-        }
-
-        return $out;
+        return Deliveries::promises($ids, $start, $end, withMoved: true);
     }
 
     /**
@@ -244,19 +188,13 @@ class ScorecardBranchNumbers
      */
     private function failures(array $ids, CarbonImmutable $start, CarbonImmutable $end): array
     {
-        $rows = DB::table('deliveries as d')->whereIn('d.branch_id', $ids)->whereBetween('d.failed_at', [$start, $end])
-            ->groupBy('d.branch_id', 'd.failure_reason')->selectRaw('d.branch_id, d.failure_reason as reason, count(*) as n')->get();
-
-        return $this->byReason($rows, ScorecardCauses::failReason(...));
+        return $this->byReason(Deliveries::failures($ids, $start, $end), ScorecardCauses::failReason(...));
     }
 
     /** @return array<string, array<string, int>> branch id => claim reason => claims opened in the window */
     private function claims(array $ids, CarbonImmutable $start, CarbonImmutable $end): array
     {
-        $rows = DB::table('return_requests')->whereIn('branch_id', $ids)->whereBetween('created_at', [$start, $end])
-            ->groupBy('branch_id', 'reason_code')->selectRaw('branch_id, reason_code as reason, count(*) as n')->get();
-
-        return $this->byReason($rows, fn (?string $code) => (string) ($code ?? 'other'));
+        return $this->byReason(Claims::opened($ids, $start, $end), fn (?string $code) => $code === null || $code === '' ? 'other' : $code);
     }
 
     /** @return array<string, int> branch id => parts that needed a replacement offered to the customer in the window */
@@ -274,28 +212,24 @@ class ScorecardBranchNumbers
      */
     private function handIns(array $ids, CarbonImmutable $start, CarbonImmutable $end): array
     {
-        $rows = DB::table('cash_handovers')->whereIn('branch_id', $ids)->whereBetween('created_at', [$start, $end])->groupBy('branch_id')
-            ->selectRaw('branch_id, count(*) as n, coalesce(sum(variance), 0)::numeric(14,2) as net, coalesce(sum(abs(variance)), 0)::numeric(14,2) as absolute,
-                count(*) filter (where variance <> 0) as variances')->get();
-        $out = [];
-        foreach ($rows as $r) {
-            $out[$r->branch_id] = ['handins' => (int) $r->n, 'cash_net' => Money::of((string) $r->net)->toDecimal(), 'cash_abs' => Money::of((string) $r->absolute)->toDecimal(), 'variances' => (int) $r->variances];
-        }
-
-        return $out;
+        return Cash::handIns($ids, $start, $end);
     }
 
     /**
-     * @param  iterable<object{branch_id: string, reason: ?string, n: int|string}>  $rows
+     * Folds the reasons a definition returned into the scorecard's known reason codes ("Other" for anything else).
+     *
+     * @param  array<string, array<string, int>>  $found  branch id => reason as written => count
      * @param  callable(?string): string  $normalise
      * @return array<string, array<string, int>>
      */
-    private function byReason(iterable $rows, callable $normalise): array
+    private function byReason(array $found, callable $normalise): array
     {
         $out = [];
-        foreach ($rows as $r) {
-            $code = $normalise($r->reason);
-            $out[$r->branch_id][$code] = ($out[$r->branch_id][$code] ?? 0) + (int) $r->n;
+        foreach ($found as $branch => $reasons) {
+            foreach ($reasons as $reason => $n) {
+                $code = $normalise($reason === '' ? null : (string) $reason);
+                $out[$branch][$code] = ($out[$branch][$code] ?? 0) + $n;
+            }
         }
 
         return $out;

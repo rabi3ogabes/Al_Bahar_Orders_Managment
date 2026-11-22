@@ -41,14 +41,14 @@ class NotificationRules
      * Alerts to drivers and branch staff. Push is their channel, and the two Live Operations alerts (a new order, a reminder that one waits to be
      * accepted) also go to the in-app inbox: see NotificationCatalog::STAFF for the channels each has by default.
      */
-    public const STAFF_EVENTS = ['staff.driver_assigned', 'staff.order_ready', 'staff.delivery_failed', 'staff.order_new', 'staff.order_reminder', 'staff.stocktake_waiting', 'staff.stocktake_returned'];
+    public const STAFF_EVENTS = ['staff.driver_assigned', 'staff.order_ready', 'staff.delivery_failed', 'staff.order_new', 'staff.order_reminder', 'staff.stocktake_waiting', 'staff.stocktake_returned', 'staff.slot_chosen', 'staff.assembly_not_done'];
 
     /** Events the catalog lists but no code sends yet; the page says so, the switches already work. */
     public const NOT_SENT_YET = ['auction.starting', 'auction.payment_reminder'];
 
     /** The page's groups, in order, and the events of each. Every catalog event is in exactly one group (a test keeps it so). */
     public const GROUPS = [
-        'orders' => ['order.created', 'order.confirmed', 'order.processing', 'order.ready_for_pickup', 'order.out_for_delivery', 'order.completed', 'order.cancelled', 'order.items_changed', 'order.substitution_offer', 'order.substitution_kept', 'delivery.nearby', 'delivery.arrived'],
+        'orders' => ['order.created', 'order.confirmed', 'order.processing', 'order.ready_for_pickup', 'order.out_for_delivery', 'order.completed', 'order.cancelled', 'order.items_changed', 'order.substitution_offer', 'order.substitution_kept', 'delivery.nearby', 'delivery.arrived', 'delivery.slots_offered'],
         'payments' => ['payment.link', 'payment.succeeded', 'payment.failed', 'refund.processed'],
         'auctions' => ['auction.starting', 'auction.outbid', 'auction.won', 'auction.lost', 'auction.payment_reminder'],
         'stock' => ['stock.back_in_stock', 'stock.price_drop'],

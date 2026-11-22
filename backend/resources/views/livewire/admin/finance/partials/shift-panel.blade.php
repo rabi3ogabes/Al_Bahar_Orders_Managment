@@ -39,12 +39,16 @@
                             <dt>{{ trans_choice('cash_shift.l_received_n', $f['handins'], ['count' => $f['handins']]) }}</dt><dd dir="ltr">{{ $f['received']->format() }}</dd>
                             <dt>{{ trans_choice('cash_shift.l_banked_n', $f['deposits_count'], ['count' => $f['deposits_count']]) }}</dt><dd dir="ltr">{{ $f['deposits']->isZero() ? '—' : '− '.$f['deposits']->format() }}</dd>
                             <dt>{{ trans_choice('cash_shift.l_refunds_n', $f['refunds_count'], ['count' => $f['refunds_count']]) }}</dt><dd dir="ltr">{{ $f['refunds']->isZero() ? '—' : '− '.$f['refunds']->format() }}</dd>
+                            <dt>{{ trans_choice('petty_cash.l_payouts_n', $f['payouts_count'], ['count' => $f['payouts_count']]) }}</dt><dd dir="ltr" data-payouts-now>{{ $f['payouts']->isZero() ? '—' : '− '.$f['payouts']->format() }}</dd>
                         </dl>
                         @if ($f['own_count'] > 0)
                             <p class="rounded-xl bg-amber-soft/10 px-3 py-2 text-xs text-amber-soft dark:text-amber-300">{{ trans_choice('cash_shift.own_cash_note', $f['own_count'], ['count' => $f['own_count'], 'amount' => $f['own_amount']->format()]) }}</p>
                         @endif
                         @if ($canEdit)
-                            <button type="button" wire:click="closeShiftDialog('{{ $shift->id }}')" class="btn-primary mt-auto min-h-11" data-action="close-shift"><x-icon name="scale" class="size-4" />{{ __('cash_shift.close_shift') }}</button>
+                            <div class="mt-auto flex flex-col gap-2">
+                                <button type="button" wire:click="closeShiftDialog('{{ $shift->id }}')" class="btn-primary min-h-11" data-action="close-shift"><x-icon name="scale" class="size-4" />{{ __('cash_shift.close_shift') }}</button>
+                                <button type="button" wire:click="openPayoutDialog('{{ $shift->id }}')" class="btn-secondary min-h-11" data-action="pay-out"><x-icon name="wallet" class="size-4" />{{ __('petty_cash.pay_out') }}</button>
+                            </div>
                         @endif
                     @else
                         <div>

@@ -33,7 +33,7 @@ Roadmap item 2.11. Everything is on the **Cash** page of the dashboard (Finance 
 | ... differences found when counting hand-ins | Counted minus collected, over all those hand-ins. The three lines always add up to the hand-ins received. |
 | **Banked** | The counted amount of the hand-ins deposited at the bank while this shift was open. |
 | **Cash refunds paid** | Refunds paid out in cash (method "manual cash", marked paid out) while this shift was open at a branch of that order, by someone who may receive cash there. |
-| **Expected cash** | Opening float + hand-ins received - banked - cash refunds paid. To the dirham: all money is whole dirham arithmetic, never decimals of a float. |
+| **Expected cash** | Opening float + hand-ins received - banked - cash refunds paid - petty cash paid out. To the dirham: all money is whole dirham arithmetic, never decimals of a float. |
 | **Counted** | Notes by value + coins, as counted at closing. |
 | **Variance** | Counted - expected. Negative = short. |
 | **Z number** | Z-1, Z-2 ... per branch, given at closing in one atomic step. A number is never reused, a failed closing does not use one. |
@@ -55,7 +55,7 @@ Roadmap item 2.11. Everything is on the **Cash** page of the dashboard (Finance 
 
 ## The Z-report
 
-Open it from the Shifts tab or the "Print Z-report" button after closing. A4 page, English or Arabic (a switch on the page, or `?lang=ar`). Print it, or choose "Save as PDF" in the print window: the browser draws the Arabic correctly. It shows the branch, the cashier and closer, opened and closed times, the float, every hand-in received (who from, how many collections, counted, variance), the cash banked by bank reference, cash refunds, expected, counted by note, the variance with the reason and the review, and two signature lines. The **first** time it is opened is the ORIGINAL; every later time is marked COPY 1, COPY 2 ... with a watermark. Each opening is written to the audit log.
+Open it from the Shifts tab or the "Print Z-report" button after closing. A4 page, English or Arabic (a switch on the page, or `?lang=ar`). Print it, or choose "Save as PDF" in the print window: the browser draws the Arabic correctly. It shows the branch, the cashier and closer, opened and closed times, the float, every hand-in received (who from, how many collections, counted, variance), the cash banked by bank reference, cash refunds, expected, counted by note, the variance with the reason and the review, and two signature lines. The **first** time it is opened is the ORIGINAL; every later time is marked COPY 1, COPY 2 ... with a watermark. Each opening is written to the audit log. Since Wave 5 the same report is also a **PDF download** (a PDF link in the Shifts tab and a Download PDF button after closing) that shares the original / copy counter, and it has a **Petty cash paid out** block: see [ASSEMBLY_SALES_AND_PETTY_CASH.md](ASSEMBLY_SALES_AND_PETTY_CASH.md).
 
 ## Needs attention
 
@@ -71,10 +71,10 @@ Open it from the Shifts tab or the "Print Z-report" button after closing. A4 pag
 - **Expected cash uses what was counted**, not what was supposed to arrive, because the drawer holds what the cashier counted. A short hand-in is already a variance on its own receipt (reviewed by finance as before); the shift does not count it a second time.
 - **The cashier's own counter cash.** A pickup collected by the cashier themselves is, as before, handed in to a colleague. Until then it is not part of the expected cash; the card and the closing window say so ("You collected 1 cash payment yourself ... keep it apart from the drawer").
 - **Cash refunds** have no branch of their own. They count against the open shift of a branch of the order, by someone who may receive cash there, at the moment they are marked paid out. Bank-transfer and card refunds never touch the drawer.
-- **Petty payouts** do not exist in the system, so they are not in the arithmetic. A payout from the drawer must be explained as a reason for the difference until a "cash out" record is added.
+- **Petty payouts** (Wave 5, [ASSEMBLY_SALES_AND_PETTY_CASH.md](ASSEMBLY_SALES_AND_PETTY_CASH.md)) are in the arithmetic: expected cash = float + hand-ins received - banked - cash refunds - petty cash paid out (not reversed).
 - **Reason and review limits** are strict "above": exactly QAR 1.00 or exactly QAR 50.00 need nothing more. The limits are read at closing, so a change applies from the next close.
 - **Closing twice.** The same person closing again with the same count gets the closed shift back (a double tap); anything else is refused. The same holds for opening. A close with every box left empty is refused: type 0 where there are none.
 - **Locks.** Receiving cash, banking and closing take the shift row first. A hand-in is either in the shift (and in its Z-report) or after it, never in between; a hand-in that slipped in just after opening is still claimed at the closing.
 - **Reprints.** The first opening is the original; opening the page again always counts as a copy. A preview before printing therefore uses up the original: print from the button right after closing.
 - **API.** The staff API `POST /admin/cash/handovers` already accepted `collection_ids`; it now refuses a list that contains a collection that is gone (already handed in, another collector's or branch's) as one 409 `cash_collection_unavailable`, and in "block" mode answers 422 `cash_shift_required` while no shift is open. The apps need no change for this.
-- **Not built.** A server-made PDF file (print > Save as PDF gives the same page); petty payouts; several tills per branch; messaging or emailing the Z-report (it is a print and archive document); the branch and driver scorecard (2.12).
+- **Not built.** Several tills per branch; messaging or emailing the Z-report (it is a print and archive document); the branch and driver scorecard (2.12).

@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin\Operations;
 
 use App\Broadcasting\BranchChannel;
+use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Operations\Services\LiveBoard;
 use App\Domain\Orders\Enums\FulfillmentStatus;
 use App\Domain\Orders\Models\OrderFulfillment;
@@ -24,6 +25,9 @@ use Livewire\Component;
  * action buttons. The layout reads the same address to leave its chrome out (resources/views/layouts/admin.blade.php).
  * The page refreshes on the live order events the layout already listens to, on the branch channels (see `channels`) and on a timer that
  * the browser makes faster when the socket is down (resources/js/ops-board.js).
+ *
+ * A WALL DISPLAY ACCOUNT (its only right is board.view, see AccessControl::isWallDisplay) opens this page and no other: the wall mode is forced on the server
+ * whatever the address says, it sees the branches its right was given for, and every action of the page refuses it (there are no buttons for it either).
  */
 class LiveBoardPage extends Component
 {
@@ -58,9 +62,19 @@ class LiveBoardPage extends Component
     #[Locked]
     public array $channels = [];
 
+    /** Is the signed-in account a wall display account? Read from the server every time, never from the page. */
+    private function wallOnly(): bool
+    {
+        return app(AccessControl::class)->isWallDisplay(auth()->user());
+    }
+
     public function mount(): void
     {
-        abort_unless($this->can('orders.view'), 403);
+        abort_unless($this->can('orders.view') || $this->wallOnly(), 403);
+        if ($this->wallOnly()) {
+            $this->wall = true;
+            $this->viewId = '';
+        }
         $gate = app(BranchChannel::class);
         $this->channels = app(LiveBoard::class)->branches(auth()->user())->keys()->filter(fn (string $id) => $gate->join(auth()->user(), $id))->map(fn (string $id) => 'branches.'.$id)->values()->all();
         if ($this->viewId !== '' && ! $this->wall) {
@@ -68,14 +82,22 @@ class LiveBoardPage extends Component
         }
     }
 
+    /** A wall display account changes nothing on the page, not even what it shows: every update from its browser is refused. */
+    public function updating(string $property): void
+    {
+        abort_if($this->wallOnly(), 403);
+    }
+
     public function setBranch(string $branch): void
     {
+        abort_if($this->wallOnly(), 403);
         $this->branch = $this->branch === $branch ? '' : $branch;
     }
 
     /** Opens a lane to show more of its cards, or folds it again. */
     public function toggleLane(string $lane): void
     {
+        abort_if($this->wallOnly(), 403);
         if (! in_array($lane, LiveBoard::LANES, true)) {
             return;
         }
@@ -84,6 +106,7 @@ class LiveBoardPage extends Component
 
     public function peekOrder(string $id, bool $quiet = false): void
     {
+        abort_if($this->wallOnly(), 403);
         if ($this->wall) {
             return;
         }
@@ -112,7 +135,7 @@ class LiveBoardPage extends Component
      */
     public function acceptPart(string $partId, OrderService $orders): void
     {
-        abort_if($this->wall, 403);
+        abort_if($this->wall || $this->wallOnly(), 403);
         $f = Str::isUuid($partId) ? OrderFulfillment::query()->where('status', FulfillmentStatus::Pending->value)->with('order:id,number')->find($partId) : null;
         if ($f === null) {
             $this->toast(__('drawer_sales.not_available'), 'error');
@@ -132,6 +155,7 @@ class LiveBoardPage extends Component
             'board' => $data,
             'counts' => $data->counts(),
             'branchKnown' => collect($data->branches)->contains('id', $this->branch),
+            'wallOnly' => $this->wallOnly(),
             'renderedAt' => BusinessTime::now(),
         ])->title(__('ops_board.page.title'));
     }

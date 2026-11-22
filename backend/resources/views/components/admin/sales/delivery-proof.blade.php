@@ -18,6 +18,7 @@
                         <a href="{{ $photo['url'] }}" target="_blank" rel="noopener" class="group relative block overflow-hidden rounded-2xl border border-sand-200 bg-sand-50 dark:border-ink-700 dark:bg-ink-800" aria-label="{{ __('ops_live.proof.open_photo', ['n' => $photo['n']]) }}">
                             <img src="{{ $photo['url'] }}" alt="{{ __('ops_live.proof.photo', ['n' => $photo['n']]) }}" loading="lazy" decoding="async" class="aspect-[4/3] w-full object-cover transition group-hover:scale-[1.02] motion-reduce:transition-none">
                             @if (($photo['kind'] ?? 'delivered') === 'failed')<span class="absolute start-2 top-2 rounded-full bg-ink-950/75 px-2 py-0.5 text-xs font-medium text-white">{{ __('ops_live.proof.failed_photo') }}</span>@endif
+                            @if (($photo['kind'] ?? 'delivered') === 'assembly')<span class="absolute start-2 top-2 rounded-full bg-ink-950/75 px-2 py-0.5 text-xs font-medium text-white">{{ __('delivery_followup.ui.assembly_photo') }}</span>@endif
                             @if ($photo['at'])<span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink-950/70 to-transparent px-3 pb-2 pt-6 text-xs text-white tabular-nums" dir="ltr">{{ $photo['at'] }}</span>@endif
                         </a>
                     </li>

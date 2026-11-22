@@ -4,6 +4,7 @@ namespace App\Domain\Reports\Services;
 
 use App\Domain\Settings\Services\Settings;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Facades\DB;
 
 /**
  * What "low stock" and "out of stock" mean, for the dashboard tile and the stock report (one definition, so they cannot disagree).
@@ -39,6 +40,25 @@ final class StockLevels
     public static function outSql(string $alias = 'bi'): string
     {
         return "({$alias}.on_hand - {$alias}.reserved) <= 0 and ".self::hadStockSql($alias);
+    }
+
+    /**
+     * The same two counts branch by branch, in one query.
+     *
+     * @param  list<string>  $branchIds
+     * @return array<string, array{low: int, out: int}> branch id => counts (a branch with no stock rows has no entry)
+     */
+    public static function countsByBranch(array $branchIds): array
+    {
+        [$low, $bindings] = self::lowSql();
+        $rows = DB::table('branch_inventory as bi')->whereIn('bi.branch_id', $branchIds)->groupBy('bi.branch_id')
+            ->selectRaw("bi.branch_id, count(*) filter (where {$low}) as low, count(*) filter (where ".self::outSql().') as out', $bindings)->get();
+        $out = [];
+        foreach ($rows as $r) {
+            $out[(string) $r->branch_id] = ['low' => (int) $r->low, 'out' => (int) $r->out];
+        }
+
+        return $out;
     }
 
     /** @return array{low: int, out: int} counts over a branch_inventory query (alias bi) that is already limited to the viewer's branches */

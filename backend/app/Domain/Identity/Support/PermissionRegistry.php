@@ -14,6 +14,8 @@ final class PermissionRegistry
     /** module => [actions, name_en, name_ar] */
     public const MODULES = [
         'dashboard' => [['view'], 'Dashboard', 'لوحة التحكم'],
+        // The wall display: an account whose ONLY right is board.view can open the live board in its read-only wall mode and nothing else (docs/guides/SEARCH_AND_LIVE_BOARD.md).
+        'board' => [['view'], 'Live board wall display', 'شاشة الجدار للوحة المباشرة'],
         'branches' => [['view', 'create', 'edit', 'delete'], 'Branches', 'الفروع'],
         'employees' => [['view', 'create', 'edit', 'delete', 'assign'], 'Employees', 'الموظفون'],
         'roles' => [['view', 'create', 'edit', 'delete', 'assign'], 'Roles & permissions', 'الأدوار والصلاحيات'],
@@ -49,7 +51,7 @@ final class PermissionRegistry
         'super_admin' => ['global', 'Super Admin', 'المشرف العام', ['*']],
         'admin' => ['global', 'Admin', 'مدير النظام', ['*']],
         'branch_manager' => ['branch', 'Branch Manager', 'مدير الفرع', [
-            'dashboard.view', 'branches.view', 'branches.edit', 'employees.*', 'zones.view', 'catalog.view', 'pricing.view', 'pricing.edit',
+            'dashboard.view', 'board.view', 'branches.view', 'branches.edit', 'employees.*', 'zones.view', 'catalog.view', 'pricing.view', 'pricing.edit',
             'inventory.*', 'transfers.*', 'stocktaking.*', 'purchasing.view', 'purchasing.create', 'purchasing.edit', 'purchasing.approve',
             'suppliers.view', 'orders.*', 'pickup.*', 'deliveries.*', 'payments.view', 'payments.create', 'payments.edit', 'refunds.view', 'refunds.create',
             'reconciliation.view', 'reconciliation.create', 'reports.view', 'reports.export', 'customers.view', 'support.view',
@@ -144,6 +146,10 @@ final class PermissionRegistry
         'staff' => [
             'staff_view' => ['keys' => ['employees.view']],
         ],
+        // A screen on the wall of the branch: the live board, read only, nothing else. It cannot be mixed with any other feature (BranchEmployeeService).
+        'wall' => [
+            'wall_display' => ['keys' => ['board.view']],
+        ],
     ];
 
     /** One-tap presets: preset id => the features it ticks (the person can still adjust them by hand). Texts: branch_access.preset_<id>. */
@@ -170,7 +176,11 @@ final class PermissionRegistry
         'read_only' => [
             'home', 'orders_view', 'pickup_view', 'deliveries_view', 'stock_view', 'products_view', 'customers_view', 'support_view', 'reports_view',
         ],
+        'wall_display' => ['wall_display'],
     ];
+
+    /** The one permission a wall display account holds. */
+    public const WALL_DISPLAY_KEY = 'board.view';
 
     /**
      * Modules that configure the whole company (or the public site) and therefore never appear in a branch employee's checklist,

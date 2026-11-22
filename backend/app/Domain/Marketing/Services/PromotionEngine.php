@@ -21,6 +21,9 @@ use Illuminate\Support\Facades\DB;
  * eligible units are discounted), bundle (buy N eligible units → value% off those lines).
  * SCOPE: whole order, specific products, or categories (incl. sub-categories); optional branch, customer-group and
  * first-order restrictions; minimum basket; maximum discount; overall & per-customer usage limits; start/end window.
+ * EXCLUSIONS: a promotion can leave out products, categories (incl. sub-categories) and brands ("the whole basket except these"). An excluded line is never
+ * discounted, whatever else targets it (an exclusion beats an inclusion), so a mixed basket is discounted on its eligible lines only. The minimum basket
+ * counts the eligible lines only. A coupon works through its promotion, so it inherits the exclusions.
  *
  * FREE DELIVERY comes from a coupon code only. Delivery always costs the zone fee; a free_delivery promotion that is automatic
  * (requires_coupon = false) is ignored here, so no basket value, date or customer group can waive the fee without a code.
@@ -36,6 +39,9 @@ use Illuminate\Support\Facades\DB;
  */
 class PromotionEngine
 {
+    /** What the engine reads of a promotion, loaded once with it. */
+    private const RELATIONS = ['products:id', 'categories:id,path', 'branches:id', 'excludedProducts:id', 'excludedCategories:id,path', 'excludedBrands:id'];
+
     /**
      * @param  list<QuoteLine>  $lines
      * @return array{discounts: list<AppliedDiscount>, coupon_error: ?string, free_delivery: bool}
@@ -51,12 +57,12 @@ class PromotionEngine
         $candidates = Promotion::query()->where('is_active', true)->where('requires_coupon', false)
             ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', $now))
             ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>', $now))
-            ->with(['products:id', 'categories:id,path', 'branches:id'])->orderBy('priority')->get();
+            ->with(self::RELATIONS)->orderBy('priority')->get();
 
         if ($couponCode) {
             [$coupon, $couponError] = $this->findCoupon($couponCode, $user);
             if ($coupon && ! $candidates->contains('id', $coupon->promotion_id)) {
-                $candidates->push($coupon->promotion->load(['products:id', 'categories:id,path', 'branches:id']));
+                $candidates->push($coupon->promotion->load(self::RELATIONS));
             }
         }
 
@@ -247,7 +253,8 @@ class PromotionEngine
         }
         $eligibleLines = $this->eligibleLines($p, $lines);
         if (! $eligibleLines) {
-            return 'coupon_not_eligible';
+            // Everything the promotion would have covered is left out by its exclusions: say that, not "your cart is not eligible".
+            return $p->hasExclusions() && $this->eligibleLines($p, $lines, false) !== [] ? 'coupon_excluded' : 'coupon_not_eligible';
         }
         if ($p->min_basket_amount !== null) {
             $base = array_reduce($eligibleLines, fn (Money $c, QuoteLine $l) => $c->plus($l->subtotal()), Money::zero());
@@ -259,15 +266,27 @@ class PromotionEngine
         return null;
     }
 
-    /** @return list<QuoteLine> */
-    private function eligibleLines(Promotion $p, array $lines): array
+    /**
+     * The lines a promotion may discount: in its branches and scope, and NOT excluded.
+     *
+     * @param  bool  $withExclusions  false answers what the promotion would cover without its exclusions (used to tell "excluded" from "not covered at all")
+     * @return list<QuoteLine>
+     */
+    private function eligibleLines(Promotion $p, array $lines, bool $withExclusions = true): array
     {
         $branchIds = $p->branches->pluck('id')->all();
         $productIds = $p->products->pluck('id')->all();
         $categoryIds = $p->scope === 'categories' ? $this->expandCategories($p->categories) : [];
+        $skipProducts = $withExclusions ? $p->excludedProducts->pluck('id')->all() : [];
+        $skipCategories = $withExclusions ? $this->expandCategories($p->excludedCategories) : [];
+        $skipBrands = $withExclusions ? $p->excludedBrands->pluck('id')->all() : [];
 
-        return array_values(array_filter($lines, function (QuoteLine $l) use ($p, $branchIds, $productIds, $categoryIds) {
+        return array_values(array_filter($lines, function (QuoteLine $l) use ($p, $branchIds, $productIds, $categoryIds, $skipProducts, $skipCategories, $skipBrands) {
             if ($branchIds && ! in_array($l->branch->id, $branchIds, true)) {
+                return false;
+            }
+            // An exclusion beats everything that includes the line: its product, its category (or a parent of it) or its brand.
+            if (in_array($l->productId(), $skipProducts, true) || in_array($l->categoryId(), $skipCategories, true) || ($l->brandId() !== null && in_array($l->brandId(), $skipBrands, true))) {
                 return false;
             }
 

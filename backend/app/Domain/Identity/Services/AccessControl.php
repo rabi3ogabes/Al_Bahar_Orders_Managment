@@ -44,6 +44,20 @@ class AccessControl
         return $grant['all'] || isset($grant['branches'][$branchId]);
     }
 
+    /**
+     * Is this a wall display account: an active staff account whose ONLY right is {@see PermissionRegistry::WALL_DISPLAY_KEY}? It can open the live board in its
+     * read-only wall mode and nothing else (EnsureStaff closes every other page, API call and Livewire action). Anyone with any other right, a super admin
+     * included, is a normal account that merely also holds the board right.
+     */
+    public function isWallDisplay(?User $user): bool
+    {
+        if (! $this->eligible($user) || $user->isSuperAdmin()) {
+            return false;
+        }
+
+        return array_keys($this->grantsFor($user)) === [PermissionRegistry::WALL_DISPLAY_KEY];
+    }
+
     /** True only if the permission is granted company-wide (not merely on some branches). */
     public function allowsGlobally(?User $user, string $permission): bool
     {
