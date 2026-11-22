@@ -104,12 +104,30 @@ Status: all six are **done** = built, tested and documented in a guide under doc
 
 Choices to confirm with the owner are listed at the end of each guide (defaults for the pack day and time, quiet-customer days, ROI factors, the stocktake limit, cash shift limits, scorecard minimum sample).
 
+## 5. Wave 5: close the loop in the field and in the finance office
+
+Status: **in progress**. Everything here was left open on purpose in Waves 2 to 4 (see the "next" notes above and the scope note in docs/HANDOVER.md). Batch 1 = 5.2 to 5.9; batch 2 = 5.1 (it rewires the driver and staff apps and starts once batch 1 has landed).
+
+| # | Capability | Who | Value | Effort | Status |
+|---|-----------|-----|-------|--------|--------|
+| 5.1 | **Driver and staff apps keep working with no signal**: the last good lists stay readable; step changes, proof-of-delivery photos and failed-delivery reports wait in a visible queue and are sent once, in order, when the signal returns (no double steps) | Driver, staff | H | M-L | batch 2 |
+| 5.2 | **"Assembly done"** tick in the driver app (with a note), shown on the order and to the customer | Driver, branch, customer | M | S | batch 1 |
+| 5.3 | **Failed delivery: propose new slots**; the customer picks one in the app or on the web order page, no phone call needed | Driver, branch, customer | M | M | batch 1 |
+| 5.4 | **Customer sees the proof of delivery** (photo, time, who received it), privately, in the app and on the web order page | Customer | M | S | batch 1 |
+| 5.5 | **Assembly in the sales reports**: assembly revenue and assembly jobs per branch and period | Owner | M | S | batch 1 |
+| 5.6 | **Cash shift: petty-cash payouts** with a reason and receipt photo, and the **Z-report as a PDF download** | Branch, owner | M | S-M | batch 1 |
+| 5.7 | **Promotions: exclude** products, categories or brands from an offer | Marketing | M | S-M | batch 1 |
+| 5.8 | **One definition per number** shared by the scorecard, the daily close and the owner pack (tests prove they agree) | Owner | M | S-M | batch 1 |
+| 5.9 | **View-only wall-display account** for the live board | Branch | S | S | batch 1 |
+
+Not in Wave 5 (needs the owner or a provider): card / Apple Pay / instalments, a dearer replacement paid by the customer, WhatsApp and SMS delivery, production sign-in code, the returns screen in the branch app (claims stay on the dashboard).
+
 ---
 
-## 5. What was checked and found fine
+## 6. What was checked and found fine
 
 Branch scoping on writes (pricing, stock, cash, refunds, returns, pickup, support, deliveries) is re-checked per branch on the server. Checkout uses quote hashes, idempotency keys and slot auto-pick. Right-to-left layouts in the app and web showed no left/right mistakes. Order adjustments (missing items) are complete, replay-safe and in the app.
 
-## 6. Not reviewed in depth
+## 7. Not reviewed in depth
 
 Auction engine internals, loyalty screens, CMS screens, push delivery on a real device, which branches really run auto-dispatch. The driver and staff apps' offline behaviour is a known gap (no cache, no queue); it is a Wave 2 follow-up after the delivery-state fixes.
