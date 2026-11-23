@@ -108,6 +108,7 @@ class LoyaltyService
             $account = LoyaltyAccount::whereKey($this->account($user)->id)->lockForUpdate()->first();
             $account->lifetime_earned += max(0, $points);
             $this->write($account, $type, $points, null, $reason, now()->addDays((int) $this->settings->get('loyalty.points_expiry_days', 365)), $points, $referenceType, $referenceId);
+            $this->updateTier($account);
         });
     }
 
@@ -133,6 +134,7 @@ class LoyaltyService
             } else {
                 $account->lifetime_earned += $points;
                 $this->write($account, 'adjust', $points, null, $reason, now()->addDays((int) $this->settings->get('loyalty.points_expiry_days', 365)), $points, 'staff', $staff->id);
+                $this->updateTier($account);
             }
             app(AuditLogger::class)->log('loyalty.adjusted', $account, ['balance' => $before], ['balance' => $account->balance], ['points' => $points, 'reason' => $reason, 'customer' => $customer->id], actor: $staff);
 
@@ -178,6 +180,12 @@ class LoyaltyService
                 LoyaltyTransaction::where('order_id', $orderId)->where('type', 'earn')->update(['remaining' => 0]);
             }
             $this->write($account, 'reverse', $delta, $orderId, $reason, $redeemed > 0 ? now()->addDays(90) : null, $redeemed > 0 ? $redeemed : null);
+            // Points of a cancelled/refunded order never counted towards the tier: order, cancel, repeat must not climb it.
+            if ($earned > 0) {
+                $account->lifetime_earned = max(0, $account->lifetime_earned - $earned);
+                $account->save();
+                $this->updateTier($account);
+            }
         });
     }
 
@@ -239,6 +247,8 @@ class LoyaltyService
         };
         if ($tier !== $account->tier) {
             $account->update(['tier' => $tier]);
+        } elseif ($account->isDirty()) {
+            $account->save();
         }
     }
 }

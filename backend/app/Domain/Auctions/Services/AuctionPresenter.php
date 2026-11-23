@@ -102,7 +102,8 @@ class AuctionPresenter
     /** Strip identifiers from event payloads before they leave the server. */
     public function publicPayload(array $payload): array
     {
-        unset($payload['previous_leader']);
+        // previous_leader is an identity; reason is the auctioneer's internal note (never for the public channel).
+        unset($payload['previous_leader'], $payload['reason']);
 
         return $payload;
     }

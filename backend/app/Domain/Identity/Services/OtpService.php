@@ -113,12 +113,10 @@ class OtpService
         return str_pad((string) random_int(0, (10 ** $length) - 1), $length, '0', STR_PAD_LEFT);
     }
 
-    /** The fixed test code, only while no real SMS provider is configured. */
+    /** The fixed test code, only while no real SMS provider is configured and the owner has not switched it off (see OtpTestMode). */
     private function testModeCode(): ?string
     {
-        $code = (string) config('platform.otp.test_code');
-
-        return ($code !== '' && config('services.sms.driver') !== 'http') ? $code : null;
+        return app(OtpTestMode::class)->code();
     }
 
     private function devEchoEnabled(): bool

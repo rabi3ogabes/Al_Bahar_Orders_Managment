@@ -7,7 +7,6 @@ use App\Domain\Auctions\Models\AuctionBidder;
 use App\Domain\Auctions\Models\AuctionLot;
 use App\Domain\Auctions\Models\AuctionWinner;
 use App\Domain\Auctions\Services\LotService;
-use App\Domain\Audit\Services\AuditLogger;
 use App\Livewire\Admin\Concerns\InteractsWithAdmin;
 use App\Support\Money;
 use Livewire\Attributes\Locked;
@@ -62,7 +61,7 @@ class AuctionConsole extends Component
         $this->showDialog = true;
     }
 
-    public function confirmDialog(LotService $lots, AuditLogger $audit): void
+    public function confirmDialog(LotService $lots): void
     {
         $u = auth()->user();
         $lot = $this->lot();
@@ -79,7 +78,7 @@ class AuctionConsole extends Component
                 'pause' => $this->attempt(fn () => $lots->pause($lot, $u, $reason), __('auction_admin.lot_paused')),
                 'cancel' => $this->attempt(fn () => $lots->cancel($lot, $u, $reason), __('auction_admin.lot_cancelled')),
                 'retract' => $this->attempt(fn () => $lots->retractBid(AuctionBid::where('auction_lot_id', $lot->id)->findOrFail((string) $this->target), $u, $reason), __('auction_admin.bid_retracted')),
-                'block' => $this->blockBidder($lot, $reason, $audit),
+                'block' => $this->blockBidder($lot, $reason, $lots),
                 default => abort(422),
             };
         }
@@ -88,15 +87,12 @@ class AuctionConsole extends Component
         }
     }
 
-    private function blockBidder(AuctionLot $lot, string $reason, AuditLogger $audit): bool
+    private function blockBidder(AuctionLot $lot, string $reason, LotService $lots): bool
     {
         abort_unless($this->can('auctions.override'), 403);
         $bidder = AuctionBidder::where('auction_id', $lot->auction_id)->where('user_id', (string) $this->target)->firstOrFail();
-        $bidder->update(['status' => 'blocked', 'blocked_reason' => $reason, 'blocked_by' => auth()->id()]);
-        $audit->log('auction.bidder_blocked', $bidder, [], ['reason' => $reason]);
-        $this->toast(__('auction_admin.bidder_blocked'));
 
-        return true;
+        return (bool) $this->attempt(fn () => $lots->blockBidder($bidder, auth()->user(), $reason), __('auction_admin.bidder_blocked'));
     }
 
     public function resume(LotService $lots): void

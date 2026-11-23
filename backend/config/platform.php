@@ -220,6 +220,7 @@ return [
         'default_extension_seconds' => 120,
         'unpaid_winner_policy' => 'offer_next_bidder', // offer_next_bidder | relist | none
         'bid_rate_limit_per_minute' => 30,
+        'hard_max_extensions' => 100, // anti-sniping never extends a lot more often than this, whatever the auction's own limit (or none)
     ],
 
     'loyalty' => [

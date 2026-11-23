@@ -304,7 +304,7 @@ describe('F · the indexes', function () {
         $plan = fn (string $sql) => collect(DB::select('explain '.$sql))->pluck('QUERY PLAN')->implode(' ');
         $id = (string) Str::uuid();
         expect($plan("select * from order_fulfillments where order_id = '{$id}'"))->toContain('order_fulfillments_order_id_index')
-            ->and($plan("select * from order_items where order_id = '{$id}'"))->toContain('order_items_order_id_index')
+            ->and($plan("select * from order_items where order_id = '{$id}'"))->toMatch('/order_items_order_(id|report)_index/')   // the covering index of the reports starts with the same column
             ->and($plan("select * from payments where order_id = '{$id}'"))->toContain('payments_order_id_index')
             ->and($plan("select * from refunds where order_id = '{$id}'"))->toContain('refunds_order_id_index')
             ->and($plan("select * from support_tickets where branch_id = '{$id}'"))->toContain('support_tickets_branch_id_index')

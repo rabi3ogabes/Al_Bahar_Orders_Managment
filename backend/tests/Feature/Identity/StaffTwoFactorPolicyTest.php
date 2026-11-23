@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\TwoFactorService;
 use App\Domain\Settings\Services\Settings;
 use App\Livewire\Admin\Organization\EmployeeEditor;
@@ -54,8 +55,8 @@ it('follows the dashboard setting over the environment default', function () {
 
 it('lets the admin switch the requirement off from Settings → Security', function () {
     config(['platform.auth.staff_two_factor_required' => true]);
-    $this->actingAs(staffWithRole('super_admin'));
-    session(['two_factor_passed' => true]);
+    $this->actingAs(User::factory()->superAdmin()->create());
+    session(['two_factor_passed' => true, 'two_factor_confirmed_at' => time()]); // a fresh two-factor proof: the owner just typed a code
 
     Livewire::test(SettingsIndex::class, ['tab' => 'security'])
         ->set('values.security.auth__staff_two_factor_required', false)

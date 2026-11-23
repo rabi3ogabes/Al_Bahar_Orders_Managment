@@ -47,7 +47,7 @@ class EngagementController extends ApiController
     public function page(string $slug): JsonResponse
     {
         $page = CmsPage::with('translations')->where('slug', $slug)->where('status', 'published')->firstOrFail();
-        $t = $page->translations->firstWhere('locale', app()->getLocale()) ?? $page->translations->firstWhere('locale', 'en');
+        $t = $page->translations->first(fn ($x) => $x->locale === app()->getLocale() && trim((string) $x->body) !== '') ?? $page->translations->firstWhere('locale', 'en');
 
         return response()->json(['data' => ['slug' => $page->slug, 'title' => $t?->title, 'body' => $t?->body, 'updated_at' => BusinessTime::iso($page->updated_at)]]);
     }

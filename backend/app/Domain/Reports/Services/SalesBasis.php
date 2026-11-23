@@ -40,16 +40,27 @@ final class SalesBasis
      */
     public static function orderShares(?CarbonInterface $from = null, ?CarbonInterface $to = null, ?array $userIds = null): Builder
     {
-        $base = self::withLines(DB::table('order_fulfillments as f')->join('orders as o', 'o.id', '=', 'f.order_id'))
-            ->whereNotIn('o.status', self::EXCLUDED_STATUSES)
+        $counted = fn (Builder $q): Builder => $q->whereNotIn('o.status', self::EXCLUDED_STATUSES)
             ->when($from, fn ($q) => $q->where('o.placed_at', '>=', $from))
             ->when($to, fn ($q) => $q->where('o.placed_at', '<=', $to))
             // A few customers (their own page, one page of a list): only their orders are read, by the index on orders.user_id.
-            ->when($userIds !== null, fn ($q) => $q->whereIn('o.user_id', $userIds))
+            ->when($userIds !== null, fn ($q) => $q->whereIn('o.user_id', $userIds));
+        $otherPart = fn (Builder $q): Builder => $q->select(DB::raw('1'))->from('order_fulfillments as x')->whereColumn('x.order_id', 'f.order_id')->whereColumn('x.id', '<>', 'f.id');
+
+        // The usual order has ONE part: that part is the whole order, so its share is the grand total and nothing has to be divided (no lines to add up, no sorting).
+        // Only an order split between branches goes through the division below. The two give the same cents (see the tests of the numbers).
+        $single = $counted(DB::table('order_fulfillments as f')->join('orders as o', 'o.id', '=', 'f.order_id'))
+            ->whereNotExists($otherPart)->where('f.status', '<>', 'cancelled')
+            ->selectRaw('f.id as fulfillment_id, f.order_id as gk, f.order_id, f.branch_id, o.user_id, o.placed_at, o.grand_total as amount, true as live, round(o.grand_total, 2) as share');
+
+        $split = $counted(self::withLines(DB::table('order_fulfillments as f')->join('orders as o', 'o.id', '=', 'f.order_id')))
+            ->whereExists($otherPart)
             ->selectRaw("f.id as fulfillment_id, f.order_id as gk, f.order_id, f.branch_id, o.user_id, o.placed_at, o.grand_total as amount,
                 (f.status <> 'cancelled') as live, ".self::WEIGHT_SQL.' as weight');
+        $divided = self::allocate($split)
+            ->select(['s.fulfillment_id', 's.gk', 's.order_id', 's.branch_id', 's.user_id', 's.placed_at', 's.amount', 's.live', 's.share']);
 
-        return self::allocate($base);
+        return DB::query()->fromSub($single->unionAll($divided), 's');
     }
 
     /**

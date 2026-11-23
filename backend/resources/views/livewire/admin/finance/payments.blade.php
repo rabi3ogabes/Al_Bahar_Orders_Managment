@@ -32,7 +32,7 @@
             @if ($branches->count() > 1)
                 <select wire:model.live="branch" class="input sm:w-44" aria-label="{{ __('admin.branch') }}"><option value="">{{ __('admin.all_branches') }}</option>@foreach ($branches as $b)<option value="{{ $b->id }}">{{ $b->code }}</option>@endforeach</select>
             @endif
-            <x-slot:meta>{{ trans_choice('finance_admin.payments_count', $payments->total(), ['count' => $payments->total()]) }}</x-slot:meta>
+            <x-slot:meta>{{ trans_choice('finance_admin.payments_count', $payments->total(), ['count' => \App\Support\BoundedPage::label($payments)]) }}</x-slot:meta>
         </x-admin.toolbar>
         @if ($payments->isEmpty())
             <x-admin.empty :title="__('finance_admin.payments_empty')" :description="__('finance_admin.payments_empty_hint')" icon="credit-card" />

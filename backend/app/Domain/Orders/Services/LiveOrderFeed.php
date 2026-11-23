@@ -55,11 +55,12 @@ class LiveOrderFeed
 
     /**
      * Events newer than $sinceMs (Unix milliseconds), oldest first, at most PAGE. A null cursor only returns a fresh
-     * cursor, so a page that has just opened never replays the past.
+     * cursor, so a page that has just opened never replays the past. A partner link passes its branches (null = all) and $anonymous = true:
+     * only orders with a part at those branches come back, and without the customer's name.
      *
      * @return array{events: list<array<string, string|null>>, cursor: int}
      */
-    public function since(?int $sinceMs): array
+    public function since(?int $sinceMs, ?array $branchIds = null, bool $anonymous = false): array
     {
         $nowMs = (int) (microtime(true) * 1000);
         if ($sinceMs === null) {
@@ -67,19 +68,22 @@ class LiveOrderFeed
         }
         $from = BusinessTime::toUtc(CarbonImmutable::createFromTimestampMsUTC(max(0, $sinceMs - self::OVERLAP_MS)));
 
-        $placed = Order::query()->where('placed_at', '>', $from)->orderBy('placed_at')->limit(self::PAGE)->get()
+        $inBranches = fn ($q) => $q->when($branchIds !== null, fn ($w) => $w->whereHas('fulfillments', fn ($f) => $f->whereIn('branch_id', (array) $branchIds)));
+        $placed = Order::query()->where('placed_at', '>', $from)->tap($inBranches)->orderBy('placed_at')->limit(self::PAGE)->get()
             ->map(fn (Order $o) => $this->payload($o, 'placed', null, $o->status->value, 'placed:'.$o->id, $o->placed_at));
 
         $changes = OrderStatusHistory::query()->where('kind', 'order')->whereNotNull('from_status')->where('created_at', '>', $from)
             ->orderBy('id')->limit(self::PAGE)->get();
-        $orders = Order::query()->whereIn('id', $changes->pluck('order_id'))->get()->keyBy('id');
+        $orders = Order::query()->whereIn('id', $changes->pluck('order_id'))->tap($inBranches)->get()->keyBy('id');
         $status = $changes->filter(fn ($h) => $orders->has($h->order_id))
             ->map(fn (OrderStatusHistory $h) => $this->payload($orders[$h->order_id], 'status', $h->from_status, $h->to_status, 'status:'.$h->id, $h->created_at));
 
         /** @var Collection<int, array<string, string|null>> $merged */
         $merged = $placed->concat($status)->sortBy('at')->values()->take(self::PAGE);
 
-        return ['events' => $merged->all(), 'cursor' => $nowMs];
+        $events = $anonymous ? $merged->map(fn (array $e) => array_merge($e, ['customer' => null])) : $merged;
+
+        return ['events' => $events->values()->all(), 'cursor' => $nowMs];
     }
 
     private function firstName(?string $name): ?string

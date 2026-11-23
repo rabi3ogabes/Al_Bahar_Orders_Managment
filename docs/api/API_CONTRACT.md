@@ -542,3 +542,17 @@ Driver app only. Guide: [OFFLINE_DRIVER_AND_STAFF_APPS.md](../guides/OFFLINE_DRI
 Each job of `GET /admin/dispatch/driver/jobs` (and `/driver/jobs/{id}`) now also carries `branch.phone` (the branch's number, or `null`): the app's "Call the branch" on a refused update.
 
 The other actions (`assign`, `reschedule`, `return`, `cancel`, `retry-booking`) and `POST /admin/deliveries/{id}/arrived` ignore both. `POST /admin/dispatch/driver/location` is unchanged: the app does not queue positions, it sends the newest one (with its `recorded_at`) when the signal returns.
+
+## 14. Staff API: approving your own refund (6.2)
+Dashboard and staff apps only. Guide: [DUAL_CONTROL.md](../guides/DUAL_CONTROL.md). Additive: a request that was valid before behaves the same, except that a super admin can no longer approve their own request while another team member holds `refunds.approve`.
+
+`POST /admin/refunds/{id}/approve` takes two optional fields, used only when the caller is the person who requested the refund:
+- `reason` (string, at least 10 characters): why you approve it yourself.
+- `two_factor_code` (string): a current code from the authenticator app (or a recovery code). The staff API has no browser session, so the code travels with the request.
+
+Answers for the requester: `403 approval_segregation` while another active team member can approve on every branch of the order (or when the setting `refunds.allow_self_approval` is off); `422 self_approval_reason_required`; `403 self_approval_two_factor_required`. A successful self-approval returns the refund with `self_approved: true` and `self_approval_reason`. Every refund resource carries these two fields (`false` / `null` for a normal approval).
+
+## 15. Staff API: long lists count up to 10,000 (6.6)
+Staff apps only. Guide: [SCALE_PROOF.md](../guides/SCALE_PROOF.md). Additive and compatible: same fields, same order, same page links.
+
+`GET /admin/orders` is paged like before, but its `total` (and so `last_page`) is counted **up to 10,000**: a list with more rows than that answers `total: 10000`. An exact count of a table with millions of rows would read all of it on every page. Narrow the list with `status`, `payment_status`, `search` or `branch_id` to see a smaller exact total. A page beyond the 10,000th row is empty.

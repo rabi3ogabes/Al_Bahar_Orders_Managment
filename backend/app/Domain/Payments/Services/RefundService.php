@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\DB;
  *
  *  - Cumulative refunds (requested + approved + processing + processed) can never exceed the captured amount:
  *    the payment row is locked while the limit is checked.
- *  - Approval requires refunds.approve by someone other than the requester (dual control).
+ *  - Approval requires refunds.approve by someone other than the requester (dual control; see approve() for the one-person-shop exception).
  *  - "original" method uses the gateway refund API only when the provider capability exists; otherwise staff
  *    process the refund manually (cash or bank transfer) with refunds.refund permission, recording the reference.
  *  - Idempotency keys prevent duplicate refund requests on retries.
@@ -71,22 +71,43 @@ class RefundService
         });
     }
 
-    public function approve(Refund $refund, User $approver): Refund
+    /**
+     * Dual control: the person who asked for a refund can never approve it while another team member holds the approval right for its
+     * branches. When nobody else does (a one-person shop) and the setting allows it, they may approve it themselves, but only with a
+     * written reason and a two-factor code typed just now; the refund is then flagged "self-approved" and audit-logged as such.
+     *
+     * @param  bool  $secondFactorFresh  the caller has verified a fresh two-factor code for $approver (browser session or API code)
+     */
+    public function approve(Refund $refund, User $approver, ?string $selfApprovalReason = null, bool $secondFactorFresh = false): Refund
     {
         if (! $this->allowedForPayment($approver, 'refunds.approve', $refund->payment)) {
             throw DomainException::make('branch_forbidden', 403);
         }
-        if ($refund->requested_by === $approver->id && ! $approver->isSuperAdmin()) {
-            throw DomainException::make('approval_segregation', 403);
+        $self = $refund->requested_by !== null && $refund->requested_by === $approver->id;
+        $reason = trim((string) $selfApprovalReason);
+        if ($self) {
+            $policy = app(RefundApprovalPolicy::class);
+            if ($policy->otherApproverExists($refund, $approver) || ! $policy->selfApprovalAllowed()) {
+                throw DomainException::make('approval_segregation', 403);
+            }
+            if (mb_strlen($reason) < 10) {
+                throw DomainException::make('self_approval_reason_required', 422);
+            }
+            if (! $secondFactorFresh) {
+                throw DomainException::make('self_approval_two_factor_required', 403);
+            }
         }
 
-        return DB::transaction(function () use ($refund, $approver) {
+        return DB::transaction(function () use ($refund, $approver, $self, $reason) {
             $r = Refund::whereKey($refund->id)->lockForUpdate()->firstOrFail();
             if ($r->status !== 'requested') {
                 throw DomainException::make('invalid_state_transition', 409, ['from' => $r->status]);
             }
-            $r->update(['status' => 'approved', 'approved_by' => $approver->id, 'approved_at' => now()]);
-            $this->audit->log('refund.approved', $r, ['status' => 'requested'], ['status' => 'approved'], actor: $approver);
+            $r->update(['status' => 'approved', 'approved_by' => $approver->id, 'approved_at' => now(), 'self_approved' => $self, 'self_approval_reason' => $self ? $reason : null]);
+            $this->audit->log('refund.approved', $r, ['status' => 'requested'], ['status' => 'approved'] + ($self ? ['self_approved' => true, 'reason' => $reason] : []), actor: $approver);
+            if ($self) {
+                $this->audit->log('refund.self_approved', $r, [], ['amount' => $r->amount, 'reason' => $reason], ['two_factor' => 'fresh'], actor: $approver);
+            }
 
             if ($r->method === 'original') {
                 return $this->processViaGateway($r, $approver);

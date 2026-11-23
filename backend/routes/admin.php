@@ -26,6 +26,7 @@ Route::get('roles/create', Admin\Organization\RoleEditor::class)->middleware('pe
 Route::get('roles/{role}', Admin\Organization\RoleEditor::class)->middleware('permission:roles.view')->name('roles.edit');
 Route::get('settings', Admin\Organization\SettingsIndex::class)->middleware('permission:settings.view')->name('settings.index');
 Route::get('push', Admin\Organization\PushNotificationsPage::class)->middleware('permission:settings.view')->name('push.index');
+Route::get('messaging-providers', Admin\Organization\MessagingProvidersPage::class)->middleware('permission:settings.view')->name('providers.index');
 Route::post('push/devices', [PushDeviceController::class, 'store'])->middleware(['permission:settings.view', 'throttle:20,1,push-devices'])->name('push.devices.store');
 
 // ── Insights ──────────────────────────────────────────────────────────────────

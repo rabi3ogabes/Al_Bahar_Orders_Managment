@@ -10,6 +10,14 @@
         </x-slot:actions>
     </x-admin.page-header>
 
+    @if ($testCodesOn)
+        <a href="{{ route('admin.providers.index') }}" class="mb-6 flex min-h-11 flex-wrap items-center gap-3 rounded-2xl border border-ruby-soft/60 bg-ruby-soft/10 p-4 text-ruby-soft" role="alert">
+            <x-icon name="shield" class="size-5 shrink-0" />
+            <span class="min-w-0 flex-1 font-medium">{{ __('messaging_providers.home_warning') }}</span>
+            <span class="underline underline-offset-2">{{ __('messaging_providers.home_action') }}</span>
+        </a>
+    @endif
+
     @php
         $can = $m['can'];
         $money = array_values(array_filter([

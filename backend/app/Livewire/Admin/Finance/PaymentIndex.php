@@ -7,6 +7,7 @@ use App\Livewire\Admin\Concerns\WithAdminTable;
 use App\Livewire\Admin\Finance\Concerns\ScopesPayments;
 use App\Livewire\Admin\Sales\Concerns\HasRecordWindow;
 use App\Livewire\Admin\Sales\Concerns\PeeksAtOrder;
+use App\Support\BoundedPage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Livewire\Attributes\Locked;
@@ -80,7 +81,7 @@ class PaymentIndex extends Component
         $mismatchIds = self::applyFlag($this->scopeByOrder(Payment::query(), $scope), 'amount_mismatch')->pluck('id')->all();
 
         return view('livewire.admin.finance.payments', [
-            'payments' => $q->paginate($this->perPage),
+            'payments' => BoundedPage::paginate($q, $this->perPage),
             'flagCounts' => $flagCounts,
             'mismatchIds' => $mismatchIds,
             'branches' => $this->scopedBranches('payments.view'),

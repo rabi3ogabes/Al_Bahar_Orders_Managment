@@ -3,7 +3,9 @@
 namespace App\Livewire\Admin\Finance;
 
 use App\Domain\Identity\Models\User;
+use App\Domain\Identity\Services\FreshTwoFactor;
 use App\Domain\Payments\Models\Refund;
+use App\Domain\Payments\Services\RefundApprovalPolicy;
 use App\Domain\Payments\Services\RefundService;
 use App\Livewire\Admin\Concerns\WithAdminTable;
 use App\Livewire\Admin\Finance\Concerns\ScopesPayments;
@@ -37,6 +39,11 @@ class RefundIndex extends Component
 
     public string $reference = '';
 
+    /** Approving your own request (a one-person shop): the written reason and the two-factor code. */
+    public string $selfReason = '';
+
+    public string $code = '';
+
     public function mount(): void
     {
         abort_unless($this->can('refunds.view'), 403);
@@ -69,11 +76,11 @@ class RefundIndex extends Component
 
     public function open(string $dialog, string $id): void
     {
-        abort_unless(in_array($dialog, ['reject', 'process'], true), 422);
+        abort_unless(in_array($dialog, ['reject', 'process', 'self'], true), 422);
         $this->refund($id);
         $this->dialog = $dialog;
         $this->target = $id;
-        $this->reset('note', 'reference');
+        $this->reset('note', 'reference', 'selfReason', 'code');
         $this->resetValidation();
         $this->showDialog = true;
     }
@@ -81,11 +88,13 @@ class RefundIndex extends Component
     public function confirmDialog(RefundService $svc): void
     {
         $r = $this->refund((string) $this->target);
-        $perm = $this->dialog === 'reject' ? 'refunds.approve' : 'refunds.refund';
+        $perm = in_array($this->dialog, ['reject', 'self'], true) ? 'refunds.approve' : 'refunds.refund';
         foreach ($r->payment->order?->branchIds() ?? [] as $b) {
             $this->authorizeBranch($perm, $b);
         }
-        if ($this->dialog === 'reject') {
+        if ($this->dialog === 'self') {
+            $ok = $this->approveOwn($r, $svc);
+        } elseif ($this->dialog === 'reject') {
             $this->validate(['note' => 'required|string|min:3|max:500'], [], ['note' => __('admin.reason')]);
             $ok = $this->attempt(fn () => $svc->reject($r, auth()->user(), trim($this->note)), __('finance_admin.refund_rejected'));
         } else {
@@ -95,6 +104,25 @@ class RefundIndex extends Component
         if ($ok) {
             $this->showDialog = false;
         }
+    }
+
+    /** The requester approves their own request: only when nobody else can (RefundService re-checks), with a reason and a fresh code. */
+    private function approveOwn(Refund $r, RefundService $svc): bool
+    {
+        $user = auth()->user();
+        $fresh = app(FreshTwoFactor::class);
+        $this->resetErrorBag('code');
+        $this->validate(['selfReason' => 'required|string|min:10|max:500'], [], ['selfReason' => __('admin.reason')]);
+        if (! $fresh->isFresh()) {
+            $this->validate(['code' => 'required|string|max:32'], [], ['code' => __('finance_admin.two_factor_code')]);
+            if (! $fresh->confirm($user, $this->code)) {
+                $this->addError('code', __('errors.two_factor_invalid'));
+
+                return false;
+            }
+        }
+
+        return (bool) $this->attempt(fn () => $svc->approve($r, $user, $this->selfReason, true), __('finance_admin.refund_self_approved'));
     }
 
     public function render()
@@ -119,6 +147,8 @@ class RefundIndex extends Component
             'approvers' => $approvers,
             'counts' => collect(self::TABS)->mapWithKeys(fn ($t) => [$t => in_array($t, ['requested', 'to_process'], true) ? $base()->whereIn('status', $statuses($t))->count() : null])->all(),
             'me' => auth()->user(),
+            'needsCode' => ! app(FreshTwoFactor::class)->isFresh(),
+            'own' => $rows->filter(fn (Refund $r) => $r->status === 'requested')->mapWithKeys(fn (Refund $r) => [$r->id => app(RefundApprovalPolicy::class)->stateFor($r, auth()->user())])->filter()->all(),
         ])->title(__('nav.refunds'));
     }
 }

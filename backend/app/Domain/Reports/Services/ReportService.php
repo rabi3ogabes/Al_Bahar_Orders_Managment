@@ -262,11 +262,10 @@ class ReportService
     {
         // Everything is counted in SQL, one row per customer inside the database and ONE row back: nothing the size of the customer base is loaded
         // into PHP. A customer's lifetime value is what they spent with the viewer's branches (their share of each order, see SalesBasis), counted
-        // once per order: orders of the same amount are separate orders.
-        $perCustomer = $s->apply(SalesBasis::orderShares(), 's.branch_id')->whereNotNull('s.user_id')
-            ->selectRaw('s.user_id, min(s.placed_at) as first_order, count(distinct s.order_id) as orders, sum(s.share) as spend')->groupBy('s.user_id');
-        $r = DB::query()->fromSub($perCustomer, 'c')->selectRaw('count(*) as customers, count(*) filter (where c.orders > 1) as repeat,
-            count(*) filter (where c.first_order >= ? and c.first_order <= ?) as new_customers, coalesce(sum(c.spend), 0)::numeric(14,2) as spend', [$start, $end])->first();
+        // once per order: orders of the same amount are separate orders. The per-customer figures come from the customer-value rollup (rebuilt every
+        // half hour, see CustomerValue): adding up every order the company ever took on each request would take seconds.
+        $r = DB::query()->fromSub(app(CustomerValue::class)->rollup($s), 'c')->selectRaw('count(*) as customers, count(*) filter (where c.orders > 1) as repeat,
+            count(*) filter (where c.first_order_at >= ? and c.first_order_at <= ?) as new_customers, coalesce(sum(c.spend), 0)::numeric(14,2) as spend', [$start, $end])->first();
         $customers = (int) $r->customers;
         $repeat = (int) $r->repeat;
         $average = $customers > 0 ? Money::ofMinor((int) round(Money::of((string) $r->spend)->minor / $customers)) : Money::zero();
@@ -344,12 +343,15 @@ class ReportService
 
     private function financeOutstanding(BranchScope $s, $start, $end): array
     {
-        $rows = $s->apply(DB::table('orders as o')->join('order_fulfillments as f', 'f.order_id', '=', 'o.id')
+        $open = $s->apply(DB::table('orders as o')->join('order_fulfillments as f', 'f.order_id', '=', 'o.id')
             ->whereIn('o.payment_method', ['cod', 'pay_at_pickup'])->whereNotIn('o.status', ['cancelled'])->whereNotIn('o.payment_status', ['paid', 'refunded', 'partially_refunded'])
             ->whereBetween('o.placed_at', [$start, $end]), 'f.branch_id')
-            ->selectRaw('o.number, o.payment_method, o.status, (o.grand_total - o.paid_total) as outstanding')->distinct()->orderBy('o.number')->get();
+            ->selectRaw('o.number, o.payment_method, o.status, (o.grand_total - o.paid_total) as outstanding')->distinct();
+        // The list shows the first 1,000 orders by number; the total is added up in SQL over all of them, so a long list never changes the total.
+        $rows = (clone $open)->orderBy('o.number')->limit(1000)->get();
+        $total = DB::query()->fromSub($open, 'o')->sum('outstanding');
 
-        return ['columns' => ['number', 'payment_method', 'status', 'outstanding'], 'rows' => $rows->map(fn ($r) => (array) $r)->all(), 'summary' => ['total' => $this->d($rows->sum('outstanding'))]];
+        return ['columns' => ['number', 'payment_method', 'status', 'outstanding'], 'rows' => $rows->map(fn ($r) => (array) $r)->all(), 'summary' => ['total' => $this->d($total)]];
     }
 
     private function sadadReconciliation(BranchScope $s, $start, $end): array

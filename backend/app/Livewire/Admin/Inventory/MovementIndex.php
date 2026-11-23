@@ -5,6 +5,7 @@ namespace App\Livewire\Admin\Inventory;
 use App\Domain\Inventory\Enums\MovementType;
 use App\Domain\Inventory\Models\StockMovement;
 use App\Livewire\Admin\Concerns\WithAdminTable;
+use App\Support\BoundedPage;
 use App\Support\BusinessTime;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -42,7 +43,7 @@ class MovementIndex extends Component
         $this->branchScope('inventory.view')->apply($q->getQuery());
 
         return view('livewire.admin.inventory.movements', [
-            'movements' => $q->paginate($this->perPage),
+            'movements' => BoundedPage::paginate($q, $this->perPage),
             'types' => array_map(fn ($c) => $c->value, MovementType::cases()),
             'branches' => $this->scopedBranches('inventory.view'),
         ])->title(__('nav.movements'));

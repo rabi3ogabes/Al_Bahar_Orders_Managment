@@ -29,7 +29,7 @@
                     @foreach (array_keys(\App\Domain\Messaging\Services\CustomerFilter::CONTACT) as $k)<option value="{{ $k }}">{{ __('messaging_customers.contact_'.$k) }}</option>@endforeach
                 </select>
             </div>
-            <x-slot:meta>{{ trans_choice('sales_admin.customers_count', $customers->total(), ['count' => $customers->total()]) }}</x-slot:meta>
+            <x-slot:meta>{{ trans_choice('sales_admin.customers_count', $customers->total(), ['count' => \App\Support\BoundedPage::label($customers)]) }}</x-slot:meta>
         </x-admin.toolbar>
         @unless ($reveal)
             <p class="flex items-center gap-2 border-b border-sand-100 bg-sand-50/60 px-4 py-2 text-xs text-ink-500 sm:px-6 dark:border-ink-800 dark:bg-ink-800/30"><x-icon name="lock" class="size-3.5" />{{ __('sales_admin.pii_masked') }}</p>

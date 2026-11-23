@@ -87,8 +87,9 @@ class PartnerAccess
     }
 
     /** @return list<object> */
-    public function recent(int $n = 12): array
+    public function recent(int $n = 15): array
     {
-        return DB::table('partner_access_logs')->orderByDesc('id')->limit($n)->get()->all();
+        return DB::table('partner_access_logs as l')->leftJoin('partners as p', 'p.id', '=', 'l.partner_id')->orderByDesc('l.id')->limit($n)
+            ->get(['l.event', 'l.ip', 'l.ip_hash', 'l.created_at', 'p.name as partner_name'])->all();
     }
 }

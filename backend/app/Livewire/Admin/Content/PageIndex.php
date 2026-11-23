@@ -78,6 +78,10 @@ class PageIndex extends Component
             'tr.en.title' => 'required|string|max:255', 'tr.ar.title' => 'required|string|max:255',
             'tr.*.body' => 'nullable|string|max:200000', 'tr.*.seo_title' => 'nullable|string|max:255', 'tr.*.seo_description' => 'nullable|string|max:500',
         ], ['slug.regex' => __('content_admin.slug_format')], ['slug' => __('content_admin.slug'), 'tr.en.title' => __('content_admin.title_en'), 'tr.ar.title' => __('content_admin.title_ar')]);
+        if ($publish) {
+            // A page customers can open must read in both languages: an empty body would show a blank page.
+            $this->validate(['tr.en.body' => 'required|string', 'tr.ar.body' => 'required|string'], [], ['tr.en.body' => __('content_admin.title_en'), 'tr.ar.body' => __('content_admin.title_ar')]);
+        }
         $page = DB::transaction(function () use ($html, $publish) {
             $p = $this->editingId ? CmsPage::findOrFail($this->editingId) : new CmsPage(['status' => 'draft']);
             $p->fill(['slug' => $this->slug, 'updated_by' => auth()->id()] + ($publish ? ['status' => 'published', 'published_at' => now()] : []))->save();

@@ -10,9 +10,11 @@ use App\Domain\Orders\Models\SubstitutionRequest;
 use App\Domain\Orders\Support\ParcelAccess;
 use App\Livewire\Admin\Concerns\WithAdminTable;
 use App\Livewire\Admin\Sales\Concerns\PeeksAtOrder;
+use App\Support\BoundedPage;
 use App\Support\BusinessTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -99,7 +101,8 @@ class OrderIndex extends Component
     {
         $scope = $this->branchScope('orders.view');
 
-        return Order::query()->whereIn('id', $scope->apply(OrderFulfillment::query()->select('order_id')->getQuery(), 'branch_id'));
+        // Someone who sees every branch sees every order (each one has at least one part): no need to look the parts up, which would read the whole table.
+        return $scope->all ? Order::query() : Order::query()->whereIn('id', $scope->apply(OrderFulfillment::query()->select('order_id')->getQuery(), 'branch_id'));
     }
 
     private function applyTab(Builder $q, string $tab): Builder
@@ -108,8 +111,10 @@ class OrderIndex extends Component
         $fulfillments = fn (array $statuses) => fn ($w) => $w->whereIn('id', $scope->apply(OrderFulfillment::query()->select('order_id')->whereIn('status', $statuses)->getQuery(), 'branch_id'));
 
         return match ($tab) {
-            'needs_action' => $q->where(fn ($w) => $w->where('status', 'cancellation_requested')
-                ->orWhere(fn ($x) => $x->where('status', '!=', 'pending_payment')->where($fulfillments(['pending', 'accepted', 'preparing', 'failed'])))),
+            // Two small id sets joined by UNION instead of an OR over the whole table: an OR hides both from the indexes and reads every order.
+            'needs_action' => $q->whereIn('id', DB::table('orders')->where('status', 'cancellation_requested')->select('id')->union(
+                $scope->apply(DB::table('order_fulfillments as f')->join('orders as o', 'o.id', '=', 'f.order_id')->whereIn('f.status', ['pending', 'accepted', 'preparing', 'failed'])
+                    ->where('o.status', '!=', 'pending_payment')->select('f.order_id'), 'f.branch_id'))),
             'pending_payment' => $q->where('status', 'pending_payment'),
             'ready' => $q->where($fulfillments(['ready', 'pickup_ready'])),
             'out_for_delivery' => $q->where($fulfillments(['dispatched', 'out_for_delivery'])),
@@ -179,7 +184,7 @@ class OrderIndex extends Component
         $parcels = ParcelAccess::scope(auth()->user());
         $quickCounts = [];
         foreach (['cod', 'sadad', 'pickup'] as $k) {
-            $quickCounts[$k] = $this->applyQuick($this->applyTab($this->scoped(), $this->tab), $k)->count();
+            $quickCounts[$k] = BoundedPage::count($this->applyQuick($this->applyTab($this->scoped(), $this->tab), $k)->toBase());
         }
         $q = $this->applyQuick($this->applyTab($this->scoped(), $this->tab), $this->quick)
             // Each row shows the parcels of the viewer's own branches only (an order split with another branch does not list that branch's parcel).
@@ -202,9 +207,9 @@ class OrderIndex extends Component
 
         $counts = [];
         foreach (self::TABS as $t) {
-            $counts[$t] = $t === 'all' ? null : $this->applyTab($this->scoped(), $t)->count();
+            $counts[$t] = $t === 'all' ? null : BoundedPage::count($this->applyTab($this->scoped(), $t)->toBase());
         }
-        $orders = $q->paginate($this->perPage);
+        $orders = BoundedPage::paginate($q, $this->perPage);
         $filtered = $this->quick || $this->filterStatus || $this->filterPayment || $this->filterMethod || $this->filterType || $this->filterFrom || $this->filterTo || $this->branch;
 
         return view('livewire.admin.sales.orders', [

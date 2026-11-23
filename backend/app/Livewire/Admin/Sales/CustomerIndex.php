@@ -10,6 +10,7 @@ use App\Domain\Reports\Services\CustomerValue;
 use App\Livewire\Admin\Concerns\WithAdminTable;
 use App\Livewire\Admin\Sales\Concerns\HasRecordWindow;
 use App\Livewire\Admin\Sales\Concerns\PeeksAtOrder;
+use App\Support\BoundedPage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -176,7 +177,7 @@ class CustomerIndex extends Component
         $q = $filters->withLastContact($filters->apply(self::visibleTo(auth()->user()), $this->currentFilters()))
             ->with('loyaltyAccount:id,user_id,balance,tier')
             ->latest();
-        $customers = $q->paginate($this->perPage);
+        $customers = BoundedPage::paginate($q, $this->perPage);
         // Orders and spend of the customers on this page, read through the viewer's own branches (customers.view): the customers' own branch rule, the dashboard's sales definition.
         $value = app(CustomerValue::class);
         $lifetime = $value->lifetime($value->scopeFor(auth()->user()), $customers->getCollection()->map(fn (User $c) => (string) $c->id)->all());

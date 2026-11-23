@@ -5,8 +5,7 @@ namespace App\Providers;
 use App\Domain\Auctions\Models\AuctionDeposit;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
-use App\Domain\Notifications\Channels\HttpSmsSender;
-use App\Domain\Notifications\Channels\NullSmsSender;
+use App\Domain\Notifications\Channels\ConfiguredSmsSender;
 use App\Domain\Notifications\Contracts\SmsSender;
 use App\Domain\Orders\Models\Order;
 use App\Http\Middleware\EnsureStaff;
@@ -36,10 +35,8 @@ class AppServiceProvider extends ServiceProvider
         // Per-request permission memo; scoped so long-running workers never reuse stale grants.
         $this->app->scoped(AccessControl::class);
 
-        $this->app->bind(SmsSender::class, fn () => match (config('services.sms.driver')) {
-            'http' => new HttpSmsSender,
-            default => new NullSmsSender,
-        });
+        // The provider the owner set up in the dashboard, else what the server was set up with (SMS_DRIVER): see ConfiguredSmsSender.
+        $this->app->bind(SmsSender::class, ConfiguredSmsSender::class);
 
         $this->app->register(DomainServiceProvider::class);
     }

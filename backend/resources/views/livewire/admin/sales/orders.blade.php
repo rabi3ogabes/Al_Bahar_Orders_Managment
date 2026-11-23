@@ -1,10 +1,10 @@
 @php
     $tabs = [
         'all' => ['bag', __('sales_admin.tab_all')],
-        'needs_action' => ['alert', __('sales_admin.tab_needs_action'), $counts['needs_action']],
-        'pending_payment' => ['clock', __('sales_admin.tab_pending_payment'), $counts['pending_payment']],
-        'ready' => ['check', __('sales_admin.tab_ready'), $counts['ready']],
-        'out_for_delivery' => ['truck', __('sales_admin.tab_out_for_delivery'), $counts['out_for_delivery']],
+        'needs_action' => ['alert', __('sales_admin.tab_needs_action'), \App\Support\BoundedPage::show($counts['needs_action'])],
+        'pending_payment' => ['clock', __('sales_admin.tab_pending_payment'), \App\Support\BoundedPage::show($counts['pending_payment'])],
+        'ready' => ['check', __('sales_admin.tab_ready'), \App\Support\BoundedPage::show($counts['ready'])],
+        'out_for_delivery' => ['truck', __('sales_admin.tab_out_for_delivery'), \App\Support\BoundedPage::show($counts['out_for_delivery'])],
     ];
 @endphp
 <div>
@@ -26,10 +26,10 @@
             <button type="button" wire:click="setQuick('{{ $k }}')" aria-pressed="{{ $quick === $k ? 'true' : 'false' }}" class="inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium transition {{ $quick === $k ? 'border-ink-900 bg-ink-900 text-ivory dark:border-brass-500 dark:bg-brass-500 dark:text-ink-950' : 'border-sand-300 bg-white hover:border-brass-400 dark:border-ink-600 dark:bg-ink-800' }}">
                 <x-icon :name="$icon" class="size-4" />
                 <x-admin.bi :en="__($label, [], 'en')" :ar="__($label, [], 'ar')" />
-                <span class="rounded-full px-1.5 text-[0.7rem] tabular-nums {{ $quick === $k ? 'bg-white/15' : 'bg-sand-100 dark:bg-ink-700' }}">{{ $quickCounts[$k] }}</span>
+                <span class="rounded-full px-1.5 text-[0.7rem] tabular-nums {{ $quick === $k ? 'bg-white/15' : 'bg-sand-100 dark:bg-ink-700' }}">{{ \App\Support\BoundedPage::show($quickCounts[$k]) }}</span>
             </button>
         @endforeach
-        <span class="ms-auto text-xs text-ink-500" aria-live="polite">{{ trans_choice('sales_admin.orders_count', $orders->total(), ['count' => $orders->total()]) }}</span>
+        <span class="ms-auto text-xs text-ink-500" aria-live="polite">{{ trans_choice('sales_admin.orders_count', $orders->total(), ['count' => \App\Support\BoundedPage::label($orders)]) }}</span>
     </div>
 
     <div class="card">
@@ -68,7 +68,7 @@
                     <label class="relative block"><span class="sr-only">{{ __('sales_admin.to_date') }}</span><input type="date" wire:model.live="filterTo" class="input" title="{{ __('sales_admin.to_date') }}"></label>
                 </div>
             </div>
-            <x-slot:meta>{{ trans_choice('sales_admin.orders_count', $orders->total(), ['count' => $orders->total()]) }}</x-slot:meta>
+            <x-slot:meta>{{ trans_choice('sales_admin.orders_count', $orders->total(), ['count' => \App\Support\BoundedPage::label($orders)]) }}</x-slot:meta>
         </x-admin.toolbar>
 
         @if ($orders->isEmpty())

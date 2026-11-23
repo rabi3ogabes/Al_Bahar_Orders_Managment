@@ -4,6 +4,7 @@ namespace App\Livewire\Admin;
 
 use App\Domain\Audit\Services\AuditLogger;
 use App\Domain\Identity\Models\User;
+use App\Domain\Identity\Services\FreshTwoFactor;
 use App\Domain\Identity\Services\TokenService;
 use App\Domain\Identity\Services\TwoFactorService;
 use App\Support\StaffLanding;
@@ -112,6 +113,7 @@ class Profile extends Component
         $user->forceFill(['two_factor_secret' => $this->pendingSecret, 'two_factor_confirmed_at' => now()])->save();
         $this->recoveryCodes = $tfa->generateRecoveryCodes($user);
         session(['two_factor_passed' => true]);
+        app(FreshTwoFactor::class)->stamp();
         $this->pendingSecret = null;
         $this->confirmCode = '';
         $audit->log('staff.two_factor_enabled', $user);

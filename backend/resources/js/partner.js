@@ -107,7 +107,7 @@ if (app) {
     const note = d.sadad_fee_configured ? '' : `<p class="mb-3 rounded-xl bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">${t('estimate')}</p>`;
     const cards = `<div class="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">${d.orders.map((o) => `
         <button type="button" data-order="${o.id}" class="card block w-full p-4 text-start transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-brass-500">
-          <div class="flex items-start justify-between gap-2"><div><p class="font-display text-lg font-semibold">${esc(o.number)}</p><p class="text-xs text-ink-500">${fmtTime(o.placed_at)} · ${esc(o.customer)}</p></div>${pill(o.status)}</div>
+          <div class="flex items-start justify-between gap-2"><div><p class="font-display text-lg font-semibold">${esc(o.number)}</p><p class="text-xs text-ink-500">${fmtTime(o.placed_at)} · ${esc(o.customer ?? t('customer'))}</p></div>${pill(o.status)}</div>
           <div class="mt-3 flex flex-wrap items-center gap-2 text-sm text-ink-600 dark:text-ink-300"><span>${t('items_n', o.item_count)}</span>${biChip(o.payment_method)}${biChip(o.fulfillment_type)}</div>
           <dl class="mt-3 grid grid-cols-3 gap-2 text-xs"><div><dt class="text-ink-500">${t('paid')}</dt><dd class="font-semibold">${money(o.paid)}</dd></div><div><dt class="text-ink-500">${t('delivery')}</dt><dd class="font-semibold">${money(o.delivery_fee)}</dd></div><div><dt class="text-ink-500">${t('net')}</dt><dd class="font-semibold text-emerald-700 dark:text-emerald-400">${money(o.net)}</dd></div></dl>
           ${o.sadad.reference ? `<p class="mt-3 truncate text-xs text-ink-500" dir="ltr">SADAD ${esc(o.sadad.reference)} · ${esc(label(o.sadad.status))}</p>` : ''}
@@ -120,7 +120,7 @@ if (app) {
       <thead class="bg-sand-50 text-[11px] uppercase tracking-wide text-ink-500 dark:bg-ink-800"><tr>${cols.map(([k]) => `<th scope="col" class="px-2.5 py-3 text-start font-medium">${t(k)}</th>`).join('')}</tr></thead>
       <tbody class="divide-y divide-sand-100 dark:divide-ink-700">${d.orders.map((o) => `<tr data-order="${o.id}" tabindex="0" role="button" class="cursor-pointer align-top hover:bg-sand-50 focus-visible:bg-sand-50 dark:hover:bg-ink-800">
         <td class="px-2.5 py-3"><span class="block font-semibold">${esc(o.number)}</span>${sub(fmtTime(o.placed_at))}</td>
-        <td class="break-words px-2.5 py-3">${esc(o.customer)}</td>
+        <td class="break-words px-2.5 py-3">${esc(o.customer ?? t('customer'))}</td>
         <td class="px-2.5 py-3">${kindCell(o)}</td>
         <td class="px-2.5 py-3"><span class="block font-medium">${o.item_count}</span>${sub(money(o.subtotal))}</td>
         <td class="px-2.5 py-3">${money(o.delivery_fee)}</td>
@@ -152,7 +152,7 @@ if (app) {
   const row = (k, v, strong = false) => `<div class="flex justify-between gap-4 py-1.5 ${strong ? 'border-t border-sand-200 pt-2.5 font-semibold dark:border-ink-700' : ''}"><dt class="text-ink-500">${k}</dt><dd>${v}</dd></div>`;
   const drawerHtml = (o) => {
     const del = o.deliveries ?? [];
-    return `<header class="flex items-start justify-between gap-3 border-b border-sand-200 px-5 py-4 dark:border-ink-700"><div><p class="text-xs uppercase tracking-wide text-ink-500">${t('number')}</p><h2 id="drawer-title" class="font-display text-2xl font-semibold">${esc(o.number)}</h2><p class="mt-1 text-sm text-ink-500">${fmtDateTime(o.placed_at)} · ${esc(o.customer)} ${o.phone ? `· <span dir="ltr">${esc(o.phone)}</span>` : ''}</p></div>
+    return `<header class="flex items-start justify-between gap-3 border-b border-sand-200 px-5 py-4 dark:border-ink-700"><div><p class="text-xs uppercase tracking-wide text-ink-500">${t('number')}</p><h2 id="drawer-title" class="font-display text-2xl font-semibold">${esc(o.number)}</h2><p class="mt-1 text-sm text-ink-500">${fmtDateTime(o.placed_at)} · ${esc(o.customer ?? t('customer'))} ${o.phone ? `· <span dir="ltr">${esc(o.phone)}</span>` : ''}</p></div>
       <button id="d-close" class="grid size-11 shrink-0 place-items-center rounded-xl hover:bg-sand-100 dark:hover:bg-ink-800" aria-label="${t('close')}">✕</button></header>
       <div class="flex-1 space-y-6 overflow-y-auto overscroll-contain px-5 py-5">
         <div class="flex flex-wrap gap-2">${pill(o.status)}${pill(o.payment_status)}<span class="text-sm text-ink-500">${esc(label(o.payment_method))}</span></div>

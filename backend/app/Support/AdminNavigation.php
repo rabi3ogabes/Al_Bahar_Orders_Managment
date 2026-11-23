@@ -106,6 +106,7 @@ final class AdminNavigation
                 ['label' => 'nav.delivery_providers', 'route' => 'admin.delivery-providers.index', 'icon' => 'truck', 'permission' => 'settings.view'],
                 ['label' => 'nav.app_updates', 'route' => 'admin.app-updates.index', 'icon' => 'phone', 'permission' => 'settings.view'],
                 ['label' => 'nav.push', 'route' => 'admin.push.index', 'icon' => 'bell-ring', 'permission' => 'settings.view'],
+                ['label' => 'nav.providers', 'route' => 'admin.providers.index', 'icon' => 'message', 'permission' => 'settings.view'],
                 ['label' => 'nav.settings', 'route' => 'admin.settings.index', 'icon' => 'settings', 'permission' => 'settings.view'],
             ]],
         ];

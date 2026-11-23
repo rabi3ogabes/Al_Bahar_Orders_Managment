@@ -226,6 +226,7 @@ return [
         'checkout__assembly_enabled' => 'Offer paid assembly and installation',
         'checkout__assembly_extra_days' => 'Extra days when assembly is chosen',
         'auth__staff_two_factor_required' => 'Require two-factor sign-in for the team',
+        'refunds__allow_self_approval' => 'Let the requester approve their own refund when nobody else can',
         'payments__online_payment_window_minutes' => 'Online payment window',
         'pickup__token_ttl_hours' => 'Pickup code validity',
         'orders__default_prep_minutes' => 'Typical preparation time',
@@ -280,6 +281,7 @@ return [
     ],
     'setting_hint' => [
         'auth__staff_two_factor_required' => 'When on, every dashboard user must sign in with a 6-digit code from an authenticator app and cannot turn it off. When off, each person decides for themselves (Profile → Two-factor) and an administrator can turn it off for anyone from Employees. Turning it on asks anyone without it to set it up at their next page. Anyone who already turned it on for themselves keeps the code step at sign-in until they switch it off in Profile → Two-factor.',
+        'refunds__allow_self_approval' => 'On (recommended for a one-person shop): if nobody else holds the refund approval right, the person who asked may approve it, with a written reason and a fresh two-factor code; it is flagged "self-approved". If someone else can approve, the requester never can. Off: a refund always waits for a second person.',
         'checkout__tax_rate_percent' => 'Qatar currently has no VAT; leave at 0 unless advised otherwise.',
         'checkout__reservation_ttl_minutes' => 'Unpaid online orders release their stock after this time.',
         'checkout__show_split_shipment' => 'When on, customers can choose whether an order may be split across branches, but the switch only appears when more than one active branch holds part of their cart. When off, the switch is hidden everywhere (app, web) and an order is never split: it ships from a single branch or cannot be placed. With only one active branch it makes no difference to customers either way.',
@@ -465,4 +467,9 @@ return [
         'url_host' => 'This address is not allowed: use a real host name or a private network address.',
         'url_credentials' => 'The address must not contain a user name or password.',
     ],
+    'sec_title' => 'Confirm with your two-factor code',
+    'sec_body' => 'This change makes the dashboard less safe, so we ask for a code from your authenticator app. It is audit-logged with the old and the new value.',
+    'sec_code' => 'Two-factor code',
+    'sec_confirm' => 'Confirm and save',
+    'sec_enrol' => 'Turn on two-factor in your profile first: this change needs a fresh code.',
 ];

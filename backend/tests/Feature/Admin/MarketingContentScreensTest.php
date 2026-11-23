@@ -182,7 +182,7 @@ it('saves CMS pages as drafts, publishes them and manages banners', function () 
     Storage::fake(config('platform.media.disk'));
     $this->actingAs($this->marketing);
     $c = Livewire::test(PageIndex::class)->call('create')->set('slug', 'Terms')->set('tr.en.title', 'Terms')->set('tr.ar.title', 'الشروط')
-        ->set('tr.en.body', '<p>Hello<script>alert(1)</script></p>')->call('save')->assertHasNoErrors();
+        ->set('tr.en.body', '<p>Hello<script>alert(1)</script></p>')->set('tr.ar.body', '<p>أهلا</p>')->call('save')->assertHasNoErrors();
     $page = CmsPage::with('translations')->firstOrFail();
     expect($page->slug)->toBe('terms')->and($page->status)->toBe('draft')->and($page->translations->firstWhere('locale', 'en')->draft_body)->not->toContain('<script');
     $c->call('publish');

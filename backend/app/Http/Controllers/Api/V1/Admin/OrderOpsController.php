@@ -12,6 +12,7 @@ use App\Domain\Fulfillment\Services\DriverGps;
 use App\Domain\Fulfillment\Services\PickupService;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
+use App\Domain\Identity\Services\FreshTwoFactor;
 use App\Domain\Orders\Enums\FulfillmentStatus;
 use App\Domain\Orders\Models\Order;
 use App\Domain\Orders\Models\OrderCancellation;
@@ -26,6 +27,7 @@ use App\Domain\Payments\Services\PaymentService;
 use App\Domain\Payments\Services\RefundService;
 use App\Http\Controllers\Api\V1\ApiController;
 use App\Support\AlternatePhone;
+use App\Support\BoundedPage;
 use App\Support\BusinessTime;
 use App\Support\Money;
 use Illuminate\Http\JsonResponse;
@@ -46,13 +48,13 @@ class OrderOpsController extends ApiController
         $parcels = ParcelAccess::scope($this->user());
         // The parcels listed with each order are the viewer's own: an order split with another branch does not show that branch's parcel.
         $q = Order::query()->with(['fulfillments' => fn ($f) => $parcels->apply($f->getQuery(), 'branch_id'), 'fulfillments.branch:id,code'])
-            ->whereIn('id', $scope->apply(OrderFulfillment::query()->select('order_id')->getQuery(), 'branch_id'))
+            ->when(! $scope->all, fn ($q) => $q->whereIn('id', $scope->apply(OrderFulfillment::query()->select('order_id')->getQuery(), 'branch_id')))
             ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
             ->when($request->query('payment_status'), fn ($q, $s) => $q->where('payment_status', $s))
             ->when($request->query('search'), fn ($q, $s) => $q->where(fn ($w) => $w->where('number', 'ilike', "%{$s}%")->orWhere('customer_phone', 'like', "%{$s}%")->orWhere('customer_name', 'ilike', "%{$s}%")))
             ->orderByDesc('placed_at');
 
-        return response()->json($q->paginate($this->perPage($request)));
+        return response()->json(BoundedPage::paginate($q, $this->perPage($request)));
     }
 
     public function show(Order $order, OrderPresenter $presenter): JsonResponse
@@ -242,13 +244,26 @@ class OrderOpsController extends ApiController
     public function refundAction(Request $request, Refund $refund, string $action, RefundService $refunds): JsonResponse
     {
         $r = match ($action) {
-            'approve' => $refunds->approve($refund, $this->user()),
+            'approve' => $this->approveRefund($request, $refund, $refunds),
             'reject' => $refunds->reject($refund, $this->user(), $request->validate(['note' => 'required|string|max:500'])['note']),
             'processed' => $refunds->markProcessed($refund, $this->user(), $request->validate(['reference' => 'required|string|max:128'])['reference']),
             default => abort(404),
         };
 
         return response()->json(['data' => $r]);
+    }
+
+    /** Approving your own request needs a written reason and a fresh two-factor code in the request (the staff API has no browser session). */
+    private function approveRefund(Request $request, Refund $refund, RefundService $refunds): Refund
+    {
+        $user = $this->user();
+        if ($refund->requested_by !== $user->id) {
+            return $refunds->approve($refund, $user);
+        }
+        $data = $request->validate(['reason' => 'nullable|string|max:500', 'two_factor_code' => 'nullable|string|max:32']);
+        $fresh = isset($data['two_factor_code']) && app(FreshTwoFactor::class)->verifyCode($user, $data['two_factor_code']);
+
+        return $refunds->approve($refund, $user, $data['reason'] ?? null, $fresh);
     }
 
     private function assertCanSee(Order $order): void

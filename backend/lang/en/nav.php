@@ -70,5 +70,6 @@ return [
     'delivery_providers' => 'Delivery providers',
     'settings' => 'Settings',
     'push' => 'Push notifications',
+    'providers' => 'SMS & WhatsApp',
     'driver' => 'My deliveries',
 ];

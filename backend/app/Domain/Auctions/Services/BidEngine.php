@@ -31,6 +31,9 @@ use Illuminate\Support\Facades\DB;
  */
 class BidEngine
 {
+    /** @var array<string, array<string, string>> lot id => [displaced user id => amount that displaced them], filled by accept() */
+    private array $displaced = [];
+
     /** @return array{bid: AuctionBid, lot: AuctionLot, replayed: bool} */
     public function placeBid(User $user, string $lotId, Money $amount, string $idempotencyKey, string $type = 'manual', ?string $ip = null): array
     {
@@ -65,12 +68,17 @@ class BidEngine
             }
 
             $events = [];
+            // Buy now: a bid at or above the buy-now price ends the lot at exactly that price, never above it.
+            if ($this->isBuyNow($lot, $amount)) {
+                $amount = Money::of($lot->buy_now_price);
+            }
             $bid = $this->accept($lot, $user, $amount, $type, $idempotencyKey, $ip, $now, $events);
             if ($lot->buy_now_price !== null && $amount->greaterThanOrEqual(Money::of($lot->buy_now_price))) {
                 app(LotService::class)->close($lot, 'buy_now', $events);
             } else {
                 $this->resolveProxies($lot, $now, $events);
             }
+            $this->notifyOutbid($lot);
 
             return [$bid, $lot, null, $events];
         });
@@ -116,6 +124,7 @@ class BidEngine
             }
             $events = [];
             $this->resolveProxies($lot, $now, $events);
+            $this->notifyOutbid($lot);
 
             return [$auto, $lot, $events];
         });
@@ -153,7 +162,7 @@ class BidEngine
         if ((float) $auction->deposit_amount > 0 && ! AuctionDeposit::where('auction_id', $auction->id)->where('user_id', $user->id)->whereIn('status', ['paid', 'applied'])->exists()) {
             return 'deposit_required';
         }
-        if ($amount->lessThan($lot->minNextBid())) {
+        if ($amount->lessThan($lot->minNextBid()) && ! ($type === 'manual' && $this->isBuyNow($lot, $amount))) {
             return 'outbid_min';
         }
         if ($type === 'manual' && $lot->current_leader_id === $user->id) {
@@ -161,6 +170,29 @@ class BidEngine
         }
 
         return null;
+    }
+
+    /** A manual bid that reaches the buy-now price while the lot is still below it. */
+    private function isBuyNow(AuctionLot $lot, Money $amount): bool
+    {
+        return $lot->buy_now_price !== null && $amount->greaterThanOrEqual(Money::of($lot->buy_now_price))
+            && ($lot->current_price === null || Money::of($lot->current_price)->lessThan(Money::of($lot->buy_now_price)));
+    }
+
+    /**
+     * One "you were outbid" per displaced bidder, and none for a bidder who is leading again once the proxies settled
+     * (a leader whose own maximum defended the price was never really outbid).
+     */
+    private function notifyOutbid(AuctionLot $lot): void
+    {
+        $displaced = $this->displaced[$lot->id] ?? [];
+        unset($this->displaced[$lot->id]);
+        $title = $lot->title_en;
+        foreach ($displaced as $userId => $amount) {
+            if ($userId !== $lot->current_leader_id) {
+                DB::afterCommit(fn () => event(new AuctionOutbid($userId, $lot->id, $title, $amount)));
+            }
+        }
     }
 
     private function accept(AuctionLot $lot, User|string $user, Money $amount, string $type, ?string $key, ?string $ip, CarbonImmutable $now, array &$events): AuctionBid
@@ -174,8 +206,7 @@ class BidEngine
             'bid_count' => $lot->bid_count + 1, 'last_bid_number' => $number])->save();
         $events[] = $this->event($lot, 'bid_accepted', ['bid_number' => $number, 'amount' => $amount->toDecimal(), 'type' => $type, 'previous_leader' => $previousLeader !== $userId ? $previousLeader : null]);
         if ($previousLeader && $previousLeader !== $userId) {
-            $title = $lot->title_en;
-            DB::afterCommit(fn () => event(new AuctionOutbid($previousLeader, $lot->id, $title, $amount->format())));
+            $this->displaced[$lot->id][$previousLeader] = $amount->format();
         }
         $this->maybeExtend($lot, $bid, $now, $events);
 
@@ -190,7 +221,9 @@ class BidEngine
         if ($window <= 0 || ! $lot->ends_at || $lot->ends_at->diffInSeconds($now, true) > $window || $now >= $lot->ends_at) {
             return;
         }
-        if ($auction->max_extensions !== null && $lot->extension_count >= $auction->max_extensions) {
+        // An auction without its own limit still stops at the platform cap, so a bidding war cannot keep a lot open forever.
+        $cap = min($auction->max_extensions ?? PHP_INT_MAX, (int) config('platform.auctions.hard_max_extensions', 100));
+        if ($lot->extension_count >= $cap) {
             return;
         }
         $newEnd = $now->addSeconds((int) $auction->extension_seconds);

@@ -6,6 +6,7 @@ use App\Domain\Auctions\Events\AuctionWon;
 use App\Domain\Auctions\Models\Auction;
 use App\Domain\Auctions\Models\AuctionAutoBid;
 use App\Domain\Auctions\Models\AuctionBid;
+use App\Domain\Auctions\Models\AuctionBidder;
 use App\Domain\Auctions\Models\AuctionDeposit;
 use App\Domain\Auctions\Models\AuctionLot;
 use App\Domain\Auctions\Models\AuctionProduct;
@@ -229,8 +230,13 @@ class LotService
                     } elseif ($auction->unpaid_winner_policy === 'relist') {
                         // Back to pending so the auction team can schedule it again; stock is re-reserved when it reopens.
                         $this->releaseStock($lot);
-                        $lot->forceFill(['status' => 'pending', 'starts_at' => null, 'ends_at' => null, 'current_price' => null,
-                            'current_bid_id' => null, 'current_leader_id' => null, 'bid_count' => 0])->save();
+                        // The old round's bids are struck out, or they would win the next round with no new bid; the lot starts fresh.
+                        AuctionBid::where('auction_lot_id', $lot->id)->where('status', 'accepted')->update(['status' => 'retracted']);
+                        $lot->forceFill(['status' => 'pending', 'starts_at' => null, 'ends_at' => null, 'original_ends_at' => null, 'closed_at' => null,
+                            'current_price' => null, 'current_bid_id' => null, 'current_leader_id' => null, 'bid_count' => 0, 'extension_count' => 0])->save();
+                        if ($auction->status === 'closed') {
+                            $auction->update(['status' => 'live']);
+                        }
                     } else {
                         $this->releaseStock($lot);
                         $lot->forceFill(['status' => 'unsold'])->save();
@@ -242,14 +248,53 @@ class LotService
         return $n;
     }
 
+    /**
+     * Block a bidder of an auction (auctions.override). Their running maximums stop, and on lots still in play their bids are
+     * struck out like a retraction, so a blocked bidder can neither keep bidding through a proxy nor win. Audited with the reason.
+     */
+    public function blockBidder(AuctionBidder $bidder, User $actor, string $reason): AuctionBidder
+    {
+        if (! app(AccessControl::class)->allows($actor, 'auctions.override')) {
+            throw DomainException::make('branch_forbidden', 403);
+        }
+        $lotIds = AuctionLot::where('auction_id', $bidder->auction_id)->whereIn('status', ['open', 'paused'])->orderBy('id')->pluck('id');
+        $broadcasts = [];
+        DB::transaction(function () use ($bidder, $actor, $reason, $lotIds, &$broadcasts) {
+            $bidder->forceFill(['status' => 'blocked', 'blocked_reason' => $reason, 'blocked_by' => $actor->id])->save();
+            foreach ($lotIds as $lotId) {
+                $lot = AuctionLot::whereKey($lotId)->lockForUpdate()->firstOrFail();
+                AuctionAutoBid::where('auction_lot_id', $lot->id)->where('user_id', $bidder->user_id)->where('status', 'active')->update(['status' => 'cancelled']);
+                $struck = AuctionBid::where('auction_lot_id', $lot->id)->where('user_id', $bidder->user_id)->where('status', 'accepted')->update(['status' => 'retracted']);
+                if ($struck === 0) {
+                    continue;
+                }
+                $top = $this->winningBid($lot);
+                $lot->forceFill(['current_price' => $top?->amount, 'current_bid_id' => $top?->id, 'current_leader_id' => $top?->user_id,
+                    'bid_count' => max(0, $lot->bid_count - $struck)])->save();
+                $broadcasts[] = [$lot, [$this->engine->event($lot, 'override', ['blocked_bidder' => true, 'status' => $lot->status], $actor->id)]];
+            }
+            $this->audit->log('auction.bidder_blocked', $bidder, [], ['reason' => $reason], actor: $actor);
+        });
+        foreach ($broadcasts as [$lot, $events]) {
+            $this->engine->broadcast($lot, $events);
+        }
+
+        return $bidder->fresh();
+    }
+
+    /** The highest accepted bid, earliest first on a tie. Bids of a bidder blocked on the auction never win. */
     public function winningBid(AuctionLot $lot): ?AuctionBid
     {
-        return AuctionBid::where('auction_lot_id', $lot->id)->where('status', 'accepted')->orderByDesc('amount')->orderBy('bid_number')->first();
+        $blocked = AuctionBidder::where('auction_id', $lot->auction_id)->where('status', 'blocked')->pluck('user_id');
+
+        return AuctionBid::where('auction_lot_id', $lot->id)->where('status', 'accepted')->whereNotIn('user_id', $blocked)
+            ->orderByDesc('amount')->orderBy('bid_number')->first();
     }
 
     private function offerNextBidder(AuctionLot $lot, AuctionWinner $previous, Auction $auction): void
     {
-        $excluded = AuctionWinner::where('auction_lot_id', $lot->id)->pluck('user_id');
+        $excluded = AuctionWinner::where('auction_lot_id', $lot->id)->pluck('user_id')
+            ->merge(AuctionBidder::where('auction_id', $lot->auction_id)->where('status', 'blocked')->pluck('user_id'));
         $next = AuctionBid::where('auction_lot_id', $lot->id)->where('status', 'accepted')->whereNotIn('user_id', $excluded)
             ->orderByDesc('amount')->orderBy('bid_number')->first();
         $reserveOk = $next && ($lot->reserve_price === null || Money::of($next->amount)->greaterThanOrEqual(Money::of($lot->reserve_price)));
@@ -261,6 +306,7 @@ class LotService
         }
         $winner = AuctionWinner::create(['auction_lot_id' => $lot->id, 'user_id' => $next->user_id, 'auction_bid_id' => $next->id, 'amount' => $next->amount,
             'rank' => $previous->rank + 1, 'status' => 'pending_payment', 'payment_due_at' => now()->addHours($auction->winner_payment_hours)]);
+        $this->audit->log('auction.second_chance_offered', $winner, [], ['rank' => $winner->rank, 'amount' => $winner->amount]);
         DB::afterCommit(fn () => event(new AuctionWon($winner->id, $winner->user_id, $lot->id)));
     }
 

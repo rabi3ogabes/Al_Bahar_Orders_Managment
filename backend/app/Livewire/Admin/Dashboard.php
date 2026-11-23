@@ -4,6 +4,7 @@ namespace App\Livewire\Admin;
 
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Identity\Services\AccessControl;
+use App\Domain\Identity\Services\OtpTestMode;
 use App\Domain\Reports\Services\DashboardMetrics;
 use App\Support\AdminNavigation;
 use Illuminate\Support\Str;
@@ -40,6 +41,7 @@ class Dashboard extends Component
         return view('livewire.admin.dashboard', [
             'm' => $m,
             'branches' => $branches,
+            'testCodesOn' => $user->isSuperAdmin() && app(OtpTestMode::class)->active(),
             'showHealth' => $acl->allowsGlobally($user, 'settings.edit'),
             'shortcuts' => $hasNumbers ? [] : collect(AdminNavigation::for($user))->flatMap(fn (array $g) => $g['items'])->reject(fn (array $i) => $i['route'] === 'admin.dashboard')->take(12)->values()->all(),
             'greeting' => match (true) {

@@ -24,7 +24,7 @@
                         $branches = $r->order ? $r->order->fulfillments->pluck('branch_id')->unique()->all() : [];
                         $allowed = fn ($perm) => $branches ? collect($branches)->every(fn ($b) => $this->can($perm, $b)) : $this->can($perm);
                         $canOrder = $branches ? collect($branches)->contains(fn ($b) => $this->can('orders.view', $b)) : $this->can('orders.view');
-                        $own = $r->requested_by === $me->id && ! $me->isSuperAdmin();
+                        $own = $own[$r->id] ?? null;
                         $manual = $r->method !== 'original';
                     @endphp
                     <li class="flex flex-col gap-3 p-4 lg:flex-row lg:items-center sm:px-6" wire:key="rf-{{ $r->id }}">
@@ -33,6 +33,7 @@
                                 <span class="font-mono font-medium" dir="ltr">{{ $r->number }}</span>
                                 <x-admin.status :value="$r->status" />
                                 <span class="badge-neutral">{{ __('finance_admin.method_'.$r->method) }}</span>
+                                @if ($r->self_approved)<span class="badge-warning" title="{{ $r->self_approval_reason }}"><x-icon name="shield" class="size-3" />{{ __('finance_admin.self_approved') }}</span>@endif
                                 @if ($r->order)<x-admin.order-peek-link :id="$r->order_id" :number="$r->order->number" :can="$canOrder" class="text-xs text-ink-500" />@endif
                             </div>
                             <p class="mt-1 text-sm text-ink-600 dark:text-sand-200">{{ __('finance_admin.rrc_'.$r->reason_code) }}@if ($r->reason) — <span class="text-ink-500">{{ \Illuminate\Support\Str::limit($r->reason, 90) }}</span>@endif</p>
@@ -47,8 +48,12 @@
                             <x-admin.money :value="$r->amount" class="me-2 text-lg font-semibold" />
                             @if ($r->status === 'requested' && $allowed('refunds.approve'))
                                 <button type="button" wire:click="open('reject', '{{ $r->id }}')" class="btn-ghost btn-sm text-ruby-soft">{{ __('admin.reject') }}</button>
-                                @if ($own)
+                                @if ($own === 'other')
                                     <span class="badge-neutral" title="{{ __('finance_admin.needs_second_person') }}"><x-icon name="lock" class="size-3" />{{ __('finance_admin.awaiting_second_approver') }}</span>
+                                @elseif ($own === 'blocked')
+                                    <span class="badge-neutral" title="{{ __('finance_admin.self_approval_off_hint') }}"><x-icon name="lock" class="size-3" />{{ __('finance_admin.self_approval_off') }}</span>
+                                @elseif ($own === 'self')
+                                    <button type="button" wire:click="open('self', '{{ $r->id }}')" class="btn-primary btn-sm"><x-icon name="shield" class="size-4" />{{ __('finance_admin.approve_own') }}</button>
                                 @else
                                     <button type="button" wire:click="approve('{{ $r->id }}')" wire:confirm="{{ $manual ? __('finance_admin.confirm_approve_manual') : __('finance_admin.confirm_approve_gateway') }}" class="btn-primary btn-sm"><x-icon name="check" class="size-4" />{{ __('admin.approve') }}</button>
                                 @endif
@@ -68,16 +73,21 @@
     @include('livewire.admin.sales.partials.order-peek')
 
     {{-- Rejecting is a decision (centred modal); recording a manual payout is a form (side window). --}}
-    <x-admin.dialog wire:model="showDialog" :variant="$dialog === 'reject' ? 'modal' : 'drawer'" :title="$dialog === 'reject' ? __('drawer_sales.q_reject_refund') : __('finance_admin.mark_processed')" :description="$dialog === 'process' ? __('finance_admin.process_hint') : null">
+    <x-admin.dialog wire:model="showDialog" :variant="$dialog === 'process' ? 'drawer' : 'modal'" :title="match ($dialog) { 'reject' => __('drawer_sales.q_reject_refund'), 'self' => __('finance_admin.approve_own'), default => __('finance_admin.mark_processed') }" :description="match ($dialog) { 'process' => __('finance_admin.process_hint'), 'self' => __('finance_admin.self_approve_hint'), default => null }">
         <form wire:submit="confirmDialog" class="space-y-5">
             @if ($dialog === 'reject')
                 <x-admin.field :label="__('admin.reason')" for="note" required><textarea id="note" wire:model="note" rows="3" class="input"></textarea></x-admin.field>
+            @elseif ($dialog === 'self')
+                <x-admin.field :label="__('finance_admin.self_reason')" for="selfReason" required :hint="__('finance_admin.self_reason_hint')"><textarea id="selfReason" wire:model="selfReason" rows="3" class="input"></textarea></x-admin.field>
+                @if ($needsCode)
+                    <x-admin.field :label="__('finance_admin.two_factor_code')" for="code" required :hint="__('finance_admin.two_factor_code_hint')"><input id="code" wire:model="code" class="input font-mono" dir="ltr" inputmode="numeric" autocomplete="one-time-code" maxlength="32"></x-admin.field>
+                @endif
             @else
                 <x-admin.field :label="__('finance_admin.bank_reference')" for="reference" required :hint="__('finance_admin.bank_reference_hint')"><input id="reference" wire:model="reference" class="input font-mono" dir="ltr" autocomplete="off"></x-admin.field>
             @endif
             <div class="flex flex-col-reverse gap-2 border-t border-sand-100 pt-5 sm:flex-row sm:justify-end dark:border-ink-800">
                 <button type="button" class="btn-secondary min-h-11" @click="open = false">{{ __('admin.cancel') }}</button>
-                <button class="{{ $dialog === 'reject' ? 'btn-danger' : 'btn-primary' }} min-h-11" wire:loading.attr="disabled" wire:target="confirmDialog">{{ $dialog === 'reject' ? __('finance_admin.reject_refund') : __('finance_admin.mark_processed') }}</button>
+                <button class="{{ $dialog === 'reject' ? 'btn-danger' : 'btn-primary' }} min-h-11" wire:loading.attr="disabled" wire:target="confirmDialog">{{ match ($dialog) { 'reject' => __('finance_admin.reject_refund'), 'self' => __('finance_admin.approve_own'), default => __('finance_admin.mark_processed') } }}</button>
             </div>
         </form>
     </x-admin.dialog>

@@ -72,4 +72,18 @@
             </div>
         @endif
     </form>
+    {{-- A security setting is being weakened: the owner types a fresh two-factor code first. --}}
+    <x-admin.dialog variant="modal" wire:model="confirmSecurity" :title="__('org_admin.sec_title')" max-width="max-w-md">
+        <form wire:submit="confirmSecurityChange" class="space-y-4">
+            <p class="text-sm text-ink-600 dark:text-ink-300">{{ __('org_admin.sec_body') }}</p>
+            <x-admin.field :label="__('org_admin.sec_code')" for="securityCode" required>
+                <input id="securityCode" wire:model="securityCode" class="input font-mono" dir="ltr" inputmode="numeric" autocomplete="one-time-code" maxlength="32">
+                @error('securityCode')<p class="mt-1 text-sm text-ruby-soft" role="alert">{{ $message }}</p>@enderror
+            </x-admin.field>
+            <div class="flex justify-end gap-2">
+                <button type="button" class="btn-secondary min-h-11" @click="requestClose()">{{ __('admin.cancel') }}</button>
+                <button class="btn-primary min-h-11" wire:loading.attr="disabled" wire:target="confirmSecurityChange">{{ __('org_admin.sec_confirm') }}</button>
+            </div>
+        </form>
+    </x-admin.dialog>
 </div>

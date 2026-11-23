@@ -231,4 +231,19 @@ final class Geo
 
         return hypot($p[0] - ($a[0] + $t * $dx), $p[1] - ($a[1] + $t * $dy));
     }
+
+    /**
+     * Snaps a point to the centre of a grid cell about $cellM metres wide, so a private place (a customer's door) becomes "somewhere in
+     * this 500 m square". The same input always gives the same output, and every point of a cell gives the same answer.
+     *
+     * @return array{lat: float, lng: float}
+     */
+    public static function coarsen(float $lat, float $lng, int $cellM = 500): array
+    {
+        $latStep = $cellM / 111_320;
+        $snappedLat = (floor($lat / $latStep) + 0.5) * $latStep;
+        $lngStep = $cellM / (111_320 * max(0.2, cos(deg2rad($snappedLat))));
+
+        return ['lat' => round($snappedLat, 5), 'lng' => round((floor($lng / $lngStep) + 0.5) * $lngStep, 5)];
+    }
 }

@@ -61,17 +61,21 @@ describe('two orders or refunds of the same amount are two orders and two refund
         foreach (range(1, 12) as $i) {
             onOrder([[$w->a, '10.00']], ['user_id' => User::factory()->create()->id]);
         }
-        $rowsRead = 0;
-        DB::listen(function ($q) use (&$rowsRead) {
-            if (str_contains($q->sql, 'order_fulfillments')) {
-                $rowsRead++;
-            }
+        $statements = [];
+        DB::listen(function ($q) use (&$statements) {
+            $statements[] = $q->sql;
         });
+        $count = fn (array $sqls, string $needle) => count(array_filter($sqls, fn ($sql) => str_contains($sql, $needle)));
 
-        $result = ($this->report)('customers');
+        $first = ($this->report)('customers');                                                      // builds the customer rollup once, then ONE aggregate over it
+        $builtOnce = $count($statements, 'order_fulfillments');
+        $aggregates = $count($statements, 'select count(*) as customers');
+        $statements = [];
+        $second = ($this->report)('customers');                                                     // the rollup is fresh: not one order is read again
 
-        expect($rowsRead)->toBe(1)                                                                  // a single statement did all the work
-            ->and(collect($result['rows'])->firstWhere('metric', 'customers_with_orders')['value'])->toBe(12);
+        expect($builtOnce)->toBe(2)   // the rebuild: one statement for the branch rows, one for the company rows->and($aggregates)->toBe(1)->and($count($statements, 'order_fulfillments'))->toBe(0)
+            ->and(collect($first['rows'])->firstWhere('metric', 'customers_with_orders')['value'])->toBe(12)
+            ->and($second['rows'])->toBe($first['rows']);
     });
 
     it('adds up refunds of the same amount instead of merging them', function () {

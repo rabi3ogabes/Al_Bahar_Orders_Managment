@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin\Auth;
 
 use App\Domain\Audit\Services\AuditLogger;
+use App\Domain\Identity\Services\FreshTwoFactor;
 use App\Domain\Identity\Services\TwoFactorService;
 use App\Support\StaffLanding;
 use Illuminate\Support\Facades\RateLimiter;
@@ -38,6 +39,7 @@ class TwoFactorChallenge extends Component
         RateLimiter::clear($key);
         session()->regenerate();
         session(['two_factor_passed' => true]);
+        app(FreshTwoFactor::class)->stamp();
         $user->forceFill(['last_login_at' => now(), 'last_login_ip' => request()->ip()])->save();
         $audit->log('auth.login', $user, [], [], ['channel' => 'admin_web', 'two_factor' => true], actor: $user);
 

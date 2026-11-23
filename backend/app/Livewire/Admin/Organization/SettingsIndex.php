@@ -4,6 +4,8 @@ namespace App\Livewire\Admin\Organization;
 
 use App\Domain\Fulfillment\Services\DeliveryFollowUpSettings;
 use App\Domain\Fulfillment\Services\DispatchSettings;
+use App\Domain\Identity\Services\FreshTwoFactor;
+use App\Domain\Identity\Services\SecuritySettingGuard;
 use App\Domain\Inventory\Services\StockPlanningSettings;
 use App\Domain\Inventory\Services\StocktakeApprovals;
 use App\Domain\Operations\Services\OpsClock;
@@ -38,6 +40,11 @@ class SettingsIndex extends Component
 
     /** @var array<string, string> new secret values typed by the user */
     public array $secrets = [];
+
+    /** The security change waits for a two-factor code (see SecuritySettingGuard). */
+    public bool $confirmSecurity = false;
+
+    public string $securityCode = '';
 
     public function mount(Settings $settings): void
     {
@@ -108,6 +115,8 @@ class SettingsIndex extends Component
             ],
             'security' => [
                 'auth.staff_two_factor_required' => ['type' => 'bool', 'rules' => ['boolean']],
+                // Dual control on refunds: docs/guides/DUAL_CONTROL.md.
+                SecuritySettingGuard::SELF_APPROVAL => ['type' => 'bool', 'rules' => ['boolean'], 'default' => true],
                 // How long a wall display account (the live board on a screen, view only) stays signed in without being seen: docs/guides/SEARCH_AND_LIVE_BOARD.md.
                 WallDisplaySession::HOURS_KEY => ['type' => 'int', 'rules' => $int(1, WallDisplaySession::MAX_HOURS), 'suffix' => 'hours', 'default' => WallDisplaySession::DEFAULT_HOURS,
                     'label' => 'wall_display.setting.session_hours', 'hint' => 'wall_display.setting_hint.session_hours', 'messages' => []],
@@ -333,6 +342,9 @@ class SettingsIndex extends Component
             }
         }
         $this->validate($rules, $messages, $names);
+        if ($this->tab === 'security' && ! $this->securityChangeAllowed($fields, $settings)) {
+            return;
+        }
 
         $changed = 0;
         foreach ($fields as $key => $def) {
@@ -356,10 +368,70 @@ class SettingsIndex extends Component
             $same = $def['type'] === 'bool' ? (bool) $current === $new : (string) $current === (string) $new;
             if (! $same) {
                 $settings->set($key, $new);
+                if (SecuritySettingGuard::isProtected($key)) {
+                    app(SecuritySettingGuard::class)->record($key, $current, $new);
+                }
                 $changed++;
             }
         }
         $this->toast($changed ? trans_choice('org_admin.settings_saved', $changed, ['count' => $changed]) : __('org_admin.settings_unchanged'));
+    }
+
+    /**
+     * Weakening a security setting needs the owner AND a two-factor code typed in the last 5 minutes. When the code is missing the
+     * confirm window opens and nothing is saved yet.
+     *
+     * @param  array<string, array<string, mixed>>  $fields
+     */
+    private function securityChangeAllowed(array $fields, Settings $settings): bool
+    {
+        $guard = app(SecuritySettingGuard::class);
+        $weakening = false;
+        foreach ($fields as $key => $def) {
+            if (! SecuritySettingGuard::isProtected($key)) {
+                continue;
+            }
+            $new = $this->values['security'][self::field($key)] ?? null;
+            $new = $def['type'] === 'bool' ? (bool) $new : $new;
+            $old = $settings->get($key, $def['default'] ?? null);
+            $weakening = $weakening || $guard->weakens($key, $def['type'] === 'bool' ? (bool) $old : $old, $new);
+        }
+        if (! $weakening) {
+            return true;
+        }
+        $user = auth()->user();
+        if (! $guard->mayWeaken($user)) {
+            $this->toast(__('errors.security_owner_only'), 'error');
+
+            return false;
+        }
+        $fresh = app(FreshTwoFactor::class);
+        if ($fresh->isFresh()) {
+            return true;
+        }
+        if (! $fresh->canConfirm($user)) {
+            $this->toast(__('org_admin.sec_enrol'), 'error');
+
+            return false;
+        }
+        $this->securityCode = '';
+        $this->confirmSecurity = true;
+
+        return false;
+    }
+
+    public function confirmSecurityChange(Settings $settings): void
+    {
+        abort_unless($this->canGlobally('settings.edit'), 403);
+        $this->resetErrorBag('securityCode');
+        if (! app(FreshTwoFactor::class)->confirm(auth()->user(), $this->securityCode)) {
+            $this->addError('securityCode', __('errors.two_factor_invalid'));
+
+            return;
+        }
+        $this->confirmSecurity = false;
+        $this->securityCode = '';
+        $this->save($settings);
     }
 
     /**

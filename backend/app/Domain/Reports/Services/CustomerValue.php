@@ -141,6 +141,17 @@ final class CustomerValue
     }
 
     /**
+     * Every customer with orders in the scope, one row each (user_id, orders, delivered_orders, spend, first_order_at, last_order_at, ...), read from the
+     * rollup (rebuilt first when it is missing or very old): the lifetime reports use this instead of adding up every order the company ever took.
+     */
+    public function rollup(BranchScope $scope): Builder
+    {
+        $this->ensureFresh();
+
+        return $this->base($scope, CarbonImmutable::now());
+    }
+
+    /**
      * The numbers on top of the page: how many customers, how many are repeat buyers, how many are new this month and how many have gone quiet (and
      * what those are worth together).
      *
