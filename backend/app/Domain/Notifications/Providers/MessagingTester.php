@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\RateLimiter;
  */
 class MessagingTester
 {
-    public function __construct(private readonly MessagingGateway $gateway, private readonly MessagingProviders $providers) {}
+    public function __construct(private readonly MessagingGateway $gateway) {}
 
     public function send(string $channel, string $toE164, User $by): MessageProviderEvent
     {

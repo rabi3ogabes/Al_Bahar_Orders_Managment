@@ -65,7 +65,7 @@ class PlanRunner
                 $this->log = [];
                 Cache::store('array')->flush();
                 $status = $this->dispatch($kernel, $s);
-                $captured = $this->log;
+                $captured = $this->captured();
             }
             $statements = $this->prove($captured, $budget);
         } finally {
@@ -243,5 +243,15 @@ class PlanRunner
         usort($statements, fn ($a, $b) => $b['exec_ms'] <=> $a['exec_ms']);
 
         return preg_replace('/\s+/', ' ', substr((string) $statements[0]['sql'], 0, 160)) ?? '';
+    }
+
+    /**
+     * What the query listener has written down so far (read through a method: the listener fills the property from outside this flow).
+     *
+     * @return list<array{sql: string, bindings: array<int, mixed>, ms: float}>
+     */
+    private function captured(): array
+    {
+        return $this->log;
     }
 }

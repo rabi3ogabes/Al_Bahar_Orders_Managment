@@ -50,7 +50,7 @@ final class InfobipPreset extends ProviderPreset
         return $this->result(false, 'failed', null, (string) data_get($json, 'requestError.serviceException.messageId', 'http_'.$http), (string) data_get($json, 'requestError.serviceException.text', ''));
     }
 
-    public function statusRequest(array $c, string $id): ?array
+    public function statusRequest(array $c, string $id): array
     {
         return ['method' => 'GET', 'url' => $this->base($c).'/sms/2/logs', 'headers' => ['Authorization' => 'App '.$c['api_key'], 'Accept' => 'application/json'], 'auth' => null, 'type' => 'query', 'body' => ['messageId' => $id]];
     }

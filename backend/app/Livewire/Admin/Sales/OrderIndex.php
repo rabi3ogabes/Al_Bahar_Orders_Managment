@@ -14,6 +14,7 @@ use App\Support\BoundedPage;
 use App\Support\BusinessTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
@@ -210,11 +211,13 @@ class OrderIndex extends Component
             $counts[$t] = $t === 'all' ? null : BoundedPage::count($this->applyTab($this->scoped(), $t)->toBase());
         }
         $orders = BoundedPage::paginate($q, $this->perPage);
+        /** @var Collection<int, Order> $pageOrders */
+        $pageOrders = $orders->getCollection();
         $filtered = $this->quick || $this->filterStatus || $this->filterPayment || $this->filterMethod || $this->filterType || $this->filterFrom || $this->filterTo || $this->branch;
 
         return view('livewire.admin.sales.orders', [
             'orders' => $orders,
-            'waits' => $this->waits($orders->getCollection(), $clock),
+            'waits' => $this->waits($pageOrders, $clock),
             // Orders with a replacement question the customer has not answered yet: order id => when their time runs out.
             'customerWaits' => SubstitutionRequest::where('status', SubstitutionRequest::WAITING)->whereIn('order_id', $orders->getCollection()->pluck('id'))
                 ->groupBy('order_id')->selectRaw('order_id, min(deadline_at) as deadline')->pluck('deadline', 'order_id'),

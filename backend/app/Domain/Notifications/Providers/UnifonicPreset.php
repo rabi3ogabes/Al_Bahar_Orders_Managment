@@ -43,7 +43,7 @@ final class UnifonicPreset extends ProviderPreset
         return $this->result(false, 'failed', null, isset($json['errorCode']) ? (string) $json['errorCode'] : 'http_'.$http, isset($json['message']) ? (string) $json['message'] : null);
     }
 
-    public function statusRequest(array $c, string $id): ?array
+    public function statusRequest(array $c, string $id): array
     {
         return ['method' => 'GET', 'url' => 'https://api.unifonic.com/rest/SMS/messages/GetMessageIDStatus', 'headers' => ['Accept' => 'application/json'], 'auth' => null, 'type' => 'query',
             'body' => ['AppSid' => $c['app_sid'], 'MessageID' => $id]];

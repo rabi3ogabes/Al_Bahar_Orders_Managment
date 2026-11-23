@@ -13,6 +13,7 @@ use App\Livewire\Admin\Sales\Concerns\PeeksAtOrder;
 use App\Support\BoundedPage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
@@ -180,13 +181,15 @@ class CustomerIndex extends Component
         $customers = BoundedPage::paginate($q, $this->perPage);
         // Orders and spend of the customers on this page, read through the viewer's own branches (customers.view): the customers' own branch rule, the dashboard's sales definition.
         $value = app(CustomerValue::class);
-        $lifetime = $value->lifetime($value->scopeFor(auth()->user()), $customers->getCollection()->map(fn (User $c) => (string) $c->id)->all());
-        $customers->getCollection()->each(function (User $c) use ($lifetime) {
+        /** @var Collection<int, User> $page */
+        $page = $customers->getCollection();
+        $lifetime = $value->lifetime($value->scopeFor(auth()->user()), $page->map(fn (User $c) => (string) $c->id)->all());
+        $page->each(function (User $c) use ($lifetime) {
             $c->setAttribute('orders_count', $lifetime[$c->id]['orders'] ?? 0);
             $c->setAttribute('spend', $lifetime[$c->id]['spend'] ?? '0.00');
         });
         $this->matching = $customers->total();
-        $this->pageIds = $customers->getCollection()->map(fn (User $c) => (string) $c->id)->all();
+        $this->pageIds = $page->map(fn (User $c) => (string) $c->id)->all();
 
         return view('livewire.admin.sales.customers', [
             'customers' => $customers,

@@ -10,6 +10,7 @@ use App\Domain\Payments\Services\RefundService;
 use App\Livewire\Admin\Concerns\WithAdminTable;
 use App\Livewire\Admin\Finance\Concerns\ScopesPayments;
 use App\Livewire\Admin\Sales\Concerns\PeeksAtOrder;
+use Illuminate\Support\Collection;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -148,7 +149,25 @@ class RefundIndex extends Component
             'counts' => collect(self::TABS)->mapWithKeys(fn ($t) => [$t => in_array($t, ['requested', 'to_process'], true) ? $base()->whereIn('status', $statuses($t))->count() : null])->all(),
             'me' => auth()->user(),
             'needsCode' => ! app(FreshTwoFactor::class)->isFresh(),
-            'own' => $rows->filter(fn (Refund $r) => $r->status === 'requested')->mapWithKeys(fn (Refund $r) => [$r->id => app(RefundApprovalPolicy::class)->stateFor($r, auth()->user())])->filter()->all(),
+            'own' => self::pageRows($rows->items())->filter(fn (Refund $r) => $r->status === 'requested')->mapWithKeys(fn (Refund $r) => [$r->id => app(RefundApprovalPolicy::class)->stateFor($r, auth()->user())])->filter()->all(),
         ])->title(__('nav.refunds'));
+    }
+
+    /**
+     * The refunds on the current page, typed for the approval column.
+     *
+     * @param  array<int, mixed>  $items
+     * @return Collection<int, Refund>
+     */
+    private static function pageRows(array $items): Collection
+    {
+        $refunds = [];
+        foreach ($items as $r) {
+            if ($r instanceof Refund) {
+                $refunds[] = $r;
+            }
+        }
+
+        return collect($refunds);
     }
 }

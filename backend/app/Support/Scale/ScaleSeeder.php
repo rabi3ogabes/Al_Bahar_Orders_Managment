@@ -71,7 +71,7 @@ class ScaleSeeder
         $this->stage('ANALYZE', fn () => DB::unprepared('ANALYZE'));
     }
 
-    /** @param  Closure(): void  $work */
+    /** @param  Closure(): mixed  $work */
     private function stage(string $label, Closure $work): void
     {
         $t = microtime(true);

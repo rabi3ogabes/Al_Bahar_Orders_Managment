@@ -49,7 +49,7 @@ final class TwilioPreset extends ProviderPreset
         return $this->result(false, 'failed', null, isset($json['code']) ? (string) $json['code'] : 'http_'.$http, isset($json['message']) ? (string) $json['message'] : null);
     }
 
-    public function statusRequest(array $c, string $id): ?array
+    public function statusRequest(array $c, string $id): array
     {
         return ['method' => 'GET', 'url' => "https://api.twilio.com/2010-04-01/Accounts/{$c['account_sid']}/Messages/{$id}.json", 'headers' => ['Accept' => 'application/json'],
             'auth' => [$c['account_sid'], $c['auth_token']], 'type' => 'query', 'body' => []];
