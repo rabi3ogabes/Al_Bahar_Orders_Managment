@@ -1,0 +1,32 @@
+<?php
+
+// Texts of the web store's search-engine tags and the plain-HTML copy of each page (App\Support\StorefrontSeo). The Arabic file mirrors every key.
+return [
+    'suffix' => 'Al Bahar Home & Living',
+    'suffix_short' => 'Al Bahar',
+    'home_title' => 'Al Bahar Home & Living | Furniture and household essentials in Qatar',
+    'home_description' => 'Al Bahar Home & Living: furniture, kitchen, bath, bedding and decor delivered across Qatar or ready to collect from a showroom.',
+    'home' => 'Home',
+    'shop' => 'Shop',
+    'shop_description' => 'Browse household essentials from Al Bahar: kitchen, cleaning, bath, storage, fragrance, bedding and decor.',
+    'category_description' => 'Shop :name at :site.',
+    'room_description' => 'Shop for the :name at :site.',
+    'showrooms' => 'Showrooms',
+    'showrooms_description' => 'Find an Al Bahar showroom: address, opening hours and directions.',
+    'auctions' => 'Auctions',
+    'auctions_description' => 'Bid on home and living pieces in Al Bahar auctions.',
+    'not_found' => 'Not found',
+    'not_found_text' => 'This page does not exist or is no longer available.',
+    'categories' => 'Categories',
+    'products' => 'Products',
+    'featured' => 'Featured products',
+    'price' => 'Price',
+    'availability' => 'Availability',
+    'in_stock' => 'In stock',
+    'out_of_stock' => 'Out of stock',
+    'brand' => 'Brand',
+    'sku' => 'Item code',
+    'updated' => 'Last updated :date',
+    'javascript_note' => 'This page is a plain copy of the store page. Turn on JavaScript to shop, add to cart and check out.',
+    'auction_description' => 'Live and timed auctions on Al Bahar home and living pieces.',
+];

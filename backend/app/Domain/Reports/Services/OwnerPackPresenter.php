@@ -49,6 +49,8 @@ final class OwnerPackPresenter
             'headline' => $headline,
             'columns' => array_map(fn (string $key) => ['key' => $key, 'label' => $t('metric.'.$key.'_short')], array_keys(self::COLUMNS)),
             'rows' => $rows,
+            'assembly' => self::assembly($data, $lang),
+            'assembly' => self::assembly($data, $lang),
             'top_units_title' => $t('top_units'), 'top_revenue_title' => $t('top_revenue'),
             'top_units' => array_map($product, $data['top_units'], array_keys($data['top_units'])),
             'top_revenue' => array_map($product, $data['top_revenue'], array_keys($data['top_revenue'])),
@@ -58,9 +60,28 @@ final class OwnerPackPresenter
             'attention_clear' => $t('attention_clear'),
             'footer' => $t('footer'),
             'definitions' => [
-                $t('def.sales'), $t('def.orders'), $t('def.average'), $t('def.on_time_rate'), $t('def.claims_rate'), $t('def.stock_out'), $t('def.cash_variance'),
+                $t('def.sales'), $t('def.orders'), $t('def.average'), $t('def.on_time_rate'), $t('def.claims_rate'), $t('def.stock_out'), $t('def.cash_variance'), $t('def.assembly'),
             ],
         ];
+    }
+
+    /**
+     * The assembly block: one line per branch and the total (net assembly sold, visits to do, visits the driver reported as not done). Aggregates only.
+     *
+     * @param  array<string, mixed>  $data  {@see OwnerPackData::for()}
+     * @return array{title: string, columns: list<string>, rows: list<array{name: string, total: bool, cells: list<string>}>}
+     */
+    private static function assembly(array $data, string $lang): array
+    {
+        $t = fn (string $key) => (string) __('owner_pack.'.$key, [], $lang);
+        $cells = fn (array $w) => [Money::of((string) $w['assembly_net'])->format($lang), number_format((int) $w['assembly_jobs']), number_format((int) $w['assembly_not_done'])];
+        $rows = [];
+        foreach ($data['branches'] as $b) {
+            $rows[] = ['name' => $lang === 'ar' ? $b['name_ar'] : $b['name_en'], 'total' => false, 'cells' => $cells($b['this'])];
+        }
+        $rows[] = ['name' => $t('total'), 'total' => true, 'cells' => $cells($data['total']['this'])];
+
+        return ['title' => $t('assembly_title'), 'columns' => [$t('assembly_net'), $t('assembly_jobs'), $t('assembly_not_done')], 'rows' => $rows];
     }
 
     /**
@@ -131,6 +152,10 @@ final class OwnerPackPresenter
                 $parts[] = $col['label'].' '.$row['cells'][$i]['value'];
             }
             $lines[] = $row['name'].': '.implode(' | ', $parts);
+        }
+        $lines[] = $p['assembly']['title'];
+        foreach ($p['assembly']['rows'] as $row) {
+            $lines[] = $row['name'].': '.implode(' | ', array_map(fn (string $col, string $cell) => $col.' '.$cell, $p['assembly']['columns'], $row['cells']));
         }
         foreach ([['top_units_title', 'top_units'], ['top_revenue_title', 'top_revenue']] as [$title, $list]) {
             $lines[] = '';

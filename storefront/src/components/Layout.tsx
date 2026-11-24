@@ -53,16 +53,16 @@ export function Header() {
     <>
       <a href="#main" className="sr-only-focusable fixed start-4 top-4 z-[200] rounded-full bg-primary px-4 py-2 text-bg">{t('a11y.skip')}</a>
       <SeasonBanner />
-      <div className="bg-primary text-[12px] text-bg/90">
+      <aside aria-label={t('a11y.announcement')} className="bg-primary text-[12px] text-on-primary-soft">
         <div className="wrap flex items-center justify-between gap-4 py-2">
-          <span className="flex min-w-0 items-center gap-2"><Truck size={14} className="shrink-0 text-on-primary/80" /><span className="truncate">{t('top.promo')}</span></span>
+          <span className="flex min-w-0 items-center gap-2"><Truck size={14} className="shrink-0 text-on-primary-soft" /><span className="truncate">{t('top.promo')}</span></span>
           {branches[0]?.phone && (
             <span className="hidden items-center gap-5 sm:flex">
               <a href={telHref(branches[0].phone)} className="flex items-center gap-1.5 hover:text-brass"><Phone size={13} /><bdi>{branches[0].phone}</bdi></a>
             </span>
           )}
         </div>
-      </div>
+      </aside>
       <header className={cx('sticky top-0 z-50 border-b transition-all duration-300', stuck ? 'border-line bg-bg/92 shadow-[0_6px_24px_-18px_rgb(0_0_0/0.4)] backdrop-blur-xl' : 'border-transparent bg-bg')}>
         <div className="wrap grid h-[68px] grid-cols-[1fr_auto_1fr] items-center gap-2 lg:h-[84px]">
           <div className="flex items-center gap-1">
@@ -135,52 +135,52 @@ export function Footer() {
   const Arrow = dir === 'rtl' ? ArrowLeft : ArrowRight;
   const [email, setEmail] = useState('');
   return (
-    <footer className="mt-24 bg-primary text-bg/85">
+    <footer className="mt-24 bg-primary text-on-primary-soft">
       <div className="wrap grid grid-cols-[minmax(0,1fr)] gap-10 py-16 md:grid-cols-[1.3fr_1fr_1fr_1.2fr]">
         <div>
           <Logo light />
-          <p className="mt-5 max-w-xs text-sm leading-relaxed text-bg/65">{t('footer.about')}</p>
-          <ul className="mt-6 space-y-2 text-sm text-bg/75">
-            <li className="flex items-center gap-2"><ShieldCheck size={16} className="text-on-primary/80" />{t('footer.warranty')}</li>
-            <li className="flex items-center gap-2"><Truck size={16} className="text-on-primary/80" />{t('footer.delivery')}</li>
+          <p className="mt-5 max-w-xs text-sm leading-relaxed text-on-primary-soft">{t('footer.about')}</p>
+          <ul className="mt-6 space-y-2 text-sm text-on-primary-soft">
+            <li className="flex items-center gap-2"><ShieldCheck size={16} className="text-on-primary-soft" />{t('footer.warranty')}</li>
+            <li className="flex items-center gap-2"><Truck size={16} className="text-on-primary-soft" />{t('footer.delivery')}</li>
           </ul>
         </div>
         <div>
-          <h3 className="eyebrow mb-4 !text-on-primary/80">{t('footer.shop')}</h3>
-          <ul className="space-y-2.5 text-sm">
-            <li><Link className="hover:text-brass" to="/shop">{t('nav.shop')}</Link></li>
-            <li><Link className="hover:text-brass" to="/shop?sale=1">{t('footer.sale')}</Link></li>
-            <li><Link className="hover:text-brass" to="/shop?new=1">{t('footer.new')}</Link></li>
-            <li><Link className="hover:text-brass" to="/deals">{t('nav.deals')}</Link></li>
-            <li><Link className="hover:text-brass" to="/auctions">{t('nav.auctions')}</Link></li>
+          <h2 className="eyebrow mb-4 !text-on-primary-soft">{t('footer.shop')}</h2>
+          <ul className="space-y-0 text-sm md:space-y-2.5">
+            <li><Link className="inline-flex items-center hover:text-brass max-md:min-h-11" to="/shop">{t('nav.shop')}</Link></li>
+            <li><Link className="inline-flex items-center hover:text-brass max-md:min-h-11" to="/shop?sale=1">{t('footer.sale')}</Link></li>
+            <li><Link className="inline-flex items-center hover:text-brass max-md:min-h-11" to="/shop?new=1">{t('footer.new')}</Link></li>
+            <li><Link className="inline-flex items-center hover:text-brass max-md:min-h-11" to="/deals">{t('nav.deals')}</Link></li>
+            <li><Link className="inline-flex items-center hover:text-brass max-md:min-h-11" to="/auctions">{t('nav.auctions')}</Link></li>
           </ul>
         </div>
         <div>
-          <h3 className="eyebrow mb-4 !text-on-primary/80">{t('footer.help')}</h3>
-          <ul className="space-y-2.5 text-sm">
-            <li><Link className="hover:text-brass" to="/account/orders">{t('account.orders')}</Link></li>
-            <li><Link className="hover:text-brass" to="/account/support">{t('account.support')}</Link></li>
-            <li><Link className="hover:text-brass" to="/showrooms">{t('nav.showrooms')}</Link></li>
-            <li><Link className="hover:text-brass" to="/pages/returns">{t('footer.returns')}</Link></li>
-            <li><Link className="hover:text-brass" to="/pages/about">{t('footer.about_us')}</Link></li>
-            <li><a className="hover:text-brass" href="/mobile-web/">{t('footer.app')}</a></li>
+          <h2 className="eyebrow mb-4 !text-on-primary-soft">{t('footer.help')}</h2>
+          <ul className="space-y-0 text-sm md:space-y-2.5">
+            <li><Link className="inline-flex items-center hover:text-brass max-md:min-h-11" to="/account/orders">{t('account.orders')}</Link></li>
+            <li><Link className="inline-flex items-center hover:text-brass max-md:min-h-11" to="/account/support">{t('account.support')}</Link></li>
+            <li><Link className="inline-flex items-center hover:text-brass max-md:min-h-11" to="/showrooms">{t('nav.showrooms')}</Link></li>
+            <li><Link className="inline-flex items-center hover:text-brass max-md:min-h-11" to="/pages/returns">{t('footer.returns')}</Link></li>
+            <li><Link className="inline-flex items-center hover:text-brass max-md:min-h-11" to="/pages/about">{t('footer.about_us')}</Link></li>
+            <li><a className="inline-flex items-center hover:text-brass max-md:min-h-11" href="/mobile-web/">{t('footer.app')}</a></li>
           </ul>
         </div>
         <div>
-          <h3 className="eyebrow mb-4 !text-on-primary/80">{t('footer.news')}</h3>
-          <p className="mb-3 text-sm text-bg/65">{t('footer.news_text')}</p>
+          <h2 className="eyebrow mb-4 !text-on-primary-soft">{t('footer.news')}</h2>
+          <p className="mb-3 text-sm text-on-primary-soft">{t('footer.news_text')}</p>
           <form onSubmit={(e) => { e.preventDefault(); setEmail(''); toast.push(t('footer.thanks')); }} className="flex items-center rounded-full border border-bg/25 p-1 focus-within:border-brass">
-            <Mail size={16} className="mx-3 shrink-0 text-bg/50" />
-            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('footer.email')} aria-label={t('footer.email')} className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-bg/45" />
-            <button aria-label={t('footer.subscribe')} className="flex h-10 w-10 items-center justify-center rounded-full bg-brass text-on-brass hover:bg-bg"><Arrow size={16} /></button>
+            <Mail size={16} className="mx-3 shrink-0 text-on-primary-soft" />
+            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('footer.email')} aria-label={t('footer.email')} className="h-11 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-on-primary-soft" />
+            <button aria-label={t('footer.subscribe')} className="flex h-11 w-11 items-center justify-center rounded-full bg-brass text-on-brass hover:bg-bg"><Arrow size={16} /></button>
           </form>
-          {branches[0]?.phone && <a href={telHref(branches[0].phone)} className="mt-6 flex items-center gap-2 text-sm hover:text-brass"><Phone size={15} className="text-on-primary/80" />{branches[0].phone}</a>}
+          {branches[0]?.phone && <a href={telHref(branches[0].phone)} className="mt-6 flex min-h-11 items-center gap-2 text-sm hover:text-brass"><Phone size={15} className="text-on-primary-soft" />{branches[0].phone}</a>}
         </div>
       </div>
       <div className="border-t border-bg/10">
-        <div className="wrap flex flex-col items-center justify-between gap-3 py-5 text-xs text-bg/50 sm:flex-row">
+        <div className="wrap flex flex-col items-center justify-between gap-3 py-5 text-xs text-on-primary-soft sm:flex-row">
           <span>© {new Date().getFullYear()} Al Bahar Home &amp; Living. {t('footer.rights')}</span>
-          <span className="flex items-center gap-4"><Link to="/pages/privacy" className="hover:text-brass">{t('footer.privacy')}</Link><Link to="/pages/terms" className="hover:text-brass">{t('footer.terms')}</Link></span>
+          <span className="flex items-center gap-4"><Link to="/pages/privacy" className="inline-flex min-h-11 items-center hover:text-brass">{t('footer.privacy')}</Link><Link to="/pages/terms" className="inline-flex min-h-11 items-center hover:text-brass">{t('footer.terms')}</Link></span>
         </div>
       </div>
     </footer>

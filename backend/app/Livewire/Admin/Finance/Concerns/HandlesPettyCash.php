@@ -132,7 +132,7 @@ trait HandlesPettyCash
 
         return ['shift' => $shift, 'drawer' => $drawer, 'list' => $list, 'limit' => $settings->payoutApprovalAbove(),
             'needsApprover' => $amount !== null && $payouts->needsApproval($amount), 'tooBig' => $amount !== null && $amount->greaterThan($drawer),
-            'approvers' => $this->approverChoices($payouts, $shift), 'canVoidApproved' => $this->can('payments.override', $shift->branch_id)];
+            'approvers' => $this->approverChoices($payouts, $shift), 'canVoidApproved' => $payouts->mayApprove(auth()->user(), $shift->branch_id)];
     }
 
     /** @return Collection<int, User> */

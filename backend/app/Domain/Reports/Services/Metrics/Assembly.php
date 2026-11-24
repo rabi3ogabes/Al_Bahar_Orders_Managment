@@ -1,16 +1,18 @@
 <?php
 
-namespace App\Domain\Reports\Services;
+namespace App\Domain\Reports\Services\Metrics;
 
-use App\Domain\Checkout\Support\Assembly;
+use App\Domain\Checkout\Support\Assembly as AssemblyFee;
 use App\Domain\Identity\Support\BranchScope;
+use App\Domain\Reports\Services\SalesBasis;
 use App\Support\Money;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Paid assembly and installation in the sales reports (docs/guides/ASSEMBLY_SALES_AND_PETTY_CASH.md).
+ * THE definition of paid assembly and installation, shared by the Assembly sales report, the daily close and the weekly owner pack, so the same branch and
+ * period read the same everywhere (docs/guides/ASSEMBLY_SALES_AND_PETTY_CASH.md, docs/guides/NUMBER_DEFINITIONS.md).
  *
  * WHAT COUNTS. The same orders as every other sales figure ({@see SalesBasis}): placed in the window (shop time), not cancelled, not waiting for the online
  * payment, limited to the branches the viewer may see (the branch of the order LINE, as in the other sales reports). Assembly is a per-unit fee frozen on the
@@ -19,15 +21,16 @@ use Illuminate\Support\Facades\DB;
  *  - UNITS    the units of a line that are still on the order: quantity less the units a branch cancelled. A unit an adjustment removed has already left `quantity`.
  *  - GROSS    the assembly those units owe: fee x units, never more than the line still owes (`assembly_total`).
  *  - REFUNDED the assembly of the units that came back (`quantity_returned`): the fee of a returned unit goes back to the customer, the same share
- *             {@see Assembly::refundShare()} puts in a suggested refund, never more than the line's gross.
+ *             {@see AssemblyFee::refundShare()} puts in a suggested refund, never more than the line's gross.
  *  - NET      gross less refunded. Assembly is a flat service charge: no promotion, tax or deal touches it, so these are the amounts the customer was charged.
  *  - JOBS     the branch parts of an order (one visit to the customer's door) that still have at least one assembly unit left after the returns.
+ *  - NOT DONE the jobs whose driver answered "not done" (see App\Domain\Fulfillment\Services\AssemblyFacts), counted as the answer stands now.
  *
  * Everything is attributed to the day the ORDER was placed, like the sale it belongs to: a return made next month lowers the net of the month the order was
  * placed in, and the report of a past period can therefore change when a later return arrives (the guide says so).
  * Every query is read-only and bounded by the indexed date range on orders.placed_at.
  */
-final class AssemblySales
+final class Assembly
 {
     /**
      * Keeps only the rows whose branch part (order fulfillment) has at least one assembly unit left: the "orders with assembly" filter of the sales reports.
@@ -42,13 +45,13 @@ final class AssemblySales
     /**
      * What the sales summary shows: one row for the whole scope.
      *
-     * @return array{jobs: int, units: int, returned_units: int, gross: Money, refunded: Money, net: Money}
+     * @return array{jobs: int, not_done: int, units: int, returned_units: int, gross: Money, refunded: Money, net: Money}
      */
     public static function totals(BranchScope $scope, CarbonInterface $from, CarbonInterface $to): array
     {
         $row = DB::query()->fromSub(self::perPart($scope, $from, $to), 'p')->selectRaw(
-            'count(*) filter (where p.units - p.returned_units > 0) as jobs, coalesce(sum(p.units), 0) as units, coalesce(sum(p.returned_units), 0) as returned_units,
-             coalesce(sum(p.gross), 0)::numeric(14,2) as gross, coalesce(sum(p.refunded), 0)::numeric(14,2) as refunded'
+            "count(*) filter (where p.units - p.returned_units > 0) as jobs, count(*) filter (where p.units - p.returned_units > 0 and p.assembly_status = 'not_done') as not_done,
+             coalesce(sum(p.units), 0) as units, coalesce(sum(p.returned_units), 0) as returned_units, coalesce(sum(p.gross), 0)::numeric(14,2) as gross, coalesce(sum(p.refunded), 0)::numeric(14,2) as refunded"
         )->first();
 
         return self::figures($row);
@@ -57,17 +60,39 @@ final class AssemblySales
     /**
      * One row per branch (the branch of the lines), the biggest net first.
      *
-     * @return list<array{branch: string, name: string, jobs: int, units: int, returned_units: int, gross: Money, refunded: Money, net: Money}>
+     * @return list<array{branch: string, name: string, jobs: int, not_done: int, units: int, returned_units: int, gross: Money, refunded: Money, net: Money}>
      */
     public static function perBranch(BranchScope $scope, CarbonInterface $from, CarbonInterface $to): array
     {
         $rows = DB::query()->fromSub(self::perPart($scope, $from, $to), 'p')->join('branches as b', 'b.id', '=', 'p.branch_id')->selectRaw(
-            'b.code as branch, b.name_en as name, count(*) filter (where p.units - p.returned_units > 0) as jobs, coalesce(sum(p.units), 0) as units,
+            "b.code as branch, b.name_en as name, count(*) filter (where p.units - p.returned_units > 0) as jobs,
+             count(*) filter (where p.units - p.returned_units > 0 and p.assembly_status = 'not_done') as not_done, coalesce(sum(p.units), 0) as units,
              coalesce(sum(p.returned_units), 0) as returned_units, coalesce(sum(p.gross), 0)::numeric(14,2) as gross, coalesce(sum(p.refunded), 0)::numeric(14,2) as refunded,
-             coalesce(sum(p.gross - p.refunded), 0)::numeric(14,2) as net'
+             coalesce(sum(p.gross - p.refunded), 0)::numeric(14,2) as net"
         )->groupBy('b.code', 'b.name_en')->orderByDesc('net')->orderBy('b.code')->get();
 
         return $rows->map(fn ($r) => ['branch' => (string) $r->branch, 'name' => (string) $r->name] + self::figures($r))->all();
+    }
+
+    /**
+     * The figures of each branch in `$ids`, keyed by branch id (a branch with no assembly has zeros): what the daily close and the weekly owner pack read.
+     *
+     * @param  list<string>  $ids
+     * @return array<string, array{jobs: int, not_done: int, units: int, returned_units: int, gross: Money, refunded: Money, net: Money}>
+     */
+    public static function byBranch(array $ids, CarbonInterface $from, CarbonInterface $to): array
+    {
+        $rows = DB::query()->fromSub(self::perPart(BranchScope::of($ids), $from, $to), 'p')->selectRaw(
+            "p.branch_id as who, count(*) filter (where p.units - p.returned_units > 0) as jobs,
+             count(*) filter (where p.units - p.returned_units > 0 and p.assembly_status = 'not_done') as not_done, coalesce(sum(p.units), 0) as units,
+             coalesce(sum(p.returned_units), 0) as returned_units, coalesce(sum(p.gross), 0)::numeric(14,2) as gross, coalesce(sum(p.refunded), 0)::numeric(14,2) as refunded"
+        )->groupBy('p.branch_id')->get()->keyBy('who');
+        $out = [];
+        foreach ($ids as $id) {
+            $out[$id] = self::figures($rows->get($id));
+        }
+
+        return $out;
     }
 
     /**
@@ -92,29 +117,29 @@ final class AssemblySales
     private static function perPart(BranchScope $scope, CarbonInterface $from, CarbonInterface $to): Builder
     {
         $line = $scope->apply(
-            DB::table('order_items as oi')->join('orders as o', 'o.id', '=', 'oi.order_id')
+            DB::table('order_items as oi')->join('orders as o', 'o.id', '=', 'oi.order_id')->leftJoin('order_fulfillments as pf', 'pf.id', '=', 'oi.order_fulfillment_id')
                 ->whereBetween('o.placed_at', [$from, $to])->whereNotIn('o.status', SalesBasis::EXCLUDED_STATUSES)->where('oi.assembly_fee', '>', 0),
             'oi.branch_id'
         )->selectRaw(
-            'oi.branch_id, oi.order_fulfillment_id as part_id, greatest(oi.quantity - oi.quantity_cancelled, 0) as units, oi.quantity_returned as returned_units,
+            'oi.branch_id, oi.order_fulfillment_id as part_id, pf.assembly_status, greatest(oi.quantity - oi.quantity_cancelled, 0) as units, oi.quantity_returned as returned_units,
              least(oi.assembly_total, oi.assembly_fee * greatest(oi.quantity - oi.quantity_cancelled, 0)) as gross,
              least(oi.assembly_fee * oi.quantity_returned, least(oi.assembly_total, oi.assembly_fee * greatest(oi.quantity - oi.quantity_cancelled, 0))) as refunded'
         );
 
         return DB::query()->fromSub($line, 'l')->selectRaw(
-            'l.branch_id, l.part_id, sum(l.units) as units, sum(l.returned_units) as returned_units, sum(l.gross) as gross, sum(l.refunded) as refunded'
-        )->groupBy('l.branch_id', 'l.part_id');
+            'l.branch_id, l.part_id, l.assembly_status, sum(l.units) as units, sum(l.returned_units) as returned_units, sum(l.gross) as gross, sum(l.refunded) as refunded'
+        )->groupBy('l.branch_id', 'l.part_id', 'l.assembly_status');
     }
 
     /**
-     * @return array{jobs: int, units: int, returned_units: int, gross: Money, refunded: Money, net: Money}
+     * @return array{jobs: int, not_done: int, units: int, returned_units: int, gross: Money, refunded: Money, net: Money}
      */
     private static function figures(?object $row): array
     {
         $gross = Money::of((string) ($row->gross ?? '0'));
         $refunded = Money::of((string) ($row->refunded ?? '0'));
 
-        return ['jobs' => (int) ($row->jobs ?? 0), 'units' => (int) ($row->units ?? 0), 'returned_units' => (int) ($row->returned_units ?? 0),
+        return ['jobs' => (int) ($row->jobs ?? 0), 'not_done' => (int) ($row->not_done ?? 0), 'units' => (int) ($row->units ?? 0), 'returned_units' => (int) ($row->returned_units ?? 0),
             'gross' => $gross, 'refunded' => $refunded, 'net' => $gross->minus($refunded)];
     }
 }

@@ -39,11 +39,11 @@ export default function Order() {
   const invoice = useInvoice(id, o?.number);
 
   if (authLoading) return <div className="wrap py-20"><Spinner /></div>;
-  if (!user) return <div className="wrap py-20"><EmptyState title={t('order.signin_title')} text={t('order.signin_text')} action={<Button size="lg" onClick={() => authModal.open()}>{t('auth.sign_in')}</Button>} /></div>;
+  if (!user) return <div className="wrap py-20"><EmptyState heading="h1" title={t('order.signin_title')} text={t('order.signin_text')} action={<Button size="lg" onClick={() => authModal.open()}>{t('auth.sign_in')}</Button>} /></div>;
   if (order.isError) {
     // Somebody else's order answers 403/404: to the visitor it simply does not exist.
     const nf = order.error instanceof ApiError && [403, 404].includes(order.error.status);
-    return <div className="wrap py-20"><EmptyState title={nf ? t('order.not_found') : t('error.title')} action={<div className="flex gap-3">{!nf && <Button variant="outline" onClick={() => void order.refetch()}>{t('action.retry')}</Button>}<Button onClick={() => nav('/account/orders')}>{t('account.orders')}</Button></div>} /></div>;
+    return <div className="wrap py-20"><EmptyState heading="h1" title={nf ? t('order.not_found') : t('error.title')} action={<div className="flex gap-3">{!nf && <Button variant="outline" onClick={() => void order.refetch()}>{t('action.retry')}</Button>}<Button onClick={() => nav('/account/orders')}>{t('account.orders')}</Button></div>} /></div>;
   }
   if (!o) return <div className="wrap space-y-4 py-12"><Skeleton className="h-16 w-1/2" /><Skeleton className="h-64" /></div>;
 

@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useI18n } from './i18n';
+import { pageTitle } from './seoCore';
 
 export function useDebounce<T>(value: T, ms = 300): T {
   const [v, setV] = useState(value);
@@ -7,9 +9,8 @@ export function useDebounce<T>(value: T, ms = 300): T {
 }
 
 export function useDocTitle(title?: string | null) {
-  useEffect(() => {
-    document.title = title ? `${title} · Al Bahar Home & Living` : 'Al Bahar Home & Living';
-  }, [title]);
+  const { locale } = useI18n();
+  useEffect(() => { document.title = pageTitle(title, locale); }, [title, locale]);
 }
 
 export function useScrollTop(dep?: unknown) {

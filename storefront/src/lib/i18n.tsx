@@ -3,12 +3,16 @@ import { setApiLocale } from './api';
 import { en } from '../locales/en';
 import { ar } from '../locales/ar';
 import { translate } from './i18nCore';
+import { langFromSearch } from './seoCore';
 
 export type Locale = 'en' | 'ar';
 const dicts: Record<Locale, Record<string, string>> = { en, ar };
 const KEY = 'albahar.locale';
 
 function initial(): Locale {
+  // The Arabic address of a page (`?lang=ar`) always opens in Arabic, the same language the server wrote into its first HTML.
+  const asked = langFromSearch(location.search);
+  if (asked) return asked;
   try {
     const s = localStorage.getItem(KEY);
     if (s === 'ar' || s === 'en') return s;
@@ -34,6 +38,12 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     document.documentElement.dir = dir;
     setApiLocale(locale);
     try { localStorage.setItem(KEY, locale); } catch { /* ignore */ }
+    // Switching language drops a `?lang=` that says otherwise, so a reload keeps the language just chosen.
+    const u = new URL(location.href);
+    if (u.searchParams.has('lang') && u.searchParams.get('lang') !== locale) {
+      u.searchParams.delete('lang');
+      history.replaceState(history.state, '', u.pathname + u.search + u.hash);
+    }
   }, [locale, dir]);
   // The API locale must be right before the first request fires.
   setApiLocale(locale);

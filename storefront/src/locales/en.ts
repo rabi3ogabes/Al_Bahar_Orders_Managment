@@ -1,6 +1,7 @@
 // Generated dictionary — en. Keys are shared by en/ar (checked by scripts/check-i18n.mjs).
 export const en: Record<string, string> = {
   "a11y.skip": "Skip to content",
+  "a11y.announcement": "Delivery and showroom information",
   "action.apply": "Apply",
   "action.cancel": "Cancel",
   "action.close": "Close",
@@ -107,6 +108,7 @@ export const en: Record<string, string> = {
   "promise.quality_text": "Home essentials chosen with care, for every room of your home.",
   "promise.support": "Real people",
   "promise.support_text": "Help by phone, chat or at the showroom.",
+  "shop.products": "Products",
   "shop.title": "The collection",
   "shop.results_for": "Results for “{q}”",
   "shop.showing_for": "Availability for {branch}",
@@ -615,6 +617,7 @@ export const en: Record<string, string> = {
   "auction.no_cod": "No cash on delivery",
   "auction.back": "Auction",
   "auction.current": "Current bid",
+  "auction.opening": "Opening bid",
   "auction.bids_count": "{n} bids",
   "auction.reserve_met": "Reserve met",
   "auction.reserve_not_met": "Reserve not met",

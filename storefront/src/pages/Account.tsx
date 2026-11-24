@@ -42,7 +42,7 @@ export function AccountLayout() {
   const [alertsOpen, setAlertsOpen] = useState(false);
   useDocTitle(t('account.title'));
   if (loading) return <div className="wrap py-20"><Spinner /></div>;
-  if (!user) return <div className="wrap py-16"><EmptyState icon={<UserIcon size={28} />} title={t('account.signin_title')} text={t('account.signin_text')} action={<Button size="lg" onClick={() => authModal.open()}>{t('auth.sign_in')}</Button>} /></div>;
+  if (!user) return <div className="wrap py-16"><EmptyState heading="h1" icon={<UserIcon size={28} />} title={t('account.signin_title')} text={t('account.signin_text')} action={<Button size="lg" onClick={() => authModal.open()}>{t('auth.sign_in')}</Button>} /></div>;
   return (
     <div className="wrap py-8 md:py-12">
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
@@ -103,13 +103,13 @@ function ReferralCard() {
   };
   return (
     <section className="rounded-[28px] bg-primary p-6 text-bg">
-      <p className="eyebrow !text-on-primary/80">{t('referral.eyebrow')}</p>
+      <p className="eyebrow !text-on-primary-soft">{t('referral.eyebrow')}</p>
       <h2 className="mt-1 text-3xl">{t('referral.title')}</h2>
-      {r.referrer_reward?.text && <p className="mt-2 text-bg/80">{r.referrer_reward.text}</p>}
+      {r.referrer_reward?.text && <p className="mt-2 text-on-primary-soft">{r.referrer_reward.text}</p>}
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <code className="rounded-full bg-bg/10 px-5 py-2.5 text-lg tracking-widest" dir="ltr">{r.code}</code>
         <Button variant="outline" size="sm" onClick={copy}><Copy size={14} />{t('referral.copy')}</Button>
-        <span className="text-sm text-bg/70">{t('referral.count', { n: r.referred_count })}</span>
+        <span className="text-sm text-on-primary-soft">{t('referral.count', { n: r.referred_count })}</span>
       </div>
     </section>
   );
@@ -225,9 +225,9 @@ export function LoyaltyPage() {
     <div className="space-y-6">
       <section className="relative overflow-hidden rounded-[28px] bg-primary p-8 text-bg">
         <Star className="absolute -end-6 -top-6 text-brass/20" size={160} strokeWidth={1} />
-        <p className="eyebrow !text-on-primary/80">{t('loyalty.tier')}: {t(`tier.${l.tier}`)}</p>
+        <p className="eyebrow !text-on-primary-soft">{t('loyalty.tier')}: {t(`tier.${l.tier}`)}</p>
         <p className="mt-3 font-display text-7xl leading-none">{num(l.balance)}</p>
-        <p className="mt-2 text-bg/70">{t('loyalty.worth', { v: l.value.formatted })}</p>
+        <p className="mt-2 text-on-primary-soft">{t('loyalty.worth', { v: l.value.formatted })}</p>
       </section>
       <section className="rounded-[28px] border border-line bg-paper p-6">
         <h2 className="mb-4 text-2xl">{t('loyalty.history')}</h2>
@@ -299,7 +299,7 @@ export function MyAuctions() {
       <section className="rounded-[28px] border border-line bg-paper p-6"><h2 className="mb-4 text-3xl">{t('auction.my_wins')}</h2>
         {wins.isLoading ? <Skeleton className="h-20" /> : wins.data?.length ? <ul className="divide-y divide-line">{wins.data.map((w) => <li key={w.id} className="flex items-center justify-between py-3"><span className="font-display text-xl">{w.lot?.title}</span><span className="font-semibold">{w.amount?.formatted}</span></li>)}</ul> : <p className="text-muted">{t('auction.no_wins')}</p>}</section>
       <section className="rounded-[28px] border border-line bg-paper p-6"><h2 className="mb-4 text-3xl">{t('auction.watchlist')}</h2>
-        {watch.isLoading ? <Skeleton className="h-20" /> : watch.data?.length ? <ul className="divide-y divide-line">{watch.data.map((l) => <li key={l.id}><Link to={`/auctions/lots/${l.id}`} className="flex items-center justify-between py-3 hover:text-brass-deep"><span className="font-display text-xl">{l.title}</span><span className="font-semibold">{l.current_price.formatted}</span></Link></li>)}</ul> : <p className="text-muted">{t('auction.no_watch')}</p>}</section>
+        {watch.isLoading ? <Skeleton className="h-20" /> : watch.data?.length ? <ul className="divide-y divide-line">{watch.data.map((l) => <li key={l.id}><Link to={`/auctions/lots/${l.id}`} className="flex items-center justify-between py-3 hover:text-brass-deep"><span className="font-display text-xl">{l.title}</span><span className="font-semibold">{(l.current_price ?? l.starting_price).formatted}</span></Link></li>)}</ul> : <p className="text-muted">{t('auction.no_watch')}</p>}</section>
     </div>
   );
 }

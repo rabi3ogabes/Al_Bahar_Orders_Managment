@@ -3,6 +3,7 @@
 namespace App\Domain\Reports\Services;
 
 use App\Domain\Identity\Support\BranchScope;
+use App\Domain\Reports\Services\Metrics\Assembly;
 use App\Domain\Reports\Services\Metrics\Cash;
 use App\Domain\Reports\Services\Metrics\Claims;
 use App\Domain\Reports\Services\Metrics\Deliveries;
@@ -24,6 +25,7 @@ use Carbon\CarbonImmutable;
  *    share of a split order), split by how the customers pay;
  *  - orders placed / delivered / cancelled / returned count what HAPPENED that day: parts placed, parts that reached the customer (delivered or
  *    collected), parts cancelled, and return claims whose goods came back to the branch. An online order that was never paid is not an order;
+ *  - assembly: {@see Assembly}, the paid assembly of the orders placed that day (net of what went back), the visits to do and the ones the driver answered "not done";
  *  - cash is cash only (a card terminal is not cash): collected that day, how much of it has been handed in, how much is still with the people
  *    who took it, and the gap the cashier found when counting (a hand-in the day it happened);
  *  - speed is counted in OPENING-HOURS minutes, the clock the dashboard uses (Operations clock), so a night when the shop was shut is not slowness;
@@ -36,7 +38,7 @@ final class DailyCloseNumbers
 
     /**
      * The day's figures: date, branch_id, orders {placed, delivered, cancelled, returned}, sales {total, orders, average}, payment_mix {method: {orders, amount}},
-     * cash {collected, handed_in, with_collectors, still_out_total, variance, variance_count, open_variances}, refunds {count, amount}, failed_deliveries,
+     * cash {collected, handed_in, with_collectors, still_out_total, variance, variance_count, open_variances}, refunds {count, amount}, failed_deliveries, assembly {net, jobs, not_done},
      * speed {accept_minutes, accepted, prepare_minutes, prepared}, open {open, never_accepted}, stock {out, low}. Money is a decimal string.
      *
      * @return array<string, mixed>
@@ -56,6 +58,7 @@ final class DailyCloseNumbers
             'payment_mix' => $this->paymentMix($scope, $from, $to),
             'cash' => $this->cash($branchId, $from, $to),
             'refunds' => $this->refunds($scope, $from, $to),
+            'assembly' => $this->assembly($branchId, $from, $to),
             'failed_deliveries' => array_sum(Deliveries::failures($ids, $from, $to)[$branchId] ?? []),
             'speed' => $this->speed($branchId, $from, $to),
             'open' => $this->open($branchId, $from, $to),
@@ -132,6 +135,14 @@ final class DailyCloseNumbers
 
         return ['accept_minutes' => Speed::average($readings['accept']), 'accepted' => count($readings['accept']),
             'prepare_minutes' => Speed::average($readings['prepare']), 'prepared' => count($readings['prepare'])];
+    }
+
+    /** @return array{net: string, jobs: int, not_done: int} */
+    private function assembly(string $branchId, CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        $a = Assembly::byBranch([$branchId], $from, $to)[$branchId];
+
+        return ['net' => $a['net']->toDecimal(), 'jobs' => $a['jobs'], 'not_done' => $a['not_done']];
     }
 
     /** @return array{open: int, never_accepted: int} */

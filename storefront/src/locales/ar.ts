@@ -1,6 +1,7 @@
 // Generated dictionary — ar. Keys are shared by en/ar (checked by scripts/check-i18n.mjs).
 export const ar: Record<string, string> = {
   "a11y.skip": "انتقل إلى المحتوى",
+  "a11y.announcement": "معلومات التوصيل والمعرض",
   "action.apply": "تطبيق",
   "action.cancel": "إلغاء",
   "action.close": "إغلاق",
@@ -107,6 +108,7 @@ export const ar: Record<string, string> = {
   "promise.quality_text": "مستلزمات منزلية منتقاة بعناية، لكل غرفة في بيتك.",
   "promise.support": "فريق حقيقي",
   "promise.support_text": "مساعدة بالهاتف أو الدردشة أو في المعرض.",
+  "shop.products": "المنتجات",
   "shop.title": "المجموعة",
   "shop.results_for": "نتائج «{q}»",
   "shop.showing_for": "التوفر في {branch}",
@@ -615,6 +617,7 @@ export const ar: Record<string, string> = {
   "auction.no_cod": "لا دفع عند الاستلام",
   "auction.back": "المزاد",
   "auction.current": "المزايدة الحالية",
+  "auction.opening": "سعر الافتتاح",
   "auction.bids_count": "{n} مزايدات",
   "auction.reserve_met": "تم بلوغ السعر الاحتياطي",
   "auction.reserve_not_met": "لم يُبلغ السعر الاحتياطي",

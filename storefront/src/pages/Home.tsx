@@ -107,12 +107,12 @@ export function AuctionBand({ items }: { items: Auction[] }) {
     <section className="mt-24 bg-primary text-bg">
       <div className="wrap grid items-center gap-10 py-16 md:grid-cols-2">
         <div>
-          <p className="eyebrow mb-4 !text-on-primary/80"><span className="me-2 inline-block h-2 w-2 animate-pulse rounded-full bg-danger align-middle" />{t('auction.live_now')}</p>
+          <p className="eyebrow mb-4 !text-on-primary-soft"><span className="me-2 inline-block h-2 w-2 animate-pulse rounded-full bg-danger align-middle" />{t('auction.live_now')}</p>
           <h2 className="text-[clamp(34px,5vw,58px)] leading-[1.05]">{a.title}</h2>
-          <p className="mt-4 max-w-md text-bg/70">{t('auction.band_text')}</p>
+          <p className="mt-4 max-w-md text-on-primary-soft">{t('auction.band_text')}</p>
           <div className="mt-8 flex flex-wrap items-center gap-4">
             <LinkButton to={`/auctions/${a.id}`} variant="brass" size="lg"><Gavel size={18} />{t('auction.enter')}</LinkButton>
-            <span className="text-sm text-bg/70">{t('auction.lots', { n: a.lots_count })}{new Date(a.ends_at).getTime() > Date.now() && <> · {t('auction.ends_in')} <CountdownText iso={a.ends_at} /></>}</span>
+            <span className="text-sm text-on-primary-soft">{t('auction.lots', { n: a.lots_count })}{new Date(a.ends_at).getTime() > Date.now() && <> · {t('auction.ends_in')} <CountdownText iso={a.ends_at} /></>}</span>
           </div>
         </div>
         <Link to={`/auctions/${a.id}`} className="group block"><Pic src={a.cover_image_url} alt={a.title} ratio="16/10" label={a.title} className="rounded-[28px] ring-1 ring-bg/15" /></Link>

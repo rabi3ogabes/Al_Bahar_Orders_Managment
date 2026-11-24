@@ -28,10 +28,10 @@ it('serves the storefront shell for the web root and client-side routes', functi
     File::ensureDirectoryExists(dirname($this->shell));
     file_put_contents($this->shell, '<!doctype html><html><head><title>Al Bahar storefront</title></head><body></body></html>');
 
-    foreach (['/', '/shop', '/checkout', '/account/orders', '/auctions/lots/abc'] as $path) {
+    foreach (['/', '/shop', '/checkout', '/account/orders'] as $path) {
         $response = $this->get($path)->assertOk();
         expect($response->headers->get('Cache-Control'))->toContain('no-cache');
-        expect($response->getContent())->toContain('<body></body>')->toContain('Al Bahar');
+        expect($response->getContent())->toContain('<body>')->toContain('</body>')->toContain('Al Bahar');
     }
 });
 

@@ -55,6 +55,22 @@
         </table>
     </td></tr>
 
+    <tr><td style="padding:16px 28px 0;">
+        <div style="font-size:16px;font-weight:700;margin-bottom:8px;text-align:{{ $start }};">{{ $pack['assembly']['title'] }}</div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:12px;">
+            <tr>
+                <th style="padding:8px 6px;text-align:{{ $start }};border-bottom:2px solid #1a1d26;"></th>
+                @foreach ($pack['assembly']['columns'] as $col)<th style="padding:8px 6px;text-align:{{ $end }};border-bottom:2px solid #1a1d26;font-weight:600;color:#5f6575;">{{ $col }}</th>@endforeach
+            </tr>
+            @foreach ($pack['assembly']['rows'] as $row)
+                <tr>
+                    <td style="padding:8px 6px;border-bottom:1px solid #eadfcc;text-align:{{ $start }};{{ $row['total'] ? 'font-weight:700;' : '' }}">{{ $row['name'] }}</td>
+                    @foreach ($row['cells'] as $cell)<td style="padding:8px 6px;border-bottom:1px solid #eadfcc;text-align:{{ $end }};direction:ltr;{{ $row['total'] ? 'font-weight:700;' : '' }}">{{ $cell }}</td>@endforeach
+                </tr>
+            @endforeach
+        </table>
+    </td></tr>
+
     @foreach ([['top_units_title', 'top_units'], ['top_revenue_title', 'top_revenue']] as [$titleKey, $listKey])
         <tr><td style="padding:16px 28px 0;">
             <div style="font-size:16px;font-weight:700;margin-bottom:8px;text-align:{{ $start }};">{{ $pack[$titleKey] }}</div>

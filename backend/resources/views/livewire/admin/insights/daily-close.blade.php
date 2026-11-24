@@ -137,6 +137,11 @@
                     [__('daily_close.l_refunds'), $money($n['refunds']['amount']).' · '.trans_choice('daily_close.refunds_n', $n['refunds']['count'], ['count' => $n['refunds']['count']]), null],
                     [__('daily_close.l_failed'), number_format($n['failed_deliveries']), null],
                 ],
+                'assembly' => [
+                    [__('daily_close.l_assembly_net'), isset($n['assembly']) ? $money($n['assembly']['net']) : '—', null],
+                    [__('daily_close.l_assembly_jobs'), isset($n['assembly']) ? number_format($n['assembly']['jobs']) : '—', null],
+                    [__('daily_close.l_assembly_not_done'), isset($n['assembly']) ? number_format($n['assembly']['not_done']) : '—', ($n['assembly']['not_done'] ?? 0) > 0],
+                ],
                 'speed' => [
                     [__('daily_close.l_accept'), $n['speed']['accept_minutes'] === null ? __('daily_close.none') : __('daily_close.minutes', ['n' => $n['speed']['accept_minutes']]).' · '.trans_choice('daily_close.orders_n', $n['speed']['accepted'], ['count' => $n['speed']['accepted']]), null],
                     [__('daily_close.l_prepare'), $n['speed']['prepare_minutes'] === null ? __('daily_close.none') : __('daily_close.minutes', ['n' => $n['speed']['prepare_minutes']]).' · '.trans_choice('daily_close.orders_n', $n['speed']['prepared'], ['count' => $n['speed']['prepared']]), null],

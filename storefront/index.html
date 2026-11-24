@@ -21,7 +21,7 @@
         var d = document.documentElement, th = localStorage.getItem('albahar.theme');
         if (th !== 'dark' && th !== 'light') th = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         d.dataset.theme = th;
-        var lc = localStorage.getItem('albahar.locale');
+        var lc = (/[?&]lang=(ar|en)(&|$)/.exec(location.search) || [])[1] || localStorage.getItem('albahar.locale');
         if (lc !== 'ar' && lc !== 'en') lc = (navigator.language || '').toLowerCase().indexOf('ar') === 0 ? 'ar' : 'en';
         d.lang = lc; d.dir = lc === 'ar' ? 'rtl' : 'ltr';
       } catch (e) { /* private mode: the app sets both after load */ }

@@ -1,3 +1,5 @@
+import { fixHeadingLevels } from './seoCore';
+
 /** Admin-authored product/CMS HTML: keep formatting, drop anything executable. */
 const ALLOWED = new Set(['P', 'BR', 'UL', 'OL', 'LI', 'STRONG', 'B', 'EM', 'I', 'U', 'H2', 'H3', 'H4', 'A', 'SPAN', 'DIV', 'BLOCKQUOTE', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD', 'IMG', 'HR', 'FIGURE', 'FIGCAPTION']);
 /** Elements whose text content is code or markup, never prose: dropped together with their content. */
@@ -29,5 +31,13 @@ export function sanitizeHtml(html: string): string {
     }
   };
   walk(doc.body);
+  // Headings written by an editor sit under the page's own h1: never skip a level.
+  const headings = Array.from(doc.body.querySelectorAll('h2, h3, h4'));
+  fixHeadingLevels(headings.map((h) => Number(h.tagName[1]))).forEach((level, i) => {
+    if (`H${level}` === headings[i].tagName) return;
+    const fixed = doc.createElement(`h${level}`);
+    fixed.append(...Array.from(headings[i].childNodes));
+    headings[i].replaceWith(fixed);
+  });
   return doc.body.innerHTML;
 }

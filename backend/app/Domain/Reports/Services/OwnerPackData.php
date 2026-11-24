@@ -4,6 +4,7 @@ namespace App\Domain\Reports\Services;
 
 use App\Domain\Branches\Models\Branch;
 use App\Domain\Identity\Support\BranchScope;
+use App\Domain\Reports\Services\Metrics\Assembly;
 use App\Domain\Reports\Services\Metrics\Cash;
 use App\Domain\Reports\Services\Metrics\Claims;
 use App\Domain\Reports\Services\Metrics\Deliveries;
@@ -27,6 +28,7 @@ use Illuminate\Support\Facades\DB;
  *  - delivery performance: of the deliveries that reached the customer that week and had a promised day, the share that arrived on that day or earlier;
  *  - returns and claims rate: return and damage claims OPENED that week per 100 parts that reached the customer that week (null when none did);
  *  - stock-outs: items out of stock NOW (a stock figure cannot be looked up in the past);
+ *  - assembly: {@see Assembly}, the paid assembly of the orders placed in the week (net of returns), the visits to do and the ones the driver answered "not done";
  *  - cash difference: what the cashiers found when they counted the cash handed in that week (signed: short is negative);
  *  - days not closed: days of the week, already over, that the branch's manager never closed ({@see DailyCloseService}).
  */
@@ -118,6 +120,7 @@ final class OwnerPackData
         $failed = Deliveries::failures($branchIds, $start, $end);
         $claims = Claims::opened($branchIds, $start, $end);
         $cash = Cash::handIns($branchIds, $start, $end);
+        $assembly = Assembly::byBranch($branchIds, $start, $end);
 
         $out = [];
         foreach ($branchIds as $id) {
@@ -133,6 +136,7 @@ final class OwnerPackData
                 'failed_deliveries' => array_sum($failed[$id] ?? []),
                 'claims' => $opened, 'claims_rate' => $arrived > 0 ? round($opened * 100 / $arrived, 1) : null,
                 'cash_variance' => $cash[$id]['cash_net'] ?? '0.00', 'cash_variance_count' => $cash[$id]['variances'] ?? 0,
+                'assembly_net' => $assembly[$id]['net']->toDecimal(), 'assembly_jobs' => $assembly[$id]['jobs'], 'assembly_not_done' => $assembly[$id]['not_done'],
             ];
         }
 
@@ -161,6 +165,7 @@ final class OwnerPackData
             'reached' => $reached, 'promised' => $promised, 'on_time' => $n('on_time'), 'on_time_rate' => $promised > 0 ? round($n('on_time') * 100 / $promised, 1) : null,
             'failed_deliveries' => $n('failed_deliveries'), 'claims' => $n('claims'), 'claims_rate' => $reached > 0 ? round($n('claims') * 100 / $reached, 1) : null,
             'cash_variance' => $money('cash_variance')->toDecimal(), 'cash_variance_count' => $n('cash_variance_count'),
+            'assembly_net' => $money('assembly_net')->toDecimal(), 'assembly_jobs' => $n('assembly_jobs'), 'assembly_not_done' => $n('assembly_not_done'),
             'stock_out' => $n('stock_out'), 'unclosed_days' => $n('unclosed_days'), 'cash_with_collectors' => $money('cash_with_collectors')->toDecimal(),
         ];
     }

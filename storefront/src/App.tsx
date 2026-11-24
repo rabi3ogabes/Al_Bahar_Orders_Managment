@@ -16,7 +16,7 @@ import { AuthModalProvider, captureReferral, useAuthModal } from './components/A
 import { Layout } from './components/Layout';
 import { Spinner } from './components/ui';
 import Home from './pages/Home';
-import { NotFound, CmsPageView, Showrooms } from './pages/Misc';
+import { NotFound, CmsPageView, Showrooms, SignInRoute } from './pages/Misc';
 
 captureReferral();
 
@@ -80,6 +80,7 @@ export default function App() {
                               <Route path="auctions/lots/:lotId" element={<LotPage />} />
                               <Route path="auctions/:id" element={<AuctionPage />} />
                               <Route path="showrooms" element={<Showrooms />} />
+                              <Route path="login" element={<SignInRoute />} />
                               <Route path="pages/:slug" element={<CmsPageView />} />
                               <Route path="account" element={<Account />}>
                                 <Route index element={<Overview />} />

@@ -79,6 +79,7 @@ return [
     'note_sales_summary' => 'Booked sales is the dashboard figure: the total of orders placed in the period that are not cancelled and not waiting for online payment, with delivery fees and tax. Net sales counts items only: item value, less discounts, less items cancelled after ordering, less refunds that the lines do not already explain (a cancellation or an item change is already in the lines, so it is not taken off twice).',
     'note_inventory_levels' => 'An item that a branch never held is not listed. Out of stock means nothing is available and the branch has held it before; low means :n or fewer left unless the item has its own minimum. The counts above cover every row, the list shows the emptiest 5,000.',
     'note_fast_slow_movers' => 'On hand is the total across the branches you can see.',
+    'foot_deliveries' => 'Each row counts the deliveries created in the period, with the status they have now. This is not the scorecard: it counts deliveries by when they were created, the scorecard counts them by when they reached the customer.',
     'note_customers' => 'Lifetime value is what a customer spent with the branches you can see, each order counted once.',
 
     // ── Campaigns ───────────────────────────────────────────────────────────────

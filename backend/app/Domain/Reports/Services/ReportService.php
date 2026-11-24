@@ -5,6 +5,7 @@ namespace App\Domain\Reports\Services;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccessControl;
 use App\Domain\Identity\Support\BranchScope;
+use App\Domain\Reports\Services\Metrics\Assembly;
 use App\Support\BusinessTime;
 use App\Support\DomainException;
 use App\Support\Money;
@@ -41,7 +42,7 @@ class ReportService
     ];
 
     /**
-     * The reports that can be narrowed to "orders with assembly" ({@see AssemblySales::onlyParts()}). The assembly report itself is always about assembly, so it is not listed.
+     * The reports that can be narrowed to "orders with assembly" ({@see Assembly::onlyParts()}). The assembly report itself is always about assembly, so it is not listed.
      */
     public const ASSEMBLY_FILTER = ['sales_summary', 'sales_by_branch', 'sales_by_product', 'sales_by_category', 'sales_by_brand', 'sales_by_payment_method', 'sales_by_fulfillment', 'order_status'];
 
@@ -79,7 +80,7 @@ class ReportService
         $q = DB::table('order_items as oi')->join('orders as o', 'o.id', '=', 'oi.order_id')
             ->whereBetween('o.placed_at', [$start, $end])->whereNotIn('o.status', SalesBasis::EXCLUDED_STATUSES);
         if ($assemblyOnly) {
-            AssemblySales::onlyParts($q, 'oi.order_fulfillment_id');
+            Assembly::onlyParts($q, 'oi.order_fulfillment_id');
         }
 
         return $s->apply($q, 'oi.branch_id');
@@ -94,7 +95,7 @@ class ReportService
     {
         // The orders that have a part with paid assembly AT ONE OF THE VIEWER'S BRANCHES (the same judgement as the lines above): a split order whose assembly sits at
         // another branch is not an assembly order for this viewer, so a refund of it is not taken off their narrowed net sales.
-        $onlyOrders = $assemblyOnly ? AssemblySales::onlyParts($s->apply(DB::table('order_fulfillments as af')->select('af.order_id'), 'af.branch_id'), 'af.id') : null;
+        $onlyOrders = $assemblyOnly ? Assembly::onlyParts($s->apply(DB::table('order_fulfillments as af')->select('af.order_id'), 'af.branch_id'), 'af.id') : null;
 
         return SalesBasis::refunds($s, $start, $end, self::REFUNDS_ALREADY_IN_LINES, $onlyOrders)['amount']->toDecimal();
     }
@@ -107,12 +108,12 @@ class ReportService
         $discounts = Money::of((string) $l->discounts);
         $cancelled = Money::of((string) $l->cancelled);
         $refunds = Money::of($this->refundsOutsideLines($s, $start, $end, $assemblyOnly));
-        $booked = $assemblyOnly ? AssemblySales::bookedOfAssemblyOrders($s, $start, $end) : SalesBasis::totals($s, $start, $end);
+        $booked = $assemblyOnly ? Assembly::bookedOfAssemblyOrders($s, $start, $end) : SalesBasis::totals($s, $start, $end);
         $net = $gross->minus($discounts)->minus($cancelled)->minus($refunds);
         $orders = $booked['orders']; // the dashboard's count: orders with a live part in the viewer's branches
         $average = $orders > 0 ? Money::ofMinor((int) round($net->minor / $orders)) : Money::zero();
-        // Paid assembly is a service charge outside the item lines above (see AssemblySales): its own rows, so net sales keeps its meaning.
-        $assembly = AssemblySales::totals($s, $start, $end);
+        // Paid assembly is a service charge outside the item lines above (see Assembly): its own rows, so net sales keeps its meaning.
+        $assembly = Assembly::totals($s, $start, $end);
 
         return ['columns' => ['metric', 'value'], 'rows' => [
             ['metric' => 'orders', 'value' => $orders], ['metric' => 'booked_sales', 'value' => $booked['total']->toDecimal()],
@@ -127,12 +128,12 @@ class ReportService
     }
 
     /**
-     * Paid assembly per branch (see {@see AssemblySales} for what each column means). Always about assembly, so the "orders with assembly" switch changes nothing here.
+     * Paid assembly per branch (see {@see Assembly} for what each column means). Always about assembly, so the "orders with assembly" switch changes nothing here.
      */
     private function salesAssembly(BranchScope $s, $start, $end): array
     {
-        $rows = AssemblySales::perBranch($s, $start, $end);
-        $total = AssemblySales::totals($s, $start, $end);
+        $rows = Assembly::perBranch($s, $start, $end);
+        $total = Assembly::totals($s, $start, $end);
 
         return ['columns' => ['branch', 'name', 'jobs', 'units', 'returned_units', 'gross', 'refunded', 'net'],
             'rows' => array_map(fn (array $r) => ['branch' => $r['branch'], 'name' => $r['name'], 'jobs' => $r['jobs'], 'units' => $r['units'], 'returned_units' => $r['returned_units'],
@@ -176,7 +177,7 @@ class ReportService
     {
         $q = DB::table('orders as o')->join('order_fulfillments as f', 'f.order_id', '=', 'o.id')->whereBetween('o.placed_at', [$start, $end]);
         if ($assemblyOnly) {
-            AssemblySales::onlyParts($q, 'f.id');
+            Assembly::onlyParts($q, 'f.id');
         }
         $rows = $s->apply($q, 'f.branch_id')
             ->selectRaw('o.status, count(distinct o.id) as orders')->groupBy('o.status')->orderByDesc('orders')->get();
@@ -284,12 +285,12 @@ class ReportService
         $rows = $s->apply(DB::table('deliveries as d')->leftJoin('users as u', 'u.id', '=', 'd.driver_id')->leftJoin('delivery_providers as p', 'p.id', '=', 'd.delivery_provider_id')
             ->whereBetween('d.created_at', [$start, $end]), 'd.branch_id')
             ->selectRaw("coalesce(p.name, u.name, 'Unassigned') as executor, d.mode, count(*) as deliveries,
-                sum(CASE WHEN d.status = 'delivered' THEN 1 ELSE 0 END) as delivered, sum(d.attempt_count) as attempts,
-                sum(CASE WHEN d.status IN ('failed','returned','returning') THEN 1 ELSE 0 END) as failed,
-                round(avg(extract(epoch FROM (d.delivered_at - d.picked_up_at)) / 60)::numeric, 1) as avg_minutes_on_road")
+                sum(CASE WHEN d.status = 'delivered' THEN 1 ELSE 0 END) as now_delivered, sum(d.attempt_count) as attempts,
+                sum(CASE WHEN d.status IN ('failed','returned','returning') THEN 1 ELSE 0 END) as now_failed,
+                round(avg(extract(epoch FROM (d.delivered_at - d.picked_up_at)) / 60)::numeric, 1) as avg_minutes_on_road_delivered")
             ->groupBy('executor', 'd.mode')->orderByDesc('deliveries')->get();
 
-        return ['columns' => ['executor', 'mode', 'deliveries', 'delivered', 'attempts', 'failed', 'avg_minutes_on_road'], 'rows' => $rows->map(fn ($r) => (array) $r)->all(), 'summary' => []];
+        return ['columns' => ['executor', 'mode', 'deliveries', 'now_delivered', 'attempts', 'now_failed', 'avg_minutes_on_road_delivered'], 'rows' => $rows->map(fn ($r) => (array) $r)->all(), 'summary' => []];
     }
 
     private function pickups(BranchScope $s, $start, $end): array

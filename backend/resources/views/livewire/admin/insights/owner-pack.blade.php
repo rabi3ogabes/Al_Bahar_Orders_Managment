@@ -98,6 +98,16 @@
                 </table></div>
             </section>
 
+            <section aria-labelledby="op-asm" data-testid="pack-assembly">
+                <h3 id="op-asm" class="mb-2 font-display text-lg font-semibold">{{ $pack['assembly']['title'] }}</h3>
+                <div class="table-wrap"><table class="table">
+                    <thead><tr><th></th>@foreach ($pack['assembly']['columns'] as $col)<th class="!text-end">{{ $col }}</th>@endforeach</tr></thead>
+                    <tbody>@foreach ($pack['assembly']['rows'] as $row)
+                        <tr class="{{ $row['total'] ? 'font-semibold' : '' }}"><td class="whitespace-nowrap">{{ $row['name'] }}</td>@foreach ($row['cells'] as $cell)<td class="text-end tabular-nums whitespace-nowrap" dir="ltr">{{ $cell }}</td>@endforeach</tr>
+                    @endforeach</tbody>
+                </table></div>
+            </section>
+
             <div class="grid gap-6 lg:grid-cols-2">
                 @foreach ([['top_units_title', 'top_units'], ['top_revenue_title', 'top_revenue']] as [$titleKey, $listKey])
                     <section aria-labelledby="op-{{ $listKey }}">

@@ -75,6 +75,10 @@ return [
     'period' => 'Week :week · :from – :to',
     'versus' => 'Compared with :from – :to',
     'branches_title' => 'Branch by branch',
+    'assembly_title' => 'Assembly',
+    'assembly_net' => 'Sold (net)',
+    'assembly_jobs' => 'Visits',
+    'assembly_not_done' => 'Not done',
     'total' => 'All branches',
     'none' => 'n/a',
     'points' => 'points',
@@ -106,6 +110,7 @@ return [
         'claims_rate' => 'Claims: return and damage claims opened in the week for every 100 orders that reached the customer in the week.',
         'stock_out' => 'Out of stock: items with nothing available today (a stock figure is always as of now).',
         'cash_variance' => 'Cash diff.: the difference the cashiers found when counting cash handed in during the week (a minus means short).',
+        'assembly' => 'Assembly: paid assembly of the orders placed in the week, less what went back with returns; visits are the deliveries that still have assembly to do; not done is how many of them the driver reported as not done.',
     ],
     'footer' => 'This pack holds figures and product names only. It never holds customer names, phone numbers or order numbers.',
     'errors' => [

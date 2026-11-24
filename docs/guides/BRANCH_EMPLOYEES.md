@@ -74,6 +74,7 @@ per row with **Undo**. Search, branch filter (only your branches), role filter (
 | Cash drawer | **See cash drawer and payments** | Opens the cash drawer and the payments list of this branch. | `payments.view` | — |
 |  | **Collect cash from customers** | Record cash taken at pickup or on delivery. | `payments.create` | — |
 |  | **Hand in and deposit cash** | Hand collected cash to the office and record bank deposits. | `payments.edit` | See cash drawer and payments |
+|  | **Approve petty-cash payouts above the limit** | Can stand behind a payout from the till that is above the limit, as the second person. Does not open any other payment or cash screen. | `payouts.approve` (narrower than `payments.override`, which stays accepted) | See cash drawer and payments |
 | Staff of this branch | **See staff of this branch** | Opens the list of people who work at this branch (no changes). | `employees.view` | — |
 | Screen on the wall | **Wall display** | A screen that shows the live board of this branch and nothing else (no menu, search, phone numbers or buttons). Cannot be mixed with other features. See [SEARCH_AND_LIVE_BOARD.md](SEARCH_AND_LIVE_BOARD.md). | `board.view` | — |
 
@@ -109,6 +110,7 @@ per row with **Undo**. Search, branch filter (only your branches), role filter (
 | See cash drawer and payments | ✓ |  | ✓ |  |  |  |
 | Collect cash from customers | ✓ |  | ✓ |  |  |  |
 | Hand in and deposit cash | ✓ |  |  |  |  |  |
+| Approve petty-cash payouts above the limit |  |  |  |  |  |  |
 | See staff of this branch | ✓ |  |  |  |  |  |
 
 

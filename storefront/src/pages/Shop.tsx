@@ -84,14 +84,15 @@ export default function Shop() {
       )}
 
       <div className="grid gap-10 lg:grid-cols-[250px_minmax(0,1fr)]">
-        <aside className="hidden lg:block" aria-label={t('filter.title')}><div className="sticky top-32"><FilterPanel cats={cats.data ?? []} brands={brands.data ?? []} f={f} set={set} /></div></aside>
+        <aside className="hidden lg:block" aria-label={t('filter.title')}><div className="sticky top-32"><h2 className="sr-only">{t('filter.title')}</h2><FilterPanel cats={cats.data ?? []} brands={brands.data ?? []} f={f} set={set} /></div></aside>
         <section aria-live="polite">
+          <h2 className="sr-only">{t('shop.products')}</h2>
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
             <div className="flex items-center gap-3">
               <Button variant="outline" size="sm" className="lg:hidden" onClick={() => setSheet(true)}><SlidersHorizontal size={15} />{t('filter.title')}{chips.length > 0 && ` (${chips.length})`}</Button>
               <p className="text-sm text-muted">{list.isLoading ? '…' : total === 1 ? t('shop.count_one') : t('shop.count', { n: num(total) })}</p>
             </div>
-            <div className="w-52"><Select label={t('sort.title')} value={sort} onChange={(e) => set({ sort: e.target.value })} className="[&_label]:sr-only [&_select]:h-10 [&_select]:text-sm">
+            <div className="w-52"><Select label={t('sort.title')} value={sort} onChange={(e) => set({ sort: e.target.value })} className="[&_label]:sr-only [&_select]:h-11 [&_select]:text-sm">
               {q && <option value="relevance">{t('sort.relevance')}</option>}
               <option value="-popularity">{t('sort.popular')}</option><option value="-created_at">{t('sort.newest')}</option>
               <option value="price">{t('sort.price_asc')}</option><option value="-price">{t('sort.price_desc')}</option><option value="-rating">{t('sort.rating')}</option>
@@ -100,8 +101,8 @@ export default function Shop() {
 
           {chips.length > 0 && (
             <div className="mb-6 flex flex-wrap items-center gap-2">
-              {chips.map((c, i) => <button key={i} onClick={c.clear} className="flex items-center gap-1.5 rounded-full bg-sand px-3.5 py-1.5 text-[13px] hover:bg-sand-deep">{c.label}<X size={13} /></button>)}
-              <button onClick={() => setSp(new URLSearchParams(), { replace: true })} className="text-[13px] font-medium text-brass-deep underline-offset-2 hover:underline">{t('filter.clear')}</button>
+              {chips.map((c, i) => <button key={i} onClick={c.clear} className="flex min-h-11 items-center gap-1.5 rounded-full bg-sand px-3.5 py-1.5 text-[13px] hover:bg-sand-deep">{c.label}<X size={13} /></button>)}
+              <button onClick={() => setSp(new URLSearchParams(), { replace: true })} className="inline-flex min-h-11 items-center text-[13px] font-medium text-brass-deep underline-offset-2 hover:underline">{t('filter.clear')}</button>
             </div>
           )}
 

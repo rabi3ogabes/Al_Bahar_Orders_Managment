@@ -156,7 +156,7 @@ export interface Review { id: string; rating: number; title: string | null; body
 export interface Auction { id: string; reference: string; type: string; status: string; title: string; cover_image_url: string | null; starts_at: string; ends_at: string; lots_count: number; deposit: Money | null }
 export interface Lot {
   id: string; auction_id: string; lot_number: number; title: string; description: string | null; image_url: string | null; quantity: number; status: string
-  starting_price: Money; current_price: Money; min_next_bid: Money; min_increment: Money; buy_now_price: Money | null; reserve_met: boolean
+  starting_price: Money; current_price: Money | null; min_next_bid: Money; min_increment: Money; buy_now_price: Money | null; reserve_met: boolean
   bid_count: number; last_sequence: number; starts_at: string; ends_at: string; extension_count: number; server_time: string
   my_status: string | null; my_max_auto_bid: Money | null; is_watching: boolean
 }

@@ -24,7 +24,7 @@ use Throwable;
  *    shift and its Z-report, or refused: it can never slip in after the close.
  *  - IT LOWERS the expected cash of the shift ({@see CashShiftService::figuresFor()}). A payout cannot be larger than the cash the drawer should hold.
  *  - ABOVE THE LIMIT (Settings > Cash, default QAR 100, "above" is strict) a second person must be named as the approver: someone who holds
- *    `payments.override` at the branch and is not the cashier paying it out.
+ *    `payouts.approve` (the narrow right of the branch employee checklist) or `payments.override` at the branch and is not the cashier paying it out.
  *  - A DOUBLE TAP is harmless: the same `request_key` answers with the payout that already exists.
  *  - A MISTAKE is VOIDED, never deleted: with a reason, by whoever may run the drawer (a payout that needed an approver can only be voided by someone who may
  *    approve), only while the shift is open. A voided payout stops counting in the expected cash and stays on the Z-report, marked.
@@ -54,7 +54,7 @@ final class CashPayoutService
     }
 
     /**
-     * The people who may approve a payout at the branch: they hold `payments.override` there, are active, and are not the cashier.
+     * The people who may approve a payout at the branch: they hold `payouts.approve` or `payments.override` there, are active, and are not the cashier.
      *
      * @return Collection<int, User>
      */
@@ -64,7 +64,13 @@ final class CashPayoutService
             ->where(fn ($q) => $q->where('is_super_admin', true)
                 ->orWhereIn('id', DB::table('user_roles')->select('user_id')->where(fn ($r) => $r->where('branch_id', $branchId)->orWhereNull('branch_id'))))
             ->orderBy('name')->orderBy('id')->limit(200)->get(['id', 'name', 'type', 'status', 'is_super_admin'])
-            ->filter(fn (User $u) => $this->access->allows($u, 'payments.override', $branchId))->values();
+            ->filter(fn (User $u) => $this->mayApprove($u, $branchId))->values();
+    }
+
+    /** Who may stand behind a payout above the limit at a branch: the narrow `payouts.approve`, or the wider `payments.override` that has always been enough. */
+    public function mayApprove(User $user, string $branchId): bool
+    {
+        return $this->access->allows($user, 'payouts.approve', $branchId) || $this->access->allows($user, 'payments.override', $branchId);
     }
 
     /**
@@ -139,7 +145,7 @@ final class CashPayoutService
             throw DomainException::make('branch_forbidden', 403);
         }
         // A payout somebody else approved cannot be erased by the cashier alone.
-        if ($payout->approved_by !== null && ! $this->access->allows($actor, 'payments.override', $payout->branch_id)) {
+        if ($payout->approved_by !== null && ! $this->mayApprove($actor, $payout->branch_id)) {
             throw DomainException::make('cash_payout_void_needs_approver', 403);
         }
         $reason = trim($reason);
@@ -185,7 +191,7 @@ final class CashPayoutService
         return $money;
     }
 
-    /** The named second person, when the amount needs one (or one was offered): holds `payments.override` at the branch, active, and is not the cashier. */
+    /** The named second person, when the amount needs one (or one was offered): holds `payouts.approve` or `payments.override` at the branch, active, and is not the cashier. */
     private function approver(User $actor, string $branchId, Money $amount, ?string $approverId): ?User
     {
         if ($approverId === null || $approverId === '') {
@@ -196,7 +202,7 @@ final class CashPayoutService
             return null;
         }
         $approver = Str::isUuid($approverId) ? User::query()->find($approverId) : null;
-        if ($approver === null || $approver->id === $actor->id || ! $this->access->allows($approver, 'payments.override', $branchId)) {
+        if ($approver === null || $approver->id === $actor->id || ! $this->mayApprove($approver, $branchId)) {
             throw DomainException::make('cash_payout_approver_invalid', 422);
         }
 

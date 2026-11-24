@@ -58,6 +58,7 @@ open points. Then one card per branch: its sales, orders delivered and cancelled
 | Differences nobody has explained | Hand-ins with an open variance (any day). |
 | Refunds paid | Refunds processed that day for orders this branch took part in, the branch's share (divided like the sale, so two branches never both claim a whole refund). |
 | Failed deliveries | Deliveries at this branch that failed that day. |
+| Assembly sold (net) / Assembly visits to do / Assembly the driver could not do | Section "Assembly" (`Metrics\Assembly`, the Assembly sales report's own definition): the paid assembly of the orders placed that day, less what went back with returns; the visits (branch parts) that still have assembly units left; and how many of those visits the driver answered "not done", as it stands now. Aggregates only. |
 | Average time to accept / prepare | In **opening-hours minutes** (the order clock's own rule, so a shut night is not slowness): from when the part could be accepted to when it was; from accepted to ready. The count of orders measured is shown beside it; a day with none shows "Nothing measured". |
 | Items out of stock / running low | The dashboard's meaning of out and low (`StockLevels`), **as they stand now**; a closed day keeps the figure it had. |
 
@@ -99,6 +100,7 @@ time (Qatar time, default Monday 08:00), the language (English or Arabic), and a
 | Out of stock | Items with nothing available **today** (a stock figure is always as of now). |
 | Cash difference | The signed total of the differences found counting cash handed in during the week. |
 | Days not closed | Days of the week, already over, whose branch day nobody closed. |
+| Assembly (Sold net, Visits, Not done) | A small table of its own under "Branch by branch": per branch and for all branches, the week's assembly exactly as the daily close shows it day by day (`Metrics\Assembly`). Aggregates only: no customer, no order number. |
 | Top 5 products | By units (then revenue) and by revenue (then units), from the order lines of orders that count as sales: units are quantity less what was cancelled; revenue is the line after discount less what was cancelled. |
 | Change | `(this week - last week) / last week`; no change is shown when last week was zero. |
 

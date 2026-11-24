@@ -31,6 +31,8 @@ final class PermissionRegistry
         'pickup' => [['view', 'edit', 'approve'], 'Store pickup', 'الاستلام من الفرع'],
         'deliveries' => [['view', 'create', 'edit', 'assign', 'override'], 'Deliveries', 'التوصيل'],
         'payments' => [['view', 'create', 'edit', 'export', 'override'], 'Payments', 'المدفوعات'],
+        // The narrow right to stand behind a petty-cash payout above the limit (payments.override also counts, but opens much more): docs/guides/ASSEMBLY_SALES_AND_PETTY_CASH.md.
+        'payouts' => [['approve'], 'Petty-cash payouts', 'مصروفات الصندوق النقدي'],
         'refunds' => [['view', 'create', 'approve', 'refund'], 'Refunds', 'المبالغ المستردة'],
         'reconciliation' => [['view', 'create', 'approve', 'export'], 'Reconciliation', 'التسويات'],
         'auctions' => [['view', 'create', 'edit', 'delete', 'approve', 'override'], 'Auctions', 'المزادات'],
@@ -142,6 +144,7 @@ final class PermissionRegistry
             'cash_view' => ['keys' => ['payments.view']],
             'cash_collect' => ['keys' => ['payments.create']],
             'cash_handover' => ['keys' => ['payments.edit'], 'needs' => ['cash_view']],
+            'cash_payout_approve' => ['keys' => ['payouts.approve'], 'needs' => ['cash_view']],
         ],
         'staff' => [
             'staff_view' => ['keys' => ['employees.view']],

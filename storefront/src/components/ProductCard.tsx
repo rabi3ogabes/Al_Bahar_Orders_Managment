@@ -58,7 +58,7 @@ export function ProductCard({ p, priority }: { p: P; priority?: boolean }) {
     const sale = !!p.price.sale && p.price.discount_percent > 0;
     return (
       <article className="fx-card fx-hover group relative flex h-full flex-col p-2.5 sm:p-3">
-        <Link to={`/products/${p.slug}`} className="flex h-full flex-col" aria-label={p.name}>
+        <Link to={`/products/${p.slug}`} className="flex h-full flex-col">
           <div className="relative overflow-hidden rounded-[var(--r-ctl)]">
             <Pic src={p.image?.thumb_url} alt={p.image?.alt ?? p.name} label={p.brand?.name} eager={priority} ratio="1/1" />
             <div className="absolute start-2 top-2 flex flex-col items-start gap-1">
@@ -97,7 +97,7 @@ export function ProductCard({ p, priority }: { p: P; priority?: boolean }) {
 
   return (
     <article className="group relative">
-      <Link to={`/products/${p.slug}`} className="block" aria-label={p.name}>
+      <Link to={`/products/${p.slug}`} className="block">
         <div className="relative overflow-hidden rounded-[20px]">
           <Pic src={p.image?.thumb_url} alt={p.image?.alt ?? p.name} label={p.brand?.name} eager={priority} />
           <div className="absolute start-3 top-3 flex flex-col items-start gap-1.5">
@@ -123,7 +123,7 @@ export function ProductCard({ p, priority }: { p: P; priority?: boolean }) {
         </div>
       </Link>
       <button onClick={() => wl.toggle(p.id)} aria-pressed={liked} aria-label={liked ? t('wishlist.remove') : t('wishlist.add')}
-        className="absolute end-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-paper/90 text-ink shadow-soft backdrop-blur transition-transform hover:scale-105">
+        className="absolute end-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-paper/90 text-ink shadow-soft backdrop-blur transition-transform hover:scale-105">
         <Heart size={18} className={cx(liked && 'fill-danger text-danger')} />
       </button>
     </article>

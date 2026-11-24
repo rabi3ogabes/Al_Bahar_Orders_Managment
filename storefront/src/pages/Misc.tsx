@@ -1,4 +1,6 @@
-import { useParams } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useAuthModal } from '../components/AuthModal';
 import { useQuery } from '@tanstack/react-query';
 import { Clock, Mail, MapPin, Navigation, Phone, SearchX } from 'lucide-react';
 import { ApiError, get } from '../lib/api';
@@ -50,14 +52,14 @@ export function Showrooms() {
             {!b.opening.is_open && b.opening.next_open_at && <p className="mt-1 text-sm text-muted">{t('branch.opens_at', { d: date(b.opening.next_open_at, { weekday: 'short', timeStyle: 'short', timeZone: 'Asia/Qatar' }) })}</p>}
             <ul className="mt-5 space-y-2.5 text-sm text-ink-soft">
               {b.address && <li className="flex gap-3"><MapPin size={17} className="mt-0.5 shrink-0 text-brass" />{b.address}</li>}
-              {b.phone && <li><a href={telHref(b.phone)} className="flex gap-3 hover:text-brass-deep"><Phone size={17} className="mt-0.5 shrink-0 text-brass" /><bdi>{b.phone}</bdi></a></li>}
-              {b.email && <li><a href={`mailto:${b.email}`} className="flex gap-3 hover:text-brass-deep"><Mail size={17} className="mt-0.5 shrink-0 text-brass" />{b.email}</a></li>}
+              {b.phone && <li><a href={telHref(b.phone)} className="flex min-h-11 items-center gap-3 hover:text-brass-deep"><Phone size={17} className="mt-0.5 shrink-0 text-brass" /><bdi>{b.phone}</bdi></a></li>}
+              {b.email && <li><a href={`mailto:${b.email}`} className="flex min-h-11 items-center gap-3 hover:text-brass-deep"><Mail size={17} className="mt-0.5 shrink-0 text-brass" />{b.email}</a></li>}
             </ul>
             <div className="mt-4 flex flex-wrap gap-2">{b.pickup_enabled && <Badge tone="brass">{t('checkout.pickup')}</Badge>}{b.delivery_enabled && <Badge tone="brass">{t('checkout.delivery')}</Badge>}{b.pay_at_pickup_enabled && <Badge>{t('pay.pickup')}</Badge>}</div>
-            <details className="mt-4 group"><summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-semibold"><Clock size={16} className="text-brass" />{t('branch.hours')}</summary><Hours id={b.id} /></details>
+            <details className="mt-4 group"><summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-sm font-semibold"><Clock size={16} className="text-brass" />{t('branch.hours')}</summary><Hours id={b.id} /></details>
             <div className="mt-6 flex flex-wrap gap-2">
-              {mapsHref(b.latitude, b.longitude, b.name) && <a href={mapsHref(b.latitude, b.longitude, b.name)} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center gap-2 rounded-full border border-line px-5 text-sm font-medium hover:border-primary"><Navigation size={15} />{t('order.directions')}</a>}
-              <Button size="sm" variant={branchId === b.id ? 'primary' : 'outline'} className="h-10" onClick={() => select(b.id)}>{branchId === b.id ? t('branch.selected') : t('branch.shop_here')}</Button>
+              {mapsHref(b.latitude, b.longitude, b.name) && <a href={mapsHref(b.latitude, b.longitude, b.name)} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center gap-2 rounded-full border border-line px-5 text-sm font-medium hover:border-primary"><Navigation size={15} />{t('order.directions')}</a>}
+              <Button size="sm" variant={branchId === b.id ? 'primary' : 'outline'} className="h-11" onClick={() => select(b.id)}>{branchId === b.id ? t('branch.selected') : t('branch.shop_here')}</Button>
             </div>
           </article>
         ))}
@@ -82,8 +84,16 @@ export function CmsPageView() {
   );
 }
 
+/** `/login`: sign-in is a window over the page, so this address opens it over the home page (a link or bookmark to /login still works). */
+export function SignInRoute() {
+  const modal = useAuthModal();
+  const nav = useNavigate();
+  useEffect(() => { nav('/', { replace: true }); modal.open(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
 export function NotFound() {
   const { t } = useI18n();
   useDocTitle(t('notfound.title'));
-  return <div className="wrap py-24"><EmptyState icon={<SearchX size={30} />} title={t('notfound.title')} text={t('notfound.text')} action={<div className="flex gap-3"><LinkButton to="/">{t('nav.home')}</LinkButton><LinkButton to="/shop" variant="outline">{t('nav.shop')}</LinkButton></div>} /></div>;
+  return <div className="wrap py-24"><EmptyState heading="h1" icon={<SearchX size={30} />} title={t('notfound.title')} text={t('notfound.text')} action={<div className="flex gap-3"><LinkButton to="/">{t('nav.home')}</LinkButton><LinkButton to="/shop" variant="outline">{t('nav.shop')}</LinkButton></div>} /></div>;
 }

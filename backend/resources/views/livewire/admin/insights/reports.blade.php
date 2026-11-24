@@ -98,6 +98,7 @@
                             @endforeach</tr>
                         @endforeach</tbody>
                     </table></div>
+                    @if ($report === 'deliveries')<p class="border-t border-sand-100 p-3 text-xs leading-relaxed text-ink-500 dark:border-ink-800" data-testid="deliveries-foot">{{ __('owner_numbers.foot_deliveries') }}</p>@endif
                     @if (count($result['rows']) > 500)<p class="border-t border-sand-100 p-3 text-center text-xs text-ink-500 dark:border-ink-800">{{ __('content_admin.rows_truncated', ['n' => count($result['rows'])]) }}</p>@endif
                 @endif
             </div>

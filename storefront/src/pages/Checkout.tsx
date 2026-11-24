@@ -110,8 +110,8 @@ function Slots({ branchId, kind, value, date, auto, replaced, onPick, required, 
             <button key={s.id} role="radio" aria-checked={on} disabled={!bookable} onClick={() => onPick(s.id, current.date)} className={cx('relative rounded-2xl border px-3 py-3 text-center text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50', on ? 'border-primary bg-primary text-on-primary shadow-soft' : 'border-ink/25 bg-paper text-ink hover:border-primary', !hasFreePlace(s) && 'line-through')}>
               {on && <Check size={14} className="absolute end-2 top-2" aria-hidden="true" />}
               <span className="block font-semibold tabular-nums" dir="ltr">{s.starts_at} – {s.ends_at}</span>
-              <span className={cx('text-[11px]', on ? 'text-on-primary/85' : 'text-ink-soft')}>{!hasFreePlace(s) || !bookable ? t('checkout.slot_full') : t('checkout.slot_left', { n: s.available })}</span>
-              {on && auto && <span className="mt-0.5 flex items-center justify-center gap-1 text-[11px] font-medium text-on-primary/90" data-testid="slot-earliest-badge"><Sparkles size={11} aria-hidden="true" />{t('checkout.slot_earliest')}</span>}
+              <span className={cx('text-[11px]', on ? 'text-on-primary-soft' : 'text-ink-soft')}>{!hasFreePlace(s) || !bookable ? t('checkout.slot_full') : t('checkout.slot_left', { n: s.available })}</span>
+              {on && auto && <span className="mt-0.5 flex items-center justify-center gap-1 text-[11px] font-medium text-on-primary-soft" data-testid="slot-earliest-badge"><Sparkles size={11} aria-hidden="true" />{t('checkout.slot_earliest')}</span>}
             </button>
           );
         })}
@@ -264,10 +264,10 @@ export default function Checkout() {
 
   if (authLoading) return <div className="wrap py-16"><Spinner /></div>;
   if (!user) {
-    return <div className="wrap py-16"><EmptyState icon={<Lock size={28} />} title={t('checkout.signin_title')} text={t('checkout.signin_text')} action={<Button size="lg" onClick={() => authModal.open({ reason: t('auth.reason_checkout') })}>{t('auth.sign_in')}</Button>} /></div>;
+    return <div className="wrap py-16"><EmptyState heading="h1" icon={<Lock size={28} />} title={t('checkout.signin_title')} text={t('checkout.signin_text')} action={<Button size="lg" onClick={() => authModal.open({ reason: t('auth.reason_checkout') })}>{t('auth.sign_in')}</Button>} /></div>;
   }
   if (!cart.loading && cart.lines.length === 0 && !place.isPending && !place.isSuccess) {
-    return <div className="wrap py-16"><EmptyState title={t('cart.empty')} text={t('cart.empty_text')} action={<Button size="lg" onClick={() => nav('/shop')}>{t('cart.continue')}</Button>} /></div>;
+    return <div className="wrap py-16"><EmptyState heading="h1" title={t('cart.empty')} text={t('cart.empty_text')} action={<Button size="lg" onClick={() => nav('/shop')}>{t('cart.continue')}</Button>} /></div>;
   }
 
   const methodMeta: Record<Method, { icon: React.ReactNode; title: string; text: string }> = {

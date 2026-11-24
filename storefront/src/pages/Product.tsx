@@ -151,7 +151,7 @@ export default function Product() {
 
   if (q.isError) {
     const nf = q.error instanceof ApiError && q.error.status === 404;
-    return <div className="wrap py-24"><EmptyState title={nf ? t('product.not_found') : t('error.title')} text={nf ? t('product.not_found_text') : t('error.generic')} action={<Button onClick={() => nav('/shop')}>{t('nav.shop')}</Button>} /></div>;
+    return <div className="wrap py-24"><EmptyState heading="h1" title={nf ? t('product.not_found') : t('error.title')} text={nf ? t('product.not_found_text') : t('error.generic')} action={<Button onClick={() => nav('/shop')}>{t('nav.shop')}</Button>} /></div>;
   }
   if (!p) {
     return <div className="wrap grid gap-10 py-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]"><Skeleton className="aspect-[4/5] rounded-[28px]" /><div className="space-y-4"><Skeleton className="h-4 w-1/4" /><Skeleton className="h-14 w-4/5" /><Skeleton className="h-8 w-1/3" /><Skeleton className="h-40" /></div></div>;
@@ -201,7 +201,7 @@ export default function Product() {
 
         {/* Buy box */}
         <div>
-          {p.brand && <Link to={`/shop?brand=${p.brand.id}`} className="eyebrow hover:text-ink">{p.brand.name}</Link>}
+          {p.brand && <Link to={`/shop?brand=${p.brand.id}`} className="eyebrow inline-flex min-h-11 items-center hover:text-ink">{p.brand.name}</Link>}
           <h1 className="mt-2 text-[clamp(34px,4.5vw,56px)] leading-[1.02]">{p.name}</h1>
           <div className="mt-3 flex flex-wrap items-center gap-4">{p.rating.count > 0 && <Rating value={p.rating.average} count={p.rating.count} />}<span className="text-xs text-muted">SKU {variant?.sku ?? p.sku}</span></div>
           <div className="mt-5"><ProductPrice p={p} variant={variant} price={price} qty={qty} /></div>

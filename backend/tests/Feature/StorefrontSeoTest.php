@@ -142,7 +142,7 @@ it('gives the home page its organisation and search box data, and keeps the shel
     $html = $this->get('/')->assertOk()->getContent();
     $types = array_column(ldBlocks($html), '@type');
 
-    expect($types)->toBe(['Organization', 'WebSite'])->and($html)->toContain('<title>Al Bahar Home &amp; Living</title>')->toContain('content="Base description"');
+    expect($types)->toBe(['Organization', 'WebSite'])->and($html)->toContain('<title>Al Bahar Home &amp; Living | Furniture and household essentials in Qatar</title>')->not->toContain('content="Base description"');
     expect(ldBlocks($html)[1]['potentialAction']['target']['urlTemplate'])->toBe('https://shop.example/shop?q={search_term_string}');
 });
 
@@ -151,7 +151,7 @@ it('asks search engines to stay out of the cart, checkout, account and order pag
         expect($this->get($path)->assertOk()->getContent())->toContain('<meta name="robots" content="noindex,nofollow" />')->not->toContain('og:title');
     }
     $this->get('/something/else')->assertNotFound();
-    $this->get('/auctions/lots/abc')->assertOk();
+    $this->get('/auctions/lots/abc')->assertNotFound();
 });
 
 it('lists every public address in the sitemap and leaves out drafts and archived products', function () {

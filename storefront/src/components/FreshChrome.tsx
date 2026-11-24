@@ -127,7 +127,7 @@ export function FreshFooter() {
           <p className="mt-5 max-w-xs text-[14px] leading-relaxed text-on-band/75">{t('footer.about')}</p>
         </div>
         <div>
-          <h3 className={col}>{t('fresh.footer_quick')}</h3>
+          <h2 className={col}>{t('fresh.footer_quick')}</h2>
           <ul className="mt-4 space-y-2.5">
             <li><Link className={a} to="/shop">{t('nav.shop')}</Link></li>
             <li><Link className={a} to="/shop?sale=1">{t('footer.sale')}</Link></li>
@@ -138,7 +138,7 @@ export function FreshFooter() {
           </ul>
         </div>
         <div>
-          <h3 className={col}>{t('fresh.footer_support')}</h3>
+          <h2 className={col}>{t('fresh.footer_support')}</h2>
           <ul className="mt-4 space-y-2.5">
             <li><Link className={a} to="/account/orders">{t('account.orders')}</Link></li>
             <li><Link className={a} to="/account/support">{t('account.support')}</Link></li>
@@ -148,7 +148,7 @@ export function FreshFooter() {
           </ul>
         </div>
         <div>
-          <h3 className={col}>{t('fresh.footer_contact')}</h3>
+          <h2 className={col}>{t('fresh.footer_contact')}</h2>
           <ul className="mt-4 space-y-3 text-[14px] text-on-band/80">
             {b?.address && <li><Link to="/showrooms" className="flex items-start gap-2.5 hover:text-accent"><MapPin size={16} className="mt-0.5 shrink-0 text-accent" /><span>{b.name}{b.area ? ` · ${b.area}` : ''}<br />{b.address}</span></Link></li>}
             {b?.phone && <li><a href={telHref(b.phone)} className="flex items-center gap-2.5 hover:text-accent"><Phone size={16} className="shrink-0 text-accent" /><bdi>{b.phone}</bdi></a></li>}

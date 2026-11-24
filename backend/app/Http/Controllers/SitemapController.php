@@ -71,13 +71,32 @@ class SitemapController extends Controller
             $rows[] = $this->url($base.'/pages/'.rawurlencode($p->slug), $p->updated_at, 'yearly', '0.3');
         });
 
-        return '<?xml version="1.0" encoding="UTF-8"?>'."\n".'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">'."\n"
+        return '<?xml version="1.0" encoding="UTF-8"?>'."\n".'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1" xmlns:xhtml="http://www.w3.org/1999/xhtml">'."\n"
             .implode("\n", $rows)."\n</urlset>\n";
     }
 
+    /**
+     * One address, and its Arabic twin (`lang=ar`), each listing both languages (hreflang) so search engines serve the right one. Deals are one bilingual
+     * address and stay single.
+     */
     private function url(string $loc, mixed $modified, string $freq, string $priority, ?string $image = null): string
     {
+        if (str_contains($loc, '/deals')) {
+            return $this->entry($loc, $modified, $freq, $priority, $image, []);
+        }
+        $ar = $loc.(str_contains($loc, '?') ? '&' : '?').'lang=ar';
+        $alternates = ['en' => $loc, 'ar' => $ar, 'x-default' => $loc];
+
+        return $this->entry($loc, $modified, $freq, $priority, $image, $alternates)."\n".$this->entry($ar, $modified, $freq, $priority, $image, $alternates);
+    }
+
+    /** @param array<string, string> $alternates */
+    private function entry(string $loc, mixed $modified, string $freq, string $priority, ?string $image, array $alternates): string
+    {
         $x = '  <url><loc>'.e($loc).'</loc>';
+        foreach ($alternates as $hreflang => $href) {
+            $x .= '<xhtml:link rel="alternate" hreflang="'.$hreflang.'" href="'.e($href).'"/>';
+        }
         if ($modified !== null) {
             $x .= '<lastmod>'.e($modified->toAtomString()).'</lastmod>';
         }

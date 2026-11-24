@@ -72,6 +72,8 @@ return [
     'cash_collect_hint' => 'Record cash taken at pickup or on delivery.',
     'cash_handover' => 'Hand in and deposit cash',
     'cash_handover_hint' => 'Hand collected cash to the office and record bank deposits.',
+    'cash_payout_approve' => 'Approve petty-cash payouts above the limit',
+    'cash_payout_approve_hint' => 'Can stand behind a payout from the till that is above the limit, as the second person. Does not open any other payment or cash screen.',
     'staff_view' => 'See staff of this branch',
     'staff_view_hint' => 'Opens the list of people who work at this branch (no changes).',
     'wall_display' => 'Wall display',

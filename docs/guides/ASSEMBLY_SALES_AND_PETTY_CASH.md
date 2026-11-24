@@ -39,7 +39,7 @@ A branch manager sees only their own branch's assembly (the same branch scope as
 
 - **Attribution to the order's day.** Assembly refunded is attributed to the day the order was placed, like the sale it belongs to. A return received next month therefore lowers last month's net, and a past period can change when a later return arrives. The alternative (dating the refund by the return) would need a date per returned unit that the order line does not keep.
 - **Net sales is not changed.** Net sales counts item lines only, so it never contained assembly. A return refund that includes the assembly share is still taken off net sales in full (the refund is one amount without a split), so for a return of an assembled item the two reports overlap by that share. Not changed here to keep every existing figure as it was; the assembly rows are separate and exact.
-- **Daily close and owner pack** do not carry assembly yet: they will read the number through the shared definition (roadmap 5.8) when it lands. The Assembly sales report is the place today.
+- **Daily close and owner pack** (roadmap 6.8) read assembly through the same definition, now `App\Domain\Reports\Services\Metrics\Assembly` (it was `AssemblySales`; the class moved into the shared layer, the numbers did not change). Daily close, section "Assembly": net sold, visits to do, visits the driver reported as not done. Owner pack: an "Assembly" table (net, visits, not done) per branch and for all branches, in the e-mail, the preview and the plain-text/WhatsApp text. "Not done" counts the visits (branch parts with assembly units left after returns) whose driver answered "not done", as that answer stands now; a pending or "done" answer is not counted. Aggregates only. A closed daily close keeps what it showed when it was read; the page recomputes the open days.
 - **No new index.** The queries are bounded by the indexed `orders.placed_at` range and join lines by `order_items.order_id`; the "has assembly" test is an `EXISTS` on `order_items.order_fulfillment_id`, which already has an index (`order_items_order_fulfillment_id_idx`).
 
 ---
@@ -67,7 +67,7 @@ Pay out records it and keeps the window open on the list **Paid out in this shif
 - Only while the shift is open. A payout takes the shift row lock first (the lock receiving cash, banking and closing already take), so it is either inside the shift and its Z-report or refused; it can never appear after the close.
 - It **lowers the expected cash** of the shift: expected = float + hand-ins received - banked - cash refunds - petty payouts not reversed. The count at closing is compared with the lowered figure.
 - **A payout cannot be larger than the cash the drawer should hold** (refused with the amount the drawer holds). Exactly the drawer's amount is allowed and takes it to zero.
-- **Above the limit** a named approver is required: an active person other than the cashier who holds `payments.override` at the branch (administrators, super admins and accountants do; the branch manager role does not, see "Owner decisions"). The approver is chosen from a list in the window.
+- **Above the limit** a named approver is required: an active person other than the cashier who holds `payouts.approve` or `payments.override` at the branch (administrators, super admins and accountants hold `payments.override`; a branch manager can be given `payouts.approve` in Branch employees, see below). The approver is chosen from a list in the window.
 - **A double tap is harmless**: the window carries a key; the same key answers with the payout that exists. A second window is a second payout.
 - **Reverse** (void): reason of 3 to 300 characters, only while the shift is open, by anyone who may run the drawer; a payout somebody approved can only be reversed by someone who may approve. The line stays (who, when, why) and stops counting. Reversing twice is one reversal.
 - Audit log: `cash_shift.payout_recorded` (amount, reason, note, approver, drawer after) and `cash_shift.payout_voided`.
@@ -99,7 +99,18 @@ Finance > Cash > **Shifts** tab: a **PDF** link beside **Z-report** on every clo
 - **Receipt is optional**, as asked; the Z-report shows no receipt link (it is a printed document); the photo is for the manager in the dashboard.
 - **Not built**: several tills per branch, a petty cash float separate from the drawer, categories reports across shifts.
 
+### Design note for 6.8 (assembly in the close and the pack, the payout approver)
+
+- One definition: the assembly code moved from `AssemblySales` to `Metrics\Assembly`; the Assembly sales report, the daily close and the owner pack all call it, so the same branch and day cannot disagree (`AssemblyMetricsTest`).
+- Days closed before this release have no assembly in their frozen figures: the page and the printout show a dash for them instead of a made-up zero. Open days compute it live.
+- "Not done" is the driver's answer as it stands now, not as it stood on the day, because the answer has no history; it changes if the driver answers later or if the units come back (no visit is left to count).
+- A branch employee gets the narrow `payouts.approve`, never `payments.override`: reversible (untick it), scoped to one branch, audited like every employee change.
+
+### The payout approver in Branch employees (6.8)
+
+Branch employees > Cash has a feature **"Approve petty-cash payouts above the limit"** (needs "See cash drawer and payments"). It switches on ONE new narrow right, `payouts.approve`, at that branch only. `payments.override` was too wide (it also resolves payment mismatches, hand-in differences and shift reviews), so it is not offered per branch. The payout rules accept either right (`CashPayoutService::mayApprove`): `payments.override` keeps working. The right also lets that person reverse a payout somebody approved. It opens no other screen. It is not part of any preset (a branch manager does not get it by default: tick it for the person you trust). **Deploying:** run `php artisan db:seed --class=RolesAndPermissionsSeeder --force` once so the new permission exists (it only adds).
+
 ## Owner decisions
 
-1. Branch managers do not hold `payments.override` by default, so an approver above QAR 100 is an accountant or an administrator (by phone). To let a manager approve, give them a role that has the right (not offered in the Branch employees checklist), or raise the limit in Settings > Cash.
+1. Branch managers do not hold an approving right by default (a safe default), so an approver above QAR 100 is an accountant or an administrator (by phone) until you tick "Approve petty-cash payouts above the limit" for a manager in Branch employees, or raise the limit in Settings > Cash.
 2. The default limit (QAR 100) and the list of reasons are choices of this release.

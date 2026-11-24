@@ -59,7 +59,7 @@ function AuctionCard({ a, sub }: { a: Auction; sub?: string }) {
       <Pic src={a.cover_image_url} alt={a.title} ratio="16/9" label={a.title} />
       <div className="p-6">
         <div className="mb-2 flex items-center gap-2"><Badge tone={live ? 'danger' : 'brass'}>{live ? t('auction.live') : t('auction.scheduled')}</Badge><span className="text-xs text-muted">{a.reference}</span></div>
-        <h3 className="text-3xl leading-tight">{a.title}</h3>
+        <h2 className="text-3xl leading-tight">{a.title}</h2>
         <p className="mt-2 flex items-center gap-4 text-sm text-muted"><span>{t('auction.lots', { n: a.lots_count })}</span>{live ? <span className="flex items-center gap-1.5"><Timer size={14} /><Countdown end={a.ends_at} /></span> : <span>{sub}</span>}</p>
       </div>
     </Link>
@@ -83,7 +83,7 @@ export function AuctionPage() {
     mutationFn: () => post(`/auctions/${id}/register`, { accept_terms: true }),
     onSuccess: () => { toast.push(t('auction.registered')); setReg(false); setTerms(false); void qc.invalidateQueries({ queryKey: ['auction', id] }); },
   });
-  if (q.isError) return <div className="wrap py-20"><EmptyState title={t('auction.not_found')} /></div>;
+  if (q.isError) return <div className="wrap py-20"><EmptyState heading="h1" title={t('auction.not_found')} /></div>;
   if (!a) return <div className="wrap py-12"><Skeleton className="h-96" /></div>;
   const registered = !!a.my_registration;
   return (
@@ -126,8 +126,8 @@ function LotCard({ l, server }: { l: Lot; server: string }) {
       <Pic src={l.image_url} alt={l.title} ratio="4/3" label={`#${l.lot_number}`} />
       <div className="p-5">
         <div className="flex items-center justify-between"><span className="eyebrow">{t('auction.lot', { n: l.lot_number })}</span>{open ? <Badge tone="danger">{t('auction.live')}</Badge> : <Badge>{t(`lot.${l.status}`)}</Badge>}</div>
-        <h3 className="mt-2 text-2xl leading-tight">{l.title}</h3>
-        <div className="mt-3 flex items-end justify-between"><div><p className="text-xs text-muted">{t('auction.current')}</p><p className="text-xl font-semibold tabular-nums">{l.current_price.formatted}</p></div>
+        <h2 className="mt-2 text-2xl leading-tight">{l.title}</h2>
+        <div className="mt-3 flex items-end justify-between"><div><p className="text-xs text-muted">{l.current_price ? t('auction.current') : t('auction.opening')}</p><p className="text-xl font-semibold tabular-nums">{(l.current_price ?? l.starting_price).formatted}</p></div>
           {open && <span className="flex items-center gap-1.5 text-sm"><Timer size={14} /><Countdown end={l.ends_at} server={server} /></span>}</div>
       </div>
     </Link>
@@ -168,7 +168,7 @@ export function LotPage() {
   const cancelAuto = useMutation({ mutationFn: () => del(`/auctions/lots/${lotId}/auto-bid`), onSuccess: refresh });
   const watch = useMutation({ mutationFn: () => (l?.is_watching ? del(`/auctions/lots/${lotId}/watch`) : post(`/auctions/lots/${lotId}/watch`, {})), onSuccess: refresh });
 
-  if (lotQ.isError) return <div className="wrap py-20"><EmptyState title={t('auction.not_found')} /></div>;
+  if (lotQ.isError) return <div className="wrap py-20"><EmptyState heading="h1" title={t('auction.not_found')} /></div>;
   if (!l) return <div className="wrap py-12"><Skeleton className="h-96" /></div>;
   const open = l.status === 'open' && cd.ms > 0;
   const needAuth = (fn: () => void) => (user ? fn() : authModal.open({ reason: t('auction.reason_bid') }));
@@ -186,7 +186,7 @@ export function LotPage() {
 
           <div className="mt-6 rounded-[28px] border border-line bg-paper p-6" aria-live="polite">
             <div className="flex items-end justify-between gap-4">
-              <div><p className="text-xs uppercase tracking-wider text-muted">{t('auction.current')}</p><p className="font-display text-6xl leading-none tabular-nums">{l.current_price.formatted}</p>
+              <div><p className="text-xs uppercase tracking-wider text-muted">{l.current_price ? t('auction.current') : t('auction.opening')}</p><p className="font-display text-6xl leading-none tabular-nums">{(l.current_price ?? l.starting_price).formatted}</p>
                 <p className="mt-1 text-sm text-muted">{t('auction.bids_count', { n: l.bid_count })}{l.reserve_met ? ` · ${t('auction.reserve_met')}` : ` · ${t('auction.reserve_not_met')}`}</p></div>
               <div className="text-end"><p className="text-xs uppercase tracking-wider text-muted">{open ? t('auction.ends_in') : t('auction.status')}</p><p className={cx('font-display text-4xl tabular-nums', cd.urgent && 'text-danger')} dir="ltr">{open ? cd.text : t(`lot.${l.status}`)}</p></div>
             </div>

@@ -62,7 +62,8 @@ describe('the first screen', function () {
         $this->actingAs($this->owner);
 
         Livewire::test(OwnerPackPage::class)->assertSee(__('owner_pack.off_hint'))->assertSee(__('owner_pack.send_test'))->assertSeeHtml('data-testid="pack-preview"')
-            ->assertSee('QAR 250.00')->assertSee(__('owner_pack.attention_title'))->assertSeeHtml('data-metric="sales"');
+            ->assertSee('QAR 250.00')->assertSee(__('owner_pack.attention_title'))->assertSeeHtml('data-metric="sales"')
+            ->assertSeeHtml('data-testid="pack-assembly"')->assertSee(__('owner_pack.assembly_title'));
     });
 
     it('says when the next pack goes and to how many, once it is on', function () {

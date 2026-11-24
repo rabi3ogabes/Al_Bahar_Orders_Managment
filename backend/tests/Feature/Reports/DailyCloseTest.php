@@ -160,6 +160,7 @@ describe('the page', function () {
 
         Livewire::test(DailyClosePage::class)->assertDontSeeHtml('data-branch="WKR"')
             ->call('openReview', $this->world->a->id)->assertSet('showReview', true)->assertSee(__('daily_close.close_day'))
+            ->assertSee(__('daily_close.s_assembly'))->assertSee(__('daily_close.l_assembly_net'))->assertSee(__('daily_close.l_assembly_not_done'))
             ->call('closeDay')->assertDispatched('toast')
             ->call('closeDay')->assertDispatched('toast', type: 'error', message: __('daily_close.errors.already_closed'));
 
@@ -188,9 +189,21 @@ describe('the page', function () {
         Livewire::test(DailyClosePage::class)->assertSee(__('daily_close.q_yesterday', [], 'ar'))->assertSee('لم يُقفل بعد');
     });
 
+    it('shows a dash, not an error, for assembly on a day that was closed before assembly was recorded', function () {
+        $this->actingAs($this->managerA);
+        Livewire::test(DailyClosePage::class)->call('openReview', $this->world->a->id)->call('closeDay');
+        $close = DailyClose::firstOrFail();
+        $numbers = $close->numbers;
+        unset($numbers['assembly']);
+        $close->update(['numbers' => $numbers]);
+
+        Livewire::test(DailyClosePage::class)->call('openReview', $this->world->a->id)->assertSee(__('daily_close.l_assembly_net'))->assertSee('—');
+        $this->get(route('admin.daily-close.print', ['date' => $this->yesterday]))->assertOk()->assertSee(__('daily_close.l_assembly_jobs'));
+    });
+
     it('prints one page per branch the viewer may see, and nothing for a branch they may not', function () {
         $this->actingAs($this->managerA);
-        $this->get(route('admin.daily-close.print', ['date' => $this->yesterday]))->assertOk()->assertSee('DOH')->assertDontSee('WKR')->assertSee('QAR 100.00');
+        $this->get(route('admin.daily-close.print', ['date' => $this->yesterday]))->assertOk()->assertSee('DOH')->assertDontSee('WKR')->assertSee('QAR 100.00')->assertSee(__('daily_close.l_assembly_jobs'));
         $this->get(route('admin.daily-close.print', ['date' => $this->yesterday, 'branch' => $this->world->b->id]))->assertNotFound();
         $this->get(route('admin.daily-close.print', ['date' => 'nonsense']))->assertNotFound();
     });

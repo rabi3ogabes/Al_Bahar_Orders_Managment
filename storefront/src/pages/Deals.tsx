@@ -97,8 +97,8 @@ export function DealPage() {
   }, [endsAt, refetch]);
 
   const gone = q.isError && q.error instanceof ApiError && q.error.status === 404;
-  if (gone) return <div className="wrap py-20"><EmptyState icon={<Flame size={28} />} title={t('deals.not_found')} text={t('deals.not_found_text')} action={<LinkButton to="/deals">{t('deals.see_all')}</LinkButton>} /></div>;
-  if (q.isError && !deal) return <div className="wrap py-20"><ErrorState onRetry={() => void q.refetch()} text={t('deals.error_text')} /></div>;
+  if (gone) return <div className="wrap py-20"><EmptyState heading="h1" icon={<Flame size={28} />} title={t('deals.not_found')} text={t('deals.not_found_text')} action={<LinkButton to="/deals">{t('deals.see_all')}</LinkButton>} /></div>;
+  if (q.isError && !deal) return <div className="wrap py-20"><ErrorState heading="h1" onRetry={() => void q.refetch()} text={t('deals.error_text')} /></div>;
   if (!deal) return <div className="wrap py-8 md:py-12"><Skeleton className="h-6 w-56" /><Placeholder /></div>;
 
   const products = q.data!.pages.flatMap((p) => p.products);

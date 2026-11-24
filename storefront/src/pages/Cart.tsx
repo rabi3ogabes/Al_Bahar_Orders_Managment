@@ -32,7 +32,7 @@ export default function CartPage() {
 
   if (cart.loading) return <div className="wrap py-12"><Skeleton className="h-10 w-60" /><Skeleton className="mt-8 h-40" /></div>;
   if (!cart.lines.length) {
-    return <div className="wrap py-16"><EmptyState icon={<ShoppingBag size={30} />} title={t('cart.empty')} text={t('cart.empty_text')} action={<Button size="lg" onClick={() => nav('/shop')}>{t('cart.continue')}</Button>} /></div>;
+    return <div className="wrap py-16"><EmptyState heading="h1" icon={<ShoppingBag size={30} />} title={t('cart.empty')} text={t('cart.empty_text')} action={<Button size="lg" onClick={() => nav('/shop')}>{t('cart.continue')}</Button>} /></div>;
   }
   const blocked = cart.lines.some((l) => !l.available);
   const dealSavings = positiveMoney(cart.cart?.deal_savings);

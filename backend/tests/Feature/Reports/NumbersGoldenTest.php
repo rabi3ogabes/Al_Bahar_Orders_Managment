@@ -47,6 +47,31 @@ function nbGoldenChanges(): array
     return array_map(fn (array $c) => ['path' => $c[0], 'was' => $c[1], 'now' => $c[2]], $changes);
 }
 
+/**
+ * The figures that were ADDED after the recording (assembly on the daily close and the owner pack, release 1.0.227): nothing that was there moved, so the
+ * comparison forgets these keys and the agreement test checks them instead.
+ *
+ * @return array<string, list<string>> section of the snapshot => the added keys
+ */
+function nbGoldenAdditions(): array
+{
+    return ['daily_close' => ['assembly'], 'owner_pack' => ['assembly_net', 'assembly_jobs', 'assembly_not_done']];
+}
+
+/** @param array<mixed> $tree */
+function nbWithoutKeys(array $tree, array $keys): array
+{
+    foreach ($tree as $k => $v) {
+        if (is_string($k) && in_array($k, $keys, true)) {
+            unset($tree[$k]);
+        } elseif (is_array($v)) {
+            $tree[$k] = nbWithoutKeys($v, $keys);
+        }
+    }
+
+    return $tree;
+}
+
 beforeEach(function () {
     $this->w = nbWorld();
     nbFill($this->w);
@@ -55,6 +80,9 @@ beforeEach(function () {
 
 it('keeps every figure of every screen exactly as release 1.0.216 had it, except the list of figures that were wrong', function () {
     $now = nbSnapshot($this->w);
+    foreach (nbGoldenAdditions() as $section => $keys) {
+        $now[$section] = nbWithoutKeys($now[$section], $keys);
+    }
     $expected = $this->golden;
     foreach (nbGoldenChanges() as $change) {
         expect(Arr::get($expected, $change['path']))->toBe($change['was'], 'the recording does not say '.$change['path'].' was '.json_encode($change['was']));

@@ -66,6 +66,10 @@
                 [__('daily_close.l_cash_open_variances'), number_format($n['cash']['open_variances']), $n['cash']['open_variances'] > 0],
             ],
             'problems' => [[__('daily_close.l_refunds'), $money($n['refunds']['amount']).' · '.$n['refunds']['count']], [__('daily_close.l_failed'), number_format($n['failed_deliveries'])]],
+            'assembly' => [
+                [__('daily_close.l_assembly_net'), isset($n['assembly']) ? $money($n['assembly']['net']) : '—'], [__('daily_close.l_assembly_jobs'), isset($n['assembly']) ? number_format($n['assembly']['jobs']) : '—'],
+                [__('daily_close.l_assembly_not_done'), isset($n['assembly']) ? number_format($n['assembly']['not_done']) : '—', ($n['assembly']['not_done'] ?? 0) > 0],
+            ],
             'speed' => [
                 [__('daily_close.l_accept'), $n['speed']['accept_minutes'] === null ? __('daily_close.none') : __('daily_close.minutes', ['n' => $n['speed']['accept_minutes']])],
                 [__('daily_close.l_prepare'), $n['speed']['prepare_minutes'] === null ? __('daily_close.none') : __('daily_close.minutes', ['n' => $n['speed']['prepare_minutes']])],

@@ -14,7 +14,7 @@ const vclass: Record<Variant, string> = {
   outline: 'border border-line bg-paper text-ink hover:border-primary',
   danger: 'bg-danger text-white hover:opacity-90',
 };
-const sclass = { sm: 'h-9 px-4 text-[13px]', md: 'h-11 px-6 text-sm', lg: 'h-[52px] px-8 text-[15px]' };
+const sclass = { sm: 'h-11 px-4 text-[13px] md:h-9', md: 'h-11 px-6 text-sm', lg: 'h-[52px] px-8 text-[15px]' };
 interface BtnProps extends ButtonHTMLAttributes<HTMLButtonElement> { variant?: Variant; size?: keyof typeof sclass; loading?: boolean; block?: boolean }
 export const Button = forwardRef<HTMLButtonElement, BtnProps>(function Button({ variant = 'primary', size = 'md', loading, block, className, children, disabled, ...p }, ref) {
   return (
@@ -86,19 +86,20 @@ export function Badge({ children, tone = 'sand' }: { children: ReactNode; tone?:
   const tones = { sand: 'bg-sand text-ink-soft', brass: 'bg-brass-tint text-brass-deep ring-1 ring-inset ring-brass/30', ink: 'bg-primary text-bg', success: 'bg-success/12 text-success', danger: 'bg-danger/12 text-danger', warning: 'bg-warning/15 text-warning' };
   return <span className={cx('inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-wide', tones[tone])}>{children}</span>;
 }
-export function EmptyState({ icon, title, text, action }: { icon?: ReactNode; title: string; text?: string; action?: ReactNode }) {
+/** `heading` is `h1` when the message is the whole page (an empty cart), so the page still has its one main heading. */
+export function EmptyState({ icon, title, text, action, heading: Heading = 'h2' }: { icon?: ReactNode; title: string; text?: string; action?: ReactNode; heading?: 'h1' | 'h2' }) {
   return (
     <div className="rise mx-auto flex max-w-md flex-col items-center px-4 py-16 text-center">
       {icon && <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-brass-tint text-brass-deep">{icon}</div>}
-      <h2 className="text-2xl">{title}</h2>
+      <Heading className="text-2xl">{title}</Heading>
       {text && <p className="mt-2 text-muted">{text}</p>}
       {action && <div className="mt-6">{action}</div>}
     </div>
   );
 }
-export function ErrorState({ onRetry, text }: { onRetry?: () => void; text?: string }) {
+export function ErrorState({ onRetry, text, heading }: { onRetry?: () => void; text?: string; heading?: 'h1' | 'h2' }) {
   const { t } = useI18n();
-  return <EmptyState title={t('error.title')} text={text ?? t('error.generic')} action={onRetry && <Button variant="outline" onClick={onRetry}>{t('action.retry')}</Button>} />;
+  return <EmptyState heading={heading} title={t('error.title')} text={text ?? t('error.generic')} action={onRetry && <Button variant="outline" onClick={onRetry}>{t('action.retry')}</Button>} />;
 }
 export function Alert({ tone = 'info', children }: { tone?: 'info' | 'warning' | 'danger' | 'success'; children: ReactNode }) {
   const t = { info: 'border-info/30 bg-info/8 text-info', warning: 'border-warning/30 bg-warning/10 text-warning', danger: 'border-danger/30 bg-danger/8 text-danger', success: 'border-success/30 bg-success/8 text-success' };
@@ -140,7 +141,7 @@ export function PriceTag({ price, size = 'md' }: { price: Price; size?: 'sm' | '
 export function Rating({ value, count, size = 14 }: { value: number; count?: number; size?: number }) {
   const { num } = useI18n();
   return (
-    <span className="inline-flex items-center gap-1.5 text-[13px] text-muted" aria-label={`${value} / 5`}>
+    <span role="img" className="inline-flex items-center gap-1.5 text-[13px] text-muted" aria-label={`${value} / 5`}>
       <span className="flex">{[1, 2, 3, 4, 5].map((i) => <Star key={i} size={size} className={i <= Math.round(value) ? 'fill-brass text-brass' : 'text-line'} />)}</span>
       {count !== undefined && <span>({num(count)})</span>}
     </span>
@@ -148,7 +149,7 @@ export function Rating({ value, count, size = 14 }: { value: number; count?: num
 }
 export function QtyStepper({ value, onChange, min = 1, max = 20, size = 'md' }: { value: number; onChange: (n: number) => void; min?: number; max?: number; size?: 'sm' | 'md' }) {
   const { t } = useI18n();
-  const h = size === 'sm' ? 'h-9' : 'h-11';
+  const h = size === 'sm' ? 'h-11 md:h-9' : 'h-11';
   return (
     <div className={cx('inline-flex items-center rounded-full border border-line bg-paper', h)} role="group" aria-label={t('qty')}>
       <button type="button" aria-label={t('qty.less')} disabled={value <= min} onClick={() => onChange(value - 1)} className={cx('flex items-center justify-center rounded-full disabled:opacity-30', size === 'sm' ? 'h-9 w-9' : 'h-11 w-11')}><Minus size={15} /></button>
@@ -166,7 +167,7 @@ export function Breadcrumbs({ items }: { items: { to?: string; label: string }[]
     <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1.5 text-[13px] text-muted">
       {items.map((it, i) => (
         <span key={i} className="flex items-center gap-1.5">
-          {it.to ? <Link to={it.to} className="hover:text-ink">{it.label}</Link> : <span className="text-ink-soft" aria-current="page">{it.label}</span>}
+          {it.to ? <Link to={it.to} className="inline-flex min-h-11 items-center hover:text-ink md:min-h-0">{it.label}</Link> : <span className="text-ink-soft" aria-current="page">{it.label}</span>}
           {i < items.length - 1 && <Sep size={13} />}
         </span>
       ))}
@@ -192,7 +193,7 @@ export function SectionHead({ eyebrow, title, link }: { eyebrow?: string; title:
   return (
     <div className="mb-8 flex items-end justify-between gap-4">
       <div>{eyebrow && <p className="eyebrow mb-2">{eyebrow}</p>}<h2 className="text-[clamp(28px,4vw,42px)] leading-[1.1]">{title}</h2></div>
-      {link && <Link to={link.to} className="group flex shrink-0 items-center gap-1 text-sm font-medium text-ink-soft hover:text-ink">{link.label}<Arrow size={16} className="transition-transform group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5" /></Link>}
+      {link && <Link to={link.to} className="group flex min-h-11 shrink-0 items-center gap-1 text-sm font-medium text-ink-soft hover:text-ink">{link.label}<Arrow size={16} className="transition-transform group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5" /></Link>}
     </div>
   );
 }
