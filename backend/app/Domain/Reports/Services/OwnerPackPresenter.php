@@ -50,7 +50,6 @@ final class OwnerPackPresenter
             'columns' => array_map(fn (string $key) => ['key' => $key, 'label' => $t('metric.'.$key.'_short')], array_keys(self::COLUMNS)),
             'rows' => $rows,
             'assembly' => self::assembly($data, $lang),
-            'assembly' => self::assembly($data, $lang),
             'top_units_title' => $t('top_units'), 'top_revenue_title' => $t('top_revenue'),
             'top_units' => array_map($product, $data['top_units'], array_keys($data['top_units'])),
             'top_revenue' => array_map($product, $data['top_revenue'], array_keys($data['top_revenue'])),
