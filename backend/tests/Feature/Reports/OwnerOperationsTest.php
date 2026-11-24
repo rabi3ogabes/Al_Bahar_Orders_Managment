@@ -303,12 +303,15 @@ describe('F · the indexes', function () {
         DB::statement('set local enable_seqscan = off');
         $plan = fn (string $sql) => collect(DB::select('explain '.$sql))->pluck('QUERY PLAN')->implode(' ');
         $id = (string) Str::uuid();
-        expect($plan("select * from order_fulfillments where order_id = '{$id}'"))->toContain('order_fulfillments_order_id_index')
-            ->and($plan("select * from order_items where order_id = '{$id}'"))->toMatch('/order_items_order_(id|report)_index/')   // the covering index of the reports starts with the same column
-            ->and($plan("select * from payments where order_id = '{$id}'"))->toContain('payments_order_id_index')
-            ->and($plan("select * from refunds where order_id = '{$id}'"))->toContain('refunds_order_id_index')
-            ->and($plan("select * from support_tickets where branch_id = '{$id}'"))->toContain('support_tickets_branch_id_index')
-            ->and($plan("select id from orders where placed_at >= now() - interval '1 day'"))->toContain('orders_placed_at_index');
+        // Any index whose condition is the column will do: the loop above proved the column leads a valid index, and with several indexes on the same
+        // column (a covering one for the reports, a branch + order one for the lists) which one the planner takes depends on the table's statistics.
+        $usesIndex = fn (string $table, string $column) => '/(Index (Only )?Scan using \\w+ on '.$table.'|Bitmap Heap Scan on '.$table.'.*Bitmap Index Scan on \\w+).*Index Cond: \\('.$column.' (=|>=)/';
+        expect($plan("select * from order_fulfillments where order_id = '{$id}'"))->toMatch($usesIndex('order_fulfillments', 'order_id'))
+            ->and($plan("select * from order_items where order_id = '{$id}'"))->toMatch($usesIndex('order_items', 'order_id'))
+            ->and($plan("select * from payments where order_id = '{$id}'"))->toMatch($usesIndex('payments', 'order_id'))
+            ->and($plan("select * from refunds where order_id = '{$id}'"))->toMatch($usesIndex('refunds', 'order_id'))
+            ->and($plan("select * from support_tickets where branch_id = '{$id}'"))->toMatch($usesIndex('support_tickets', 'branch_id'))
+            ->and($plan("select id from orders where placed_at >= now() - interval '1 day'"))->toMatch($usesIndex('orders', 'placed_at'));
     });
 });
 
