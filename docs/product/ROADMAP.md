@@ -126,7 +126,7 @@ Not in Wave 5 (needs the owner or a provider): card / Apple Pay / instalments, a
 
 ## 6. Wave 6: trust, hardening and proof at scale
 
-Status: batch 1 (6.1 to 6.6) **done** and live as 1.0.226; batch 2 (6.7, 6.8) next. The owner items that code can prepare without the owner's accounts, the areas never reviewed in depth (section 8), and proof that the platform stays fast as orders grow. Batch 1 = 6.1 to 6.6; batch 2 = 6.7 and 6.8.
+Status: all eight **done** and live (batch 1 as 1.0.226, batch 2 as 1.0.230). The owner items that code can prepare without the owner's accounts, the areas never reviewed in depth (section 8), and proof that the platform stays fast as orders grow. Batch 1 = 6.1 to 6.6; batch 2 = 6.7 and 6.8.
 
 | # | Capability | Who | Value | Effort | Status |
 |---|-----------|-----|-------|--------|--------|
@@ -136,8 +136,8 @@ Status: batch 1 (6.1 to 6.6) **done** and live as 1.0.226; batch 2 (6.7, 6.8) ne
 | 6.4 | **Auction engine deep review and fixes**: bidding races, anti-sniping, closing, winner payment and stock, every state change audit-logged | Customers, owner | M | M | done (8 auction defects fixed, see AUCTIONS_LOYALTY_CMS_REVIEW.md) |
 | 6.5 | **Loyalty and CMS deep review and fixes**: points earned and reversed on refunds and returns, expiry, CMS pages, banners and SEO fields | Customers, marketing | M | M | done (partial refunds do not claw back points yet) |
 | 6.6 | **Proof at scale**: a seeded copy with 1M+ orders, a plan test for every request-path query (no full scans, bounded, index-backed), a load test of the main API calls, and fixes for whatever is slow | Everyone | H | M | done (500k orders seeded; 70 of 85 scenarios within budget, the rest are period totals; see SCALE_PROOF.md) |
-| 6.7 | **Web store quality pass**: Lighthouse (mobile and desktop), zero accessibility violations, SEO and structured data on every public page, in English and Arabic | Customers | M | M | batch 2 |
-| 6.8 | **Wave 5 leftovers**: assembly on the daily close and owner pack, clearer column names on Reports > Deliveries, the payout approver right shown in Branch employees | Owner | S | S | batch 2 |
+| 6.7 | **Web store quality pass**: Lighthouse (mobile and desktop), zero accessibility violations, SEO and structured data on every public page, in English and Arabic | Customers | M | M | done (axe 247 -> 0; Lighthouse mobile home 100, checkout 100, cart 99; product, CMS page and auction 84-86 need page data in the HTML) |
+| 6.8 | **Wave 5 leftovers**: assembly on the daily close and owner pack, clearer column names on Reports > Deliveries, the payout approver right shown in Branch employees | Owner | S | S | done (approver feature off by default) |
 
 ## 7. What was checked and found fine
 
